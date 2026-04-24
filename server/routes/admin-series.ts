@@ -5075,6 +5075,13 @@ router.get(
         }
       }
 
+      // Fetch academy sessions ONCE up front and reuse for both the
+      // open-sessions feed below and the availability counts at the end of
+      // this handler. This previously fired twice per request.
+      const academySessions = player.academyId
+        ? await storage.getSessionsByAcademy(player.academyId)
+        : [];
+
       // Get open sessions for the player's academy - LEVEL-FILTERED
       // Players only see sessions matching their ball level (RED sees RED, ORANGE sees ORANGE, etc.)
       const playerBallLevel = (player.ballLevel || "green").toLowerCase();
@@ -5138,10 +5145,6 @@ router.get(
         const DUBAI_OFFSET = 4;
         const dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
-        );
-
-        const academySessions = await storage.getSessionsByAcademy(
-          player.academyId,
         );
 
         // Build a map of seriesId -> ballLevel + price for proper level filtering
@@ -5678,10 +5681,8 @@ router.get(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
 
-        const allSessions = await storage.getSessionsByAcademy(
-          player.academyId,
-        );
-        const upcomingAll = allSessions.filter(
+        // Reuse the academy sessions fetched once at the top of the handler.
+        const upcomingAll = academySessions.filter(
           (s) => new Date(s.startTime) > now,
         );
         groupSessions = upcomingAll.filter(
