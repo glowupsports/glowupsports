@@ -582,7 +582,9 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
           description,
           type: "team",
           seriesId,
-          isPrivate: false,
+          // Class-derived groups are private by default — only enrolled players
+          // (auto-added below) and people invited by the coach can see/join.
+          isPrivate: true,
           allowChat: true,
           allowPosts: true,
           memberCount: 0,
@@ -591,12 +593,21 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
         .returning();
       group = created;
     } else {
-      const needsUpdate =
+      const needsTextUpdate =
         existingGroup.name !== series.title || existingGroup.description !== description;
-      if (needsUpdate) {
+      // Class-derived groups must always be private. If a legacy group was
+      // created public (or accidentally toggled), force it back to private on
+      // every sync so re-syncing a series never reverts the privacy flag.
+      const needsPrivacyFix = existingGroup.isPrivate !== true;
+      if (needsTextUpdate || needsPrivacyFix) {
         await db
           .update(communityGroups)
-          .set({ name: series.title, description, updatedAt: new Date() })
+          .set({
+            name: series.title,
+            description,
+            isPrivate: true,
+            updatedAt: new Date(),
+          })
           .where(eq(communityGroups.id, existingGroup.id));
       }
     }
@@ -682,6 +693,21 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
 // Also deletes Community Groups whose linked series no longer exists or has flipped to private.
 export async function backfillCommunityGroupsForSeries(): Promise<void> {
   try {
+    // Fast bulk pass: flip every existing class-derived (series-linked)
+    // community group to private, in case any historical rows are still
+    // public. Runs before the per-series sync so even groups that fail to
+    // re-sync below are corrected on the next deploy.
+    const flippedRows = await db
+      .update(communityGroups)
+      .set({ isPrivate: true, updatedAt: new Date() })
+      .where(and(isNotNull(communityGroups.seriesId), eq(communityGroups.isPrivate, false)))
+      .returning({ id: communityGroups.id });
+    if (flippedRows.length > 0) {
+      console.log(
+        `[backfillCommunityGroupsForSeries] Flipped ${flippedRows.length} class-derived group(s) to private`,
+      );
+    }
+
     const allSeries = await db
       .select({ id: coachingSeries.id, sessionType: coachingSeries.sessionType })
       .from(coachingSeries);
