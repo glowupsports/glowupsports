@@ -20,14 +20,59 @@ function getClient() {
   return supabase;
 }
 
+/**
+ * Error thrown by Supabase storage helpers. Carries a stable `code` and the
+ * underlying Supabase status code so route handlers can map to an
+ * appropriate HTTP status without leaking Supabase internals to the client.
+ */
+export class SupabaseStorageError extends Error {
+  code: "BUCKET_UNAVAILABLE" | "UPLOAD_FAILED";
+  statusCode?: number;
+  details?: string;
+  constructor(
+    message: string,
+    code: "BUCKET_UNAVAILABLE" | "UPLOAD_FAILED",
+    opts?: { statusCode?: number; details?: string },
+  ) {
+    super(message);
+    this.name = "SupabaseStorageError";
+    this.code = code;
+    this.statusCode = opts?.statusCode;
+    this.details = opts?.details;
+  }
+}
+
 async function ensureBucket() {
   if (bucketReady) return;
   const client = getClient();
-  const { data: existing } = await client.storage.getBucket(BUCKET);
-  if (!existing) {
+  const { data: existing, error: getErr } = await client.storage.getBucket(BUCKET);
+
+  // `getBucket` returns an error for non-existent buckets ("Bucket not found").
+  // Treat that as "needs creating" rather than fatal.
+  const notFound =
+    !!getErr &&
+    (getErr.message?.toLowerCase().includes("not found") ||
+      (getErr as { statusCode?: number }).statusCode === 404);
+
+  if (!existing || notFound) {
     const { error } = await client.storage.createBucket(BUCKET, { public: true });
-    if (error && !error.message.includes("already exists")) {
-      throw new Error(`[SupabaseStorage] Failed to create bucket: ${error.message}`);
+    if (error) {
+      const msg = error.message || "";
+      // Race / pre-existing bucket — not fatal.
+      if (!msg.toLowerCase().includes("already exists") && !msg.toLowerCase().includes("duplicate")) {
+        const errWithMeta = error as { message: string; statusCode?: number; name?: string };
+        console.error("[SupabaseStorage] Failed to create bucket", {
+          bucket: BUCKET,
+          message: errWithMeta.message,
+          name: errWithMeta.name,
+          statusCode: errWithMeta.statusCode,
+        });
+        throw new SupabaseStorageError(
+          `Failed to ensure storage bucket: ${errWithMeta.message}`,
+          "BUCKET_UNAVAILABLE",
+          { statusCode: errWithMeta.statusCode, details: errWithMeta.message },
+        );
+      }
     }
   } else if (!existing.public) {
     await client.storage.updateBucket(BUCKET, { public: true });
@@ -56,7 +101,21 @@ export async function uploadToSupabase(
     });
 
   if (error) {
-    throw new Error(`[SupabaseStorage] Upload failed: ${error.message}`);
+    const errWithMeta = error as { message: string; name?: string; statusCode?: number };
+    console.error("[SupabaseStorage] Upload failed", {
+      bucket: BUCKET,
+      filename,
+      mimetype,
+      bufferSize: fileBuffer?.length,
+      message: errWithMeta.message,
+      name: errWithMeta.name,
+      statusCode: errWithMeta.statusCode,
+    });
+    throw new SupabaseStorageError(
+      `Upload failed: ${errWithMeta.message}`,
+      "UPLOAD_FAILED",
+      { statusCode: errWithMeta.statusCode, details: errWithMeta.message },
+    );
   }
 
   const { data } = client.storage.from(BUCKET).getPublicUrl(filename);

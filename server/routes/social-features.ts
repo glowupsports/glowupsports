@@ -42,7 +42,7 @@ import {
   getUserPushTokens,
 } from "../pushNotifications";
 import multer from "multer";
-import { uploadToSupabase } from "../utils/supabaseStorage";
+import { uploadToSupabase, SupabaseStorageError } from "../utils/supabaseStorage";
 
 const router = Router();
 
@@ -749,21 +749,94 @@ export async function resolveActiveCategories(
   }
 }
 
+const SOCIAL_POST_MAX_BYTES = 50 * 1024 * 1024;
+const SOCIAL_POST_ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/gif",
+];
+const SOCIAL_POST_ALLOWED_VIDEO_TYPES = [
+  "video/mp4",
+  "video/quicktime",
+  "video/mov",
+  "video/mpeg",
+  "video/x-m4v",
+  "video/3gpp",
+  "video/webm",
+];
+
+class UnsupportedMediaTypeError extends Error {
+  mimetype: string;
+  constructor(mimetype: string) {
+    super(`Unsupported media type: ${mimetype}`);
+    this.name = "UnsupportedMediaTypeError";
+    this.mimetype = mimetype;
+  }
+}
+
 const socialPostUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024,
+    fileSize: SOCIAL_POST_MAX_BYTES,
   },
   fileFilter: (_req, file, cb) => {
-    const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif"];
-    const allowedVideoTypes = ["video/mp4", "video/quicktime", "video/mov", "video/mpeg", "video/x-m4v", "video/3gpp", "video/webm"];
-    if (allowedImageTypes.includes(file.mimetype) || allowedVideoTypes.includes(file.mimetype)) {
+    if (
+      SOCIAL_POST_ALLOWED_IMAGE_TYPES.includes(file.mimetype) ||
+      SOCIAL_POST_ALLOWED_VIDEO_TYPES.includes(file.mimetype)
+    ) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only images and videos are allowed."));
+      cb(new UnsupportedMediaTypeError(file.mimetype || "unknown"));
     }
   },
 });
+
+/**
+ * Wraps the multer middleware so that file-size and file-type rejections come
+ * back as proper 413/415 responses with a stable error code, rather than the
+ * generic 500 + "Failed to upload media" the client used to see.
+ */
+function socialPostUploadHandler(
+  req: AuthRequest,
+  res: Response,
+  next: (err?: unknown) => void,
+) {
+  const handler = socialPostUpload.array("images", 5);
+  // multer's callback is typed as `(err: any) => void`. We discriminate with
+  // instanceof checks below.
+  handler(req as unknown as Request, res, (err: any) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        console.warn("[Social] Upload rejected: file too large", {
+          maxBytes: SOCIAL_POST_MAX_BYTES,
+          field: err.field,
+        });
+        return res.status(413).json({
+          error: "File too large. Maximum size is 50 MB.",
+          code: "FILE_TOO_LARGE",
+          maxBytes: SOCIAL_POST_MAX_BYTES,
+        });
+      }
+      console.warn("[Social] Multer error during upload", { code: err.code, message: err.message });
+      return res.status(400).json({ error: err.message, code: err.code });
+    }
+    if (err instanceof UnsupportedMediaTypeError) {
+      console.warn("[Social] Upload rejected: unsupported media type", { mimetype: err.mimetype });
+      return res.status(415).json({
+        error: "This file type isn't supported.",
+        code: "UNSUPPORTED_MEDIA_TYPE",
+        mimetype: err.mimetype,
+      });
+    }
+    console.error("[Social] Unexpected upload middleware error", err);
+    return res.status(500).json({ error: "Upload failed", code: "UPLOAD_FAILED" });
+  });
+}
   router.get("/api/social/feed", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user!.userId;
@@ -1834,12 +1907,17 @@ const socialPostUpload = multer({
   });
 
   // Upload images/videos for social posts (stored in Supabase Storage)
-  router.post("/api/social/posts/upload-images", authMiddleware, requireFeatureUnlock("community_feed"), socialPostUpload.array("images", 5), async (req: AuthRequest, res: Response) => {
-    try {
-      const files = req.files as Express.Multer.File[];
+  router.post("/api/social/posts/upload-images", authMiddleware, requireFeatureUnlock("community_feed"), socialPostUploadHandler, async (req: AuthRequest, res: Response) => {
+    const files = (req.files as Express.Multer.File[] | undefined) || [];
+    const fileSummary = files.map((f) => ({
+      originalname: f.originalname,
+      mimetype: f.mimetype,
+      bytes: f.size,
+    }));
 
-      if (!files || files.length === 0) {
-        return res.status(400).json({ error: "No files uploaded" });
+    try {
+      if (files.length === 0) {
+        return res.status(400).json({ error: "No files uploaded", code: "NO_FILES" });
       }
 
       const uploadResults = await Promise.all(
@@ -1859,8 +1937,28 @@ const socialPostUpload = multer({
         count: uploadResults.length,
       });
     } catch (error) {
-      console.error("[Social] Error uploading to Supabase Storage:", error);
-      res.status(500).json({ error: "Failed to upload media" });
+      // Always log the underlying error with context. Never leak Supabase
+      // internals (status codes, messages) to the client — map to a stable
+      // error code instead.
+      if (error instanceof SupabaseStorageError) {
+        console.error("[Social] Supabase storage error during upload", {
+          code: error.code,
+          statusCode: error.statusCode,
+          details: error.details,
+          fileCount: files.length,
+          files: fileSummary,
+        });
+        return res.status(502).json({
+          error: "Couldn't reach storage. Please try again.",
+          code: "STORAGE_UNAVAILABLE",
+        });
+      }
+      console.error("[Social] Unexpected error uploading to Supabase Storage", {
+        error: error instanceof Error ? { message: error.message, name: error.name } : error,
+        fileCount: files.length,
+        files: fileSummary,
+      });
+      res.status(500).json({ error: "Upload failed", code: "UPLOAD_FAILED" });
     }
   });
 

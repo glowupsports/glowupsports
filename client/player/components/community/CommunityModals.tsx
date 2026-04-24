@@ -26,6 +26,7 @@ import Animated, { FadeIn, FadeInDown, SlideInUp, useSharedValue, useAnimatedSty
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { appendMediaToFormData } from "@/lib/uploads";
 import { useAuth } from "@/coach/context/AuthContext";
 import {
   type Achievement,
@@ -1090,57 +1091,71 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     if (selectedMedia) {
       try {
         const formData = new FormData();
-        const uri = selectedMedia.uri;
-        const isVideo = selectedMedia.type === "video";
-        const ext = uri.includes(".") ? uri.split(".").pop()?.split("?")[0] || (isVideo ? "mp4" : "jpg") : (isVideo ? "mp4" : "jpg");
-        const filename = `${isVideo ? "video" : "photo"}-${Date.now()}.${ext}`;
-        const mimeType = isVideo ? `video/${ext === "mov" ? "quicktime" : ext}` : `image/${ext === "jpg" ? "jpeg" : ext}`;
+        // Use the project's standard cross-platform helper. This builds a real
+        // `File` (web) or RN FormData `{ uri, name, type }` part (native) so
+        // the server sees a proper `originalname` + `mimetype` and multer's
+        // fileFilter doesn't reject the upload as `application/octet-stream`.
+        await appendMediaToFormData(formData, "images", selectedMedia.uri, selectedMedia.type);
 
-        if (Platform.OS === "web") {
-          const response = await fetch(uri);
-          const blob = await response.blob();
-          formData.append("images", blob, filename);
-          const uploadResponse = await apiFetch("/api/social/posts/upload-images", {
-            method: "POST",
-            body: formData,
-          });
-          if (uploadResponse.ok) {
-            const result = await uploadResponse.json();
-            uploadedMediaUrls = result.images || [];
-            uploadedMediaTypes = uploadedMediaUrls.map(() => selectedMedia.type);
-          } else {
-            const errorText = await uploadResponse.text();
-            console.error("[Social] Upload failed:", errorText);
-            Alert.alert("Error", "Failed to upload media. Please try again.");
-            setIsUploading(false);
-            return;
-          }
+        const uploadResponse = await fetch(`${getApiUrl()}/api/social/posts/upload-images`, {
+          method: "POST",
+          // Do NOT set Content-Type — let fetch / RN set the multipart boundary.
+          headers: getAuthHeaders(),
+          body: formData,
+          credentials: "include",
+        });
+
+        if (uploadResponse.ok) {
+          const result = await uploadResponse.json();
+          uploadedMediaUrls = result.images || [];
+          uploadedMediaTypes = uploadedMediaUrls.map(() => selectedMedia.type);
+          logger.log("[Social] Uploaded media:", uploadedMediaUrls, "types:", uploadedMediaTypes);
         } else {
-          // Use expo-file-system uploadAsync for React Native multipart upload
-          const { uploadAsync, FileSystemUploadType } = await import("expo-file-system/legacy");
-          const uploadUrl = `${getApiUrl()}/api/social/posts/upload-images`;
-          const uploadResult = await uploadAsync(uploadUrl, uri, {
-            fieldName: "images",
-            httpMethod: "POST",
-            uploadType: FileSystemUploadType.MULTIPART,
-            mimeType,
-            headers: getAuthHeaders(),
-          });
-          if (uploadResult.status >= 200 && uploadResult.status < 300) {
-            const result = JSON.parse(uploadResult.body);
-            uploadedMediaUrls = result.images || [];
-            uploadedMediaTypes = uploadedMediaUrls.map(() => selectedMedia.type);
-            logger.log("[Social] Uploaded media:", uploadedMediaUrls, "types:", uploadedMediaTypes);
-          } else {
-            console.error("[Social] Upload failed:", uploadResult.body);
-            Alert.alert("Error", "Failed to upload media. Please try again.");
-            setIsUploading(false);
-            return;
+          // Parse the structured server error and surface a specific message.
+          // Server returns: { error: string, code?: string, ... }.
+          let serverError: { error?: string; code?: string; message?: string } = {};
+          try {
+            serverError = await uploadResponse.json();
+          } catch {
+            // Body wasn't JSON — fall back to status-based message.
           }
+          console.error("[Social] Upload failed", {
+            status: uploadResponse.status,
+            code: serverError.code,
+            error: serverError.error,
+          });
+
+          let userMessage = "We couldn't upload your media. Please try again.";
+          switch (uploadResponse.status) {
+            case 413:
+              userMessage = "This file is too large — please pick something under 50 MB.";
+              break;
+            case 415:
+              userMessage = "We can't upload this file type. Try a JPG, PNG, or MP4.";
+              break;
+            case 502:
+              userMessage = "Couldn't reach storage right now. Please try again in a moment.";
+              break;
+            case 401:
+            case 403:
+              userMessage = "You don't have access to share moments. Please sign in again.";
+              break;
+            default:
+              if (serverError.error) userMessage = serverError.error;
+          }
+
+          Alert.alert("Couldn't share moment", userMessage);
+          setIsUploading(false);
+          // Keep modal open + preserve caption / context / group / media so the
+          // user can retry or swap the file without re-entering anything.
+          return;
         }
       } catch (error) {
         console.error("[Social] Upload error:", error);
-        Alert.alert("Error", "Failed to upload media. Please try again.");
+        Alert.alert(
+          "Couldn't share moment",
+          "We couldn't reach the server. Please check your connection and try again.",
+        );
         setIsUploading(false);
         return;
       }
