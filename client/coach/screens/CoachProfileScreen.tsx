@@ -501,6 +501,41 @@ export default function CoachProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>PUBLIC PROFILE</Text>
 
+          {/* Task #1112: when the coach is opted-in publicly but has nothing
+              to show (no photo, no quote, no specialty) explain why they
+              aren't appearing in the public coach rail. */}
+          {(() => {
+            const enabled = isEditing
+              ? formData.publicProfileEnabled !== false
+              : profile?.publicProfileEnabled !== false;
+            // Photo isn't part of the edit form (uploaded separately) so the
+            // saved profile is always the source of truth here.
+            const photo = profile?.photoUrl;
+            const quote = isEditing ? formData.publicQuote : profile?.publicQuote;
+            const specialty = isEditing ? formData.specialty : profile?.specialty;
+            const meetsGate =
+              !!(photo && photo.trim()) ||
+              !!(quote && quote.trim()) ||
+              !!(specialty && specialty.trim());
+            if (!enabled || meetsGate) return null;
+            return (
+              <View style={styles.hintBanner}>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={20}
+                  color={Colors.dark.gold}
+                  style={{ marginTop: 1 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.hintTitle}>Complete your public profile</Text>
+                  <Text style={styles.hintBody}>
+                    You're opted-in, but players won't see you in the public coach rail until you add a photo, a public quote, or a specialty.
+                  </Text>
+                </View>
+              </View>
+            );
+          })()}
+
           <View style={styles.field}>
             <LinearGradient
               colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
@@ -906,5 +941,25 @@ const styles = StyleSheet.create({
     color: Colors.dark.tabIconDefault,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  hintBanner: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "55",
+    backgroundColor: Colors.dark.gold + "14",
+  },
+  hintTitle: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.gold,
+    marginBottom: 2,
+  },
+  hintBody: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.text,
+    lineHeight: 18,
   },
 });

@@ -501,6 +501,28 @@ async function readPlayerBalanceByType(
   return out;
 }
 
+/**
+ * Task #1112 — public coach quality gate.
+ *
+ * Used by both `getCoachesForDirectory({ publicOnly: true })` and
+ * `getCoachPublicProfile` so the directory rail and deep-linked profile
+ * pages stay in lockstep: a coach with `publicProfileEnabled = true` only
+ * appears publicly if at least one of photo / public quote / specialty has
+ * non-whitespace content. Centralised here so the rule cannot drift between
+ * call sites.
+ *
+ * `length(btrim(...)) > 0` mirrors the client-side `field.trim()` check in
+ * `client/coach/screens/CoachProfileScreen.tsx`, so a coach can't bypass the
+ * gate by saving whitespace into a field.
+ */
+function publicCoachQualityGate(): SQL {
+  return sql`(
+    (${coaches.photoUrl} IS NOT NULL AND length(btrim(${coaches.photoUrl})) > 0)
+    OR (${coaches.publicQuote} IS NOT NULL AND length(btrim(${coaches.publicQuote})) > 0)
+    OR (${coaches.specialty} IS NOT NULL AND length(btrim(${coaches.specialty})) > 0)
+  )`;
+}
+
 export const storage = {
   // ==================== USERS (AUTH) ====================
   async getUserById(id: string): Promise<User | undefined> {
@@ -1296,8 +1318,12 @@ export const storage = {
       hourlyRate: coaches.hourlyRate,
       academyId: coaches.academyId,
     };
+    // Task #1112 quality gate: when surfacing coaches publicly, hide profiles
+    // that have nothing to show. See `publicCoachQualityGate` for details —
+    // both this query and `getCoachPublicProfile` share the same helper so
+    // every public surface stays consistent.
     const whereClause = filters?.publicOnly
-      ? eq(coaches.publicProfileEnabled, true)
+      ? and(eq(coaches.publicProfileEnabled, true), publicCoachQualityGate())
       : and(eq(coaches.showInDirectory, true), eq(coaches.bioStatus, "approved"));
     const results = await db.select(baseSelect).from(coaches).where(whereClause);
     
@@ -1445,6 +1471,9 @@ export const storage = {
     }).from(coaches).where(and(
       eq(coaches.id, coachId),
       eq(coaches.publicProfileEnabled, true),
+      // Task #1112 quality gate — match the directory query so deep links to
+      // a bare-bones profile 404 instead of rendering an empty card.
+      publicCoachQualityGate(),
     ));
     if (!rows[0]) return null;
 
