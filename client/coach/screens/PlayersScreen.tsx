@@ -207,7 +207,6 @@ export default function PlayersScreen() {
   const lastScrollY = useSharedValue(0);
   const headerTranslation = useSharedValue(0);
   const headerHeightSV = useSharedValue(0);
-  const [headerHeight, setHeaderHeight] = useState(0);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -271,6 +270,15 @@ export default function PlayersScreen() {
     paddingTop:
       insetsTop + Math.max(headerHeightSV.value + headerTranslation.value, 0),
   }));
+
+  // When the user switches roster tabs, reset the collapsed header so it
+  // never gets stranded off-screen on a tab whose content (loading spinner
+  // or empty state) doesn't have a scroller to bring it back.
+  useEffect(() => {
+    headerTranslation.value = withTiming(0, { duration: 200 });
+    lastScrollY.value = 0;
+    scrollY.value = 0;
+  }, [rosterTab, headerTranslation, lastScrollY, scrollY]);
 
   // Build cache keys scoped per coach + academy so we never hydrate one
   // account's roster into another's view (data-isolation requirement).
@@ -754,9 +762,7 @@ export default function PlayersScreen() {
       <Animated.View
         style={[localStyles.animatedHeader, { top: insets.top }, animatedHeaderStyle]}
         onLayout={(e) => {
-          const h = e.nativeEvent.layout.height;
-          setHeaderHeight(h);
-          headerHeightSV.value = h;
+          headerHeightSV.value = e.nativeEvent.layout.height;
         }}
       >
       {/* === GAMING HEADER === */}
