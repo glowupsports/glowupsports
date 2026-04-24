@@ -19,12 +19,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { GLOW_UP_TENNIS_LOGO } from "./logoBase64";
+import { sharePdf, prepareImageUri } from "@/lib/sharePdf";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -874,6 +872,7 @@ export default function CreateInvoiceModal({
   const [notes, setNotes] = useState("");
   const [currency] = useState("AED");
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [hiddenForShare, setHiddenForShare] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1014,28 +1013,45 @@ export default function CreateInvoiceModal({
         
         showToast("Invoice downloaded! Open it and use Print > Save as PDF.");
       } else {
-        // Mobile: Generate PDF and share (allows saving to Files)
-        logger.log("[PDF] Starting mobile PDF generation...");
-        const { uri } = await Print.printToFileAsync({ html });
-        logger.log("[PDF] PDF created at:", uri);
-        const canShare = await Sharing.isAvailableAsync();
-        logger.log("[PDF] Sharing available:", canShare);
-        if (canShare) {
-          await Sharing.shareAsync(uri, {
-            mimeType: "application/pdf",
-            dialogTitle: `Invoice ${invoiceNumber}`,
-            UTI: "com.adobe.pdf",
-          });
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } else {
-          Alert.alert("Success", "PDF saved. Check your downloads folder.");
+        // Mobile: speed up Android PDF rendering by replacing the inline
+        // base64 logo with a file:// URI (cached on first use), then hand off
+        // to the shared sharePdf helper which adds a hard timeout, modal-safe
+        // share invocation, and a save-to-Files fallback.
+        let mobileHtml = html;
+        try {
+          const fileLogoUri = await prepareImageUri(
+            GLOW_UP_TENNIS_LOGO,
+            "glow-up-tennis-logo.png"
+          );
+          if (fileLogoUri && fileLogoUri !== GLOW_UP_TENNIS_LOGO) {
+            mobileHtml = mobileHtml.split(GLOW_UP_TENNIS_LOGO).join(fileLogoUri);
+          }
+        } catch (e) {
+          logger.warn("[PDF] logo prep failed, falling back to inline base64", e);
         }
+
+        const safePlayerName = (player?.name || "Invoice").replace(/\s+/g, "_");
+        const safeInvoiceNum = invoiceNumber
+          .replace("#", "")
+          .replace(/\//g, "-");
+
+        await sharePdf({
+          html: mobileHtml,
+          filename: `Invoice_${safeInvoiceNum}_${safePlayerName}`,
+          beforeShare: () => setHiddenForShare(true),
+          afterShare: () => setHiddenForShare(false),
+        });
       }
     } catch (error) {
-      console.error("PDF generation error:", error);
-      Alert.alert("Error", "Failed to generate PDF");
+      logger.warn("PDF generation error:", error);
+      // sharePdf already shows a user-facing alert for print/share failures.
+      // Avoid double-alerting; only show a generic alert on web errors.
+      if (Platform.OS === "web") {
+        Alert.alert("Error", "Failed to generate PDF");
+      }
     } finally {
       setIsGeneratingPDF(false);
+      setHiddenForShare(false);
     }
   };
 
@@ -1063,7 +1079,7 @@ export default function CreateInvoiceModal({
 
   return (
     <Modal
-      visible={visible}
+      visible={visible && !hiddenForShare}
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}

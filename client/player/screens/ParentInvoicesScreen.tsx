@@ -5,12 +5,12 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { sharePdf } from "@/lib/sharePdf";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface AcademyPaymentInfo {
@@ -154,15 +154,23 @@ export default function ParentInvoicesScreen() {
       }
       
       const html = await response.text();
-      const { uri } = await Print.printToFileAsync({ html });
-      
+
       if (Platform.OS === "web") {
         await Print.printAsync({ html });
       } else {
-        await Sharing.shareAsync(uri, { UTI: ".pdf", mimeType: "application/pdf" });
+        const safeNumber = String(invoice.invoiceNumber || invoice.id)
+          .replace("#", "")
+          .replace(/\//g, "-");
+        await sharePdf({
+          html,
+          filename: `Invoice_${safeNumber}`,
+        });
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to generate PDF. Please try again.");
+      // sharePdf shows its own user-facing alerts on mobile; only alert on web.
+      if (Platform.OS === "web") {
+        Alert.alert("Error", "Failed to generate PDF. Please try again.");
+      }
     } finally {
       setDownloadingId(null);
     }
@@ -190,7 +198,7 @@ export default function ParentInvoicesScreen() {
         <View style={styles.emptyState}>
           <Ionicons name="document-text-outline" size={64} color={Colors.dark.textMuted} />
           <Text style={styles.emptyTitle}>No Invoices</Text>
-          <Text style={styles.emptySubtitle}>You don't have any invoices yet</Text>
+          <Text style={styles.emptySubtitle}>You don&apos;t have any invoices yet</Text>
         </View>
       ) : (
         <ScrollView
@@ -427,7 +435,7 @@ export default function ParentInvoicesScreen() {
                     <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.textMuted} />
                     <Text style={styles.noPaymentMethodsTitle}>No Payment Methods</Text>
                     <Text style={styles.noPaymentMethodsText}>
-                      Your academy hasn't configured payment methods yet. Please contact your coach to arrange payment.
+                      Your academy hasn&apos;t configured payment methods yet. Please contact your coach to arrange payment.
                     </Text>
                   </View>
                 ) : null}

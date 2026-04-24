@@ -11,12 +11,12 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { sharePdf } from "@/lib/sharePdf";
 
 export interface InvoiceLineItem {
   description: string;
@@ -78,6 +78,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid, onDelete
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const [downloading, setDownloading] = useState(false);
+  const [hiddenForShare, setHiddenForShare] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const markPaidMutation = useMutation({
@@ -116,13 +117,25 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid, onDelete
       if (Platform.OS === "web") {
         await Print.printAsync({ html });
       } else {
-        const { uri } = await Print.printToFileAsync({ html });
-        await Sharing.shareAsync(uri, { UTI: ".pdf", mimeType: "application/pdf" });
+        const safeNumber = String(invoice.invoiceNumber || invoice.id)
+          .replace("#", "")
+          .replace(/\//g, "-");
+        await sharePdf({
+          html,
+          filename: `Invoice_${safeNumber}`,
+          beforeShare: () => setHiddenForShare(true),
+          afterShare: () => setHiddenForShare(false),
+        });
       }
     } catch (e) {
-      Alert.alert("Download failed", "Could not generate the invoice PDF.");
+      // sharePdf handles its own user-facing alerts for print/share failures.
+      // Only alert here for the web path.
+      if (Platform.OS === "web") {
+        Alert.alert("Download failed", "Could not generate the invoice PDF.");
+      }
     } finally {
       setDownloading(false);
+      setHiddenForShare(false);
     }
   };
 
@@ -148,7 +161,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid, onDelete
 
   return (
     <Modal
-      visible={visible}
+      visible={visible && !hiddenForShare}
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
