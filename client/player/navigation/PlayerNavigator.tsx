@@ -147,7 +147,9 @@ interface FamilySwitchInfo {
 function FamilySwitchBackBanner() {
   const { user, loginWithToken } = useAuth();
   const { setActivePlayer } = useFamily();
-  const navigation = useNavigation<any>();
+  // Mounted as a sibling of PlayerStackNavigator, so useNavigation() can't see PlayerTabs.
+  // Use the global navigationRef registered in App.tsx (via TabNavigationContext).
+  const { getNavigation } = useTabNavigation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [switchInfo, setSwitchInfo] = useState<FamilySwitchInfo | null>(null);
@@ -187,7 +189,18 @@ function FamilySwitchBackBanner() {
         if (restoreId) setActivePlayer(restoreId);
       }
       setSwitchInfo(null);
-      navigation.reset({ index: 0, routes: [{ name: "PlayerTabs" as never }] });
+      const navRef = getNavigation();
+      if (navRef?.isReady?.()) {
+        navRef.reset({
+          index: 0,
+          routes: [
+            {
+              name: "Player",
+              state: { index: 0, routes: [{ name: "PlayerTabs" }] },
+            },
+          ],
+        } as never);
+      }
     } catch (e) {
       console.error("[FamilySwitch] Switch back error:", e);
     } finally {

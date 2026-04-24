@@ -1,11 +1,17 @@
-import React from "react";
+// This component is mounted as a sibling of PlayerStackNavigator (see PlayerNavigator.tsx),
+// so useNavigation() resolves to an outer scope that doesn't know the PlayerHelp route and
+// silently no-ops. We use the global navigationRef registered in App.tsx (exposed via
+// useTabNavigation().getNavigation()) which dispatches at the root NavigationContainer level
+// and CAN resolve nested screen names like "PlayerHelp". For the same reason, we read the
+// current route name from the global ref + a state listener instead of useNavigationState().
+import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useNavigation, useNavigationState } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
 import { Colors, GlowColors } from "@/constants/theme";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 const HIDDEN_ROUTES = new Set([
   "PlayerHelp",
@@ -18,18 +24,24 @@ const HIDDEN_ROUTES = new Set([
 ]);
 
 export function FloatingHelpButton() {
-  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const currentRouteName = useNavigationState((state) => {
-    if (!state) return null;
-    const findActive = (s: any): string | null => {
-      const route = s.routes[s.index];
-      if (route?.state) return findActive(route.state);
-      return route?.name ?? null;
-    };
-    return findActive(state);
+  const { getNavigation } = useTabNavigation();
+
+  const [currentRouteName, setCurrentRouteName] = useState<string | null>(() => {
+    const ref = getNavigation();
+    return ref?.getCurrentRoute?.()?.name ?? null;
   });
+
+  useEffect(() => {
+    const ref = getNavigation();
+    if (!ref) return;
+    setCurrentRouteName(ref.getCurrentRoute?.()?.name ?? null);
+    const unsubscribe = ref.addListener("state", () => {
+      setCurrentRouteName(ref.getCurrentRoute?.()?.name ?? null);
+    });
+    return unsubscribe;
+  }, [getNavigation]);
 
   if (currentRouteName && HIDDEN_ROUTES.has(currentRouteName)) {
     return null;
@@ -45,7 +57,10 @@ export function FloatingHelpButton() {
       <Pressable
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigation.navigate("PlayerHelp");
+          const ref = getNavigation();
+          if (ref?.isReady?.()) {
+            ref.navigate("PlayerHelp" as never);
+          }
         }}
         style={styles.button}
         accessibilityRole="button"
