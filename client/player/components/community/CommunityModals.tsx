@@ -39,10 +39,20 @@ import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface CommentsModalProps {
   visible: boolean;
   postId: string | null;
+  feedItemId?: string | null;
   onClose: () => void;
 }
 
-export function CommentsModal({ visible, postId, onClose }: CommentsModalProps) {
+export function CommentsModal({ visible, postId, feedItemId, onClose }: CommentsModalProps) {
+  const targetKind: "post" | "feed-item" | null = feedItemId
+    ? "feed-item"
+    : postId
+      ? "post"
+      : null;
+  const targetId = feedItemId || postId;
+  const basePath = targetKind === "feed-item"
+    ? `/api/social/feed-items/${targetId}`
+    : `/api/social/posts/${targetId}`;
   const insets = useSafeAreaInsets();
   const tabBarHeight = 85;
   const [commentText, setCommentText] = useState("");
@@ -69,25 +79,25 @@ export function CommentsModal({ visible, postId, onClose }: CommentsModalProps) 
   }));
 
   const { data: comments = [], refetch } = useQuery<any[]>({
-    queryKey: ["/api/social/posts", postId, "comments"],
+    queryKey: [basePath, "comments", targetId],
     queryFn: async () => {
-      if (!postId) return [];
-      const response = await apiFetch(`/api/social/posts/${postId}/comments`);
+      if (!targetId) return [];
+      const response = await apiFetch(`${basePath}/comments`);
       if (!response.ok) throw new Error("Failed to fetch comments");
       return response.json();
     },
-    enabled: !!postId && visible,
+    enabled: !!targetId && visible,
   });
 
   const { data: myLikedData } = useQuery<{ likedCommentIds: string[] }>({
-    queryKey: ["/api/social/posts", postId, "my-liked-comments"],
+    queryKey: [basePath, "my-liked-comments", targetId],
     queryFn: async () => {
-      if (!postId) return { likedCommentIds: [] };
-      const response = await apiFetch(`/api/social/posts/${postId}/my-liked-comments`);
+      if (!targetId) return { likedCommentIds: [] };
+      const response = await apiFetch(`${basePath}/my-liked-comments`);
       if (!response.ok) return { likedCommentIds: [] };
       return response.json();
     },
-    enabled: !!postId && visible,
+    enabled: !!targetId && visible,
   });
 
   useEffect(() => {
@@ -97,7 +107,7 @@ export function CommentsModal({ visible, postId, onClose }: CommentsModalProps) 
   }, [myLikedData]);
 
   const handleSubmitComment = async () => {
-    if (!commentText.trim() || !postId || isSubmitting) return;
+    if (!commentText.trim() || !targetId || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
@@ -105,7 +115,7 @@ export function CommentsModal({ visible, postId, onClose }: CommentsModalProps) 
       if (replyingTo) {
         payload.parentId = replyingTo.id;
       }
-      await apiRequest("POST", `/api/social/posts/${postId}/comments`, payload);
+      await apiRequest("POST", `${basePath}/comments`, payload);
       setCommentText("");
       setReplyingTo(null);
       refetch();

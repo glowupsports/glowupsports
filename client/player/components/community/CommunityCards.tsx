@@ -5,7 +5,6 @@ import {
   Pressable,
   ScrollView,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView, type VideoPlayerStatus } from "expo-video";
@@ -15,7 +14,7 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
-import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   type FeedFilter,
@@ -354,19 +353,28 @@ export function MomentCard({
 
 export function SystemFeedCard({
   item,
+  onComment,
   currentPlayerId,
   onOpenCreateMatch,
 }: {
   item: any;
+  onComment?: (feedItemId: string) => void;
   currentPlayerId?: string | null;
   onOpenCreateMatch?: (opponentId?: string, opponentName?: string) => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const [showCheerPicker, setShowCheerPicker] = useState(false);
+  const [optimisticReaction, setOptimisticReaction] = useState<string | null | undefined>(undefined);
+  const [optimisticDelta, setOptimisticDelta] = useState(0);
   const feedType: string = String(item?.feedType || "");
   const payload = item?.payload || {};
   const author = item?.author;
   const occurredAt = item?.occurredAt || item?.createdAt;
+
+  const currentReaction = optimisticReaction !== undefined ? optimisticReaction : item?.userReaction || null;
+  const cheerCount = Math.max(0, (item?.cheerCount || 0) + optimisticDelta);
+  const commentCount = item?.commentCount || 0;
   const sourceId: string | undefined = item?.sourceId || item?.id;
 
   // Local optimistic state for the Join button.
@@ -394,6 +402,38 @@ export function SystemFeedCard({
       Alert.alert("Couldn't Join", msg || "Something went wrong. Try again.");
     },
   });
+
+  const handleReact = async (type: string) => {
+    setShowCheerPicker(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const prev = currentReaction;
+    if (prev === type) {
+      // toggle off
+      setOptimisticReaction(null);
+      setOptimisticDelta((d) => d - 1);
+      try {
+        await apiRequest("DELETE", `/api/social/feed-items/${item.id}/reactions`);
+      } catch {
+        setOptimisticReaction(prev);
+        setOptimisticDelta((d) => d + 1);
+        Alert.alert("Error", "Could not remove your cheer. Please try again.");
+        return;
+      }
+    } else {
+      const isNew = !prev;
+      setOptimisticReaction(type);
+      if (isNew) setOptimisticDelta((d) => d + 1);
+      try {
+        await apiRequest("POST", `/api/social/feed-items/${item.id}/reactions`, { reactionType: type });
+      } catch {
+        setOptimisticReaction(prev);
+        if (isNew) setOptimisticDelta((d) => d - 1);
+        Alert.alert("Error", "Could not save your cheer. Please try again.");
+        return;
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+  };
 
   const config = useMemo(() => {
     switch (feedType) {
@@ -544,156 +584,88 @@ export function SystemFeedCard({
   return (
     <Animated.View entering={FadeInDown.delay(50).springify()}>
       <View style={styles.systemCard}>
-        <View style={[styles.systemIconWrap, { backgroundColor: `${config.tint}20` }]}>
-          <Ionicons name={config.icon as any} size={20} color={config.tint as string} />
-        </View>
-        <View style={styles.systemBody}>
-          <ThemedText style={styles.systemTitle}>{config.title}</ThemedText>
-          {config.subtitle ? (
-            <ThemedText style={styles.systemSubtitle}>{config.subtitle}</ThemedText>
-          ) : null}
-          <ThemedText style={styles.systemTime}>{formatTimeAgo(occurredAt)}</ThemedText>
-        </View>
-        {action ? (
-          <Pressable
-            disabled={action.disabled}
-            onPress={action.onPress}
-            style={[
-              styles.systemActionBtn,
-              action.tone === "primary" && styles.systemActionBtnPrimary,
-              action.tone === "success" && styles.systemActionBtnSuccess,
-              action.tone === "muted" && styles.systemActionBtnMuted,
-              action.disabled && styles.systemActionBtnDisabled,
-            ]}
-          >
-            <ThemedText
+        <View style={styles.systemTopRow}>
+          <View style={[styles.systemIconWrap, { backgroundColor: `${config.tint}20` }]}>
+            <Ionicons name={config.icon as any} size={20} color={config.tint as string} />
+          </View>
+          <View style={styles.systemBody}>
+            <ThemedText style={styles.systemTitle}>{config.title}</ThemedText>
+            {config.subtitle ? (
+              <ThemedText style={styles.systemSubtitle}>{config.subtitle}</ThemedText>
+            ) : null}
+            <ThemedText style={styles.systemTime}>{formatTimeAgo(occurredAt)}</ThemedText>
+          </View>
+          {action ? (
+            <Pressable
+              disabled={action.disabled}
+              onPress={action.onPress}
               style={[
-                styles.systemActionText,
-                action.tone === "primary" && styles.systemActionTextPrimary,
-                action.tone === "success" && styles.systemActionTextSuccess,
-                action.tone === "muted" && styles.systemActionTextMuted,
+                styles.systemActionBtn,
+                action.tone === "primary" && styles.systemActionBtnPrimary,
+                action.tone === "success" && styles.systemActionBtnSuccess,
+                action.tone === "muted" && styles.systemActionBtnMuted,
+                action.disabled && styles.systemActionBtnDisabled,
               ]}
             >
-              {action.label}
+              <ThemedText
+                style={[
+                  styles.systemActionText,
+                  action.tone === "primary" && styles.systemActionTextPrimary,
+                  action.tone === "success" && styles.systemActionTextSuccess,
+                  action.tone === "muted" && styles.systemActionTextMuted,
+                ]}
+              >
+                {action.label}
+              </ThemedText>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={styles.systemEngagementRow}>
+          <Pressable
+            style={[styles.cheerButton, currentReaction && styles.cheerButtonActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowCheerPicker((v) => !v);
+            }}
+          >
+            <ThemedText style={styles.cheerEmoji}>
+              {currentReaction
+                ? (CHEER_REACTIONS.find((r) => r.type === currentReaction)?.emoji || "\u{1F525}")
+                : "\u{1F44F}"}
+            </ThemedText>
+            <ThemedText style={[styles.cheerCount, currentReaction && styles.cheerCountActive]}>
+              {cheerCount}
             </ThemedText>
           </Pressable>
+
+          <Pressable
+            style={styles.commentButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onComment?.(item.id);
+            }}
+          >
+            <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.textMuted} />
+            <ThemedText style={styles.commentCount}>{commentCount}</ThemedText>
+          </Pressable>
+        </View>
+
+        {showCheerPicker ? (
+          <Animated.View entering={FadeIn.duration(150)} style={styles.cheerPicker}>
+            {CHEER_REACTIONS.map((reaction, index) => (
+              <Pressable
+                key={index}
+                style={styles.cheerOption}
+                onPress={() => handleReact(reaction.type)}
+              >
+                <ThemedText style={styles.cheerOptionEmoji}>{reaction.emoji}</ThemedText>
+              </Pressable>
+            ))}
+          </Animated.View>
         ) : null}
       </View>
     </Animated.View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// DiscoveryRail — horizontal "Players you might match" rail above the feed.
-// Hidden cleanly when the endpoint returns nothing or the user isn't signed
-// in as a player.
-// ---------------------------------------------------------------------------
-export function DiscoveryRail({
-  onSelectPlayer,
-  onChallengePlayer,
-}: {
-  onSelectPlayer: (player: { id: string; name: string }) => void;
-  onChallengePlayer: (player: { id: string; name: string }) => void;
-}) {
-  // Server returns { players: [...] } — keep this normalization tight so the
-  // rail also tolerates a future bare-array shape if the contract simplifies.
-  const { data, isLoading } = useQuery<
-    | {
-        players: {
-          id: string;
-          name: string;
-          profilePhotoUrl: string | null;
-          ballLevel: string | null;
-          skillLevel: string | null;
-          glowMmr: number | null;
-          country: string | null;
-        }[];
-      }
-    | {
-        id: string;
-        name: string;
-        profilePhotoUrl: string | null;
-        ballLevel: string | null;
-        skillLevel: string | null;
-        glowMmr: number | null;
-        country: string | null;
-      }[]
-  >({
-    queryKey: ["/api/social/discovery/players"],
-  });
-
-  const players = Array.isArray(data) ? data : (data?.players ?? []);
-  if (!isLoading && players.length === 0) return null;
-
-  return (
-    <View style={styles.discoveryRailWrap}>
-      <View style={styles.discoveryHeaderRow}>
-        <ThemedText style={styles.discoveryTitle}>Players you might match</ThemedText>
-        <ThemedText style={styles.discoverySubtitle}>
-          Same country, similar level
-        </ThemedText>
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.discoveryRailContent}
-      >
-        {isLoading && players.length === 0
-          ? [0, 1, 2].map((i) => (
-              <View key={i} style={[styles.discoveryCard, styles.discoveryCardSkeleton]}>
-                <ActivityIndicator color={Colors.dark.textMuted} />
-              </View>
-            ))
-          : players.map((p) => {
-              const rawPhoto = p.profilePhotoUrl;
-              const photo = rawPhoto
-                ? rawPhoto.startsWith("http")
-                  ? rawPhoto
-                  : `${getApiUrl()}${rawPhoto.startsWith("/") ? rawPhoto : `/${rawPhoto}`}`
-                : null;
-              const initial = (p.name || "?").charAt(0).toUpperCase();
-              const levelLabel =
-                p.skillLevel ||
-                (p.ballLevel ? p.ballLevel.charAt(0).toUpperCase() + p.ballLevel.slice(1) : "—");
-              return (
-                <Pressable
-                  key={p.id}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onSelectPlayer(p);
-                  }}
-                  style={styles.discoveryCard}
-                >
-                  <View style={styles.discoveryAvatarWrap}>
-                    {photo ? (
-                      <Image source={{ uri: photo }} style={styles.discoveryAvatar} />
-                    ) : (
-                      <View style={[styles.discoveryAvatar, styles.discoveryAvatarFallback]}>
-                        <ThemedText style={styles.discoveryAvatarInitial}>{initial}</ThemedText>
-                      </View>
-                    )}
-                  </View>
-                  <ThemedText numberOfLines={1} style={styles.discoveryName}>
-                    {p.name}
-                  </ThemedText>
-                  <ThemedText numberOfLines={1} style={styles.discoveryLevel}>
-                    {levelLabel}
-                    {p.glowMmr != null ? `  ·  ${p.glowMmr}` : ""}
-                  </ThemedText>
-                  <Pressable
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      onChallengePlayer(p);
-                    }}
-                    style={styles.discoveryChallengeBtn}
-                  >
-                    <ThemedText style={styles.discoveryChallengeText}>Challenge</ThemedText>
-                  </Pressable>
-                </Pressable>
-              );
-            })}
-      </ScrollView>
-    </View>
   );
 }
 
@@ -1071,13 +1043,24 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 22,
   },
   systemCard: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
     marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  systemTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.md,
+  },
+  systemEngagementRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.dark.border,
   },
   systemIconWrap: {
     width: 40,
@@ -1103,6 +1086,43 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textSecondary,
     marginTop: 2,
+  },
+  systemActionBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.full,
+    minWidth: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  systemActionBtnPrimary: {
+    backgroundColor: Colors.dark.primary,
+  },
+  systemActionBtnSuccess: {
+    backgroundColor: Colors.dark.primary + "26",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "55",
+  },
+  systemActionBtnMuted: {
+    backgroundColor: Colors.dark.chipBackground,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  systemActionBtnDisabled: {
+    opacity: 0.7,
+  },
+  systemActionText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  systemActionTextPrimary: {
+    color: Colors.dark.buttonText,
+  },
+  systemActionTextSuccess: {
+    color: Colors.dark.primary,
+  },
+  systemActionTextMuted: {
+    color: Colors.dark.textSecondary,
   },
   emptyState: {
     alignItems: "center",
@@ -1211,124 +1231,5 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   xpSparkText: {
     fontSize: 12,
-  },
-  systemActionBtn: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 8,
-    borderRadius: BorderRadius.full,
-    minWidth: 64,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  systemActionBtnPrimary: {
-    backgroundColor: Colors.dark.primary,
-  },
-  systemActionBtnSuccess: {
-    backgroundColor: Colors.dark.primary + "26",
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "55",
-  },
-  systemActionBtnMuted: {
-    backgroundColor: Colors.dark.chipBackground,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  systemActionBtnDisabled: {
-    opacity: 0.7,
-  },
-  systemActionText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  systemActionTextPrimary: {
-    color: Colors.dark.buttonText,
-  },
-  systemActionTextSuccess: {
-    color: Colors.dark.primary,
-  },
-  systemActionTextMuted: {
-    color: Colors.dark.textSecondary,
-  },
-  discoveryRailWrap: {
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  discoveryHeaderRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    marginBottom: Spacing.sm,
-  },
-  discoveryTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  discoverySubtitle: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-  },
-  discoveryRailContent: {
-    gap: Spacing.sm,
-    paddingRight: Spacing.lg,
-  },
-  discoveryCard: {
-    width: 132,
-    padding: Spacing.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    alignItems: "center",
-    gap: 6,
-  },
-  discoveryCardSkeleton: {
-    height: 168,
-    justifyContent: "center",
-  },
-  discoveryAvatarWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    overflow: "hidden",
-    marginBottom: 4,
-  },
-  discoveryAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  discoveryAvatarFallback: {
-    backgroundColor: Colors.dark.chipBackground,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  discoveryAvatarInitial: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  discoveryName: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    textAlign: "center",
-  },
-  discoveryLevel: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
-  },
-  discoveryChallengeBtn: {
-    marginTop: 6,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.primary,
-  },
-  discoveryChallengeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: Colors.dark.buttonText,
   },
 }));

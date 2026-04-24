@@ -3998,11 +3998,17 @@ export type InsertPost = z.infer<typeof insertPostSchema>;
 export type Post = typeof posts.$inferSelect;
 
 // Post Reactions (Cheers)
+//
+// A reaction is keyed by EITHER `postId` (manual moments / coach spotlights
+// backed by a `posts` row) OR `feedItemId` (system feed items like
+// match_result, level_up, quest_complete, tournament_result, open_match).
+// Exactly one of the two should be set per row.
 export const postReactions = pgTable("post_reactions", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  postId: varchar("post_id").references(() => posts.id, { onDelete: "cascade" }).notNull(),
+  postId: varchar("post_id").references(() => posts.id, { onDelete: "cascade" }),
+  feedItemId: varchar("feed_item_id"),
   userId: varchar("user_id").references(() => users.id).notNull(),
   
   reactionType: text("reaction_type").notNull(), // clap | fire | tennis | muscle | star
@@ -4010,6 +4016,7 @@ export const postReactions = pgTable("post_reactions", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("post_reactions_post_idx").on(table.postId),
+  index("post_reactions_feed_item_idx").on(table.feedItemId),
   index("post_reactions_user_idx").on(table.userId),
 ]);
 
@@ -4018,11 +4025,17 @@ export type InsertPostReaction = z.infer<typeof insertPostReactionSchema>;
 export type PostReaction = typeof postReactions.$inferSelect;
 
 // Post Comments
+//
+// A comment is keyed by EITHER `postId` (manual moments / coach spotlights
+// backed by a `posts` row) OR `feedItemId` (system feed items like
+// match_result, level_up, quest_complete, tournament_result, open_match).
+// Exactly one of the two should be set per row.
 export const postComments = pgTable("post_comments", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  postId: varchar("post_id").references(() => posts.id, { onDelete: "cascade" }).notNull(),
+  postId: varchar("post_id").references(() => posts.id, { onDelete: "cascade" }),
+  feedItemId: varchar("feed_item_id"),
   authorId: varchar("author_id").references(() => users.id).notNull(),
   
   // For kids: use quick comments (preset phrases)
@@ -4040,6 +4053,7 @@ export const postComments = pgTable("post_comments", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("post_comments_post_idx").on(table.postId),
+  index("post_comments_feed_item_idx").on(table.feedItemId),
   index("post_comments_author_idx").on(table.authorId),
   index("post_comments_parent_idx").on(table.parentId),
 ]);
@@ -4083,6 +4097,11 @@ export const feedItems = pgTable("feed_items", {
   postId: varchar("post_id").references(() => posts.id, { onDelete: "cascade" }),
   payload: jsonb("payload").$type<Record<string, unknown>>().default({}),
   isHidden: boolean("is_hidden").default(false),
+  // Denormalized engagement counters — kept in sync by the
+  // /api/social/feed-items/:id reaction & comment endpoints. Manual moments
+  // continue to track counts on `posts.cheer_count` / `posts.comment_count`.
+  cheerCount: integer("cheer_count").notNull().default(0),
+  commentCount: integer("comment_count").notNull().default(0),
   occurredAt: timestamp("occurred_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [

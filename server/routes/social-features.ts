@@ -190,7 +190,8 @@ const socialPostUpload = multer({
           const sqlText = `
             SELECT id, source_type, source_id, scope, country, academy_id,
                    group_id, author_user_id, author_player_id, post_id,
-                   payload, occurred_at, created_at
+                   payload, occurred_at, created_at,
+                   cheer_count, comment_count
               FROM feed_items
              WHERE is_hidden = false
                AND (${whereParts.join(" OR ")})
@@ -202,6 +203,28 @@ const socialPostUpload = multer({
         } catch (err) {
           console.error("Error querying feed_items:", err);
           feedRows = [];
+        }
+
+        // Resolve viewer's reactions on system feed items in this batch
+        // (manual moments use the post-keyed reaction below).
+        const systemFeedItemIds = feedRows
+          .filter((r) => r.source_type !== "manual_moment")
+          .map((r) => r.id);
+        const feedItemReactionMap = new Map<string, string>();
+        if (systemFeedItemIds.length > 0) {
+          try {
+            const rr = await pool.query(
+              `SELECT feed_item_id, reaction_type
+                 FROM post_reactions
+                WHERE user_id = $1 AND feed_item_id = ANY($2::text[])`,
+              [userId, systemFeedItemIds],
+            );
+            for (const row of rr.rows || []) {
+              feedItemReactionMap.set(row.feed_item_id, row.reaction_type);
+            }
+          } catch {
+            /* best-effort */
+          }
         }
 
         // Hydrate manual_moment posts (so the client can render images, etc.)
@@ -301,6 +324,9 @@ const socialPostUpload = multer({
               payload: r.payload || {},
               createdAt: r.created_at,
               occurredAt: r.occurred_at,
+              cheerCount: Number(r.cheer_count) || 0,
+              commentCount: Number(r.comment_count) || 0,
+              userReaction: feedItemReactionMap.get(r.id) || null,
             };
             if (r.source_type === "manual_moment" && r.post_id) {
               const p = postMap.get(r.post_id);
@@ -314,6 +340,7 @@ const socialPostUpload = multer({
                   visibility: p.visibility,
                   contextType: p.context_type,
                   contextId: p.context_id,
+                  // Manual moments keep their counts on the underlying post.
                   cheerCount: p.cheer_count || 0,
                   commentCount: p.comment_count || 0,
                   taggedUserIds: p.tagged_user_ids || [],
@@ -1193,12 +1220,23 @@ const socialPostUpload = multer({
       
       // Delete the comment
       await db.delete(postCommentsTable).where(eq(postCommentsTable.id, commentId));
-      
-      // Update comment count on the post
-      await db.update(postsTable)
-        .set({ commentCount: sql`GREATEST(comment_count - 1, 0)` })
-        .where(eq(postsTable.id, comment.postId));
-      
+
+      // Decrement the correct counter based on which target the comment
+      // belongs to (post-keyed for moments, feed-item-keyed for system feed
+      // items). Either path is a no-op if the target id is missing.
+      if (comment.postId) {
+        await db.update(postsTable)
+          .set({ commentCount: sql`GREATEST(comment_count - 1, 0)` })
+          .where(eq(postsTable.id, comment.postId));
+      } else if (comment.feedItemId) {
+        await pool.query(
+          `UPDATE feed_items
+              SET comment_count = GREATEST(0, comment_count - 1)
+            WHERE id = $1`,
+          [comment.feedItemId],
+        );
+      }
+
       res.json({ success: true, message: "Comment deleted" });
     } catch (error) {
       console.error("Error deleting comment:", error);
@@ -1227,6 +1265,547 @@ const socialPostUpload = multer({
       res.json({ likedCommentIds: likedComments.map(l => l.commentId) });
     } catch (error) {
       console.error("Error fetching liked comments:", error);
+      res.status(500).json({ error: "Failed to fetch liked comments" });
+    }
+  });
+
+// ==================== FEED-ITEM ENGAGEMENT (system events) ====================
+//
+// Reactions and comments for non-moment feed items (match_result, level_up,
+// quest_complete, tournament_result, open_match, coach_spotlight). Manual
+// moments continue to use the post-keyed endpoints above.
+
+  async function loadFeedItem(feedItemId: string) {
+    try {
+      const r = await pool.query(
+        `SELECT id, source_type, source_id, scope, country, academy_id,
+                group_id, author_user_id, author_player_id, payload
+           FROM feed_items
+          WHERE id = $1 AND is_hidden = false
+          LIMIT 1`,
+        [feedItemId],
+      );
+      return r.rows?.[0] || null;
+    } catch (err) {
+      console.error("[FeedEngagement] loadFeedItem error:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Authorize a viewer to engage with a feed item. Mirrors the visibility
+   * rules used by the unified feed query so that an attacker cannot
+   * cheer/comment on items they would never see in their feed.
+   */
+  async function canViewerEngageFeedItem(
+    feedItem: any,
+    viewer: { userId: string; academyId: string | null | undefined; country: string | null | undefined },
+  ): Promise<boolean> {
+    if (!feedItem) return false;
+    // The author can always engage with their own item.
+    if (feedItem.author_user_id && feedItem.author_user_id === viewer.userId) return true;
+
+    const scope: string = feedItem.scope || "academy";
+
+    if (scope === "global") return true;
+
+    if (scope === "country") {
+      return !!viewer.country && feedItem.country === viewer.country;
+    }
+
+    if (scope === "academy") {
+      // Same-academy viewers can engage. Otherwise, friend visibility for
+      // SYSTEM events (matches/level-ups/quests/tournaments/open matches).
+      if (viewer.academyId && feedItem.academy_id && feedItem.academy_id === viewer.academyId) {
+        return true;
+      }
+    }
+
+    if (scope === "group" && feedItem.group_id) {
+      try {
+        const gr = await pool.query(
+          `SELECT 1 FROM group_members
+            WHERE user_id = $1 AND group_id = $2 LIMIT 1`,
+          [viewer.userId, feedItem.group_id],
+        );
+        if (gr.rowCount && gr.rowCount > 0) return true;
+      } catch {
+        /* fall through */
+      }
+    }
+
+    if (scope === "friends") {
+      // Friends scope: viewer must be a friend of the author. We resolve
+      // the author's player id and check player_connections directly.
+      if (feedItem.author_user_id && feedItem.author_player_id) {
+        try {
+          // Resolve viewer's player id
+          const vr = await pool.query(
+            `SELECT player_id FROM users WHERE id = $1 LIMIT 1`,
+            [viewer.userId],
+          );
+          const viewerPlayerId = vr.rows?.[0]?.player_id;
+          if (viewerPlayerId) {
+            const fr = await pool.query(
+              `SELECT 1 FROM player_connections
+                WHERE status = 'accepted'
+                  AND ((player_id = $1 AND friend_id = $2)
+                    OR (player_id = $2 AND friend_id = $1))
+                LIMIT 1`,
+              [viewerPlayerId, feedItem.author_player_id],
+            );
+            if (fr.rowCount && fr.rowCount > 0) return true;
+          }
+        } catch {
+          /* fall through */
+        }
+      }
+    }
+
+    // Cross-scope friend override for system events: friends can always see
+    // each other's match/level-up/quest/tournament/open-match activity.
+    const SYSTEM_SOURCE_TYPES = new Set([
+      "match_result",
+      "level_up",
+      "quest_complete",
+      "tournament_result",
+      "open_match",
+    ]);
+    if (
+      SYSTEM_SOURCE_TYPES.has(feedItem.source_type) &&
+      feedItem.author_player_id &&
+      feedItem.author_user_id &&
+      feedItem.author_user_id !== viewer.userId
+    ) {
+      try {
+        const vr = await pool.query(
+          `SELECT player_id FROM users WHERE id = $1 LIMIT 1`,
+          [viewer.userId],
+        );
+        const viewerPlayerId = vr.rows?.[0]?.player_id;
+        if (viewerPlayerId) {
+          const fr = await pool.query(
+            `SELECT 1 FROM player_connections
+              WHERE status = 'accepted'
+                AND ((player_id = $1 AND friend_id = $2)
+                  OR (player_id = $2 AND friend_id = $1))
+              LIMIT 1`,
+            [viewerPlayerId, feedItem.author_player_id],
+          );
+          if (fr.rowCount && fr.rowCount > 0) return true;
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+
+    return false;
+  }
+
+  async function loadAndAuthorize(feedItemId: string, req: AuthRequest) {
+    const feedItem = await loadFeedItem(feedItemId);
+    if (!feedItem) return { feedItem: null, authorized: false };
+    const viewer = {
+      userId: req.user!.userId,
+      academyId: req.user!.academyId,
+      country: (req.user as any)?.country || null,
+    };
+    // Resolve viewer country from players if not on token.
+    if (!viewer.country) {
+      try {
+        if (req.user!.playerId) {
+          const cr = await pool.query(
+            `SELECT country FROM players WHERE id = $1 LIMIT 1`,
+            [req.user!.playerId],
+          );
+          viewer.country = cr.rows?.[0]?.country || null;
+        }
+      } catch {
+        /* best-effort */
+      }
+    }
+    const authorized = await canViewerEngageFeedItem(feedItem, viewer);
+    return { feedItem, authorized };
+  }
+
+  async function notifyFeedItemAuthor(
+    feedItem: { author_user_id: string | null; author_player_id: string | null; source_type: string; id: string },
+    actorUserId: string,
+    actorName: string,
+    kind: "reaction" | "comment",
+    extra?: { reactionType?: string; commentText?: string },
+  ) {
+    try {
+      // Don't notify the user about their own engagement.
+      if (!feedItem.author_user_id || feedItem.author_user_id === actorUserId) return;
+
+      const { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } = await import("../pushNotifications");
+
+      // Resolve the target's push tokens — prefer player, fall back to coach.
+      let tokens: string[] = [];
+      if (feedItem.author_player_id) {
+        tokens = await getPlayerPushTokens(feedItem.author_player_id);
+      }
+      if (tokens.length === 0) {
+        try {
+          const coachRes = await pool.query(
+            `SELECT coach_id FROM users WHERE id = $1 LIMIT 1`,
+            [feedItem.author_user_id],
+          );
+          const coachId = coachRes.rows?.[0]?.coach_id;
+          if (coachId) tokens = await getCoachPushTokens(coachId);
+        } catch {
+          /* best-effort */
+        }
+      }
+      if (tokens.length === 0) return;
+
+      const sourceLabel = (() => {
+        switch (feedItem.source_type) {
+          case "match_result": return "match";
+          case "level_up": return "level-up";
+          case "quest_complete": return "quest";
+          case "tournament_result": return "tournament";
+          case "open_match": return "open match";
+          case "coach_spotlight": return "post";
+          default: return "moment";
+        }
+      })();
+
+      const title = kind === "reaction" ? "New cheer" : "New comment";
+      const body = kind === "reaction"
+        ? `${actorName} cheered your ${sourceLabel}`
+        : extra?.commentText
+          ? `${actorName} commented: "${(extra.commentText || "").slice(0, 60)}"`
+          : `${actorName} commented on your ${sourceLabel}`;
+
+      await sendPushNotification(
+        tokens,
+        title,
+        body,
+        {
+          type: kind === "reaction" ? "feed_reaction" : "feed_comment",
+          feedItemId: feedItem.id,
+          sourceType: feedItem.source_type,
+          reactionType: extra?.reactionType,
+        },
+        feedItem.author_player_id || undefined,
+      );
+    } catch (err) {
+      console.error("[FeedEngagement] notifyFeedItemAuthor error:", err);
+    }
+  }
+
+  async function resolveActorName(userId: string, playerId: string | null | undefined): Promise<string> {
+    try {
+      if (playerId) {
+        const r = await pool.query(`SELECT name FROM players WHERE id = $1 LIMIT 1`, [playerId]);
+        if (r.rows?.[0]?.name) return r.rows[0].name as string;
+      }
+      const ur = await pool.query(
+        `SELECT u.username, p.name AS player_name, c.name AS coach_name
+           FROM users u
+      LEFT JOIN players p ON p.id = u.player_id
+      LEFT JOIN coaches c ON c.id = u.coach_id
+          WHERE u.id = $1
+          LIMIT 1`,
+        [userId],
+      );
+      const row = ur.rows?.[0];
+      return row?.player_name || row?.coach_name || row?.username || "Someone";
+    } catch {
+      return "Someone";
+    }
+  }
+
+  // Add/update reaction on a feed item (system event)
+  router.post("/api/social/feed-items/:id/reactions", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
+    try {
+      const { id: feedItemId } = req.params;
+      const userId = req.user!.userId;
+      const reactorPlayerId = req.user!.playerId;
+      const { reactionType } = req.body;
+
+      const validReactions = ["clap", "fire", "tennis", "muscle", "star"];
+      if (!validReactions.includes(reactionType)) {
+        return res.status(400).json({ error: "Invalid reaction type" });
+      }
+
+      const { feedItem, authorized } = await loadAndAuthorize(feedItemId, req);
+      if (!feedItem) {
+        return res.status(404).json({ error: "Feed item not found" });
+      }
+      if (!authorized) {
+        return res.status(403).json({ error: "You don't have access to this feed item" });
+      }
+
+      // Check existing reaction
+      const existing = await db.select()
+        .from(postReactionsTable)
+        .where(and(
+          eq(postReactionsTable.feedItemId, feedItemId),
+          eq(postReactionsTable.userId, userId),
+        ))
+        .limit(1);
+
+      let isNew = false;
+      if (existing.length > 0) {
+        await db.update(postReactionsTable)
+          .set({ reactionType })
+          .where(eq(postReactionsTable.id, existing[0].id));
+      } else {
+        await db.insert(postReactionsTable).values({
+          feedItemId,
+          userId,
+          reactionType,
+        });
+        isNew = true;
+        await pool.query(
+          `UPDATE feed_items SET cheer_count = cheer_count + 1 WHERE id = $1`,
+          [feedItemId],
+        );
+
+        if (reactorPlayerId) {
+          fireQuestEvent(reactorPlayerId, "give_reaction").catch(() => {});
+        }
+      }
+
+      // Fire notification only on a fresh reaction (avoid spamming on swap).
+      if (isNew) {
+        const actorName = await resolveActorName(userId, reactorPlayerId);
+        notifyFeedItemAuthor(feedItem, userId, actorName, "reaction", { reactionType }).catch(() => {});
+      }
+
+      res.json({ success: true, reactionType });
+    } catch (error) {
+      console.error("Error adding feed-item reaction:", error);
+      res.status(500).json({ error: "Failed to add reaction" });
+    }
+  });
+
+  // Remove reaction from a feed item
+  router.delete("/api/social/feed-items/:id/reactions", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
+    try {
+      const { id: feedItemId } = req.params;
+      const userId = req.user!.userId;
+
+      const result = await db.delete(postReactionsTable)
+        .where(and(
+          eq(postReactionsTable.feedItemId, feedItemId),
+          eq(postReactionsTable.userId, userId),
+        ));
+
+      if (result.rowCount && result.rowCount > 0) {
+        await pool.query(
+          `UPDATE feed_items SET cheer_count = GREATEST(0, cheer_count - 1) WHERE id = $1`,
+          [feedItemId],
+        );
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing feed-item reaction:", error);
+      res.status(500).json({ error: "Failed to remove reaction" });
+    }
+  });
+
+  // Get comments for a feed item
+  router.get("/api/social/feed-items/:id/comments", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
+    try {
+      const { id: feedItemId } = req.params;
+
+      const { feedItem, authorized } = await loadAndAuthorize(feedItemId, req);
+      if (!feedItem) {
+        return res.status(404).json({ error: "Feed item not found" });
+      }
+      if (!authorized) {
+        return res.status(403).json({ error: "You don't have access to this feed item" });
+      }
+
+      const rawComments = await db.select()
+        .from(postCommentsTable)
+        .where(and(
+          eq(postCommentsTable.feedItemId, feedItemId),
+          eq(postCommentsTable.isHidden, false),
+        ))
+        .orderBy(asc(postCommentsTable.createdAt));
+
+      const comments = await Promise.all(rawComments.map(async (comment) => {
+        let authorData = { id: comment.authorId, username: "Player", name: "Player", photoUrl: null as string | null };
+
+        try {
+          const [user] = await db.select().from(users).where(eq(users.id, comment.authorId)).limit(1);
+          if (user) {
+            authorData.username = user.username;
+            authorData.name = user.username;
+            if (user.playerId) {
+              const [player] = await db.select().from(players).where(eq(players.id, user.playerId)).limit(1);
+              if (player) {
+                authorData.name = player.name;
+                authorData.photoUrl = (player as any).profilePhotoUrl || player.photoUrl;
+              }
+            }
+          }
+        } catch (e) {
+          /* keep defaults */
+        }
+
+        const [likeResult] = await db.select({ count: sql`count(*)` })
+          .from(commentLikesTable)
+          .where(eq(commentLikesTable.commentId, comment.id));
+        const likeCount = Number(likeResult?.count || 0);
+
+        let replyToName: string | null = null;
+        if (comment.parentId) {
+          const parentComment = rawComments.find(c => c.id === comment.parentId);
+          if (parentComment) {
+            try {
+              const [parentUser] = await db.select().from(users).where(eq(users.id, parentComment.authorId)).limit(1);
+              if (parentUser) {
+                replyToName = parentUser.username;
+                if (parentUser.playerId) {
+                  const [parentPlayer] = await db.select().from(players).where(eq(players.id, parentUser.playerId)).limit(1);
+                  if (parentPlayer) {
+                    replyToName = parentPlayer.name;
+                  }
+                }
+              }
+            } catch {
+              /* keep null */
+            }
+          }
+        }
+
+        return {
+          id: comment.id,
+          feedItemId: comment.feedItemId,
+          authorId: comment.authorId,
+          text: comment.text,
+          isQuickComment: comment.isQuickComment,
+          quickCommentType: comment.quickCommentType,
+          parentId: comment.parentId,
+          replyToName,
+          isHidden: comment.isHidden,
+          createdAt: comment.createdAt,
+          author: authorData,
+          likeCount,
+        };
+      }));
+
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching feed-item comments:", error);
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  // Add comment to a feed item
+  router.post("/api/social/feed-items/:id/comments", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
+    try {
+      const { id: feedItemId } = req.params;
+      const userId = req.user!.userId;
+      const playerId = req.user!.playerId;
+      const { text, isQuickComment, quickCommentType, parentId } = req.body;
+
+      if (playerId) {
+        const commenterIsMinor = await isPlayerMinor(playerId);
+        if (commenterIsMinor) {
+          const controls = await getPlayerParentalControls(playerId);
+          if (!controls.communityEnabled) {
+            return res.status(403).json({
+              error: "Posting in the community requires parental approval. Ask a parent to enable community access in the Family Lobby.",
+              code: "MINOR_COMMUNITY_RESTRICTED",
+            });
+          }
+        }
+      }
+
+      if (chatRateLimiter.isRateLimited(playerId || userId)) {
+        return res.status(429).json({ error: "You're sending messages too quickly. Please wait a moment." });
+      }
+      chatRateLimiter.recordRequest(playerId || userId);
+
+      const { feedItem, authorized } = await loadAndAuthorize(feedItemId, req);
+      if (!feedItem) {
+        return res.status(404).json({ error: "Feed item not found" });
+      }
+      if (!authorized) {
+        return res.status(403).json({ error: "You don't have access to this feed item" });
+      }
+
+      const quickComments = {
+        nice: "Nice!",
+        lets_play: "Let's play!",
+        great: "Great session!",
+        fire: "\uD83D\uDD25\uD83D\uDD25",
+      };
+
+      let commentText = text;
+      if (isQuickComment && quickCommentType && quickComments[quickCommentType as keyof typeof quickComments]) {
+        commentText = quickComments[quickCommentType as keyof typeof quickComments];
+      }
+
+      if (!commentText && !isQuickComment) {
+        return res.status(400).json({ error: "Comment text is required" });
+      }
+
+      const filteredCommentText = commentText ? filterProfanity(commentText) : commentText;
+
+      const [newComment] = await db.insert(postCommentsTable).values({
+        feedItemId,
+        authorId: userId,
+        text: filteredCommentText,
+        isQuickComment: !!isQuickComment,
+        quickCommentType,
+        parentId,
+      }).returning();
+
+      await pool.query(
+        `UPDATE feed_items SET comment_count = comment_count + 1 WHERE id = $1`,
+        [feedItemId],
+      );
+
+      if (playerId) {
+        fireQuestEvent(playerId, "post_comment").catch(() => {});
+      }
+
+      const actorName = await resolveActorName(userId, playerId);
+      notifyFeedItemAuthor(feedItem, userId, actorName, "comment", { commentText: filteredCommentText || "" }).catch(() => {});
+
+      res.status(201).json(newComment);
+    } catch (error) {
+      console.error("Error adding feed-item comment:", error);
+      res.status(500).json({ error: "Failed to add comment" });
+    }
+  });
+
+  // Liked comments for a feed item (mirrors /posts/:postId/my-liked-comments)
+  router.get("/api/social/feed-items/:id/my-liked-comments", authMiddleware, async (req: AuthRequest, res: Response) => {
+    try {
+      const { id: feedItemId } = req.params;
+      const userId = req.user!.userId;
+
+      const { feedItem, authorized } = await loadAndAuthorize(feedItemId, req);
+      if (!feedItem) {
+        return res.status(404).json({ error: "Feed item not found" });
+      }
+      if (!authorized) {
+        return res.status(403).json({ error: "You don't have access to this feed item" });
+      }
+
+      const likedComments = await db.select({
+        commentId: commentLikesTable.commentId,
+      })
+      .from(commentLikesTable)
+      .innerJoin(postCommentsTable, eq(commentLikesTable.commentId, postCommentsTable.id))
+      .where(and(
+        eq(postCommentsTable.feedItemId, feedItemId),
+        eq(commentLikesTable.userId, userId),
+      ));
+
+      res.json({ likedCommentIds: likedComments.map(l => l.commentId) });
+    } catch (error) {
+      console.error("Error fetching feed-item liked comments:", error);
       res.status(500).json({ error: "Failed to fetch liked comments" });
     }
   });

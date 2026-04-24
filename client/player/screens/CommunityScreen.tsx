@@ -24,12 +24,10 @@ import { ThemedView } from "@/components/ThemedView";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
-import SkillChallengeRail from "@/components/SkillChallengeRail";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { usePlayer } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
-import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import {
   type FeedFilter,
@@ -46,7 +44,6 @@ import {
   MainTabBar,
   FeedFilterTabs,
   SystemFeedCard,
-  DiscoveryRail,
 } from "../components/community/CommunityCards";
 
 import {
@@ -69,7 +66,6 @@ export default function CommunityScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -163,10 +159,18 @@ export default function CommunityScreen() {
   };
 
   const [selectedCommentPostId, setSelectedCommentPostId] = useState<string | null>(null);
+  const [selectedCommentFeedItemId, setSelectedCommentFeedItemId] = useState<string | null>(null);
   const [showCommentModal, setShowCommentModal] = useState(false);
 
   const handleComment = (postId: string) => {
     setSelectedCommentPostId(postId);
+    setSelectedCommentFeedItemId(null);
+    setShowCommentModal(true);
+  };
+
+  const handleSystemFeedComment = (feedItemId: string) => {
+    setSelectedCommentFeedItemId(feedItemId);
+    setSelectedCommentPostId(null);
     setShowCommentModal(true);
   };
 
@@ -214,28 +218,7 @@ export default function CommunityScreen() {
   const handleCreateMoment = () => {
     track("community:create_post");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      "What would you like to do?",
-      undefined,
-      [
-        {
-          text: "Share a Moment",
-          onPress: () => {
-            track("community:composer_moment");
-            setShowCreateModal(true);
-          },
-        },
-        {
-          text: "Post Open Match",
-          onPress: () => {
-            track("community:composer_open_match");
-            navigateToTab("PlayStack", { screen: "CreateMatch" });
-          },
-        },
-        { text: "Cancel", style: "cancel" },
-      ],
-      { cancelable: true }
-    );
+    setShowCreateModal(true);
   };
 
   return (
@@ -288,31 +271,6 @@ export default function CommunityScreen() {
 
       {mainTab === "feed" ? (
         <>
-            <SkillChallengeRail />
-            <View style={styles.compareRail}>
-              <Pressable
-                style={styles.compareRailBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("GlowLeaderboard");
-                }}
-                testID="button-leaderboards"
-              >
-                <Ionicons name="podium-outline" size={16} color={Colors.dark.gold} />
-                <ThemedText style={styles.compareRailText}>Leaderboards</ThemedText>
-              </Pressable>
-              <Pressable
-                style={styles.compareRailBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("AcademyVsAcademy");
-                }}
-                testID="button-academy-vs-academy"
-              >
-                <Ionicons name="trophy-outline" size={16} color={Colors.dark.gold} />
-                <ThemedText style={styles.compareRailText}>Academy vs Academy</ThemedText>
-              </Pressable>
-            </View>
             <FeedFilterTabs active={filter} onChange={(f) => { track(`community:feed_${f}`); setFilter(f); }} />
 
 
@@ -332,13 +290,9 @@ export default function CommunityScreen() {
                   return (
                     <SystemFeedCard
                       item={item}
-                      currentPlayerId={user?.playerId}
-                      onOpenCreateMatch={(opponentId, opponentName) => {
-                        navigateToTab("PlayStack", {
-                          screen: "CreateMatch",
-                          params: opponentId ? { opponentId, opponentName } : undefined,
-                        });
-                      }}
+                      onComment={handleSystemFeedComment}
+                      currentPlayerId={user?.id}
+                      onOpenCreateMatch={() => navigation.navigate("CreateMatch")}
                     />
                   );
                 }
@@ -356,19 +310,6 @@ export default function CommunityScreen() {
                   />
                 );
               }}
-              ListHeaderComponent={
-                filter === "all" ? (
-                  <DiscoveryRail
-                    onSelectPlayer={(p) => navigation.navigate("PublicProfile", { playerId: p.id })}
-                    onChallengePlayer={(p) =>
-                      navigateToTab("PlayStack", {
-                        screen: "CreateMatch",
-                        params: { opponentId: p.id, opponentName: p.name },
-                      })
-                    }
-                  />
-                ) : null
-              }
               contentContainerStyle={[
                 styles.feedList,
                 { paddingBottom: tabBarHeight + chatFooterHeight + Spacing.xl }
@@ -408,9 +349,11 @@ export default function CommunityScreen() {
       <CommentsModal
         visible={showCommentModal}
         postId={selectedCommentPostId}
+        feedItemId={selectedCommentFeedItemId}
         onClose={() => {
           setShowCommentModal(false);
           setSelectedCommentPostId(null);
+          setSelectedCommentFeedItemId(null);
         }}
       />
 
@@ -494,30 +437,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
     color: "#00BCD4",
     lineHeight: 18,
-  },
-  compareRail: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
-  },
-  compareRailBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.cardBackground,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  compareRailText: {
-    color: Colors.dark.text,
-    fontSize: 13,
-    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,
