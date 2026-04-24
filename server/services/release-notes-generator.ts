@@ -1,8 +1,10 @@
 import OpenAI from "openai";
 import { execSync } from "node:child_process";
+import path from "node:path";
+import fs from "node:fs";
 import { db } from "../db";
 import { releaseNotesCache } from "@shared/schema";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -67,9 +69,38 @@ const FEATHER_ICON_HINTS = [
   "compass", "package", "smile", "thumbs-up", "trophy",
 ];
 
-function safeGitLog(sinceVersion: string | null, maxCount = 200): {
+/**
+ * Look up the commit SHA we previously cached for `fromVersion` (any role/locale)
+ * so we can do `git log <sha>..HEAD` even though we don't tag releases.
+ *
+ * Returns null if no prior cache exists for that version (first time the
+ * version is asked about) — the caller should fall back to a count-based
+ * window in that case.
+ */
+async function lookupCachedShaForVersion(
+  version: string,
+): Promise<string | null> {
+  try {
+    const [hit] = await db
+      .select({ commitSha: releaseNotesCache.commitSha })
+      .from(releaseNotesCache)
+      .where(eq(releaseNotesCache.version, version))
+      .orderBy(desc(releaseNotesCache.generatedAt))
+      .limit(1);
+    return hit?.commitSha ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function safeGitLog(
+  sinceVersion: string | null,
+  cachedSinceSha: string | null,
+  maxCount = 200,
+): {
   commits: string[];
   headSha: string | null;
+  windowKind: "tag" | "sha" | "count" | "none";
 } {
   let headSha: string | null = null;
   try {
@@ -77,36 +108,45 @@ function safeGitLog(sinceVersion: string | null, maxCount = 200): {
   } catch {
     headSha = null;
   }
-  const commits: string[] = [];
-  // Try a few strategies in order — we don't tag releases so we have to be flexible.
-  const candidateRanges: string[] = [];
+  // Strategy chain:
+  //   1) v<since>..HEAD or <since>..HEAD if a release tag exists
+  //   2) <cached-sha>..HEAD if we previously stored the commit SHA for `since`
+  //   3) Last 50 commits (count window) — relevant-but-not-perfect since we
+  //      don't tag releases
+  //   4) Empty (caller should treat as "no relevant commits")
+  type Strategy = { range: string; kind: "tag" | "sha" | "count" };
+  const strategies: Strategy[] = [];
   if (sinceVersion) {
-    // If we ever start tagging like v1.3.4, this will work first.
-    candidateRanges.push(`v${sinceVersion}..HEAD`);
-    candidateRanges.push(`${sinceVersion}..HEAD`);
-    // Otherwise, search commit messages mentioning the previous version.
-    candidateRanges.push("");
-  } else {
-    candidateRanges.push("");
+    strategies.push({ range: `v${sinceVersion}..HEAD`, kind: "tag" });
+    strategies.push({ range: `${sinceVersion}..HEAD`, kind: "tag" });
   }
-  for (const range of candidateRanges) {
+  if (cachedSinceSha) {
+    strategies.push({ range: `${cachedSinceSha}..HEAD`, kind: "sha" });
+  }
+  // Only fall back to a count-window when we have no other signal at all.
+  // Without `since` we still want SOMETHING for the manual launcher.
+  if (!sinceVersion && !cachedSinceSha) {
+    strategies.push({ range: `-n 50`, kind: "count" });
+  }
+
+  for (const s of strategies) {
     try {
-      const cmd = range
-        ? `git log ${range} --pretty=format:%s --no-merges -n ${maxCount}`
-        : `git log --pretty=format:%s --no-merges -n ${maxCount}`;
-      const out = execSync(cmd, { encoding: "utf8" });
-      if (out.trim()) {
-        out.split("\n").forEach((line) => {
-          const trimmed = line.trim();
-          if (trimmed) commits.push(trimmed);
-        });
-        break;
+      const cmd = s.kind === "count"
+        ? `git log --pretty=format:%s --no-merges ${s.range}`
+        : `git log ${s.range} --pretty=format:%s --no-merges -n ${maxCount}`;
+      const out = execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      const lines = out
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      if (lines.length > 0) {
+        return { commits: lines.slice(0, maxCount), headSha, windowKind: s.kind };
       }
     } catch {
       // try next strategy
     }
   }
-  return { commits: commits.slice(0, maxCount), headSha };
+  return { commits: [], headSha, windowKind: "none" };
 }
 
 function buildPrompt(
@@ -167,14 +207,17 @@ async function generateWithOpenAI(
   const slides = (parsed as { slides?: unknown })?.slides;
   if (!Array.isArray(slides)) return [];
   return slides
-    .map((s: any, idx: number): ReleaseNoteSlide | null => {
+    .map((s: unknown, idx: number): ReleaseNoteSlide | null => {
       if (!s || typeof s !== "object") return null;
-      const title = String(s.title || "").trim();
-      const body = String(s.body || "").trim();
+      const obj = s as Record<string, unknown>;
+      const title = typeof obj.title === "string" ? obj.title.trim() : "";
+      const body = typeof obj.body === "string" ? obj.body.trim() : "";
       if (!title || !body) return null;
+      const id = typeof obj.id === "string" && obj.id ? obj.id : `slide-${idx}`;
+      const icon = typeof obj.icon === "string" && obj.icon ? obj.icon : "star";
       return {
-        id: String(s.id || `slide-${idx}`).slice(0, 64),
-        icon: String(s.icon || "star").slice(0, 32),
+        id: id.slice(0, 64),
+        icon: icon.slice(0, 32),
         title: title.slice(0, 80),
         body: body.slice(0, 200),
       };
@@ -219,10 +262,51 @@ function fallbackSlides(
 }
 
 /**
+ * Read the per-platform versions from app.json so the route can validate that
+ * a client-supplied `version` matches a real published build. Without this
+ * check, anyone could spam unique versions to bypass the per-key cache and
+ * force OpenAI generations.
+ */
+let cachedAppVersions: { all: Set<string>; primary: string } | null = null;
+export function getServerAppVersions(): { all: Set<string>; primary: string } {
+  if (cachedAppVersions) return cachedAppVersions;
+  const all = new Set<string>();
+  let primary = "0.0.0";
+  try {
+    const appJsonPath = path.resolve(process.cwd(), "app.json");
+    const raw = fs.readFileSync(appJsonPath, "utf8");
+    const parsed = JSON.parse(raw) as {
+      expo?: {
+        version?: string;
+        ios?: { version?: string };
+        android?: { version?: string };
+      };
+    };
+    const top = parsed?.expo?.version;
+    const ios = parsed?.expo?.ios?.version;
+    const android = parsed?.expo?.android?.version;
+    [top, ios, android].forEach((v) => {
+      if (typeof v === "string" && /^[\w.\-]{1,32}$/.test(v)) all.add(v);
+    });
+    primary = top || android || ios || "0.0.0";
+  } catch (err) {
+    console.warn("[release-notes] cannot read app.json for version allowlist:", err);
+  }
+  cachedAppVersions = { all, primary };
+  return cachedAppVersions;
+}
+
+/**
  * Get release notes for (version, role, locale). Uses the cache when present;
  * otherwise calls OpenAI on the git log since `fromVersion` and stores the result.
- * Never throws — falls back to canned slides on any error so the boot flow
- * keeps moving.
+ *
+ * `allowFallback` controls what happens when OpenAI returns nothing:
+ *   - true  → return canned generic "polish & reliability" slides (used by the
+ *             manual "View latest updates" launcher, where the user explicitly
+ *             asked to see something).
+ *   - false → return an empty slides array (used by the auto boot-time flow,
+ *             where the WhatsNewGate silently dismisses if there are no
+ *             role-relevant updates).
  */
 export async function getReleaseNotes(opts: {
   version: string;
@@ -230,8 +314,16 @@ export async function getReleaseNotes(opts: {
   locale: ReleaseNoteLocale;
   fromVersion: string | null;
   forceRegenerate?: boolean;
+  allowFallback?: boolean;
 }): Promise<ReleaseNotesPayload> {
-  const { version, role, locale, fromVersion, forceRegenerate } = opts;
+  const {
+    version,
+    role,
+    locale,
+    fromVersion,
+    forceRegenerate,
+    allowFallback = false,
+  } = opts;
 
   if (!forceRegenerate) {
     try {
@@ -247,10 +339,17 @@ export async function getReleaseNotes(opts: {
         )
         .limit(1);
       if (hit) {
+        let cachedSlides = (hit.slides as ReleaseNoteSlide[]) || [];
+        // If the cached row is empty AND the caller wants a fallback (manual
+        // launcher), upgrade to canned slides on the fly without re-caching —
+        // this keeps the auto-flow behavior empty for everyone else.
+        if (cachedSlides.length === 0 && allowFallback) {
+          cachedSlides = fallbackSlides(role, locale);
+        }
         return {
           version,
           fromVersion: hit.fromVersion ?? fromVersion,
-          slides: hit.slides as ReleaseNoteSlide[],
+          slides: cachedSlides,
         };
       }
     } catch (err) {
@@ -258,20 +357,31 @@ export async function getReleaseNotes(opts: {
     }
   }
 
-  const { commits, headSha } = safeGitLog(fromVersion);
+  const cachedSinceSha = fromVersion
+    ? await lookupCachedShaForVersion(fromVersion)
+    : null;
+  const { commits, headSha } = safeGitLog(fromVersion, cachedSinceSha);
   let slides: ReleaseNoteSlide[] = [];
   try {
-    if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY && commits.length > 0) {
       const prompt = buildPrompt(role, locale, version, fromVersion, commits);
       slides = await generateWithOpenAI(prompt);
     }
   } catch (err) {
     console.warn("[release-notes] OpenAI generation failed:", err);
   }
-  if (slides.length === 0) {
+  // For the auto boot-flow (allowFallback === false) we keep slides empty when
+  // there is genuinely nothing relevant — the WhatsNewGate silently dismisses.
+  // For the manual launcher (allowFallback === true) we fall back to canned
+  // slides because the user explicitly asked to see what's new.
+  if (slides.length === 0 && allowFallback) {
     slides = fallbackSlides(role, locale);
   }
 
+  // We always store the result — including empty arrays — so subsequent hits
+  // for the same (version, role, locale) are served from cache instead of
+  // re-running git+OpenAI. Empty arrays are upgraded on read for fallback
+  // callers (see above).
   try {
     if (forceRegenerate) {
       await db

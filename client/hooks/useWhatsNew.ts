@@ -242,6 +242,10 @@ export function useWhatsNewOnDemand(): {
     url.searchParams.set("version", currentVersion);
     url.searchParams.set("role", role);
     url.searchParams.set("locale", locale);
+    // Manual launcher requests fallback slides so the user never sees an
+    // empty "View latest updates" pane — different from the boot gate which
+    // silently dismisses on empty.
+    url.searchParams.set("fallback", "1");
     const res = await fetch(url.toString());
     if (!res.ok) throw new Error(`release-notes ${res.status}`);
     const data = (await res.json()) as ReleaseNotesResponse;

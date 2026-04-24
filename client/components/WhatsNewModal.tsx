@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Switch,
   ActivityIndicator,
   Dimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Feather from "@expo/vector-icons/Feather";
@@ -29,7 +31,6 @@ import {
 import {
   useWhatsNew,
   useWhatsNewOnDemand,
-  setWhatsNewDisabled,
   markVersionSeen,
   type WhatsNewSlide,
 } from "@/hooks/useWhatsNew";
@@ -65,17 +66,20 @@ export function WhatsNewModalView({
   const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(initialDisabled);
+  const scrollRef = useRef<ScrollView | null>(null);
 
   // Reset state every time the modal opens with a new payload.
   useEffect(() => {
     if (visible) {
       setActiveIndex(0);
       setDontShowAgain(initialDisabled);
+      // Reset scroll back to slide 0 on (re-)open.
+      scrollRef.current?.scrollTo({ x: 0, animated: false });
     }
   }, [visible, initialDisabled]);
 
   const handleScroll = useCallback(
-    (e: any) => {
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const x = e.nativeEvent.contentOffset.x;
       const idx = Math.round(x / SCREEN_WIDTH);
       if (idx !== activeIndex && idx >= 0 && idx < slides.length) {
@@ -96,7 +100,12 @@ export function WhatsNewModalView({
       onClose(dontShowAgain);
       return;
     }
-    setActiveIndex((i) => i + 1);
+    const nextIdx = activeIndex + 1;
+    setActiveIndex(nextIdx);
+    // Drive the ScrollView to the next page — `contentOffset` only sets the
+    // INITIAL offset on RN ScrollView, so without scrollTo NEXT would update
+    // dots/state but never visually advance the page on web/Android.
+    scrollRef.current?.scrollTo({ x: nextIdx * SCREEN_WIDTH, animated: true });
   }, [activeIndex, slides.length, dontShowAgain, onClose]);
 
   const isLast = activeIndex >= slides.length - 1;
@@ -115,8 +124,19 @@ export function WhatsNewModalView({
           style={styles.gradient}
         />
 
-        {/* Header: version pill on the left, Skip on the right */}
+        {/* Header: close-X on the left, version pill in the middle,
+            Skip on the right. The X is an explicit dismiss for users who
+            don't read button labels — same effect as Skip. */}
         <View style={styles.header}>
+          <Pressable
+            onPress={handleSkip}
+            style={styles.closeButton}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t("whatsNew.close")}
+          >
+            <Feather name="x" size={22} color={Colors.dark.textMuted} />
+          </Pressable>
           <View style={styles.versionPill}>
             <Feather name="zap" size={12} color={GlowColors.primary} />
             <Text style={styles.versionPillText}>v{version}</Text>
@@ -139,12 +159,12 @@ export function WhatsNewModalView({
           </View>
         ) : (
           <ScrollView
+            ref={scrollRef}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onScroll={handleScroll}
             scrollEventThrottle={16}
-            contentOffset={{ x: activeIndex * SCREEN_WIDTH, y: 0 }}
             style={styles.pager}
             contentContainerStyle={styles.pagerContent}
           >
@@ -222,7 +242,9 @@ function SlidePane({
     <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
       <View style={styles.iconCircle}>
         <Feather
-          name={(slide.icon as any) || "star"}
+          // Generator output is constrained to FEATHER_ICON_HINTS server-side,
+          // but type the cast narrowly so TypeScript still catches the rest.
+          name={(slide.icon || "star") as React.ComponentProps<typeof Feather>["name"]}
           size={56}
           color={GlowColors.primary}
         />
@@ -257,7 +279,8 @@ function SlidePane({
  * the app root inside the navigation tree.
  */
 export function WhatsNewGate({ enabled = true }: { enabled?: boolean }) {
-  const { user } = useAuth();
+  // No need to read `user` here — the underlying useWhatsNew hook already
+  // derives userId from the auth context for its storage keys.
   const { shouldShow, slides, version, dismiss, disableForever } = useWhatsNew();
   const [open, setOpen] = useState(false);
 
