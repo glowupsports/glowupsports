@@ -2647,6 +2647,9 @@ import fs from "fs";
           .select({
             group: communityGroupsTable,
             seriesSport: coachingSeries.sport,
+            seriesDayOfWeek: coachingSeries.dayOfWeek,
+            seriesStartTime: coachingSeries.startTime,
+            seriesSessionType: coachingSeries.sessionType,
           })
           .from(communityGroupsTable)
           .leftJoin(coachingSeries, eq(coachingSeries.id, communityGroupsTable.seriesId))
@@ -2674,11 +2677,38 @@ import fs from "fs";
           liveCounts.map((c) => [c.groupId, Number(c.count) || 0]),
         );
 
+        // Last-message timestamps per group (for "By recently active" sort on the Training tab).
+        // Group conversations use type='group' with title = group.id (see player-chat.ts).
+        const lastMessageRows = groupIdsForCount.length > 0
+          ? await db
+              .select({
+                groupId: conversationsTable.title,
+                lastMessageAt: conversationsTable.lastMessageAt,
+              })
+              .from(conversationsTable)
+              .where(
+                and(
+                  eq(conversationsTable.type, "group"),
+                  inArray(conversationsTable.title, groupIdsForCount),
+                ),
+              )
+          : [];
+        const lastMessageByGroup = new Map<string, Date | null>(
+          lastMessageRows
+            .filter((r) => r.groupId)
+            .map((r) => [r.groupId as string, r.lastMessageAt ?? null]),
+        );
+
         const groups = filteredGroupRows.map((row) => ({
           ...row.group,
           memberCount: countByGroup.get(row.group.id) ?? 0,
           isMember: myGroupIds.includes(row.group.id),
           role: memberRows.find((m) => m.groupId === row.group.id)?.role || null,
+          // Joined coaching_series fields (null for non-class community groups)
+          seriesDayOfWeek: row.seriesDayOfWeek,
+          seriesStartTime: row.seriesStartTime,
+          seriesSessionType: row.seriesSessionType,
+          lastMessageAt: lastMessageByGroup.get(row.group.id) ?? null,
         }));
 
         res.json({

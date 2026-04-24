@@ -20,6 +20,8 @@ type DeepLinkData = {
   messageId?: string;
   groupId?: string;
   groupName?: string;
+  tab?: "training" | "communities";
+  seriesId?: string;
 };
 
 if (Platform.OS !== 'web') {
@@ -123,6 +125,16 @@ export function usePushNotifications() {
             break;
           case 'GroupDetail':
             if (data.groupId) {
+              // If the push payload tells us which Groups sub-tab the group lives in
+              // (training vs communities), pre-stack the Groups screen so the user
+              // lands on the right tab when backing out of GroupDetail.
+              const groupTab: "training" | "communities" =
+                data.tab === 'training' || data.tab === 'communities'
+                  ? data.tab
+                  : data.seriesId
+                  ? 'training'
+                  : 'communities';
+              navigation.navigate('Groups', { initialTab: groupTab });
               navigation.navigate('GroupDetail', {
                 groupId: data.groupId,
                 groupName: data.groupName || '',

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
   TextInput,
   Modal,
   Alert,
+  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ import { ThemedText as Text } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
 import GroupPreviewSheet, { type SheetGroup } from "@/player/components/community/GroupPreviewSheet";
 import { useSport, getSportColor, getSportLabel, getSportIcon } from "@/player/context/SportContext";
@@ -38,6 +40,11 @@ interface Group {
   isPrivate: boolean;
   isMember: boolean;
   role?: string;
+  seriesId?: string | null;
+  seriesDayOfWeek?: number | null;
+  seriesStartTime?: string | null;
+  seriesSessionType?: string | null;
+  lastMessageAt?: string | null;
 }
 
 interface GroupsData {
@@ -45,7 +52,109 @@ interface GroupsData {
   discover: Group[];
 }
 
-type Props = NativeStackScreenProps<any, "Groups">;
+type ActiveTab = "communities" | "training" | "discover";
+type DayChip = "all" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+type FormatChip = "all" | "group" | "semi_private" | "private";
+type TrainingSort = "schedule" | "recent";
+
+type Props = NativeStackScreenProps<PlayerStackParamList, "Groups">;
+
+const DAY_CHIPS: { key: DayChip; label: string; dow: number | null }[] = [
+  { key: "all", label: "All days", dow: null },
+  { key: "mon", label: "Mon", dow: 1 },
+  { key: "tue", label: "Tue", dow: 2 },
+  { key: "wed", label: "Wed", dow: 3 },
+  { key: "thu", label: "Thu", dow: 4 },
+  { key: "fri", label: "Fri", dow: 5 },
+  { key: "sat", label: "Sat", dow: 6 },
+  { key: "sun", label: "Sun", dow: 0 },
+];
+
+const FORMAT_CHIPS: { key: FormatChip; label: string; sessionTypes: string[] | null }[] = [
+  { key: "all", label: "All", sessionTypes: null },
+  { key: "group", label: "Group", sessionTypes: ["group"] },
+  { key: "semi_private", label: "Semi-Private", sessionTypes: ["semi", "semi_private"] },
+  { key: "private", label: "Private", sessionTypes: ["private"] },
+];
+
+const DAY_LABEL_LONG: Record<number, string> = {
+  0: "Sunday",
+  1: "Monday",
+  2: "Tuesday",
+  3: "Wednesday",
+  4: "Thursday",
+  5: "Friday",
+  6: "Saturday",
+};
+
+const DAY_LABEL_SHORT: Record<number, string> = {
+  0: "Sun",
+  1: "Mon",
+  2: "Tue",
+  3: "Wed",
+  4: "Thu",
+  5: "Fri",
+  6: "Sat",
+};
+
+function isTrainingGroup(g: Group): boolean {
+  return !!g.seriesId;
+}
+
+function filterTrainingGroups(groups: Group[], day: DayChip, format: FormatChip): Group[] {
+  const dayCfg = DAY_CHIPS.find((c) => c.key === day);
+  const fmtCfg = FORMAT_CHIPS.find((c) => c.key === format);
+  return groups.filter((g) => {
+    if (dayCfg?.dow !== null && dayCfg?.dow !== undefined) {
+      if (g.seriesDayOfWeek !== dayCfg.dow) return false;
+    }
+    if (fmtCfg?.sessionTypes) {
+      const st = g.seriesSessionType ?? "";
+      if (!fmtCfg.sessionTypes.includes(st)) return false;
+    }
+    return true;
+  });
+}
+
+function sortTrainingGroups(groups: Group[], sortBy: TrainingSort): Group[] {
+  const arr = [...groups];
+  if (sortBy === "recent") {
+    arr.sort((a, b) => {
+      const ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return tb - ta;
+    });
+  } else {
+    // By schedule: Monday first, Sunday last, irregular/unknown (-1, null, undefined) last,
+    // then start time as a tiebreaker.
+    const norm = (d: number | null | undefined): number => {
+      if (d === null || d === undefined || d < 0 || d > 6) return 999;
+      return d === 0 ? 7 : d; // Sun -> 7 so Mon comes first
+    };
+    arr.sort((a, b) => {
+      const na = norm(a.seriesDayOfWeek);
+      const nb = norm(b.seriesDayOfWeek);
+      if (na !== nb) return na - nb;
+      const sa = a.seriesStartTime ?? "99:99";
+      const sb = b.seriesStartTime ?? "99:99";
+      return sa.localeCompare(sb);
+    });
+  }
+  return arr;
+}
+
+function sortCommunityGroups(groups: Group[]): Group[] {
+  return [...groups].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function trainingSubtitle(g: Group): string | null {
+  if (g.seriesDayOfWeek === null || g.seriesDayOfWeek === undefined) return null;
+  const dow = g.seriesDayOfWeek;
+  if (dow < 0 || dow > 6) return null;
+  const day = DAY_LABEL_SHORT[dow];
+  const time = g.seriesStartTime ?? "";
+  return time ? `${day} • ${time}` : day;
+}
 
 const GROUP_TYPE_ICONS: Record<string, { icon: string; color: string }> = {
   level: { icon: "tennisball", color: "#9AE66E" },
@@ -67,6 +176,7 @@ function GroupCard({
   onLeave?: () => void;
 }) {
   const typeConfig = GROUP_TYPE_ICONS[group.type] || GROUP_TYPE_ICONS.friends;
+  const trainingMeta = isTrainingGroup(group) ? trainingSubtitle(group) : null;
   
   return (
     <Animated.View entering={FadeInDown.duration(300)}>
@@ -88,7 +198,9 @@ function GroupCard({
                 )}
               </View>
               <Text style={styles.groupMeta}>
-                {group.memberCount} member{group.memberCount !== 1 ? "s" : ""} • {group.type}
+                {trainingMeta
+                  ? `${trainingMeta} • ${group.memberCount} member${group.memberCount !== 1 ? "s" : ""}`
+                  : `${group.memberCount} member${group.memberCount !== 1 ? "s" : ""} • ${group.type}`}
               </Text>
             </View>
             {group.isMember ? (
@@ -223,12 +335,124 @@ function CreateGroupModal({
   );
 }
 
-export default function GroupsScreen({ navigation }: Props) {
+function TrainingFilterBar({
+  dayChip,
+  formatChip,
+  sortBy,
+  onDayChange,
+  onFormatChange,
+  onSortChange,
+  totalCount,
+  shownCount,
+  filterActive,
+}: {
+  dayChip: DayChip;
+  formatChip: FormatChip;
+  sortBy: TrainingSort;
+  onDayChange: (d: DayChip) => void;
+  onFormatChange: (f: FormatChip) => void;
+  onSortChange: (s: TrainingSort) => void;
+  totalCount: number;
+  shownCount: number;
+  filterActive: boolean;
+}) {
+  return (
+    <View style={styles.filterBar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterChipsRow}
+      >
+        {DAY_CHIPS.map((c) => {
+          const isActive = c.key === dayChip;
+          return (
+            <Pressable
+              key={c.key}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onDayChange(c.key);
+              }}
+              style={[styles.filterChip, isActive ? styles.filterChipActive : styles.filterChipInactive]}
+            >
+              <Text style={[styles.filterChipText, isActive ? styles.filterChipTextActive : styles.filterChipTextInactive]}>
+                {c.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterChipsRowSecondary}
+      >
+        {FORMAT_CHIPS.map((c) => {
+          const isActive = c.key === formatChip;
+          return (
+            <Pressable
+              key={c.key}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onFormatChange(c.key);
+              }}
+              style={[styles.filterChipSmall, isActive ? styles.filterChipActive : styles.filterChipInactive]}
+            >
+              <Text style={[styles.filterChipTextSmall, isActive ? styles.filterChipTextActive : styles.filterChipTextInactive]}>
+                {c.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <View style={styles.filterMetaRow}>
+        {filterActive ? (
+          <Text style={styles.filterCountText}>
+            Showing {shownCount} of {totalCount} {totalCount === 1 ? "class" : "classes"}
+          </Text>
+        ) : (
+          <View />
+        )}
+        <Pressable
+          onPress={() => {
+            Haptics.selectionAsync();
+            onSortChange(sortBy === "schedule" ? "recent" : "schedule");
+          }}
+          style={styles.sortToggle}
+          hitSlop={10}
+        >
+          <Ionicons
+            name={sortBy === "schedule" ? "calendar-outline" : "time-outline"}
+            size={14}
+            color={Colors.dark.textSecondary}
+          />
+          <Text style={styles.sortToggleText}>
+            {sortBy === "schedule" ? "By schedule" : "By recently active"}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+export default function GroupsScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"my" | "discover">("my");
+  const routeInitialTab = route.params?.initialTab;
+  const resolveInitialTab = (t: typeof routeInitialTab): ActiveTab =>
+    t === "training" ? "training" : t === "discover" ? "discover" : "communities";
+  const [activeTab, setActiveTab] = useState<ActiveTab>(resolveInitialTab(routeInitialTab));
+  // If the screen is already mounted and a deep-link re-navigates to Groups
+  // with a new initialTab (e.g. from a push notification pre-stack), apply it.
+  useEffect(() => {
+    if (routeInitialTab) {
+      setActiveTab(resolveInitialTab(routeInitialTab));
+    }
+  }, [routeInitialTab]);
+  const [dayChip, setDayChip] = useState<DayChip>("all");
+  const [formatChip, setFormatChip] = useState<FormatChip>("all");
+  const [trainingSort, setTrainingSort] = useState<TrainingSort>("schedule");
   const [previewGroup, setPreviewGroup] = useState<SheetGroup | null>(null);
   const { isMultiSport, activeSport } = useSport();
 
@@ -298,32 +522,96 @@ export default function GroupsScreen({ navigation }: Props) {
     ]);
   };
 
-  const displayGroups = activeTab === "my" ? data?.myGroups || [] : data?.discover || [];
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons 
-        name={activeTab === "my" ? "people-outline" : "compass-outline"} 
-        size={64} 
-        color={Colors.dark.textMuted} 
-      />
-      <Text style={styles.emptyTitle}>
-        {activeTab === "my" ? "No Groups Yet" : "No Groups to Discover"}
-      </Text>
-      <Text style={styles.emptySubtitle}>
-        {activeTab === "my" 
-          ? "Create a group or join one to connect with other players" 
-          : "All available groups are shown in your groups"
-        }
-      </Text>
-      {activeTab === "my" && (
-        <Pressable style={styles.emptyButton} onPress={() => setShowCreateModal(true)}>
-          <Ionicons name="add" size={18} color={Colors.dark.primary} />
-          <Text style={styles.emptyButtonText}>Create Group</Text>
-        </Pressable>
-      )}
-    </View>
+  const myGroups = data?.myGroups || [];
+  const communityGroups = useMemo(
+    () => sortCommunityGroups(myGroups.filter((g) => !isTrainingGroup(g))),
+    [myGroups],
   );
+  const trainingGroupsAll = useMemo(
+    () => myGroups.filter((g) => isTrainingGroup(g)),
+    [myGroups],
+  );
+  const trainingGroupsFiltered = useMemo(
+    () => sortTrainingGroups(filterTrainingGroups(trainingGroupsAll, dayChip, formatChip), trainingSort),
+    [trainingGroupsAll, dayChip, formatChip, trainingSort],
+  );
+
+  const trainingFilterActive = dayChip !== "all" || formatChip !== "all";
+
+  const displayGroups: Group[] =
+    activeTab === "communities"
+      ? communityGroups
+      : activeTab === "training"
+      ? trainingGroupsFiltered
+      : data?.discover || [];
+
+  const clearTrainingFilter = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDayChip("all");
+    setFormatChip("all");
+  };
+
+  const renderEmptyState = () => {
+    if (activeTab === "training") {
+      if (trainingGroupsAll.length === 0) {
+        return (
+          <View style={styles.emptyState}>
+            <Ionicons name="calendar-outline" size={64} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyTitle}>No Classes Yet</Text>
+            <Text style={styles.emptySubtitle}>
+              When you join a recurring class, it'll show up here automatically.
+            </Text>
+          </View>
+        );
+      }
+      // Has training groups but filter matched none
+      const dayCfg = DAY_CHIPS.find((c) => c.key === dayChip);
+      const longDay = dayCfg?.dow !== null && dayCfg?.dow !== undefined ? DAY_LABEL_LONG[dayCfg!.dow!] : null;
+      const fmtCfg = FORMAT_CHIPS.find((c) => c.key === formatChip);
+      const fmtLabel = fmtCfg?.sessionTypes ? fmtCfg.label.toLowerCase() : null;
+      const message = longDay && fmtLabel
+        ? `No ${fmtLabel} classes on ${longDay}`
+        : longDay
+        ? `No classes on ${longDay}`
+        : fmtLabel
+        ? `No ${fmtLabel} classes`
+        : "No classes match your filter";
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="funnel-outline" size={64} color={Colors.dark.textMuted} />
+          <Text style={styles.emptyTitle}>{message}</Text>
+          <Pressable style={styles.emptyButton} onPress={clearTrainingFilter}>
+            <Ionicons name="close" size={16} color={Colors.dark.primary} />
+            <Text style={styles.emptyButtonText}>Clear filter</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    if (activeTab === "communities") {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="people-outline" size={64} color={Colors.dark.textMuted} />
+          <Text style={styles.emptyTitle}>No Communities Yet</Text>
+          <Text style={styles.emptySubtitle}>
+            Communities are social groups outside your classes — create one or discover some.
+          </Text>
+          <Pressable style={styles.emptyButton} onPress={() => setShowCreateModal(true)}>
+            <Ionicons name="add" size={18} color={Colors.dark.primary} />
+            <Text style={styles.emptyButtonText}>Create Community</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyState}>
+        <Ionicons name="compass-outline" size={64} color={Colors.dark.textMuted} />
+        <Text style={styles.emptyTitle}>No Groups to Discover</Text>
+        <Text style={styles.emptySubtitle}>
+          All available groups are already in your list.
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <LockedScreen featureKey="groups">
@@ -355,19 +643,39 @@ export default function GroupsScreen({ navigation }: Props) {
 
         <View style={styles.tabs}>
           <Pressable 
-            style={[styles.tab, activeTab === "my" && styles.tabActive]}
-            onPress={() => setActiveTab("my")}
+            style={[styles.tab, activeTab === "communities" && styles.tabActive]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setActiveTab("communities");
+            }}
           >
-            <Text style={[styles.tabText, activeTab === "my" && styles.tabTextActive]}>My Groups</Text>
-            {data?.myGroups?.length ? (
+            <Text style={[styles.tabText, activeTab === "communities" && styles.tabTextActive]}>Communities</Text>
+            {communityGroups.length ? (
               <View style={styles.tabBadge}>
-                <Text style={styles.tabBadgeText}>{data.myGroups.length}</Text>
+                <Text style={styles.tabBadgeText}>{communityGroups.length}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+          <Pressable 
+            style={[styles.tab, activeTab === "training" && styles.tabActive]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setActiveTab("training");
+            }}
+          >
+            <Text style={[styles.tabText, activeTab === "training" && styles.tabTextActive]}>Training</Text>
+            {trainingGroupsAll.length ? (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{trainingGroupsAll.length}</Text>
               </View>
             ) : null}
           </Pressable>
           <Pressable 
             style={[styles.tab, activeTab === "discover" && styles.tabActive]}
-            onPress={() => setActiveTab("discover")}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setActiveTab("discover");
+            }}
           >
             <Text style={[styles.tabText, activeTab === "discover" && styles.tabTextActive]}>Discover</Text>
             {data?.discover?.length ? (
@@ -379,6 +687,20 @@ export default function GroupsScreen({ navigation }: Props) {
         </View>
 
         {isMultiSport ? <SportSwitcherChips style={styles.sportChips} /> : null}
+
+        {activeTab === "training" && trainingGroupsAll.length > 0 ? (
+          <TrainingFilterBar
+            dayChip={dayChip}
+            formatChip={formatChip}
+            sortBy={trainingSort}
+            onDayChange={setDayChip}
+            onFormatChange={setFormatChip}
+            onSortChange={setTrainingSort}
+            totalCount={trainingGroupsAll.length}
+            shownCount={trainingGroupsFiltered.length}
+            filterActive={trainingFilterActive}
+          />
+        ) : null}
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -529,6 +851,79 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  filterBar: {
+    paddingBottom: Spacing.sm,
+  },
+  filterChipsRow: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.xs,
+    paddingBottom: Spacing.xs,
+  },
+  filterChipsRowSecondary: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.xs,
+    paddingBottom: Spacing.xs,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+  },
+  filterChipSmall: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.full,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.dark.primary,
+  },
+  filterChipInactive: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  filterChipTextSmall: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+  filterChipTextActive: {
+    color: Colors.dark.buttonText,
+  },
+  filterChipTextInactive: {
+    color: Colors.dark.textMuted,
+  },
+  filterMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.xs,
+  },
+  filterCountText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
+  },
+  sortToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  sortToggleText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
   },
   listContent: {
     paddingHorizontal: Spacing.lg,

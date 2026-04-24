@@ -328,7 +328,7 @@ export type PlayerStackParamList = {
   };
   PlayerFinder: undefined;
   FriendsList: { initialTab?: "friends" | "requests" } | undefined;
-  Groups: undefined;
+  Groups: { initialTab?: "communities" | "training" | "discover" } | undefined;
   GroupDetail: { groupId: string; groupName: string };
   PlayerMessages: undefined;
   ChatRoom: { roomId: string; title?: string };
