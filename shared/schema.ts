@@ -1117,6 +1117,13 @@ export const players = pgTable("players", {
   // Family Lobby - Link multiple players to same parent account
   parentEmail: text("parent_email"), // Parent's email for family account linking
   parentReporting: boolean("parent_reporting").default(false), // Monthly AI progress letter to parent
+
+  // Family PIN — used to gate sensitive family actions (e.g. minting/revoking
+  // public spectator links). 4-digit string, default "1234" so first-time use
+  // works without a setup step. Tracks `pinChangedAt` to surface a "change
+  // your PIN" nudge in the UI when it's still the default.
+  parentDashboardPin: text("parent_dashboard_pin").default("1234"),
+  pinChangedAt: timestamp("pin_changed_at"),
   
   // Child Safety - Parental Controls
   chatEnabled: boolean("chat_enabled"),
@@ -7479,6 +7486,44 @@ export const familyInviteCodes = pgTable("family_invite_codes", {
 export const insertFamilyInviteCodeSchema = createInsertSchema(familyInviteCodes).omit({ id: true, createdAt: true, usedAt: true, usedByPlayerId: true });
 export type InsertFamilyInviteCode = z.infer<typeof insertFamilyInviteCodeSchema>;
 export type FamilyInviteCode = typeof familyInviteCodes.$inferSelect;
+
+// ==================== SPECTATOR LINKS (Family H) ====================
+//
+// Read-only public web pages so non-account viewers (grandparents, godparents,
+// extended family) can follow a player's progress without installing the app.
+// One row = one shareable URL. Tokens are 32-char base64url (~192 bits of
+// entropy), stored as plain text since they ARE the credential and revocation
+// is by `revoked_at`. The owner can mint multiple links per player; they all
+// surface the same content but can be revoked independently.
+export const spectatorLinks = pgTable("spectator_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  // Who minted the link. May be the player themselves or another family member
+  // (any member of the same family group can generate one for any other).
+  createdByPlayerId: varchar("created_by_player_id").references(() => players.id).notNull(),
+  // Unguessable URL fragment. 32 chars of base64url = 192 bits.
+  token: text("token").notNull().unique(),
+  // Optional human-readable label for the owner's UI ("Grandma Edith").
+  label: text("label"),
+  revokedAt: timestamp("revoked_at"),
+  // Tracking — bumped on each successful GET /spectate/:token. No PII stored.
+  lastViewedAt: timestamp("last_viewed_at"),
+  viewCount: integer("view_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("spectator_links_player_idx").on(table.playerId),
+  index("spectator_links_token_idx").on(table.token),
+]);
+
+export const insertSpectatorLinkSchema = createInsertSchema(spectatorLinks).omit({
+  id: true,
+  createdAt: true,
+  revokedAt: true,
+  lastViewedAt: true,
+  viewCount: true,
+});
+export type InsertSpectatorLink = z.infer<typeof insertSpectatorLinkSchema>;
+export type SpectatorLink = typeof spectatorLinks.$inferSelect;
 
 // ==================== AI PROGRESS ENGINE ====================
 

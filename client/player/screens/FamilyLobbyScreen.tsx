@@ -16,7 +16,7 @@ import {
 import * as Clipboard from "expo-clipboard";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -263,6 +263,180 @@ export default function FamilyLobbyScreen() {
   const [enterCodeLoading, setEnterCodeLoading] = useState(false);
   const [enterCodeClaiming, setEnterCodeClaiming] = useState(false);
   const [enterCodeClaimed, setEnterCodeClaimed] = useState(false);
+
+  // ── Family H — Spectator (read-only family stream) state ─────────────────
+  const [showSpectator, setShowSpectator] = useState(false);
+  const [spectatorTargetPlayerId, setSpectatorTargetPlayerId] = useState<string | null>(null);
+  const [spectatorCopiedId, setSpectatorCopiedId] = useState<string | null>(null);
+
+  // PIN elevation: cached short-lived token from /api/family/pin/verify, plus
+  // the modal that prompts for the PIN when there's no valid token. We hold the
+  // intended action so we can resume after the PIN is entered.
+  const [pinElevation, setPinElevation] = useState<{ token: string; expiresAt: number } | null>(null);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinVerifying, setPinVerifying] = useState(false);
+  const [pinPendingAction, setPinPendingAction] = useState<
+    | { kind: "generate"; playerId: string }
+    | { kind: "revoke"; linkId: string }
+    | null
+  >(null);
+
+  const getValidElevation = (): string | null => {
+    if (!pinElevation) return null;
+    // Treat anything within 30s of expiry as expired to avoid race conditions.
+    if (pinElevation.expiresAt - Date.now() < 30_000) return null;
+    return pinElevation.token;
+  };
+
+  type SpectatorLinkRow = {
+    id: string;
+    token: string;
+    url: string;
+    playerId: string;
+    createdByPlayerId: string;
+    label: string | null;
+    revokedAt: string | null;
+    lastViewedAt: string | null;
+    viewCount: number;
+    createdAt: string | null;
+  };
+
+  const spectatorLinksQuery = useQuery<{ links: SpectatorLinkRow[] }>({
+    queryKey: ["/api/family/spectator-links"],
+    enabled: showSpectator,
+    staleTime: 0,
+  });
+
+  const generateSpectatorLink = useMutation({
+    mutationFn: async ({ playerId, elevationToken }: { playerId: string; elevationToken: string }) => {
+      const res = await apiRequest("POST", "/api/family/spectator-link", {
+        playerId,
+        pinElevationToken: elevationToken,
+      });
+      return (await res.json()) as SpectatorLinkRow;
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/family/spectator-links"] });
+    },
+    onError: (error: any) => {
+      // Drop the cached elevation token if the server rejected it.
+      if (String(error?.message || "").includes("PIN_ELEVATION_REQUIRED")) {
+        setPinElevation(null);
+      }
+      Alert.alert("Error", parseApiError(error, "Could not generate spectator link."));
+    },
+  });
+
+  const revokeSpectatorLink = useMutation({
+    mutationFn: async ({ linkId, elevationToken }: { linkId: string; elevationToken: string }) => {
+      const qs = `?pinElevationToken=${encodeURIComponent(elevationToken)}`;
+      await apiRequest("DELETE", `/api/family/spectator-link/${linkId}${qs}`);
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/family/spectator-links"] });
+    },
+    onError: (error: any) => {
+      if (String(error?.message || "").includes("PIN_ELEVATION_REQUIRED")) {
+        setPinElevation(null);
+      }
+      Alert.alert("Error", parseApiError(error, "Could not revoke link."));
+    },
+  });
+
+  // ── PIN elevation flow ──────────────────────────────────────────────────
+  // Each sensitive action (generate/revoke spectator link) calls this; if we
+  // already hold a fresh elevation token, we run it immediately, otherwise we
+  // open the PIN modal and stash the action until the PIN succeeds.
+  const requestWithPin = (
+    action: { kind: "generate"; playerId: string } | { kind: "revoke"; linkId: string },
+  ) => {
+    const cached = getValidElevation();
+    if (cached) {
+      runPendingAction(action, cached);
+      return;
+    }
+    setPinPendingAction(action);
+    setPinInput("");
+    setPinError(null);
+    setPinModalOpen(true);
+  };
+
+  const runPendingAction = (
+    action: { kind: "generate"; playerId: string } | { kind: "revoke"; linkId: string },
+    elevationToken: string,
+  ) => {
+    if (action.kind === "generate") {
+      setSpectatorTargetPlayerId(action.playerId);
+      generateSpectatorLink.mutate({ playerId: action.playerId, elevationToken });
+    } else {
+      revokeSpectatorLink.mutate({ linkId: action.linkId, elevationToken });
+    }
+  };
+
+  const submitPin = async () => {
+    if (!/^\d{4}$/.test(pinInput)) {
+      setPinError("Enter your 4-digit Family PIN.");
+      return;
+    }
+    setPinVerifying(true);
+    setPinError(null);
+    try {
+      const res = await apiRequest("POST", "/api/family/pin/verify", { pin: pinInput });
+      const data = (await res.json()) as { elevationToken: string; expiresAt: string };
+      const expiresAt = new Date(data.expiresAt).getTime();
+      setPinElevation({ token: data.elevationToken, expiresAt });
+      setPinModalOpen(false);
+      setPinInput("");
+      const action = pinPendingAction;
+      setPinPendingAction(null);
+      if (action) runPendingAction(action, data.elevationToken);
+    } catch (error: any) {
+      setPinError(parseApiError(error, "Incorrect PIN. Try again."));
+    } finally {
+      setPinVerifying(false);
+    }
+  };
+
+  const closePinModal = () => {
+    setPinModalOpen(false);
+    setPinInput("");
+    setPinError(null);
+    setPinPendingAction(null);
+  };
+
+  const handleCopySpectatorLink = async (link: SpectatorLinkRow) => {
+    await Clipboard.setStringAsync(link.url);
+    setSpectatorCopiedId(link.id);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => setSpectatorCopiedId((prev) => (prev === link.id ? null : prev)), 2000);
+  };
+
+  const handleShareSpectatorLink = async (link: SpectatorLinkRow, playerName: string) => {
+    try {
+      await Share.share({
+        message: `Follow ${playerName}'s tennis progress: ${link.url}`,
+      });
+    } catch (_) {}
+  };
+
+  const handleRevokeSpectatorLink = (link: SpectatorLinkRow) => {
+    Alert.alert(
+      "Revoke this link?",
+      "Anyone with this link will see a 'no longer available' page. You can always create a new one.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Revoke",
+          style: "destructive",
+          onPress: () => requestWithPin({ kind: "revoke", linkId: link.id }),
+        },
+      ],
+    );
+  };
 
   const controlsMutation = useMutation({
     mutationFn: async ({ playerId, field, value }: { playerId: string; field: string; value: boolean }) => {
@@ -684,6 +858,21 @@ export default function FamilyLobbyScreen() {
           </Pressable>
         ) : null}
 
+        <Pressable
+          style={styles.parentalControlsButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSpectatorTargetPlayerId(null);
+            setShowSpectator(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Open share with family — read-only spectator links"
+        >
+          <Ionicons name="eye-outline" size={20} color={Colors.dark.primary} />
+          <Text style={styles.parentalControlsText}>Share with Family</Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+        </Pressable>
+
         <View style={styles.cardsGrid}>
           {familyData.members.map((member, index) => (
             <ChildCard
@@ -953,6 +1142,186 @@ export default function FamilyLobbyScreen() {
                 )}
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Family H — Spectator Links modal */}
+      <Modal visible={showSpectator} transparent animationType="slide" onRequestClose={() => setShowSpectator(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="eye-outline" size={24} color={Colors.dark.primary} />
+                <Text style={styles.modalTitle}>Share with Family</Text>
+              </View>
+              <Pressable onPress={() => setShowSpectator(false)} accessibilityRole="button" accessibilityLabel="Close share with family">
+                <Ionicons name="close-circle" size={28} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={styles.modalSubtitle}>
+              Generate a read-only web link for grandparents and family who don&apos;t have the app. They&apos;ll see recent matches, level-ups and posts. No login needed.
+            </Text>
+
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {familyData.members.map((member) => {
+                const memberLinks = (spectatorLinksQuery.data?.links ?? []).filter((l) => l.playerId === member.id);
+                const isGenerating = generateSpectatorLink.isPending && spectatorTargetPlayerId === member.id;
+                return (
+                  <View key={member.id} style={styles.spectatorMemberCard}>
+                    <View style={styles.spectatorMemberHeader}>
+                      {member.avatarUrl ? (
+                        <Image
+                          source={{ uri: `${getStaticAssetsUrl()}${member.avatarUrl}` }}
+                          style={styles.controlAvatar}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <View style={[styles.controlAvatar, styles.controlAvatarPlaceholder]}>
+                          <Ionicons name="person" size={16} color={Colors.dark.textMuted} />
+                        </View>
+                      )}
+                      <Text style={styles.controlName}>{member.name}</Text>
+                    </View>
+
+                    {memberLinks.length === 0 ? (
+                      <Text style={styles.spectatorEmpty}>No spectator links yet.</Text>
+                    ) : (
+                      memberLinks.map((link) => (
+                        <View key={link.id} style={[styles.spectatorLinkRow, link.revokedAt ? styles.spectatorLinkRevoked : null]}>
+                          <View style={styles.spectatorLinkInfo}>
+                            <Text
+                              style={[styles.spectatorLinkUrl, link.revokedAt ? styles.spectatorLinkUrlMuted : null]}
+                              numberOfLines={1}
+                            >
+                              {link.url.replace(/^https?:\/\//, "")}
+                            </Text>
+                            <Text style={styles.spectatorLinkMeta}>
+                              {link.revokedAt
+                                ? "Revoked"
+                                : `${link.viewCount} view${link.viewCount === 1 ? "" : "s"}${link.lastViewedAt ? " • Last viewed " + formatLastActive(link.lastViewedAt).toLowerCase() : ""}`}
+                            </Text>
+                          </View>
+                          {!link.revokedAt ? (
+                            <View style={styles.spectatorLinkActions}>
+                              <Pressable
+                                style={styles.spectatorIconBtn}
+                                onPress={() => handleCopySpectatorLink(link)}
+                                accessibilityRole="button"
+                                accessibilityLabel="Copy spectator link"
+                              >
+                                <Ionicons
+                                  name={spectatorCopiedId === link.id ? "checkmark-circle" : "copy-outline"}
+                                  size={18}
+                                  color={spectatorCopiedId === link.id ? "#00E676" : Colors.dark.primary}
+                                />
+                              </Pressable>
+                              <Pressable
+                                style={styles.spectatorIconBtn}
+                                onPress={() => handleShareSpectatorLink(link, member.name)}
+                                accessibilityRole="button"
+                                accessibilityLabel="Share spectator link"
+                              >
+                                <Ionicons name="share-outline" size={18} color={Colors.dark.primary} />
+                              </Pressable>
+                              <Pressable
+                                style={styles.spectatorIconBtn}
+                                onPress={() => handleRevokeSpectatorLink(link)}
+                                accessibilityRole="button"
+                                accessibilityLabel="Revoke spectator link"
+                              >
+                                <Ionicons name="trash-outline" size={18} color={Colors.dark.gold} />
+                              </Pressable>
+                            </View>
+                          ) : null}
+                        </View>
+                      ))
+                    )}
+
+                    <Pressable
+                      style={[styles.spectatorGenerateBtn, isGenerating ? styles.addButtonDisabled : null]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        requestWithPin({ kind: "generate", playerId: member.id });
+                      }}
+                      disabled={isGenerating}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Generate a new spectator link for ${member.name}`}
+                    >
+                      {isGenerating ? (
+                        <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                      ) : (
+                        <>
+                          <Ionicons name="add-circle-outline" size={16} color={Colors.dark.buttonText} />
+                          <Text style={styles.spectatorGenerateText}>Generate New Link</Text>
+                        </>
+                      )}
+                    </Pressable>
+                  </View>
+                );
+              })}
+
+              {spectatorLinksQuery.isLoading ? (
+                <ActivityIndicator color={Colors.dark.primary} style={{ marginVertical: Spacing.lg }} />
+              ) : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={pinModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={closePinModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.pinModalCard}>
+            <Text style={styles.pinModalTitle}>Enter Family PIN</Text>
+            <Text style={styles.pinModalSubtitle}>
+              Confirm your 4-digit Family PIN to manage spectator links. (Default is 1234 — change it in settings.)
+            </Text>
+            <TextInput
+              value={pinInput}
+              onChangeText={(t) => {
+                setPinError(null);
+                setPinInput(t.replace(/\D/g, "").slice(0, 4));
+              }}
+              keyboardType="number-pad"
+              secureTextEntry
+              maxLength={4}
+              placeholder="••••"
+              placeholderTextColor={Colors.dark.textMuted}
+              style={styles.pinModalInput}
+              autoFocus
+              accessibilityLabel="Family PIN"
+            />
+            {pinError ? <Text style={styles.pinModalError}>{pinError}</Text> : null}
+            <View style={styles.pinModalActions}>
+              <Pressable
+                onPress={closePinModal}
+                style={[styles.pinModalBtn, styles.pinModalBtnCancel]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.pinModalBtnCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={submitPin}
+                style={[
+                  styles.pinModalBtn,
+                  styles.pinModalBtnConfirm,
+                  pinVerifying || pinInput.length !== 4 ? styles.addButtonDisabled : null,
+                ]}
+                disabled={pinVerifying || pinInput.length !== 4}
+                accessibilityRole="button"
+              >
+                {pinVerifying ? (
+                  <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                ) : (
+                  <Text style={styles.pinModalBtnConfirmText}>Confirm</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1301,6 +1670,77 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "flex-end",
   },
+  pinModalCard: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    width: "90%",
+    maxWidth: 360,
+    alignSelf: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  pinModalTitle: {
+    fontSize: FontSizes.lg,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  pinModalSubtitle: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+    lineHeight: 20,
+    marginBottom: Spacing.md,
+  },
+  pinModalInput: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.medium,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    textAlign: "center",
+    letterSpacing: 12,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  pinModalError: {
+    fontSize: FontSizes.sm,
+    color: "#FF6B6B",
+    marginTop: Spacing.xs,
+    textAlign: "center",
+  },
+  pinModalActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  pinModalBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.medium,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pinModalBtnCancel: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  pinModalBtnCancelText: {
+    fontSize: FontSizes.md,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  pinModalBtnConfirm: {
+    backgroundColor: Colors.dark.primary,
+  },
+  pinModalBtnConfirmText: {
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
+  },
   modalContainer: {
     backgroundColor: Colors.dark.backgroundDefault,
     borderTopLeftRadius: 24,
@@ -1430,6 +1870,87 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   addButtonDisabled: {
     opacity: 0.4,
+  },
+  spectatorMemberCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.medium,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  spectatorMemberHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  spectatorEmpty: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+    paddingVertical: Spacing.sm,
+  },
+  spectatorLinkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.medium,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    gap: Spacing.sm,
+  },
+  spectatorLinkRevoked: {
+    opacity: 0.5,
+  },
+  spectatorLinkInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  spectatorLinkUrl: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  spectatorLinkUrlMuted: {
+    color: Colors.dark.textMuted,
+    textDecorationLine: "line-through",
+  },
+  spectatorLinkMeta: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  spectatorLinkActions: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
+  spectatorIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.medium,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  spectatorGenerateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.medium,
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  spectatorGenerateText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
   },
   addButtonText: {
     fontSize: FontSizes.md,

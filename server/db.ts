@@ -713,6 +713,33 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] players gender migration skipped:', e.message);
   }
   try {
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS parent_dashboard_pin TEXT DEFAULT '1234'`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS pin_changed_at TIMESTAMP`);
+    console.log('[Database] players parent_dashboard_pin column migration applied');
+  } catch (e: any) {
+    console.log('[Database] players parent_dashboard_pin migration skipped:', e.message);
+  }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS spectator_links (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id varchar NOT NULL REFERENCES players(id),
+        created_by_player_id varchar NOT NULL REFERENCES players(id),
+        token text NOT NULL UNIQUE,
+        label text,
+        revoked_at timestamp,
+        last_viewed_at timestamp,
+        view_count integer NOT NULL DEFAULT 0,
+        created_at timestamp DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS spectator_links_player_idx ON spectator_links(player_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS spectator_links_token_idx ON spectator_links(token)`);
+    console.log('[Database] spectator_links table migration applied');
+  } catch (e: any) {
+    console.log('[Database] spectator_links table migration skipped:', e.message);
+  }
+  try {
     await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS coach_reviewed_at TIMESTAMP`);
     console.log('[Database] sessions coach_reviewed_at migration applied');
   } catch (e: any) {

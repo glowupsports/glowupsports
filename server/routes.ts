@@ -239,6 +239,7 @@ import academyPublicRouter from "./routes/academy-public";
 import coachCalendarRouter from "./routes/coach-calendar";
 import playerAuthRouter from "./routes/player-auth";
 import familyRouter from "./routes/family";
+import spectatorLinksRouter from "./routes/spectator-links";
 import adminSetupRouter from "./routes/admin-setup";
 import playerCreditsRouter from "./routes/player-credits";
 import creditsV2Router from "./routes/credits-v2";
@@ -573,6 +574,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Symmetric family-group endpoints (canonical surface)
   // (/api/family/me/group, /members/invite, /accept/:code, DELETE /members/:id)
   app.use(familyRouter);
+
+  // Family H — Spectator links (read-only public web pages for non-account
+  // viewers like grandparents). Mounts both authenticated /api/family/spectator*
+  // endpoints AND the public GET /spectate/:token web page (no auth).
+  app.use(spectatorLinksRouter);
   app.use(adminSetupRouter);
   app.use(playerCreditsRouter);
   app.use(creditsV2Router);

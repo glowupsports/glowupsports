@@ -389,7 +389,7 @@ function setupExpoDevProxy(app: express.Application) {
     if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads') || req.path.startsWith('/public')) {
       return next();
     }
-    if (req.path.startsWith('/.well-known/') || req.path.startsWith('/group/') || req.path.startsWith('/invite/')) {
+    if (req.path.startsWith('/.well-known/') || req.path.startsWith('/group/') || req.path.startsWith('/invite/') || req.path.startsWith('/spectate/')) {
       return next();
     }
     if (templateRoutes.includes(req.path)) {
