@@ -66,6 +66,10 @@ if (SENTRY_DSN) {
     let otaUpdateId = "embedded";
     let otaRuntime = "unknown";
     let otaChannel = "unknown";
+    let appVersion = "unknown";
+    let isEmbeddedLaunch: boolean | null = null;
+    let isEmergencyLaunch: boolean | null = null;
+    let createdAt: string | null = null;
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const Updates = require("expo-updates");
@@ -73,9 +77,31 @@ if (SENTRY_DSN) {
         otaUpdateId = String(Updates.updateId || "embedded");
         otaRuntime = String(Updates.runtimeVersion || "unknown");
         otaChannel = String(Updates.channel || "unknown");
+        isEmbeddedLaunch =
+          typeof Updates.isEmbeddedLaunch === "boolean"
+            ? Updates.isEmbeddedLaunch
+            : null;
+        isEmergencyLaunch =
+          typeof Updates.isEmergencyLaunch === "boolean"
+            ? Updates.isEmergencyLaunch
+            : null;
+        createdAt = Updates.createdAt
+          ? new Date(Updates.createdAt).toISOString()
+          : null;
       }
     } catch {
       // expo-updates not present (web build, dev) — fall back to defaults.
+    }
+    try {
+      // `nativeApplicationVersion` lives in `expo-application`, not
+      // `expo-updates`. Guarded require for the same reason as above.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Application = require("expo-application");
+      appVersion = String(
+        Application?.nativeApplicationVersion || "unknown",
+      );
+    } catch {
+      // module missing — leave default.
     }
     // Commit short-SHA is injected at OTA-bundle time via EXPO_PUBLIC_COMMIT_SHA
     // (see scripts/ota-push.sh). Used for git-bisect correlation when the next
@@ -88,18 +114,45 @@ if (SENTRY_DSN) {
     // experiments block is stripped from the runtime config in some builds,
     // and we want the tag to be authoritative for crash-rate splitting.
     const reactCompiler = "off"; // Task #1290 mitigation
+    // Task #1306 — boot_source disambiguates "running on the OTA bundle"
+    // from "fell back to the embedded bundle baked into the binary". When
+    // expo-updates can't load the latest update (corruption, signature
+    // failure, emergency launch), it boots the embedded bundle silently.
+    // Without this tag, we can't tell from Sentry whether an OTA actually
+    // landed on a device.
+    const bootSource =
+      isEmbeddedLaunch === true
+        ? "embedded"
+        : isEmbeddedLaunch === false
+          ? "ota"
+          : "unknown";
     Sentry.setTag("ota_update_id", otaUpdateId);
     Sentry.setTag("ota_runtime", otaRuntime);
     Sentry.setTag("ota_channel", otaChannel);
     Sentry.setTag("ota_commit_sha", commitSha);
     Sentry.setTag("react_compiler", reactCompiler);
+    Sentry.setTag("boot_source", bootSource);
+    Sentry.setTag("ota_app_version", appVersion);
+    Sentry.setTag("ota_is_embedded_launch", String(isEmbeddedLaunch));
+    Sentry.setTag("ota_is_emergency_launch", String(isEmergencyLaunch));
     Sentry.addBreadcrumb({
       category: "boot",
       level: "info",
-      message: `App.tsx evaluated · ota=${otaUpdateId} rt=${otaRuntime} channel=${otaChannel} sha=${commitSha} rc=${reactCompiler}`,
+      message: `App.tsx evaluated · ota=${otaUpdateId} rt=${otaRuntime} channel=${otaChannel} sha=${commitSha} rc=${reactCompiler} src=${bootSource}`,
+      data: {
+        platform: Platform.OS,
+        appVersion,
+        runtimeVersion: otaRuntime,
+        channel: otaChannel,
+        updateId: otaUpdateId,
+        createdAt,
+        isEmbeddedLaunch,
+        isEmergencyLaunch,
+        commitSha,
+      },
     });
     Sentry.captureMessage(
-      `[boot] App.tsx evaluated rt=${otaRuntime} sha=${commitSha} rc=${reactCompiler}`,
+      `[boot] App.tsx evaluated rt=${otaRuntime} sha=${commitSha} rc=${reactCompiler} src=${bootSource}`,
       "info",
     );
   } catch {

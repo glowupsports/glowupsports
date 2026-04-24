@@ -1051,6 +1051,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== OTA KILL SWITCH ====================
+  // Task #1306 — Server-side flag the client checks at boot before running
+  // any OTA check. Set OTA_KILL_SWITCH=true (Replit Secret) to disable OTA
+  // distribution platform-wide without shipping a new build, e.g. when a
+  // bad bundle has been discovered and we want to stop installed devices
+  // from picking it up.
+  //
+  // The client treats any non-200 / timeout / parse error as fail-OPEN
+  // (OTA stays enabled). This way a server outage cannot sabotage the OTA
+  // distribution channel. Public, no auth — must answer fast and cheap.
+  app.get("/api/ota-status", (_req: Request, res: Response) => {
+    try {
+      const flag = String(process.env.OTA_KILL_SWITCH ?? "").toLowerCase();
+      const disabled = flag === "true" || flag === "1" || flag === "yes";
+      res.json({ disabled });
+    } catch {
+      res.json({ disabled: false });
+    }
+  });
+
   // NOTE: Maintenance mode is now enforced in authMiddlewareWithFreshData (server/auth.ts)
   // This ensures:
   // 1. Public endpoints (health, maintenance status, login) work during maintenance

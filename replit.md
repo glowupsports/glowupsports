@@ -33,6 +33,14 @@ Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATA
 Any change touching `server/`, `shared/schema.ts`, migrations, or env-var contracts requires a Replit Republish (use `suggest_deploy`). Client-only changes (`client/`) can use the OTA Push workflow.
 For mixed changes (server + client): Republish first, then OTA push.
 
+### CRITICAL: Production-safe OTA system (Task #1306)
+**OTA never auto-reloads anymore.** When a new bundle is downloaded, the user sees a small non-blocking "Update ready" banner with **Restart now** / **Later**. If they pick Later, the update is applied automatically on the next cold start (standard `expo-updates` behavior once `isUpdateReady` is true).
+- `client/components/UpdateController.tsx` runs **exactly once per cold start** (module-scoped flag + `AppState` guard). No retry loops, no background re-checks.
+- Before checking, it hits `GET /api/ota-status` (1s timeout, **fail-open**) — set `OTA_KILL_SWITCH=true` (Replit Secret) to stop OTA distribution platform-wide without a new build.
+- All OTA telemetry goes through Sentry (`addBreadcrumb`, `captureMessage("ota_boot_status")`, `captureException`), wrapped in `try/catch` so telemetry can never crash the app.
+- **`client/lib/logger.ts` is a `noop` in production.** Anything you want to see from a real device must go through Sentry directly. Don't use `logger.log` for diagnostics that matter.
+- Sentry tags for filtering: `ota_check_result`, `ota_fetch_result`, `ota_kill_switch_active`, `ota_reload_requested`, `boot_source` (`embedded` vs `ota`), `ota_is_embedded_launch`, `ota_is_emergency_launch`, `ota_app_version`, `ota_runtime`, `ota_update_id`, `ota_commit_sha`.
+
 ### CRITICAL: Lint guardrail against missing-import crashes
 **`eslint.config.js` enforces `react/jsx-no-undef: error` and `no-undef: error` on `client/**` and `server/**`.**
 The OTA push script (`scripts/ota-push.sh`) runs a lint pre-flight that **hard-aborts** the push on any error in changed files.
