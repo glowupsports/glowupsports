@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Image,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
@@ -19,6 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
 
 import { useTranslation } from "react-i18next";
 import { ThemedText } from "@/components/ThemedText";
@@ -28,6 +30,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
+import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -41,6 +44,8 @@ interface Message {
   senderType: string | null;
   senderCoachId: string | null;
   senderPlayerId: string | null;
+  senderName?: string | null;
+  senderPhotoUrl?: string | null;
   body: string;
   messageType: string | null;
   createdAt: string;
@@ -59,17 +64,23 @@ interface Conversation {
   title: string | null;
   playerId: string | null;
   coachId: string | null;
+  providerId?: string | null;
+  providerName?: string | null;
+  providerPhoto?: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   coachName?: string;
   coachPhoto?: string | null;
   playerName?: string | null;
   playerPhoto?: string | null;
+  otherPlayerId?: string | null;
+  otherPlayerUserId?: string | null;
+  unreadCount?: number;
   seriesDayOfWeek?: number | null;
   seriesStartTime?: string | null;
 }
 
-const REACTION_EMOJIS = ["thumbsup", "heart", "fire", "trophy", "star"];
+const REACTION_EMOJIS = ["👍", "❤️", "🔥", "🎾", "🏆"];
 
 const TAB_BAR_HEIGHT = 85;
 
@@ -119,8 +130,9 @@ export function PlayerChatFooter() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
+  const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { isMinor } = usePlayer();
+  const { isMinor, chatEnabled } = usePlayer();
   const playerId = user?.playerId;
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -132,6 +144,8 @@ export function PlayerChatFooter() {
   const [showNewPlayerChat, setShowNewPlayerChat] = useState(false);
   const [academyConvCreated, setAcademyConvCreated] = useState<Conversation | null>(null);
   const [failedAvatarIds, setFailedAvatarIds] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+  const [showSafetyModal, setShowSafetyModal] = useState(false);
   const markAvatarFailed = useCallback((id: string) => {
     setFailedAvatarIds((prev) => {
       if (prev.has(id)) return prev;
@@ -275,8 +289,28 @@ export function PlayerChatFooter() {
   });
 
   const handleSelectConversation = useCallback((conv: Conversation) => {
+    if (conv.type === "provider_player") {
+      setIsExpanded(false);
+      setIsFullscreen(false);
+      navigation.navigate("PlayerBookingChat", { conversationId: conv.id });
+      return;
+    }
     setSelectedConversation(conv);
-  }, []);
+  }, [navigation]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.invalidateQueries({ queryKey: ["/api/player/me/conversations"] });
+      if (selectedConversation?.id) {
+        await queryClient.invalidateQueries({
+          queryKey: ["/api/player/me/conversations", selectedConversation.id, "messages"],
+        });
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient, selectedConversation?.id]);
 
   useEffect(() => {
     const safeFullscreenHeight = SCREEN_HEIGHT - insets.top - tabBarHeight;
@@ -298,6 +332,12 @@ export function PlayerChatFooter() {
     }
   }, [selectedConversation?.id]);
 
+  useEffect(() => {
+    if (isMinor && (isExpanded || isFullscreen) && !hasShownSafetyReminder()) {
+      setShowSafetyModal(true);
+    }
+  }, [isMinor, isExpanded, isFullscreen]);
+
   const handleSend = async () => {
     if (inputText.trim() && selectedConversation) {
       sendMessageMutation.mutate(inputText.trim());
@@ -311,23 +351,53 @@ export function PlayerChatFooter() {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  const getReactionIcon = (emoji: string): keyof typeof Ionicons.glyphMap => {
-    const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-      thumbsup: "thumbs-up-outline",
-      heart: "heart-outline",
-      fire: "flash-outline",
-      trophy: "ribbon-outline",
-      star: "star-outline",
-    };
-    return icons[emoji] || "happy-outline";
+  const formatRelativeTime = (dateString: string | null | undefined) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) {
+      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return date.toLocaleDateString([], { weekday: "short" });
+    return date.toLocaleDateString([], { month: "short", day: "numeric" });
   };
+
+  const getSenderDisplayName = (item: Message): string => {
+    if (item.senderName) return item.senderName;
+    if (item.senderType === "coach") return selectedConversation?.coachName ?? "Coach";
+    if (item.senderType === "player") return selectedConversation?.playerName ?? "Player";
+    return "User";
+  };
+
+  const getSenderPhotoUrl = (item: Message): string | null => {
+    if (item.senderPhotoUrl) return buildPhotoUrl(item.senderPhotoUrl);
+    if (item.senderType === "coach") return buildPhotoUrl(selectedConversation?.coachPhoto);
+    if (item.senderType === "player") return buildPhotoUrl(selectedConversation?.playerPhoto);
+    return null;
+  };
+
+  const typingDisplayName = (() => {
+    if (!selectedConversation) return null;
+    if (selectedConversation.type === "coach_player") {
+      return selectedConversation.coachName || "Coach";
+    }
+    if (selectedConversation.type === "player_player") {
+      return selectedConversation.playerName || "Player";
+    }
+    return "Someone";
+  })();
 
   const unreadCount = unreadData?.unreadCount || 0;
   const latestConversation = conversations[0];
 
   const currentTabConfig = CHAT_TABS.find(t => t.id === currentTab);
+  const restrictChat = isMinor && !chatEnabled;
   const filteredConversations = conversations.filter(conv => {
-    return currentTabConfig?.types.includes(conv.type) ?? false;
+    if (!(currentTabConfig?.types.includes(conv.type) ?? false)) return false;
+    if (restrictChat && conv.type !== "coach_player" && conv.type !== "academy") return false;
+    return true;
   });
 
   const handleTabChange = (tab: ChatTab) => {
@@ -360,8 +430,9 @@ export function PlayerChatFooter() {
   }, [currentTab, conversations, selectedConversation, createConversationMutation.isPending, academyConvCreated]);
 
   const handleStartPlayerChat = (player: OtherPlayer) => {
-    const existingConv = conversations.find(c => 
-      c.type === "player_player" && c.title?.includes(player.firstName)
+    const existingConv = conversations.find(c =>
+      c.type === "player_player" &&
+      (c.otherPlayerId === player.id || c.playerId === player.id)
     );
     if (existingConv) {
       setSelectedConversation(existingConv);
@@ -461,6 +532,10 @@ export function PlayerChatFooter() {
       );
     }
 
+    const senderPhoto = !isOwn ? getSenderPhotoUrl(item) : null;
+    const senderAvatarKey = `msg-avatar:${item.id}`;
+    const senderShowImage = senderPhoto && !failedAvatarIds.has(senderAvatarKey);
+
     return (
       <Pressable
         onLongPress={() => setShowReactions(showReactions === item.id ? null : item.id)}
@@ -468,10 +543,22 @@ export function PlayerChatFooter() {
       >
         {!isOwn ? (
           <View style={styles.senderInfo}>
-            <View style={styles.coachAvatar}>
-              <Ionicons name="ribbon" size={12} color={Colors.dark.primary} />
-            </View>
-            <ThemedText style={styles.senderName}>Coach</ThemedText>
+            {senderShowImage ? (
+              <Image
+                source={{ uri: senderPhoto! }}
+                style={styles.senderAvatarImage}
+                onError={() => markAvatarFailed(senderAvatarKey)}
+              />
+            ) : (
+              <View style={styles.coachAvatar}>
+                <Ionicons
+                  name={item.senderType === "coach" ? "ribbon" : "person"}
+                  size={12}
+                  color={Colors.dark.primary}
+                />
+              </View>
+            )}
+            <ThemedText style={styles.senderName}>{getSenderDisplayName(item)}</ThemedText>
           </View>
         ) : null}
         <ThemedText style={styles.messageText}>{item.body}</ThemedText>
@@ -485,7 +572,7 @@ export function PlayerChatFooter() {
               }, {} as Record<string, number>)
             ).map(([emoji, count]) => (
               <View key={emoji} style={styles.reactionBadge}>
-                <Ionicons name={getReactionIcon(emoji)} size={12} color={Colors.dark.text} />
+                <ThemedText style={styles.reactionEmoji}>{emoji}</ThemedText>
                 <ThemedText style={styles.reactionCount}>{count}</ThemedText>
               </View>
             ))}
@@ -502,7 +589,7 @@ export function PlayerChatFooter() {
                 }}
                 style={styles.reactionOption}
               >
-                <Ionicons name={getReactionIcon(emoji)} size={18} color={Colors.dark.text} />
+                <ThemedText style={styles.reactionPickerEmoji}>{emoji}</ThemedText>
               </Pressable>
             ))}
           </View>
@@ -731,9 +818,9 @@ export function PlayerChatFooter() {
                   ) : null}
                 </View>
               )}
-              {isOtherTyping ? (
+              {isOtherTyping && typingDisplayName ? (
                 <View style={styles.typingIndicator}>
-                  <ThemedText style={styles.typingText}>Coach is typing...</ThemedText>
+                  <ThemedText style={styles.typingText}>{typingDisplayName} is typing...</ThemedText>
                 </View>
               ) : null}
               <View style={styles.inputContainer}>
@@ -761,58 +848,84 @@ export function PlayerChatFooter() {
             </View>
           ) : (
             <View style={styles.conversationList}>
+              {restrictChat ? (
+                <View style={styles.restrictedBanner}>
+                  <Ionicons name="shield-checkmark" size={16} color="#00BCD4" />
+                  <ThemedText style={styles.restrictedText}>
+                    You can chat with your coach. Ask a parent to enable player-to-player chat.
+                  </ThemedText>
+                </View>
+              ) : null}
               {loadingConversations ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={Colors.dark.primary} />
                 </View>
               ) : (
                 <FlatList
-                  data={filteredConversations.length > 0 ? filteredConversations : (currentTab === "coaches" || currentTab === "academy" ? conversations : [])}
+                  data={filteredConversations.length > 0 ? filteredConversations : (currentTab === "coaches" || currentTab === "academy" ? conversations.filter(c => !restrictChat || c.type === "coach_player" || c.type === "academy") : [])}
                   keyExtractor={(item) => item.id}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={refreshing}
+                      onRefresh={handleRefresh}
+                      tintColor={Colors.dark.primary}
+                    />
+                  }
                   renderItem={({ item }) => {
                     const groupSubtitle = currentTab === "groups" ? formatGroupSubtitle(item, i18n.language) : null;
+                    const hasUnread = (item.unreadCount ?? 0) > 0;
                     return (
                     <Pressable
                       onPress={() => handleSelectConversation(item)}
                       style={styles.conversationItem}
                     >
-                      {(() => {
-                        const avatarKey = `conv:${item.id}`;
-                        const photoUrl =
-                          currentTab === "players"
-                            ? buildPhotoUrl(item.playerPhoto)
-                            : currentTab === "coaches"
-                              ? buildPhotoUrl(item.coachPhoto)
-                              : null;
-                        if (photoUrl && !failedAvatarIds.has(avatarKey)) {
+                      <View style={styles.conversationAvatarWrap}>
+                        {(() => {
+                          const avatarKey = `conv:${item.id}`;
+                          const photoUrl =
+                            currentTab === "players"
+                              ? buildPhotoUrl(item.playerPhoto)
+                              : currentTab === "coaches"
+                                ? buildPhotoUrl(item.coachPhoto)
+                                : null;
+                          if (photoUrl && !failedAvatarIds.has(avatarKey)) {
+                            return (
+                              <Image
+                                source={{ uri: photoUrl }}
+                                style={styles.conversationAvatarImage}
+                                onError={() => markAvatarFailed(avatarKey)}
+                              />
+                            );
+                          }
                           return (
-                            <Image
-                              source={{ uri: photoUrl }}
-                              style={styles.conversationAvatarImage}
-                              onError={() => markAvatarFailed(avatarKey)}
-                            />
+                            <View style={[styles.conversationAvatar, currentTab === "players" && styles.playerAvatar]}>
+                              <Ionicons
+                                name={currentTab === "coaches" ? "ribbon" : currentTab === "players" ? "person" : currentTab === "academy" ? "home" : "people-circle"}
+                                size={20}
+                                color={Colors.dark.primary}
+                              />
+                            </View>
                           );
-                        }
-                        return (
-                          <View style={[styles.conversationAvatar, currentTab === "players" && styles.playerAvatar]}>
-                            <Ionicons
-                              name={currentTab === "coaches" ? "ribbon" : currentTab === "players" ? "person" : currentTab === "academy" ? "home" : "people-circle"}
-                              size={20}
-                              color={Colors.dark.primary}
-                            />
-                          </View>
-                        );
-                      })()}
+                        })()}
+                        {hasUnread ? <View style={styles.conversationUnreadDot} /> : null}
+                      </View>
                       <View style={styles.conversationInfo}>
-                        <ThemedText style={styles.conversationName}>
-                          {(currentTab === "players" ? item.playerName : null) || item.coachName || item.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
-                        </ThemedText>
+                        <View style={styles.conversationHeaderRow}>
+                          <ThemedText style={[styles.conversationName, hasUnread && styles.conversationNameUnread]} numberOfLines={1}>
+                            {(currentTab === "players" ? item.playerName : null) || item.coachName || item.title || (currentTab === "coaches" ? "Coach" : currentTab === "academy" ? "Academy" : "Chat")}
+                          </ThemedText>
+                          {item.lastMessageAt ? (
+                            <ThemedText style={styles.conversationTime}>
+                              {formatRelativeTime(item.lastMessageAt)}
+                            </ThemedText>
+                          ) : null}
+                        </View>
                         {groupSubtitle ? (
                           <ThemedText numberOfLines={1} style={styles.conversationPreview}>
                             {groupSubtitle}
                           </ThemedText>
                         ) : item.lastMessagePreview ? (
-                          <ThemedText numberOfLines={1} style={styles.conversationPreview}>
+                          <ThemedText numberOfLines={1} style={[styles.conversationPreview, hasUnread && styles.conversationPreviewUnread]}>
                             {item.lastMessagePreview}
                           </ThemedText>
                         ) : null}
@@ -842,6 +955,10 @@ export function PlayerChatFooter() {
         </View>
       ) : null}
 
+      <OnlineSafetyModal
+        visible={showSafetyModal}
+        onAccept={() => setShowSafetyModal(false)}
+      />
     </Animated.View>
   );
 }
@@ -1341,5 +1458,64 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: Colors.dark.primary,
+  },
+  senderAvatarImage: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.backgroundDefault,
+  },
+  reactionEmoji: {
+    fontSize: 12,
+  },
+  reactionPickerEmoji: {
+    fontSize: 18,
+  },
+  conversationAvatarWrap: {
+    position: "relative",
+  },
+  conversationUnreadDot: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.dark.primary,
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundRoot,
+  },
+  conversationHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  conversationNameUnread: {
+    fontWeight: "700",
+  },
+  conversationPreviewUnread: {
+    color: Colors.dark.text,
+  },
+  conversationTime: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginLeft: Spacing.sm,
+  },
+  restrictedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(0,188,212,0.10)",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  restrictedText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.textMuted,
   },
 }));
