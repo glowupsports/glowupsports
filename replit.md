@@ -17,7 +17,7 @@ Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATA
   - New features → bump minor: 1.3.x → 1.4.0
   - Major release → bump major: 1.x.x → 2.0.0
 - `expo.ios.runtimeVersion` / `expo.android.runtimeVersion` is what OTA pushes target. **Only bump it once a new binary at that runtime is actually live in the store.** Bumping it ahead of the binary makes every OTA published from that point silently dropped by every installed device until the new binary ships and propagates.
-- Today: store version is `1.3.6`, but `ios.runtimeVersion` stays at `1.3.4` and `android.runtimeVersion` stays at `1.3.5` because those are what users have installed. Move them forward only after the matching store binary is live.
+- Today: store version is `1.3.6`, and `ios.runtimeVersion` / `android.runtimeVersion` are both `1.3.6` — bumped in preparation for the fresh 1.3.6 binaries that ship with the safe OTA system from #1306. **Do not push OTAs targeting runtime 1.3.6 until the matching App Store / Play Store binary is actually live on real devices** — until then OTAs at this runtime are silently dropped by every install on 1.3.4 / 1.3.5.
 
 ### CRITICAL: Split iOS / Android runtime versions
 **iOS and Android run on different runtimes.** These are configured **per-platform** under `expo.ios.runtimeVersion` and `expo.android.runtimeVersion` in `app.json`. Each platform's OTA push targets only the runtime declared for that platform.

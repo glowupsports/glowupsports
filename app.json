@@ -16,7 +16,7 @@
     "newArchEnabled": true,
     "ios": {
       "version": "1.3.6",
-      "runtimeVersion": "1.3.4",
+      "runtimeVersion": "1.3.6",
       "supportsTablet": true,
       "bundleIdentifier": "com.glowupsports.app",
       "infoPlist": {
@@ -29,7 +29,7 @@
     },
     "android": {
       "version": "1.3.6",
-      "runtimeVersion": "1.3.5",
+      "runtimeVersion": "1.3.6",
       "adaptiveIcon": {
         "backgroundColor": "#051820",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
