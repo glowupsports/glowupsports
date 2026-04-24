@@ -689,6 +689,58 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
   }
 }
 
+// One-time backfill: walk every active series_players row whose linked
+// coaching_series is non-private and dispatch the community_group_join prompt.
+// `sendCommunityGroupJoinNotification` is idempotent per (player, group), so this
+// is safe to re-run — players who already received the prompt will be skipped.
+export async function backfillCommunityGroupJoinNotifications(): Promise<void> {
+  try {
+    const rows = await db
+      .select({
+        playerId: seriesPlayers.playerId,
+        seriesId: seriesPlayers.seriesId,
+      })
+      .from(seriesPlayers)
+      .innerJoin(coachingSeries, eq(coachingSeries.id, seriesPlayers.seriesId))
+      .where(
+        and(
+          eq(seriesPlayers.status, "active"),
+          ne(coachingSeries.sessionType, "private"),
+        ),
+      );
+
+    if (rows.length === 0) {
+      console.log(
+        "[backfillCommunityGroupJoinNotifications] No active memberships to backfill",
+      );
+      return;
+    }
+
+    const { sendCommunityGroupJoinNotification } = await import(
+      "./pushNotifications"
+    );
+
+    let processed = 0;
+    for (const row of rows) {
+      try {
+        await sendCommunityGroupJoinNotification(row.playerId, row.seriesId);
+        processed++;
+      } catch (err) {
+        console.error(
+          `[backfillCommunityGroupJoinNotifications] Failed for player ${row.playerId}, series ${row.seriesId}:`,
+          err,
+        );
+      }
+    }
+
+    console.log(
+      `[backfillCommunityGroupJoinNotifications] Processed ${processed}/${rows.length} active memberships`,
+    );
+  } catch (err) {
+    console.error("[backfillCommunityGroupJoinNotifications] Failed:", err);
+  }
+}
+
 // One-time backfill: ensure every non-private coaching_series has a Community Group.
 // Also deletes Community Groups whose linked series no longer exists or has flipped to private.
 export async function backfillCommunityGroupsForSeries(): Promise<void> {

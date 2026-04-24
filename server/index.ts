@@ -1345,6 +1345,25 @@ function setupErrorHandler(app: express.Application) {
       } catch (err) {
         console.error("[CommunityGroupForSeriesBackfill] Failed:", err);
       }
+
+      // ── CommunityGroupJoinNotificationBackfill ───────────────────────────
+      // Task #1143 — Task #1129 only fires the community_group_join prompt for
+      // *new* enrollments. Players who were already in a class before that
+      // shipped never see the prompt, so the new community surface stays
+      // hidden for them. Walk every active series_players row once and
+      // dispatch the same prompt; the helper is idempotent per player+group
+      // so this is safe to run on every boot.
+      try {
+        const { backfillCommunityGroupJoinNotifications } = await import(
+          "./storage"
+        );
+        await backfillCommunityGroupJoinNotifications();
+      } catch (err) {
+        console.error(
+          "[CommunityGroupJoinNotificationBackfill] Failed:",
+          err,
+        );
+      }
     },
   );
 })();
