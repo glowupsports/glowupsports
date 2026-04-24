@@ -26,7 +26,14 @@ import Animated, { FadeIn, FadeInDown, SlideInUp, useSharedValue, useAnimatedSty
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl, getAuthHeaders } from "@/lib/query-client";
-import { appendMediaToFormData, uploadWithProgress } from "@/lib/uploads";
+import {
+  appendMediaToFormData,
+  compressImageForMoment,
+  formatMediaSize,
+  getMediaSizeBytes,
+  MOMENT_MAX_UPLOAD_BYTES,
+  uploadWithProgress,
+} from "@/lib/uploads";
 import { useAuth } from "@/coach/context/AuthContext";
 import {
   type Achievement,
@@ -1005,6 +1012,10 @@ interface CreateMomentModalProps {
 interface SelectedMedia {
   uri: string;
   type: "image" | "video";
+  /** Final size in bytes once compression / measurement has finished. */
+  size: number | null;
+  /** True while we're still compressing or measuring this asset. */
+  preparing: boolean;
 }
 
 export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, userRole, userGroups }: CreateMomentModalProps) {
@@ -1022,6 +1033,55 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     return true;
   });
 
+  // Monotonically increasing token so a slow `prepareSelectedMedia` from an
+  // earlier pick can't overwrite the result of a newer one (rare in
+  // practice, but cheap to guard against). Bumped synchronously by every
+  // pick/capture handler before the async compression starts.
+  const prepareTokenRef = React.useRef(0);
+
+  // Re-encodes photos through expo-image-manipulator and measures videos so we
+  // can show a size hint (and block submit) before the upload would 413. Sets
+  // a "preparing" state on selectedMedia while compression runs so the post
+  // button stays disabled and the preview shows a spinner.
+  const prepareSelectedMedia = async (
+    uri: string,
+    type: "image" | "video",
+    sourceWidth?: number,
+    sourceHeight?: number,
+  ) => {
+    const myToken = ++prepareTokenRef.current;
+    setSelectedMedia({ uri, type, size: null, preparing: true });
+    const commit = (next: SelectedMedia) => {
+      // Drop the result if the user has since picked another asset (or
+      // cleared the selection).
+      if (prepareTokenRef.current !== myToken) return;
+      setSelectedMedia(next);
+    };
+    try {
+      if (type === "image") {
+        const compressed = await compressImageForMoment(uri, {
+          width: sourceWidth,
+          height: sourceHeight,
+        });
+        commit({
+          uri: compressed.uri,
+          type: "image",
+          size: compressed.size,
+          preparing: false,
+        });
+      } else {
+        const size = await getMediaSizeBytes(uri);
+        commit({ uri, type: "video", size, preparing: false });
+      }
+    } catch (error) {
+      logger.log("[Social] Media prepare error:", error);
+      // Even if compression / sizing fails we still keep the original URI so
+      // the user can attempt to post; the 50 MB server cap remains the
+      // safety net.
+      commit({ uri, type, size: null, preparing: false });
+    }
+  };
+
   const handlePickMedia = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -1038,7 +1098,12 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
       const isVideo = asset.type === "video" || asset.uri.includes(".mp4") || asset.uri.includes(".mov");
-      setSelectedMedia({ uri: asset.uri, type: isVideo ? "video" : "image" });
+      await prepareSelectedMedia(
+        asset.uri,
+        isVideo ? "video" : "image",
+        asset.width,
+        asset.height,
+      );
     }
   };
 
@@ -1057,7 +1122,8 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     });
 
     if (!result.canceled && result.assets[0]) {
-      setSelectedMedia({ uri: result.assets[0].uri, type: "image" });
+      const asset = result.assets[0];
+      await prepareSelectedMedia(asset.uri, "image", asset.width, asset.height);
     }
   };
 
@@ -1075,9 +1141,20 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     });
 
     if (!result.canceled && result.assets[0]) {
-      setSelectedMedia({ uri: result.assets[0].uri, type: "video" });
+      const asset = result.assets[0];
+      await prepareSelectedMedia(asset.uri, "video", asset.width, asset.height);
     }
   };
+
+  // True once we know the asset is over the server's 50 MB cap. Used to
+  // disable Post and surface an inline warning instead of letting the upload
+  // 413. Compressed photos basically never trip this; videos longer than
+  // ~25–30 s shot at 4K can.
+  const mediaTooLarge =
+    !!selectedMedia &&
+    selectedMedia.size != null &&
+    selectedMedia.size > MOMENT_MAX_UPLOAD_BYTES;
+  const mediaSizeLabel = formatMediaSize(selectedMedia?.size ?? null);
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -1198,6 +1275,12 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
 
   const handleSubmit = async () => {
     if (!selectedContext || isSubmitting || isUploading) return;
+    // Defensive: if a stale "too large" media somehow makes it past the
+    // disabled Post button (e.g. tap mid-prepare), surface the same inline
+    // hint instead of silently relying on the 413 path.
+    if (selectedMedia && (selectedMedia.preparing || mediaTooLarge)) {
+      return;
+    }
 
     if (selectedMedia) {
       const uploaded = await runUpload();
@@ -1293,10 +1376,20 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
           {step === "content" ? (
             <Pressable
               onPress={handleSubmit}
-              disabled={isSubmitting || isUploading || !caption.trim()}
+              disabled={
+                isSubmitting ||
+                isUploading ||
+                !caption.trim() ||
+                !!selectedMedia?.preparing ||
+                mediaTooLarge
+              }
               style={[
                 createStyles.postButton,
-                (!caption.trim() || isSubmitting || isUploading) && createStyles.postButtonDisabled
+                (!caption.trim() ||
+                  isSubmitting ||
+                  isUploading ||
+                  selectedMedia?.preparing ||
+                  mediaTooLarge) && createStyles.postButtonDisabled
               ]}
             >
               {isUploading ? (
@@ -1400,24 +1493,46 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
             <ThemedText style={createStyles.charCount}>{caption.length}/280</ThemedText>
 
             {selectedMedia ? (
-              <View style={createStyles.imagePreviewContainer}>
-                {selectedMedia.type === "video" ? (
-                  <View style={[createStyles.imagePreview, createStyles.videoPreview]}>
-                    <Ionicons name="videocam" size={48} color={Colors.dark.primary} />
-                    <ThemedText style={createStyles.videoLabel}>Video Selected</ThemedText>
+              <>
+                <View style={createStyles.imagePreviewContainer}>
+                  {selectedMedia.type === "video" ? (
+                    <View style={[createStyles.imagePreview, createStyles.videoPreview]}>
+                      <Ionicons name="videocam" size={48} color={Colors.dark.primary} />
+                      <ThemedText style={createStyles.videoLabel}>Video Selected</ThemedText>
+                    </View>
+                  ) : (
+                    <Image source={{ uri: selectedMedia.uri }} style={createStyles.imagePreview} />
+                  )}
+                  {selectedMedia.preparing ? (
+                    <View style={createStyles.preparingOverlay}>
+                      <ActivityIndicator color={Colors.dark.primary} />
+                      <ThemedText style={createStyles.preparingLabel}>
+                        {selectedMedia.type === "video" ? "Checking video size\u2026" : "Optimizing photo\u2026"}
+                      </ThemedText>
+                    </View>
+                  ) : null}
+                  {!isUploading ? (
+                    <Pressable
+                      style={createStyles.removeImageButton}
+                      onPress={() => setSelectedMedia(null)}
+                    >
+                      <Ionicons name="close-circle" size={28} color={Colors.dark.text} />
+                    </Pressable>
+                  ) : null}
+                </View>
+                {mediaTooLarge ? (
+                  <View style={createStyles.mediaSizeWarning}>
+                    <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                    <ThemedText style={createStyles.mediaSizeWarningText}>
+                      {`This ${selectedMedia.type === "video" ? "video" : "photo"} is ${mediaSizeLabel ?? "too large"} \u2014 the limit is 50 MB. ${selectedMedia.type === "video" ? "Try a shorter clip or lower the camera resolution." : "Pick a smaller image."}`}
+                    </ThemedText>
                   </View>
-                ) : (
-                  <Image source={{ uri: selectedMedia.uri }} style={createStyles.imagePreview} />
-                )}
-                {!isUploading ? (
-                  <Pressable
-                    style={createStyles.removeImageButton}
-                    onPress={() => setSelectedMedia(null)}
-                  >
-                    <Ionicons name="close-circle" size={28} color={Colors.dark.text} />
-                  </Pressable>
+                ) : mediaSizeLabel && !selectedMedia.preparing ? (
+                  <ThemedText style={createStyles.mediaSizeHint}>
+                    {`${selectedMedia.type === "video" ? "Video" : "Photo"} \u00b7 ${mediaSizeLabel}`}
+                  </ThemedText>
                 ) : null}
-              </View>
+              </>
             ) : null}
 
             {isUploading ? (
@@ -2384,6 +2499,41 @@ const createStyles = makeReactiveStyles(() => StyleSheet.create({
     position: "absolute",
     top: Spacing.sm,
     right: Spacing.sm,
+  },
+  preparingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  preparingLabel: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  mediaSizeHint: {
+    marginTop: Spacing.xs,
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  mediaSizeWarning: {
+    marginTop: Spacing.xs,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(239,68,68,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.4)",
+  },
+  mediaSizeWarningText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#EF4444",
+    lineHeight: 16,
   },
   mediaButtons: {
     flexDirection: "row",

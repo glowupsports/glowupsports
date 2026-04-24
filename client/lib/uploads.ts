@@ -1,10 +1,182 @@
 import { Platform } from "react-native";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import { File as FsFile } from "expo-file-system";
 
 /**
  * Derive a sensible filename from a local URI, defaulting to a `.jpg` name.
  */
 export function filenameFromUri(uri: string): string {
   return uri.split("/").pop() || "photo.jpg";
+}
+
+/**
+ * Server-side cap for Community "Moment" uploads (see
+ * `SOCIAL_POST_MAX_BYTES` in `server/routes/social-features.ts`). Mirrored
+ * here so the client can preflight before submitting.
+ */
+export const MOMENT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Target ceiling for compressed photos before upload. We aim well under the
+ * 50 MB hard cap so headroom remains for HEIC originals that re-encode to
+ * larger-than-expected JPEGs and so the upload itself stays fast on cellular.
+ */
+const PHOTO_TARGET_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Longest-edge ceiling for re-encoded photos. 2048px keeps full-screen
+ * landscape detail (more than enough for a feed image) while bringing a
+ * modern 12-megapixel HEIC down to a few MB at JPEG quality ~0.7.
+ */
+const PHOTO_MAX_EDGE = 2048;
+
+/**
+ * Quality ladder used when iteratively shrinking a photo. We start at 0.8
+ * (visually indistinguishable for most content) and step down only if the
+ * file is still above `PHOTO_TARGET_MAX_BYTES`.
+ */
+const PHOTO_QUALITY_LADDER = [0.8, 0.65, 0.5, 0.4];
+
+/**
+ * Returns the size in bytes of a local file referenced by URI, or `null` if
+ * we can't determine it (e.g. the platform/scheme isn't supported). Intended
+ * for cheap preflight checks before constructing FormData.
+ *
+ * - Native: uses `expo-file-system`'s `File(uri).size`.
+ * - Web: fetches the URI (data:/blob:/http:) and reads `blob.size`.
+ */
+export async function getMediaSizeBytes(uri: string): Promise<number | null> {
+  try {
+    if (Platform.OS === "web") {
+      const res = await fetch(uri);
+      const blob = await res.blob();
+      return typeof blob.size === "number" ? blob.size : null;
+    }
+    const file = new FsFile(uri);
+    const size = file.size;
+    return typeof size === "number" && size >= 0 ? size : null;
+  } catch {
+    return null;
+  }
+}
+
+export type CompressImageResult = {
+  uri: string;
+  width: number;
+  height: number;
+  /** Final size in bytes, or `null` if it couldn't be measured. */
+  size: number | null;
+  /** True if the returned URI is a freshly re-encoded copy. */
+  compressed: boolean;
+};
+
+export type CompressImageOptions = {
+  /**
+   * Original asset width in pixels (from e.g. `ImagePicker` result). Used to
+   * choose the correct edge to resize so we don't accidentally upscale a
+   * photo that's already smaller than `PHOTO_MAX_EDGE`. Optional — when
+   * omitted we fall back to capping the width.
+   */
+  width?: number;
+  /** Original asset height in pixels. */
+  height?: number;
+};
+
+/**
+ * Computes the resize argument for `ImageManipulatorContext.resize`.
+ *
+ * - If we know the source dimensions, we cap the longest edge at
+ *   `PHOTO_MAX_EDGE` and skip resizing entirely when the image is already
+ *   smaller (so we never upscale).
+ * - If we don't know the dimensions, we cap width at `PHOTO_MAX_EDGE` as a
+ *   best-effort fallback (legacy behavior).
+ */
+function pickResizeArg(opts?: CompressImageOptions):
+  | { width?: number; height?: number }
+  | null {
+  const w = opts?.width;
+  const h = opts?.height;
+  if (typeof w === "number" && w > 0 && typeof h === "number" && h > 0) {
+    const longest = Math.max(w, h);
+    if (longest <= PHOTO_MAX_EDGE) return null; // already small enough
+    if (w >= h) return { width: PHOTO_MAX_EDGE };
+    return { height: PHOTO_MAX_EDGE };
+  }
+  return { width: PHOTO_MAX_EDGE };
+}
+
+/**
+ * Re-encode a picked or captured photo so it sits comfortably under the
+ * Community "Moment" upload cap. Caps the longest edge at `PHOTO_MAX_EDGE`
+ * (without ever upscaling) and progressively lowers JPEG quality until
+ * either the target size is hit or the quality ladder is exhausted.
+ *
+ * Returns the (possibly new) URI plus measured dimensions/size. On any
+ * failure (unsupported platform, broken URI, native module hiccup) we fall
+ * back to the original URI so upload still proceeds and the existing 413
+ * safety net catches anything still oversized.
+ */
+export async function compressImageForMoment(
+  uri: string,
+  opts?: CompressImageOptions,
+): Promise<CompressImageResult> {
+  try {
+    const resizeArg = pickResizeArg(opts);
+    let lastResult: { uri: string; width: number; height: number } | null = null;
+    let lastSize: number | null = null;
+
+    for (const quality of PHOTO_QUALITY_LADDER) {
+      const ctx = ImageManipulator.manipulate(uri);
+      if (resizeArg) {
+        // `resize` preserves aspect ratio when only one edge is provided.
+        // Web's canvas-based fallback accepts the same signature.
+        ctx.resize(resizeArg);
+      }
+      const image = await ctx.renderAsync();
+      const saved = await image.saveAsync({
+        format: SaveFormat.JPEG,
+        compress: quality,
+      });
+      lastResult = { uri: saved.uri, width: saved.width, height: saved.height };
+      lastSize = await getMediaSizeBytes(saved.uri);
+      if (lastSize == null || lastSize <= PHOTO_TARGET_MAX_BYTES) {
+        break;
+      }
+    }
+
+    if (lastResult) {
+      return {
+        uri: lastResult.uri,
+        width: lastResult.width,
+        height: lastResult.height,
+        size: lastSize,
+        compressed: true,
+      };
+    }
+  } catch {
+    // Fall through to the original URI below.
+  }
+
+  const fallbackSize = await getMediaSizeBytes(uri);
+  return {
+    uri,
+    width: opts?.width ?? 0,
+    height: opts?.height ?? 0,
+    size: fallbackSize,
+    compressed: false,
+  };
+}
+
+/**
+ * Format a byte count as a short, user-facing string (e.g. "12.4 MB").
+ * Returns `null` when size is unknown so callers can hide the hint cleanly.
+ */
+export function formatMediaSize(bytes: number | null | undefined): string | null {
+  if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return null;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  const mb = bytes / (1024 * 1024);
+  return `${mb >= 10 ? mb.toFixed(0) : mb.toFixed(1)} MB`;
 }
 
 /**
