@@ -22,8 +22,9 @@ import {
   outsideInvites,
   players,
   playerNotifications,
+  matchChallenges,
 } from "../../shared/schema";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import crypto from "crypto";
 import path from "path";
 import fs from "fs";
@@ -31,6 +32,7 @@ import {
   authMiddlewareWithFreshData as authMiddleware,
   type AuthenticatedRequest,
 } from "../auth";
+import { getPlayerPushTokens, sendPushNotification } from "../pushNotifications";
 
 const router = Router();
 
@@ -240,6 +242,10 @@ router.post(
         return res.status(400).json({ error: "cannot_claim_own_invite" });
       }
 
+      // Track whether this is the first claim — used to gate the
+      // auto-created match challenge (so re-hitting the endpoint is idempotent).
+      const isFirstClaim = !invite.claimedAt;
+
       // Mark claimed (idempotent — same player can re-hit this endpoint).
       const [updated] = await db
         .update(outsideInvites)
@@ -250,8 +256,64 @@ router.post(
         .where(eq(outsideInvites.token, token))
         .returning();
 
-      // Notify the inviter that their invite landed. We always create the
-      // notification — the receiving end (push or in-app) is decoupled.
+      // Task #1280 — auto-create a "draft" match challenge from inviter →
+      // claimer so both players land in their matches list with a pending row
+      // they can schedule. matchDate/matchTime are required NOT NULL columns,
+      // so we seed them with today / "00:00" as placeholders the inviter is
+      // expected to update from the challenge UI.
+      let challengeId: string | null = null;
+      try {
+        if (isFirstClaim) {
+          const [inviterRow] = await db
+            .select({ academyId: players.academyId })
+            .from(players)
+            .where(eq(players.id, invite.inviterPlayerId))
+            .limit(1);
+          const today = new Date();
+          const placeholderDate = `${today.getFullYear()}-${String(
+            today.getMonth() + 1,
+          ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+          const [created] = await db
+            .insert(matchChallenges)
+            .values({
+              challengerId: invite.inviterPlayerId,
+              opponentId: claimerId,
+              academyId: inviterRow?.academyId ?? null,
+              matchType: "singles",
+              matchFormat: "friendly",
+              matchDate: placeholderDate,
+              matchTime: "00:00",
+              status: "pending",
+              message: invite.message ?? null,
+            })
+            .returning({ id: matchChallenges.id });
+          challengeId = created?.id ?? null;
+        } else {
+          // Re-claim — find the existing pending challenge so we still return
+          // a challengeId for the success-state CTA.
+          const [existing] = await db
+            .select({ id: matchChallenges.id })
+            .from(matchChallenges)
+            .where(
+              and(
+                eq(matchChallenges.challengerId, invite.inviterPlayerId),
+                eq(matchChallenges.opponentId, claimerId),
+              ),
+            )
+            .orderBy(desc(matchChallenges.createdAt))
+            .limit(1);
+          challengeId = existing?.id ?? null;
+        }
+      } catch (challengeErr) {
+        console.error(
+          "[outside-invites] auto-create challenge failed:",
+          challengeErr,
+        );
+      }
+
+      // Notify the inviter that their invite landed. Prefer a push notification
+      // (which also stores an in-app row in playerNotifications) and fall back
+      // to a plain in-app notification if no push tokens are registered.
       try {
         const [claimer] = await db
           .select({ name: players.name, photo: players.profilePhotoUrl })
@@ -259,18 +321,34 @@ router.post(
           .where(eq(players.id, claimerId))
           .limit(1);
         const claimerName = claimer?.name || "Someone";
-        await db.insert(playerNotifications).values({
-          playerId: invite.inviterPlayerId,
-          title: "Invite accepted!",
-          body: `${claimerName} just joined Glow Up Sports from your invite.`,
+        const title = "Invite accepted!";
+        const body = `${claimerName} accepted your invite — set up a time.`;
+        const data = {
           type: "outside_invite_claimed",
-          data: {
-            token,
-            claimerId,
-            claimerName,
-            claimerPhoto: claimer?.photo || null,
-          },
-        });
+          token,
+          claimerId,
+          claimerName,
+          claimerPhoto: claimer?.photo || null,
+          challengeId,
+        };
+        const tokens = await getPlayerPushTokens(invite.inviterPlayerId);
+        if (tokens.length > 0) {
+          await sendPushNotification(
+            tokens,
+            title,
+            body,
+            data,
+            invite.inviterPlayerId,
+          );
+        } else {
+          await db.insert(playerNotifications).values({
+            playerId: invite.inviterPlayerId,
+            title,
+            body,
+            type: "outside_invite_claimed",
+            data,
+          });
+        }
       } catch (notifErr) {
         console.error("[outside-invites] notify inviter failed:", notifErr);
       }
@@ -284,6 +362,7 @@ router.post(
           inviterPlayerId: updated.inviterPlayerId,
           claimedAt: updated.claimedAt,
         },
+        challengeId,
       });
     } catch (err) {
       console.error("[outside-invites] claim error:", err);

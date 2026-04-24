@@ -62,6 +62,7 @@ export default function InviteClaimScreen() {
   const [doneState, setDoneState] = useState<"accepted" | "declined" | null>(
     null,
   );
+  const [challengeId, setChallengeId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -110,11 +111,17 @@ export default function InviteClaimScreen() {
     }
     setClaiming(true);
     try {
-      await apiRequest(
+      const res = await apiRequest(
         "POST",
         `/api/outside-invites/${encodeURIComponent(token)}/claim`,
         {},
       );
+      try {
+        const json = await res.json();
+        if (json?.challengeId) setChallengeId(String(json.challengeId));
+      } catch {
+        // body parse errors shouldn't block the success state
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setDoneState("accepted");
     } catch (err: any) {
@@ -217,18 +224,37 @@ export default function InviteClaimScreen() {
                 <Text style={styles.successTitle}>You&apos;re connected!</Text>
                 <Text style={styles.successBody}>
                   We&apos;ve let {preview.inviter.name || "your inviter"} know.
-                  Open your matches to set up a time to play.
+                  {challengeId
+                    ? " Open your matches to set up a time to play."
+                    : " Open Play to set up a time to play."}
                 </Text>
                 <Pressable
                   style={[styles.btn, styles.btnPrimary]}
                   onPress={() => {
-                    navigation.navigate("Player", {
-                      screen: "PlayStack",
-                      params: { screen: "Play" },
-                    });
+                    if (challengeId) {
+                      // Land in the matches list (Growth → Match) where the
+                      // freshly created challenge is waiting to be scheduled.
+                      navigation.navigate("Player", {
+                        screen: "PlayerTabs",
+                        params: {
+                          screen: "Growth",
+                          params: {
+                            screen: "Match",
+                            params: { initialTab: "upcoming" },
+                          },
+                        },
+                      });
+                    } else {
+                      navigation.navigate("Player", {
+                        screen: "PlayStack",
+                        params: { screen: "Play" },
+                      });
+                    }
                   }}
                 >
-                  <Text style={styles.btnPrimaryText}>Go to Play</Text>
+                  <Text style={styles.btnPrimaryText}>
+                    {challengeId ? "View match" : "Go to Play"}
+                  </Text>
                 </Pressable>
               </View>
             ) : doneState === "declined" ? (
