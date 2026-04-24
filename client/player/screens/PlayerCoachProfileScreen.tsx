@@ -1,7 +1,7 @@
 import React from "react";
 import { View, StyleSheet, ScrollView, Pressable, Linking, Platform, Image as RNImage, Alert } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -9,7 +9,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { getStaticAssetsUrl, buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -68,6 +68,10 @@ interface CoachDetails {
   /** Total completed lessons taught by this coach (Task #1037). */
   totalLessonsTaught?: number;
   academyCountry?: string | null;
+  /** Task #1175 — follow state for the requesting viewer. */
+  isFollowing?: boolean;
+  /** Task #1175 — total players following this coach. */
+  followerCount?: number;
 }
 
 const NEON_GREEN = GlowColors.primary;
@@ -96,10 +100,61 @@ export default function PlayerCoachProfileScreen() {
   const insets = useSafeAreaInsets();
   const { coachId, previewMode } = route.params || {};
 
+  const queryClient = useQueryClient();
   const { data: coach, isLoading } = useQuery<CoachDetails>({
     queryKey: ["/api/player/coach", coachId],
     enabled: !!coachId,
   });
+
+  // Task #1175 — Follow / unfollow this coach. We optimistically flip the
+  // local cache so the button feels instant, then invalidate on settle to
+  // pick up the authoritative `followerCount` from the server. The same
+  // mutation handles both directions to keep the button logic simple.
+  const followMutation = useMutation({
+    mutationFn: async (nextIsFollowing: boolean) => {
+      if (!coachId) throw new Error("Missing coachId");
+      const path = `/api/social/coaches/${coachId}/follow`;
+      if (nextIsFollowing) {
+        return apiRequest("POST", path);
+      }
+      return apiRequest("DELETE", path);
+    },
+    onMutate: async (nextIsFollowing: boolean) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/player/coach", coachId] });
+      const prev = queryClient.getQueryData<CoachDetails>(["/api/player/coach", coachId]);
+      if (prev) {
+        queryClient.setQueryData<CoachDetails>(["/api/player/coach", coachId], {
+          ...prev,
+          isFollowing: nextIsFollowing,
+          followerCount: Math.max(
+            0,
+            (prev.followerCount || 0) + (nextIsFollowing ? 1 : -1),
+          ),
+        });
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) {
+        queryClient.setQueryData(["/api/player/coach", coachId], ctx.prev);
+      }
+      Alert.alert("Couldn't update follow", "Please try again in a moment.");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/coach", coachId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/social/me/followed-coaches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+    },
+  });
+
+  const handleToggleFollow = () => {
+    if (previewMode) {
+      showPreviewBlockedAlert("follow you to see your tips and drills in their feed");
+      return;
+    }
+    if (!coach) return;
+    followMutation.mutate(!coach.isFollowing);
+  };
 
   const handleBack = () => {
     navigation.goBack();
@@ -297,6 +352,40 @@ export default function PlayerCoachProfileScreen() {
           ) : (
             <ThemedText style={styles.noRatingsText}>No ratings yet</ThemedText>
           )}
+
+          {/* Task #1175 — Follow CTA. Hidden on non-public profiles since
+              they aren't part of the discovery surface. */}
+          {coach.publicProfileEnabled !== false ? (
+            <View style={styles.followRow}>
+              <Pressable
+                onPress={handleToggleFollow}
+                disabled={followMutation.isPending}
+                style={[
+                  styles.followButton,
+                  coach.isFollowing && styles.followButtonActive,
+                  followMutation.isPending && styles.followButtonDisabled,
+                ]}
+              >
+                <Ionicons
+                  name={coach.isFollowing ? "checkmark" : "add"}
+                  size={16}
+                  color={coach.isFollowing ? Colors.dark.primary : Colors.dark.buttonText}
+                />
+                <ThemedText
+                  style={[
+                    styles.followButtonText,
+                    coach.isFollowing && styles.followButtonTextActive,
+                  ]}
+                >
+                  {coach.isFollowing ? "Following" : "Follow"}
+                </ThemedText>
+              </Pressable>
+              <ThemedText style={styles.followerCountText}>
+                {(coach.followerCount || 0).toLocaleString()}{" "}
+                {(coach.followerCount || 0) === 1 ? "follower" : "followers"}
+              </ThemedText>
+            </View>
+          ) : null}
         </View>
 
         {/* Task #1037: primary CTA — book a drop-in lesson with this coach */}
@@ -617,6 +706,42 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.textMuted,
     marginTop: Spacing.xs,
     fontStyle: "italic",
+  },
+  followRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  followButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.full,
+  },
+  followButtonActive: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary,
+  },
+  followButtonDisabled: {
+    opacity: 0.6,
+  },
+  followButtonText: {
+    color: Colors.dark.buttonText,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  followButtonTextActive: {
+    color: Colors.dark.primary,
+  },
+  followerCountText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
   },
   primaryBookButton: {
     flexDirection: "row",

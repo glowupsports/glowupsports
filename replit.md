@@ -67,6 +67,7 @@ The application uses a dark-themed premium sports aesthetic with a simplified co
 - **Glow Market & Community Marketplace**: E-commerce platform with XP-based discounts and used equipment.
 - **Group Social Hub**: Features group-specific Events with RSVP and group Chat with emoji reactions.
 - **Coach & Academy Posts**: Post templates (tip/announcement/drill/schedule_change/event_invite/coach_spotlight/lesson_recap) authored by coaches or academies, with role-tinted feed rendering, pinned posts, auto lesson-recap drafts, and country-scope publishing for public coaches.
+- **Coach Following (Task #1175)**: Players can follow individual public coaches from the coach profile. Followed coaches' tip/drill/coach_spotlight posts surface in the player's main feed regardless of scope, and a dedicated "Coaches" tab on the community feed lists country-scope coach posts for discovery. Backed by `coach_follows` table and `/api/social/coaches/:coachId/follow` endpoints.
 - **Session Waitlist**: Allows players to join a waitlist for full sessions.
 - **Tournament Management**: Full tournament lifecycle including creation, registration, draw generation, result recording, and XP awards.
 - **Ladder System**: Challenge-based player ladders.

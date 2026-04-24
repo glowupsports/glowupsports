@@ -821,6 +821,8 @@ export function EmptyFeed({ filter }: { filter: FeedFilter }) {
         return "No academy moments yet. Be the first to share!";
       case "events":
         return "No event updates yet. Check back during events!";
+      case "coaches":
+        return "No coach tips or drills in your area yet. Follow a coach to see their posts in your main feed.";
       default:
         return t('player.community.beFirst');
     }
@@ -902,6 +904,7 @@ export function FeedFilterTabs({ active, onChange }: { active: FeedFilter; onCha
     { key: "all", label: t('player.community.all', 'All'), icon: "sparkles" },
     { key: "news", label: t('player.community.news'), icon: "newspaper" },
     { key: "academy", label: t('player.community.academy'), icon: "tennisball" },
+    { key: "coaches", label: t('player.community.coaches', 'Coaches'), icon: "person" },
     { key: "moments", label: t('player.community.moments'), icon: "camera" },
     { key: "events", label: t('player.community.events'), icon: "calendar" },
   ];

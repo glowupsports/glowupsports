@@ -4367,6 +4367,37 @@ export const playerSocialNotifPrefs = pgTable("player_social_notif_prefs", {
 
 export type PlayerSocialNotifPref = typeof playerSocialNotifPrefs.$inferSelect;
 
+// ==================== COACH FOLLOWS (Task #1175) ====================
+//
+// Player → coach one-directional follow relationship. Unlike
+// `player_connections` (bilateral, requires acceptance), following a public
+// coach is unilateral: the player just opts in and the coach's
+// country-scope tip/drill posts start showing up in their main feed.
+//
+// `followerUserId` references `users.id` so it works for both academy
+// players and Free Players (no academy). `coachId` references `coaches.id`
+// directly (not the coach's user record) because the public profile
+// surface is keyed off `coaches`, including the Task #1112 quality gate.
+export const coachFollows = pgTable("coach_follows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  followerUserId: varchar("follower_user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull(),
+  coachId: varchar("coach_id")
+    .references(() => coaches.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  // One follow per (follower, coach) — re-following is a no-op via
+  // ON CONFLICT in the route handler.
+  uniquePair: uniqueIndex("coach_follows_unique_pair")
+    .on(table.followerUserId, table.coachId),
+  followerIdx: index("coach_follows_follower_idx").on(table.followerUserId),
+  coachIdx: index("coach_follows_coach_idx").on(table.coachId),
+}));
+
+export type CoachFollow = typeof coachFollows.$inferSelect;
+
 export const insertUserSocialProfileSchema = createInsertSchema(userSocialProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertUserSocialProfile = z.infer<typeof insertUserSocialProfileSchema>;
 export type UserSocialProfile = typeof userSocialProfiles.$inferSelect;

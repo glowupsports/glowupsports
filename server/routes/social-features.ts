@@ -22,6 +22,7 @@ import {
   playerConnections,
   openMatchSlots,
   userFeedPreferences,
+  coachFollows as coachFollowsTable,
 } from "@shared/schema";
 import { eq, sql, and, desc, asc, inArray, notInArray, gte, count, ne, or } from "drizzle-orm";
 import {
@@ -773,6 +774,199 @@ const socialPostUpload = multer({
       const limitVal = parseInt(String(limit)) || 20;
       const offsetVal = parseInt(String(offset)) || 0;
 
+      // Task #1175 — "coaches" filter: a discoverable feed of country-scope
+      // coach posts (tip / drill / coach_spotlight) authored by quality-gated
+      // public coaches. Powers the Coaches tab on the community feed so
+      // players can browse coach content even outside their academy.
+      if (filterStr === "coaches") {
+        let viewerCountry: string | null = null;
+        try {
+          const ctxRes = await pool.query(
+            `SELECT COALESCE(p.country, a.country) AS country
+               FROM users u
+               LEFT JOIN players p ON p.id = u.player_id
+               LEFT JOIN academies a ON a.id = u.academy_id
+              WHERE u.id = $1
+              LIMIT 1`,
+            [userId],
+          );
+          viewerCountry = ctxRes.rows?.[0]?.country ?? null;
+        } catch {
+          /* best-effort */
+        }
+
+        // Without a country we can't show country-scope items. Fall back to
+        // global-only (currently always-empty for coach posts) so the tab
+        // doesn't appear broken.
+        const params: any[] = [];
+        let pi = 1;
+        const whereParts: string[] = [
+          `source_type IN ('manual_moment','coach_spotlight')`,
+          `is_hidden = false`,
+        ];
+        if (viewerCountry) {
+          whereParts.push(`scope = 'country' AND country = $${pi++}`);
+          params.push(viewerCountry);
+        } else {
+          whereParts.push(`scope = 'global'`);
+        }
+        const limitParam = `$${pi++}`;
+        params.push(limitVal);
+        const offsetParam = `$${pi++}`;
+        params.push(offsetVal);
+
+        let coachRows: any[] = [];
+        try {
+          const sqlText = `
+            SELECT id, source_type, source_id, scope, country, academy_id,
+                   group_id, author_user_id, author_player_id, post_id,
+                   payload, occurred_at, created_at,
+                   cheer_count, comment_count
+              FROM feed_items
+             WHERE ${whereParts.join(" AND ")}
+             ORDER BY COALESCE(occurred_at, created_at) DESC
+             LIMIT ${limitParam} OFFSET ${offsetParam}
+          `;
+          const r = await pool.query(sqlText, params);
+          coachRows = r.rows || [];
+        } catch (err) {
+          console.error("Error querying coach feed:", err);
+          coachRows = [];
+        }
+
+        const postIds = coachRows
+          .filter((r) => !!r.post_id)
+          .map((r) => r.post_id);
+        const postMap = new Map<string, any>();
+        if (postIds.length > 0) {
+          try {
+            const pr = await pool.query(
+              `SELECT id, author_id, academy_id, context_type, context_id, caption,
+                      media_urls, media_types, visibility, group_id, cheer_count,
+                      comment_count, created_at, is_hidden, tagged_user_ids, location_name,
+                      is_pinned, pinned_until, post_template, is_draft
+                 FROM posts
+                WHERE id = ANY($1::text[]) AND is_hidden = false AND is_draft = false`,
+              [postIds],
+            );
+            for (const row of pr.rows || []) postMap.set(row.id, row);
+          } catch {
+            /* best-effort */
+          }
+        }
+
+        const viewerReactionMap = new Map<string, string>();
+        if (postIds.length > 0) {
+          try {
+            const vrRes = await pool.query(
+              `SELECT post_id, reaction_type
+                 FROM post_reactions
+                WHERE post_id = ANY($1::text[]) AND user_id = $2`,
+              [postIds, userId],
+            );
+            for (const row of vrRes.rows || []) {
+              viewerReactionMap.set(row.post_id, row.reaction_type);
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
+
+        // Author hydration including coachId so the UI can render a
+        // Follow button per row without an extra round-trip.
+        const authorIds = Array.from(
+          new Set(
+            coachRows
+              .map((r) => r.author_user_id)
+              .filter(Boolean) as string[],
+          ),
+        );
+        const authorMap = new Map<string, any>();
+        if (authorIds.length > 0) {
+          try {
+            const ar = await pool.query(
+              `SELECT u.id, u.username, u.coach_id,
+                      c.name AS coach_name, c.photo_url AS coach_photo,
+                      c.specialty
+                 FROM users u
+                 LEFT JOIN coaches c ON c.id = u.coach_id
+                WHERE u.id = ANY($1::text[])`,
+              [authorIds],
+            );
+            for (const row of ar.rows || []) {
+              authorMap.set(row.id, {
+                id: row.id,
+                username: row.username || "Unknown",
+                name: row.coach_name || row.username || "Coach",
+                photoUrl: row.coach_photo || null,
+                isCoach: !!row.coach_id,
+                coachId: row.coach_id || null,
+                specialty: row.specialty || null,
+              });
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
+
+        // Block + already-followed maps so the UI can hide the Follow CTA
+        // for coaches the viewer already follows.
+        const blockedSet = await getBlockedPairUserIds(userId);
+        const followedCoachIds = new Set<string>();
+        try {
+          const fr = await pool.query(
+            `SELECT coach_id FROM coach_follows WHERE follower_user_id = $1`,
+            [userId],
+          );
+          for (const row of fr.rows || []) followedCoachIds.add(row.coach_id);
+        } catch {
+          /* best-effort */
+        }
+
+        const items = coachRows
+          .filter((r) => !r.author_user_id || !blockedSet.has(r.author_user_id))
+          .map((r) => {
+            const post = r.post_id ? postMap.get(r.post_id) : null;
+            const author = r.author_user_id
+              ? authorMap.get(r.author_user_id) || null
+              : null;
+            return {
+              id: r.id,
+              feedType: r.source_type,
+              sourceId: r.source_id,
+              scope: r.scope,
+              country: r.country,
+              academyId: r.academy_id,
+              authorId: r.author_user_id,
+              author,
+              coachId: author?.coachId || null,
+              isFollowing: author?.coachId
+                ? followedCoachIds.has(author.coachId)
+                : false,
+              payload: r.payload || {},
+              createdAt: r.created_at,
+              occurredAt: r.occurred_at,
+              postId: post?.id || r.post_id || null,
+              caption: post?.caption ?? null,
+              mediaUrls: post?.media_urls || [],
+              mediaTypes: post?.media_types || [],
+              visibility: post?.visibility || null,
+              contextType: post?.context_type || null,
+              contextId: post?.context_id || null,
+              cheerCount: post?.cheer_count ?? Number(r.cheer_count) ?? 0,
+              commentCount: post?.comment_count ?? Number(r.comment_count) ?? 0,
+              userReaction: post ? viewerReactionMap.get(post.id) || null : null,
+              taggedUserIds: post?.tagged_user_ids || [],
+              locationName: post?.location_name || null,
+              isPinned: post?.is_pinned || false,
+              pinnedUntil: post?.pinned_until || null,
+              postTemplate: post?.post_template || null,
+            };
+          });
+
+        return res.json(items);
+      }
+
       // Phase 1 unified feed: when "all" (or legacy "for_you"), return mixed
       // feed_items (matches/level-ups/quests/tournaments/open matches) +
       // manual moments. Visible to academy AND Free Players via country/global
@@ -851,6 +1045,29 @@ const socialPostUpload = multer({
           /* best-effort */
         }
 
+        // Task #1175 — coaches the viewer follows. We resolve the underlying
+        // user IDs of those coaches so we can broaden the feed query to
+        // include coach-authored items even when the post's scope wouldn't
+        // otherwise reach the viewer (e.g. a coach in a different country
+        // posting a country-scope tip — the follow relationship overrides
+        // geo).
+        let followedCoachAuthorUserIds: string[] = [];
+        try {
+          const fcRes = await pool.query(
+            `SELECT c.user_id
+               FROM coach_follows cf
+               JOIN coaches c ON c.id = cf.coach_id
+              WHERE cf.follower_user_id = $1
+                AND c.user_id IS NOT NULL`,
+            [userId],
+          );
+          followedCoachAuthorUserIds = (fcRes.rows || []).map(
+            (r: any) => r.user_id,
+          );
+        } catch {
+          /* best-effort */
+        }
+
         // Build dynamic WHERE for feed_items visibility per scope.
         const whereParts: string[] = [
           `(scope = 'global')`,
@@ -908,6 +1125,18 @@ const socialPostUpload = multer({
         if (viewerGroupIds.length > 0) {
           whereParts.push(`(scope = 'group' AND group_id = ANY($${pi++}::text[]))`);
           params.push(viewerGroupIds);
+        }
+        // Task #1175 — followed coach override. Surface every coach-authored
+        // tip / drill / coach_spotlight item from a followed coach,
+        // regardless of scope or geography. We deliberately scope this to
+        // coach-content source types so following a coach doesn't pull in
+        // unrelated noise from their account (system-generated match
+        // results, etc.).
+        if (followedCoachAuthorUserIds.length > 0) {
+          whereParts.push(
+            `(source_type IN ('manual_moment','coach_spotlight') AND author_user_id = ANY($${pi++}::text[]))`,
+          );
+          params.push(followedCoachAuthorUserIds);
         }
         // Always include viewer's own published items regardless of scope
         whereParts.push(`(author_user_id = $${pi++})`);
@@ -4244,5 +4473,161 @@ const socialPostUpload = multer({
       }
     },
   );
+
+// =====================================================================
+// Task #1175 — Player → coach follow.
+// =====================================================================
+//
+// One-directional opt-in: a player follows a coach to surface that coach's
+// country-scope tip/drill posts in their main feed regardless of academy
+// or friend graph. We only allow following coaches whose public profile is
+// enabled — non-public coaches are not part of the discovery surface.
+//
+// Routes are intentionally NOT gated behind requireFeatureUnlock so Free
+// Players (who haven't unlocked community_feed) can still follow a coach
+// from the public coach directory.
+
+router.post(
+  "/api/social/coaches/:coachId/follow",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const { coachId } = req.params;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+
+      // Public profile gate — only coaches who have opted in to the public
+      // directory may be followed. Mirrors the visibility check in the
+      // GET /api/player/coach/:coachId endpoint.
+      const [coachRow] = await db
+        .select({
+          id: coachesTable.id,
+          publicProfileEnabled: coachesTable.publicProfileEnabled,
+          userId: coachesTable.userId,
+        })
+        .from(coachesTable)
+        .where(eq(coachesTable.id, coachId))
+        .limit(1);
+      if (!coachRow) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+      if (coachRow.publicProfileEnabled === false) {
+        return res.status(403).json({
+          error: "This coach hasn't enabled their public profile.",
+        });
+      }
+      // Don't let a coach follow themselves — pointless and would inflate
+      // the count.
+      if (coachRow.userId && coachRow.userId === userId) {
+        return res.status(400).json({ error: "You can't follow yourself" });
+      }
+
+      try {
+        await db
+          .insert(coachFollowsTable)
+          .values({ followerUserId: userId, coachId })
+          .onConflictDoNothing({
+            target: [coachFollowsTable.followerUserId, coachFollowsTable.coachId],
+          });
+      } catch (err) {
+        console.error("[coach-follow] insert error:", err);
+        return res.status(500).json({ error: "Failed to follow coach" });
+      }
+
+      // Quest hook — best-effort; never block the response.
+      fireQuestEvent(userId, "follow_coach").catch(() => {});
+
+      const [{ followerCount }] = await db
+        .select({ followerCount: sql<number>`count(*)::int` })
+        .from(coachFollowsTable)
+        .where(eq(coachFollowsTable.coachId, coachId));
+
+      res.json({ success: true, isFollowing: true, followerCount });
+    } catch (err) {
+      console.error("[coach-follow] error:", err);
+      res.status(500).json({ error: "Failed to follow coach" });
+    }
+  },
+);
+
+router.delete(
+  "/api/social/coaches/:coachId/follow",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const { coachId } = req.params;
+      if (!coachId) {
+        return res.status(400).json({ error: "Coach ID required" });
+      }
+      await db
+        .delete(coachFollowsTable)
+        .where(
+          and(
+            eq(coachFollowsTable.followerUserId, userId),
+            eq(coachFollowsTable.coachId, coachId),
+          ),
+        );
+
+      const [{ followerCount }] = await db
+        .select({ followerCount: sql<number>`count(*)::int` })
+        .from(coachFollowsTable)
+        .where(eq(coachFollowsTable.coachId, coachId));
+
+      res.json({ success: true, isFollowing: false, followerCount });
+    } catch (err) {
+      console.error("[coach-unfollow] error:", err);
+      res.status(500).json({ error: "Failed to unfollow coach" });
+    }
+  },
+);
+
+// Lightweight directory of coaches the viewer follows — used for profile
+// chips and the "Following" filter on the Coaches discover tab. Returns
+// only public-profile coaches so unfollowing happens automatically when
+// a coach goes private (we filter at read time, no cleanup needed).
+router.get(
+  "/api/social/me/followed-coaches",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const rows = await pool.query(
+        `SELECT c.id,
+                c.name,
+                c.photo_url,
+                c.specialty,
+                c.public_quote,
+                a.id AS academy_id,
+                a.name AS academy_name,
+                cf.created_at AS followed_at
+           FROM coach_follows cf
+           JOIN coaches c ON c.id = cf.coach_id
+      LEFT JOIN academies a ON a.id = c.academy_id
+          WHERE cf.follower_user_id = $1
+            AND c.public_profile_enabled = true
+          ORDER BY cf.created_at DESC`,
+        [userId],
+      );
+      res.json(
+        (rows.rows || []).map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          photoUrl: r.photo_url || null,
+          specialty: r.specialty || null,
+          publicQuote: r.public_quote || null,
+          academyId: r.academy_id || null,
+          academyName: r.academy_name || null,
+          followedAt: r.followed_at,
+        })),
+      );
+    } catch (err) {
+      console.error("[followed-coaches] error:", err);
+      res.status(500).json({ error: "Failed to load followed coaches" });
+    }
+  },
+);
 
 export default router;

@@ -24,6 +24,7 @@ import {
   coachingSeries,
   bookingRequests,
   payments,
+  coachFollows,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
 import {
@@ -6282,6 +6283,37 @@ router.get(
         createdAt: r.createdAt?.toISOString() || null,
       }));
 
+      // Task #1175 — follow state. `followerCount` is shown on every public
+      // coach profile; `isFollowing` is only meaningful for the requesting
+      // viewer and is `false` for the coach themselves (we hide the CTA in
+      // the UI in that case).
+      let followerCount = 0;
+      let isFollowing = false;
+      try {
+        const fcRes = await db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(coachFollows)
+          .where(eq(coachFollows.coachId, coachId));
+        followerCount = Number(fcRes[0]?.c || 0);
+
+        const viewerUserId = req.user?.userId;
+        if (viewerUserId) {
+          const ifRes = await db
+            .select({ id: coachFollows.id })
+            .from(coachFollows)
+            .where(
+              and(
+                eq(coachFollows.coachId, coachId),
+                eq(coachFollows.followerUserId, viewerUserId),
+              ),
+            )
+            .limit(1);
+          isFollowing = (ifRes?.length || 0) > 0;
+        }
+      } catch (err) {
+        console.error("Error loading coach follow state:", err);
+      }
+
       res.json({
         id: coach.id,
         name: coach.name,
@@ -6311,6 +6343,8 @@ router.get(
         academyCountry,
         upcomingPublicSessions: upcomingSessionsEnriched,
         recentReviews: reviewsFormatted,
+        followerCount,
+        isFollowing,
       });
     } catch (error) {
       console.error("Error fetching coach profile:", error);

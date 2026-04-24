@@ -8,7 +8,7 @@ export const TAB_BAR_HEIGHT = 80;
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 export const DRAWER_HEIGHT = Math.min(SCREEN_HEIGHT * 0.55, 450);
 
-export type FeedFilter = "all" | "news" | "academy" | "moments" | "events";
+export type FeedFilter = "all" | "news" | "academy" | "moments" | "events" | "coaches";
 export type MainTab = "feed" | "friends" | "groups";
 
 // Categories the player can toggle on/off in the feed-type filter sheet.
