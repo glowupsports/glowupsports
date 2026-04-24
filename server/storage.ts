@@ -672,7 +672,7 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
       currentMembers.filter((m) => m.addedManually).map((m) => m.userId),
     );
 
-    const toInsert: Array<{ groupId: string; userId: string; role: string }> = [];
+    const toInsert: Array<{ groupId: string; userId: string; role: string; source: string }> = [];
     const toDelete: string[] = [];
 
     for (const [uid, role] of desired) {
@@ -681,16 +681,26 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
       if (manuallyAddedUserIds.has(uid)) continue;
       const existing = currentMap.get(uid);
       if (!existing) {
-        toInsert.push({ groupId: group.id, userId: uid, role });
+        toInsert.push({ groupId: group.id, userId: uid, role, source: "class_sync" });
       } else if (existing.role !== role) {
+        // Update role (e.g. someone became the series coach) but never
+        // change `source`: a member who was originally manually invited
+        // stays manual even if they later enroll in the class, so when
+        // they un-enroll they keep their seat. This preserves strict
+        // provenance for Task #1153.
         await db
           .update(groupMembers)
           .set({ role })
           .where(eq(groupMembers.id, existing.id));
       }
     }
-    for (const uid of currentMap.keys()) {
-      if (!desired.has(uid)) toDelete.push(uid);
+    // Task #1153 — only remove members that *we* added via class sync. Anyone
+    // a coach invited manually (assistant coach, parent, etc.) keeps their
+    // seat when the class is edited.
+    for (const [uid, member] of currentMap) {
+      if (desired.has(uid)) continue;
+      if (member.source !== "class_sync") continue;
+      toDelete.push(uid);
     }
 
     if (toInsert.length > 0) {
@@ -699,7 +709,13 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
     if (toDelete.length > 0) {
       await db
         .delete(groupMembers)
-        .where(and(eq(groupMembers.groupId, group.id), inArray(groupMembers.userId, toDelete)));
+        .where(
+          and(
+            eq(groupMembers.groupId, group.id),
+            inArray(groupMembers.userId, toDelete),
+            eq(groupMembers.source, "class_sync"),
+          ),
+        );
     }
 
     const [{ cnt }] = await db

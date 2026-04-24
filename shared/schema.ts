@@ -3893,7 +3893,15 @@ export const groupMembers = pgTable("group_members", {
   userId: varchar("user_id").references(() => users.id).notNull(),
   
   role: text("role").notNull().default("member"), // admin | moderator | member
-  
+
+  // How this membership was created. Used by `syncCommunityGroupForSeries` to
+  // decide which members it owns (and is therefore allowed to remove on
+  // re-sync) vs which were added out-of-band (manual coach invites, self
+  // join, etc.). Class-derived sync inserts use 'class_sync'; everything
+  // else stays the default 'manual' so guests aren't kicked out when the
+  // underlying class is edited. (Task #1153)
+  source: text("source").notNull().default("manual"), // manual | class_sync | family_sync | invite | self_join
+
   // Notification preferences
   mutedUntil: timestamp("muted_until"),
   notificationsEnabled: boolean("notifications_enabled").default(true),
