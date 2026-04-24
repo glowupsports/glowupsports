@@ -153,7 +153,6 @@ export const KNOWN_PLAYER_FK_TABLES: ReadonlySet<string> = new Set([
   "open_match_slots",
   "play_requests",
   "play_request_participants",
-  "match_requests",
   "court_bookings",
   "slot_reservations",
   "live_matches",

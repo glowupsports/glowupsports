@@ -854,8 +854,9 @@ export const openMatches = pgTable("open_matches", {
     .default(sql`gen_random_uuid()`),
   // Nullable: Find-a-Match wizard creates open matches without a real court
   // booking attached (the host advertises a slot first; they may book the
-  // court later or via the courtBookingStatus picker below). Task #1270 made
-  // this column nullable when match_requests was unified into open_matches.
+  // court later or via the courtBookingStatus picker below). Task #1270
+  // unified the legacy match_requests table into this one (Task #1273
+  // dropped match_requests entirely once the flip was stable).
   bookingId: varchar("booking_id").references(() => courtBookings.id),
   hostPlayerId: varchar("host_player_id").references(() => players.id).notNull(),
   academyId: varchar("academy_id").references(() => academies.id),
@@ -900,8 +901,8 @@ export const openMatches = pgTable("open_matches", {
 
   // Court booking metadata — picker value chosen at create time
   // (academy_court | external_booked | external_pending). Mirrors the
-  // same fields on match_requests / match_challenges so detail/list views
-  // can render the booking-status pill on open matches too.
+  // same fields on match_challenges so detail/list views can render the
+  // booking-status pill on open matches too.
   courtBookingStatus: text("court_booking_status"),
   courtBookingNote: text("court_booking_note"),
   courtBookingUrl: text("court_booking_url"),
@@ -955,61 +956,10 @@ export const insertOpenMatchSlotSchema = createInsertSchema(openMatchSlots).omit
 export type InsertOpenMatchSlot = z.infer<typeof insertOpenMatchSlotSchema>;
 export type OpenMatchSlot = typeof openMatchSlots.$inferSelect;
 
-// Match Requests - For players looking for matches without a court booking
-export const matchRequests = pgTable("match_requests", {
-  id: varchar("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  playerId: varchar("player_id").references(() => players.id).notNull(),
-  academyId: varchar("academy_id").references(() => academies.id),
-  
-  // Match details
-  matchType: text("match_type").default("singles"), // singles | doubles
-  matchIntent: text("match_intent").default("friendly"), // friendly | competitive | ranking - determines rating impact
-  title: text("title"),
-  description: text("description"),
-  
-  // Preferred date/time
-  preferredDate: date("preferred_date"),
-  preferredTime: text("preferred_time"), // "18:00"
-  
-  // Skill matching
-  requiredLevelMin: integer("required_level_min").default(1),
-  requiredLevelMax: integer("required_level_max").default(9),
-  requiredBallLevel: text("required_ball_level"), // For kids: blue | red | orange | green | yellow | glow
-  isAdult: boolean("is_adult").default(true),
-  
-  // Capacity for doubles
-  maxPlayers: integer("max_players").default(2),
-  
-  // Sport
-  sport: text("sport").default("tennis"), // tennis | padel | pickleball
-
-  // Status
-  status: text("status").default("open"), // open | matched | cancelled | expired
-  
-  // Match result (when matched)
-  invitedPlayerId: varchar("invited_player_id").references(() => players.id),
-  matchedWithPlayerId: varchar("matched_with_player_id").references(() => players.id),
-  matchedAt: timestamp("matched_at"),
-
-  // External court booking (Dubai community courts) — manual stop-gap until API integration.
-  // Status set by player when creating: 'academy_court' | 'external_booked' | 'external_pending'
-  courtBookingStatus: text("court_booking_status"),
-  courtBookingNote: text("court_booking_note"),
-  courtBookingUrl: text("court_booking_url"),
-
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  playerIdx: index("match_requests_player_idx").on(table.playerId),
-  statusIdx: index("match_requests_status_idx").on(table.status),
-  dateIdx: index("match_requests_date_idx").on(table.preferredDate),
-}));
-
-export const insertMatchRequestSchema = createInsertSchema(matchRequests).omit({ id: true, createdAt: true, updatedAt: true });
-export type InsertMatchRequest = z.infer<typeof insertMatchRequestSchema>;
-export type MatchRequest = typeof matchRequests.$inferSelect;
+// Note: the legacy `match_requests` table was removed in Task #1273. All
+// open-match storage lives on `open_matches` + `open_match_slots` (unified
+// in Task #1270). The drop migration is in
+// `migrations/0036_drop_match_requests.sql`.
 
 // ==================== SMART AVAILABILITY (Phase 4) ====================
 

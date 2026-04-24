@@ -29,7 +29,6 @@ import {
   bookingInviteGuests,
   openMatches,
   openMatchSlots,
-  matchRequests,
   playerBookingPreferences,
   bookingRequests,
   academyPricing,
@@ -8662,9 +8661,9 @@ router.get(
     try {
       const { matchId } = req.params;
 
-      // Prefer the openMatches/openMatchSlots source of truth (where /join, /leave,
-      // /invite and /kick all write). Fall back to matchRequests for legacy matches
-      // created via the old "Find a Match" wizard.
+      // openMatches/openMatchSlots is the single source of truth for open
+      // matches (Task #1270 unified, Task #1273 dropped the legacy
+      // match_requests table once stable).
       const [openMatch] = await db
         .select({
           id: openMatches.id,
@@ -8762,100 +8761,7 @@ router.get(
         });
       }
 
-      // Legacy fallback: matchRequests table
-      const [matchRequest] = await db
-        .select({
-          id: matchRequests.id,
-          playerId: matchRequests.playerId,
-          academyId: matchRequests.academyId,
-          matchType: matchRequests.matchType,
-          title: matchRequests.title,
-          description: matchRequests.description,
-          preferredDate: matchRequests.preferredDate,
-          preferredTime: matchRequests.preferredTime,
-          requiredLevelMin: matchRequests.requiredLevelMin,
-          requiredLevelMax: matchRequests.requiredLevelMax,
-          requiredBallLevel: matchRequests.requiredBallLevel,
-          maxPlayers: matchRequests.maxPlayers,
-          status: matchRequests.status,
-          courtBookingStatus: matchRequests.courtBookingStatus,
-          courtBookingNote: matchRequests.courtBookingNote,
-          courtBookingUrl: matchRequests.courtBookingUrl,
-          createdAt: matchRequests.createdAt,
-          playerName: players.name,
-          hostBallLevel: players.ballLevel,
-          playerAvatar: players.profilePhotoUrl,
-          playerLevel: players.skillLevel,
-          playerBallLevel: players.ballLevel,
-        })
-        .from(matchRequests)
-        .leftJoin(players, eq(matchRequests.playerId, players.id))
-        .where(eq(matchRequests.id, matchId));
-
-      if (!matchRequest) {
-        return res.status(404).json({ error: "Match not found" });
-      }
-
-      // Transform to expected format
-      let scheduledTime = null;
-      if (matchRequest.preferredDate) {
-        const date = new Date(matchRequest.preferredDate);
-        if (matchRequest.preferredTime) {
-          const [hours, minutes] = matchRequest.preferredTime
-            .split(":")
-            .map(Number);
-          date.setHours(hours, minutes, 0, 0);
-        }
-        scheduledTime = date.toISOString();
-      }
-
-      const transformedMatch = {
-        id: matchRequest.id,
-        bookingId: null,
-        hostPlayerId: matchRequest.playerId,
-        academyId: matchRequest.academyId,
-        matchType: matchRequest.matchType || "singles",
-        title: matchRequest.title,
-        description: matchRequest.description,
-        ballLevel: matchRequest.requiredBallLevel,
-        skillLevel: matchRequest.requiredLevelMin,
-        requiredLevelMin: matchRequest.requiredLevelMin || 1,
-        requiredLevelMax: matchRequest.requiredLevelMax || 9,
-        requiredBallLevel: matchRequest.requiredBallLevel,
-        maxPlayers:
-          matchRequest.maxPlayers ||
-          (matchRequest.matchType === "doubles" ? 4 : 2),
-        currentPlayers: 1,
-        status: matchRequest.status || "open",
-        visibility: "public",
-        costPerPlayer: null,
-        currency: "AED",
-        xpBonus: 25,
-        createdAt:
-          matchRequest.createdAt?.toISOString() || new Date().toISOString(),
-        scheduledTime,
-        courtName: null,
-        locationName: null,
-        courtBookingStatus: matchRequest.courtBookingStatus ?? null,
-        courtBookingNote: matchRequest.courtBookingNote ?? null,
-        courtBookingUrl: matchRequest.courtBookingUrl ?? null,
-        host: {
-          id: matchRequest.playerId,
-          name: matchRequest.playerName || "Unknown Player",
-          photoUrl: matchRequest.playerAvatar,
-          level: matchRequest.playerLevel || 1,
-          ballLevel: matchRequest.requiredBallLevel,
-        },
-        players: [
-          {
-            id: matchRequest.playerId,
-            name: matchRequest.playerName || "Unknown Player",
-            photoUrl: matchRequest.playerAvatar,
-          },
-        ],
-      };
-
-      res.json(transformedMatch);
+      return res.status(404).json({ error: "Match not found" });
     } catch (error) {
       console.error("Get open match error:", error);
       res.status(500).json({ error: "Failed to get match" });
@@ -8863,10 +8769,9 @@ router.get(
   },
 );
 
-// Delete/Cancel open match — task #1270 unified storage means hosts cancel
-// open_matches rows here. Legacy match_requests rows have already been
-// migrated; cancelling a stale id will surface a 410 MATCH_MIGRATED so the
-// client can refetch.
+// Delete/Cancel open match — task #1270 unified storage so hosts cancel
+// open_matches rows here. Task #1273 removed the legacy match_requests
+// table; stale client ids now just receive a 404.
 router.delete(
   "/api/open-matches/:matchId",
   authMiddleware,
@@ -8886,18 +8791,6 @@ router.delete(
         .where(eq(openMatches.id, matchId));
 
       if (!match) {
-        // Stale id may live in match_requests as 'migrated' — tell the
-        // client to refetch the listing instead of a generic 404.
-        const [legacy] = await db
-          .select({ status: matchRequests.status })
-          .from(matchRequests)
-          .where(eq(matchRequests.id, matchId));
-        if (legacy?.status === "migrated") {
-          return res.status(410).json({
-            error: "This match has moved — pull to refresh",
-            code: "MATCH_MIGRATED",
-          });
-        }
         return res.status(404).json({ error: "Match not found" });
       }
 
@@ -9106,21 +8999,6 @@ router.post(
 
       if (matchRes.rowCount === 0) {
         await client.query("ROLLBACK");
-        // Task #1270 — when the row exists in the legacy match_requests
-        // table as 'migrated', tell the client to refetch the listing
-        // instead of an opaque 404. Belt-and-braces for the deploy
-        // window where a stale cache may still hold the legacy id; the
-        // backfill keeps the same id so a refetched cache will resolve.
-        const legacyRes = await client.query(
-          `SELECT status FROM match_requests WHERE id = $1`,
-          [matchId],
-        );
-        if (legacyRes.rowCount > 0 && legacyRes.rows[0].status === "migrated") {
-          return res.status(410).json({
-            error: "This match has moved — pull to refresh",
-            code: "MATCH_MIGRATED",
-          });
-        }
         return res.status(404).json({ error: "Match not found" });
       }
 
@@ -9480,6 +9358,13 @@ router.post(
 // only so older clients reading their own old rows don't 404.
 
 // Get all open match requests
+//
+// Task #1273 — backward-compatibility shim. Reads from `open_matches`
+// (the unified source of truth from Task #1270). Old client builds still
+// use this URL and the cache key, so we keep the route name but point it
+// at open_matches. Returned shape mirrors the legacy match_requests rows
+// (playerId / preferredDate / preferredTime / etc.) so the existing
+// clients keep working without changes.
 router.get(
   "/api/play/match-requests",
   authMiddleware,
@@ -9488,40 +9373,74 @@ router.get(
       const academyId = req.user?.academyId;
       const playerId = req.user?.playerId;
 
-      const requests = await db
-        .select()
-        .from(matchRequests)
+      // Load caller's ball level for the same-level filter the original
+      // listing applied.
+      let callerBallLevel: string | null = null;
+      if (playerId) {
+        const [callerRow] = await db
+          .select({ ballLevel: players.ballLevel })
+          .from(players)
+          .where(eq(players.id, playerId))
+          .limit(1);
+        callerBallLevel = callerRow?.ballLevel || null;
+      }
+
+      const rows = await db
+        .select({
+          id: openMatches.id,
+          playerId: openMatches.hostPlayerId,
+          academyId: openMatches.academyId,
+          matchType: openMatches.matchType,
+          matchIntent: openMatches.matchIntent,
+          title: openMatches.title,
+          description: openMatches.description,
+          preferredDate: openMatches.preferredDate,
+          preferredTime: openMatches.preferredTime,
+          requiredLevelMin: openMatches.requiredLevelMin,
+          requiredLevelMax: openMatches.requiredLevelMax,
+          requiredBallLevel: openMatches.requiredBallLevel,
+          isAdult: openMatches.isAdult,
+          maxPlayers: openMatches.maxPlayers,
+          status: openMatches.status,
+          invitedPlayerId: openMatches.invitedPlayerId,
+          courtBookingStatus: openMatches.courtBookingStatus,
+          courtBookingNote: openMatches.courtBookingNote,
+          courtBookingUrl: openMatches.courtBookingUrl,
+          createdAt: openMatches.createdAt,
+          updatedAt: openMatches.updatedAt,
+          playerName: players.name,
+          playerProfilePhotoUrl: players.profilePhotoUrl,
+          playerBallLevel: players.ballLevel,
+        })
+        .from(openMatches)
+        .leftJoin(players, eq(openMatches.hostPlayerId, players.id))
         .where(
           and(
-            eq(matchRequests.status, "open"),
-            academyId ? eq(matchRequests.academyId, academyId) : undefined,
-            playerId ? ne(matchRequests.playerId, playerId) : undefined,
+            eq(openMatches.status, "open"),
+            callerBallLevel
+              ? eq(players.ballLevel, callerBallLevel)
+              : undefined,
+            academyId ? eq(openMatches.academyId, academyId) : undefined,
+            playerId ? ne(openMatches.hostPlayerId, playerId) : undefined,
           ),
         )
-        .orderBy(desc(matchRequests.createdAt));
+        .orderBy(desc(openMatches.createdAt));
 
-      // Enrich with player info
-      const enrichedRequests = await Promise.all(
-        requests.map(async (request) => {
-          const [player] = await db
-            .select()
-            .from(players)
-            .where(eq(players.id, request.playerId));
-          return {
-            ...request,
-            player: player
-              ? {
-                  id: player.id,
-                  name: player.name,
-                  profilePhotoUrl: player.profilePhotoUrl,
-                  ballLevel: player.ballLevel,
-                }
-              : null,
-          };
+      const enriched = rows.map(
+        ({ playerName, playerProfilePhotoUrl, playerBallLevel, ...rest }) => ({
+          ...rest,
+          player: rest.playerId
+            ? {
+                id: rest.playerId,
+                name: playerName,
+                profilePhotoUrl: playerProfilePhotoUrl,
+                ballLevel: playerBallLevel,
+              }
+            : null,
         }),
       );
 
-      res.json(enrichedRequests);
+      res.json(enriched);
     } catch (error) {
       console.error("Get match requests error:", error);
       res.status(500).json({ error: "Failed to get match requests" });
@@ -9530,6 +9449,9 @@ router.get(
 );
 
 // Get my match requests
+//
+// Task #1273 — backward-compat shim, reads from open_matches where the
+// caller is the host. Returns the same field shape as before.
 router.get(
   "/api/play/my-match-requests",
   authMiddleware,
@@ -9542,10 +9464,32 @@ router.get(
       }
 
       const requests = await db
-        .select()
-        .from(matchRequests)
-        .where(eq(matchRequests.playerId, playerId))
-        .orderBy(desc(matchRequests.createdAt));
+        .select({
+          id: openMatches.id,
+          playerId: openMatches.hostPlayerId,
+          academyId: openMatches.academyId,
+          matchType: openMatches.matchType,
+          matchIntent: openMatches.matchIntent,
+          title: openMatches.title,
+          description: openMatches.description,
+          preferredDate: openMatches.preferredDate,
+          preferredTime: openMatches.preferredTime,
+          requiredLevelMin: openMatches.requiredLevelMin,
+          requiredLevelMax: openMatches.requiredLevelMax,
+          requiredBallLevel: openMatches.requiredBallLevel,
+          isAdult: openMatches.isAdult,
+          maxPlayers: openMatches.maxPlayers,
+          status: openMatches.status,
+          invitedPlayerId: openMatches.invitedPlayerId,
+          courtBookingStatus: openMatches.courtBookingStatus,
+          courtBookingNote: openMatches.courtBookingNote,
+          courtBookingUrl: openMatches.courtBookingUrl,
+          createdAt: openMatches.createdAt,
+          updatedAt: openMatches.updatedAt,
+        })
+        .from(openMatches)
+        .where(eq(openMatches.hostPlayerId, playerId))
+        .orderBy(desc(openMatches.createdAt));
 
       res.json(requests);
     } catch (error) {
@@ -9556,107 +9500,156 @@ router.get(
 );
 
 // Join (accept) an open match request
+//
+// Task #1273 — backward-compat shim. Old client builds still POST here
+// to join. Routes through the same open_matches + open_match_slots
+// transaction as `/api/open-matches/:matchId/join` so capacity counts,
+// uniqueness, and concurrent-join races stay consistent.
 router.post(
   "/api/play/match-requests/:requestId/join",
   authMiddleware,
   async (req: AuthRequest, res: Response) => {
+    const playerId = req.user?.playerId;
+    const { requestId } = req.params;
+
+    if (!playerId) {
+      return res.status(401).json({ error: "Player profile required" });
+    }
+
+    // Load the joining player's profile for eligibility checks
+    const joiningPlayer = await storage.getPlayer(playerId);
+    if (!joiningPlayer) {
+      return res.status(403).json({ error: "Player profile not found" });
+    }
+
+    const client = await pool.connect();
+    let hostPlayerId: string | null = null;
+    let hostAcademyId: string | null = null;
+
     try {
-      const playerId = req.user?.playerId;
-      const { requestId } = req.params;
+      await client.query("BEGIN");
 
-      if (!playerId) {
-        return res.status(401).json({ error: "Player profile required" });
-      }
+      const matchRes = await client.query(
+        `SELECT id, host_player_id, academy_id, status,
+                current_players, max_players, required_ball_level,
+                invited_player_id
+           FROM open_matches
+          WHERE id = $1
+          FOR UPDATE`,
+        [requestId],
+      );
 
-      // Load the joining player's profile for eligibility checks
-      const joiningPlayer = await storage.getPlayer(playerId);
-      if (!joiningPlayer) {
-        return res.status(403).json({ error: "Player profile not found" });
-      }
-
-      const [request] = await db
-        .select()
-        .from(matchRequests)
-        .where(eq(matchRequests.id, requestId));
-
-      if (!request) {
+      if (matchRes.rowCount === 0) {
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "Match request not found" });
       }
-      if (request.status !== "open") {
+
+      const match = matchRes.rows[0];
+      hostPlayerId = match.host_player_id;
+      hostAcademyId = match.academy_id;
+
+      if (match.status !== "open") {
+        await client.query("ROLLBACK");
         return res
           .status(400)
           .json({ error: "This match request is no longer available" });
       }
-      if (request.playerId === playerId) {
+      if (match.host_player_id === playerId) {
+        await client.query("ROLLBACK");
         return res
           .status(400)
           .json({ error: "You created this match request" });
       }
-      if (request.invitedPlayerId) {
+      if (match.invited_player_id && match.invited_player_id !== playerId) {
+        await client.query("ROLLBACK");
         return res
           .status(400)
           .json({ error: "This match request already has a challenger" });
       }
 
-      // Enforce academy scoping: if the request is academy-scoped, the joiner MUST belong to the same academy
-      const requestAcademyId = request.academyId;
+      // Enforce academy scoping: if the match is academy-scoped, the joiner MUST belong to the same academy
       const joinerAcademyId = (joiningPlayer as any).academyId as
         | string
         | undefined;
-      if (requestAcademyId && joinerAcademyId !== requestAcademyId) {
+      if (hostAcademyId && joinerAcademyId !== hostAcademyId) {
+        await client.query("ROLLBACK");
         return res.status(403).json({
           error: "This match request is not available at your academy",
         });
       }
 
-      // Enforce ball-level compatibility (same level matching as the discovery listing)
-      const requestCreator = await storage.getPlayer(request.playerId);
-      const creatorBallLevel = requestCreator?.ballLevel;
+      // Enforce ball-level compatibility (same as discovery listing)
       const joinerBallLevel = joiningPlayer.ballLevel;
       if (
-        creatorBallLevel &&
+        match.required_ball_level &&
         joinerBallLevel &&
-        creatorBallLevel !== joinerBallLevel
+        match.required_ball_level !== joinerBallLevel
       ) {
+        await client.query("ROLLBACK");
         return res.status(403).json({
           error: "Your skill level does not match this match request",
         });
       }
 
-      // Atomic update: only succeeds if the request is still open and unclaimed
-      const updated = await db
-        .update(matchRequests)
-        .set({
-          invitedPlayerId: playerId,
-          status: "matched",
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(matchRequests.id, requestId),
-            eq(matchRequests.status, "open"),
-            isNull(matchRequests.invitedPlayerId),
-          ),
-        )
-        .returning();
-
-      if (updated.length === 0) {
+      if (match.current_players >= match.max_players) {
+        await client.query("ROLLBACK");
         return res.status(409).json({
           error: "This match request was just claimed by someone else",
         });
       }
+
+      const insertRes = await client.query(
+        `INSERT INTO open_match_slots
+              (match_id, player_id, role, status)
+         VALUES ($1, $2, 'player', 'confirmed')
+         ON CONFLICT (match_id, player_id) DO NOTHING
+         RETURNING id`,
+        [requestId, playerId],
+      );
+
+      if (insertRes.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Already joined this match" });
+      }
+
+      const newCount = match.current_players + 1;
+      const newStatus = newCount >= match.max_players ? "full" : "open";
+
+      await client.query(
+        `UPDATE open_matches
+            SET current_players = $1,
+                status = $2,
+                updated_at = NOW()
+          WHERE id = $3`,
+        [newCount, newStatus, requestId],
+      );
+
+      await client.query("COMMIT");
+
+      try {
+        await emitOpenMatchUpdate(requestId, [], "join");
+      } catch {}
 
       res.json({
         success: true,
         message: "Successfully joined the match request",
       });
     } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
       console.error("Join match request error:", error);
       res.status(500).json({ error: "Failed to join match request" });
+    } finally {
+      client.release();
     }
   },
 );
 
+// Cancel an open match request
+//
+// Task #1273 — backward-compat shim. Updates open_matches.status to
+// 'cancelled' for hosts. Stale ids return 404.
 router.post(
   "/api/play/match-requests/:requestId/cancel",
   authMiddleware,
@@ -9669,25 +9662,28 @@ router.post(
         return res.status(401).json({ error: "Player profile required" });
       }
 
-      const [request] = await db
+      const [match] = await db
         .select()
-        .from(matchRequests)
-
+        .from(openMatches)
         .where(
           and(
-            eq(matchRequests.id, requestId),
-            eq(matchRequests.playerId, playerId),
+            eq(openMatches.id, requestId),
+            eq(openMatches.hostPlayerId, playerId),
           ),
         );
 
-      if (!request) {
+      if (!match) {
         return res.status(404).json({ error: "Match request not found" });
       }
 
       await db
-        .update(matchRequests)
+        .update(openMatches)
         .set({ status: "cancelled", updatedAt: new Date() })
-        .where(eq(matchRequests.id, requestId));
+        .where(eq(openMatches.id, requestId));
+
+      try {
+        await emitOpenMatchUpdate(requestId, [], "cancel");
+      } catch {}
 
       res.json({ success: true, message: "Match request cancelled" });
     } catch (error) {

@@ -34,7 +34,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
     courtAvailability, courtAvailabilitySnapshots,
     bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    matchRequests, playerBookingPreferences,
+    playerBookingPreferences,
     courtBookings, matchLogs, playerCreditPackages, playerBallLevels,
     playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
     levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
@@ -1748,10 +1748,6 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           await client.query(`DELETE FROM booking_invite_guests WHERE player_id = $1`, [sourceId]);
           await client.query(`DELETE FROM open_match_slots WHERE player_id = $1`, [sourceId]);
           await client.query(`DELETE FROM play_request_participants WHERE player_id = $1`, [sourceId]);
-          await client.query(
-            `DELETE FROM match_requests WHERE player_id = $1 OR invited_player_id = $1 OR matched_with_player_id = $1`,
-            [sourceId]
-          );
           // player_booking_preferences: dedup then reassign
           await client.query(
             `DELETE FROM player_booking_preferences WHERE player_id = $1 AND EXISTS (

@@ -21,7 +21,6 @@ const TABLES_IN_ORDER = [
   "booking_invite_guests",
   "open_matches",
   "open_match_slots",
-  "match_requests",
   "player_booking_preferences",
   "court_availability_snapshots",
   "players",

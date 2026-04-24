@@ -288,7 +288,8 @@ pool.query('SELECT 1').then(async () => {
     await pool.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS sport TEXT DEFAULT 'tennis'`);
     await pool.query(`ALTER TABLE coaching_series ADD COLUMN IF NOT EXISTS sport TEXT DEFAULT 'tennis'`);
     await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS sport_profiles JSONB`);
-    await pool.query(`ALTER TABLE match_requests ADD COLUMN IF NOT EXISTS sport TEXT DEFAULT 'tennis'`);
+    // Task #1273 — match_requests was dropped; the legacy ALTER lived
+    // here for the multi-sport migration and is no longer needed.
     console.log('[Database] Multi-sport migration applied');
   } catch (e: any) {
     console.log('[Database] Multi-sport migration skipped:', e.message);

@@ -96,7 +96,6 @@ import {
   bookingInviteGuests,
   openMatches,
   openMatchSlots,
-  matchRequests,
   playerBookingPreferences,
   courtBookings,
   matchLogs,

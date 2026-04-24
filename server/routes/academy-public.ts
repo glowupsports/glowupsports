@@ -31,7 +31,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
     courtAvailability, courtAvailabilitySnapshots,
     bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    matchRequests, playerBookingPreferences,
+    playerBookingPreferences,
     courtBookings, matchLogs, playerBallLevels,
     playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
     levelUpEvents, playerXpEvents, ballLevels, playerNotifications,

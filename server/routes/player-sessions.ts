@@ -36,7 +36,7 @@ import { getPlayerCountryLadderRank, resolvePlayerSports } from "./tournaments-l
     coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
     courtAvailability, courtAvailabilitySnapshots,
     bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    matchRequests, playerBookingPreferences,
+    playerBookingPreferences,
     courtBookings, matchLogs, playerBallLevels,
     playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
     levelUpEvents, playerXpEvents, ballLevels, playerNotifications,

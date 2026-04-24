@@ -9,7 +9,6 @@ import {
   sessionFeedback,
   creditTransactions,
   players,
-  matchRequests,
   openMatches,
   posts as postsTable,
   users,

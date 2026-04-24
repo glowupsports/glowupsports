@@ -349,7 +349,6 @@ import {
   // Open matches
   openMatches,
   openMatchSlots,
-  matchRequests,
   playerBookingPreferences,
   // Lesson groups
   lessonGroupMembers,
@@ -3147,14 +3146,6 @@ export const storage = {
         db.delete(openMatchSlots).where(eq(openMatchSlots.playerId, id)),
         // Play request participants where this player joined someone else's request
         db.delete(playRequestParticipants).where(eq(playRequestParticipants.playerId, id)),
-        // Match requests (creator or invited/matched party)
-        db.delete(matchRequests).where(
-          or(
-            eq(matchRequests.playerId, id),
-            eq(matchRequests.invitedPlayerId, id),
-            eq(matchRequests.matchedWithPlayerId, id)
-          )
-        ),
         // Player booking preferences
         db.delete(playerBookingPreferences).where(eq(playerBookingPreferences.playerId, id)),
         // Lesson group members
