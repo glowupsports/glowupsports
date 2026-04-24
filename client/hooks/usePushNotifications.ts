@@ -18,6 +18,8 @@ type DeepLinkData = {
   roomId?: string;
   roomTitle?: string;
   messageId?: string;
+  groupId?: string;
+  groupName?: string;
 };
 
 if (Platform.OS !== 'web') {
@@ -116,6 +118,14 @@ export function usePushNotifications() {
                 title: data.roomTitle,
                 scrollToMessageId: data.messageId,
                 ...(data.params || {}),
+              });
+            }
+            break;
+          case 'GroupDetail':
+            if (data.groupId) {
+              navigation.navigate('GroupDetail', {
+                groupId: data.groupId,
+                groupName: data.groupName || '',
               });
             }
             break;

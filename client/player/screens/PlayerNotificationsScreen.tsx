@@ -37,6 +37,7 @@ const NOTIFICATION_CONFIG: Record<string, { icon: string; color: string; iconSet
   welcome: { icon: "heart", color: "#FF4081", iconSet: "ionicons" },
   friend_request: { icon: "person-add", color: "#00E5FF", iconSet: "ionicons" },
   friend_request_accepted: { icon: "people", color: Colors.dark.accentText, iconSet: "ionicons" },
+  community_group_join: { icon: "people-circle", color: "#00E5FF", iconSet: "ionicons" },
 };
 
 function getNotificationConfig(type: string) {
@@ -102,6 +103,12 @@ export default function PlayerNotificationsScreen() {
         navigation.navigate("FriendsList", { initialTab: "requests" });
       } else if (item.type === "friend_request_accepted") {
         navigation.navigate("FriendsList", { initialTab: "friends" });
+      } else if (item.type === "community_group_join") {
+        const groupId = item.data?.groupId as string | undefined;
+        const groupName = (item.data?.groupName as string | undefined) || "";
+        if (groupId) {
+          navigation.navigate("GroupDetail", { groupId, groupName });
+        }
       }
     };
 

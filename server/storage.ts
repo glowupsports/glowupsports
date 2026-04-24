@@ -5312,6 +5312,27 @@ export const storage = {
     const result = await db.insert(seriesPlayers).values(data).returning();
     if (result[0]) {
       await syncCommunityGroupForSeries(result[0].seriesId);
+      // Task #1129 — Push the new community group to the player so the new
+      // surface gets discovered (one-time, idempotent per player+group).
+      try {
+        const { sendCommunityGroupJoinNotification } = await import(
+          "./pushNotifications"
+        );
+        sendCommunityGroupJoinNotification(
+          result[0].playerId,
+          result[0].seriesId
+        ).catch((err) => {
+          console.error(
+            "[addPlayerToSeries] community group join notification failed:",
+            err
+          );
+        });
+      } catch (err) {
+        console.error(
+          "[addPlayerToSeries] failed to dispatch community group join notification:",
+          err
+        );
+      }
     }
     return result[0];
   },

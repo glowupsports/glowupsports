@@ -1,6 +1,6 @@
 import { db, pool } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants, playerSessionReflections, playerMatchReadiness } from "@shared/schema";
+import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants, playerSessionReflections, playerMatchReadiness, communityGroups, coachingSeries } from "@shared/schema";
 import { buildMatchReadinessScore } from "./services/ai-progress-engine";
 import { storage, ensureCreditProcessed, normalizeSessionTypeToCreditType } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
@@ -550,6 +550,103 @@ export async function sendCoachNotification(
   if (tokens.length === 0) return;
 
   await sendPushNotification(tokens, title, body, data);
+}
+
+// Task #1129 — When a player is added to a recurring class that already has a
+// linked community group, send a one-time prompt linking them to the new
+// community surface. Idempotent per (player, group): if a notification of this
+// type was already stored for that group we skip re-sending.
+export async function sendCommunityGroupJoinNotification(
+  playerId: string,
+  seriesId: string
+): Promise<void> {
+  if (!playerId || !seriesId) return;
+
+  try {
+    const [group] = await db
+      .select({
+        id: communityGroups.id,
+        name: communityGroups.name,
+      })
+      .from(communityGroups)
+      .where(eq(communityGroups.seriesId, seriesId))
+      .limit(1);
+    if (!group) return;
+
+    const [series] = await db
+      .select({
+        title: coachingSeries.title,
+        dayOfWeek: coachingSeries.dayOfWeek,
+        startTime: coachingSeries.startTime,
+      })
+      .from(coachingSeries)
+      .where(eq(coachingSeries.id, seriesId))
+      .limit(1);
+    if (!series) return;
+
+    const existing = await db
+      .select({ id: playerNotifications.id })
+      .from(playerNotifications)
+      .where(
+        and(
+          eq(playerNotifications.playerId, playerId),
+          eq(playerNotifications.type, "community_group_join"),
+          sql`${playerNotifications.data}->>'groupId' = ${group.id}`
+        )
+      )
+      .limit(1);
+    if (existing.length > 0) return;
+
+    const dayNames = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    const dayName =
+      typeof series.dayOfWeek === "number" &&
+      series.dayOfWeek >= 0 &&
+      series.dayOfWeek <= 6
+        ? dayNames[series.dayOfWeek]
+        : "";
+    const startTime = (series.startTime || "").slice(0, 5);
+    const subtitle =
+      dayName && startTime ? `${dayName} ${startTime}` : group.name;
+
+    const title = `You're in the ${subtitle} group`;
+    const body = `Open the ${group.name} community to chat, share posts and stay in the loop.`;
+    const data: Record<string, unknown> = {
+      type: "community_group_join",
+      screen: "GroupDetail",
+      playerId,
+      groupId: group.id,
+      groupName: group.name,
+      seriesId,
+    };
+
+    const tokens = await getPlayerPushTokens(playerId);
+    if (tokens.length > 0) {
+      await sendPushNotification(tokens, title, body, data, playerId);
+    } else {
+      // No push tokens — still persist the in-app prompt so the player sees it
+      // when they next open the notifications screen.
+      await db.insert(playerNotifications).values({
+        playerId,
+        title,
+        body,
+        type: "community_group_join",
+        data,
+      });
+    }
+  } catch (err) {
+    console.error(
+      `[CommunityGroupJoinNotification] Failed for player ${playerId}, series ${seriesId}:`,
+      err
+    );
+  }
 }
 
 export async function sendSessionReminderToCoach(
