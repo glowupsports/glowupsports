@@ -762,6 +762,13 @@ const socialPostUpload = multer({
           "quest_complete",
           "tournament_result",
           "open_match",
+          // Task #1126 — Social Phase 6 system items.
+          "weekly_digest",
+          "monthly_digest",
+          "yearly_recap",
+          "highlight_reel",
+          "family_digest",
+          "coach_digest",
         ];
         if (friendPlayerIds.length > 0) {
           whereParts.push(

@@ -4633,6 +4633,118 @@ export const insertWeeklySkillChallengeSchema = createInsertSchema(weeklySkillCh
 export type InsertWeeklySkillChallenge = z.infer<typeof insertWeeklySkillChallengeSchema>;
 export type WeeklySkillChallenge = typeof weeklySkillChallenges.$inferSelect;
 
+// ==================== SOCIAL PHASE 6 — DIGESTS / RECAPS / HIGHLIGHT REELS (Task #1126) ====================
+//
+// Per-player rolled-up snapshots produced by `server/services/digestJobs.ts`.
+// Each row is the source of truth that backs a feed_items entry of the matching
+// source_type (weekly_digest, monthly_digest, yearly_recap, highlight_reel).
+// All payloads are denormalized JSON so the feed can render without joins.
+//
+// Idempotency: each table has a unique index on (player_id, period_key) so the
+// Sunday cron can re-run without producing duplicates.
+
+export const weeklyDigests = pgTable("weekly_digests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  weekStart: date("week_start").notNull(), // Monday (UTC) of the digest week
+  weekEnd: date("week_end").notNull(),     // following Monday (exclusive)
+  // Computed totals — kept as columns for cheap leaderboard-style queries.
+  matchesPlayed: integer("matches_played").notNull().default(0),
+  matchesWon: integer("matches_won").notNull().default(0),
+  courtMinutes: integer("court_minutes").notNull().default(0), // sessions + match duration
+  xpEarned: integer("xp_earned").notNull().default(0),
+  questsCompleted: integer("quests_completed").notNull().default(0),
+  levelChanges: integer("level_changes").notNull().default(0),
+  friendsPlayedWith: integer("friends_played_with").notNull().default(0),
+  // Full payload for rendering: top moment caption, friend names, etc.
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  // Foreign key to the inserted feed_items row (best-effort — null if publish failed).
+  feedItemId: varchar("feed_item_id").references(() => feedItems.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("weekly_digests_player_week_unique").on(table.playerId, table.weekStart),
+  index("weekly_digests_week_idx").on(table.weekStart),
+  index("weekly_digests_player_idx").on(table.playerId),
+]);
+
+export const insertWeeklyDigestSchema = createInsertSchema(weeklyDigests).omit({ id: true, createdAt: true });
+export type InsertWeeklyDigest = z.infer<typeof insertWeeklyDigestSchema>;
+export type WeeklyDigest = typeof weeklyDigests.$inferSelect;
+
+export const monthlyDigests = pgTable("monthly_digests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  monthStart: date("month_start").notNull(), // first-of-month (UTC)
+  monthEnd: date("month_end").notNull(),     // first-of-next-month (exclusive)
+  matchesPlayed: integer("matches_played").notNull().default(0),
+  matchesWon: integer("matches_won").notNull().default(0),
+  courtMinutes: integer("court_minutes").notNull().default(0),
+  xpEarned: integer("xp_earned").notNull().default(0),
+  questsCompleted: integer("quests_completed").notNull().default(0),
+  levelChanges: integer("level_changes").notNull().default(0),
+  friendsPlayedWith: integer("friends_played_with").notNull().default(0),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  feedItemId: varchar("feed_item_id").references(() => feedItems.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("monthly_digests_player_month_unique").on(table.playerId, table.monthStart),
+  index("monthly_digests_month_idx").on(table.monthStart),
+  index("monthly_digests_player_idx").on(table.playerId),
+]);
+
+export const insertMonthlyDigestSchema = createInsertSchema(monthlyDigests).omit({ id: true, createdAt: true });
+export type InsertMonthlyDigest = z.infer<typeof insertMonthlyDigestSchema>;
+export type MonthlyDigest = typeof monthlyDigests.$inferSelect;
+
+// Year-in-Tennis recap. One row per (player, year). The `payload` is the JSON
+// the YearInTennisScreen reads to render its scrollable Spotify-Wrapped story.
+export const yearlyRecaps = pgTable("yearly_recaps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  year: integer("year").notNull(),
+  matchesPlayed: integer("matches_played").notNull().default(0),
+  matchesWon: integer("matches_won").notNull().default(0),
+  courtMinutes: integer("court_minutes").notNull().default(0),
+  xpEarned: integer("xp_earned").notNull().default(0),
+  questsCompleted: integer("quests_completed").notNull().default(0),
+  levelChanges: integer("level_changes").notNull().default(0),
+  friendsPlayedWith: integer("friends_played_with").notNull().default(0),
+  countryRank: integer("country_rank"), // null if not applicable
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+  feedItemId: varchar("feed_item_id").references(() => feedItems.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("yearly_recaps_player_year_unique").on(table.playerId, table.year),
+  index("yearly_recaps_year_idx").on(table.year),
+  index("yearly_recaps_player_idx").on(table.playerId),
+]);
+
+export const insertYearlyRecapSchema = createInsertSchema(yearlyRecaps).omit({ id: true, createdAt: true });
+export type InsertYearlyRecap = z.infer<typeof insertYearlyRecapSchema>;
+export type YearlyRecap = typeof yearlyRecaps.$inferSelect;
+
+// Auto-generated highlight reel for a logged match (≥3 score events). The
+// `frames` array drives a 10-15 second client-side animation overlaying the
+// score progression. Captions are an opt-in editing step.
+export const highlightReels = pgTable("highlight_reels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  matchLogId: varchar("match_log_id").references(() => matchLogs.id, { onDelete: "cascade" }).notNull(),
+  // Frames: each frame has { setIndex, playerScore, opponentScore, label, durationMs, kind }.
+  frames: jsonb("frames").$type<Array<Record<string, unknown>>>().notNull().default([]),
+  caption: text("caption"),
+  durationMs: integer("duration_ms").notNull().default(12000),
+  feedItemId: varchar("feed_item_id").references(() => feedItems.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("highlight_reels_match_unique").on(table.matchLogId),
+  index("highlight_reels_player_idx").on(table.playerId),
+]);
+
+export const insertHighlightReelSchema = createInsertSchema(highlightReels).omit({ id: true, createdAt: true });
+export type InsertHighlightReel = z.infer<typeof insertHighlightReelSchema>;
+export type HighlightReel = typeof highlightReels.$inferSelect;
+
 // ==================== GLOW MARKET / SHOP ====================
 
 // Shop Categories (e.g., Rackets, Apparel, Accessories, Services)

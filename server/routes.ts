@@ -209,6 +209,7 @@ import equipmentRoutes from "./equipment-routes";
 import glowLevelingRoutes from "./routes/glow-leveling";
 import sessionPlansRoutes from "./routes/session-plans";
 import matchLogsRoutes from "./routes/match-logs";
+import yearInTennisRoutes from "./routes/year-in-tennis";
 import skillEvidenceRoutes from "./routes/skill-evidence";
 import levelUpEventsRoutes from "./routes/level-up-events";
 import coachCalibrationRoutes from "./routes/coach-calibration";
@@ -539,6 +540,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Session Plans, Match Logs, Evidence, Level-Up Events
   app.use(sessionPlansRoutes);
   app.use(matchLogsRoutes);
+  // Task #1126 — Year-in-Tennis recap (JSON + share SVG).
+  app.use(yearInTennisRoutes);
   app.use(skillEvidenceRoutes);
   app.use(levelUpEventsRoutes);
   app.use("/api/coach/calibration", coachCalibrationRoutes);

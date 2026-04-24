@@ -31,14 +31,23 @@ export type FeedSourceType =
   | "tournament_result"
   | "open_match"
   | "coach_spotlight"
-  | "coach_practice_pair";
+  | "coach_practice_pair"
+  // Social Phase 6 (Task #1126) — rolled-up digests + highlights.
+  | "weekly_digest"
+  | "monthly_digest"
+  | "yearly_recap"
+  | "highlight_reel"
+  | "family_digest"
+  | "coach_digest";
 
 export type FeedScope =
   | "friends"
   | "group"
   | "academy"
   | "country"
-  | "global";
+  | "global"
+  // Task #1126 — visible only to the author (e.g. family/coach private digests).
+  | "private";
 
 interface BasePublishArgs {
   sourceType: FeedSourceType;
@@ -654,6 +663,181 @@ export async function publishCoachPracticePair(args: {
   });
 
   return { player1FeedKey, player2FeedKey };
+}
+
+// =====================================================================
+// Social Phase 6 — digest / recap / highlight publishers (Task #1126).
+// Each helper inserts (or refreshes) a feed_items row keyed by the digest's
+// own row id, and returns the generated/known feed_item id so the digest
+// row can backfill its `feed_item_id` column.
+// =====================================================================
+
+async function insertAndReturnId(args: BasePublishArgs): Promise<string | null> {
+  try {
+    const inserted = await db
+      .insert(feedItems)
+      .values({
+        sourceType: args.sourceType,
+        sourceId: args.sourceId,
+        scope: args.scope,
+        country: args.country ?? null,
+        academyId: args.academyId ?? null,
+        groupId: args.groupId ?? null,
+        authorUserId: args.authorUserId ?? null,
+        authorPlayerId: args.authorPlayerId ?? null,
+        postId: args.postId ?? null,
+        payload: (args.payload ?? {}) as Record<string, unknown>,
+        occurredAt: args.occurredAt ?? null,
+      })
+      .onConflictDoNothing({
+        target: [feedItems.sourceType, feedItems.sourceId],
+      })
+      .returning({ id: feedItems.id });
+    if (inserted[0]?.id) return inserted[0].id;
+    // Conflict — fetch the existing row id.
+    const existing = await db
+      .select({ id: feedItems.id })
+      .from(feedItems)
+      .where(
+        and(
+          eq(feedItems.sourceType, args.sourceType),
+          eq(feedItems.sourceId, args.sourceId),
+        ),
+      )
+      .limit(1);
+    return existing[0]?.id ?? null;
+  } catch (err) {
+    console.error(
+      "[FeedPublisher] insertAndReturnId failed for",
+      args.sourceType,
+      args.sourceId,
+      err,
+    );
+    return null;
+  }
+}
+
+export async function publishWeeklyDigest(args: {
+  digestId: string;
+  playerId: string;
+  weekStart: string;
+  weekEnd: string;
+  payload: Record<string, unknown>;
+  occurredAt?: Date | null;
+}): Promise<string | null> {
+  const ctx = await loadPlayerContext(args.playerId);
+  return insertAndReturnId({
+    sourceType: "weekly_digest",
+    sourceId: args.digestId,
+    scope: "friends",
+    country: ctx.country,
+    academyId: ctx.academyId,
+    authorUserId: ctx.userId,
+    authorPlayerId: args.playerId,
+    occurredAt: args.occurredAt ?? new Date(),
+    payload: args.payload,
+  });
+}
+
+export async function publishMonthlyDigest(args: {
+  digestId: string;
+  playerId: string;
+  monthStart: string;
+  monthEnd: string;
+  payload: Record<string, unknown>;
+  occurredAt?: Date | null;
+}): Promise<string | null> {
+  const ctx = await loadPlayerContext(args.playerId);
+  return insertAndReturnId({
+    sourceType: "monthly_digest",
+    sourceId: args.digestId,
+    scope: "friends",
+    country: ctx.country,
+    academyId: ctx.academyId,
+    authorUserId: ctx.userId,
+    authorPlayerId: args.playerId,
+    occurredAt: args.occurredAt ?? new Date(),
+    payload: args.payload,
+  });
+}
+
+export async function publishYearlyRecap(args: {
+  recapId: string;
+  playerId: string;
+  year: number;
+  payload: Record<string, unknown>;
+  occurredAt?: Date | null;
+}): Promise<string | null> {
+  const ctx = await loadPlayerContext(args.playerId);
+  return insertAndReturnId({
+    sourceType: "yearly_recap",
+    sourceId: args.recapId,
+    scope: "friends",
+    country: ctx.country,
+    academyId: ctx.academyId,
+    authorUserId: ctx.userId,
+    authorPlayerId: args.playerId,
+    occurredAt: args.occurredAt ?? new Date(),
+    payload: args.payload,
+  });
+}
+
+export async function publishFamilyDigest(args: {
+  digestKey: string;          // unique per parent + week (caller passes parentUserId+weekStart)
+  parentUserId: string;
+  weekStart: string;
+  payload: Record<string, unknown>;
+  occurredAt?: Date | null;
+}): Promise<string | null> {
+  return insertAndReturnId({
+    sourceType: "family_digest",
+    sourceId: args.digestKey,
+    scope: "private",
+    authorUserId: args.parentUserId,
+    occurredAt: args.occurredAt ?? new Date(),
+    payload: args.payload,
+  });
+}
+
+export async function publishCoachDigest(args: {
+  digestKey: string;          // unique per coach + week
+  coachUserId: string | null; // user_id of the coach (for auth lookup); may be null
+  coachId: string;
+  academyId?: string | null;
+  weekStart: string;
+  payload: Record<string, unknown>;
+  occurredAt?: Date | null;
+}): Promise<string | null> {
+  return insertAndReturnId({
+    sourceType: "coach_digest",
+    sourceId: args.digestKey,
+    scope: "private",
+    academyId: args.academyId ?? null,
+    authorUserId: args.coachUserId ?? null,
+    occurredAt: args.occurredAt ?? new Date(),
+    payload: args.payload,
+  });
+}
+
+export async function publishHighlightReel(args: {
+  reelId: string;
+  playerId: string;
+  matchLogId: string;
+  payload: Record<string, unknown>;
+  occurredAt?: Date | null;
+}): Promise<string | null> {
+  const ctx = await loadPlayerContext(args.playerId);
+  return insertAndReturnId({
+    sourceType: "highlight_reel",
+    sourceId: args.reelId,
+    scope: ctx.academyId ? "academy" : "friends",
+    country: ctx.country,
+    academyId: ctx.academyId,
+    authorUserId: ctx.userId,
+    authorPlayerId: args.playerId,
+    occurredAt: args.occurredAt ?? new Date(),
+    payload: args.payload,
+  });
 }
 
 /**

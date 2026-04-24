@@ -11,6 +11,7 @@ import { useVideoPlayer, VideoView, type VideoPlayerStatus } from "expo-video";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
@@ -414,6 +415,7 @@ export function SystemFeedCard({
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const navigation = useNavigation<any>();
   const [showCheerPicker, setShowCheerPicker] = useState(false);
   const [optimisticReaction, setOptimisticReaction] = useState<string | null | undefined>(undefined);
   const [optimisticDelta, setOptimisticDelta] = useState(0);
@@ -563,6 +565,84 @@ export function SystemFeedCard({
           title: payload.title || `${author?.name || "A coach"} shared an update`,
           subtitle: payload.summary || null,
         };
+      // Task #1126 — Social Phase 6 cards.
+      case "weekly_digest": {
+        const matches = Number(payload.matchesPlayed || 0);
+        const wins = Number(payload.matchesWon || 0);
+        const xp = Number(payload.xpEarned || 0);
+        const hours = Math.round(Number(payload.courtMinutes || 0) / 60);
+        return {
+          icon: "calendar",
+          tint: Colors.dark.primary,
+          title: `${author?.name || "Your"} week in tennis`,
+          subtitle: matches > 0
+            ? `${matches} match${matches === 1 ? "" : "es"} · ${wins} won · ${hours}h on court · +${xp} XP`
+            : `${hours}h on court · +${xp} XP`,
+        };
+      }
+      case "monthly_digest": {
+        const matches = Number(payload.matchesPlayed || 0);
+        const wins = Number(payload.matchesWon || 0);
+        const xp = Number(payload.xpEarned || 0);
+        const monthLabel = payload.monthLabel || "This month";
+        return {
+          icon: "calendar-clear",
+          tint: Colors.dark.primary,
+          title: `${author?.name || "Your"} ${monthLabel}`,
+          subtitle: `${matches} match${matches === 1 ? "" : "es"} · ${wins} won · +${xp} XP`,
+        };
+      }
+      case "yearly_recap": {
+        const year = Number(payload.year || new Date().getFullYear());
+        const matches = Number(payload.matchesPlayed || 0);
+        return {
+          icon: "sparkles",
+          tint: "#FFD166",
+          title: `${author?.name || "Your"} ${year} in Tennis is here!`,
+          subtitle: payload.countryRank
+            ? `Country rank #${payload.countryRank} · ${matches} matches`
+            : `${matches} match${matches === 1 ? "" : "es"} · Tap to view your wrap`,
+        };
+      }
+      case "highlight_reel": {
+        const opponent = payload.opponentName || "your opponent";
+        const won = payload.result === "won";
+        const setLine = Array.isArray(payload.playerScore) && Array.isArray(payload.opponentScore)
+          ? payload.playerScore
+              .map((s: number, i: number) => `${s}–${payload.opponentScore[i] ?? "?"}`)
+              .join(", ")
+          : null;
+        return {
+          icon: "film",
+          tint: won ? Colors.dark.primary : Colors.dark.textSecondary,
+          title: won
+            ? `Highlight reel: ${author?.name || "you"} beat ${opponent}`
+            : `Match reel vs ${opponent}`,
+          subtitle: setLine || `${payload.framesCount || 0} highlights`,
+        };
+      }
+      case "family_digest": {
+        const childCount = Number(payload.childCount || 0);
+        return {
+          icon: "people",
+          tint: Colors.dark.primary,
+          title: "Family weekly recap",
+          subtitle: childCount > 0
+            ? `${childCount} kids · ${payload.totalSessions || 0} sessions`
+            : "Your family's week in tennis",
+        };
+      }
+      case "coach_digest": {
+        const playerCount = Number(payload.playerCount || 0);
+        return {
+          icon: "school",
+          tint: Colors.dark.primary,
+          title: "Squad weekly recap",
+          subtitle: playerCount > 0
+            ? `${playerCount} players · ${payload.totalMatches || 0} matches`
+            : "Your squad's week",
+        };
+      }
       default:
         return {
           icon: "sparkles",
@@ -619,6 +699,19 @@ export function SystemFeedCard({
         },
       };
     }
+    if (feedType === "yearly_recap") {
+      return {
+        label: "View Wrap",
+        disabled: false,
+        tone: "primary" as const,
+        onPress: () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("YearInTennis", {
+            year: Number(payload.year || new Date().getFullYear()),
+          });
+        },
+      };
+    }
     return null;
   }, [
     feedType,
@@ -629,6 +722,7 @@ export function SystemFeedCard({
     joinedLocal,
     joinMutation,
     onOpenCreateMatch,
+    navigation,
   ]);
 
   return (

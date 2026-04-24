@@ -6,6 +6,7 @@ import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, re
 import { storage } from "../storage";
 import { fireQuestEvent } from "../services/quest-events";
 import { publishMatchResult } from "../services/feed-publisher";
+import { runAutoHighlightForMatch } from "../services/digestJobs";
 
 const router = Router();
 
@@ -129,6 +130,8 @@ router.post("/api/players/:playerId/matches", authMiddleware, requireAcademy, as
     }
     if (match?.id) {
       publishMatchResult(match.id).catch(() => {});
+      // Task #1126 — auto-publish a highlight reel when ≥3 score events.
+      runAutoHighlightForMatch(match.id).catch(() => {});
     }
 
     res.status(201).json(match);
@@ -211,7 +214,12 @@ router.patch("/api/matches/:matchId", authMiddleware, requireAcademy, async (req
       .set(cleanUpdates)
       .where(eq(matchLogs.id, matchId))
       .returning();
-    
+
+    if (match?.id) {
+      // Task #1126 — re-attempt highlight publish after edits (idempotent).
+      runAutoHighlightForMatch(match.id).catch(() => {});
+    }
+
     res.json(match);
   } catch (error) {
     console.error("Error updating match:", error);

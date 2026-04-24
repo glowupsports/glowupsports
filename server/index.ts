@@ -47,6 +47,7 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, startGlowPlansScheduler, startBirthdayNotificationScheduler, processSessionMaintenance, fixHolidayOvercharges, fixAlmaZaleskiCredits, fixRouzbehGhostCredit } from "./pushNotifications";
 import { startBookingExpiryJob } from "./bookingExpiryJob";
 import { startPlayerOfWeekJob } from "./playerOfWeekJob";
+import { startDigestJobs } from "./services/digestJobs";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -1009,6 +1010,8 @@ function setupErrorHandler(app: express.Application) {
       startMatchPrepNotificationScheduler();
       startBookingExpiryJob();
       startPlayerOfWeekJob();
+      // Task #1126 — weekly/monthly/yearly digests + family/coach digests.
+      startDigestJobs();
       // Legacy startAutoSessionCompletionScheduler DISABLED — processAutoCompleteSession now handles
       // both session completion AND attendance+credit processing atomically (every 5 min)
       startMonthlyReportScheduler();

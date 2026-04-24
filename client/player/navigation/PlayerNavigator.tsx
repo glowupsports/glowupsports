@@ -110,6 +110,7 @@ import MatchSummaryScreen from "@/player/screens/MatchSummaryScreen";
 import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
 import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
 import PlayerAICoachScreen from "@/player/screens/PlayerAICoachScreen";
+import YearInTennisScreen from "@/player/screens/YearInTennisScreen";
 import PlayerDNAWizardScreen from "@/player/screens/PlayerDNAWizard";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import PlayerEditProfileScreen from "@/player/screens/PlayerEditProfileScreen";
@@ -411,6 +412,8 @@ export type PlayerStackParamList = {
   } | undefined;
   PlayerAICoach: undefined;
   PlayerDNAWizard: undefined;
+  // Task #1126 — Year-in-Tennis wrap.
+  YearInTennis: { year?: number } | undefined;
 };
 
 const Stack = createNativeStackNavigator<PlayerStackParamList>();
@@ -1439,6 +1442,15 @@ function PlayerStackNavigator() {
         options={{
           presentation: "card",
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="YearInTennis"
+        component={YearInTennisScreen}
+        options={{
+          presentation: "fullScreenModal",
+          headerShown: false,
+          animation: "fade",
         }}
       />
       <Stack.Screen 
