@@ -84,6 +84,7 @@ The application uses a dark-themed premium sports aesthetic with a simplified co
 - **Smart Fill**: Coaches can use "Smart Fill" to add holidaying players from other groups as guests.
 - **Corporate/Business Accounts**: Companies purchase session credit pools for employees, managed via `corporateStorage` with dedicated API routes and dashboards.
 - **What's New Modal**: Auto-shows a role-aware, locale-aware carousel once per app version after splash + auth. Slides are generated server-side from `git log` by `gpt-4o-mini` and cached. OpenAI API client setup MUST pass both `apiKey` and `baseURL` for the Replit AI proxy.
+- **Feed Retention (Task #1147)**: A daily prune job (`server/feedPruneJob.ts`, scheduled from `server/index.ts` via `startFeedPruneScheduler`) trims auto-generated `feed_items` rows (match results, level-ups, quests, tournaments, open matches, coach practice pairs) older than the retention window. Manual moments (`source_type='manual_moment'`) AND `coach_spotlight` are NEVER pruned — both are author-owned posts backed by a `posts` row. Configurable via env vars: `FEED_RETENTION_DAYS` (default 90), `FEED_PRUNE_MODE` (`delete` default — runs each batch in a transaction that deletes the feed_items rows AND the orphaned `post_reactions` / `post_comments` for those ids together — or `hide` which sets `is_hidden=true`), `FEED_PRUNE_BATCH` (default 5000), `FEED_PRUNE_HOUR_UTC` (default 3, i.e. 03:00 UTC). Manual run: `tsx scripts/social-phase1-prune.ts [--days=N] [--mode=hide|delete] [--dry-run]`.
 
 ## External Dependencies
 

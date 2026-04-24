@@ -48,6 +48,7 @@ import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportSched
 import { startBookingExpiryJob } from "./bookingExpiryJob";
 import { startPlayerOfWeekJob } from "./playerOfWeekJob";
 import { startDigestJobs } from "./services/digestJobs";
+import { startFeedPruneScheduler } from "./feedPruneJob";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -1012,6 +1013,7 @@ function setupErrorHandler(app: express.Application) {
       startPlayerOfWeekJob();
       // Task #1126 — weekly/monthly/yearly digests + family/coach digests.
       startDigestJobs();
+      startFeedPruneScheduler();
       // Legacy startAutoSessionCompletionScheduler DISABLED — processAutoCompleteSession now handles
       // both session completion AND attendance+credit processing atomically (every 5 min)
       startMonthlyReportScheduler();
