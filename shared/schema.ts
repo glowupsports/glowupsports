@@ -7154,6 +7154,39 @@ export const insertLiveMatchSchema = createInsertSchema(liveMatches).omit({ id: 
 export type InsertLiveMatch = z.infer<typeof insertLiveMatchSchema>;
 export type LiveMatch = typeof liveMatches.$inferSelect;
 
+// ==================== FAMILY GROUPS (Symmetric peer model — Task #1132) ====================
+// Replaces the asymmetric `parent_player_relations`. Every account in a family
+// is just a peer; `created_by_player_id` is purely informational (UI only as
+// "Family creator: …"). Permissions are NEVER gated on it. The legacy
+// `parent_player_relations` table is preserved unchanged for backward
+// compatibility — read-only consumers (monthly reports, etc.) keep working.
+export const familyGroups = pgTable("family_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  createdByPlayerId: varchar("created_by_player_id").references(() => players.id),
+  name: text("name"), // optional display name, currently unused but reserved
+  archivedAt: timestamp("archived_at"), // soft-delete when last member leaves
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const familyMembers = pgTable("family_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  familyGroupId: varchar("family_group_id").references(() => familyGroups.id).notNull(),
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  // "creator" | "member" — display only, NEVER used for permission gating.
+  roleLabel: text("role_label").default("member"),
+  addedByPlayerId: varchar("added_by_player_id").references(() => players.id),
+  // Stub for the Family B PIN system. Defaults to false until B ships, at
+  // which point new invites/adds will set this to true.
+  addedWithPin: boolean("added_with_pin").default(false),
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (table) => ({
+  uniqueMember: uniqueIndex("family_members_group_player_unique").on(table.familyGroupId, table.playerId),
+  byPlayer: index("family_members_by_player_idx").on(table.playerId),
+}));
+
+export type FamilyGroup = typeof familyGroups.$inferSelect;
+export type FamilyMemberRow = typeof familyMembers.$inferSelect;
+
 // ==================== FAMILY INVITE CODES ====================
 
 export const familyInviteCodes = pgTable("family_invite_codes", {

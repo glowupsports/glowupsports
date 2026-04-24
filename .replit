@@ -61,6 +61,10 @@ args = "OTA Push"
 task = "workflow.run"
 args = "GitHub Push"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "db push"
+
 [[workflows.workflow]]
 name = "Start App"
 author = "agent"
@@ -94,6 +98,14 @@ outputType = "console"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "GIT_ASKPASS='' GIT_TERMINAL_PROMPT=0 git remote set-url github \"https://glowupsports:$GITHUB_PAT@github.com/glowupsports/glowupsports.git\" 2>/dev/null || git remote add github \"https://glowupsports:$GITHUB_PAT@github.com/glowupsports/glowupsports.git\" && git push github main 2>&1"
+
+[[workflows.workflow]]
+name = "db push"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run db:push -- --force"
 
 [userenv]
 

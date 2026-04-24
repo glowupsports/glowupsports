@@ -245,7 +245,7 @@ export default function FamilyLobbyScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const { familyData, isLoading, refreshFamily, isParent } = useFamily();
+  const { familyData, isLoading, refreshFamily, isParent, isFamilyMember } = useFamily();
   const { user, loginWithToken } = useAuth();
   const [switching, setSwitching] = useState(false);
   const [showControls, setShowControls] = useState(false);
@@ -316,7 +316,8 @@ export default function FamilyLobbyScreen() {
 
   const inviteCodeMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/family/invite-code");
+      // Symmetric model — any family member can mint an invite code.
+      const res = await apiRequest("POST", "/api/family/members/invite");
       return res.json() as Promise<{ code: string; expiresAt: string }>;
     },
     onSuccess: (data) => {
@@ -513,13 +514,12 @@ export default function FamilyLobbyScreen() {
             lineHeight: 20,
           }}
         >
-          {isParent
-            ? "We couldn\u2019t find any other players linked to your account yet. Add a family member to get started, or try again if you just made a change."
-            : "We couldn\u2019t find a family linked to your account yet. Ask a parent in your family to invite you, or try again if you just made a change."}
+          {"We couldn\u2019t find any other players linked to your account yet. Add a family member to get started, or try again if you just made a change."}
         </Text>
 
         <View style={{ marginTop: Spacing.xl, width: "100%", maxWidth: 320, gap: Spacing.sm }}>
-          {isParent ? (
+          {/* Symmetric family-group model: any member can add a player. */}
+          {isFamilyMember || isParent ? (
             <Pressable
               style={{
                 paddingHorizontal: Spacing.xl,
@@ -613,23 +613,13 @@ export default function FamilyLobbyScreen() {
           <Text style={styles.welcomeText}>Family Lobby</Text>
         </View>
         <Text style={styles.subtitle}>Choose a profile to continue</Text>
-        <View style={styles.roleBadgeRow}>
-          <View style={[styles.roleBadge, isParent ? styles.roleBadgeParent : styles.roleBadgeChild]}>
-            <Ionicons
-              name={isParent ? "shield-checkmark" : "person"}
-              size={13}
-              color={isParent ? "#00BCD4" : Colors.dark.primary}
-            />
-            <Text style={[styles.roleBadgeText, isParent ? styles.roleBadgeTextParent : styles.roleBadgeTextChild]}>
-              {isParent ? "Viewing as: Parent" : "Viewing as: Member"}
+        {(familyData.creatorName || familyData.creatorEmail || familyData.parentEmail) ? (
+          <View style={styles.roleBadgeRow}>
+            <Text style={styles.parentEmailText} numberOfLines={1}>
+              Family creator: {familyData.creatorName || familyData.creatorEmail || familyData.parentEmail}
             </Text>
           </View>
-          {familyData.parentEmail ? (
-            <Text style={styles.parentEmailText} numberOfLines={1}>
-              Family managed by: {familyData.parentEmail}
-            </Text>
-          ) : null}
-        </View>
+        ) : null}
       </Animated.View>
 
       {familyData.outstandingTotal > 0 && (

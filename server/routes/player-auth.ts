@@ -20,6 +20,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { z } from "zod";
   import { fromZodError } from "zod-validation-error";
   import { getBallLevelFromAge } from "@shared/ballLevel";
+  import { resolveOrCreateFamilyForCaller, addPlayerToFamily, findFamilyForPlayer } from "../lib/family-groups";
   import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
   import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
   import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
@@ -49,7 +50,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema, familyInviteCodes,
+    submitReviewSchema, familyInviteCodes, familyGroups, familyMembers,
   } from "@shared/schema";
   import { hashPassword, generateToken } from "../auth";
   import * as Sentry from "@sentry/node";
@@ -797,11 +798,25 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Mirrors the behaviour of the standard signup paths (Task #1018).
         const derivedBallLevel = age !== null ? getBallLevelFromAge(age) : null;
 
+        // The new member joins the SAME family as the caller (symmetric
+        // model — siblings, not child-of-sibling). The parentEmail link
+        // points at the family creator so the legacy email-based code paths
+        // keep working.
+        const callerFamilyId = await resolveOrCreateFamilyForCaller(parentPlayer.id);
+        const [creatorRow] = await db
+          .select({ creatorPlayerId: familyGroups.createdByPlayerId })
+          .from(familyGroups)
+          .where(eq(familyGroups.id, callerFamilyId));
+        const creatorPlayerForLink = creatorRow?.creatorPlayerId
+          ? await storage.getPlayer(creatorRow.creatorPlayerId)
+          : parentPlayer;
+        const linkParentEmail = creatorPlayerForLink?.email || parentPlayer.email;
+
         // Create the player record (no user/auth record — under parent account)
         const [newPlayer] = await db.insert(players).values({
           name: memberName,
-          email: parentPlayer.email, // share parent email so family grouping works
-          parentEmail: parentPlayer.email, // explicit link to parent
+          email: linkParentEmail, // share family creator's email for grouping
+          parentEmail: linkParentEmail, // explicit link to family creator
           academyId: resolvedAcademyId,
           dateOfBirth: dateOfBirth || null,
           age,
@@ -819,6 +834,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           glowScore: 0,
           streak: 0,
         }).returning();
+
+        // Mirror the new sibling into family_members. If this throws we let
+        // the route handler return 500 so the inconsistency is surfaced
+        // rather than silently swallowed; the orphan player will be picked
+        // up by the lazy-create path on the next /api/family/me/group call.
+        await addPlayerToFamily(callerFamilyId, newPlayer.id, {
+          addedByPlayerId: parentPlayer.id,
+          addedWithPin: false,
+        });
 
         res.status(201).json({
           success: true,
@@ -923,11 +947,18 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(409).json({ error: "This invite code has already been used" });
         }
 
-        // Link child to parent
+        // Link child to parent (legacy email path, kept for backward compat)
         await db
           .update(players)
           .set({ parentEmail: parentPlayer.email })
           .where(eq(players.id, childPlayer.id));
+
+        // Mirror the symmetric family_members link.
+        const familyId = await resolveOrCreateFamilyForCaller(parentPlayer.id);
+        await addPlayerToFamily(familyId, childPlayer.id, {
+          addedByPlayerId: parentPlayer.id,
+          addedWithPin: false,
+        });
 
         res.json({
           success: true,

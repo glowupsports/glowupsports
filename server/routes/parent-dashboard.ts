@@ -11,26 +11,72 @@ import {
   messages,
   users,
 } from "@shared/schema";
-import { eq, and, desc, gte, or, sql } from "drizzle-orm";
+import { eq, and, desc, or, sql, inArray } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware } from "../auth";
+import { storage } from "../storage";
+import { getFamilyMemberIds } from "../lib/family-groups";
 
 const router = Router();
+
+function splitName(name: string | null | undefined): { firstName: string; lastName: string } {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return { firstName: "", lastName: "" };
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+async function getCallerChildPlayerIds(userId: string): Promise<string[]> {
+  const freshUser = await storage.getUserById(userId);
+  if (!freshUser || !freshUser.playerId) return [];
+
+  // Primary source: family_members.
+  const memberIds = await getFamilyMemberIds(freshUser.playerId).catch(() => [] as string[]);
+  const others = memberIds.filter((id) => id !== freshUser.playerId);
+  if (others.length > 0) return others;
+
+  // Fallback: legacy email-based link (player.parentEmail = caller email,
+  // OR shared-email siblings). This keeps the legacy /api/parent/* endpoints
+  // working even before backfill has touched a given account.
+  const callerPlayer = await storage.getPlayer(freshUser.playerId);
+  const callerEmail = (callerPlayer?.email || freshUser.email || "").trim().toLowerCase();
+  if (!callerEmail) return [];
+  const linkedRows = await db
+    .select({ id: players.id })
+    .from(players)
+    .where(
+      or(
+        sql`LOWER(TRIM(${players.parentEmail})) = ${callerEmail}`,
+        and(sql`LOWER(TRIM(${players.email})) = ${callerEmail}`, sql`${players.id} <> ${freshUser.playerId}`),
+      ),
+    );
+  return linkedRows.map((r) => r.id);
+}
+
+// Returns true if `playerId` is a member of the caller's family (excluding
+// the caller themselves — i.e. a "child" in the legacy parent-portal sense).
+async function isCallerChildOf(userId: string, playerId: string): Promise<boolean> {
+  const ids = await getCallerChildPlayerIds(userId);
+  return ids.includes(playerId);
+}
 
 router.get("/api/parent/children", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    
+
+    const childIds = await getCallerChildPlayerIds(userId);
+    if (childIds.length === 0) return res.json([]);
+
     const children = await db
       .select({
         id: players.id,
-        firstName: players.firstName,
-        lastName: players.lastName,
-        photoUrl: players.photoUrl,
+        name: players.name,
+        profilePhotoUrl: players.profilePhotoUrl,
         ballLevel: players.ballLevel,
       })
       .from(players)
-      .where(eq(players.parentUserId, userId));
-    
+      .where(inArray(players.id, childIds));
+
     const childrenWithProgress = await Promise.all(children.map(async (child) => {
       const [level] = await db
         .select({
@@ -48,9 +94,13 @@ router.get("/api/parent/children", authMiddleware, async (req: AuthenticatedRequ
         ))
         .orderBy(desc(playerBallLevels.activatedAt))
         .limit(1);
-      
+
+      const { firstName, lastName } = splitName(child.name);
       return {
         ...child,
+        firstName,
+        lastName,
+        photoUrl: child.profilePhotoUrl,
         currentLevel: level?.levelId || child.ballLevel || "RED_3",
         levelStatus: level?.status || "active",
         progressPercentage: level?.progressPercentage || 0,
@@ -68,17 +118,13 @@ router.get("/api/parent/children/:playerId/progress", authMiddleware, async (req
   try {
     const userId = req.user!.id;
     const { playerId } = req.params;
-    
-    const [child] = await db
-      .select()
-      .from(players)
-      .where(and(
-        eq(players.id, playerId),
-        eq(players.parentUserId, userId)
-      ));
-    
-    if (!child) {
+
+    if (!(await isCallerChildOf(userId, playerId))) {
       return res.status(403).json({ error: "Access denied" });
+    }
+    const [child] = await db.select().from(players).where(eq(players.id, playerId));
+    if (!child) {
+      return res.status(404).json({ error: "Player not found" });
     }
     
     const [currentLevel] = await db
@@ -111,12 +157,15 @@ router.get("/api/parent/children/:playerId/progress", authMiddleware, async (req
       .orderBy(desc(levelUpEvents.triggeredAt))
       .limit(5);
     
+    const { firstName, lastName } = splitName(child.name);
     res.json({
       player: {
         id: child.id,
-        firstName: child.firstName,
-        lastName: child.lastName,
-        photoUrl: child.photoUrl,
+        name: child.name,
+        firstName,
+        lastName,
+        photoUrl: child.profilePhotoUrl,
+        profilePhotoUrl: child.profilePhotoUrl,
       },
       currentLevel: currentLevel || { levelId: child.ballLevel || "RED_3", status: "active", progressPercentage: 0 },
       levelDetails: levelInfo[0] || null,
@@ -133,16 +182,8 @@ router.get("/api/parent/children/:playerId/sessions", authMiddleware, async (req
     const userId = req.user!.id;
     const { playerId } = req.params;
     const { limit = "10" } = req.query;
-    
-    const [child] = await db
-      .select()
-      .from(players)
-      .where(and(
-        eq(players.id, playerId),
-        eq(players.parentUserId, userId)
-      ));
-    
-    if (!child) {
+
+    if (!(await isCallerChildOf(userId, playerId))) {
       return res.status(403).json({ error: "Access denied" });
     }
     
@@ -187,16 +228,8 @@ router.get("/api/parent/children/:playerId/feedback", authMiddleware, async (req
     const userId = req.user!.id;
     const { playerId } = req.params;
     const { limit = "10" } = req.query;
-    
-    const [child] = await db
-      .select()
-      .from(players)
-      .where(and(
-        eq(players.id, playerId),
-        eq(players.parentUserId, userId)
-      ));
-    
-    if (!child) {
+
+    if (!(await isCallerChildOf(userId, playerId))) {
       return res.status(403).json({ error: "Access denied" });
     }
     
@@ -253,16 +286,8 @@ router.get("/api/parent/children/:playerId/session-ratings", authMiddleware, asy
     const { playerId } = req.params;
     const { limit = "10" } = req.query;
 
-    // Verify the player belongs to this parent
-    const [child] = await db
-      .select()
-      .from(players)
-      .where(and(
-        eq(players.id, playerId),
-        eq(players.parentUserId, userId)
-      ));
-
-    if (!child) {
+    // Verify the player belongs to this caller's family
+    if (!(await isCallerChildOf(userId, playerId))) {
       return res.status(403).json({ error: "Access denied" });
     }
 
