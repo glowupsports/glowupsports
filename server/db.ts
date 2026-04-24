@@ -843,6 +843,32 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] users.chat_onboarding_seen_at migration skipped:', e.message);
   }
 
+  // Social Phase 1: retire bare 'public' (and legacy 'country'/'global')
+  // visibility on free-form moments — downgrade to 'academy'. The `posts`
+  // table is the social moments table (contextType ∈ training | match |
+  // event | group | achievement | free_play). New moments are validated
+  // server-side in POST /api/social/posts; this one-time backfill catches
+  // anything saved before that validation existed. Predicate is narrowly
+  // scoped to known moment context types to avoid touching any future
+  // post-like rows that intentionally use a public-style visibility.
+  try {
+    const r = await pool.query(`
+      UPDATE posts
+         SET visibility = 'academy'
+       WHERE visibility IN ('public', 'country', 'global')
+         AND context_type IN (
+           'training', 'match', 'event', 'group', 'achievement', 'free_play'
+         )
+    `);
+    if (r.rowCount && r.rowCount > 0) {
+      console.log(`[Database] posts.visibility legacy downgrade: ${r.rowCount} moment rows updated to 'academy'`);
+    } else {
+      console.log('[Database] posts.visibility legacy downgrade: no legacy moment rows');
+    }
+  } catch (e: any) {
+    console.log('[Database] posts.visibility legacy downgrade skipped:', e.message);
+  }
+
   // Cross-academy chat rooms (World + Country)
   try {
     await pool.query(`

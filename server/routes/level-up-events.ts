@@ -10,6 +10,7 @@ import {
 import { eq, and, desc, sql, isNull, or } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, validatePlayerOwnership } from "../auth";
 import { storage } from "../storage";
+import { publishLevelUp } from "../services/feed-publisher";
 
 const router = Router();
 
@@ -110,7 +111,11 @@ router.post("/api/players/:playerId/level-up", authMiddleware, requireAcademy, a
         promotedBy: coachId,
       })
       .returning();
-    
+
+    if (event?.id) {
+      publishLevelUp(event.id).catch(() => {});
+    }
+
     res.status(201).json(event);
   } catch (error) {
     console.error("Error recording level-up:", error);

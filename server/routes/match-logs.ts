@@ -5,6 +5,7 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, validatePlayerOwnership, validateSessionOwnership } from "../auth";
 import { storage } from "../storage";
 import { fireQuestEvent } from "../services/quest-events";
+import { publishMatchResult } from "../services/feed-publisher";
 
 const router = Router();
 
@@ -125,6 +126,9 @@ router.post("/api/players/:playerId/matches", authMiddleware, requireAcademy, as
     fireQuestEvent(playerId, "log_match").catch(() => {});
     if (result === "won") {
       fireQuestEvent(playerId, "win_match").catch(() => {});
+    }
+    if (match?.id) {
+      publishMatchResult(match.id).catch(() => {});
     }
 
     res.status(201).json(match);

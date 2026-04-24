@@ -351,6 +351,105 @@ export function MomentCard({
   );
 }
 
+export function SystemFeedCard({ item }: { item: any }) {
+  const { t } = useTranslation();
+  const feedType: string = String(item?.feedType || "");
+  const payload = item?.payload || {};
+  const author = item?.author;
+  const occurredAt = item?.occurredAt || item?.createdAt;
+
+  const config = useMemo(() => {
+    switch (feedType) {
+      case "match_result": {
+        const won = payload.result === "won";
+        return {
+          icon: won ? "trophy" : "tennisball",
+          tint: won ? Colors.dark.primary : Colors.dark.textSecondary,
+          title: won
+            ? `${author?.name || "A player"} won a ${payload.matchType || "match"}!`
+            : `${author?.name || "A player"} played a ${payload.matchType || "match"}`,
+          subtitle: payload.opponentName
+            ? `vs ${payload.opponentName}${payload.playerScore && payload.opponentScore ? `  ·  ${payload.playerScore}–${payload.opponentScore}` : ""}`
+            : payload.playerScore && payload.opponentScore
+              ? `${payload.playerScore}–${payload.opponentScore}`
+              : null,
+        };
+      }
+      case "level_up":
+        return {
+          icon: "rocket",
+          tint: Colors.dark.primary,
+          title: `${author?.name || "A player"} leveled up!`,
+          subtitle: payload.toLevelDisplay || payload.toLevelName
+            ? `Now ${payload.toLevelDisplay || payload.toLevelName}`
+            : null,
+        };
+      case "quest_complete":
+        return {
+          icon: payload.iconName || "checkmark-done-circle",
+          tint: "#FFD166",
+          title: `${author?.name || "A player"} completed a quest`,
+          subtitle: payload.name
+            ? `"${payload.name}"${payload.xpReward ? `  ·  +${payload.xpReward} XP` : ""}`
+            : null,
+        };
+      case "tournament_result":
+        return {
+          icon: "trophy",
+          tint: "#FFB347",
+          title: payload.tournamentName
+            ? `${payload.tournamentName} – winner crowned!`
+            : "Tournament winner crowned!",
+          subtitle: payload.winnerName ? `Champion: ${payload.winnerName}` : null,
+        };
+      case "open_match":
+        return {
+          icon: "people",
+          tint: Colors.dark.primary,
+          title: payload.title || `${author?.name || "A player"} is looking for a match`,
+          subtitle: [
+            payload.matchType,
+            payload.courtName,
+            payload.costPerPlayer ? `${payload.costPerPlayer} ${payload.currency || ""}` : null,
+          ]
+            .filter(Boolean)
+            .join("  ·  "),
+        };
+      case "coach_spotlight":
+        return {
+          icon: "megaphone",
+          tint: Colors.dark.primary,
+          title: payload.title || `${author?.name || "A coach"} shared an update`,
+          subtitle: payload.summary || null,
+        };
+      default:
+        return {
+          icon: "sparkles",
+          tint: Colors.dark.primary,
+          title: "New activity",
+          subtitle: null,
+        };
+    }
+  }, [feedType, payload, author]);
+
+  return (
+    <Animated.View entering={FadeInDown.delay(50).springify()}>
+      <View style={styles.systemCard}>
+        <View style={[styles.systemIconWrap, { backgroundColor: `${config.tint}20` }]}>
+          <Ionicons name={config.icon as any} size={20} color={config.tint as string} />
+        </View>
+        <View style={styles.systemBody}>
+          <ThemedText style={styles.systemTitle}>{config.title}</ThemedText>
+          {config.subtitle ? (
+            <ThemedText style={styles.systemSubtitle}>{config.subtitle}</ThemedText>
+          ) : null}
+          <ThemedText style={styles.systemTime}>{formatTimeAgo(occurredAt)}</ThemedText>
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
 export function EmptyFeed({ filter }: { filter: FeedFilter }) {
   const { t } = useTranslation();
   const getMessage = () => {
@@ -419,7 +518,7 @@ export function MainTabBar({ active, onChange, friendRequestCount = 0 }: { activ
 export function FeedFilterTabs({ active, onChange }: { active: FeedFilter; onChange: (f: FeedFilter) => void }) {
   const { t } = useTranslation();
   const filters: { key: FeedFilter; label: string; icon: string }[] = [
-    { key: "for_you", label: t('player.community.forYou'), icon: "trophy" },
+    { key: "all", label: t('player.community.all', 'All'), icon: "sparkles" },
     { key: "news", label: t('player.community.news'), icon: "newspaper" },
     { key: "academy", label: t('player.community.academy'), icon: "tennisball" },
     { key: "moments", label: t('player.community.moments'), icon: "camera" },
@@ -723,6 +822,40 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   cheerOptionEmoji: {
     fontSize: 22,
+  },
+  systemCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+  },
+  systemIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  systemBody: {
+    flex: 1,
+    gap: 2,
+  },
+  systemTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  systemSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  systemTime: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginTop: 2,
   },
   emptyState: {
     alignItems: "center",

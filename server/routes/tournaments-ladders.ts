@@ -2167,6 +2167,11 @@ router.post("/api/tournaments/:id/matches/:matchId/result", authMiddleware, asyn
         .where(and(eq(tournaments.id, id), ne(tournaments.status, "completed")))
         .returning();
 
+      if (completedTournament) {
+        const { publishTournamentResult } = await import("../services/feed-publisher");
+        publishTournamentResult(id).catch(() => {});
+      }
+
       // Only award XP if the update actually changed a row (guarantees single award)
       if (completedTournament && tournament.xpReward && tournament.xpReward > 0) {
         try {
@@ -2479,6 +2484,11 @@ router.post("/api/coach/tournaments/:id/americano-match-result", authMiddleware,
         updatedAt: new Date(),
       })
       .where(eq(tournaments.id, id));
+
+    if (allDone && updatedStandings[0]?.playerId) {
+      const { publishTournamentResult } = await import("../services/feed-publisher");
+      publishTournamentResult(id).catch(() => {});
+    }
 
     res.json({ success: true, standings: updatedStandings, tournamentComplete: allDone });
   } catch (error) {

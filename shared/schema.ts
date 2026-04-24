@@ -4027,6 +4027,58 @@ export const insertPostCommentSchema = createInsertSchema(postComments).omit({ i
 export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
 export type PostComment = typeof postComments.$inferSelect;
 
+// ==================== AUTO-ACTIVITY FEED (Social Phase 1) ====================
+//
+// `feed_items` is the unified surface that powers Community → Feed for both
+// academy players and Free Players. System events (matches played, level-ups,
+// quest completions, tournament results, open matches, coach posts) are
+// published here as feed items by `server/services/feed-publisher.ts`.
+//
+// Each item carries:
+// - source_type / source_id  — uniquely identifies the underlying event so
+//                              re-publishing the same event is a no-op.
+// - scope                    — visibility band: friends | squad | academy |
+//                              country | global. The feed query unions these.
+// - country, academy_id      — denormalized scope keys, indexed for fast
+//                              country-scoped queries (Free Player feed).
+// - author_user_id /
+//   author_player_id          — for friend-graph filters and rendering.
+// - payload                   — JSON snapshot for fast rendering without
+//                              joining the source table.
+// - post_id                   — when the item is backed by a manual `posts`
+//                              row (so cheers/comments live with the post).
+export const feedItems = pgTable("feed_items", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sourceType: text("source_type").notNull(),
+  sourceId: varchar("source_id").notNull(),
+  scope: text("scope").notNull().default("academy"),
+  country: text("country"),
+  academyId: varchar("academy_id").references(() => academies.id),
+  groupId: varchar("group_id").references(() => communityGroups.id),
+  authorUserId: varchar("author_user_id").references(() => users.id),
+  authorPlayerId: varchar("author_player_id").references(() => players.id),
+  postId: varchar("post_id").references(() => posts.id, { onDelete: "cascade" }),
+  payload: jsonb("payload").$type<Record<string, unknown>>().default({}),
+  isHidden: boolean("is_hidden").default(false),
+  occurredAt: timestamp("occurred_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  unique("feed_items_source_unique").on(table.sourceType, table.sourceId),
+  index("feed_items_country_created_idx").on(table.country, table.createdAt),
+  index("feed_items_scope_country_created_idx").on(table.scope, table.country, table.createdAt),
+  index("feed_items_academy_created_idx").on(table.academyId, table.createdAt),
+  index("feed_items_author_created_idx").on(table.authorUserId, table.createdAt),
+  index("feed_items_player_created_idx").on(table.authorPlayerId, table.createdAt),
+  index("feed_items_group_created_idx").on(table.groupId, table.createdAt),
+  index("feed_items_created_idx").on(table.createdAt),
+]);
+
+export const insertFeedItemSchema = createInsertSchema(feedItems).omit({ id: true, createdAt: true });
+export type InsertFeedItem = z.infer<typeof insertFeedItemSchema>;
+export type FeedItem = typeof feedItems.$inferSelect;
+
 // Comment likes - tracks which users liked which comments
 export const commentLikes = pgTable("comment_likes", {
   id: varchar("id")

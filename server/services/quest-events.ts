@@ -5,6 +5,7 @@ import {
   dailyQuestSlots as dailyQuestSlotsTable,
 } from "@shared/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
+import { publishQuestComplete } from "./feed-publisher";
 
 export async function fireQuestEvent(
   playerId: string,
@@ -47,6 +48,10 @@ export async function fireQuestEvent(
           completedAt: isComplete ? new Date() : null,
         })
         .where(eq(playerQuestsTable.id, quest.id));
+
+      if (isComplete) {
+        publishQuestComplete(quest.id).catch(() => {});
+      }
 
       if (isComplete && template.questType === "daily") {
         const today = new Date().toISOString().split("T")[0];

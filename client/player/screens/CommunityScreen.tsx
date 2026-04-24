@@ -43,6 +43,7 @@ import {
   EmptyFeed,
   MainTabBar,
   FeedFilterTabs,
+  SystemFeedCard,
 } from "../components/community/CommunityCards";
 
 import {
@@ -73,7 +74,7 @@ export default function CommunityScreen() {
   const canInteract = !isMinor || communityEnabled;
   const track = useTrackFeature();
   const [mainTab, setMainTab] = useState<MainTab>("feed");
-  const [filter, setFilter] = useState<FeedFilter>("for_you");
+  const [filter, setFilter] = useState<FeedFilter>("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
@@ -264,14 +265,8 @@ export default function CommunityScreen() {
         <>
             <FeedFilterTabs active={filter} onChange={(f) => { track(`community:feed_${f}`); setFilter(f); }} />
 
-          {filter === "for_you" ? (
-            <AchievementShowcase
-              onSelectAchievement={(achievement) => {
-                setSelectedAchievement(achievement);
-                setShowShareModal(true);
-              }}
-            />
-          ) : filter === "news" ? (
+
+          {filter === "news" ? (
             <NewsSection />
           ) : isLoading ? (
             <View style={styles.loadingContainer}>
@@ -280,17 +275,26 @@ export default function CommunityScreen() {
           ) : (
             <FlatList
               data={feed}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <MomentCard
-                  post={item}
-                  onReact={handleReact}
-                  onComment={handleComment}
-                  onShare={handleShare}
-                  onDelete={handleDelete}
-                  currentUserId={user?.id}
-                />
-              )}
+              keyExtractor={(item: any) => `${item.feedType || "post"}:${item.id}`}
+              renderItem={({ item }: { item: any }) => {
+                const t = item?.feedType;
+                if (t && t !== "manual_moment") {
+                  return <SystemFeedCard item={item} />;
+                }
+                const post = item?.postId
+                  ? { ...item, id: item.postId }
+                  : item;
+                return (
+                  <MomentCard
+                    post={post}
+                    onReact={handleReact}
+                    onComment={handleComment}
+                    onShare={handleShare}
+                    onDelete={handleDelete}
+                    currentUserId={user?.id}
+                  />
+                );
+              }}
               contentContainerStyle={[
                 styles.feedList,
                 { paddingBottom: tabBarHeight + chatFooterHeight + Spacing.xl }

@@ -5,7 +5,7 @@ export const TAB_BAR_HEIGHT = 80;
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 export const DRAWER_HEIGHT = Math.min(SCREEN_HEIGHT * 0.55, 450);
 
-export type FeedFilter = "for_you" | "news" | "academy" | "moments" | "events";
+export type FeedFilter = "all" | "news" | "academy" | "moments" | "events";
 export type MainTab = "feed" | "friends" | "groups";
 
 export interface Post {

@@ -54,11 +54,279 @@ const socialPostUpload = multer({
     try {
       const userId = req.user!.userId;
       const academyId = req.user!.academyId;
-      const { limit = "20", offset = "0", filter = "for_you" } = req.query;
-      
-      // If no academyId, return empty feed
+      const playerId = req.user!.playerId;
+      const { limit = "20", offset = "0", filter = "all" } = req.query;
+      const filterStr = String(filter);
+      const limitVal = parseInt(String(limit)) || 20;
+      const offsetVal = parseInt(String(offset)) || 0;
+
+      // Phase 1 unified feed: when "all" (or legacy "for_you"), return mixed
+      // feed_items (matches/level-ups/quests/tournaments/open matches) +
+      // manual moments. Visible to academy AND Free Players via country/global
+      // scope.
+      if (filterStr === "all" || filterStr === "for_you") {
+        // Resolve viewer's country (from player or fallback to academy)
+        let viewerCountry: string | null = null;
+        let viewerPlayerId: string | null = playerId || null;
+        try {
+          const ctxRes = await pool.query(
+            `SELECT p.id AS player_id, p.country AS p_country, a.country AS a_country
+               FROM users u
+               LEFT JOIN players p ON p.id = u.player_id
+               LEFT JOIN academies a ON a.id = p.academy_id
+              WHERE u.id = $1
+              LIMIT 1`,
+            [userId],
+          );
+          const row = ctxRes.rows?.[0];
+          viewerCountry = row?.p_country ?? row?.a_country ?? null;
+          viewerPlayerId = row?.player_id ?? viewerPlayerId;
+        } catch {
+          /* best-effort */
+        }
+
+        // Friend user IDs and player IDs
+        let friendUserIds: string[] = [];
+        let friendPlayerIds: string[] = [];
+        try {
+          if (viewerPlayerId) {
+            const fRes = await db.execute(sql`
+              SELECT player2_id AS friend_id FROM player_connections
+                WHERE player1_id = ${viewerPlayerId} AND status = 'accepted'
+              UNION
+              SELECT player1_id AS friend_id FROM player_connections
+                WHERE player2_id = ${viewerPlayerId} AND status = 'accepted'
+            `);
+            friendPlayerIds = (fRes.rows || []).map((r: any) => r.friend_id);
+            if (friendPlayerIds.length > 0) {
+              const uRes = await pool.query(
+                `SELECT id FROM users WHERE player_id = ANY($1::text[])`,
+                [friendPlayerIds],
+              );
+              friendUserIds = uRes.rows.map((r: any) => r.id);
+            }
+          }
+        } catch {
+          /* best-effort */
+        }
+
+        // Group IDs the viewer is a member of
+        let viewerGroupIds: string[] = [];
+        try {
+          const gRes = await db.execute(sql`
+            SELECT group_id FROM group_members WHERE user_id = ${userId}
+          `);
+          viewerGroupIds = (gRes.rows || []).map((r: any) => r.group_id);
+        } catch {
+          /* best-effort */
+        }
+
+        // Build dynamic WHERE for feed_items visibility per scope.
+        const whereParts: string[] = [
+          `(scope = 'global')`,
+        ];
+        const params: any[] = [];
+        let pi = 1;
+        if (viewerCountry) {
+          whereParts.push(`(scope = 'country' AND country = $${pi++})`);
+          params.push(viewerCountry);
+        }
+        if (academyId) {
+          whereParts.push(`(scope = 'academy' AND academy_id = $${pi++})`);
+          params.push(academyId);
+        }
+        // Friends scope: viewer themselves OR a friend
+        const friendUserIdsForQuery = [userId, ...friendUserIds];
+        whereParts.push(`(scope = 'friends' AND author_user_id = ANY($${pi++}::text[]))`);
+        params.push(friendUserIdsForQuery);
+        // Friend visibility override: SYSTEM events (matches, level-ups,
+        // quests, tournament results, open matches) authored by a friend are
+        // visible to the viewer regardless of their original scope, so cross-
+        // academy and Free Player friends always see each other's activity.
+        // Manual moments (manual_moment / coach_spotlight) are intentionally
+        // excluded — those have explicit visibility set by the author
+        // (academy / friends / group / private) and must NOT be broadened by
+        // a friend relationship. Private moments aren't in feed_items at all.
+        const systemSourceTypes = [
+          "match_result",
+          "level_up",
+          "quest_complete",
+          "tournament_result",
+          "open_match",
+        ];
+        if (friendPlayerIds.length > 0) {
+          whereParts.push(
+            `(source_type = ANY($${pi++}::text[]) AND author_player_id = ANY($${pi++}::text[]))`
+          );
+          params.push(systemSourceTypes);
+          params.push(friendPlayerIds);
+        }
+        if (friendUserIds.length > 0) {
+          whereParts.push(
+            `(source_type = ANY($${pi++}::text[]) AND author_user_id = ANY($${pi++}::text[]))`
+          );
+          params.push(systemSourceTypes);
+          params.push(friendUserIds);
+        }
+        if (viewerGroupIds.length > 0) {
+          whereParts.push(`(scope = 'group' AND group_id = ANY($${pi++}::text[]))`);
+          params.push(viewerGroupIds);
+        }
+        // Always include viewer's own published items regardless of scope
+        whereParts.push(`(author_user_id = $${pi++})`);
+        params.push(userId);
+
+        const limitParam = `$${pi++}`;
+        params.push(limitVal);
+        const offsetParam = `$${pi++}`;
+        params.push(offsetVal);
+
+        let feedRows: any[] = [];
+        try {
+          const sqlText = `
+            SELECT id, source_type, source_id, scope, country, academy_id,
+                   group_id, author_user_id, author_player_id, post_id,
+                   payload, occurred_at, created_at
+              FROM feed_items
+             WHERE is_hidden = false
+               AND (${whereParts.join(" OR ")})
+             ORDER BY COALESCE(occurred_at, created_at) DESC
+             LIMIT ${limitParam} OFFSET ${offsetParam}
+          `;
+          const r = await pool.query(sqlText, params);
+          feedRows = r.rows || [];
+        } catch (err) {
+          console.error("Error querying feed_items:", err);
+          feedRows = [];
+        }
+
+        // Hydrate manual_moment posts (so the client can render images, etc.)
+        const postIdsToHydrate = feedRows
+          .filter((r) => r.source_type === "manual_moment" && r.post_id)
+          .map((r) => r.post_id);
+        const postMap = new Map<string, any>();
+        if (postIdsToHydrate.length > 0) {
+          try {
+            const pr = await pool.query(
+              `SELECT id, author_id, academy_id, context_type, context_id, caption,
+                      media_urls, media_types, visibility, group_id, cheer_count,
+                      comment_count, created_at, is_hidden, tagged_user_ids, location_name, is_pinned
+                 FROM posts
+                WHERE id = ANY($1::text[]) AND is_hidden = false`,
+              [postIdsToHydrate],
+            );
+            for (const row of pr.rows || []) {
+              postMap.set(row.id, row);
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
+
+        // Author hydration (one query per unique author)
+        const authorIds = Array.from(
+          new Set(
+            feedRows
+              .map((r) => r.author_user_id)
+              .filter(Boolean) as string[],
+          ),
+        );
+        const authorMap = new Map<string, any>();
+        if (authorIds.length > 0) {
+          try {
+            const ar = await pool.query(
+              `SELECT u.id, u.username, u.player_id, u.coach_id,
+                      p.name AS player_name, p.profile_photo_url AS player_photo, p.ball_level,
+                      c.name AS coach_name, c.photo_url AS coach_photo
+                 FROM users u
+                 LEFT JOIN players p ON p.id = u.player_id
+                 LEFT JOIN coaches c ON c.id = u.coach_id
+                WHERE u.id = ANY($1::text[])`,
+              [authorIds],
+            );
+            for (const row of ar.rows || []) {
+              authorMap.set(row.id, {
+                id: row.id,
+                username: row.username || "Unknown",
+                name: row.player_name || row.coach_name || row.username || "Unknown",
+                photoUrl: row.player_photo || row.coach_photo || null,
+                ballLevel: row.ball_level || null,
+                isCoach: !!row.coach_id,
+              });
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
+
+        // Block filtering
+        let blockedSet = new Set<string>();
+        try {
+          const blocked = await db
+            .select({ blockedUserId: playerBlocksTable.blockedUserId })
+            .from(playerBlocksTable)
+            .where(eq(playerBlocksTable.blockerUserId, userId));
+          blockedSet = new Set(blocked.map((r) => r.blockedUserId));
+        } catch {
+          /* best-effort */
+        }
+
+        const items = feedRows
+          .filter((r) => !r.author_user_id || !blockedSet.has(r.author_user_id))
+          .map((r) => {
+            const base = {
+              id: r.id,
+              feedType: r.source_type as string,
+              sourceId: r.source_id,
+              scope: r.scope,
+              groupId: r.group_id,
+              academyId: r.academy_id,
+              country: r.country,
+              authorId: r.author_user_id,
+              authorPlayerId: r.author_player_id,
+              author: r.author_user_id
+                ? authorMap.get(r.author_user_id) || {
+                    id: r.author_user_id,
+                    username: "Unknown",
+                    name: "Unknown",
+                    photoUrl: null,
+                    ballLevel: null,
+                    isCoach: false,
+                  }
+                : null,
+              payload: r.payload || {},
+              createdAt: r.created_at,
+              occurredAt: r.occurred_at,
+            };
+            if (r.source_type === "manual_moment" && r.post_id) {
+              const p = postMap.get(r.post_id);
+              if (p) {
+                return {
+                  ...base,
+                  postId: p.id,
+                  caption: p.caption,
+                  mediaUrls: p.media_urls || [],
+                  mediaTypes: p.media_types || [],
+                  visibility: p.visibility,
+                  contextType: p.context_type,
+                  contextId: p.context_id,
+                  cheerCount: p.cheer_count || 0,
+                  commentCount: p.comment_count || 0,
+                  taggedUserIds: p.tagged_user_ids || [],
+                  locationName: p.location_name,
+                  isPinned: p.is_pinned,
+                };
+              }
+            }
+            return base;
+          });
+
+        return res.json(items);
+      }
+
+      // Existing per-filter post queries below require an academy context.
       if (!academyId) {
-        return res.json({ friends: [], pendingRequests: [] });
+        return res.json([]);
       }
       
       // Get filter-specific user/group IDs first
@@ -118,8 +386,7 @@ const socialPostUpload = multer({
       
       // Fetch posts with proper parameterized queries based on filter
       let posts: any[] = [];
-      const limitVal = parseInt(limit as string) || 20;
-      const offsetVal = parseInt(offset as string) || 0;
+
       
       try {
         let rawPosts: any;
@@ -484,6 +751,17 @@ const socialPostUpload = multer({
       if (!contextType) {
         return res.status(400).json({ error: "Context type is required" });
       }
+
+      // Phase 1: bare "public/country/global" visibility is retired for
+      // free-form moments. Country/global discovery is reserved for
+      // system-generated feed items (tournaments, coach posts, etc.).
+      const allowedVisibility = new Set(["academy", "friends", "group", "private"]);
+      if (visibility && !allowedVisibility.has(visibility)) {
+        return res.status(400).json({
+          error: "Invalid visibility for moments. Allowed: academy, friends, group, private.",
+          code: "MOMENT_VISIBILITY_NOT_ALLOWED",
+        });
+      }
       
       if (caption && caption.length > 280) {
         return res.status(400).json({ error: "Caption too long (max 280 characters)" });
@@ -512,6 +790,11 @@ const socialPostUpload = multer({
 
       if (playerId) {
         fireQuestEvent(playerId, "post_moment").catch(() => {});
+      }
+
+      if (newPost?.id) {
+        const { publishMomentPost } = await import("../services/feed-publisher");
+        publishMomentPost(newPost.id).catch(() => {});
       }
 
       res.status(201).json(newPost);

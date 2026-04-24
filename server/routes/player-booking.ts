@@ -7542,6 +7542,11 @@ router.post(
             role: "host",
             status: "confirmed",
           });
+
+          if (match?.id) {
+            const { publishOpenMatch } = await import("../services/feed-publisher");
+            publishOpenMatch(match.id).catch(() => {});
+          }
         } catch (openMatchError) {
           console.error("Failed to create open match:", openMatchError);
         }
@@ -8736,6 +8741,11 @@ router.post(
         status: "confirmed",
       });
 
+      if (match?.id) {
+        const { publishOpenMatch } = await import("../services/feed-publisher");
+        publishOpenMatch(match.id).catch(() => {});
+      }
+
       res.status(201).json(match);
     } catch (error) {
       console.error("Create open match error:", error);
@@ -9149,6 +9159,11 @@ router.post(
           role: "host",
           status: "confirmed",
         });
+
+        if (openMatch?.id) {
+          const { publishOpenMatch } = await import("../services/feed-publisher");
+          publishOpenMatch(openMatch.id).catch(() => {});
+        }
 
         console.log(
           "[OpenMatch] Created via create-match-request:",
