@@ -1635,75 +1635,76 @@ import fs from "fs";
           }
         }
 
+        // Batch-fetch attendance rows for this player across ALL relevant
+        // sessions in a single query (avoid N+1: was one count query per
+        // series).
+        const allRelevantSessionIds = allSeriesSessions.map((s) => s.id);
+        const attendanceRowsAll = allRelevantSessionIds.length > 0
+          ? await db
+              .select({
+                sessionId: sessionPlayers.sessionId,
+                status: sessionPlayers.attendanceStatus,
+              })
+              .from(sessionPlayers)
+              .where(
+                and(
+                  inArray(sessionPlayers.sessionId, allRelevantSessionIds),
+                  eq(sessionPlayers.playerId, playerId),
+                ),
+              )
+          : [];
+
+        const statusBySessionId = new Map<string, string | null>();
+        for (const r of attendanceRowsAll) {
+          statusBySessionId.set(r.sessionId, r.status ?? null);
+        }
+
         // Get attendance counts per series
-        const classes = await Promise.all(
-          seriesDetails.map(async (series) => {
-            const seriesRecord = playerSeriesRecords.find(
-              (r) => r.seriesId === series.id,
-            );
+        const classes = seriesDetails.map((series) => {
+          const seriesRecord = playerSeriesRecords.find(
+            (r) => r.seriesId === series.id,
+          );
 
-            const seriesSessions = sessionsBySeriesId.get(series.id) || [];
-            const sessionIds = seriesSessions.map((s) => s.id);
+          const seriesSessions = sessionsBySeriesId.get(series.id) || [];
 
-            // Count attendance by status
-            const attendanceRecords =
-              sessionIds.length > 0
-                ? await db
-                    .select({
-                      status: sessionPlayers.attendanceStatus,
-                      count: count(),
-                    })
-                    .from(sessionPlayers)
+          // Tally attendance counts in JS from the pre-fetched batch.
+          let presentOnTimeCount = 0;
+          let lateCount = 0;
+          let vacationCount = 0;
+          let absentCount = 0;
+          for (const ss of seriesSessions) {
+            const status = statusBySessionId.get(ss.id);
+            if (status === "present") presentOnTimeCount += 1;
+            else if (status === "late") lateCount += 1;
+            else if (status === "vacation") vacationCount += 1;
+            else if (status === "absent") absentCount += 1;
+          }
+          const presentCount = presentOnTimeCount + lateCount;
+          const totalRecorded = presentCount + vacationCount + absentCount;
 
-                    .where(
-                      and(
-                        inArray(sessionPlayers.sessionId, sessionIds),
-                        eq(sessionPlayers.playerId, playerId),
-                      ),
-                    )
-                    .groupBy(sessionPlayers.attendanceStatus)
-                : [];
+          const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-            const presentOnTimeCount = Number(
-              attendanceRecords.find((r) => r.status === "present")?.count || 0,
-            );
-            const lateCount = Number(
-              attendanceRecords.find((r) => r.status === "late")?.count || 0,
-            );
-            const presentCount = presentOnTimeCount + lateCount;
-            const vacationCount = Number(
-              attendanceRecords.find((r) => r.status === "vacation")?.count ||
-                0,
-            );
-            const absentCount = Number(
-              attendanceRecords.find((r) => r.status === "absent")?.count || 0,
-            );
-            const totalRecorded = presentCount + vacationCount + absentCount;
-
-            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-            return {
-              id: series.id,
-              title: series.title,
-              dayOfWeek: dayNames[series.dayOfWeek || 0],
-              time: series.startTime,
-              sessionType: series.sessionType,
-              status: seriesRecord?.status || "active",
-              joinedAt: seriesRecord?.joinedAt?.toISOString() || null,
-              leftAt: seriesRecord?.leftAt?.toISOString() || null,
-              attendance: {
-                present: Number(presentCount),
-                vacation: Number(vacationCount),
-                absent: Number(absentCount),
-                total: totalRecorded,
-                rate:
-                  totalRecorded > 0
-                    ? Math.round((Number(presentCount) / totalRecorded) * 100)
-                    : 0,
-              },
-            };
-          }),
-        );
+          return {
+            id: series.id,
+            title: series.title,
+            dayOfWeek: dayNames[series.dayOfWeek || 0],
+            time: series.startTime,
+            sessionType: series.sessionType,
+            status: seriesRecord?.status || "active",
+            joinedAt: seriesRecord?.joinedAt?.toISOString() || null,
+            leftAt: seriesRecord?.leftAt?.toISOString() || null,
+            attendance: {
+              present: Number(presentCount),
+              vacation: Number(vacationCount),
+              absent: Number(absentCount),
+              total: totalRecorded,
+              rate:
+                totalRecorded > 0
+                  ? Math.round((Number(presentCount) / totalRecorded) * 100)
+                  : 0,
+            },
+          };
+        });
 
         // Calculate overall summary
         const totalPresent = classes.reduce(

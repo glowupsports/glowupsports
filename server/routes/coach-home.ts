@@ -374,21 +374,30 @@ async function fetchPendingBookingRequests(
 
     const playerMap = new Map(playerRows.map((p: any) => [p.id, p]));
 
-    // Count past sessions between each player and this coach
+    // Count past sessions between each player and this coach in a single
+    // grouped query (avoid N+1: was one count query per player).
     const pastSessionCounts: Record<string, number> = {};
-    for (const playerId of playerIds) {
-      const rows = await db
-        .select({ cnt: count(sessionPlayers.sessionId) })
+    if (playerIds.length > 0) {
+      const countRows = await db
+        .select({
+          playerId: sessionPlayers.playerId,
+          cnt: count(sessionPlayers.sessionId),
+        })
         .from(sessionPlayers)
         .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
         .where(
           and(
-            eq(sessionPlayers.playerId, playerId),
+            inArray(sessionPlayers.playerId, playerIds),
             eq(sessions.coachId, coachId),
             sql`${sessions.status} = 'completed'`
           )
-        );
-      pastSessionCounts[playerId] = Number(rows[0]?.cnt ?? 0);
+        )
+        .groupBy(sessionPlayers.playerId);
+      for (const row of countRows) {
+        if (row.playerId) {
+          pastSessionCounts[row.playerId] = Number(row.cnt ?? 0);
+        }
+      }
     }
 
     // Get player XP streak (total XP as proxy)

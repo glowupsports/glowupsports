@@ -293,27 +293,71 @@ router.get(
         duration: parseInt(duration as string) || 60,
         requestingPlayerId: playerId,
       });
-      // Enrich slots with coach, location, and court names
-      const enrichedSlots = await Promise.all(
-        slots.map(async (slot) => {
-          const [coach, location, court] = await Promise.all([
-            slot.coachId ? storage.getCoach(slot.coachId) : null,
-            slot.locationId ? storage.getLocation(slot.locationId) : null,
-            slot.courtId ? storage.getCourt(slot.courtId) : null,
-          ]);
+      // Enrich slots with coach, location, and court names. Batch-fetch each
+      // entity collection in a single query (avoid N+1: was 3 storage calls
+      // per slot).
+      const slotCoachIds = [
+        ...new Set(
+          slots.map((s) => s.coachId).filter(Boolean) as string[],
+        ),
+      ];
+      const slotLocationIds = [
+        ...new Set(
+          slots.map((s) => s.locationId).filter(Boolean) as string[],
+        ),
+      ];
+      const slotCourtIds = [
+        ...new Set(
+          slots.map((s) => s.courtId).filter(Boolean) as string[],
+        ),
+      ];
 
-          return {
-            ...slot,
-            coachName: coach?.name || "Available Coach",
-            coachPhotoUrl: coach?.profilePhotoUrl || null,
-            locationId: slot.locationId,
-            locationName: location?.name || "Any Location",
-            courtId: slot.courtId,
-            courtName: court?.name || "Any Court",
-            duration: parseInt(duration as string) || 60,
-          };
-        }),
-      );
+      const [slotCoachRows, slotLocationRows, slotCourtRows] = await Promise.all([
+        slotCoachIds.length > 0
+          ? db
+              .select({
+                id: coaches.id,
+                name: coaches.name,
+                profilePhotoUrl: coaches.profilePhotoUrl,
+              })
+              .from(coaches)
+              .where(inArray(coaches.id, slotCoachIds))
+          : Promise.resolve([] as { id: string; name: string | null; profilePhotoUrl: string | null }[]),
+        slotLocationIds.length > 0
+          ? db
+              .select({ id: locations.id, name: locations.name })
+              .from(locations)
+              .where(inArray(locations.id, slotLocationIds))
+          : Promise.resolve([] as { id: string; name: string | null }[]),
+        slotCourtIds.length > 0
+          ? db
+              .select({ id: courts.id, name: courts.name })
+              .from(courts)
+              .where(inArray(courts.id, slotCourtIds))
+          : Promise.resolve([] as { id: string; name: string | null }[]),
+      ]);
+
+      const slotCoachMap = new Map(slotCoachRows.map((c) => [c.id, c]));
+      const slotLocationMap = new Map(slotLocationRows.map((l) => [l.id, l]));
+      const slotCourtMap = new Map(slotCourtRows.map((c) => [c.id, c]));
+      const enrichedDuration = parseInt(duration as string) || 60;
+
+      const enrichedSlots = slots.map((slot) => {
+        const coach = slot.coachId ? slotCoachMap.get(slot.coachId) : null;
+        const location = slot.locationId ? slotLocationMap.get(slot.locationId) : null;
+        const court = slot.courtId ? slotCourtMap.get(slot.courtId) : null;
+
+        return {
+          ...slot,
+          coachName: coach?.name || "Available Coach",
+          coachPhotoUrl: coach?.profilePhotoUrl || null,
+          locationId: slot.locationId,
+          locationName: location?.name || "Any Location",
+          courtId: slot.courtId,
+          courtName: court?.name || "Any Court",
+          duration: enrichedDuration,
+        };
+      });
 
       console.log("[Availability] Returning", enrichedSlots.length, "slots");
       res.json(enrichedSlots);
