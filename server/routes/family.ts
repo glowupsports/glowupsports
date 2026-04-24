@@ -23,8 +23,15 @@ import {
   familyGroups,
   familyMembers,
   familyInviteCodes,
+  sessions,
+  sessionPlayers,
+  locations,
+  courts,
+  coaches,
+  matchChallenges,
+  openMatchSlots,
 } from "@shared/schema";
-import { eq, and, inArray, isNull } from "drizzle-orm";
+import { eq, and, inArray, isNull, gte, lte } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { resolveOrCreateFamilyForCaller, addPlayerToFamily } from "../lib/family-groups";
 import { syncFamilyChatGroup } from "../storage";
@@ -408,6 +415,396 @@ router.delete("/api/family/members/:playerId", authMiddleware, async (req: Authe
   } catch (error) {
     console.error("[family/members/delete] error:", error);
     res.status(500).json({ error: "Failed to remove member" });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/family/me/today
+// Smart-Family-Lobby aggregation: per-member upcoming sessions (next 48h),
+// streaks, RSVP-pending count, open-match-invite count, birthday in next 7
+// days, plus a precomputed "todayStrip" (chronological today's sessions for
+// every family member) and carpool-pair list.
+//
+// Cache is 60s per-family — acceptable trade-off vs. running the join 5+
+// times per Lobby visit. A cancellation may show stale "Lesson today" for up
+// to 60s; the task explicitly accepts this.
+// ---------------------------------------------------------------------------
+
+interface TodayMemberSession {
+  id: string;
+  startTime: string;
+  endTime: string;
+  status: string | null;
+  sessionType: string | null;
+  title: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  courtId: string | null;
+  courtName: string | null;
+  coachName: string | null;
+}
+
+interface TodayMember {
+  playerId: string;
+  name: string;
+  avatarUrl: string | null;
+  ballLevel: string | null;
+  level: number;
+  isSelf: boolean;
+  lastActiveAt: string | null;
+  birthdayInDays: number | null;
+  streakWeeks: number;
+  rsvpPendingCount: number;
+  openMatchInviteCount: number;
+  upcomingSessions: TodayMemberSession[];
+}
+
+interface TodayStripRow {
+  sessionId: string;
+  playerId: string;
+  playerName: string;
+  startTime: string;
+  endTime: string;
+  locationName: string | null;
+  courtName: string | null;
+  coachName: string | null;
+  sessionType: string | null;
+  title: string | null;
+}
+
+interface CarpoolMember {
+  playerId: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  sessionId: string;
+}
+
+interface CarpoolPair {
+  locationId: string | null;
+  locationName: string | null;
+  courtName: string | null;
+  members: CarpoolMember[];
+  summary: string;
+}
+
+interface TodayPayload {
+  familyGroupId: string;
+  generatedAt: string;
+  members: TodayMember[];
+  todayStrip: TodayStripRow[];
+  carpoolPairs: CarpoolPair[];
+}
+
+const TODAY_CACHE_TTL_MS = 60_000;
+const todayCache = new Map<string, { expiresAt: number; payload: TodayPayload }>();
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function daysUntilNextBirthday(dateOfBirth: string | null, now: Date): number | null {
+  if (!dateOfBirth) return null;
+  // dateOfBirth is YYYY-MM-DD; ignore the year and find the next occurrence.
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateOfBirth);
+  if (!m) return null;
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (!month || !day) return null;
+  const thisYear = now.getFullYear();
+  let next = new Date(thisYear, month - 1, day);
+  // If today is the birthday, we want 0; otherwise the next future occurrence.
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (next.getTime() < today.getTime()) {
+    next = new Date(thisYear + 1, month - 1, day);
+  }
+  const diffMs = next.getTime() - today.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function formatHM(d: Date): string {
+  const h = d.getHours().toString().padStart(2, "0");
+  const m = d.getMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function buildCarpoolSummary(
+  members: CarpoolMember[],
+  courtOrLocationName: string | null,
+): string {
+  const sorted = [...members].sort(
+    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+  );
+  const firstStart = new Date(sorted[0].startTime);
+  const lastStart = new Date(sorted[sorted.length - 1].startTime);
+  const waitMinutes = Math.round((lastStart.getTime() - firstStart.getTime()) / 60_000);
+  const memberFragment = sorted
+    .map((m) => `${m.name} ${formatHM(new Date(m.startTime))}`)
+    .join(" + ");
+  const where = courtOrLocationName ? ` at ${courtOrLocationName}` : "";
+  const wait = waitMinutes > 0 ? ` — 1 trip, ${waitMinutes} min wait` : " — 1 trip";
+  return `${memberFragment}${where}${wait}.`;
+}
+
+async function buildTodayPayload(groupId: string, callerPlayerId: string): Promise<TodayPayload> {
+  const memberRows = await db
+    .select({
+      playerId: familyMembers.playerId,
+    })
+    .from(familyMembers)
+    .where(eq(familyMembers.familyGroupId, groupId));
+
+  const playerIds = memberRows.map((m) => m.playerId);
+  if (playerIds.length === 0) {
+    return {
+      familyGroupId: groupId,
+      generatedAt: new Date().toISOString(),
+      members: [],
+      todayStrip: [],
+      carpoolPairs: [],
+    };
+  }
+
+  const playerRows = await db
+    .select()
+    .from(players)
+    .where(inArray(players.id, playerIds));
+  const playerById = new Map(playerRows.map((p) => [p.id, p] as const));
+
+  const now = new Date();
+  const horizon = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
+  // Pull all upcoming sessions (next 48h) for every family member in a single
+  // join. session_players is the source of truth for enrolment.
+  const sessionRows = await db
+    .select({
+      playerId: sessionPlayers.playerId,
+      sessionId: sessions.id,
+      startTime: sessions.startTime,
+      endTime: sessions.endTime,
+      status: sessions.status,
+      sessionType: sessions.sessionType,
+      title: sessions.title,
+      locationId: sessions.locationId,
+      locationName: locations.name,
+      courtId: sessions.courtId,
+      courtName: courts.name,
+      coachName: coaches.name,
+    })
+    .from(sessionPlayers)
+    .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+    .leftJoin(locations, eq(sessions.locationId, locations.id))
+    .leftJoin(courts, eq(sessions.courtId, courts.id))
+    .leftJoin(coaches, eq(sessions.coachId, coaches.id))
+    .where(
+      and(
+        inArray(sessionPlayers.playerId, playerIds),
+        gte(sessions.startTime, now),
+        lte(sessions.startTime, horizon),
+      ),
+    );
+
+  // Filter out cancelled sessions; group per-player.
+  const sessionsByPlayer = new Map<string, TodayMemberSession[]>();
+  for (const row of sessionRows) {
+    if (row.status === "cancelled") continue;
+    if (!row.startTime || !row.endTime) continue;
+    const list = sessionsByPlayer.get(row.playerId) ?? [];
+    list.push({
+      id: row.sessionId,
+      startTime: new Date(row.startTime).toISOString(),
+      endTime: new Date(row.endTime).toISOString(),
+      status: row.status ?? null,
+      sessionType: row.sessionType ?? null,
+      title: row.title ?? null,
+      locationId: row.locationId ?? null,
+      locationName: row.locationName ?? null,
+      courtId: row.courtId ?? null,
+      courtName: row.courtName ?? null,
+      coachName: row.coachName ?? null,
+    });
+    sessionsByPlayer.set(row.playerId, list);
+  }
+  for (const list of sessionsByPlayer.values()) {
+    list.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }
+
+  // RSVP-needed = pending match challenges where the member is the opponent.
+  const rsvpRows = await db
+    .select({
+      opponentId: matchChallenges.opponentId,
+      id: matchChallenges.id,
+    })
+    .from(matchChallenges)
+    .where(
+      and(
+        inArray(matchChallenges.opponentId, playerIds),
+        eq(matchChallenges.status, "pending"),
+      ),
+    );
+  const rsvpCountByPlayer = new Map<string, number>();
+  for (const row of rsvpRows) {
+    rsvpCountByPlayer.set(row.opponentId, (rsvpCountByPlayer.get(row.opponentId) ?? 0) + 1);
+  }
+
+  // Open-match invites = open match slots in pending status for the member.
+  const openMatchRows = await db
+    .select({ playerId: openMatchSlots.playerId, id: openMatchSlots.id })
+    .from(openMatchSlots)
+    .where(
+      and(
+        inArray(openMatchSlots.playerId, playerIds),
+        eq(openMatchSlots.status, "pending"),
+      ),
+    );
+  const openMatchCountByPlayer = new Map<string, number>();
+  for (const row of openMatchRows) {
+    openMatchCountByPlayer.set(
+      row.playerId,
+      (openMatchCountByPlayer.get(row.playerId) ?? 0) + 1,
+    );
+  }
+
+  // Build the per-member payload. The active user themselves is always first.
+  const members: TodayMember[] = playerIds
+    .map((pid) => {
+      const p = playerById.get(pid);
+      if (!p) return null;
+      const upcoming = sessionsByPlayer.get(pid) ?? [];
+      return {
+        playerId: pid,
+        name: p.name,
+        avatarUrl: p.profilePhotoUrl ?? null,
+        ballLevel: p.ballLevel ?? null,
+        level: p.level ?? 1,
+        isSelf: pid === callerPlayerId,
+        lastActiveAt: p.lastActiveAt ? p.lastActiveAt.toISOString() : null,
+        birthdayInDays: daysUntilNextBirthday(p.dateOfBirth ?? null, now),
+        streakWeeks: p.streak ?? 0,
+        rsvpPendingCount: rsvpCountByPlayer.get(pid) ?? 0,
+        openMatchInviteCount: openMatchCountByPlayer.get(pid) ?? 0,
+        upcomingSessions: upcoming,
+      } as TodayMember;
+    })
+    .filter((m): m is TodayMember => m !== null);
+
+  // Build the Family Today strip — every today-session for any member,
+  // sorted chronologically.
+  const todayStrip: TodayStripRow[] = [];
+  for (const m of members) {
+    for (const s of m.upcomingSessions) {
+      const start = new Date(s.startTime);
+      if (!isSameDay(start, now)) continue;
+      todayStrip.push({
+        sessionId: s.id,
+        playerId: m.playerId,
+        playerName: m.name,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        locationName: s.locationName,
+        courtName: s.courtName,
+        coachName: s.coachName,
+        sessionType: s.sessionType,
+        title: s.title,
+      });
+    }
+  }
+  todayStrip.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+
+  // Build carpool pairs — same location + start times within 60 minutes.
+  // Today only. Only emit a card when ≥2 distinct family members are paired.
+  const carpoolPairs: CarpoolPair[] = [];
+  const todayByLocation = new Map<string, TodayStripRow[]>();
+  for (const row of todayStrip) {
+    if (!row.locationName && !row.courtName) continue;
+    const key = row.locationName ?? row.courtName ?? "unknown";
+    const list = todayByLocation.get(key) ?? [];
+    list.push(row);
+    todayByLocation.set(key, list);
+  }
+  for (const [, rows] of todayByLocation) {
+    if (rows.length < 2) continue;
+    // Sliding cluster: group rows where each is within 60 min of the previous.
+    const sorted = [...rows].sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+    );
+    let cluster: TodayStripRow[] = [];
+    const flushCluster = () => {
+      const distinct = new Map<string, TodayStripRow>();
+      for (const r of cluster) {
+        if (!distinct.has(r.playerId)) distinct.set(r.playerId, r);
+      }
+      if (distinct.size < 2) return;
+      const memberList: CarpoolMember[] = Array.from(distinct.values()).map((r) => ({
+        playerId: r.playerId,
+        name: r.playerName,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        sessionId: r.sessionId,
+      }));
+      const where = cluster[0].courtName ?? cluster[0].locationName;
+      carpoolPairs.push({
+        locationId: null,
+        locationName: cluster[0].locationName,
+        courtName: cluster[0].courtName,
+        members: memberList,
+        summary: buildCarpoolSummary(memberList, where),
+      });
+    };
+    for (const r of sorted) {
+      if (cluster.length === 0) {
+        cluster.push(r);
+        continue;
+      }
+      const prev = cluster[cluster.length - 1];
+      if (new Date(r.startTime).getTime() - new Date(prev.startTime).getTime() <= 60 * 60 * 1000) {
+        cluster.push(r);
+      } else {
+        flushCluster();
+        cluster = [r];
+      }
+    }
+    flushCluster();
+  }
+
+  return {
+    familyGroupId: groupId,
+    generatedAt: new Date().toISOString(),
+    members,
+    todayStrip,
+    carpoolPairs,
+  };
+}
+
+router.get("/api/family/me/today", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const tokenUser = req.user!;
+    const freshUser = await storage.getUserById(tokenUser.userId);
+    if (!freshUser || !freshUser.playerId) {
+      return res.status(403).json({ error: "Player profile required" });
+    }
+
+    const callerPlayer = await storage.getPlayer(freshUser.playerId);
+    if (!callerPlayer) return res.status(404).json({ error: "Player not found" });
+
+    const groupId = await resolveOrCreateFamilyForCaller(callerPlayer.id);
+
+    const cacheKey = groupId;
+    const cached = todayCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return res.json(cached.payload);
+    }
+
+    const payload = await buildTodayPayload(groupId, callerPlayer.id);
+    todayCache.set(cacheKey, { expiresAt: Date.now() + TODAY_CACHE_TTL_MS, payload });
+    return res.json(payload);
+  } catch (error) {
+    console.error("[family/me/today] error:", error);
+    return res.status(500).json({ error: "Failed to load family today data" });
   }
 });
 

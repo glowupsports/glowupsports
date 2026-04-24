@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -99,16 +99,232 @@ function formatLastActive(lastActiveAt: string | null): string {
   return `${diffDays}d ago`;
 }
 
+// ---------------------------------------------------------------------------
+// Smart Family Lobby — types + helpers shared by ChildCard, the Family Today
+// strip, and the Carpool card. The shapes mirror the GET /api/family/me/today
+// payload exactly; do NOT broaden them locally — extend the server interface
+// instead so client/server stay in lockstep.
+// ---------------------------------------------------------------------------
+
+interface TodayMemberSession {
+  id: string;
+  startTime: string;
+  endTime: string;
+  status: string | null;
+  sessionType: string | null;
+  title: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  courtId: string | null;
+  courtName: string | null;
+  coachName: string | null;
+}
+
+interface TodayMemberInfo {
+  playerId: string;
+  name: string;
+  isSelf: boolean;
+  lastActiveAt: string | null;
+  birthdayInDays: number | null;
+  streakWeeks: number;
+  rsvpPendingCount: number;
+  openMatchInviteCount: number;
+  upcomingSessions: TodayMemberSession[];
+}
+
+interface TodayStripRow {
+  sessionId: string;
+  playerId: string;
+  playerName: string;
+  startTime: string;
+  endTime: string;
+  locationName: string | null;
+  courtName: string | null;
+  coachName: string | null;
+  sessionType: string | null;
+  title: string | null;
+}
+
+interface CarpoolPair {
+  locationId: string | null;
+  locationName: string | null;
+  courtName: string | null;
+  members: {
+    playerId: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+    sessionId: string;
+  }[];
+  summary: string;
+}
+
+interface TodayPayload {
+  familyGroupId: string;
+  generatedAt: string;
+  members: TodayMemberInfo[];
+  todayStrip: TodayStripRow[];
+  carpoolPairs: CarpoolPair[];
+}
+
+interface Chip {
+  kind: string;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+}
+
+function formatSessionTimeShort(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+// Build up to two chips for a member card. Order matters — the highest-signal
+// chip wins when more than two qualify (Lesson today > Match tomorrow > RSVP
+// > Open match invite > Streak > Birthday).
+function buildChipsFor(info: TodayMemberInfo | undefined): Chip[] {
+  if (!info) return [];
+  const chips: Chip[] = [];
+  const now = new Date();
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+  const todaySession = info.upcomingSessions.find((s) => isSameDay(new Date(s.startTime), now));
+  const tomorrowSession = info.upcomingSessions.find((s) => isSameDay(new Date(s.startTime), tomorrow));
+
+  if (todaySession) {
+    const isMatch = (todaySession.sessionType ?? "").toLowerCase().includes("match");
+    chips.push({
+      kind: "today_session",
+      label: `${isMatch ? "Match" : "Lesson"} today ${formatSessionTimeShort(todaySession.startTime)}`,
+      icon: isMatch ? "trophy" : "school",
+      color: "#2ECC40",
+    });
+  } else if (tomorrowSession) {
+    const isMatch = (tomorrowSession.sessionType ?? "").toLowerCase().includes("match");
+    chips.push({
+      kind: "tomorrow_session",
+      label: `${isMatch ? "Match" : "Lesson"} tomorrow`,
+      icon: isMatch ? "trophy" : "calendar",
+      color: "#00BCD4",
+    });
+  }
+
+  if (chips.length < 2 && info.rsvpPendingCount > 0) {
+    chips.push({
+      kind: "rsvp",
+      label: info.rsvpPendingCount > 1 ? `${info.rsvpPendingCount} RSVPs needed` : "RSVP needed",
+      icon: "mail-unread",
+      color: "#FF851B",
+    });
+  }
+
+  if (chips.length < 2 && info.openMatchInviteCount > 0) {
+    chips.push({
+      kind: "open_match",
+      label: info.openMatchInviteCount > 1 ? `${info.openMatchInviteCount} open matches` : "Open match invite",
+      icon: "tennisball",
+      color: "#E040FB",
+    });
+  }
+
+  if (chips.length < 2 && info.streakWeeks >= 3) {
+    chips.push({
+      kind: "streak",
+      label: `Streak ${info.streakWeeks} wk`,
+      icon: "flame",
+      color: "#FF4136",
+    });
+  }
+
+  if (chips.length < 2 && info.birthdayInDays !== null && info.birthdayInDays >= 0 && info.birthdayInDays <= 7) {
+    chips.push({
+      kind: "birthday",
+      label:
+        info.birthdayInDays === 0
+          ? "Birthday today"
+          : info.birthdayInDays === 1
+            ? "Birthday tomorrow"
+            : `Birthday in ${info.birthdayInDays}d`,
+      icon: "gift",
+      color: "#FFDC00",
+    });
+  }
+
+  return chips.slice(0, 2);
+}
+
+// Avatar ring color: gold when an in-progress session covers "now", green
+// when something is scheduled today, gray when the player has been idle for 7+
+// days, and the default primary blue otherwise.
+function ringColorFor(info: TodayMemberInfo | undefined): string {
+  if (!info) return Colors.dark.primary;
+  const now = new Date();
+  const playing = info.upcomingSessions.some((s) => {
+    const start = new Date(s.startTime).getTime();
+    const end = new Date(s.endTime).getTime();
+    return start <= now.getTime() && end >= now.getTime();
+  });
+  if (playing) return "#FFD700"; // gold
+  const today = info.upcomingSessions.some((s) => isSameDay(new Date(s.startTime), now));
+  if (today) return "#2ECC40"; // green
+  if (info.lastActiveAt) {
+    const ageMs = now.getTime() - new Date(info.lastActiveAt).getTime();
+    if (ageMs > 7 * 24 * 60 * 60 * 1000) return Colors.dark.textMuted; // gray
+  } else {
+    return Colors.dark.textMuted; // never active → gray
+  }
+  return Colors.dark.primary;
+}
+
+// Sort priority: self first, then anyone with a session today, then session
+// in next 48h, then a streak ≥3, then most recently active.
+function compareMembers(
+  a: FamilyMember,
+  b: FamilyMember,
+  todayByPlayer: Map<string, TodayMemberInfo>,
+  callerPlayerId: string | null,
+): number {
+  const aSelf = a.id === callerPlayerId ? 1 : 0;
+  const bSelf = b.id === callerPlayerId ? 1 : 0;
+  if (aSelf !== bSelf) return bSelf - aSelf;
+
+  const ai = todayByPlayer.get(a.id);
+  const bi = todayByPlayer.get(b.id);
+  const now = new Date();
+
+  const aToday = ai?.upcomingSessions.some((s) => isSameDay(new Date(s.startTime), now)) ? 1 : 0;
+  const bToday = bi?.upcomingSessions.some((s) => isSameDay(new Date(s.startTime), now)) ? 1 : 0;
+  if (aToday !== bToday) return bToday - aToday;
+
+  const aSoon = ai && ai.upcomingSessions.length > 0 ? 1 : 0;
+  const bSoon = bi && bi.upcomingSessions.length > 0 ? 1 : 0;
+  if (aSoon !== bSoon) return bSoon - aSoon;
+
+  const aStreak = (ai?.streakWeeks ?? 0) >= 3 ? 1 : 0;
+  const bStreak = (bi?.streakWeeks ?? 0) >= 3 ? 1 : 0;
+  if (aStreak !== bStreak) return bStreak - aStreak;
+
+  const aLast = a.lastActiveAt ? new Date(a.lastActiveAt).getTime() : 0;
+  const bLast = b.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
+  return bLast - aLast;
+}
+
 interface ChildCardProps {
   member: FamilyMember;
+  todayInfo?: TodayMemberInfo;
   onPress: () => void;
   index: number;
 }
 
-function ChildCard({ member, onPress, index }: ChildCardProps) {
+function ChildCard({ member, todayInfo, onPress, index }: ChildCardProps) {
   const hasOutstanding = member.outstandingBalance > 0;
   const lastActiveText = formatLastActive(member.lastActiveAt);
-  
+  const chips = buildChipsFor(todayInfo);
+  const ringColor = ringColorFor(todayInfo);
+
   return (
     <Animated.View entering={FadeInRight.delay(index * 100).duration(400)}>
       <Pressable
@@ -128,11 +344,11 @@ function ChildCard({ member, onPress, index }: ChildCardProps) {
             {member.avatarUrl ? (
               <Image
                 source={{ uri: `${getStaticAssetsUrl()}${member.avatarUrl}` }}
-                style={styles.avatar}
+                style={[styles.avatar, { borderColor: ringColor }]}
                 contentFit="cover"
               />
             ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <View style={[styles.avatar, styles.avatarPlaceholder, { borderColor: ringColor }]}>
                 <Ionicons name="person" size={32} color={Colors.dark.textMuted} />
               </View>
             )}
@@ -186,6 +402,22 @@ function ChildCard({ member, onPress, index }: ChildCardProps) {
               <Text style={styles.outstandingText}>
                 {member.outstandingBalance.toFixed(2)} open
               </Text>
+            </View>
+          ) : null}
+
+          {chips.length > 0 ? (
+            <View style={styles.chipRow}>
+              {chips.map((c) => (
+                <View
+                  key={c.kind}
+                  style={[styles.chip, { backgroundColor: c.color + "22", borderColor: c.color + "55" }]}
+                >
+                  <Ionicons name={c.icon} size={11} color={c.color} />
+                  <Text style={[styles.chipText, { color: c.color }]} numberOfLines={1}>
+                    {c.label}
+                  </Text>
+                </View>
+              ))}
             </View>
           ) : null}
 
@@ -248,12 +480,91 @@ function ParentalControlsCard({ member, onToggle }: { member: FamilyMember; onTo
   );
 }
 
+// Family Today strip: a horizontal list of every family member's session
+// today (chronological). Hidden when the family has zero today-sessions.
+function FamilyTodayStrip({ rows }: { rows: TodayStripRow[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <Animated.View entering={FadeInUp.duration(400)} style={styles.familyTodayWrap}>
+      <View style={styles.familyTodayHeader}>
+        <Ionicons name="today" size={16} color={Colors.dark.text} />
+        <Text style={styles.familyTodayTitle}>Family Today</Text>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.familyTodayContent}
+      >
+        {rows.map((r) => {
+          const isMatch = (r.sessionType ?? "").toLowerCase().includes("match");
+          const accent = isMatch ? "#E040FB" : "#00BCD4";
+          return (
+            <View key={`${r.sessionId}-${r.playerId}`} style={[styles.todayChip, { borderColor: accent + "55" }]}>
+              <View style={[styles.todayChipDot, { backgroundColor: accent }]} />
+              <Text style={styles.todayChipName} numberOfLines={1}>
+                {r.playerName}
+              </Text>
+              <Text style={styles.todayChipTime} numberOfLines={1}>
+                {formatSessionTimeShort(r.startTime)}
+                {r.courtName ? ` · ${r.courtName}` : r.locationName ? ` · ${r.locationName}` : ""}
+              </Text>
+            </View>
+          );
+        })}
+      </ScrollView>
+    </Animated.View>
+  );
+}
+
+// Carpool suggestion card: surfaces co-located family sessions with start
+// times within 60 min of each other so a parent can plan a single trip.
+function CarpoolCard({ pair }: { pair: CarpoolPair }) {
+  return (
+    <Animated.View entering={FadeInUp.duration(400)} style={styles.carpoolCard}>
+      <View style={styles.carpoolHeader}>
+        <Ionicons name="car-sport" size={18} color="#00BCD4" />
+        <Text style={styles.carpoolTitle}>Carpool suggestion</Text>
+      </View>
+      <Text style={styles.carpoolBody}>{pair.summary}</Text>
+    </Animated.View>
+  );
+}
+
 export default function FamilyLobbyScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { familyData, isLoading, refreshFamily, isParent, isFamilyMember } = useFamily();
   const { user, loginWithToken } = useAuth();
+
+  // Smart Lobby aggregation. Stays inside the lobby surface so the rest of
+  // the app doesn't pay the cost on every render. Polled every 60s, matching
+  // the server-side cache TTL.
+  const todayQuery = useQuery<TodayPayload>({
+    queryKey: ["/api/family/me/today"],
+    enabled: !!familyData,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const todayByPlayer = useMemo(() => {
+    const map = new Map<string, TodayMemberInfo>();
+    for (const m of todayQuery.data?.members ?? []) {
+      map.set(m.playerId, m);
+    }
+    return map;
+  }, [todayQuery.data]);
+
+  const callerPlayerId = useMemo(() => {
+    return todayQuery.data?.members.find((m) => m.isSelf)?.playerId ?? null;
+  }, [todayQuery.data]);
+
+  const sortedMembers = useMemo(() => {
+    if (!familyData) return [] as FamilyMember[];
+    return [...familyData.members].sort((a, b) =>
+      compareMembers(a, b, todayByPlayer, callerPlayerId),
+    );
+  }, [familyData, todayByPlayer, callerPlayerId]);
   const [switching, setSwitching] = useState(false);
   const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
@@ -912,11 +1223,18 @@ export default function FamilyLobbyScreen() {
           <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
         </Pressable>
 
+        {todayQuery.data ? <FamilyTodayStrip rows={todayQuery.data.todayStrip} /> : null}
+
+        {todayQuery.data?.carpoolPairs?.map((pair, idx) => (
+          <CarpoolCard key={`carpool-${idx}-${pair.locationName ?? pair.courtName ?? "x"}`} pair={pair} />
+        ))}
+
         <View style={styles.cardsGrid}>
-          {familyData.members.map((member, index) => (
+          {sortedMembers.map((member, index) => (
             <ChildCard
               key={member.id}
               member={member}
+              todayInfo={todayByPlayer.get(member.id)}
               onPress={() => handleSelectChild(member)}
               index={index}
             />
@@ -1481,6 +1799,101 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexWrap: "wrap",
     gap: Spacing.md,
     justifyContent: "center",
+  },
+  familyTodayWrap: {
+    marginBottom: Spacing.md,
+  },
+  familyTodayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  familyTodayTitle: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  familyTodayContent: {
+    gap: Spacing.sm,
+    paddingVertical: 2,
+  },
+  todayChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    maxWidth: 220,
+  },
+  todayChipDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  todayChipName: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    maxWidth: 80,
+  },
+  todayChipTime: {
+    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    flexShrink: 1,
+  },
+  carpoolCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "#00BCD4" + "55",
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: 6,
+  },
+  carpoolHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  carpoolTitle: {
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+    color: "#00BCD4",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  carpoolBody: {
+    fontSize: FontSizes.sm,
+    color: Colors.dark.text,
+    lineHeight: 18,
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    maxWidth: 140,
+  },
+  chipText: {
+    fontSize: 10,
+    fontWeight: "600",
+    flexShrink: 1,
   },
   childCard: {
     width: 160,
