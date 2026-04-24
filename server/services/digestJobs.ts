@@ -503,7 +503,26 @@ async function getCountryRank(playerId: string, country: string, year: number): 
   }
 }
 
-export async function runYearlyRecapOnce(now: Date = new Date()): Promise<{ generated: number }> {
+export async function runYearlyRecapOnce(
+  now: Date = new Date(),
+  opts: { force?: boolean } = {},
+): Promise<{ generated: number }> {
+  // Task #1286 — Belt-and-suspenders window guard.
+  //
+  // The recap is a year-end product. If anything (cron with an overflowed
+  // setTimeout delay, an admin route, a stray import, a future bug) invokes
+  // this outside December (UTC month 11) or January (UTC month 0), bail out
+  // with a log line so we never push a "Your YYYY in Tennis" notification
+  // mid-year. The `force` flag is reserved for the test suite.
+  const month = now.getUTCMonth();
+  if (!opts.force && month !== 11 && month !== 0) {
+    console.log(
+      `[YearRecap] Skipped — outside Dec/Jan window (current UTC month ${month}). ` +
+        `Pass { force: true } to override (tests only).`,
+    );
+    return { generated: 0 };
+  }
+
   // Generate for the calendar year that's "wrapping up" — i.e. when run on
   // Dec 1 we recap THIS year so far (so the wrap is available the first week
   // of December); we re-run on Jan 1 to lock in the final numbers.
@@ -519,8 +538,12 @@ export async function runYearlyRecapOnce(now: Date = new Date()): Promise<{ gene
   for (const playerId of playerIds) {
     try {
       const totals = await computeTotalsForPlayer(playerId, yearStart, yearEnd);
-      // Even tiny activity gets a wrap — it's a year! Skip only zero-XP/zero-match.
-      if (totals.matchesPlayed === 0 && totals.courtMinutes === 0 && totals.xpEarned === 0) {
+      // Task #1286 — Suppress empty wraps. A player with a couple of warm-up
+      // minutes but no real match activity or XP would otherwise get a
+      // "0 matches · +0 XP" push, which reads as broken. We only consider
+      // matches and XP because court minutes alone (e.g. a single drill
+      // session) doesn't carry enough story to justify a year-end push.
+      if (totals.matchesPlayed === 0 && totals.xpEarned === 0) {
         continue;
       }
 
@@ -1135,23 +1158,30 @@ export function startDigestJobs(): void {
 
   // Yearly: Dec 1 at 09:00 UTC. After that runs daily through end of Jan to
   // pick up late activity (idempotent upsert).
+  //
+  // Task #1286 — `setTimeout` only accepts delays up to 2^31-1 ms (~24.85
+  // days). Any larger value silently coerces to 1 ms and fires immediately
+  // (with a `TimeoutOverflowWarning`). When the server boots in (e.g.) April,
+  // `msUntilNextDecemberFirst(9)` returns ~7 months in ms — well past the
+  // limit — so the callback used to run almost instantly, which is exactly
+  // how the mid-year "Your 2026 in Tennis" pushes went out. We now schedule
+  // via a daily check-in poll instead, which is safe regardless of how far
+  // away Dec 1 is. The hard window guard inside `runYearlyRecapOnce` is the
+  // belt; this poll is the suspenders.
   const yearlyDelay = msUntilNextDecemberFirst(9);
   console.log(
     `[DigestJobs] Next year-recap in ${Math.round(yearlyDelay / DAY_MS)} day(s)`,
   );
-  setTimeout(() => {
-    void runYearlyRecapOnce().catch((err) => console.error("[DigestJobs] yearly tick failed:", err));
-    // Daily refresh for the rest of December and all of January.
-    const dailyId = setInterval(() => {
-      const now = new Date();
-      const m = now.getUTCMonth();
-      if (m === 11 || m === 0) {
-        void runYearlyRecapOnce().catch((err) => console.error("[DigestJobs] yearly daily tick failed:", err));
-      } else {
-        clearInterval(dailyId);
-      }
-    }, DAY_MS);
-  }, yearlyDelay);
+  const yearlyPoll = () => {
+    const now = new Date();
+    const m = now.getUTCMonth();
+    if (m === 11 || m === 0) {
+      void runYearlyRecapOnce().catch((err) =>
+        console.error("[DigestJobs] yearly tick failed:", err),
+      );
+    }
+  };
+  setInterval(yearlyPoll, DAY_MS);
 }
 
 export const __testing = {
