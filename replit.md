@@ -6,42 +6,9 @@ Glow Up Sports is a comprehensive multi-academy SaaS platform for Tennis Coaches
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-### ⛔ STOP — READ THIS BEFORE TOUCHING THE DATABASE ⛔
 ### CRITICAL: Database Queries — Supabase ONLY. The local SQL tool LIES.
-
-> **The only real database is Supabase. The `executeSql` / `code_execution` SQL
-> tool points at a LOCAL sandbox DB. Using it for real data will silently give
-> you the WRONG answer.**
-> Full reference: see [`DATABASE.md`](./DATABASE.md). Helper: `bash scripts/db-query.sh -c "..."`.
-
-**WRONG — queries the LOCAL sandbox, not Supabase:**
-
-```js
-// code_execution / executeSql → LOCAL sandbox, NOT Supabase. Do not use for real data.
-await executeSql({ sqlQuery: "select count(*) from users" });
-```
-
-```bash
-# $DATABASE_URL on Replit = LOCAL sandbox. Same trap.
-psql "$DATABASE_URL" -c "select count(*) from users"
-npx drizzle-kit push   # migrates the sandbox, NOT prod
-```
-
-**RIGHT — queries the REAL Supabase DB:**
-
-```bash
-# Direct
-psql "$SUPABASE_DATABASE_URL" -c "select count(*) from users"
-
-# Or via the helper (errors clearly if SUPABASE_DATABASE_URL is unset)
-bash scripts/db-query.sh -c "select count(*) from users"
-
-# Schema migrations / drizzle push → use the wrapper that swaps in $SUPABASE_DATABASE_URL
-bash scripts/sync-to-supabase.sh
-```
-
-This applies to inspection, debugging, migrations, and one-off fixes. No exceptions.
-Read [`DATABASE.md`](./DATABASE.md) before your first DB query in any task.
+**The only real database is Supabase. The `executeSql` / `code_execution` SQL tool points at a LOCAL sandbox DB. Using it for real data will silently give you the WRONG answer.**
+Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATABASE_URL"`.
 
 ### CRITICAL: App Store Version Rule
 **EVERY new App Store build MUST have a new version number in `app.json`!**
@@ -51,7 +18,7 @@ Read [`DATABASE.md`](./DATABASE.md) before your first DB query in any task.
 - ALWAYS update both `"version"` AND `"runtimeVersion"` in app.json
 
 ### CRITICAL: Split iOS / Android runtime versions
-**iOS and Android run on different versions and different OTA runtimes.** These are configured **per-platform** under `expo.ios` and `expo.android` in `app.json`. The top-level `expo.runtimeVersion` has been removed.
+**iOS and Android run on different versions and different OTA runtimes.** These are configured **per-platform** under `expo.ios` and `expo.android` in `app.json`.
 **Every OTA push MUST target both runtimes.** The "OTA Push" workflow uses `scripts/ota-push.sh` to bundle and upload both platforms, including a verification step.
 
 ### CRITICAL: Every task plan MUST include a "Deployment" line
@@ -69,11 +36,10 @@ For mixed changes (server + client): Republish first, then OTA push.
 The OTA push script (`scripts/ota-push.sh`) runs a lint pre-flight that **hard-aborts** the push on any error in changed files.
 Always run `npm run lint` (and ideally `npm run check:types`) **before** OTA-pushing or merging. Do NOT lower these rules to `warn` or `off`.
 
-### CRITICAL: OTA Push kill switch (Task #1289)
+### CRITICAL: OTA Push kill switch
 **`scripts/ota-push.sh` is currently DISABLED. It refuses to run unless `OTA_PUSH_ENABLED=1` is set in the environment.**
-On 24 April 2026 the OTA Push workflow re-fired automatically (post-merge picked up `.local/.commit_message` as a publish trigger) and OVERWROTE a freshly published rollback marker with the still-broken bundle, force-closing end users a second time. The kill switch fails closed so an unattended re-fire can never overwrite a rollback again.
 - To intentionally publish a hotfix: `OTA_PUSH_ENABLED=1 OTA_MESSAGE="Hotfix XYZ" bash scripts/ota-push.sh`.
-- To re-publish a rollback marker: `bash scripts/ota-rollback.sh` (which calls `eas update:republish --group <id>` for both platforms; intentionally does NOT honour the kill switch).
+- To re-publish a rollback marker: `bash scripts/ota-rollback.sh`.
 - Remove the kill switch ONLY after the bundle crash is root-caused, fixed, and a clean hotfix has been validated end-to-end on a bisect channel.
 
 ### CRITICAL: API Development Rule
@@ -90,13 +56,13 @@ The application uses a dark-themed premium sports aesthetic with a simplified co
 ### Technical Implementations
 - **Frontend**: React Native with Expo SDK 54, React Navigation, React Context, `AsyncStorage`, and `React Native Reanimated`.
 - **Backend**: Express.js with TypeScript, providing RESTful API endpoints.
-- **Data Storage**: `AsyncStorage` for client-side; `Drizzle ORM` with Supabase PostgreSQL for server-side. **Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATABASE_URL"` — see [`DATABASE.md`](./DATABASE.md).**
+- **Data Storage**: `AsyncStorage` for client-side; `Drizzle ORM` with Supabase PostgreSQL for server-side.
 - **Build System**: Concurrent Expo and Express servers; static Expo web build served by Express. `Drizzle Kit` for PostgreSQL schema migrations.
 - **API Caching**: In-memory caching with TTLs and pattern-based invalidation.
-- **Token Refresh**: Automatic client-side token refresh via `refreshAuthMiddleware`.
+- **Authentication**: Automatic client-side token refresh via `refreshAuthMiddleware`.
 - **Internationalization**: `i18next` with `react-i18next` supporting English, Arabic (RTL), and Indonesian.
 - **Timezone Handling**: Academy-specific IANA timezones handled client-side and server-side using `AT TIME ZONE` in PostgreSQL.
-- **Credit System**: Manages proportional credit charging, notifications, and absent players, with a Credit Drift Watchdog for reconciliation. All academies are V2 only.
+- **Credit System**: Manages proportional credit charging, notifications, and absent players.
 - **Gamification & Rating Systems**: Includes "Glow Leveling OS" (12-level skill certification), "Adult Glow DSS Rating System" (ELO-based MMR), and a 50-level XP Engine.
 - **Player Assessment**: Features "Start Baseline System" and "Skill Evidence Capture" (10-second video).
 - **Session & Match Management**: Supports lesson templates, session plans, match logging, and a "Match Challenge System."
@@ -106,8 +72,8 @@ The application uses a dark-themed premium sports aesthetic with a simplified co
 - **Role-Specific Applications**: Dedicated applications for Coaches, Players, Platform Owners, and Service Providers.
 - **Glow Market & Community Marketplace**: E-commerce platform with XP-based discounts and used equipment.
 - **Group Social Hub**: Features group-specific Events with RSVP and group Chat with emoji reactions.
-- **Coach & Academy Posts**: Post templates (tip/announcement/drill/schedule_change/event_invite/coach_spotlight/lesson_recap) authored by coaches or academies, with role-tinted feed rendering, pinned posts, auto lesson-recap drafts, and country-scope publishing for public coaches.
-- **Coach Following (Task #1175)**: Players can follow individual public coaches from the coach profile. Followed coaches' tip/drill/coach_spotlight posts surface in the player's main feed regardless of scope, and a dedicated "Coaches" tab on the community feed lists country-scope coach posts for discovery. Backed by `coach_follows` table and `/api/social/coaches/:coachId/follow` endpoints.
+- **Coach & Academy Posts**: Post templates authored by coaches or academies, with role-tinted feed rendering, pinned posts, auto lesson-recap drafts, and country-scope publishing for public coaches.
+- **Coach Following**: Players can follow individual public coaches.
 - **Session Waitlist**: Allows players to join a waitlist for full sessions.
 - **Tournament Management**: Full tournament lifecycle including creation, registration, draw generation, result recording, and XP awards.
 - **Ladder System**: Challenge-based player ladders.
@@ -118,19 +84,19 @@ The application uses a dark-themed premium sports aesthetic with a simplified co
 - **Venue/Club System**: Supports various academy types including coaching, court rental, and social clubs.
 - **Playtomic-Style Court Booking System**: Multi-phase booking with friend invites, cost splitting, and smart availability.
 - **Slot Reservation System**: Prevents double-booking race conditions by atomically claiming a 5-minute hold.
-- **Family Lobby System**: Netflix-style multi-account management. Each account has a per-account audit log (`account_audit_log` — login / profile_switch_in / pin_change / pin_recover / account_locked / account_unlocked, last 90 days, family-visible) plus reversible screen-time locks (`account_locks`, max 14 days). Locks are gated by Family-B PIN elevation, enforced by `authMiddlewareWithFreshData` returning 401 ACCOUNT_LOCKED, and force-disconnect WebSockets on apply via `disconnectPlayerSockets`. Long-press a child card in `FamilyLobbyScreen` to open Lock / Unlock / View activity log. See `server/routes/account-audit.ts`, `server/lib/account-audit.ts`, `client/player/components/LockAccountModal.tsx`, `client/player/screens/AccountAuditLogScreen.tsx`.
-- **Family Wallet (Task #1136)**: Family-level Stripe payment method (saved via SetupIntent Checkout) with per-member × per-category monthly spend caps. Categories: `court_bookings`, `glow_market`, `tournament_fees`. Currency AED, integer cents storage. Schema: `family_groups.stripe_customer_id/stripe_payment_method_id/payment_method_brand/payment_method_last4` + `family_member_spend_limits` (uniq on family+player+category). API: `GET/PUT /api/family/me/wallet[/limits]`, `POST /api/family/me/wallet/setup-intent`, `DELETE /api/family/me/wallet/payment-method`, `POST /api/family/me/wallet/billing-portal` (Stripe Customer Portal — invoices/receipts), `GET /api/family/me/statement?month=YYYY-MM`. Atomic spend guard `withSpendLimitTransaction` (holds `pg_advisory_xact_lock` THROUGH the purchase write) is wired into the 3 immediate-write checkout sites (court booking, shop orders, tournament register), each followed by an off-session `chargeFamilyWalletOffSession` PaymentIntent against the family card when configured; failure cancels the row to release the cap reservation. The 2 hosted Stripe Checkout sites (drop-in book, drop-in lesson) pass `customer: family.stripeCustomerId` + `metadata.family_wallet="1"` so the family card is the default payment method, with the up-front `assertWithinSpendLimit` as best-effort refusal. Over-cap → HTTP 402 with `code: family_wallet_blocked` and a friendly "Open Family settings" message; SCA challenge → 402 `family_wallet_sca_required` with `clientSecret`. Limit changes write `family_wallet_limit_changed` rows into `player_notifications` for every other family member. Webhook `family_wallet_setup` (Stripe Checkout `mode=setup`) detaches the old PM and persists brand/last4. UI lives inside `FamilyLobbyScreen` → "Family Wallet" pressable opens `FamilyWalletModal` (payment method add/update/remove via `expo-web-browser`, "View invoices & receipts" link to Stripe Customer Portal, per-member×3-category limit editor, this-month statement). Server-only changes require Republish; client changes can OTA.
+- **Family Lobby System**: Netflix-style multi-account management with audit logs and reversible screen-time locks.
+- **Family Wallet**: Family-level Stripe payment method with per-member and per-category monthly spend caps.
 - **Quest System**: Supports daily, weekly, and monthly quests with streak tracking, XP multipliers, and evidence upload.
 - **Week Planner**: Coach "Week View" showing active groups, player lists, capacity, and holiday/paused counts.
 - **Guest Player System**: Coaches can add temporary "guest" players to groups.
 - **Smart Fill**: Coaches can use "Smart Fill" to add holidaying players from other groups as guests.
-- **Corporate/Business Accounts**: Companies purchase session credit pools for employees, managed via `corporateStorage` with dedicated API routes and dashboards.
-- **What's New Modal**: Auto-shows a role-aware, locale-aware carousel once per app version after splash + auth. Slides are generated server-side from `git log` by `gpt-4o-mini` and cached. OpenAI API client setup MUST pass both `apiKey` and `baseURL` for the Replit AI proxy.
-- **Feed Retention (Task #1147)**: A daily prune job (`server/feedPruneJob.ts`, scheduled from `server/index.ts` via `startFeedPruneScheduler`) trims auto-generated `feed_items` rows (match results, level-ups, quests, tournaments, open matches, coach practice pairs) older than the retention window. Manual moments (`source_type='manual_moment'`) AND `coach_spotlight` are NEVER pruned — both are author-owned posts backed by a `posts` row. Configurable via env vars: `FEED_RETENTION_DAYS` (default 90), `FEED_PRUNE_MODE` (`delete` default — runs each batch in a transaction that deletes the feed_items rows AND the orphaned `post_reactions` / `post_comments` for those ids together — or `hide` which sets `is_hidden=true`), `FEED_PRUNE_BATCH` (default 5000), `FEED_PRUNE_HOUR_UTC` (default 3, i.e. 03:00 UTC). Manual run: `tsx scripts/social-phase1-prune.ts [--days=N] [--mode=hide|delete] [--dry-run]`.
+- **Corporate/Business Accounts**: Companies purchase session credit pools for employees, managed via dedicated API routes and dashboards.
+- **What's New Modal**: Auto-shows a role-aware, locale-aware carousel once per app version after splash + auth.
+- **Feed Retention**: A daily prune job trims auto-generated `feed_items` rows older than the retention window.
 
 ## External Dependencies
 
-- **Database**: Supabase PostgreSQL — see [`DATABASE.md`](./DATABASE.md). Always query via `psql "$SUPABASE_DATABASE_URL"` or `bash scripts/db-query.sh`; the local `executeSql` tool hits a sandbox DB and will mislead you.
+- **Database**: Supabase PostgreSQL.
 - **Media Storage**: Supabase Storage.
 - **Deployment**: Replit.
 - **Push Notifications**: Firebase Cloud Messaging (FCM).
