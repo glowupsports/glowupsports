@@ -1,27 +1,11 @@
-// @ts-nocheck
-/* eslint-disable */
-// =============================================================================
-// PARKED — DO NOT MOUNT
-// =============================================================================
-// This file is the 1581-line GLOW Chat rewrite from Task #1294. The user asked
-// to keep the original CoachChatFooter look-and-feel as the player chat surface
-// (see Task #1309 — Restore old chat-look). PlayerNavigator now mounts
-// `<CoachChatFooter mode="player" />` again instead of this component.
-//
-// Why this file is still here: it is the source of truth for the new features
-// the user wants ported back into the existing CoachChatFooter layout — see
-// Task #1310 (port @ mentions, pin messages, mute sheet, typing indicator,
-// restricted-chat banner, OnlineSafetyModal, etc. into CoachChatFooter
-// without changing its visual chrome).
-//
-// Why @ts-nocheck + eslint-disable: this component still references the old
-// ChatStateContext fields (chatTarget / consumeChatTarget / openGlowChat) that
-// were stripped during the Task #1309 revert. We deliberately do NOT keep
-// those fields alive in ChatStateContext just to satisfy a parked file. Once
-// Task #1310 finishes porting features into CoachChatFooter, delete this file.
-//
-// Do NOT import this component from anywhere.
-// =============================================================================
+// PARKED — DO NOT MOUNT.
+// This file is the GLOW Chat rewrite from Task #1294. Task #1309 restored the
+// original <CoachChatFooter mode="player" /> as the active player chat
+// surface; this component is no longer imported anywhere. It is kept on disk
+// as the feature reference for Task #1310, which will port mentions, pin,
+// mute, typing indicator, restricted-chat banner, etc. back into
+// CoachChatFooter without changing its visual chrome. Delete this file once
+// Task #1310 has merged.
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
@@ -269,7 +253,20 @@ export function PlayerChatFooter() {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { isMinor, chatEnabled } = usePlayer();
-  const { setChatExpanded, chatTarget, consumeChatTarget } = useChatState();
+  const { setChatExpanded } = useChatState();
+  // Task #1309 revert removed openGlowChat / chatTarget / consumeChatTarget
+  // from ChatStateContext. This component is parked (not mounted) and the
+  // hook below is kept only as a structural reference for the Task #1310
+  // port. Local no-op stubs let the file compile while never firing.
+  type ParkedChatTarget = {
+    conversationId?: string | null;
+    roomId?: string | null;
+    tab?: string;
+    fullscreen?: boolean;
+    scrollToMessageId?: string | null;
+  };
+  const chatTarget: ParkedChatTarget | null = null;
+  const consumeChatTarget = useCallback((): ParkedChatTarget | null => null, []);
   const playerId = user?.playerId;
   const isCoachUser = !!user?.coachId;
   const [isExpanded, setIsExpanded] = useState(false);
