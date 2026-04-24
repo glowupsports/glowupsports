@@ -1485,8 +1485,19 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
           .map((c) => c.playerId)
           .filter(Boolean) as string[];
 
+        // Pre-collect series IDs from recurring class chats (title is the series id)
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const seriesIds = Array.from(new Set(
+          conversations
+            .filter((c) =>
+              (c.type === "series_group" || c.type === "squad" || c.type === "lesson_group") &&
+              !!c.title && UUID_RE.test(c.title)
+            )
+            .map((c) => c.title!) as string[]
+        ));
+
         // Parallel batch fetch
-        const [allParticipants, allPlayers] = await Promise.all([
+        const [allParticipants, allPlayers, seriesRows] = await Promise.all([
           conversationIds.length > 0
             ? storage.getConversationParticipantsBatch(
                 conversationIds,
@@ -1499,6 +1510,18 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
                 .from(players)
                 .where(inArray(players.id, playerIds))
             : Promise.resolve([]),
+          seriesIds.length > 0
+            ? db
+                .select({
+                  id: coachingSeries.id,
+                  title: coachingSeries.title,
+                  dayOfWeek: coachingSeries.dayOfWeek,
+                  startTime: coachingSeries.startTime,
+                  sessionType: coachingSeries.sessionType,
+                })
+                .from(coachingSeries)
+                .where(inArray(coachingSeries.id, seriesIds))
+            : Promise.resolve([] as Array<{ id: string; title: string; dayOfWeek: number; startTime: string; sessionType: string }>),
         ]);
 
         // Create lookup maps
@@ -1514,13 +1537,49 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
           playerNameMap.set(p.id, p.name);
         }
 
+        const seriesById = new Map<string, { title: string; dayOfWeek: number; startTime: string; sessionType: string }>();
+        for (const s of seriesRows) {
+          seriesById.set(s.id, {
+            title: s.title,
+            dayOfWeek: s.dayOfWeek,
+            startTime: s.startTime,
+            sessionType: s.sessionType,
+          });
+        }
+
         // Enrich using cached data (no await in loop)
         const enriched = conversations.map((conv) => {
           const participants = participantsByConv.get(conv.id) || [];
           const playerName = conv.playerId
             ? playerNameMap.get(conv.playerId) || null
             : null;
-          return { ...conv, participants, playerName };
+          let seriesDayOfWeek: number | null = null;
+          let seriesStartTime: string | null = null;
+          let sessionType: string | null = null;
+          let resolvedTitle = conv.title;
+          if (
+            (conv.type === "series_group" ||
+              conv.type === "squad" ||
+              conv.type === "lesson_group") &&
+            conv.title
+          ) {
+            const series = seriesById.get(conv.title);
+            if (series) {
+              resolvedTitle = series.title;
+              seriesDayOfWeek = series.dayOfWeek;
+              seriesStartTime = series.startTime;
+              sessionType = series.sessionType;
+            }
+          }
+          return {
+            ...conv,
+            title: resolvedTitle,
+            participants,
+            playerName,
+            seriesDayOfWeek,
+            seriesStartTime,
+            sessionType,
+          };
         });
 
         // Return only real conversations - no sample/demo data
