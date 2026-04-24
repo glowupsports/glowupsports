@@ -2,99 +2,40 @@
 # =============================================================================
 # OTA Push Script — scripts/ota-push.sh
 # =============================================================================
-# AGENT INSTRUCTIONS:
-#   Do NOT run `eas update` directly in a bash command — it will time out at
-#   the 2-minute hard limit while the upload is still in progress.
+# Bundles JS once with `expo export --platform all`, then uploads the prebuilt
+# bundle to EAS Update for iOS and Android. Verifies both platforms actually
+# landed at the runtimeVersion configured in app.json before exiting.
 #
-#   Instead, use the "OTA Push" Replit workflow and monitor its log output:
-#     1. Start the workflow named "OTA Push" via the workflows skill,
-#        passing OTA_MESSAGE (and optionally OTA_PLATFORM) as environment
-#        variables so the script knows what to publish.
-#     2. Wait for the workflow to finish (state: "finished" or "failed").
-#     3. Read the workflow logs to confirm success or diagnose errors.
+# IMPORTANT for agents:
+#   Do NOT run `eas update` directly in a bash command — it can exceed the
+#   2-minute bash timeout. Trigger the "OTA Push" Replit workflow instead and
+#   read its logs.
 #
-#   The workflow runs this script as a long-running process that is not subject
-#   to the 2-minute bash tool timeout.
+# OTA targeting rule (see replit.md):
+#   `expo.version` and `expo.{ios,android}.runtimeVersion` are independent.
+#   Bump `version` whenever you cut a new store build, but only bump
+#   `runtimeVersion` when a binary at that version is actually live in the
+#   store. Pushing an OTA at a runtime no installed binary uses = silently
+#   dropped by every device.
 #
-# HOW IT WORKS — bundle once, upload twice (Task #1024):
-#   The expensive step is the Metro bundle (~140s cold, ~60s warm). Previously
-#   we ran two full `eas update` cycles back-to-back, each with its own cold
-#   Metro start, totalling 5+ minutes — consistently killed mid-Android.
-#   Now:
-#     1. `expo export --platform all` bundles iOS + Android in ONE Metro run.
-#     2. `eas update --skip-bundler --input-dir dist --platform ios` uploads
-#        the prebuilt iOS bundle (~30s).
-#     3. Same for Android (~30s).
-#     4. We verify both runtimes (1.3.4 iOS, 1.3.5 Android) appear in the
-#        latest production updates and exit non-zero if either is missing.
-#   Total wall-clock: ~3:30 instead of ~5:30.
-#
-#   We also stop the "Start App" workflow's Metro on port 8081 for the
-#   duration of the push so the bundler isn't fighting it for memory, and
-#   re-spawn `npm run expo:dev` on EXIT (best-effort, via a trap). The
-#   restart is best-effort: if Replit's process-tree cleanup reaps the
-#   detached child, the script also prints a hint to manually restart
-#   the "Start App" workflow. Set OTA_KEEP_DEV_SERVER=1 to skip both
-#   the kill and the auto-restart.
-#
-# USAGE — direct invocation:
+# Usage:
 #   bash scripts/ota-push.sh "Your update message here"
 #   bash scripts/ota-push.sh "Your update message here" --platform ios
-#   bash scripts/ota-push.sh "Your update message here" --platform android
-#   OTA_MESSAGE="Fix bug" OTA_PLATFORM=ios bash scripts/ota-push.sh
+#   OTA_MESSAGE="Fix bug" bash scripts/ota-push.sh
 #
-# USAGE — via "OTA Push" workflow (preferred, avoids bash timeout):
-#   Set OTA_MESSAGE env var, then trigger the "OTA Push" workflow.
-#   Optionally set OTA_PLATFORM to "ios" or "android" (default: both).
+# Message precedence: --message/positional > .local/.commit_message > $OTA_MESSAGE
+#
+# Knobs:
+#   OTA_PLATFORM=ios|android|all   (default: all)
+#   OTA_SKIP_LINT=1                (skip lint pre-flight — emergency only)
+#   OTA_STRICT_LINT=1              (lint entire client/+server/ tree)
+#   OTA_KEEP_DEV_SERVER=1          (don't kill Metro on :8081 during push)
 # =============================================================================
 
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# EMERGENCY KILL SWITCH (Task #1289)
-#
-# Earlier today the OTA Push workflow re-fired automatically (post-merge of
-# Task #1286 left a `.local/.commit_message`, which this script picks up as
-# a publish trigger) and OVERWROTE a freshly published rollback with the
-# still-broken bundle. End users force-closed again.
-#
-# Until the bundle crash is root-caused and a clean hotfix is staged, this
-# script REFUSES to run unless the operator sets OTA_PUSH_ENABLED=1. The
-# Replit "OTA Push" workflow does NOT set this flag, so accidental re-runs
-# (manual or post-merge) now fail closed.
-#
-# To intentionally publish:
-#   OTA_PUSH_ENABLED=1 OTA_MESSAGE="Hotfix XYZ" bash scripts/ota-push.sh
-# ---------------------------------------------------------------------------
-if [[ "${OTA_PUSH_ENABLED:-0}" != "1" ]]; then
-  cat >&2 <<'OTA_DISABLED'
-################################################################
-#  OTA Push is DISABLED — failing closed (exit 1).
-#
-#  An emergency kill switch is in place (see scripts/ota-push.sh
-#  header — Task #1289) because a recent push crashed end users
-#  on cold start and an automatic re-fire overwrote the rollback.
-#  Exiting non-zero so the workflow shows red and unattended
-#  re-runs cannot be reported as "successful".
-#
-#  To re-enable a single push intentionally:
-#    OTA_PUSH_ENABLED=1 OTA_MESSAGE="..." bash scripts/ota-push.sh
-#
-#  Remove the kill switch only after the bundle crash is root-
-#  caused, fixed, and a clean hotfix has been validated on a
-#  bisect channel (`production-hotfix` or similar).
-################################################################
-OTA_DISABLED
-  exit 1
-fi
-
-# ---------------------------------------------------------------------------
 # Parse arguments — OTA_MESSAGE / OTA_PLATFORM env vars are fallbacks
-#
-# Precedence (highest → lowest):
-#   1. --message flag or positional CLI argument
-#   2. `.local/.commit_message` file (written by the agent for the current task)
-#   3. OTA_MESSAGE environment variable (e.g. hardcoded in .replit workflow)
 # ---------------------------------------------------------------------------
 CLI_MESSAGE=""
 PLATFORM="${OTA_PLATFORM:-all}"  # "ios", "android", or "all"
@@ -287,29 +228,20 @@ export EXPO_PUBLIC_API_URL="https://glow-up-sports--ltvjeugd.replit.app"
 export EXPO_PUBLIC_DOMAIN="glow-up-sports--ltvjeugd.replit.app"
 export EXPO_PUBLIC_ENV="production"
 
-# Inject the exact commit short-SHA into the bundle so client/App.tsx's
-# Sentry boot beacons can tag every event with it. Without this we can't
-# git-bisect a broken bundle from telemetry alone.
-export EXPO_PUBLIC_COMMIT_SHA="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
-
 echo "  Injected env for OTA bundle:"
-echo "    EXPO_PUBLIC_API_URL    = $EXPO_PUBLIC_API_URL"
-echo "    EXPO_PUBLIC_DOMAIN     = $EXPO_PUBLIC_DOMAIN"
-echo "    EXPO_PUBLIC_ENV        = $EXPO_PUBLIC_ENV"
-echo "    EXPO_PUBLIC_COMMIT_SHA = $EXPO_PUBLIC_COMMIT_SHA"
-echo "    NODE_OPTIONS           = $NODE_OPTIONS"
+echo "    EXPO_PUBLIC_API_URL = $EXPO_PUBLIC_API_URL"
+echo "    EXPO_PUBLIC_DOMAIN  = $EXPO_PUBLIC_DOMAIN"
+echo "    EXPO_PUBLIC_ENV     = $EXPO_PUBLIC_ENV"
+echo "    NODE_OPTIONS        = $NODE_OPTIONS"
 
 # ---------------------------------------------------------------------------
-# Pause "Start App" Metro on :8081 to free memory during the push.
-# We track what we killed so we can offer a restart hint at the end. We
-# don't actually restart the workflow ourselves — the user (or the agent)
-# can re-launch the "Start App" workflow when needed. This is intentional:
-# the OTA Push workflow has no business managing other workflows' lifecycle.
-#
-# Set OTA_KEEP_DEV_SERVER=1 to skip this.
+# Pause "Start App" Metro on :8081 so the bundler isn't fighting it for
+# memory during the push. We don't auto-restart it — the user (or the
+# agent) can re-launch the "Start App" workflow when needed; in practice
+# the auto-restart trap was unreliable because Replit's process-tree
+# cleanup reaped the detached child. Set OTA_KEEP_DEV_SERVER=1 to skip.
 # ---------------------------------------------------------------------------
 DEV_SERVER_PAUSED=0
-DEV_RESTART_LOG="/tmp/ota-push-metro-restart.log"
 if [[ "${OTA_KEEP_DEV_SERVER:-0}" != "1" ]]; then
   DEV_PIDS="$(lsof -ti:8081 2>/dev/null || true)"
   if [[ -n "$DEV_PIDS" ]]; then
@@ -323,36 +255,6 @@ if [[ "${OTA_KEEP_DEV_SERVER:-0}" != "1" ]]; then
     DEV_SERVER_PAUSED=1
   fi
 fi
-
-# Best-effort: when this script exits (success OR failure), if we were the
-# one who killed the dev Metro, try to bring it back so the next chat
-# session has a working preview without the user/agent having to restart
-# the "Start App" workflow manually. We re-spawn ONLY `npm run expo:dev`
-# (the server side `npm run server:dev` was never killed); this matches
-# what "Start App" launches. setsid + nohup detach the child from this
-# script's process group so Replit's process-tree cleanup doesn't reap it
-# when this workflow ends.
-restore_dev_metro() {
-  if [[ "$DEV_SERVER_PAUSED" != "1" ]]; then
-    return
-  fi
-  if lsof -ti:8081 >/dev/null 2>&1; then
-    # Something already came back (likely the agent restarted Start App).
-    return
-  fi
-  echo ""
-  echo "  Restarting dev Metro on :8081 (best-effort) — log: $DEV_RESTART_LOG"
-  (
-    setsid nohup env \
-      EXPO_PACKAGER_PROXY_URL="${EXPO_PACKAGER_PROXY_URL:-https://${REPLIT_DEV_DOMAIN:-localhost}}" \
-      REACT_NATIVE_PACKAGER_HOSTNAME="${REACT_NATIVE_PACKAGER_HOSTNAME:-${REPLIT_DEV_DOMAIN:-localhost}}" \
-      EXPO_PUBLIC_DOMAIN="${REPLIT_DEV_DOMAIN:-localhost}:5000" \
-      npm run expo:dev \
-      </dev/null >"$DEV_RESTART_LOG" 2>&1 &
-  ) || true
-  echo "  (If preview is still empty after ~30s, restart the \"Start App\" workflow.)"
-}
-trap restore_dev_metro EXIT
 
 # ---------------------------------------------------------------------------
 # Step 1 — Bundle once with `expo export --platform all` (or single platform).

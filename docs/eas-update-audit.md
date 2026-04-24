@@ -1,40 +1,52 @@
 # EAS Update Audit — Closed Testing
 
-_Last reviewed: 2026-04-19_
+_Last reviewed: 2026-04-24_
 
 ## Summary
 
 Glow Up Sports uses [EAS Update](https://docs.expo.dev/eas-update/introduction/)
 to ship JavaScript-only changes over the air (OTA) to existing native
-binaries. Before relying on OTA for the Play Store **closed testing** track,
-the configuration was audited to make sure pushed updates actually reach
-testers.
+binaries on a single shared `production` channel.
 
-A mismatch was found and fixed:
+The runtime-targeting policy has been revised twice. The current rule —
+the one that is in force after Task #1302 — is **fixed per-platform
+runtime strings, decoupled from `expo.version`**.
 
-- **Before**: `runtimeVersion` was a fixed string (`"1.3.4"`) in `app.json`,
-  while the closed-testing AAB on Play Console (release 69, version `1.3.1`)
-  was built with `runtimeVersion: "1.3.1"`. Any OTA pushed today (which
-  publishes against runtime `1.3.4`) would silently skip the existing 1.3.1
-  closed-testing testers.
-- **After**: `runtimeVersion` now uses the `appVersion` policy. The runtime
-  version is automatically derived from `expo.version`, so bumping `version`
-  in `app.json` for the next AAB build is the single source of truth — no
-  more keeping two fields in sync by hand.
+### Why not `runtimeVersion: { "policy": "appVersion" }`
 
-The channel strategy is intentionally kept simple: closed testing and future
-Play Store production releases both consume the `production` EAS Update
-channel.
+We tried `appVersion` policy in an earlier iteration of this doc on the
+theory that it would make "the version on the store" the only number to
+remember. It backfired hard:
 
-## Current configuration (post-fix)
+- A bump of `expo.version` for the next planned store build (e.g. moving
+  from `1.3.5` to `1.3.6`) automatically moved the OTA runtime to
+  `1.3.6` too.
+- No `1.3.6` binary had been submitted to the App Store / Play Store
+  yet, so no installed device had embedded runtime `1.3.6`.
+- Every OTA published from that point was silently dropped by every
+  installed device (EAS only delivers an update whose `runtimeVersion`
+  exactly matches the one embedded in the app binary).
+
+The fix is to keep store version and OTA runtime as two independent
+levers:
+
+- `expo.version` (and `expo.ios.version` / `expo.android.version`) tags
+  the next store binary. Bump it freely when you cut a build.
+- `expo.ios.runtimeVersion` and `expo.android.runtimeVersion` are fixed
+  strings that must equal the runtime embedded in a binary that is
+  **already installed on real devices**. Move them forward only after a
+  matching store binary is live and propagating.
+
+## Current configuration
 
 ### `app.json`
 
 ```jsonc
 {
   "expo": {
-    "version": "1.3.4",
-    "runtimeVersion": { "policy": "appVersion" },
+    "version": "1.3.6",
+    "ios":     { "version": "1.3.6", "runtimeVersion": "1.3.4", ... },
+    "android": { "version": "1.3.6", "runtimeVersion": "1.3.5", ... },
     "updates": {
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
@@ -45,105 +57,85 @@ channel.
 }
 ```
 
+The store-facing version is `1.3.6` for both platforms (so the next
+binary is correctly tagged), but OTA pushes target the runtimes that are
+actually live on real devices: iOS `1.3.4` and Android `1.3.5`.
+
 ### `eas.json` channels
 
 | Profile       | Channel       | Distribution | Used for                                    |
 |---------------|---------------|--------------|---------------------------------------------|
 | `development` | `development` | internal     | Local dev clients                           |
 | `preview`     | `preview`     | internal     | Internal QA / sideloaded preview builds     |
-| `production`  | `production`  | store        | Play Store **closed testing** AND production |
+| `production`  | `production`  | store        | Closed testing AND production               |
 
 ### `scripts/ota-push.sh`
 
-The OTA push script always publishes to `--channel production`. With the
-audit applied, this is the correct behaviour: closed-testing builds and
-production builds share the `production` channel and only differ by the
-Play Store track they are uploaded to.
+The OTA push script publishes to `--channel production` for both
+platforms in a single bundle, then verifies that each platform's
+runtime in the EAS response matches the runtime declared in `app.json`.
+A successful push therefore guarantees the bundle is live at exactly the
+runtimes installed devices are running.
 
 ## How OTA targeting actually works
 
-Each native binary embeds a `runtimeVersion`. When the app launches it asks
-the EAS Update server: _"Is there a newer JS bundle on my channel that
+Each native binary embeds a `runtimeVersion`. On launch the app asks the
+EAS Update server: _"Is there a newer JS bundle on my channel that
 matches my runtimeVersion?"_ — only matching bundles are delivered.
 
-With the `appVersion` policy:
+Implications:
 
-- An AAB built at `version: 1.3.5` ⇒ runtime `1.3.5`.
-- An OTA pushed while `app.json` is at `version: 1.3.5` ⇒ targets runtime
-  `1.3.5`.
-- They line up automatically. There is **no way** to forget to bump the
-  runtime when bumping the version.
-
-### Implication for the existing 1.3.1 closed-testing AAB
-
-The 1.3.1 testers will **not** receive any OTA published from the current
-codebase (which is at version 1.3.4). To pick those testers up again, the
-sibling task ("Prepare new Android closed-testing build") will produce and
-upload a new AAB at the bumped version; once installed, OTAs published from
-that same version will reach them.
+- An OTA at runtime `1.3.4` reaches every installed iOS binary built
+  with runtime `1.3.4`, and nothing else.
+- An OTA at a runtime no installed binary uses reaches no one at all,
+  and there is no client-side error to surface that fact — the device
+  simply doesn't see an update.
+- "Bumping `version` for the next store submission" and "publishing an
+  OTA to current users" are two different operations that should not
+  share state.
 
 ## Channel strategy decision
 
-Two reasonable options were considered:
+Closed testing and production both consume `production`. Reasons:
 
-1. **Single `production` channel for both closed testing and prod (chosen).**
-   - Pros: simplest mental model; matches how `scripts/ota-push.sh` is
-     already wired; no duplicate publishes.
-   - Cons: every OTA goes to **all** installed builds with a matching
-     runtime, including future Play Store production users. Mitigated by
-     the fact that `runtimeVersion` is tied to `version`, so an OTA only
-     targets a specific app version's installed base.
-2. **Dedicated `closed-testing` (or `preview`) channel for the closed
-   track.**
-   - Pros: lets us push experimental JS to closed testers without touching
-     production users on the same `version`.
-   - Cons: requires a separate EAS build profile and a re-upload before any
-     closed test can begin; `scripts/ota-push.sh` would need a `--channel`
-     flag; easy to publish to the wrong channel by mistake.
-
-We are sticking with option 1 because:
-
-- Closed testing today is being used as a "pre-prod smoke test" — testers
-  are intentionally on the same JS that prod will receive.
+- Closed testing today is being used as a "pre-prod smoke test" —
+  testers are intentionally on the same JS that prod will receive.
 - Once a build is promoted from the closed track to production on Play
   Console, no rebuild or re-publish is needed; both tracks already trust
   the same channel.
+- The push script and Replit "OTA Push" workflow are wired for one
+  channel; adding a second would require a `--channel` flag and is easy
+  to publish to by mistake.
 
-If we ever want to ship a tester-only experiment, the path is to add a new
-`closed-testing` build profile + channel in `eas.json`, rebuild the AAB
-against it, and add a `--channel` flag to `scripts/ota-push.sh`.
+If we ever want to ship a tester-only experiment, the path is to add a
+new `closed-testing` build profile + channel in `eas.json`, rebuild the
+AAB against it, and add a `--channel` flag to `scripts/ota-push.sh`.
 
 ## Runtime version policy decision
 
-Three options were on the table:
+| Policy                   | Behaviour                                                                                   | Verdict |
+|--------------------------|---------------------------------------------------------------------------------------------|---------|
+| Fixed per-platform string | Decoupled from `expo.version`. Manual to bump but predictable; matches what's in the store. | **In use.** |
+| `appVersion`             | Tracks `expo.version` automatically — but `version` bumps for the next store build silently break OTAs to existing users. | Reverted (caused the Task #1302 incident). |
+| `fingerprint`            | Hash of the native project; only changes when native deps change.                           | Powerful, but more surprising — JS pushed at one runtime could land on devices at a different one. Reconsider only when native deps stabilise. |
 
-| Policy        | Behaviour                                           | Verdict |
-|---------------|-----------------------------------------------------|---------|
-| Fixed string  | You bump it manually. Easy to forget.              | Replaced — was the source of the bug. |
-| `appVersion`  | Tracks `expo.version` automatically.                | **Chosen.** |
-| `fingerprint` | Hash of the native project; only changes when native deps change. | Powerful, but more surprising — JS pushed at `1.3.5` could land on a `1.3.4` install. Reconsider only when native deps stabilise and we want broader OTA reach. |
+The rule that goes with the chosen policy:
 
-`appVersion` was selected because it is predictable, requires no extra
-tooling, and makes "the version on the store" the only number to remember.
+> Bump `expo.version` whenever you want a new store build. Only bump
+> `expo.ios.runtimeVersion` / `expo.android.runtimeVersion` once a
+> binary at that runtime is **already installed** on real devices.
 
-## Evidence / traceability
+## Verification checklist for the next AAB / IPA
 
-The claims about the closed-testing AAB (Play Console release 69, app
-version `1.3.1`, channel `production`, runtime `1.3.1`) are external-state
-assertions and cannot be verified from the repo alone. When the next
-closed-testing build is uploaded, record the corresponding EAS build ID and
-dashboard URL here so the channel / runtime mapping is auditable later:
+When a new store build is uploaded:
 
-- Closed-testing AAB (release 69, v1.3.1): EAS build ID + URL — _to fill in_
-- Next closed-testing AAB (post-fix): EAS build ID + URL — _to fill in_
-
-## Verification checklist for next AAB
-
-When the new closed-testing build is uploaded:
-
-1. Confirm the build logs show `Runtime version: <new app version>` (e.g.
-   `1.3.5`).
-2. After the build is installed on a tester device, push a no-op OTA with a
-   distinctive message and confirm the device picks it up on next launch.
-3. Confirm the EAS dashboard lists the published update under the
+1. Confirm the build logs show `Runtime version: <expected runtime for that build>` — note that this is intentionally **not** the same as `expo.version` once the version and runtime are decoupled.
+2. After the build is installed on a tester device, push a no-op OTA
+   targeting the new runtime and confirm the device picks it up on next
+   launch.
+3. Once the new runtime has propagated to enough installed devices,
+   bump `expo.{ios,android}.runtimeVersion` in `app.json` so subsequent
+   OTAs target it. **Until then, leave the runtime fields pointing at
+   the previous installed runtime.**
+4. Confirm the EAS dashboard lists the published update under the
    `production` channel with runtime version matching the build.

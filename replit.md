@@ -11,15 +11,17 @@ Preferred communication style: Simple, everyday language.
 Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATABASE_URL"`.
 
 ### CRITICAL: App Store Version Rule
-**EVERY new App Store build MUST have a new version number in `app.json`!**
-- Bug fixes / small changes → bump patch: 1.3.2 → 1.3.3
-- New features → bump minor: 1.3.x → 1.4.0
-- Major release → bump major: 1.x.x → 2.0.0
-- ALWAYS update both `"version"` AND `"runtimeVersion"` in app.json
+**`expo.version` and `expo.{ios,android}.runtimeVersion` are independent. Do NOT bump them together.**
+- `expo.version` (and `expo.ios.version` / `expo.android.version`) tags the next App Store / Play Store binary. Bump it whenever you cut a new store build:
+  - Bug fixes → bump patch: 1.3.2 → 1.3.3
+  - New features → bump minor: 1.3.x → 1.4.0
+  - Major release → bump major: 1.x.x → 2.0.0
+- `expo.ios.runtimeVersion` / `expo.android.runtimeVersion` is what OTA pushes target. **Only bump it once a new binary at that runtime is actually live in the store.** Bumping it ahead of the binary makes every OTA published from that point silently dropped by every installed device until the new binary ships and propagates.
+- Today: store version is `1.3.6`, but `ios.runtimeVersion` stays at `1.3.4` and `android.runtimeVersion` stays at `1.3.5` because those are what users have installed. Move them forward only after the matching store binary is live.
 
 ### CRITICAL: Split iOS / Android runtime versions
-**iOS and Android run on different versions and different OTA runtimes.** These are configured **per-platform** under `expo.ios` and `expo.android` in `app.json`.
-**Every OTA push MUST target both runtimes.** The "OTA Push" workflow uses `scripts/ota-push.sh` to bundle and upload both platforms, including a verification step.
+**iOS and Android run on different runtimes.** These are configured **per-platform** under `expo.ios.runtimeVersion` and `expo.android.runtimeVersion` in `app.json`. Each platform's OTA push targets only the runtime declared for that platform.
+**Every OTA push targets both runtimes by default.** The "OTA Push" workflow runs `scripts/ota-push.sh`, which bundles once and uploads to both platforms, then verifies both landed at the runtimes declared in `app.json`.
 
 ### CRITICAL: Every task plan MUST include a "Deployment" line
 **Every `.local/tasks/*.md` plan file MUST have one of these lines:**
@@ -35,12 +37,6 @@ For mixed changes (server + client): Republish first, then OTA push.
 **`eslint.config.js` enforces `react/jsx-no-undef: error` and `no-undef: error` on `client/**` and `server/**`.**
 The OTA push script (`scripts/ota-push.sh`) runs a lint pre-flight that **hard-aborts** the push on any error in changed files.
 Always run `npm run lint` (and ideally `npm run check:types`) **before** OTA-pushing or merging. Do NOT lower these rules to `warn` or `off`.
-
-### CRITICAL: OTA Push kill switch
-**`scripts/ota-push.sh` is currently DISABLED. It refuses to run unless `OTA_PUSH_ENABLED=1` is set in the environment.**
-- To intentionally publish a hotfix: `OTA_PUSH_ENABLED=1 OTA_MESSAGE="Hotfix XYZ" bash scripts/ota-push.sh`.
-- To re-publish a rollback marker: `bash scripts/ota-rollback.sh`.
-- Remove the kill switch ONLY after the bundle crash is root-caused, fixed, and a clean hotfix has been validated end-to-end on a bisect channel.
 
 ### CRITICAL: API Development Rule
 **DO NOT create new API endpoints without explicit permission!**

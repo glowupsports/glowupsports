@@ -12,8 +12,10 @@ Play Console "What's new in this release" field.
 
 ## App version
 - `expo.version`: **1.3.5** (was `1.3.1` on release 69)
-- `runtimeVersion`: derived automatically from `expo.version` via the
-  `appVersion` policy (see `docs/eas-update-audit.md`).
+- `expo.android.runtimeVersion`: pinned per-platform string in `app.json`
+  (independent from `expo.version`). Only bump it once a binary at the
+  new runtime is actually live on testers' devices — see
+  `docs/eas-update-audit.md`.
 - Android `versionCode`: auto-incremented by EAS on build.
 
 ## English (en-US) — paste into Play Console verbatim

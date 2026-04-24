@@ -19,7 +19,7 @@ changes), and how to do each safely.
 | Adding/removing/upgrading an Expo or native package (native deps)  | ❌ No     | ✅ Yes         |
 | Changing `app.json` `plugins`, permissions, icon, splash, scheme   | ❌ No     | ✅ Yes         |
 | Changing `expo.version`                                            | ❌ No     | ✅ Yes         |
-| Bumping `runtimeVersion` (now auto-derived from `expo.version`)    | ❌ No     | ✅ Yes         |
+| Bumping `expo.{ios,android}.runtimeVersion` (only after a matching binary is live in the store) | ❌ No     | ✅ Yes         |
 | Store listing changes (screenshots, description, age rating)       | ❌ No     | ❌ No (Play Console only) |
 | Stripe / RevenueCat / OpenAI / Resend / Sentry config or keys      | ⚠️ Depends| Build only if `EXPO_PUBLIC_*` keys in `eas.json` change |
 
@@ -65,10 +65,14 @@ Required whenever the change cannot be delivered as a JS bundle: native
 deps, plugin changes, permission changes, icon/splash, or any time you need
 to ship a new `expo.version` to the store.
 
-1. **Bump `expo.version`** in `app.json` using semantic versioning
-   (e.g. `1.3.4` → `1.3.5`). Because `runtimeVersion` is set to
-   `{ "policy": "appVersion" }`, the runtime version updates automatically
-   — do not edit it.
+1. **Bump `expo.version`** (and `expo.ios.version` / `expo.android.version`)
+   in `app.json` using semantic versioning (e.g. `1.3.4` → `1.3.5`).
+   **Do NOT bump `expo.{ios,android}.runtimeVersion` at the same time** —
+   the new runtime is only safe to ship to OTAs once a binary at that
+   runtime is actually installed on real devices. Keep `runtimeVersion`
+   pointing at the runtime currently in the store. After the new AAB/IPA
+   is live and propagating, bump `runtimeVersion` in a separate change so
+   subsequent OTAs target the new binary.
 2. Update the in-app changelog / what's-new copy if applicable.
 3. Trigger an EAS build (production profile, Android):
    ```bash
@@ -114,7 +118,7 @@ for why and when to revisit this.
 
 | Symptom                                                   | Likely cause                                              | Action |
 |-----------------------------------------------------------|-----------------------------------------------------------|--------|
-| OTA published but testers do not see the change           | Bumped `version` after they installed; runtimeVersion now mismatches | Either revert the version bump, or build + upload a new AAB at the new version |
+| OTA published but testers do not see the change           | Bumped `expo.{ios,android}.runtimeVersion` ahead of any installed binary at that runtime | Pin `runtimeVersion` back to the runtime testers actually have installed and re-publish |
 | OTA published, tester sees it on second relaunch only     | Expected — bundle downloads in background, applies next launch | None |
 | `eas update` errors out about missing channel             | Channel typo or new profile without a channel             | Verify `channel` field in `eas.json` for the relevant build profile |
 | Tester on Android still sees old crash that is fixed in JS| App might have cached the old bundle and not relaunched   | Force-stop the app and reopen twice |

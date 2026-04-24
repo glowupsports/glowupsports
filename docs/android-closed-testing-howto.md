@@ -6,7 +6,7 @@ Alpha** track on Play Console. This is for the new release at
 
 > Companion docs:
 > - [`docs/eas-update-audit.md`](./eas-update-audit.md) — why
->   `runtimeVersion` is auto-derived from `expo.version`.
+>   `expo.version` and `expo.{ios,android}.runtimeVersion` are decoupled.
 > - [`docs/release-checklist.md`](./release-checklist.md) — when to use
 >   OTA vs a new AAB.
 > - [`docs/closed-testing-release-notes.md`](./closed-testing-release-notes.md) —
@@ -17,8 +17,10 @@ Alpha** track on Play Console. This is for the new release at
 ## Pre-flight (already done by the prep task)
 
 - [x] `expo.version` bumped from `1.3.4` → `1.3.5` in `app.json`.
-- [x] `runtimeVersion` left on `{ "policy": "appVersion" }` so it tracks
-      `expo.version` automatically — no manual edit needed.
+- [x] `expo.android.runtimeVersion` left at the runtime currently in the
+      store (do **not** bump it together with `expo.version` — only bump
+      it after a binary at the new runtime is actually live on testers'
+      devices, otherwise OTAs are silently dropped).
 - [x] Release notes drafted in
       `docs/closed-testing-release-notes.md` (English + Dutch).
 - [x] `eas.json` `production` profile already builds an `app-bundle`
