@@ -2,7 +2,7 @@ import { db, pool } from "./db";
 import { runGuardedPlayerDeletes } from "./lib/player-cleanup";
 import { apiCache } from "./cache";
 import { randomUUID } from "node:crypto";
-import { localHHMMToUtc } from "./utils/timezone";
+import { localHHMMToUtc, buildCommunityGroupTextForSeries } from "./utils/timezone";
 import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull, isNotNull, type SQL } from "drizzle-orm";
 import { sanitizeName } from "../shared/textSanitize";
 
@@ -567,10 +567,25 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
       coachUserId = coachUser?.id ?? null;
     }
 
-    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const dayName = series.dayOfWeek >= 0 && series.dayOfWeek <= 6 ? dayNames[series.dayOfWeek] : "";
-    const startTime = (series.startTime || "").slice(0, 5);
-    const description = `${dayName} • ${startTime} — recurring class`;
+    // Resolve the academy's timezone so the group text matches what the rest
+    // of the app shows (coach cards, drawers, etc all convert series.startTime
+    // from UTC to academy-local). Falls back to the same default the schema uses.
+    const [academy] = await db
+      .select({ timezone: academies.timezone })
+      .from(academies)
+      .where(eq(academies.id, series.academyId))
+      .limit(1);
+    const academyTimezone = academy?.timezone || "Asia/Dubai";
+
+    const { name, description } = buildCommunityGroupTextForSeries(
+      {
+        title: series.title,
+        sessionType: series.sessionType,
+        dayOfWeek: series.dayOfWeek,
+        startTime: series.startTime || "",
+      },
+      academyTimezone,
+    );
 
     let group = existingGroup;
     if (!group) {
@@ -578,7 +593,7 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
         .insert(communityGroups)
         .values({
           academyId: series.academyId,
-          name: series.title,
+          name,
           description,
           type: "team",
           seriesId,
@@ -594,7 +609,7 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
       group = created;
     } else {
       const needsTextUpdate =
-        existingGroup.name !== series.title || existingGroup.description !== description;
+        existingGroup.name !== name || existingGroup.description !== description;
       // Class-derived groups must always be private. If a legacy group was
       // created public (or accidentally toggled), force it back to private on
       // every sync so re-syncing a series never reverts the privacy flag.
@@ -603,7 +618,7 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
         await db
           .update(communityGroups)
           .set({
-            name: series.title,
+            name,
             description,
             isPrivate: true,
             updatedAt: new Date(),

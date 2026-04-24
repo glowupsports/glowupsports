@@ -389,3 +389,108 @@ export function ensureResolvableLocalTime(
     }
   };
 }
+
+const SHORT_DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const FULL_DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+const SESSION_TYPE_LABELS: Record<string, string> = {
+  private: "Private Session",
+  group: "Group Session",
+  semi: "Semi-Private Session",
+  semi_private: "Semi-Private Session",
+  physical: "Physical Session",
+  activity: "Activity Session",
+};
+
+/**
+ * Convert a coaching series' stored UTC dayOfWeek + startTime ("HH:MM") into
+ * the academy's local short day name, full day name, and HH:MM. Mirrors the
+ * client-side `convertUTCTimeToLocal` helper but also shifts the day of week
+ * when the timezone conversion crosses midnight.
+ *
+ * Returns null when the series doesn't have a recurring local schedule
+ * (e.g. flexible series with dayOfWeek === -1) — callers should fall back to
+ * the raw series title in that case.
+ */
+export function getSeriesLocalSchedule(
+  dayOfWeek: number,
+  startTime: string,
+  timezone: string,
+): { shortDay: string; fullDay: string; time: string } | null {
+  if (dayOfWeek == null || dayOfWeek < 0 || dayOfWeek > 6) return null;
+
+  const tz = timezone || "Asia/Dubai";
+  const [hStr = "0", mStr = "0"] = (startTime || "00:00").split(":");
+  const hours = Number(hStr);
+  const minutes = Number(mStr);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+
+  // 2024-01-07 is a Sunday (UTC), giving us a stable reference week so we can
+  // map the stored UTC dayOfWeek + HH:MM to a real instant.
+  const REFERENCE_SUNDAY_UTC_MS = Date.UTC(2024, 0, 7, 0, 0, 0, 0);
+  const utcMs =
+    REFERENCE_SUNDAY_UTC_MS +
+    dayOfWeek * 86400000 +
+    hours * 3600000 +
+    minutes * 60000;
+  const utcDate = new Date(utcMs);
+
+  try {
+    const timeFormatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone: tz,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+    const local = formatLocalDateTime(utcDate, tz);
+    const localTime = timeFormatter.format(utcDate);
+
+    return {
+      shortDay: SHORT_DAY_NAMES[local.dayOfWeek] ?? "",
+      fullDay: FULL_DAY_NAMES[local.dayOfWeek] ?? "",
+      time: localTime,
+    };
+  } catch {
+    return {
+      shortDay: SHORT_DAY_NAMES[dayOfWeek] ?? "",
+      fullDay: FULL_DAY_NAMES[dayOfWeek] ?? "",
+      time: `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+    };
+  }
+}
+
+/**
+ * Build the community-group display name + description for a coaching series
+ * using academy-local day/time. Falls back to the raw series title when the
+ * series doesn't have a recurring local schedule (flexible series).
+ */
+export function buildCommunityGroupTextForSeries(
+  series: { title: string; sessionType: string; dayOfWeek: number; startTime: string },
+  timezone: string,
+): { name: string; description: string } {
+  const local = getSeriesLocalSchedule(series.dayOfWeek, series.startTime, timezone);
+  if (!local) {
+    return {
+      name: series.title,
+      description: series.title,
+    };
+  }
+
+  const typeLabel =
+    SESSION_TYPE_LABELS[series.sessionType] ||
+    `${series.sessionType?.charAt(0).toUpperCase()}${series.sessionType?.slice(1)} Session`;
+
+  return {
+    name: `${typeLabel} - ${local.shortDay} ${local.time}`,
+    description: `${local.fullDay} • ${local.time} — recurring class`,
+  };
+}
