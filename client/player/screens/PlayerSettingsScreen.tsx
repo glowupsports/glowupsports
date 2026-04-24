@@ -23,6 +23,7 @@ import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
 import { defaultAcademyTheme } from "@shared/theme";
 import MyThemeEditor from "@/player/components/MyThemeEditor";
 import { LanguageSelectorModal } from "@/components/LanguageSelectorModal";
+import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SettingItem {
@@ -738,6 +739,8 @@ export default function PlayerSettingsScreen() {
             {notificationSettings.map(renderSettingItem)}
           </View>
         </View>
+
+        <WhatsNewSettingsCard />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('player.settings.messageTone')}</Text>

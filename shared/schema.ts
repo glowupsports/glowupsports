@@ -8020,3 +8020,33 @@ export const featureInterest = pgTable("feature_interest", {
 
 export type FeatureInterest = typeof featureInterest.$inferSelect;
 
+// ==================== RELEASE NOTES CACHE (Task #1183) ====================
+// Cache of OpenAI-generated "What's New" slides per (version, role, locale).
+// Generated on demand by the release-notes-generator service from git commits
+// since the previous version, then served by GET /api/release-notes.
+// Cache is intentionally permanent — once a version is generated, the
+// highlights never change for that version. A simple unique index acts as the
+// composite primary key; we keep an auto id so it's easy to delete/regenerate
+// individual rows during testing without dropping the whole table.
+export const releaseNotesCache = pgTable("release_notes_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  version: text("version").notNull(),
+  role: text("role").notNull(), // player | parent | coach | owner
+  locale: text("locale").notNull(), // en | nl | id | ar
+  fromVersion: text("from_version"), // previous version we diffed against
+  slides: jsonb("slides").$type<Array<{
+    id: string;
+    icon: string;
+    title: string;
+    body: string;
+  }>>().notNull(),
+  commitSha: text("commit_sha"), // HEAD sha at generation time
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("release_notes_cache_unique_idx").on(
+    table.version, table.role, table.locale,
+  ),
+]);
+
+export type ReleaseNotesCache = typeof releaseNotesCache.$inferSelect;
+

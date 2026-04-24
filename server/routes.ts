@@ -1858,6 +1858,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Task #1183 — "What's New" carousel: GET /api/release-notes
+  // Public endpoint that generates per-(version, role, locale) release notes
+  // from `git log` via OpenAI and caches them in `release_notes_cache`.
+  const { registerReleaseNotesRoutes } = await import("./routes/release-notes");
+  registerReleaseNotesRoutes(app);
+
   const httpServer = createServer(app);
 
   // Set up WebSocket server for real-time chat

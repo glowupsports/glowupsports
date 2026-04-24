@@ -1754,19 +1754,19 @@
       "intro": "De laatste updates en verbeteringen in de app.",
       "items": {
         "unifiedGuide": {
-              "title": "Geünificeerde Spelersgids",
+          "title": "Geünificeerde Spelersgids",
           "desc": "Alles wat je nodig hebt om de app te leren — Aan de slag, Ontdek, FAQ en Wat is nieuw — staat nu op één plek."
         },
         "searchableFaq": {
-              "title": "Doorzoekbare FAQ",
+          "title": "Doorzoekbare FAQ",
           "desc": "Doorzoek de FAQ op trefwoord en filter op categorie om sneller antwoorden te vinden."
         },
         "smarterEmpty": {
-              "title": "Slimmere lege schermen",
+          "title": "Slimmere lege schermen",
           "desc": "Lege lijsten tonen nu een korte uitleg en een actie met één tik, zodat je weet wat de volgende stap is."
         },
         "helpButton": {
-              "title": "Helpknop in elke header",
+          "title": "Helpknop in elke header",
           "desc": "Zoek de vraagteken-knop rechtsboven in elk spelersscherm om meteen hier terug te komen."
         }
       }
@@ -1841,6 +1841,20 @@
         "purchaseCancelled": "Aankoop geannuleerd · credits teruggedraaid",
         "adjustmentReversed": "Aanpassing teruggedraaid · wallet hersteld"
       }
+    }
+  },
+  "whatsNew": {
+    "title": "Wat is nieuw",
+    "skip": "Overslaan",
+    "next": "Volgende",
+    "letsGo": "Aan de slag",
+    "dontShowAgain": "Niet meer tonen bij updates",
+    "loading": "Even kijken wat er nieuw is…",
+    "settings": {
+      "sectionTitle": "Wat is nieuw",
+      "autoShowLabel": "'Wat is nieuw' tonen bij updates",
+      "autoShowHelp": "Als de app een update krijgt, zie je in het kort wat er nieuw is.",
+      "viewLatest": "Laatste updates bekijken"
     }
   }
 }

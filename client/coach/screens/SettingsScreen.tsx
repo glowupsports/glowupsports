@@ -1,4 +1,5 @@
 import logger from "@/lib/logger";
+import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
 import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
@@ -1579,6 +1580,8 @@ export default function SettingsScreen() {
           </View>
           </> : null}
         </View>
+
+        <WhatsNewSettingsCard />
 
         {Platform.OS === "ios" ? (
           <View style={styles.section}>

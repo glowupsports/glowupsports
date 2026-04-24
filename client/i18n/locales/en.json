@@ -1754,19 +1754,19 @@
       "intro": "The latest updates and improvements to the app.",
       "items": {
         "unifiedGuide": {
-              "title": "Unified Player Guide",
+          "title": "Unified Player Guide",
           "desc": "Everything you need to learn the app — Get Started, Explore, FAQ, and What's New — now lives in one place."
         },
         "searchableFaq": {
-              "title": "Searchable FAQ",
+          "title": "Searchable FAQ",
           "desc": "Search the FAQ by keyword and filter by category to find answers faster."
         },
         "smarterEmpty": {
-              "title": "Smarter empty screens",
+          "title": "Smarter empty screens",
           "desc": "Empty lists now show a one-line explanation and a one-tap action so you always know what to do next."
         },
         "helpButton": {
-              "title": "Help button in every header",
+          "title": "Help button in every header",
           "desc": "Look for the question-mark button at the top-right of any player screen to jump straight back here."
         }
       }
@@ -1841,6 +1841,20 @@
         "purchaseCancelled": "Purchase cancelled · credits reversed",
         "adjustmentReversed": "Adjustment reversed · wallet restored"
       }
+    }
+  },
+  "whatsNew": {
+    "title": "What's New",
+    "skip": "Skip",
+    "next": "Next",
+    "letsGo": "Let's go",
+    "dontShowAgain": "Don't show this at future updates",
+    "loading": "Looking up what's new…",
+    "settings": {
+      "sectionTitle": "What's new",
+      "autoShowLabel": "Show 'What's New' on updates",
+      "autoShowHelp": "When the app updates, see a quick recap of what's new.",
+      "viewLatest": "View latest updates"
     }
   }
 }

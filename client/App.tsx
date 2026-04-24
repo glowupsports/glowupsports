@@ -52,6 +52,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UpdateController } from "@/components/UpdateController";
 import { AnimatedSplashScreen } from "@/components/AnimatedSplashScreen";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
+import { WhatsNewGate } from "@/components/WhatsNewModal";
 
 import { PlayerProvider } from "@/context/PlayerContext";
 import { AppModeProvider } from "@/context/AppModeContext";
@@ -256,6 +257,7 @@ export default function App() {
                                           <RTLDirectionWrapper>
                                             <ImpersonationBanner />
                                             <NavigationContainerWithRef />
+                                            <WhatsNewGate />
                                           </RTLDirectionWrapper>
                                         </WebContainer>
                                       </WebAlertProvider>

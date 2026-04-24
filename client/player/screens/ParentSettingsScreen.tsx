@@ -6,6 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface ParentSettings {
@@ -161,13 +162,15 @@ export default function ParentSettingsScreen() {
             </View>
           </View>
 
+          <WhatsNewSettingsCard />
+
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>About Parent Dashboard</Text>
             <View style={styles.infoCard}>
               <Ionicons name="information-circle-outline" size={24} color={Colors.dark.textMuted} />
               <View style={styles.infoContent}>
                 <Text style={styles.infoText}>
-                  The Parent Dashboard gives you complete visibility into your child's tennis journey, 
+                  The Parent Dashboard gives you complete visibility into your child&apos;s tennis journey, 
                   including lesson attendance, invoices, and payments. All data is view-only for transparency.
                 </Text>
                 <Text style={[styles.infoText, { marginTop: Spacing.sm }]}>

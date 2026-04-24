@@ -16,6 +16,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 import { SPORTS, getSportConfig, type Sport } from "@shared/sportConfig";
 import { SportMultiSelector } from "@/components/SportBadge";
+import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
 interface ResetOptions {
   sessions: boolean;
   attendance: boolean;
@@ -546,6 +547,7 @@ export default function SettingsScreen() {
         window.alert("Players exported successfully!");
       } else {
         // Native: write to file and share
+        // eslint-disable-next-line import/namespace
         const fileUri = FileSystem.documentDirectory + (response.filename || "players.csv");
         await FileSystem.writeAsStringAsync(fileUri, csvData);
         
@@ -590,6 +592,7 @@ export default function SettingsScreen() {
         window.alert("Sessions exported successfully!");
       } else {
         // Native: write to file and share
+        // eslint-disable-next-line import/namespace
         const fileUri = FileSystem.documentDirectory + (response.filename || "sessions.csv");
         await FileSystem.writeAsStringAsync(fileUri, csvData);
         
@@ -904,6 +907,8 @@ export default function SettingsScreen() {
             />
           </Section>
         
+
+        <WhatsNewSettingsCard />
 
         <Section title="Danger Zone">
           <SettingRow
