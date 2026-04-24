@@ -60,8 +60,66 @@ export function CommentsModal({ visible, postId, feedItemId, onClose }: Comments
   const [replyingTo, setReplyingTo] = useState<{ id: string; name: string; text: string } | null>(null);
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionStart, setMentionStart] = useState<number | null>(null);
+  const [mentionResults, setMentionResults] = useState<
+    { id: string; username: string | null; name: string | null; photoUrl: string | null }[]
+  >([]);
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Lookup mentionable users (friends or same-academy peers) whenever the
+  // user is partway through typing an @handle. Debounced lightly to avoid
+  // hammering the endpoint on every keystroke.
+  useEffect(() => {
+    if (mentionQuery == null) {
+      setMentionResults([]);
+      return;
+    }
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      try {
+        const url = `/api/social/me/mentionable?q=${encodeURIComponent(mentionQuery)}`;
+        const res = await apiFetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setMentionResults(Array.isArray(data) ? data.slice(0, 6) : []);
+      } catch {
+        if (!cancelled) setMentionResults([]);
+      }
+    }, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [mentionQuery]);
+
+  // Track caret position to find the @token currently being typed. We only
+  // surface the picker for the active token; once the user types a space or
+  // moves on, the suggestion list disappears.
+  const handleCommentChange = (next: string) => {
+    setCommentText(next);
+    const upTo = next;
+    const match = /@([\w._-]{0,30})$/.exec(upTo);
+    if (match) {
+      setMentionStart(match.index);
+      setMentionQuery(match[1]);
+    } else {
+      setMentionStart(null);
+      setMentionQuery(null);
+    }
+  };
+
+  const applyMention = (username: string | null) => {
+    if (!username || mentionStart == null) return;
+    const before = commentText.slice(0, mentionStart);
+    const after = commentText.slice(mentionStart + 1 + (mentionQuery?.length ?? 0));
+    const next = `${before}@${username} ${after.replace(/^\s+/, "")}`;
+    setCommentText(next);
+    setMentionQuery(null);
+    setMentionStart(null);
+    setMentionResults([]);
+  };
 
   const translateY = useSharedValue(DRAWER_HEIGHT);
 
@@ -118,8 +176,12 @@ export function CommentsModal({ visible, postId, feedItemId, onClose }: Comments
       await apiRequest("POST", `${basePath}/comments`, payload);
       setCommentText("");
       setReplyingTo(null);
+      setMentionQuery(null);
+      setMentionStart(null);
+      setMentionResults([]);
       refetch();
       queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/social/me/feed-unseen"] });
     } catch (error) {
       logger.log("Comment error:", error);
       if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -299,13 +361,52 @@ export function CommentsModal({ visible, postId, feedItemId, onClose }: Comments
           </View>
         )}
 
+        {mentionQuery !== null && mentionResults.length > 0 ? (
+          <View style={commentStyles.mentionDropdown}>
+            {mentionResults.map((u) => (
+              <Pressable
+                key={u.id}
+                style={commentStyles.mentionItem}
+                onPress={() => applyMention(u.username)}
+              >
+                {u.photoUrl ? (
+                  <Image
+                    source={{
+                      uri: u.photoUrl.startsWith("http")
+                        ? u.photoUrl
+                        : `${getApiUrl()}${u.photoUrl}`,
+                    }}
+                    style={commentStyles.mentionAvatarImage}
+                  />
+                ) : (
+                  <View style={commentStyles.mentionAvatar}>
+                    <ThemedText style={commentStyles.mentionAvatarText}>
+                      {(u.name || u.username || "?").charAt(0).toUpperCase()}
+                    </ThemedText>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <ThemedText style={commentStyles.mentionName} numberOfLines={1}>
+                    {u.name || u.username || "Unknown"}
+                  </ThemedText>
+                  {u.username ? (
+                    <ThemedText style={commentStyles.mentionHandle} numberOfLines={1}>
+                      @{u.username}
+                    </ThemedText>
+                  ) : null}
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         <View style={[commentStyles.drawerInputContainer, { paddingBottom: insets.bottom > 0 ? insets.bottom : Spacing.md }]}>
           <TextInput
             style={commentStyles.commentInput}
             placeholder={replyingTo ? `Reply to @${replyingTo.name}...` : "Write a comment..."}
             placeholderTextColor={Colors.dark.textMuted}
             value={commentText}
-            onChangeText={setCommentText}
+            onChangeText={handleCommentChange}
             multiline
           />
           <Pressable
@@ -1445,6 +1546,52 @@ const commentStyles = makeReactiveStyles(() => StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: Colors.dark.primary + "50",
+  },
+  mentionDropdown: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    maxHeight: 220,
+    overflow: "hidden",
+  },
+  mentionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.dark.border,
+  },
+  mentionAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mentionAvatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  mentionAvatarText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  mentionName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  mentionHandle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
   },
 }));
 

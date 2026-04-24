@@ -13,13 +13,16 @@ import {
   players,
   coaches as coachesTable,
   sessions as sessionsTable,
+  feedItems as feedItemsTable,
+  playerSocialNotifPrefs,
+  playerNotifications,
   contentReports as contentReportsTable,
   playerBlocks as playerBlocksTable,
   matchLogs,
   playerConnections,
   openMatchSlots,
 } from "@shared/schema";
-import { eq, sql, and, desc, asc, inArray, gte, count } from "drizzle-orm";
+import { eq, sql, and, desc, asc, inArray, notInArray, gte, count, ne, or } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireFeatureUnlock,
@@ -30,6 +33,12 @@ import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { fireQuestEvent } from "../services/quest-events";
 import { chatRateLimiter, postRateLimiter } from "../rateLimiter";
+import {
+  sendPushNotification,
+  getPlayerPushTokens,
+  getCoachPushTokens,
+  getUserPushTokens,
+} from "../pushNotifications";
 import multer from "multer";
 import { uploadToSupabase } from "../utils/supabaseStorage";
 
@@ -37,6 +46,600 @@ const router = Router();
 
 interface AuthRequest extends Request {
   user?: JWTPayload;
+}
+
+// =====================================================================
+// Phase 2 — generalised reactions/comments + mentions/notifications
+// =====================================================================
+
+const SYSTEM_FEED_SOURCE_TYPES = new Set([
+  "match_result",
+  "level_up",
+  "quest_complete",
+  "tournament_result",
+  "open_match",
+  "coach_spotlight",
+]);
+
+// A `:id` parameter for /api/social/posts/:id/* may be either a real
+// posts.id OR a feed_items.id. For system items we lazily materialise a
+// shadow `posts` row the first time someone reacts/comments and link it
+// back via feed_items.post_id, so all downstream cheers/comments live with
+// the post and inherit cascading deletes for free. Returns null when the
+// id resolves to neither, or when a system item lacks the metadata we need
+// to create a shadow post.
+async function resolveTargetPostId(idOrFeedItemId: string): Promise<string | null> {
+  // 1) Direct posts.id hit (fast path — manual moments)
+  const [direct] = await db
+    .select({ id: postsTable.id })
+    .from(postsTable)
+    .where(eq(postsTable.id, idOrFeedItemId))
+    .limit(1);
+  if (direct) return direct.id;
+
+  // 2) Try feed_items.id
+  const [feedItem] = await db
+    .select()
+    .from(feedItemsTable)
+    .where(eq(feedItemsTable.id, idOrFeedItemId))
+    .limit(1);
+  if (!feedItem) return null;
+  if (feedItem.postId) return feedItem.postId;
+
+  // 3) Lazily materialise a shadow post for a system item.
+  if (!feedItem.authorUserId) return null;
+
+  // Free Players have no academyId; that's fine — posts.academy_id is
+  // nullable for exactly this case (see migration 0033). We still try to
+  // resolve one for visibility filtering, but null is acceptable.
+  let academyId = feedItem.academyId;
+  if (!academyId) {
+    const [u] = await db
+      .select({ academyId: users.academyId })
+      .from(users)
+      .where(eq(users.id, feedItem.authorUserId))
+      .limit(1);
+    academyId = u?.academyId || null;
+  }
+
+  const captionFromPayload =
+    typeof (feedItem.payload as any)?.summary === "string"
+      ? ((feedItem.payload as any).summary as string)
+      : typeof (feedItem.payload as any)?.title === "string"
+        ? ((feedItem.payload as any).title as string)
+        : null;
+
+  // Map feed_item.scope onto the (coarser) posts.visibility CHECK column
+  // for backward compatibility with older code that still inspects it.
+  // The authoritative scope check lives in canViewerInteractWithPost,
+  // which falls back to feedItem.scope via posts.feedItemId.
+  const scope = feedItem.scope || "academy";
+  let visibility: "academy" | "public" | "friends" | "group" = "public";
+  if (scope === "academy") visibility = "academy";
+  else if (scope === "friends") visibility = "friends";
+  else if (scope === "squad") visibility = "group";
+
+  // Run insert + link in a single transaction to avoid orphan posts when a
+  // concurrent request also tries to materialise the same shadow.
+  let createdPostId: string | null = null;
+  await db.transaction(async (tx) => {
+    // Re-check inside the txn.
+    const [recheck] = await tx
+      .select({ postId: feedItemsTable.postId })
+      .from(feedItemsTable)
+      .where(eq(feedItemsTable.id, feedItem.id))
+      .limit(1);
+    if (recheck?.postId) {
+      createdPostId = recheck.postId;
+      return;
+    }
+    const [inserted] = await tx
+      .insert(postsTable)
+      .values({
+        authorId: feedItem.authorUserId!,
+        academyId: academyId,
+        feedItemId: feedItem.id,
+        contextType: feedItem.sourceType,
+        contextId: feedItem.sourceId || null,
+        caption: captionFromPayload,
+        mediaUrls: [],
+        mediaTypes: [],
+        visibility,
+        groupId: feedItem.groupId || null,
+        taggedUserIds: [],
+        cheerCount: 0,
+        commentCount: 0,
+      })
+      .returning({ id: postsTable.id });
+
+    createdPostId = inserted.id;
+    await tx
+      .update(feedItemsTable)
+      .set({ postId: inserted.id })
+      .where(eq(feedItemsTable.id, feedItem.id));
+  });
+  return createdPostId;
+}
+
+// Returns the set of user IDs that are blocked in either direction relative
+// to `viewerUserId` — used to hide cheers/comments from the viewer's feed,
+// counters, and notifications. Best-effort: returns an empty set on error.
+async function getBlockedPairUserIds(viewerUserId: string): Promise<Set<string>> {
+  try {
+    const rows = await db
+      .select({
+        blocker: playerBlocksTable.blockerUserId,
+        blocked: playerBlocksTable.blockedUserId,
+      })
+      .from(playerBlocksTable)
+      .where(
+        or(
+          eq(playerBlocksTable.blockerUserId, viewerUserId),
+          eq(playerBlocksTable.blockedUserId, viewerUserId),
+        ),
+      );
+    const out = new Set<string>();
+    for (const r of rows) {
+      out.add(r.blocker === viewerUserId ? r.blocked : r.blocker);
+    }
+    return out;
+  } catch {
+    return new Set();
+  }
+}
+
+// Decides whether `viewer` is allowed to see / interact with the resolved
+// target. Combines visibility/scope, group membership, and block-pair
+// checks. The shadow posts that we lazily materialise inherit the parent
+// feed_item's scope, so the same logic works for both manual and system
+// items.
+async function canViewerInteractWithPost(
+  postId: string,
+  viewer: { userId: string; playerId: string | null; academyId: string | null },
+): Promise<boolean> {
+  const [post] = await db
+    .select({
+      authorId: postsTable.authorId,
+      academyId: postsTable.academyId,
+      visibility: postsTable.visibility,
+      groupId: postsTable.groupId,
+      feedItemId: postsTable.feedItemId,
+    })
+    .from(postsTable)
+    .where(eq(postsTable.id, postId))
+    .limit(1);
+  if (!post) return false;
+  // Author can always interact with their own item.
+  if (post.authorId === viewer.userId) return true;
+
+  // Block check (either direction) — applies to ALL post types.
+  try {
+    const [blocked] = await db
+      .select({ id: playerBlocksTable.id })
+      .from(playerBlocksTable)
+      .where(
+        or(
+          and(
+            eq(playerBlocksTable.blockerUserId, viewer.userId),
+            eq(playerBlocksTable.blockedUserId, post.authorId),
+          ),
+          and(
+            eq(playerBlocksTable.blockerUserId, post.authorId),
+            eq(playerBlocksTable.blockedUserId, viewer.userId),
+          ),
+        ),
+      )
+      .limit(1);
+    if (blocked) return false;
+  } catch {
+    /* best-effort */
+  }
+
+  // Group-scoped posts: viewer must be a member.
+  if (post.groupId) {
+    try {
+      const [membership] = await db
+        .select({ id: groupMembersTable.id })
+        .from(groupMembersTable)
+        .where(
+          and(
+            eq(groupMembersTable.groupId, post.groupId),
+            eq(groupMembersTable.userId, viewer.userId),
+          ),
+        )
+        .limit(1);
+      if (!membership) return false;
+    } catch {
+      return false;
+    }
+  }
+
+  // When a shadow post is linked back to a feed_item, the feed_item.scope
+  // is the source of truth for visibility because posts.visibility cannot
+  // express the wider bands (squad/country/global). Otherwise fall back
+  // to the manual-post visibility column.
+  if (post.feedItemId) {
+    try {
+      const [fi] = await db
+        .select({
+          scope: feedItemsTable.scope,
+          country: feedItemsTable.country,
+          academyId: feedItemsTable.academyId,
+          groupId: feedItemsTable.groupId,
+          authorPlayerId: feedItemsTable.authorPlayerId,
+          authorUserId: feedItemsTable.authorUserId,
+        })
+        .from(feedItemsTable)
+        .where(eq(feedItemsTable.id, post.feedItemId))
+        .limit(1);
+      if (!fi) return false;
+      return await viewerSatisfiesScope(viewer, {
+        scope: fi.scope,
+        country: fi.country,
+        academyId: fi.academyId,
+        groupId: fi.groupId,
+        authorUserId: fi.authorUserId || post.authorId,
+        authorPlayerId: fi.authorPlayerId,
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  switch (post.visibility) {
+    case "private":
+      return false;
+    case "academy":
+      return !!viewer.academyId && viewer.academyId === post.academyId;
+    case "friends":
+      return await isFriendOfAuthor(viewer.playerId, post.authorId);
+    case "group":
+      // Already gated by groupId membership above.
+      return true;
+    case "public":
+    default:
+      return true;
+  }
+}
+
+// Returns true when `viewer` satisfies the band described by `scope`. Used
+// for both feed-item-backed shadow posts and the @mention reachability
+// rule below.
+async function viewerSatisfiesScope(
+  viewer: { userId: string; playerId: string | null; academyId: string | null },
+  band: {
+    scope: string | null;
+    country: string | null;
+    academyId: string | null;
+    groupId: string | null;
+    authorUserId: string;
+    authorPlayerId: string | null;
+  },
+): Promise<boolean> {
+  switch (band.scope) {
+    case "global":
+      return true;
+    case "country": {
+      // Resolve viewer's country (player.country preferred, else user's
+      // academy.country). An empty/unknown country never matches.
+      try {
+        const r = await pool.query(
+          `SELECT COALESCE(p.country, a.country) AS country
+             FROM users u
+             LEFT JOIN players p ON p.id = u.player_id
+             LEFT JOIN academies a ON a.id = u.academy_id
+            WHERE u.id = $1
+            LIMIT 1`,
+          [viewer.userId],
+        );
+        const c = r.rows?.[0]?.country || null;
+        return !!c && !!band.country && c === band.country;
+      } catch {
+        return false;
+      }
+    }
+    case "academy":
+      return !!viewer.academyId && viewer.academyId === band.academyId;
+    case "squad": {
+      if (band.groupId) {
+        // Specific squad: viewer must be a member.
+        try {
+          const [m] = await db
+            .select({ id: groupMembersTable.id })
+            .from(groupMembersTable)
+            .where(
+              and(
+                eq(groupMembersTable.groupId, band.groupId),
+                eq(groupMembersTable.userId, viewer.userId),
+              ),
+            )
+            .limit(1);
+          return !!m;
+        } catch {
+          return false;
+        }
+      }
+      // Generic squad: any community group shared with the author.
+      return await sharesAnyGroup(viewer.userId, band.authorUserId);
+    }
+    case "friends":
+      return await isFriendOfAuthor(
+        viewer.playerId,
+        band.authorUserId,
+        band.authorPlayerId,
+      );
+    default:
+      return true;
+  }
+}
+
+async function isFriendOfAuthor(
+  viewerPlayerId: string | null,
+  authorUserId: string,
+  authorPlayerIdHint: string | null = null,
+): Promise<boolean> {
+  if (!viewerPlayerId) return false;
+  try {
+    const fr = await pool.query(
+      `SELECT 1
+         FROM player_connections pc
+         JOIN users u ON u.player_id = CASE
+           WHEN pc.player1_id = $1 THEN pc.player2_id
+           ELSE pc.player1_id
+         END
+        WHERE (pc.player1_id = $1 OR pc.player2_id = $1)
+          AND pc.status = 'accepted'
+          AND (u.id = $2 OR ($3::text IS NOT NULL AND u.player_id = $3))
+        LIMIT 1`,
+      [viewerPlayerId, authorUserId, authorPlayerIdHint],
+    );
+    return (fr.rowCount || 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function sharesAnyGroup(
+  viewerUserId: string,
+  otherUserId: string,
+): Promise<boolean> {
+  try {
+    const r = await pool.query(
+      `SELECT 1
+         FROM group_members gm1
+         JOIN group_members gm2 ON gm2.group_id = gm1.group_id
+        WHERE gm1.user_id = $1 AND gm2.user_id = $2
+        LIMIT 1`,
+      [viewerUserId, otherUserId],
+    );
+    return (r.rowCount || 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Returns the social notification preferences for `userId` with conservative
+// defaults when no row exists yet.
+async function getSocialNotifPrefs(userId: string): Promise<{
+  cheers: boolean;
+  comments: boolean;
+  replies: boolean;
+  mentions: boolean;
+  quietHoursStart: number | null;
+  quietHoursEnd: number | null;
+}> {
+  const [row] = await db
+    .select()
+    .from(playerSocialNotifPrefs)
+    .where(eq(playerSocialNotifPrefs.userId, userId))
+    .limit(1);
+  return {
+    cheers: row?.cheers ?? false,
+    comments: row?.comments ?? true,
+    replies: row?.replies ?? true,
+    mentions: row?.mentions ?? true,
+    quietHoursStart: row?.quietHoursStart ?? null,
+    quietHoursEnd: row?.quietHoursEnd ?? null,
+  };
+}
+
+// Resolves "@handle" tokens into user IDs that the actor is allowed to
+// mention — currently a friend OR a member of the same academy. Blocks in
+// either direction silently drop the handle.
+async function resolveMentionsForViewer(
+  text: string,
+  actorUserId: string,
+  actorAcademyId: string | null,
+  actorPlayerId: string | null,
+): Promise<{ userId: string; username: string }[]> {
+  if (!text) return [];
+  const handles = Array.from(
+    new Set(
+      Array.from(text.matchAll(/@([\w][\w._-]{1,30})/g))
+        .map((m) => m[1].toLowerCase())
+        .slice(0, 20),
+    ),
+  );
+  if (handles.length === 0) return [];
+
+  // Friend player IDs
+  let friendUserIds = new Set<string>();
+  if (actorPlayerId) {
+    try {
+      const fRes = await pool.query(
+        `SELECT u.id AS user_id
+           FROM player_connections pc
+           JOIN users u ON u.player_id = CASE
+             WHEN pc.player1_id = $1 THEN pc.player2_id
+             ELSE pc.player1_id
+           END
+          WHERE (pc.player1_id = $1 OR pc.player2_id = $1)
+            AND pc.status = 'accepted'`,
+        [actorPlayerId],
+      );
+      for (const row of fRes.rows || []) friendUserIds.add(row.user_id);
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  // Pull candidate users by handle (case-insensitive)
+  const candidates = await db
+    .select({ id: users.id, username: users.username, academyId: users.academyId })
+    .from(users)
+    .where(inArray(sql`LOWER(${users.username})`, handles));
+
+  if (candidates.length === 0) return [];
+  const candidateIds = candidates.map((c) => c.id);
+
+  // Block filtering — drop both directions.
+  let blockedSet = new Set<string>();
+  try {
+    const blocked = await db
+      .select({
+        blocker: playerBlocksTable.blockerUserId,
+        blocked: playerBlocksTable.blockedUserId,
+      })
+      .from(playerBlocksTable)
+      .where(
+        or(
+          and(eq(playerBlocksTable.blockerUserId, actorUserId), inArray(playerBlocksTable.blockedUserId, candidateIds)),
+          and(eq(playerBlocksTable.blockedUserId, actorUserId), inArray(playerBlocksTable.blockerUserId, candidateIds)),
+        ),
+      );
+    for (const row of blocked) {
+      blockedSet.add(row.blocker === actorUserId ? row.blocked : row.blocker);
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  // Resolve squad-mates: any community group the actor is a member of, the
+  // candidate is also a member of. One query covers all candidates.
+  let squadMateIds = new Set<string>();
+  try {
+    if (candidateIds.length > 0) {
+      const sRes = await pool.query(
+        `SELECT DISTINCT gm2.user_id AS user_id
+           FROM group_members gm1
+           JOIN group_members gm2 ON gm2.group_id = gm1.group_id
+          WHERE gm1.user_id = $1
+            AND gm2.user_id = ANY($2::text[])`,
+        [actorUserId, candidateIds],
+      );
+      for (const row of sRes.rows || []) squadMateIds.add(row.user_id);
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  const out: { userId: string; username: string }[] = [];
+  for (const c of candidates) {
+    if (c.id === actorUserId) continue; // never self-mention
+    if (blockedSet.has(c.id)) continue;
+    const sameAcademy =
+      !!actorAcademyId && !!c.academyId && c.academyId === actorAcademyId;
+    const isFriend = friendUserIds.has(c.id);
+    const isSquadMate = squadMateIds.has(c.id);
+    if (sameAcademy || isFriend || isSquadMate) {
+      out.push({ userId: c.id, username: c.username });
+    }
+  }
+  return out;
+}
+
+// Returns true when the current UTC hour falls inside the recipient's
+// quiet-hours window. Window may wrap midnight (e.g. 22→7).
+function isInQuietHoursNow(
+  start: number | null | undefined,
+  end: number | null | undefined,
+): boolean {
+  if (start == null || end == null) return false;
+  if (start === end) return false;
+  const hour = new Date().getUTCHours();
+  if (start < end) return hour >= start && hour < end;
+  // Wraps midnight: e.g. start=22, end=7
+  return hour >= start || hour < end;
+}
+
+// Sends a social notification (push + in-app for players, push for coaches).
+// Skips the actor and respects the recipient's category preference. During
+// quiet hours, push is suppressed but the in-app row is still written so
+// the unseen badge stays accurate when the user next opens the app.
+async function sendSocialNotification(opts: {
+  recipientUserId: string;
+  actorUserId: string;
+  category: "cheers" | "comments" | "replies" | "mentions";
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+}): Promise<void> {
+  if (opts.recipientUserId === opts.actorUserId) return;
+  try {
+    const prefs = await getSocialNotifPrefs(opts.recipientUserId);
+    if (!prefs[opts.category]) return;
+
+    // Block check — if recipient has blocked the actor, skip.
+    const [blocked] = await db
+      .select({ id: playerBlocksTable.id })
+      .from(playerBlocksTable)
+      .where(
+        and(
+          eq(playerBlocksTable.blockerUserId, opts.recipientUserId),
+          eq(playerBlocksTable.blockedUserId, opts.actorUserId),
+        ),
+      )
+      .limit(1);
+    if (blocked) return;
+
+    const [u] = await db
+      .select({ playerId: users.playerId, coachId: users.coachId })
+      .from(users)
+      .where(eq(users.id, opts.recipientUserId))
+      .limit(1);
+    if (!u) return;
+
+    const quietHours = isInQuietHoursNow(
+      prefs.quietHoursStart,
+      prefs.quietHoursEnd,
+    );
+
+    let tokens: string[] = [];
+    if (!quietHours) {
+      if (u.playerId) tokens = await getPlayerPushTokens(u.playerId);
+      else if (u.coachId) tokens = await getCoachPushTokens(u.coachId);
+      else tokens = await getUserPushTokens(opts.recipientUserId);
+    }
+
+    const payload = {
+      ...opts.data,
+      type: `social_${opts.category}`,
+      screen: "Community",
+    };
+
+    if (tokens.length > 0) {
+      // Pass playerId so sendPushNotification also persists an in-app row.
+      await sendPushNotification(
+        tokens,
+        opts.title,
+        opts.body,
+        payload,
+        u.playerId || undefined,
+      );
+    } else if (u.playerId) {
+      // Quiet-hours OR no push tokens — still drop an in-app row for
+      // players so the badge updates and they see it on next open.
+      await db.insert(playerNotifications).values({
+        playerId: u.playerId,
+        title: opts.title,
+        body: opts.body,
+        type: `social_${opts.category}`,
+        data: payload,
+      });
+    }
+  } catch (err) {
+    console.error("[social-notif] fan-out error:", err);
+  }
 }
 
 const socialPostUpload = multer({
@@ -234,17 +837,13 @@ const socialPostUpload = multer({
           }
         }
 
-        // Hydrate manual_moment AND coach_spotlight posts (Phase 3 coach
-        // posts publish under the coach_spotlight source_type but still
-        // need full post payload — caption, media, template, pinned — so
-        // MomentCard can render the role headline / template pill).
+        // Hydrate any feed item that has a backing post: manual_moment +
+        // coach_spotlight (Phase 3 — full caption/media/template/pinned
+        // payload so MomentCard can render role headline / template pill),
+        // and shadow posts created lazily for system items in Phase 2 so
+        // the cheer/comment counts on those items are accurate.
         const postIdsToHydrate = feedRows
-          .filter(
-            (r) =>
-              (r.source_type === "manual_moment" ||
-                r.source_type === "coach_spotlight") &&
-              r.post_id,
-          )
+          .filter((r) => !!r.post_id)
           .map((r) => r.post_id);
         const postMap = new Map<string, any>();
         if (postIdsToHydrate.length > 0) {
@@ -260,6 +859,25 @@ const socialPostUpload = multer({
             );
             for (const row of pr.rows || []) {
               postMap.set(row.id, row);
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
+
+        // The viewer's own reactions for the feed items the client just
+        // received, so the cheer button can render its filled state.
+        const viewerReactionMap = new Map<string, string>();
+        if (postIdsToHydrate.length > 0) {
+          try {
+            const vrRes = await pool.query(
+              `SELECT post_id, reaction_type
+                 FROM post_reactions
+                WHERE post_id = ANY($1::text[]) AND user_id = $2`,
+              [postIdsToHydrate, userId],
+            );
+            for (const row of vrRes.rows || []) {
+              viewerReactionMap.set(row.post_id, row.reaction_type);
             }
           } catch {
             /* best-effort */
@@ -446,6 +1064,7 @@ const socialPostUpload = multer({
                   // Manual moments keep their counts on the underlying post.
                   cheerCount: p.cheer_count || 0,
                   commentCount: p.comment_count || 0,
+                  userReaction: viewerReactionMap.get(p.id) || null,
                   taggedUserIds: p.tagged_user_ids || [],
                   locationName: p.location_name,
                   isPinned: p.is_pinned,
@@ -454,7 +1073,17 @@ const socialPostUpload = multer({
                 };
               }
             }
-            return base;
+            // Phase 2 — attach live cheer/comment counts to system items
+            // when a backing shadow post exists. Defaults to 0 when no
+            // one has interacted yet.
+            const shadow = r.post_id ? postMap.get(r.post_id) : null;
+            return {
+              ...base,
+              postId: r.post_id || null,
+              cheerCount: shadow?.cheer_count || 0,
+              commentCount: shadow?.comment_count || 0,
+              userReaction: shadow ? viewerReactionMap.get(shadow.id) || null : null,
+            };
           });
 
         return res.json(items);
@@ -1443,18 +2072,29 @@ const socialPostUpload = multer({
     },
   );
 
-  // Add/update reaction to post
+  // Add/update reaction to post (or feed item)
   router.post("/api/social/posts/:id/reactions", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
     try {
-      const { id: postId } = req.params;
       const userId = req.user!.userId;
       const { reactionType } = req.body;
-      
+
       const validReactions = ["clap", "fire", "tennis", "muscle", "star"];
       if (!validReactions.includes(reactionType)) {
         return res.status(400).json({ error: "Invalid reaction type" });
       }
-      
+
+      const postId = await resolveTargetPostId(req.params.id);
+      if (!postId) return res.status(404).json({ error: "Post not found" });
+
+      // Authorization: viewer must be allowed to see/interact with this post
+      // (visibility/scope/group + block check both ways).
+      const allowed = await canViewerInteractWithPost(postId, {
+        userId,
+        playerId: req.user!.playerId || null,
+        academyId: req.user!.academyId || null,
+      });
+      if (!allowed) return res.status(403).json({ error: "Forbidden" });
+
       // Check if reaction already exists
       const [existing] = await db.select()
         .from(postReactionsTable)
@@ -1463,13 +2103,15 @@ const socialPostUpload = multer({
           eq(postReactionsTable.postId, postId),
           eq(postReactionsTable.userId, userId)
         ));
-      
+
+      let isNew = false;
       if (existing) {
         // Update existing reaction
         await db.update(postReactionsTable)
           .set({ reactionType })
           .where(eq(postReactionsTable.id, existing.id));
       } else {
+        isNew = true;
         // Create new reaction
         await db.insert(postReactionsTable).values({
           postId,
@@ -1487,7 +2129,37 @@ const socialPostUpload = multer({
           fireQuestEvent(reactorPlayerId, "give_reaction").catch(() => {});
         }
       }
-      
+
+      // Phase 2 — fan out a "social_cheers" notification to the post owner
+      // on the first reaction (not on switches between reaction types).
+      if (isNew) {
+        try {
+          const [target] = await db
+            .select({ authorId: postsTable.authorId })
+            .from(postsTable)
+            .where(eq(postsTable.id, postId))
+            .limit(1);
+          if (target?.authorId) {
+            const [actorRow] = await db
+              .select({ username: users.username })
+              .from(users)
+              .where(eq(users.id, userId))
+              .limit(1);
+            const actorName = actorRow?.username || "Someone";
+            sendSocialNotification({
+              recipientUserId: target.authorId,
+              actorUserId: userId,
+              category: "cheers",
+              title: `${actorName} cheered your post`,
+              body: "Tap to see who's loving your update.",
+              data: { postId, feedItemId: req.params.id, reactionType },
+            }).catch(() => {});
+          }
+        } catch (err) {
+          console.error("[reactions] notify error:", err);
+        }
+      }
+
       res.json({ success: true, reactionType });
     } catch (error) {
       console.error("Error adding reaction:", error);
@@ -1498,9 +2170,17 @@ const socialPostUpload = multer({
   // Remove reaction from post
   router.delete("/api/social/posts/:id/reactions", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
     try {
-      const { id: postId } = req.params;
       const userId = req.user!.userId;
-      
+      const postId = await resolveTargetPostId(req.params.id);
+      if (!postId) return res.status(404).json({ error: "Post not found" });
+
+      const allowed = await canViewerInteractWithPost(postId, {
+        userId,
+        playerId: req.user!.playerId || null,
+        academyId: req.user!.academyId || null,
+      });
+      if (!allowed) return res.status(403).json({ error: "Forbidden" });
+
       const result = await db.delete(postReactionsTable)
         
           .where(and(
@@ -1522,13 +2202,46 @@ const socialPostUpload = multer({
     }
   });
 
-  // Get comments for a post
+  // Get comments for a post (or feed item)
   router.get("/api/social/posts/:id/comments", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
     try {
-      const { id: postId } = req.params;
-      
+      // Resolve to a real posts.id (without lazily creating a shadow if the
+      // feed item has no interactions yet — for an empty thread we just
+      // return []).
+      let postId: string | null = null;
+      const [direct] = await db
+        .select({ id: postsTable.id })
+        .from(postsTable)
+        .where(eq(postsTable.id, req.params.id))
+        .limit(1);
+      if (direct) {
+        postId = direct.id;
+      } else {
+        const [fi] = await db
+          .select({ postId: feedItemsTable.postId })
+          .from(feedItemsTable)
+          .where(eq(feedItemsTable.id, req.params.id))
+          .limit(1);
+        if (fi?.postId) postId = fi.postId;
+      }
+      if (!postId) return res.json([]);
+
+      // Authorize the viewer for this resolved target. We still return [] on
+      // 403 so the UI just shows "no comments" instead of an error toast.
+      const viewerId = req.user!.userId;
+      const allowedToView = await canViewerInteractWithPost(postId, {
+        userId: viewerId,
+        playerId: req.user!.playerId || null,
+        academyId: req.user!.academyId || null,
+      });
+      if (!allowedToView) return res.json([]);
+
+      // Drop comments authored by users blocked in either direction so they
+      // never surface to the viewer.
+      const blockedSet = await getBlockedPairUserIds(viewerId);
+
       // First get comments
-      const rawComments = await db.select()
+      const rawCommentsAll = await db.select()
         .from(postCommentsTable)
         
           .where(and(
@@ -1536,6 +2249,9 @@ const socialPostUpload = multer({
           eq(postCommentsTable.isHidden, false)
         ))
         .orderBy(asc(postCommentsTable.createdAt));
+      const rawComments = rawCommentsAll.filter(
+        (c) => !blockedSet.has(c.authorId),
+      );
       
       // Then enrich with author info
       const comments = await Promise.all(rawComments.map(async (comment) => {
@@ -1608,10 +2324,9 @@ const socialPostUpload = multer({
     }
   });
 
-  // Add comment to post
+  // Add comment to post (or feed item)
   router.post("/api/social/posts/:id/comments", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
     try {
-      const { id: postId } = req.params;
       const userId = req.user!.userId;
       const playerId = req.user!.playerId;
       const { text, isQuickComment, quickCommentType, parentId } = req.body;
@@ -1633,25 +2348,71 @@ const socialPostUpload = multer({
         return res.status(429).json({ error: "You're sending messages too quickly. Please wait a moment." });
       }
       chatRateLimiter.recordRequest(playerId || userId);
-      
+
       const quickComments = {
         nice: "Nice!",
         lets_play: "Let's play!",
         great: "Great session!",
         fire: "\uD83D\uDD25\uD83D\uDD25",
       };
-      
+
       let commentText = text;
       if (isQuickComment && quickCommentType && quickComments[quickCommentType as keyof typeof quickComments]) {
         commentText = quickComments[quickCommentType as keyof typeof quickComments];
       }
-      
+
       if (!commentText && !isQuickComment) {
         return res.status(400).json({ error: "Comment text is required" });
       }
 
       const filteredCommentText = commentText ? filterProfanity(commentText) : commentText;
-      
+
+      // Resolve target — may lazily create a shadow post for system items.
+      const postId = await resolveTargetPostId(req.params.id);
+      if (!postId) return res.status(404).json({ error: "Post not found" });
+
+      const allowedToComment = await canViewerInteractWithPost(postId, {
+        userId,
+        playerId: playerId || null,
+        academyId: req.user!.academyId || null,
+      });
+      if (!allowedToComment) return res.status(403).json({ error: "Forbidden" });
+
+      // Resolve mentions BEFORE insert so we can persist them on the row.
+      const [actorRow] = await db
+        .select({ academyId: users.academyId, username: users.username, playerId: users.playerId, coachId: users.coachId })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      let actorDisplayName: string | null = null;
+      if (actorRow?.playerId) {
+        const [p] = await db
+          .select({ name: players.name })
+          .from(players)
+          .where(eq(players.id, actorRow.playerId))
+          .limit(1);
+        actorDisplayName = p?.name || null;
+      } else if (actorRow?.coachId) {
+        try {
+          const cRes = await pool.query(
+            `SELECT name FROM coaches WHERE id = $1 LIMIT 1`,
+            [actorRow.coachId],
+          );
+          actorDisplayName = cRes.rows?.[0]?.name || null;
+        } catch {
+          /* best-effort */
+        }
+      }
+      const mentions = filteredCommentText
+        ? await resolveMentionsForViewer(
+            filteredCommentText,
+            userId,
+            actorRow?.academyId || null,
+            playerId || null,
+          )
+        : [];
+      const mentionedUserIds = mentions.map((m) => m.userId);
+
       const [newComment] = await db.insert(postCommentsTable).values({
         postId,
         authorId: userId,
@@ -1659,8 +2420,9 @@ const socialPostUpload = multer({
         isQuickComment: !!isQuickComment,
         quickCommentType,
         parentId,
+        mentionedUserIds,
       }).returning();
-      
+
       // Update comment count
       await db.update(postsTable)
         .set({ commentCount: sql`comment_count + 1` })
@@ -1668,6 +2430,75 @@ const socialPostUpload = multer({
 
       if (playerId) {
         fireQuestEvent(playerId, "post_comment").catch(() => {});
+      }
+
+      // Phase 2 — fan out notifications. De-dup recipients by category
+      // priority: mentions > replies > comments (only one notification per
+      // recipient per comment).
+      try {
+        const [post] = await db
+          .select({ authorId: postsTable.authorId })
+          .from(postsTable)
+          .where(eq(postsTable.id, postId))
+          .limit(1);
+
+        const recipients = new Map<
+          string,
+          { category: "comments" | "replies" | "mentions" }
+        >();
+
+        for (const m of mentions) {
+          if (m.userId === userId) continue;
+          recipients.set(m.userId, { category: "mentions" });
+        }
+
+        if (parentId) {
+          const [parentComment] = await db
+            .select({ authorId: postCommentsTable.authorId })
+            .from(postCommentsTable)
+            .where(eq(postCommentsTable.id, parentId))
+            .limit(1);
+          if (parentComment?.authorId && parentComment.authorId !== userId) {
+            if (!recipients.has(parentComment.authorId)) {
+              recipients.set(parentComment.authorId, { category: "replies" });
+            }
+          }
+        }
+
+        if (post?.authorId && post.authorId !== userId) {
+          if (!recipients.has(post.authorId)) {
+            recipients.set(post.authorId, { category: "comments" });
+          }
+        }
+
+        const actorName =
+          actorDisplayName?.trim() || actorRow?.username || "Someone";
+        const previewText =
+          (filteredCommentText || "").trim().slice(0, 80) ||
+          "Tap to read the full comment.";
+
+        for (const [recipientUserId, info] of recipients.entries()) {
+          let title: string;
+          if (info.category === "mentions") title = `${actorName} mentioned you`;
+          else if (info.category === "replies") title = `${actorName} replied to you`;
+          else title = `${actorName} commented on your post`;
+
+          sendSocialNotification({
+            recipientUserId,
+            actorUserId: userId,
+            category: info.category,
+            title,
+            body: previewText,
+            data: {
+              postId,
+              feedItemId: req.params.id,
+              commentId: newComment.id,
+              parentId: parentId || null,
+            },
+          }).catch(() => {});
+        }
+      } catch (notifErr) {
+        console.error("[comments] notify error:", notifErr);
       }
 
       res.status(201).json(newComment);
@@ -1759,13 +2590,32 @@ const socialPostUpload = multer({
     }
   });
 
-  // Get comments user has liked for a post
+  // Get comments user has liked for a post (or feed item).
   router.get("/api/social/posts/:postId/my-liked-comments", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      const { postId } = req.params;
       const userId = req.user!.userId;
-      
-      // Get all comment IDs the user has liked for this post
+
+      // Resolve the incoming id — same dual lookup as the comments-fetch
+      // endpoint, but without lazily creating a shadow post for an empty
+      // thread (no interactions = nothing liked).
+      let postId: string | null = null;
+      const [direct] = await db
+        .select({ id: postsTable.id })
+        .from(postsTable)
+        .where(eq(postsTable.id, req.params.postId))
+        .limit(1);
+      if (direct) {
+        postId = direct.id;
+      } else {
+        const [fi] = await db
+          .select({ postId: feedItemsTable.postId })
+          .from(feedItemsTable)
+          .where(eq(feedItemsTable.id, req.params.postId))
+          .limit(1);
+        if (fi?.postId) postId = fi.postId;
+      }
+      if (!postId) return res.json({ likedCommentIds: [] });
+
       const likedComments = await db.select({
         commentId: commentLikesTable.commentId,
       })
@@ -2787,6 +3637,291 @@ const socialPostUpload = multer({
       } catch (error) {
         console.error("[Discovery] Error:", error);
         res.status(500).json({ error: "Failed to load discovery" });
+      }
+    },
+  );
+
+  // =====================================================================
+  // Phase 2 — notification preferences, unseen counter, mention search
+  // =====================================================================
+
+  // Returns the viewer's social notification preferences. When no row
+  // exists yet we synthesize the conservative defaults without inserting
+  // (the row is materialised on the first PATCH).
+  router.get(
+    "/api/social/me/notification-preferences",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const prefs = await getSocialNotifPrefs(req.user!.userId);
+        res.json(prefs);
+      } catch (err) {
+        console.error("[social-prefs] get error:", err);
+        res.status(500).json({ error: "Failed to load preferences" });
+      }
+    },
+  );
+
+  router.patch(
+    "/api/social/me/notification-preferences",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const boolKeys = ["cheers", "comments", "replies", "mentions"] as const;
+        const patch: Record<string, boolean | number | null> = {};
+        for (const k of boolKeys) {
+          if (typeof req.body?.[k] === "boolean") patch[k] = req.body[k];
+        }
+        // Quiet-hours window: integers 0-23, or null to clear.
+        for (const k of ["quietHoursStart", "quietHoursEnd"] as const) {
+          const v = req.body?.[k];
+          if (v === null) patch[k] = null;
+          else if (typeof v === "number" && v >= 0 && v <= 23 && Number.isInteger(v)) {
+            patch[k] = v;
+          }
+        }
+
+        const current = await getSocialNotifPrefs(userId);
+        const next = { ...current, ...patch };
+
+        await db
+          .insert(playerSocialNotifPrefs)
+          .values({
+            userId,
+            cheers: next.cheers as boolean,
+            comments: next.comments as boolean,
+            replies: next.replies as boolean,
+            mentions: next.mentions as boolean,
+            quietHoursStart: next.quietHoursStart as number | null,
+            quietHoursEnd: next.quietHoursEnd as number | null,
+          })
+          .onConflictDoUpdate({
+            target: playerSocialNotifPrefs.userId,
+            set: {
+              cheers: next.cheers as boolean,
+              comments: next.comments as boolean,
+              replies: next.replies as boolean,
+              mentions: next.mentions as boolean,
+              quietHoursStart: next.quietHoursStart as number | null,
+              quietHoursEnd: next.quietHoursEnd as number | null,
+              updatedAt: new Date(),
+            },
+          });
+
+        res.json(next);
+      } catch (err) {
+        console.error("[social-prefs] patch error:", err);
+        res.status(500).json({ error: "Failed to update preferences" });
+      }
+    },
+  );
+
+  // Counts cheers / comments / mentions on the viewer's own posts that
+  // landed after their last `feed_last_seen_at`. Used to drive the Social
+  // tab badge in the bottom nav. A null `lastSeen` means "never opened" —
+  // we fall back to a 7-day window so the badge doesn't permanently spike.
+  router.get(
+    "/api/social/me/feed-unseen",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const [profile] = await db
+          .select({ lastSeen: userSocialProfilesTable.feedLastSeenAt })
+          .from(userSocialProfilesTable)
+          .where(eq(userSocialProfilesTable.userId, userId))
+          .limit(1);
+        const lastSeen =
+          profile?.lastSeen ??
+          new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+        // All posts owned by the viewer (manual or shadow).
+        const myPosts = await db
+          .select({ id: postsTable.id })
+          .from(postsTable)
+          .where(eq(postsTable.authorId, userId));
+        const myPostIds = myPosts.map((p) => p.id);
+
+        // Exclude actors blocked in either direction so muted/blocked users
+        // never inflate the badge.
+        const blockedIds = Array.from(await getBlockedPairUserIds(userId));
+
+        let cheers = 0;
+        let comments = 0;
+        let mentions = 0;
+        if (myPostIds.length > 0) {
+          const cheerWhere = [
+            inArray(postReactionsTable.postId, myPostIds),
+            gte(postReactionsTable.createdAt, lastSeen),
+            ne(postReactionsTable.userId, userId),
+          ];
+          if (blockedIds.length > 0) {
+            cheerWhere.push(notInArray(postReactionsTable.userId, blockedIds));
+          }
+          const [{ value: cheerCount }] = await db
+            .select({ value: count() })
+            .from(postReactionsTable)
+            .where(and(...cheerWhere));
+          cheers = Number(cheerCount || 0);
+
+          const commentWhere = [
+            inArray(postCommentsTable.postId, myPostIds),
+            gte(postCommentsTable.createdAt, lastSeen),
+            ne(postCommentsTable.authorId, userId),
+          ];
+          if (blockedIds.length > 0) {
+            commentWhere.push(notInArray(postCommentsTable.authorId, blockedIds));
+          }
+          const [{ value: commentCount }] = await db
+            .select({ value: count() })
+            .from(postCommentsTable)
+            .where(and(...commentWhere));
+          comments = Number(commentCount || 0);
+        }
+
+        // Mentions across the platform (not limited to my posts). The
+        // ANY($3) array filter is a no-op when blockedIds is empty.
+        const mentionRes = await pool.query(
+          `SELECT COUNT(*)::int AS n
+             FROM post_comments
+            WHERE created_at > $1
+              AND author_id <> $2
+              AND ($3::text[] IS NULL OR NOT (author_id = ANY($3::text[])))
+              AND mentioned_user_ids @> to_jsonb(ARRAY[$2]::text[])`,
+          [lastSeen, userId, blockedIds.length > 0 ? blockedIds : null],
+        );
+        mentions = Number(mentionRes.rows?.[0]?.n || 0);
+
+        const total = cheers + comments + mentions;
+        res.json({ cheers, comments, mentions, total });
+      } catch (err) {
+        console.error("[feed-unseen] error:", err);
+        res.status(500).json({ error: "Failed to load unseen counts" });
+      }
+    },
+  );
+
+  // Stamps `feed_last_seen_at` so the badge resets. Upserts the social
+  // profile row when none exists yet.
+  router.post(
+    "/api/social/me/feed-seen",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const now = new Date();
+        const updated = await db
+          .update(userSocialProfilesTable)
+          .set({ feedLastSeenAt: now, updatedAt: now })
+          .where(eq(userSocialProfilesTable.userId, userId))
+          .returning({ id: userSocialProfilesTable.id });
+        if (updated.length === 0) {
+          await db
+            .insert(userSocialProfilesTable)
+            .values({ userId, feedLastSeenAt: now })
+            .onConflictDoNothing();
+        }
+        res.json({ success: true, lastSeenAt: now });
+      } catch (err) {
+        console.error("[feed-seen] error:", err);
+        res.status(500).json({ error: "Failed to update last seen" });
+      }
+    },
+  );
+
+  // Mention autocomplete. Returns up to 8 users the viewer is allowed to
+  // mention (friend OR same academy), filtered by case-insensitive prefix
+  // on username or display name. Excludes blocked users in either
+  // direction.
+  router.get(
+    "/api/social/me/mentionable",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const playerId = req.user!.playerId;
+        const academyId = req.user!.academyId;
+        const qRaw = String(req.query.q || "").trim();
+        const q = qRaw.replace(/^@/, "").toLowerCase();
+        if (q.length === 0) return res.json([]);
+
+        // Friend user IDs
+        let friendUserIds: string[] = [];
+        if (playerId) {
+          try {
+            const fRes = await pool.query(
+              `SELECT u.id AS user_id
+                 FROM player_connections pc
+                 JOIN users u ON u.player_id = CASE
+                   WHEN pc.player1_id = $1 THEN pc.player2_id
+                   ELSE pc.player1_id
+                 END
+                WHERE (pc.player1_id = $1 OR pc.player2_id = $1)
+                  AND pc.status = 'accepted'`,
+              [playerId],
+            );
+            friendUserIds = (fRes.rows || []).map((r: any) => r.user_id);
+          } catch {
+            /* best-effort */
+          }
+        }
+
+        // Display name and photo come from the linked player (or coach)
+        // because users.name/profile_photo don't exist on the users table.
+        const whereClauses: string[] = [];
+        const params: any[] = [`${q}%`, `%${q}%`, userId];
+        whereClauses.push(
+          `(LOWER(u.username) LIKE $1 OR LOWER(p.name) LIKE $2 OR LOWER(c.name) LIKE $2)`,
+        );
+        whereClauses.push(`u.id <> $3`);
+
+        const orParts: string[] = [];
+        if (academyId) {
+          params.push(academyId);
+          orParts.push(`u.academy_id = $${params.length}`);
+        }
+        if (friendUserIds.length > 0) {
+          params.push(friendUserIds);
+          orParts.push(`u.id = ANY($${params.length}::text[])`);
+        }
+        if (orParts.length === 0) return res.json([]);
+        whereClauses.push(`(${orParts.join(" OR ")})`);
+
+        // Block filter (either direction)
+        params.push(userId);
+        const blockerParam = `$${params.length}`;
+        const blockClause = `u.id NOT IN (
+          SELECT blocked_user_id FROM player_blocks WHERE blocker_user_id = ${blockerParam}
+          UNION
+          SELECT blocker_user_id FROM player_blocks WHERE blocked_user_id = ${blockerParam}
+        )`;
+        whereClauses.push(blockClause);
+
+        const sqlQuery = `
+          SELECT u.id,
+                 u.username,
+                 COALESCE(p.name, c.name, u.username) AS display_name,
+                 COALESCE(p.profile_photo_url, p.photo_url) AS photo_url
+            FROM users u
+            LEFT JOIN players p ON p.id = u.player_id
+            LEFT JOIN coaches c ON c.id = u.coach_id
+           WHERE ${whereClauses.join(" AND ")}
+           ORDER BY (CASE WHEN LOWER(u.username) LIKE $1 THEN 0 ELSE 1 END), u.username ASC
+           LIMIT 8`;
+        const result = await pool.query(sqlQuery, params);
+
+        res.json(
+          (result.rows || []).map((r: any) => ({
+            id: r.id,
+            username: r.username,
+            name: r.display_name,
+            photoUrl: r.photo_url || null,
+          })),
+        );
+      } catch (err) {
+        console.error("[mentionable] error:", err);
+        res.status(500).json({ error: "Failed to search users" });
       }
     },
   );

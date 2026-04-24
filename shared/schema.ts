@@ -3971,10 +3971,16 @@ export const posts = pgTable("posts", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   authorId: varchar("author_id").references(() => users.id).notNull(),
-  // Nullable so free players (without an academy) can publish posts —
-  // e.g., country Player-of-the-Week celebration posts.
+  // Nullable so Free Players (no academy) can author posts — e.g., country
+  // Player-of-the-Week celebrations or shadow posts backing country-/global-
+  // scope feed items.
   academyId: varchar("academy_id").references(() => academies.id),
-  
+  // When this row was lazily materialised from a system feed_item, this
+  // field links back so authorisation can fall back on the original scope
+  // (friends | squad | academy | country | global) instead of the much
+  // coarser posts.visibility.
+  feedItemId: varchar("feed_item_id"),
+
   // Context - what is this post about?
   contextType: text("context_type").notNull(), // training | match | event | group | achievement | free_play
   contextId: varchar("context_id"), // sessionId, eventId, groupId, etc.
@@ -4085,13 +4091,18 @@ export const postComments = pgTable("post_comments", {
   parentId: varchar("parent_id").references((): any => postComments.id),
   
   isHidden: boolean("is_hidden").default(false), // moderation
-  
+
+  // Phase 2 — resolved @mentions captured at write time so comment fan-out
+  // and visible-tag rendering are O(1) without re-parsing text.
+  mentionedUserIds: jsonb("mentioned_user_ids").$type<string[]>().notNull().default([]),
+
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("post_comments_post_idx").on(table.postId),
   index("post_comments_feed_item_idx").on(table.feedItemId),
   index("post_comments_author_idx").on(table.authorId),
   index("post_comments_parent_idx").on(table.parentId),
+  index("post_comments_post_created_idx").on(table.postId, table.createdAt),
 ]);
 
 export const insertPostCommentSchema = createInsertSchema(postComments).omit({ id: true, createdAt: true });
@@ -4270,12 +4281,41 @@ export const userSocialProfiles = pgTable("user_social_profiles", {
   // For kids: additional safety
   isKidProfile: boolean("is_kid_profile").default(false),
   parentApprovedDMs: boolean("parent_approved_dms").default(false),
-  
+
+  // Phase 2 — last time the user opened the Community feed. Drives the
+  // unseen counter (cheers/comments/mentions on the user's own items)
+  // and the Social tab badge.
+  feedLastSeenAt: timestamp("feed_last_seen_at"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("user_social_profiles_user_idx").on(table.userId),
 ]);
+
+// ==================== SOCIAL NOTIFICATION PREFERENCES (Phase 2) ====================
+//
+// Per-user opt-in flags for the four social notification categories. Defaults
+// are conservative — cheers OFF (high volume / low signal) and
+// comments/replies/mentions ON. A row is upserted on first read/write; the
+// absence of a row is treated as the defaults.
+export const playerSocialNotifPrefs = pgTable("player_social_notif_prefs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  cheers: boolean("cheers").notNull().default(false),
+  comments: boolean("comments").notNull().default(true),
+  replies: boolean("replies").notNull().default(true),
+  mentions: boolean("mentions").notNull().default(true),
+  // Quiet-hours window (0-23 hour-of-day in viewer-local time). When both
+  // are set, push notifications in this window are suppressed; in-app
+  // notifications and the unseen badge are unaffected so the user still
+  // sees them on next open.
+  quietHoursStart: integer("quiet_hours_start"),
+  quietHoursEnd: integer("quiet_hours_end"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type PlayerSocialNotifPref = typeof playerSocialNotifPrefs.$inferSelect;
 
 export const insertUserSocialProfileSchema = createInsertSchema(userSocialProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertUserSocialProfile = z.infer<typeof insertUserSocialProfileSchema>;

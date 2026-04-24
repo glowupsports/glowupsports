@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18n";
 import { useSport, SPORT_DEFINITIONS, type Sport } from "@/player/context/SportContext";
@@ -67,6 +67,59 @@ export default function PlayerSettingsScreen() {
     queryKey: ["/api/ai-pro/status"],
     retry: false,
   });
+
+  // Per-category social notification preferences. Cheers default OFF; the
+  // others default ON. Server is the source of truth, but until the row
+  // arrives we render with those same defaults so the UI never flickers.
+  type SocialNotifPrefs = {
+    cheers: boolean;
+    comments: boolean;
+    replies: boolean;
+    mentions: boolean;
+  };
+  const { data: socialNotifPrefs } = useQuery<SocialNotifPrefs>({
+    queryKey: ["/api/social/me/notification-preferences"],
+  });
+  const socialNotifPrefsValue: SocialNotifPrefs = socialNotifPrefs ?? {
+    cheers: false,
+    comments: true,
+    replies: true,
+    mentions: true,
+  };
+  const updateSocialNotifPrefs = useMutation({
+    mutationFn: async (patch: Partial<SocialNotifPrefs>) =>
+      apiRequest("PATCH", "/api/social/me/notification-preferences", patch),
+    onMutate: async (patch) => {
+      await queryClient.cancelQueries({
+        queryKey: ["/api/social/me/notification-preferences"],
+      });
+      const prev = queryClient.getQueryData<SocialNotifPrefs>([
+        "/api/social/me/notification-preferences",
+      ]);
+      queryClient.setQueryData<SocialNotifPrefs>(
+        ["/api/social/me/notification-preferences"],
+        { ...socialNotifPrefsValue, ...patch }
+      );
+      return { prev };
+    },
+    onError: (_err, _patch, ctx) => {
+      if (ctx?.prev) {
+        queryClient.setQueryData(
+          ["/api/social/me/notification-preferences"],
+          ctx.prev
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["/api/social/me/notification-preferences"],
+      });
+    },
+  });
+  const toggleSocialNotifPref = (key: keyof SocialNotifPrefs) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updateSocialNotifPrefs.mutate({ [key]: !socialNotifPrefsValue[key] });
+  };
   const [joinLoading, setJoinLoading] = useState(false);
   const [switchedName, setSwitchedName] = useState<string | null>(null);
 
@@ -340,6 +393,41 @@ export default function PlayerSettingsScreen() {
       type: "toggle",
       value: coachMessages,
       onPress: () => setCoachMessages(!coachMessages),
+    },
+  ];
+
+  const socialNotifSettings: SettingItem[] = [
+    {
+      id: "social-cheers",
+      icon: "happy-outline",
+      label: "Cheers",
+      type: "toggle",
+      value: socialNotifPrefsValue.cheers,
+      onPress: () => toggleSocialNotifPref("cheers"),
+    },
+    {
+      id: "social-comments",
+      icon: "chatbubbles-outline",
+      label: "Comments",
+      type: "toggle",
+      value: socialNotifPrefsValue.comments,
+      onPress: () => toggleSocialNotifPref("comments"),
+    },
+    {
+      id: "social-replies",
+      icon: "return-down-forward-outline",
+      label: "Replies",
+      type: "toggle",
+      value: socialNotifPrefsValue.replies,
+      onPress: () => toggleSocialNotifPref("replies"),
+    },
+    {
+      id: "social-mentions",
+      icon: "at-outline",
+      label: "Mentions",
+      type: "toggle",
+      value: socialNotifPrefsValue.mentions,
+      onPress: () => toggleSocialNotifPref("mentions"),
     },
   ];
 
@@ -741,6 +829,13 @@ export default function PlayerSettingsScreen() {
         </View>
 
         <WhatsNewSettingsCard />
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Social Notifications</Text>
+          <View style={styles.sectionCard}>
+            {socialNotifSettings.map(renderSettingItem)}
+          </View>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('player.settings.messageTone')}</Text>

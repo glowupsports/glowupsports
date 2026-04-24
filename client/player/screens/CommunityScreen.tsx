@@ -87,6 +87,35 @@ export default function CommunityScreen() {
   });
   const friendRequestCount = friendsData?.pendingRequests?.length || 0;
 
+  // Unseen social activity (cheers/comments/mentions on the viewer's own
+  // items) drives the Social tab badge.
+  const { data: feedUnseen } = useQuery<{
+    cheers: number;
+    comments: number;
+    mentions: number;
+    total: number;
+  }>({
+    queryKey: ["/api/social/me/feed-unseen"],
+    refetchInterval: 60_000,
+  });
+  const feedUnseenCount = feedUnseen?.total || 0;
+
+  const markFeedSeenMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", "/api/social/me/feed-seen", {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/social/me/feed-unseen"] });
+    },
+  });
+
+  // Stamp last-seen the moment the user lands on the Feed tab. Avoids
+  // stamping when they're poking around Friends/Groups.
+  useEffect(() => {
+    if (mainTab === "feed" && feedUnseenCount > 0) {
+      markFeedSeenMutation.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainTab, feedUnseenCount]);
+
   const { data: rawFeed = [], isLoading, refetch, isFetching } = useQuery<Post[]>({
     queryKey: ["/api/social/feed", { filter }],
     queryFn: async () => {
@@ -258,7 +287,12 @@ export default function CommunityScreen() {
         </View>
       </View>
 
-        <MainTabBar active={mainTab} onChange={setMainTab} friendRequestCount={friendRequestCount} />
+        <MainTabBar
+          active={mainTab}
+          onChange={setMainTab}
+          friendRequestCount={friendRequestCount}
+          feedUnseenCount={feedUnseenCount}
+        />
 
       {!canInteract ? (
         <View style={styles.restrictedBanner}>
@@ -295,7 +329,7 @@ export default function CommunityScreen() {
                   return (
                     <SystemFeedCard
                       item={item}
-                      onComment={handleSystemFeedComment}
+                      onComment={canInteract ? handleSystemFeedComment : undefined}
                       currentPlayerId={user?.id}
                       onOpenCreateMatch={() => navigation.navigate("CreateMatch")}
                     />

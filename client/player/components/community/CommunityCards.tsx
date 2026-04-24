@@ -743,7 +743,17 @@ export function EmptyFeed({ filter }: { filter: FeedFilter }) {
   );
 }
 
-export function MainTabBar({ active, onChange, friendRequestCount = 0 }: { active: MainTab; onChange: (tab: MainTab) => void; friendRequestCount?: number }) {
+export function MainTabBar({
+  active,
+  onChange,
+  friendRequestCount = 0,
+  feedUnseenCount = 0,
+}: {
+  active: MainTab;
+  onChange: (tab: MainTab) => void;
+  friendRequestCount?: number;
+  feedUnseenCount?: number;
+}) {
   const { t } = useTranslation();
   const tabs: { key: MainTab; label: string; icon: string }[] = [
     { key: "feed", label: t('player.community.feed'), icon: "newspaper" },
@@ -755,6 +765,12 @@ export function MainTabBar({ active, onChange, friendRequestCount = 0 }: { activ
     <View style={styles.mainTabContainer}>
       {tabs.map((tab) => {
         const isActive = active === tab.key;
+        const badgeCount =
+          tab.key === "friends"
+            ? friendRequestCount
+            : tab.key === "feed"
+              ? feedUnseenCount
+              : 0;
         return (
           <Pressable
             key={tab.key}
@@ -772,9 +788,11 @@ export function MainTabBar({ active, onChange, friendRequestCount = 0 }: { activ
             <ThemedText style={[styles.mainTabText, isActive && styles.mainTabTextActive]}>
               {tab.label}
             </ThemedText>
-            {tab.key === "friends" && friendRequestCount > 0 ? (
+            {badgeCount > 0 ? (
               <View style={styles.requestBadge}>
-                <ThemedText style={styles.requestBadgeText}>{friendRequestCount}</ThemedText>
+                <ThemedText style={styles.requestBadgeText}>
+                  {badgeCount > 99 ? "99+" : badgeCount}
+                </ThemedText>
               </View>
             ) : null}
           </Pressable>
