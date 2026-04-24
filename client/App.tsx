@@ -67,15 +67,25 @@ if (SENTRY_DSN) {
     } catch {
       // expo-updates not present (web build, dev) — fall back to defaults.
     }
+    // Commit short-SHA is injected at OTA-bundle time via EXPO_PUBLIC_COMMIT_SHA
+    // (see scripts/ota-push.sh). Used for git-bisect correlation when the next
+    // bundle crashes — we can map a Sentry event back to an exact commit.
+    const commitSha = String(
+      process.env.EXPO_PUBLIC_COMMIT_SHA || "unknown",
+    ).slice(0, 12);
     Sentry.setTag("ota_update_id", otaUpdateId);
     Sentry.setTag("ota_runtime", otaRuntime);
     Sentry.setTag("ota_channel", otaChannel);
+    Sentry.setTag("ota_commit_sha", commitSha);
     Sentry.addBreadcrumb({
       category: "boot",
       level: "info",
-      message: `App.tsx evaluated · ota=${otaUpdateId} rt=${otaRuntime} channel=${otaChannel}`,
+      message: `App.tsx evaluated · ota=${otaUpdateId} rt=${otaRuntime} channel=${otaChannel} sha=${commitSha}`,
     });
-    Sentry.captureMessage(`[boot] App.tsx evaluated rt=${otaRuntime}`, "info");
+    Sentry.captureMessage(
+      `[boot] App.tsx evaluated rt=${otaRuntime} sha=${commitSha}`,
+      "info",
+    );
   } catch {
     // never let telemetry crash the app
   }
@@ -227,6 +237,27 @@ function NavigationContainerWithRef() {
       if (initial) setActiveRouteName(initial);
     } catch {
       // Navigation not fully initialized yet — onStateChange will catch up.
+    }
+    // Boot beacon #2 (Task #1289) — proves the bundle made it past JS
+    // evaluation AND past auth/init AND past the first navigator render.
+    // Combined with the App.tsx-eval beacon, the absence of THIS one
+    // pinpoints crashes that happen between module-eval and first paint
+    // (the exact failure mode that broke us this week).
+    try {
+      const commitSha = String(
+        process.env.EXPO_PUBLIC_COMMIT_SHA || "unknown",
+      ).slice(0, 12);
+      Sentry.addBreadcrumb({
+        category: "boot",
+        level: "info",
+        message: `NavigationContainer ready · sha=${commitSha}`,
+      });
+      Sentry.captureMessage(
+        `[boot] NavigationContainer ready sha=${commitSha}`,
+        "info",
+      );
+    } catch {
+      // never let telemetry crash the app
     }
   }, [registerNavigation, navigationRef]);
 

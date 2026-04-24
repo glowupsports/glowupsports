@@ -67,13 +67,15 @@ set -euo pipefail
 #   OTA_PUSH_ENABLED=1 OTA_MESSAGE="Hotfix XYZ" bash scripts/ota-push.sh
 # ---------------------------------------------------------------------------
 if [[ "${OTA_PUSH_ENABLED:-0}" != "1" ]]; then
-  cat <<'OTA_DISABLED'
+  cat >&2 <<'OTA_DISABLED'
 ################################################################
-#  OTA Push is DISABLED.
+#  OTA Push is DISABLED — failing closed (exit 1).
 #
 #  An emergency kill switch is in place (see scripts/ota-push.sh
 #  header — Task #1289) because a recent push crashed end users
 #  on cold start and an automatic re-fire overwrote the rollback.
+#  Exiting non-zero so the workflow shows red and unattended
+#  re-runs cannot be reported as "successful".
 #
 #  To re-enable a single push intentionally:
 #    OTA_PUSH_ENABLED=1 OTA_MESSAGE="..." bash scripts/ota-push.sh
@@ -83,7 +85,7 @@ if [[ "${OTA_PUSH_ENABLED:-0}" != "1" ]]; then
 #  bisect channel (`production-hotfix` or similar).
 ################################################################
 OTA_DISABLED
-  exit 0
+  exit 1
 fi
 
 # ---------------------------------------------------------------------------
@@ -207,14 +209,34 @@ else
       exit 5
     fi
   else
-    # Default mode: lint only files the current push touches.
-    # "Touched" = uncommitted working-tree changes + files in HEAD's
-    # last commit. Restricted to client/+server/ and js/ts source.
+    # Default mode: lint the FULL diff between the last published OTA and
+    # HEAD — i.e. every file that is going to ship in this bundle, not
+    # just the most recent commit. Tracked via the `ota-last-pushed` git
+    # tag (written at the very end of this script after a successful
+    # publish). Falls back to HEAD~10 if the tag does not exist yet.
+    #
+    # Why broader than HEAD~1: if 5 commits land between OTA pushes (the
+    # common case), HEAD~1 only lints the last one and a no-undef bug in
+    # commit N-3 ships unprotected. The whole bundle ships, so the whole
+    # bundle has to lint clean.
     set +e
+    LINT_BASE_REF=""
+    if git rev-parse --verify --quiet 'refs/tags/ota-last-pushed' >/dev/null 2>&1; then
+      LINT_BASE_REF="ota-last-pushed"
+    elif git rev-parse --verify --quiet 'HEAD~10' >/dev/null 2>&1; then
+      LINT_BASE_REF="HEAD~10"
+    elif git rev-parse --verify --quiet 'HEAD~1' >/dev/null 2>&1; then
+      LINT_BASE_REF="HEAD~1"
+    fi
+    echo "  Diff base : ${LINT_BASE_REF:-<none>}"
     CHANGED_FILES="$(
       {
+        # Uncommitted working-tree changes
         git diff --name-only HEAD -- 'client/*' 'server/*' 2>/dev/null
-        git diff --name-only HEAD~1 HEAD -- 'client/*' 'server/*' 2>/dev/null
+        # Full diff base..HEAD (every commit in this push)
+        if [[ -n "$LINT_BASE_REF" ]]; then
+          git diff --name-only "$LINT_BASE_REF" HEAD -- 'client/*' 'server/*' 2>/dev/null
+        fi
       } \
         | grep -E '\.(ts|tsx|js|jsx)$' \
         | grep -vE '\.(test|spec)\.' \
@@ -265,11 +287,17 @@ export EXPO_PUBLIC_API_URL="https://glow-up-sports--ltvjeugd.replit.app"
 export EXPO_PUBLIC_DOMAIN="glow-up-sports--ltvjeugd.replit.app"
 export EXPO_PUBLIC_ENV="production"
 
+# Inject the exact commit short-SHA into the bundle so client/App.tsx's
+# Sentry boot beacons can tag every event with it. Without this we can't
+# git-bisect a broken bundle from telemetry alone.
+export EXPO_PUBLIC_COMMIT_SHA="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+
 echo "  Injected env for OTA bundle:"
-echo "    EXPO_PUBLIC_API_URL = $EXPO_PUBLIC_API_URL"
-echo "    EXPO_PUBLIC_DOMAIN  = $EXPO_PUBLIC_DOMAIN"
-echo "    EXPO_PUBLIC_ENV     = $EXPO_PUBLIC_ENV"
-echo "    NODE_OPTIONS        = $NODE_OPTIONS"
+echo "    EXPO_PUBLIC_API_URL    = $EXPO_PUBLIC_API_URL"
+echo "    EXPO_PUBLIC_DOMAIN     = $EXPO_PUBLIC_DOMAIN"
+echo "    EXPO_PUBLIC_ENV        = $EXPO_PUBLIC_ENV"
+echo "    EXPO_PUBLIC_COMMIT_SHA = $EXPO_PUBLIC_COMMIT_SHA"
+echo "    NODE_OPTIONS           = $NODE_OPTIONS"
 
 # ---------------------------------------------------------------------------
 # Pause "Start App" Metro on :8081 to free memory during the push.
@@ -578,4 +606,17 @@ echo "#  OTA Push Finished Successfully"
 echo "#  Published: $PUBLISHED_SUMMARY"
 echo "#  Message  : $MESSAGE"
 echo "################################################################"
+echo ""
+
+# ---------------------------------------------------------------------------
+# Mark this commit as the new "last published OTA" baseline so the NEXT
+# push's lint pre-flight knows exactly which range to scan. We force-move
+# the tag locally; we deliberately do NOT push it to origin (this is a
+# script-internal marker, not a release tag).
+# ---------------------------------------------------------------------------
+if git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+  git tag -f ota-last-pushed HEAD >/dev/null 2>&1 \
+    && echo "  ✔ moved git tag 'ota-last-pushed' → $(git rev-parse --short=12 HEAD)" \
+    || echo "  ⚠ could not move 'ota-last-pushed' tag (non-fatal)"
+fi
 echo ""
