@@ -11,7 +11,7 @@ import {
   evaluateForegroundIdle,
   AUTO_LOCK_MS,
 } from "@/lib/autoLock";
-import { useActiveRouteName } from "@/lib/activeRoute";
+import { getActiveRouteName, subscribeActiveRoute } from "@/lib/activeRoute";
 import { getApiUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 
@@ -24,6 +24,20 @@ const LOCK_SUPPRESSED_ROUTES = new Set([
   "Signup",
   "PinReset",
 ]);
+
+/**
+ * True iff the given route name is in the suppression set. Wrapped in
+ * try/catch so any throw degrades to `false` — overlay-not-suppressed is
+ * the safe default for a lock UI. Accepts `unknown` so the type system
+ * can't lull a future caller into removing the guard. See Task #1249.
+ */
+export function isLockSuppressedRoute(routeName: unknown): boolean {
+  try {
+    return typeof routeName === "string" && LOCK_SUPPRESSED_ROUTES.has(routeName);
+  } catch {
+    return false;
+  }
+}
 
 interface AutoLockOverlayProps {
   enabled: boolean;
@@ -69,13 +83,22 @@ export function AutoLockOverlay({
     return () => sub.remove();
   }, [locked]);
 
-  // Determine the active route so we can suppress the overlay. We read this
-  // from a module-level store fed by NavigationContainer's onStateChange in
-  // App.tsx — using `useNavigationState` here would throw on cold start
-  // because this component is mounted as a sibling of the root navigator,
-  // not inside one of its screens.
-  const routeName = useActiveRouteName();
-  const suppressed = routeName ? LOCK_SUPPRESSED_ROUTES.has(routeName) : false;
+  // Read the active route via the imperative getter (not a hook) so the
+  // entire route-resolution path can sit inside a try/catch. React
+  // Navigation hooks (`useNavigationState`, `useRoute`, `useNavigation`)
+  // MUST NOT be used here — this component is mounted as a sibling of
+  // `NavigationContainer` and they throw on cold start. See Task #1237
+  // and Task #1249. The effect below subscribes to route changes and
+  // triggers a re-render via local state.
+  const [, bumpRoute] = useState(0);
+  useEffect(() => subscribeActiveRoute(() => bumpRoute((n) => n + 1)), []);
+  let routeName: string | undefined;
+  try {
+    routeName = getActiveRouteName();
+  } catch {
+    routeName = undefined;
+  }
+  const suppressed = isLockSuppressedRoute(routeName);
 
   const visible = enabled && locked && !suppressed && !!playerId;
 

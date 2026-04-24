@@ -6,6 +6,23 @@
 // navigator?" on cold start. We instead push the active route name from
 // `NavigationContainer.onStateChange` into this module, and let consumers
 // subscribe via the `useActiveRouteName` hook.
+//
+// ⚠️ Sanctioned APIs for components mounted as siblings of
+// `NavigationContainer` (e.g. `AutoLockOverlay` in `client/App.tsx`):
+//
+//   1. `useActiveRouteName()` — convenient hook, fine for most call sites.
+//   2. `getActiveRouteName()` + `subscribeActiveRoute()` — imperative
+//      pair; use this when the call site needs to wrap the route read in
+//      a try/catch (hooks can't be wrapped). Prefer this in code paths
+//      where a thrown exception during route resolution would crash the
+//      whole RN tree (lock overlay, error boundary fallbacks, etc.).
+//
+// Do NOT introduce `useNavigationState`, `useRoute`, `useNavigation` or
+// any other React Navigation hook into those sibling components — they
+// throw on cold start because there is no NavigationContext above them.
+// See Task #1237 and Task #1249 for the crash this module guards
+// against. Inside a Screen (i.e. below a Navigator), prefer React
+// Navigation's own hooks.
 
 import { useEffect, useState } from "react";
 
