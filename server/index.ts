@@ -1335,6 +1335,16 @@ function setupErrorHandler(app: express.Application) {
       } catch (err) {
         console.error("[CommunityGroupMemberCountBackfill] Failed:", err);
       }
+
+      // ── CommunityGroupForSeriesBackfill ──────────────────────────────────
+      // Ensure every non-private coaching_series has a Community Group with
+      // members matching active enrollment + assigned coach. Idempotent.
+      try {
+        const { backfillCommunityGroupsForSeries } = await import("./storage");
+        await backfillCommunityGroupsForSeries();
+      } catch (err) {
+        console.error("[CommunityGroupForSeriesBackfill] Failed:", err);
+      }
     },
   );
 })();

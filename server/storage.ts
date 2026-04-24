@@ -106,6 +106,9 @@ import {
   conversationParticipants,
   messages,
   messageReactions,
+  // Community Groups (Discord-style)
+  communityGroups,
+  groupMembers,
   // Court Preferences System
   coachCourtPreferences,
   coachCourtRules,
@@ -521,6 +524,192 @@ function publicCoachQualityGate(): SQL {
     OR (${coaches.publicQuote} IS NOT NULL AND length(btrim(${coaches.publicQuote})) > 0)
     OR (${coaches.specialty} IS NOT NULL AND length(btrim(${coaches.specialty})) > 0)
   )`;
+}
+
+// ==================== COMMUNITY GROUP SYNC FOR COACHING SERIES ====================
+// Keep a community_groups row in lock-step with each non-private coaching_series.
+// Idempotent: computes desired members, diffs against current, inserts/deletes the difference.
+// Safe to call after any mutation that could change membership, schedule, coach, or sessionType.
+export async function syncCommunityGroupForSeries(seriesId: string): Promise<void> {
+  try {
+    const [series] = await db
+      .select()
+      .from(coachingSeries)
+      .where(eq(coachingSeries.id, seriesId))
+      .limit(1);
+    if (!series) return;
+
+    const isPrivate = series.sessionType === "private";
+
+    const [existingGroup] = await db
+      .select()
+      .from(communityGroups)
+      .where(eq(communityGroups.seriesId, seriesId))
+      .limit(1);
+
+    if (isPrivate) {
+      if (existingGroup) {
+        await db.delete(groupMembers).where(eq(groupMembers.groupId, existingGroup.id));
+        await db.delete(communityGroups).where(eq(communityGroups.id, existingGroup.id));
+      }
+      return;
+    }
+
+    if (!series.academyId) return;
+
+    let coachUserId: string | null = null;
+    if (series.coachId) {
+      const [coachUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.coachId, series.coachId))
+        .limit(1);
+      coachUserId = coachUser?.id ?? null;
+    }
+
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const dayName = series.dayOfWeek >= 0 && series.dayOfWeek <= 6 ? dayNames[series.dayOfWeek] : "";
+    const startTime = (series.startTime || "").slice(0, 5);
+    const description = `${dayName} • ${startTime} — recurring class`;
+
+    let group = existingGroup;
+    if (!group) {
+      const [created] = await db
+        .insert(communityGroups)
+        .values({
+          academyId: series.academyId,
+          name: series.title,
+          description,
+          type: "team",
+          seriesId,
+          isPrivate: false,
+          allowChat: true,
+          allowPosts: true,
+          memberCount: 0,
+          createdBy: coachUserId,
+        })
+        .returning();
+      group = created;
+    } else {
+      const needsUpdate =
+        existingGroup.name !== series.title || existingGroup.description !== description;
+      if (needsUpdate) {
+        await db
+          .update(communityGroups)
+          .set({ name: series.title, description, updatedAt: new Date() })
+          .where(eq(communityGroups.id, existingGroup.id));
+      }
+    }
+
+    if (!group) return;
+
+    // Build desired member set: all active series players (as members) + coach (as admin).
+    const activePlayers = await db
+      .select({ playerId: seriesPlayers.playerId })
+      .from(seriesPlayers)
+      .where(and(eq(seriesPlayers.seriesId, seriesId), eq(seriesPlayers.status, "active")));
+
+    const playerIds = activePlayers.map((p) => p.playerId);
+    const playerUserMap = new Map<string, string>();
+    if (playerIds.length > 0) {
+      const playerUsers = await db
+        .select({ id: users.id, playerId: users.playerId })
+        .from(users)
+        .where(inArray(users.playerId, playerIds));
+      for (const u of playerUsers) {
+        if (u.playerId) playerUserMap.set(u.playerId, u.id);
+      }
+    }
+
+    const desired = new Map<string, "admin" | "member">();
+    for (const p of activePlayers) {
+      const uid = playerUserMap.get(p.playerId);
+      if (uid) desired.set(uid, "member");
+    }
+    // Coach is always admin and overrides any member entry for the same user.
+    if (coachUserId) desired.set(coachUserId, "admin");
+
+    const currentMembers = await db
+      .select()
+      .from(groupMembers)
+      .where(eq(groupMembers.groupId, group.id));
+    const currentMap = new Map<string, (typeof currentMembers)[number]>();
+    for (const m of currentMembers) currentMap.set(m.userId, m);
+
+    const toInsert: Array<{ groupId: string; userId: string; role: string }> = [];
+    const toDelete: string[] = [];
+
+    for (const [uid, role] of desired) {
+      const existing = currentMap.get(uid);
+      if (!existing) {
+        toInsert.push({ groupId: group.id, userId: uid, role });
+      } else if (existing.role !== role) {
+        await db
+          .update(groupMembers)
+          .set({ role })
+          .where(eq(groupMembers.id, existing.id));
+      }
+    }
+    for (const uid of currentMap.keys()) {
+      if (!desired.has(uid)) toDelete.push(uid);
+    }
+
+    if (toInsert.length > 0) {
+      await db.insert(groupMembers).values(toInsert);
+    }
+    if (toDelete.length > 0) {
+      await db
+        .delete(groupMembers)
+        .where(and(eq(groupMembers.groupId, group.id), inArray(groupMembers.userId, toDelete)));
+    }
+
+    const [{ cnt }] = await db
+      .select({ cnt: sql<number>`count(*)::int` })
+      .from(groupMembers)
+      .where(eq(groupMembers.groupId, group.id));
+    if ((group.memberCount ?? 0) !== Number(cnt)) {
+      await db
+        .update(communityGroups)
+        .set({ memberCount: Number(cnt) })
+        .where(eq(communityGroups.id, group.id));
+    }
+  } catch (err) {
+    console.error(`[syncCommunityGroupForSeries] Failed for series ${seriesId}:`, err);
+  }
+}
+
+// One-time backfill: ensure every non-private coaching_series has a Community Group.
+// Also deletes Community Groups whose linked series no longer exists or has flipped to private.
+export async function backfillCommunityGroupsForSeries(): Promise<void> {
+  try {
+    const allSeries = await db
+      .select({ id: coachingSeries.id, sessionType: coachingSeries.sessionType })
+      .from(coachingSeries);
+
+    let synced = 0;
+    for (const s of allSeries) {
+      await syncCommunityGroupForSeries(s.id);
+      synced++;
+    }
+
+    // Clean up orphaned Community Groups (series deleted)
+    const orphaned = await db
+      .select({ id: communityGroups.id })
+      .from(communityGroups)
+      .leftJoin(coachingSeries, eq(communityGroups.seriesId, coachingSeries.id))
+      .where(and(isNotNull(communityGroups.seriesId), isNull(coachingSeries.id)));
+    if (orphaned.length > 0) {
+      const ids = orphaned.map((o) => o.id);
+      await db.delete(groupMembers).where(inArray(groupMembers.groupId, ids));
+      await db.delete(communityGroups).where(inArray(communityGroups.id, ids));
+    }
+
+    console.log(
+      `[backfillCommunityGroupsForSeries] Synced ${synced} series, removed ${orphaned.length} orphaned groups`,
+    );
+  } catch (err) {
+    console.error("[backfillCommunityGroupsForSeries] Failed:", err);
+  }
 }
 
 export const storage = {
@@ -4923,6 +5112,9 @@ export const storage = {
 
   async createCoachingSeries(data: InsertCoachingSeries): Promise<CoachingSeries> {
     const result = await db.insert(coachingSeries).values(data).returning();
+    if (result[0]) {
+      await syncCommunityGroupForSeries(result[0].id);
+    }
     return result[0];
   },
 
@@ -4932,6 +5124,9 @@ export const storage = {
       .set(data)
       .where(eq(coachingSeries.id, id))
       .returning();
+    if (result[0]) {
+      await syncCommunityGroupForSeries(id);
+    }
     return result[0];
   },
 
@@ -5020,7 +5215,18 @@ export const storage = {
         await tx.update(bookingRequests).set({ sessionId: null }).where(inArray(bookingRequests.sessionId, sessionIds));
         await tx.delete(sessions).where(inArray(sessions.id, sessionIds));
       }
-      
+
+      // Cascade-delete the linked Community Group (members first, then group).
+      const linkedGroups = await tx
+        .select({ id: communityGroups.id })
+        .from(communityGroups)
+        .where(eq(communityGroups.seriesId, id));
+      if (linkedGroups.length > 0) {
+        const groupIds = linkedGroups.map((g) => g.id);
+        await tx.delete(groupMembers).where(inArray(groupMembers.groupId, groupIds));
+        await tx.delete(communityGroups).where(inArray(communityGroups.id, groupIds));
+      }
+
       await tx.delete(seriesPlayers).where(eq(seriesPlayers.seriesId, id));
       await tx.delete(coachingSeries).where(eq(coachingSeries.id, id));
     });
@@ -5104,6 +5310,9 @@ export const storage = {
 
   async addPlayerToSeries(data: InsertSeriesPlayer): Promise<SeriesPlayer> {
     const result = await db.insert(seriesPlayers).values(data).returning();
+    if (result[0]) {
+      await syncCommunityGroupForSeries(result[0].seriesId);
+    }
     return result[0];
   },
 
@@ -5114,6 +5323,7 @@ export const storage = {
         eq(seriesPlayers.seriesId, seriesId),
         eq(seriesPlayers.playerId, playerId)
       ));
+    await syncCommunityGroupForSeries(seriesId);
   },
 
   async removePlayerFromFutureSeriesSessions(seriesId: string, playerId: string, effectiveDate: Date, academyId: string): Promise<number> {
@@ -5180,6 +5390,9 @@ export const storage = {
         eq(seriesPlayers.playerId, playerId)
       ))
       .returning();
+    if (result[0]) {
+      await syncCommunityGroupForSeries(seriesId);
+    }
     return result[0];
   },
 
@@ -5230,6 +5443,9 @@ export const storage = {
         eq(seriesPlayers.playerId, playerId)
       ))
       .returning();
+    if (result[0]) {
+      await syncCommunityGroupForSeries(seriesId);
+    }
     return result[0];
   },
 
@@ -5248,6 +5464,9 @@ export const storage = {
         eq(seriesPlayers.playerId, playerId)
       ))
       .returning();
+    if (result[0]) {
+      await syncCommunityGroupForSeries(seriesId);
+    }
     return result[0];
   },
 
@@ -5264,6 +5483,9 @@ export const storage = {
         eq(seriesPlayers.playerId, playerId)
       ))
       .returning();
+    if (result[0]) {
+      await syncCommunityGroupForSeries(seriesId);
+    }
     return result[0];
   },
 

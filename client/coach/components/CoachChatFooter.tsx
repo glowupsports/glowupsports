@@ -98,6 +98,9 @@ interface Conversation {
   receiverPlayerId?: string | null;
   senderPlayerId?: string | null;
   isBlockedByMe?: boolean;
+  seriesDayOfWeek?: number | null;
+  seriesStartTime?: string | null;
+  sessionType?: string | null;
 }
 
 const REACTION_EMOJIS = ["🔥", "❤️", "👍", "😂"];
@@ -1036,6 +1039,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 
   const displayConversations = currentTab === "squad" && isPlayerMode
     ? [...filteredConversations, ...lessonGroupChats.filter(lgc => !filteredConversations.find(c => c.id === lgc.id))]
+        .filter(c => c.sessionType !== "private")
     : filteredConversations;
 
   // Initial fetch of online players on mount; WS events keep this up to date in real-time
@@ -2182,6 +2186,23 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: NEON_GREEN }} />
                 ) : null}
               </View>
+              {(item.type === "series_group" || item.type === "lesson_group" || item.type === "squad")
+                && item.seriesDayOfWeek != null && item.seriesStartTime
+                ? (() => {
+                    const weekdayKeys = ["weekdaySun","weekdayMon","weekdayTue","weekdayWed","weekdayThu","weekdayFri","weekdaySat"];
+                    const fallback = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+                    const idx = item.seriesDayOfWeek!;
+                    const dayName = idx >= 0 && idx <= 6
+                      ? t(`player.schedule.${weekdayKeys[idx]}`, { defaultValue: fallback[idx] })
+                      : "";
+                    const time = (item.seriesStartTime || "").slice(0, 5);
+                    return (
+                      <ThemedText numberOfLines={1} style={styles.conversationPreview}>
+                        {dayName} • {time}
+                      </ThemedText>
+                    );
+                  })()
+                : null}
               {item.lastMessagePreview ? (
                 <ThemedText numberOfLines={1} style={styles.conversationPreview}>
                   {item.lastMessagePreview}

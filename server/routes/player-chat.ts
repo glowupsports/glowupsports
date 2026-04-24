@@ -89,7 +89,7 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
     const seriesGroupTitles = conversationsRaw
       .filter(c => (c.type === "series_group" || c.type === "squad" || c.type === "lesson_group") && c.title)
       .map(c => c.title!) as string[];
-    const seriesById = new Map<string, { title: string; dayOfWeek: number; startTime: string; duration: number | null }>();
+    const seriesById = new Map<string, { title: string; dayOfWeek: number; startTime: string; duration: number | null; sessionType: string }>();
     if (seriesGroupTitles.length > 0) {
       const seriesRows = await db.select({
         id: coachingSeries.id,
@@ -97,9 +97,10 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
         dayOfWeek: coachingSeries.dayOfWeek,
         startTime: coachingSeries.startTime,
         duration: coachingSeries.duration,
+        sessionType: coachingSeries.sessionType,
       }).from(coachingSeries).where(inArray(coachingSeries.id, seriesGroupTitles));
       for (const s of seriesRows) {
-        seriesById.set(s.id, { title: s.title, dayOfWeek: s.dayOfWeek, startTime: s.startTime, duration: s.duration ?? null });
+        seriesById.set(s.id, { title: s.title, dayOfWeek: s.dayOfWeek, startTime: s.startTime, duration: s.duration ?? null, sessionType: s.sessionType });
       }
     }
 
@@ -251,6 +252,7 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       let providerPhoto: string | null = null;
       let seriesDayOfWeek: number | null = null;
       let seriesStartTime: string | null = null;
+      let sessionType: string | null = null;
       let otherPlayerId: string | null = null;
       let otherPlayerUserId: string | null = null;
       let isBlockedByMe = false;
@@ -292,10 +294,11 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
           resolvedTitle = series.title;
           seriesDayOfWeek = series.dayOfWeek;
           seriesStartTime = series.startTime;
+          sessionType = series.sessionType;
         }
       }
 
-      return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime };
+      return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime, sessionType };
     });
 
     // Filter out conversations where the other player is blocked
@@ -959,6 +962,9 @@ router.get("/api/player/me/lesson-group-chats", authMiddleware, requirePlayerOrO
       id: coachingSeries.id,
       title: coachingSeries.title,
       coachId: coachingSeries.coachId,
+      dayOfWeek: coachingSeries.dayOfWeek,
+      startTime: coachingSeries.startTime,
+      sessionType: coachingSeries.sessionType,
     }).from(coachingSeries).where(
       and(
         inArray(coachingSeries.id, seriesIds),
@@ -1060,6 +1066,9 @@ router.get("/api/player/me/lesson-group-chats", authMiddleware, requirePlayerOrO
         ...conv,
         title: series.title || conv.title,
         seriesTitle: series.title,
+        seriesDayOfWeek: series.dayOfWeek,
+        seriesStartTime: series.startTime,
+        sessionType: series.sessionType,
         upcomingSession: nextSession ? {
           id: nextSession.id,
           startTime: nextSession.startTime?.toISOString() ?? null,
