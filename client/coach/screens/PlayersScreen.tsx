@@ -271,9 +271,21 @@ export default function PlayersScreen() {
       insetsTop + Math.max(headerHeightSV.value + headerTranslation.value, 0),
   }));
 
-  // When the user switches roster tabs, reset the collapsed header so it
-  // never gets stranded off-screen on a tab whose content (loading spinner
-  // or empty state) doesn't have a scroller to bring it back.
+  // Always bring the header back when there is no scrollable content to
+  // pull it down with. This covers two strand-the-header scenarios:
+  //   1. Switching roster tab to one with no players (empty/loading).
+  //   2. Filter / mutation reduces the current tab's list to zero.
+  // We trigger on rosterTab too so a tab switch always starts with a
+  // visible header even when the new tab does have data.
+  const headerLockedReason =
+    rawLoading || currentPlayers.length === 0 ? "no-scroll" : "scrollable";
+  useEffect(() => {
+    if (headerLockedReason === "no-scroll") {
+      headerTranslation.value = withTiming(0, { duration: 200 });
+      lastScrollY.value = 0;
+      scrollY.value = 0;
+    }
+  }, [headerLockedReason, headerTranslation, lastScrollY, scrollY]);
   useEffect(() => {
     headerTranslation.value = withTiming(0, { duration: 200 });
     lastScrollY.value = 0;
