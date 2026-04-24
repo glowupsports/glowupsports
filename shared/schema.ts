@@ -535,6 +535,13 @@ export const coaches = pgTable("coaches", {
   averageRating: numeric("average_rating", { precision: 3, scale: 2 }),
   totalRatings: integer("total_ratings").notNull().default(0),
 
+  // Phase 3 — Auto-create a private "lesson recap" draft after each completed
+  // lesson. Default OFF so coaches opt in explicitly (avoids notification
+  // fatigue per Phase 3 risks). When true, on session completion the system
+  // inserts a draft `posts` row that the coach can edit + send or skip from
+  // the dashboard.
+  lessonRecapEnabled: boolean("lesson_recap_enabled").default(false),
+
   // Live GPS tracking
   lastLat: doublePrecision("last_lat"),
   lastLng: doublePrecision("last_lng"),
@@ -3982,7 +3989,23 @@ export const posts = pgTable("posts", {
   // Status
   isHidden: boolean("is_hidden").default(false), // moderation
   isPinned: boolean("is_pinned").default(false), // pinned in group
-  
+  pinnedUntil: timestamp("pinned_until"), // when the pin auto-expires (Phase 3)
+
+  // Phase 3 — Coach/Academy podium templates.
+  // tip | announcement | drill | schedule_change | event_invite | coach_spotlight | lesson_recap | null
+  postTemplate: text("post_template"),
+
+  // Phase 3 — Lesson recap drafts: a coach-only draft is created when a
+  // lesson completes (only if the coach opted in). It stays unpublished
+  // (not visible in the feed) until the coach hits "Send recap" or
+  // auto-publishes after the recap window.
+  isDraft: boolean("is_draft").default(false),
+
+  // Phase 3 — Recipient targeting for visibility='private' posts (e.g.
+  // lesson recaps). When set, the post is also visible to each user in
+  // this list — used by the player+parent feed query to surface recaps.
+  recipientUserIds: varchar("recipient_user_ids").array(),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -3991,6 +4014,7 @@ export const posts = pgTable("posts", {
   index("posts_group_idx").on(table.groupId),
   index("posts_context_idx").on(table.contextType, table.contextId),
   index("posts_created_idx").on(table.createdAt),
+  index("posts_template_idx").on(table.postTemplate),
 ]);
 
 export const insertPostSchema = createInsertSchema(posts).omit({ id: true, createdAt: true, updatedAt: true, cheerCount: true, commentCount: true });

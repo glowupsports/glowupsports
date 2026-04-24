@@ -3160,6 +3160,32 @@ export default function DashboardScreen() {
           </Pressable>
         ) : null}
 
+        {/* === COMMUNITY QUICK ACTIONS (Phase 3) === */}
+        <View style={dashCommunityStyles.row}>
+          <Pressable
+            style={dashCommunityStyles.actionCard}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("CoachPostComposer", { mode: "coach" });
+            }}
+          >
+            <Ionicons name="megaphone" size={20} color={Colors.dark.primary} />
+            <Text style={dashCommunityStyles.actionTitle}>New Post</Text>
+            <Text style={dashCommunityStyles.actionSubtitle}>Tip · Drill · Update</Text>
+          </Pressable>
+          <Pressable
+            style={dashCommunityStyles.actionCard}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("LessonRecapDrafts");
+            }}
+          >
+            <Ionicons name="clipboard" size={20} color={"#9AE66E"} />
+            <Text style={dashCommunityStyles.actionTitle}>Lesson Recaps</Text>
+            <Text style={dashCommunityStyles.actionSubtitle}>Review &amp; send</Text>
+          </Pressable>
+        </View>
+
         {/* === PENDING BOOKING REQUESTS === */}
         {pendingBookingRequests.length > 0 && (
           <BookingRequestsPanel
@@ -6003,6 +6029,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: Colors.dark.disabled,
+  },
+});
+
+const dashCommunityStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+  },
+  actionCard: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    gap: 4,
+  },
+  actionTitle: {
+    color: Colors.dark.text,
+    fontSize: 14,
+    fontWeight: "700",
+    marginTop: 6,
+  },
+  actionSubtitle: {
+    color: Colors.dark.textMuted,
+    fontSize: 11,
   },
 });
 

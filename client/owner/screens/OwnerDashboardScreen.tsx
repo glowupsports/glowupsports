@@ -541,6 +541,18 @@ export default function OwnerDashboardScreen() {
                 </View>
                 <Text style={styles.quickActionLabel}>Settings</Text>
               </Pressable>
+              <Pressable
+                style={styles.quickAction}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("CoachPostComposer", { mode: "academy" });
+                }}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>
+                  <Ionicons name="megaphone" size={22} color={Colors.dark.primary} />
+                </View>
+                <Text style={styles.quickActionLabel}>New Post</Text>
+              </Pressable>
             </View>
           
         </View>

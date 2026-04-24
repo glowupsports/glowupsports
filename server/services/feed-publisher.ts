@@ -419,16 +419,26 @@ export async function publishMomentPost(postId: string): Promise<void> {
   try {
     const [p] = await db.select().from(posts).where(eq(posts.id, postId));
     if (!p) return;
+    // Drafts (e.g. lesson-recap waiting for coach to send) never appear in
+    // the feed. They become visible only after the draft is converted to a
+    // regular post via POST /api/social/coach/recap/:id/send.
+    if (p.isDraft) return;
 
     let authorPlayerId: string | null = null;
     let authorCountry: string | null = null;
     let authorAcademyId: string | null = p.academyId ?? null;
     let isCoach = false;
+    let coachId: string | null = null;
+    let coachPublic = false;
     try {
       const result = await pool.query(
-        `SELECT u.player_id, u.coach_id, p.country AS player_country, a.country AS academy_country
+        `SELECT u.player_id, u.coach_id, c.id AS coach_row_id,
+                c.public_profile_enabled, c.photo_url AS coach_photo,
+                c.public_quote, c.specialty,
+                p.country AS player_country, a.country AS academy_country
            FROM users u
       LEFT JOIN players p ON u.player_id = p.id
+      LEFT JOIN coaches c ON c.id = u.coach_id
       LEFT JOIN academies a ON a.id = COALESCE(p.academy_id, $2)
           WHERE u.id = $1
           LIMIT 1`,
@@ -439,6 +449,16 @@ export async function publishMomentPost(postId: string): Promise<void> {
       authorCountry =
         row?.player_country ?? row?.academy_country ?? null;
       isCoach = !!row?.coach_id;
+      coachId = row?.coach_row_id ?? null;
+      // Inline quality gate (see storage.publicCoachQualityGate).
+      // Phase 3: tip/drill posts from public coaches who pass the Task
+      // #1112 quality gate get a parallel country-scope feed_item so free
+      // players outside the academy can discover them.
+      coachPublic =
+        !!row?.public_profile_enabled &&
+        !!row?.coach_photo &&
+        !!row?.public_quote &&
+        !!row?.specialty;
     } catch {
       /* best-effort */
     }
@@ -473,6 +493,20 @@ export async function publishMomentPost(postId: string): Promise<void> {
       ? "coach_spotlight"
       : "manual_moment";
 
+    const payload = {
+      contextType: p.contextType,
+      contextId: p.contextId,
+      caption: p.caption,
+      mediaUrls: p.mediaUrls,
+      mediaTypes: p.mediaTypes,
+      locationName: p.locationName,
+      postTemplate: p.postTemplate ?? null,
+      isPinned: !!p.isPinned,
+      pinnedUntil: p.pinnedUntil ?? null,
+      authorRole: isCoach ? "coach" : "player",
+      coachId,
+    };
+
     await insertFeedItem({
       sourceType,
       sourceId: postId,
@@ -484,15 +518,70 @@ export async function publishMomentPost(postId: string): Promise<void> {
       authorPlayerId,
       postId,
       occurredAt: p.createdAt,
-      payload: {
-        contextType: p.contextType,
-        contextId: p.contextId,
-        caption: p.caption,
-        mediaUrls: p.mediaUrls,
-        mediaTypes: p.mediaTypes,
-        locationName: p.locationName,
-      },
+      payload,
     });
+
+    // Phase 3: country-scope discovery for tip/drill/coach_spotlight posts
+    // from public coaches who pass the Task #1112 quality gate. Players
+    // outside the academy will see them in their country feed alongside
+    // academy-scope posts. Educational/evergreen + spotlight only — never
+    // announcement/schedule_change/event_invite which are academy-internal.
+    //
+    // For `coach_spotlight` posts the author may be the academy owner (NOT
+    // a coach). In that case fall back to the FIRST tagged coach's quality
+    // gate to decide eligibility — the spotlight is "about" that coach,
+    // and using their public profile to gate discovery preserves the
+    // Task #1112 contract while still allowing owners to author spotlights.
+    const tpl = p.postTemplate ?? null;
+    const isCountryEligibleTemplate =
+      tpl === "tip" || tpl === "drill" || tpl === "coach_spotlight";
+    let countryEligibleAuthor = isCoach && coachPublic;
+    if (
+      !countryEligibleAuthor &&
+      tpl === "coach_spotlight" &&
+      Array.isArray(p.taggedUserIds) &&
+      p.taggedUserIds.length > 0
+    ) {
+      try {
+        const tagRes = await pool.query(
+          `SELECT c.public_profile_enabled, c.photo_url, c.public_quote, c.specialty
+             FROM users u
+             JOIN coaches c ON c.id = u.coach_id
+            WHERE u.id = ANY($1::text[])
+              AND c.public_profile_enabled = true
+              AND c.photo_url IS NOT NULL
+              AND c.public_quote IS NOT NULL
+              AND c.specialty IS NOT NULL
+            LIMIT 1`,
+          [p.taggedUserIds],
+        );
+        countryEligibleAuthor = (tagRes.rows?.length ?? 0) > 0;
+      } catch {
+        /* best-effort */
+      }
+    }
+    if (
+      countryEligibleAuthor &&
+      isCountryEligibleTemplate &&
+      authorCountry &&
+      (scope === "academy" || scope === "group")
+    ) {
+      // Use a synthetic source_id suffix so the country row doesn't conflict
+      // with the primary academy/group row's UNIQUE(source_type, source_id).
+      await insertFeedItem({
+        sourceType,
+        sourceId: `${postId}::country`,
+        scope: "country",
+        country: authorCountry,
+        academyId: authorAcademyId,
+        groupId: null,
+        authorUserId: p.authorId,
+        authorPlayerId,
+        postId,
+        occurredAt: p.createdAt,
+        payload: { ...payload, countryDiscovery: true },
+      });
+    }
   } catch (err) {
     console.error("[FeedPublisher] publishMomentPost error:", err);
   }

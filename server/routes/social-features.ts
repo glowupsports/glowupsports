@@ -11,6 +11,8 @@ import {
   userSocialProfiles as userSocialProfilesTable,
   users,
   players,
+  coaches as coachesTable,
+  sessions as sessionsTable,
   contentReports as contentReportsTable,
   playerBlocks as playerBlocksTable,
   matchLogs,
@@ -206,9 +208,14 @@ const socialPostUpload = multer({
         }
 
         // Resolve viewer's reactions on system feed items in this batch
-        // (manual moments use the post-keyed reaction below).
+        // (manual moments AND coach_spotlight posts use the post-keyed
+        // reaction handled below via the hydrated post row's userReaction).
         const systemFeedItemIds = feedRows
-          .filter((r) => r.source_type !== "manual_moment")
+          .filter(
+            (r) =>
+              r.source_type !== "manual_moment" &&
+              r.source_type !== "coach_spotlight",
+          )
           .map((r) => r.id);
         const feedItemReactionMap = new Map<string, string>();
         if (systemFeedItemIds.length > 0) {
@@ -227,9 +234,17 @@ const socialPostUpload = multer({
           }
         }
 
-        // Hydrate manual_moment posts (so the client can render images, etc.)
+        // Hydrate manual_moment AND coach_spotlight posts (Phase 3 coach
+        // posts publish under the coach_spotlight source_type but still
+        // need full post payload — caption, media, template, pinned — so
+        // MomentCard can render the role headline / template pill).
         const postIdsToHydrate = feedRows
-          .filter((r) => r.source_type === "manual_moment" && r.post_id)
+          .filter(
+            (r) =>
+              (r.source_type === "manual_moment" ||
+                r.source_type === "coach_spotlight") &&
+              r.post_id,
+          )
           .map((r) => r.post_id);
         const postMap = new Map<string, any>();
         if (postIdsToHydrate.length > 0) {
@@ -237,9 +252,10 @@ const socialPostUpload = multer({
             const pr = await pool.query(
               `SELECT id, author_id, academy_id, context_type, context_id, caption,
                       media_urls, media_types, visibility, group_id, cheer_count,
-                      comment_count, created_at, is_hidden, tagged_user_ids, location_name, is_pinned
+                      comment_count, created_at, is_hidden, tagged_user_ids, location_name,
+                      is_pinned, pinned_until, post_template, is_draft
                  FROM posts
-                WHERE id = ANY($1::text[]) AND is_hidden = false`,
+                WHERE id = ANY($1::text[]) AND is_hidden = false AND is_draft = false`,
               [postIdsToHydrate],
             );
             for (const row of pr.rows || []) {
@@ -298,6 +314,93 @@ const socialPostUpload = multer({
           /* best-effort */
         }
 
+        // Phase 3: surface private recap-style posts (lesson_recap, or any
+        // private moment) addressed to this viewer via recipient_user_ids.
+        // These are NEVER published to feed_items (private stays private at
+        // discovery level), so we materialize them here as synthetic
+        // coach_spotlight feed rows and hydrate them just like normal
+        // moments. Author hydration is handled below by a top-up author
+        // fetch so MomentCard renders the role headline correctly.
+        try {
+          const recapRes = await pool.query(
+            `SELECT id, author_id, academy_id, context_type, context_id, caption,
+                    media_urls, media_types, visibility, group_id, cheer_count,
+                    comment_count, created_at, is_hidden, tagged_user_ids, location_name,
+                    is_pinned, pinned_until, post_template, is_draft
+               FROM posts
+              WHERE is_hidden = false
+                AND is_draft = false
+                AND visibility = 'private'
+                AND recipient_user_ids @> ARRAY[$1]::varchar[]
+              ORDER BY (is_pinned AND pinned_until > NOW()) DESC, id DESC
+              LIMIT $2 OFFSET $3`,
+            [userId, limitVal, offsetVal],
+          );
+          for (const p of recapRes.rows || []) {
+            postMap.set(p.id, p);
+            // Build a synthetic feed_item-like row so the mapping branch
+            // below picks it up (source_type triggers hydration).
+            feedRows.push({
+              id: `recap:${p.id}`,
+              source_type: "coach_spotlight",
+              source_id: p.id,
+              scope: "private",
+              country: null,
+              academy_id: p.academy_id,
+              group_id: null,
+              author_user_id: p.author_id,
+              author_player_id: null,
+              post_id: p.id,
+              payload: {
+                postTemplate: p.post_template,
+                isPinned: p.is_pinned,
+                pinnedUntil: p.pinned_until,
+                authorRole: "coach",
+              },
+              occurred_at: p.created_at,
+              created_at: p.created_at,
+            });
+            // Top up author hydration if the recap author wasn't already
+            // included by the feed_items query.
+            if (p.author_id && !authorMap.has(p.author_id)) {
+              try {
+                const ar2 = await pool.query(
+                  `SELECT u.id, u.username, u.player_id, u.coach_id,
+                          pl.name AS player_name, pl.profile_photo_url AS player_photo, pl.ball_level,
+                          c.name AS coach_name, c.photo_url AS coach_photo
+                     FROM users u
+                     LEFT JOIN players pl ON pl.id = u.player_id
+                     LEFT JOIN coaches c ON c.id = u.coach_id
+                    WHERE u.id = $1
+                    LIMIT 1`,
+                  [p.author_id],
+                );
+                const row = (ar2.rows || [])[0];
+                if (row) {
+                  authorMap.set(row.id, {
+                    id: row.id,
+                    username: row.username || "Unknown",
+                    name: row.player_name || row.coach_name || row.username || "Unknown",
+                    photoUrl: row.player_photo || row.coach_photo || null,
+                    ballLevel: row.ball_level || null,
+                    isCoach: !!row.coach_id,
+                  });
+                }
+              } catch {
+                /* best-effort */
+              }
+            }
+          }
+          // Re-sort merged rows so recaps interleave by recency.
+          feedRows.sort((a, b) => {
+            const ta = new Date(a.occurred_at || a.created_at || 0).getTime();
+            const tb = new Date(b.occurred_at || b.created_at || 0).getTime();
+            return tb - ta;
+          });
+        } catch (err) {
+          console.error("[social-features] recap private merge failed:", err);
+        }
+
         const items = feedRows
           .filter((r) => !r.author_user_id || !blockedSet.has(r.author_user_id))
           .map((r) => {
@@ -328,7 +431,7 @@ const socialPostUpload = multer({
               commentCount: Number(r.comment_count) || 0,
               userReaction: feedItemReactionMap.get(r.id) || null,
             };
-            if (r.source_type === "manual_moment" && r.post_id) {
+            if ((r.source_type === "manual_moment" || r.source_type === "coach_spotlight") && r.post_id) {
               const p = postMap.get(r.post_id);
               if (p) {
                 return {
@@ -346,6 +449,8 @@ const socialPostUpload = multer({
                   taggedUserIds: p.tagged_user_ids || [],
                   locationName: p.location_name,
                   isPinned: p.is_pinned,
+                  pinnedUntil: p.pinned_until,
+                  postTemplate: p.post_template,
                 };
               }
             }
@@ -426,10 +531,11 @@ const socialPostUpload = multer({
           const result = await pool.query(
             `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
-                   comment_count, created_at, is_hidden
+                   comment_count, created_at, is_hidden, is_pinned, pinned_until,
+                   post_template, is_draft, tagged_user_ids, location_name
             FROM posts 
-            WHERE academy_id = $1 AND is_hidden = false AND author_id = ANY($2::text[])
-            ORDER BY id DESC
+            WHERE academy_id = $1 AND is_hidden = false AND is_draft = false AND author_id = ANY($2::text[])
+            ORDER BY (is_pinned AND pinned_until > NOW()) DESC, id DESC
             LIMIT $3
             OFFSET $4`,
             [academyId, friendUserIds, limitVal, offsetVal]
@@ -439,10 +545,11 @@ const socialPostUpload = multer({
           const result = await pool.query(
             `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
-                   comment_count, created_at, is_hidden
+                   comment_count, created_at, is_hidden, is_pinned, pinned_until,
+                   post_template, is_draft, tagged_user_ids, location_name
             FROM posts 
-            WHERE academy_id = $1 AND is_hidden = false AND group_id = ANY($2::text[])
-            ORDER BY id DESC
+            WHERE academy_id = $1 AND is_hidden = false AND is_draft = false AND group_id = ANY($2::text[])
+            ORDER BY (is_pinned AND pinned_until > NOW()) DESC, id DESC
             LIMIT $3
             OFFSET $4`,
             [academyId, groupIds, limitVal, offsetVal]
@@ -452,10 +559,11 @@ const socialPostUpload = multer({
           rawPosts = await db.execute(sql`
             SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
-                   comment_count, created_at, is_hidden
+                   comment_count, created_at, is_hidden, is_pinned, pinned_until,
+                   post_template, is_draft, tagged_user_ids, location_name
             FROM posts 
-            WHERE academy_id = ${academyId} AND is_hidden = false AND (visibility = 'academy' OR visibility = 'public')
-            ORDER BY id DESC
+            WHERE academy_id = ${academyId} AND is_hidden = false AND is_draft = false AND (visibility = 'academy' OR visibility = 'public')
+            ORDER BY (is_pinned AND pinned_until > NOW()) DESC, id DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
           `);
@@ -463,10 +571,11 @@ const socialPostUpload = multer({
           rawPosts = await db.execute(sql`
             SELECT id, author_id, academy_id, context_type, context_id, caption, 
                    media_urls, media_types, visibility, group_id, cheer_count, 
-                   comment_count, created_at, is_hidden
+                   comment_count, created_at, is_hidden, is_pinned, pinned_until,
+                   post_template, is_draft, tagged_user_ids, location_name
             FROM posts 
-            WHERE academy_id = ${academyId} AND is_hidden = false AND context_type = 'event'
-            ORDER BY id DESC
+            WHERE academy_id = ${academyId} AND is_hidden = false AND is_draft = false AND context_type = 'event'
+            ORDER BY (is_pinned AND pinned_until > NOW()) DESC, id DESC
             LIMIT ${limitVal}
             OFFSET ${offsetVal}
           `);
@@ -516,18 +625,21 @@ const socialPostUpload = multer({
             const result = await pool.query(
               `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
-                     comment_count, created_at, is_hidden
+                     comment_count, created_at, is_hidden, is_pinned, pinned_until,
+                     post_template, is_draft, tagged_user_ids, location_name
               FROM posts 
               WHERE academy_id = $1 
                 AND is_hidden = false
+                AND is_draft = false
                 AND (
                   author_id = $2
                   OR visibility = 'academy'
                   OR visibility = 'public'
                   OR (visibility = 'friends' AND author_id = ANY($3::text[]))
                   OR (visibility = 'group' AND group_id = ANY($4::text[]))
+                  OR (visibility = 'private' AND recipient_user_ids @> ARRAY[$2]::varchar[])
                 )
-              ORDER BY id DESC
+              ORDER BY (is_pinned AND pinned_until > NOW()) DESC, id DESC
               LIMIT $5
               OFFSET $6`,
               [academyId, userId, forYouFriendIds, forYouGroupIds, limitVal, offsetVal]
@@ -537,17 +649,20 @@ const socialPostUpload = multer({
             const result = await pool.query(
               `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
-                     comment_count, created_at, is_hidden
+                     comment_count, created_at, is_hidden, is_pinned, pinned_until,
+                     post_template, is_draft, tagged_user_ids, location_name
               FROM posts 
               WHERE academy_id = $1 
                 AND is_hidden = false
+                AND is_draft = false
                 AND (
                   author_id = $2
                   OR visibility = 'academy'
                   OR visibility = 'public'
                   OR (visibility = 'friends' AND author_id = ANY($3::text[]))
+                  OR (visibility = 'private' AND recipient_user_ids @> ARRAY[$2]::varchar[])
                 )
-              ORDER BY id DESC
+              ORDER BY (is_pinned AND pinned_until > NOW()) DESC, id DESC
               LIMIT $4
               OFFSET $5`,
               [academyId, userId, forYouFriendIds, limitVal, offsetVal]
@@ -557,17 +672,20 @@ const socialPostUpload = multer({
             const result = await pool.query(
               `SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
-                     comment_count, created_at, is_hidden
+                     comment_count, created_at, is_hidden, is_pinned, pinned_until,
+                     post_template, is_draft, tagged_user_ids, location_name
               FROM posts 
               WHERE academy_id = $1 
                 AND is_hidden = false
+                AND is_draft = false
                 AND (
                   author_id = $2
                   OR visibility = 'academy'
                   OR visibility = 'public'
                   OR (visibility = 'group' AND group_id = ANY($3::text[]))
+                  OR (visibility = 'private' AND recipient_user_ids @> ARRAY[$2]::varchar[])
                 )
-              ORDER BY id DESC
+              ORDER BY (is_pinned AND pinned_until > NOW()) DESC, id DESC
               LIMIT $4
               OFFSET $5`,
               [academyId, userId, forYouGroupIds, limitVal, offsetVal]
@@ -578,16 +696,19 @@ const socialPostUpload = multer({
             rawPosts = await db.execute(sql`
               SELECT id, author_id, academy_id, context_type, context_id, caption, 
                      media_urls, media_types, visibility, group_id, cheer_count, 
-                     comment_count, created_at, is_hidden
+                     comment_count, created_at, is_hidden, is_pinned, pinned_until,
+                     post_template, is_draft, tagged_user_ids, location_name
               FROM posts 
               WHERE academy_id = ${academyId} 
                 AND is_hidden = false
+                AND is_draft = false
                 AND (
                   author_id = ${userId}
                   OR visibility = 'academy'
                   OR visibility = 'public'
+                  OR (visibility = 'private' AND recipient_user_ids @> ARRAY[${userId}]::varchar[])
                 )
-              ORDER BY id DESC
+              ORDER BY (is_pinned AND pinned_until > NOW()) DESC, id DESC
               LIMIT ${limitVal}
               OFFSET ${offsetVal}
             `);
@@ -609,6 +730,11 @@ const socialPostUpload = multer({
           commentCount: row.comment_count || 0,
           createdAt: row.created_at,
           isHidden: row.is_hidden,
+          isPinned: row.is_pinned,
+          pinnedUntil: row.pinned_until,
+          postTemplate: row.post_template,
+          taggedUserIds: row.tagged_user_ids || [],
+          locationName: row.location_name,
         }));
       } catch (queryError) {
         console.error("Error querying posts:", queryError);
@@ -776,7 +902,8 @@ const socialPostUpload = multer({
 
       const { 
         contextType, contextId, caption, mediaUrls = [], mediaTypes = [],
-        visibility = "academy", groupId, taggedUserIds = [], locationName 
+        visibility = "academy", groupId, taggedUserIds = [], locationName,
+        postTemplate, isPinned, pinnedUntil,
       } = req.body;
       
       if (!contextType) {
@@ -793,7 +920,109 @@ const socialPostUpload = multer({
           code: "MOMENT_VISIBILITY_NOT_ALLOWED",
         });
       }
-      
+
+      // Phase 3 — Coach/Academy podium templates.
+      // Only coaches and academy owners may attach a template; players posting
+      // via the regular composer never set one. The matrix below is enforced
+      // against the actor's role within this academy:
+      //   - SHARED: tip, announcement, drill                    → coach OR academy owner
+      //   - ACADEMY-ONLY: schedule_change, event_invite,
+      //                   coach_spotlight                       → academy owner only
+      //   - COACH-ONLY: lesson_recap                            → server-generated only
+      //                                                           (rejected from manual composer)
+      const sharedTemplates = new Set(["tip", "announcement", "drill"]);
+      const academyOnlyTemplates = new Set([
+        "schedule_change", "event_invite", "coach_spotlight",
+      ]);
+      const serverOnlyTemplates = new Set(["lesson_recap"]);
+      const allowedTemplates = new Set([
+        ...sharedTemplates,
+        ...academyOnlyTemplates,
+        ...serverOnlyTemplates,
+      ]);
+
+      let normalizedTemplate: string | null = null;
+      if (postTemplate) {
+        if (!allowedTemplates.has(postTemplate)) {
+          return res.status(400).json({
+            error: "Invalid post template.",
+            code: "POST_TEMPLATE_INVALID",
+          });
+        }
+        if (serverOnlyTemplates.has(postTemplate)) {
+          return res.status(403).json({
+            error: "This template is generated by the system and cannot be posted directly.",
+            code: "POST_TEMPLATE_SERVER_ONLY",
+          });
+        }
+        // Look up the actor's role within this academy.
+        const roleRow = await db.execute(sql`
+          SELECT u.coach_id, u.role,
+                 EXISTS (
+                   SELECT 1 FROM academies a
+                    WHERE a.id = ${academyId} AND a.owner_id = u.id
+                 ) AS is_owner
+            FROM users u
+           WHERE u.id = ${userId}
+           LIMIT 1
+        `);
+        const r = roleRow.rows?.[0] as
+          | { coach_id: string | null; role: string | null; is_owner: boolean }
+          | undefined;
+        const isCoach = !!r?.coach_id;
+        const isAcademyOwner = !!r?.is_owner;
+
+        if (academyOnlyTemplates.has(postTemplate) && !isAcademyOwner) {
+          return res.status(403).json({
+            error: "Only academy owners can post this template.",
+            code: "POST_TEMPLATE_OWNER_ONLY",
+          });
+        }
+        if (sharedTemplates.has(postTemplate) && !isCoach && !isAcademyOwner) {
+          return res.status(403).json({
+            error: "Only coaches or academy owners can post this template.",
+            code: "POST_TEMPLATE_ROLE_REQUIRED",
+          });
+        }
+        normalizedTemplate = postTemplate;
+      }
+
+      // Pinning rules: only coaches/owners may pin, max 24h.
+      let normalizedIsPinned = false;
+      let normalizedPinnedUntil: Date | null = null;
+      if (isPinned) {
+        if (!normalizedTemplate) {
+          return res.status(400).json({
+            error: "Only coach/academy template posts can be pinned.",
+            code: "PIN_TEMPLATE_REQUIRED",
+          });
+        }
+        const requested = pinnedUntil ? new Date(pinnedUntil) : null;
+        const max = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const expiry =
+          requested && !isNaN(requested.getTime()) && requested < max
+            ? requested
+            : max;
+        normalizedIsPinned = true;
+        normalizedPinnedUntil = expiry;
+
+        // Pin cap: replace any existing pin in the same group/academy.
+        if (groupId) {
+          await db.execute(sql`
+            UPDATE posts SET is_pinned = false, pinned_until = null
+             WHERE group_id = ${groupId}
+               AND is_pinned = true
+          `);
+        } else {
+          await db.execute(sql`
+            UPDATE posts SET is_pinned = false, pinned_until = null
+             WHERE academy_id = ${academyId}
+               AND group_id IS NULL
+               AND is_pinned = true
+          `);
+        }
+      }
+
       if (caption && caption.length > 280) {
         return res.status(400).json({ error: "Caption too long (max 280 characters)" });
       }
@@ -812,6 +1041,9 @@ const socialPostUpload = multer({
         groupId,
         taggedUserIds,
         locationName,
+        postTemplate: normalizedTemplate,
+        isPinned: normalizedIsPinned,
+        pinnedUntil: normalizedPinnedUntil,
       }).returning();
       
       // Update user's post count
@@ -927,6 +1159,289 @@ const socialPostUpload = multer({
       res.status(500).json({ error: "Failed to delete post" });
     }
   });
+
+  // ===== Phase 3 — Coach/Academy podium endpoints =====
+
+  // List coaches in the requester's academy. Used by the academy-owner
+  // composer when picking a coach for a `coach_spotlight` post.
+  router.get(
+    "/api/social/composer/academy-coaches",
+    authMiddleware,
+    requireFeatureUnlock("community_feed"),
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId;
+        if (!academyId) return res.json({ coaches: [] });
+        const result = await db
+          .select({
+            id: coachesTable.id,
+            name: coachesTable.name,
+            photoUrl: coachesTable.photoUrl,
+            specialty: coachesTable.specialty,
+            userId: users.id,
+          })
+          .from(coachesTable)
+          .leftJoin(users, eq(users.coachId, coachesTable.id))
+          .where(eq(coachesTable.academyId, academyId))
+          .orderBy(asc(coachesTable.name));
+        res.json({ coaches: result });
+      } catch (error) {
+        console.error("Error listing academy coaches:", error);
+        res.status(500).json({ error: "Failed to list coaches" });
+      }
+    },
+  );
+
+  // List upcoming sessions in the requester's academy (next 30 days). Used
+  // by the academy-owner composer when picking an event for an
+  // `event_invite` post.
+  router.get(
+    "/api/social/composer/upcoming-events",
+    authMiddleware,
+    requireFeatureUnlock("community_feed"),
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId;
+        if (!academyId) return res.json({ events: [] });
+        const now = new Date();
+        const horizon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const result = await db
+          .select({
+            id: sessionsTable.id,
+            title: sessionsTable.title,
+            startTime: sessionsTable.startTime,
+            endTime: sessionsTable.endTime,
+            sessionType: sessionsTable.sessionType,
+          })
+          .from(sessionsTable)
+          .where(
+            and(
+              eq(sessionsTable.academyId, academyId),
+              gte(sessionsTable.startTime, now),
+              sql`${sessionsTable.startTime} <= ${horizon}`,
+            ),
+          )
+          .orderBy(asc(sessionsTable.startTime))
+          .limit(50);
+        res.json({ events: result });
+      } catch (error) {
+        console.error("Error listing upcoming events:", error);
+        res.status(500).json({ error: "Failed to list upcoming events" });
+      }
+    },
+  );
+
+  // List the current coach's pending lesson-recap drafts.
+  router.get(
+    "/api/social/coach/recap-drafts",
+    authMiddleware,
+    requireFeatureUnlock("community_feed"),
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const result = await db.execute(sql`
+          SELECT p.id, p.caption, p.context_id AS session_id,
+                 p.created_at, p.media_urls, p.media_types,
+                 s.start_time AS session_start, s.session_type
+            FROM posts p
+       LEFT JOIN sessions s ON s.id = p.context_id
+           WHERE p.author_id = ${userId}
+             AND p.is_draft = true
+             AND p.post_template = 'lesson_recap'
+             AND p.is_hidden = false
+        ORDER BY p.created_at DESC
+           LIMIT 50
+        `);
+        res.json(
+          (result.rows || []).map((r: any) => ({
+            id: r.id,
+            caption: r.caption,
+            sessionId: r.session_id,
+            sessionStart: r.session_start,
+            sessionType: r.session_type,
+            createdAt: r.created_at,
+            mediaUrls: r.media_urls || [],
+            mediaTypes: r.media_types || [],
+          })),
+        );
+      } catch (error) {
+        console.error("Error listing recap drafts:", error);
+        res.status(500).json({ error: "Failed to list recap drafts" });
+      }
+    },
+  );
+
+  // Send a recap draft: edits the caption (optional) and flips it to a
+  // published private post (visibility=private — visible only via direct
+  // link by the player + parents).
+  router.post(
+    "/api/social/coach/recap-drafts/:id/send",
+    authMiddleware,
+    requireFeatureUnlock("community_feed"),
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const { id } = req.params;
+        const { caption, mediaUrls, mediaTypes } = req.body || {};
+
+        const [draft] = await db
+          .select()
+          .from(postsTable)
+          .where(eq(postsTable.id, id));
+        if (!draft || draft.authorId !== userId || !draft.isDraft) {
+          return res.status(404).json({ error: "Draft not found" });
+        }
+
+        const filtered = caption ? filterProfanity(String(caption)) : draft.caption;
+        if (filtered && filtered.length > 280) {
+          return res.status(400).json({ error: "Caption too long (max 280)" });
+        }
+
+        await db
+          .update(postsTable)
+          .set({
+            caption: filtered,
+            mediaUrls: Array.isArray(mediaUrls) ? mediaUrls : draft.mediaUrls,
+            mediaTypes: Array.isArray(mediaTypes) ? mediaTypes : draft.mediaTypes,
+            isDraft: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(postsTable.id, id));
+
+        // Note: we deliberately don't call publishMomentPost here. The post
+        // remains visibility='private', and the for_you feed query already
+        // surfaces it to users listed in recipient_user_ids (the linked
+        // player + parents, populated when the draft was created).
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error sending recap:", error);
+        res.status(500).json({ error: "Failed to send recap" });
+      }
+    },
+  );
+
+  // Skip a recap draft: hard-delete the draft so it doesn't clutter the
+  // coach's queue.
+  router.delete(
+    "/api/social/coach/recap-drafts/:id",
+    authMiddleware,
+    requireFeatureUnlock("community_feed"),
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const { id } = req.params;
+        const [draft] = await db
+          .select()
+          .from(postsTable)
+          .where(eq(postsTable.id, id));
+        if (!draft || draft.authorId !== userId || !draft.isDraft) {
+          return res.status(404).json({ error: "Draft not found" });
+        }
+        await db.delete(postsTable).where(eq(postsTable.id, id));
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error skipping recap:", error);
+        res.status(500).json({ error: "Failed to skip recap" });
+      }
+    },
+  );
+
+  // Toggle the coach's lesson-recap opt-in. Self-only.
+  router.patch(
+    "/api/social/coach/lesson-recap-enabled",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const { enabled } = req.body || {};
+        const userRow = await db.execute(sql`
+          SELECT coach_id FROM users WHERE id = ${userId} LIMIT 1
+        `);
+        const coachIdRow = (
+          userRow.rows?.[0] as { coach_id: string | null } | undefined
+        )?.coach_id;
+        if (!coachIdRow) {
+          return res.status(403).json({ error: "Only coaches can toggle this." });
+        }
+        await db.execute(sql`
+          UPDATE coaches
+             SET lesson_recap_enabled = ${!!enabled}
+           WHERE id = ${coachIdRow}
+        `);
+        res.json({ success: true, enabled: !!enabled });
+      } catch (error) {
+        console.error("Error toggling lesson recap:", error);
+        res.status(500).json({ error: "Failed to toggle" });
+      }
+    },
+  );
+
+  // Read the coach's lesson-recap opt-in.
+  router.get(
+    "/api/social/coach/lesson-recap-enabled",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const result = await db.execute(sql`
+          SELECT c.lesson_recap_enabled
+            FROM users u
+            JOIN coaches c ON c.id = u.coach_id
+           WHERE u.id = ${userId}
+           LIMIT 1
+        `);
+        const enabled = !!(
+          result.rows?.[0] as { lesson_recap_enabled: boolean | null } | undefined
+        )?.lesson_recap_enabled;
+        res.json({ enabled });
+      } catch (error) {
+        console.error("Error reading lesson recap toggle:", error);
+        res.status(500).json({ error: "Failed to read" });
+      }
+    },
+  );
+
+  // Unpin a post (coach/owner only). Useful before the 24h auto-expire.
+  router.post(
+    "/api/social/posts/:id/unpin",
+    authMiddleware,
+    requireFeatureUnlock("community_feed"),
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const { id } = req.params;
+        const [post] = await db
+          .select()
+          .from(postsTable)
+          .where(eq(postsTable.id, id));
+        if (!post) return res.status(404).json({ error: "Post not found" });
+        // Authorization: author can always unpin their own post; platform_owner
+        // can override; academy_owner can unpin only if they own the academy
+        // this post belongs to (verified against academies.owner_id).
+        let authorized =
+          post.authorId === userId || req.user!.role === "platform_owner";
+        if (!authorized && req.user!.role === "academy_owner" && post.academyId) {
+          const ownsRow = await db.execute(sql`
+            SELECT 1 FROM academies
+             WHERE id = ${post.academyId} AND owner_id = ${userId}
+             LIMIT 1
+          `);
+          authorized = (ownsRow.rows?.length || 0) > 0;
+        }
+        if (!authorized) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
+        await db
+          .update(postsTable)
+          .set({ isPinned: false, pinnedUntil: null })
+          .where(eq(postsTable.id, id));
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error unpinning:", error);
+        res.status(500).json({ error: "Failed to unpin" });
+      }
+    },
+  );
 
   // Add/update reaction to post
   router.post("/api/social/posts/:id/reactions", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {

@@ -286,7 +286,12 @@ export default function CommunityScreen() {
               keyExtractor={(item: any) => `${item.feedType || "post"}:${item.id}`}
               renderItem={({ item }: { item: any }) => {
                 const t = item?.feedType;
-                if (t && t !== "manual_moment") {
+                // Phase 3: coach_spotlight items are coach/academy-authored
+                // moment posts (with template + author info hydrated). They
+                // must render through MomentCard so the role headline,
+                // template pill, and pinned styling are applied — NOT the
+                // generic SystemFeedCard which only handles event-style rows.
+                if (t && t !== "manual_moment" && t !== "coach_spotlight") {
                   return (
                     <SystemFeedCard
                       item={item}

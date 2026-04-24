@@ -3951,6 +3951,68 @@ router.post(
           .set({ coachReviewedAt: new Date() })
           .where(eq(sessions.id, id));
 
+        // Phase 3 — Lesson recap drafts.
+        // If the coach opted into lesson recaps, create one private draft
+        // post per present player (visibility=private, isDraft=true). The
+        // coach can edit + send from the dashboard ("Send recap") within
+        // the recap window or the draft is silently dropped via skip.
+        if (req.body.markCompleted && !autoCancelled && coachId && presentPlayers.length > 0) {
+          try {
+            const coachRow = await storage.getCoach(coachId);
+            if (coachRow && coachRow.lessonRecapEnabled) {
+              const coachUserRow = await db.execute(sql`
+                SELECT id FROM users WHERE coach_id = ${coachId} LIMIT 1
+              `);
+              const coachUserId =
+                (coachUserRow.rows?.[0] as { id: string } | undefined)?.id ?? null;
+              if (coachUserId) {
+                for (const pp of presentPlayers) {
+                  try {
+                    const playerRow = await storage.getPlayer(pp.playerId);
+                    const playerName = playerRow?.name || "your player";
+                    const draftCaption =
+                      `Lesson recap for ${playerName} — Add a quick highlight, ` +
+                      `one focus area, and what to practice this week.`;
+                    // Resolve recipient userIds: the player's own user account +
+                    // any linked parent users. Stored on the post so the feed
+                    // query can surface this private post only to those users.
+                    const recipientRows = await db.execute(sql`
+                      SELECT u.id AS user_id
+                        FROM users u
+                       WHERE u.player_id = ${pp.playerId}
+                      UNION
+                      SELECT ppr.parent_user_id AS user_id
+                        FROM parent_player_relations ppr
+                       WHERE ppr.player_id = ${pp.playerId}
+                         AND ppr.parent_user_id IS NOT NULL
+                    `);
+                    const recipientIds = (
+                      recipientRows.rows as Array<{ user_id: string | null }>
+                    )
+                      .map((r) => r.user_id)
+                      .filter((x): x is string => typeof x === "string" && x.length > 0);
+                    await db.execute(sql`
+                      INSERT INTO posts (
+                        author_id, academy_id, context_type, context_id,
+                        caption, visibility, post_template, is_draft,
+                        recipient_user_ids
+                      ) VALUES (
+                        ${coachUserId}, ${academyId || null}, 'session', ${id},
+                        ${draftCaption}, 'private', 'lesson_recap', true,
+                        ${recipientIds}
+                      )
+                    `);
+                  } catch (recapErr) {
+                    console.error("[LessonRecap] Failed to create draft for player", pp.playerId, recapErr);
+                  }
+                }
+              }
+            }
+          } catch (recapOuterErr) {
+            console.error("[LessonRecap] Outer error:", recapOuterErr);
+          }
+        }
+
         // Invalidate server-side caches so next fetch gets fresh data
         if (coachId) {
           apiCache.invalidate(`series:${coachId}`);

@@ -23,6 +23,8 @@ import {
   CONTEXT_BADGE_STYLES,
   CHEER_REACTIONS,
   formatTimeAgo,
+  POST_TEMPLATE_META,
+  type PostTemplate,
 } from "./CommunityTypes";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -173,6 +175,10 @@ export function MomentCard({
   }, [post.contextType, t]);
 
   const contextStyle = CONTEXT_BADGE_STYLES[post.contextType] || CONTEXT_BADGE_STYLES.training;
+  const templateMeta = post.postTemplate
+    ? POST_TEMPLATE_META[post.postTemplate as PostTemplate]
+    : null;
+  const isCoachOrAcademyPost = !!templateMeta || !!post.author?.isCoach;
   const hasMedia = post.mediaUrls && post.mediaUrls.length > 0 && !!post.mediaUrls[0];
   const isVideo = hasMedia && post.mediaTypes && post.mediaTypes[0] === "video";
   const rawMediaUrl = hasMedia ? post.mediaUrls[0] : "";
@@ -263,8 +269,52 @@ export function MomentCard({
             <ThemedText style={styles.momentTime}>{formatTimeAgo(post.createdAt)}</ThemedText>
           </View>
 
+          {post.isPinned || templateMeta ? (
+            <View style={styles.podiumBadgeRow}>
+              {post.isPinned ? (
+                <View style={styles.pinnedPill}>
+                  <Ionicons name="pin" size={11} color={Colors.dark.warning} />
+                  <ThemedText style={styles.pinnedPillText}>Pinned</ThemedText>
+                </View>
+              ) : null}
+              {templateMeta ? (
+                <View
+                  style={[
+                    styles.templatePill,
+                    { backgroundColor: templateMeta.accent + "22", borderColor: templateMeta.accent + "55" },
+                  ]}
+                >
+                  <Ionicons name={templateMeta.icon as any} size={11} color={templateMeta.accent} />
+                  <ThemedText style={[styles.templatePillText, { color: templateMeta.accent }]}>
+                    {templateMeta.label}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* Phase 3 podium headline: "Coach NAME — Tip of the Day" so the
+              role/template attribution is unmistakable above the caption. */}
+          {templateMeta ? (
+            <ThemedText style={[styles.podiumHeadline, { color: templateMeta.accent }]}>
+              {(post.author?.isCoach ? "Coach " : "") +
+                (post.author?.name || post.author?.username || "")}
+              {" — "}
+              {templateMeta.label}
+            </ThemedText>
+          ) : null}
+
           {post.caption ? (
-            <ThemedText style={styles.momentCaption}>{post.caption}</ThemedText>
+            <ThemedText
+              style={[
+                styles.momentCaption,
+                isCoachOrAcademyPost && templateMeta
+                  ? { borderLeftWidth: 3, borderLeftColor: templateMeta.accent, paddingLeft: 10 }
+                  : null,
+              ]}
+            >
+              {post.caption}
+            </ThemedText>
           ) : null}
 
           <View style={styles.momentActions}>
@@ -948,6 +998,51 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   momentTime: {
     fontSize: 12,
     color: Colors.dark.textMuted,
+  },
+  podiumBadgeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+    marginBottom: Spacing.sm,
+  },
+  pinnedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: (Colors.dark.warning || "#F59E0B") + "22",
+    borderColor: (Colors.dark.warning || "#F59E0B") + "55",
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  pinnedPillText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.warning || "#F59E0B",
+    letterSpacing: 0.4,
+  },
+  templatePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  templatePillText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  podiumHeadline: {
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: Spacing.xs,
+    letterSpacing: 0.2,
   },
   momentCaption: {
     fontSize: 14,

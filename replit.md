@@ -89,6 +89,7 @@ The application features a dark-themed premium sports aesthetic with a simplifie
 - **Role-Specific Applications**: Dedicated apps for Coaches, Players, Platform Owners, and Service Providers.
 - **Glow Market & Community Marketplace**: E-commerce with XP-based discounts and used equipment.
 - **Group Social Hub**: Group-specific Events tab with RSVP and group Chat with emoji reactions.
+- **Coach & Academy Posts (Social Phase 3)**: Post templates (tip/announcement/drill/schedule_change/event_invite/coach_spotlight/lesson_recap) authored by coaches or academies, with role-tinted feed rendering, pinned posts (24h cap, single pin per group/academy), auto lesson-recap drafts (opt-in per coach), and country-scope publishing for tip/drill posts from public coaches passing the public-profile quality gate.
 - **Session Waitlist**: Allows players to join a waitlist for full sessions.
 - **Tournament Management**: Full tournament lifecycle including creation, registration, draw generation, result recording, and XP awards.
 - **Ladder System**: Challenge-based player ladders.

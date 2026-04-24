@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { setCurrentAcademyId } from "@/lib/auth";
 import OwnerDashboardScreen from "@/owner/screens/OwnerDashboardScreen";
+import CoachPostComposerScreen from "@/coach/screens/CoachPostComposerScreen";
 import AcademyScreen from "@/owner/screens/AcademyScreen";
 import PeopleScreen from "@/owner/screens/PeopleScreen";
 import OperationsScreen from "@/owner/screens/OperationsScreen";
@@ -57,6 +58,7 @@ export type OwnerStackParamList = {
   CoachCompensation: undefined;
   CreditPackages: undefined;
   ShopManagement: undefined;
+  CoachPostComposer: { mode?: "coach" | "academy"; academyId?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<OwnerStackParamList>();
@@ -105,6 +107,11 @@ function OwnerStackNavigator({ onboardingCompleted }: { onboardingCompleted: boo
       <Stack.Screen name="CoachCompensation" component={CoachCompensationScreen} />
       <Stack.Screen name="CreditPackages" component={CreditPackagesScreen} />
       <Stack.Screen name="ShopManagement" component={ShopManagementScreen} />
+      <Stack.Screen
+        name="CoachPostComposer"
+        component={CoachPostComposerScreen}
+        options={{ headerShown: true, headerTitle: "New Academy Post", presentation: "modal" }}
+      />
     </Stack.Navigator>
   );
 }

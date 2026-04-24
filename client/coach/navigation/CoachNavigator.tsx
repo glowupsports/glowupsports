@@ -6,6 +6,8 @@ import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { useChatState } from "@/coach/context/ChatStateContext";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import DashboardScreen from "@/coach/screens/DashboardScreen";
+import CoachPostComposerScreen from "@/coach/screens/CoachPostComposerScreen";
+import LessonRecapDraftsScreen from "@/coach/screens/LessonRecapDraftsScreen";
 import CalendarScreen from "@/coach/screens/CalendarScreen";
 import PlayersScreen from "@/coach/screens/PlayersScreen";
 import CoachingScreen from "@/coach/screens/CoachingScreen";
@@ -104,6 +106,8 @@ export type CoachStackParamList = {
   LiveMatchViewer: { matchId: string; playerName?: string };
   TournamentManagement: { tournamentId?: string } | undefined;
   AiUsage: undefined;
+  CoachPostComposer: { mode?: "coach" | "academy"; academyId?: string } | undefined;
+  LessonRecapDrafts: undefined;
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
@@ -457,6 +461,23 @@ function CoachStackNavigator() {
         component={AdminCourtsScreen}
         options={{
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="CoachPostComposer"
+        component={CoachPostComposerScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "New Post",
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="LessonRecapDrafts"
+        component={LessonRecapDraftsScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Lesson Recaps",
         }}
       />
     </Stack.Navigator>

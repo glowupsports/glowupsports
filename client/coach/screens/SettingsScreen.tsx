@@ -172,6 +172,66 @@ function GradientButton({ onPress, title, label, icon }: { onPress: () => void; 
   );
 }
 
+function LessonRecapSettingSection({ navigation }: { navigation: any }) {
+  const queryClient = useQueryClient();
+  const { data } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/social/coach/lesson-recap-enabled"],
+  });
+  const { data: drafts = [] } = useQuery<any[]>({
+    queryKey: ["/api/social/coach/recap-drafts"],
+  });
+  const enabled = !!data?.enabled;
+
+  const toggle = useMutation({
+    mutationFn: async (next: boolean) => {
+      const res = await apiRequest("PATCH", "/api/social/coach/lesson-recap-enabled", {
+        enabled: next,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/social/coach/lesson-recap-enabled"] });
+    },
+  });
+
+  return (
+    <View style={styles.section}>
+      <SectionHeader title="Lesson Recaps" icon="clipboard-outline" />
+      <View style={styles.settingRow}>
+        <View style={styles.settingInfo}>
+          <View style={styles.settingIconWrapper}>
+            <Ionicons name="sparkles-outline" size={20} color={Colors.dark.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingLabel}>Auto-create recap drafts</Text>
+            <Text style={styles.settingDescription}>
+              Private draft per player after each completed lesson
+            </Text>
+          </View>
+        </View>
+        <GlowSwitch value={enabled} onValueChange={(v) => toggle.mutate(v)} />
+      </View>
+      <Pressable
+        style={styles.settingRow}
+        onPress={() => navigation.navigate("LessonRecapDrafts")}
+      >
+        <View style={styles.settingInfo}>
+          <View style={styles.settingIconWrapper}>
+            <Ionicons name="albums-outline" size={20} color={Colors.dark.xpCyan} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.settingLabel}>Pending recap drafts</Text>
+            <Text style={styles.settingDescription}>
+              {drafts.length} waiting to send
+            </Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.dark.tabIconDefault} />
+      </Pressable>
+    </View>
+  );
+}
+
 export default function SettingsScreen() {
   const { coach, academy, calendarData } = useCoach();
   const insets = useSafeAreaInsets();
@@ -1010,6 +1070,9 @@ export default function SettingsScreen() {
             </>
           ) : null}
         </View>
+
+        {/* ====== LESSON RECAPS (Phase 3) ====== */}
+        <LessonRecapSettingSection navigation={navigation} />
 
         {/* ====== NOTIFICATIONS ====== */}
         <View style={styles.section}>

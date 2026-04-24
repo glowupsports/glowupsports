@@ -32,7 +32,90 @@ export interface Post {
     title?: string;
   };
   userReaction: string | null;
+  // Phase 3 — Coach/Academy podium fields. Optional for backward compat.
+  postTemplate?: string | null;
+  isPinned?: boolean;
+  pinnedUntil?: string | null;
 }
+
+// Phase 3 — Coach/Academy post template metadata. Drives feed-card label,
+// accent color, and composer wording.
+export type PostTemplate =
+  | "tip"
+  | "drill"
+  | "coach_spotlight"
+  | "lesson_recap"
+  | "announcement"
+  | "schedule_change"
+  | "event_invite";
+
+export interface PostTemplateMeta {
+  key: PostTemplate;
+  label: string;
+  icon: string;
+  accent: string;
+  audience: "coach" | "academy" | "either";
+  hint: string;
+}
+
+export const POST_TEMPLATE_META: Record<PostTemplate, PostTemplateMeta> = {
+  tip: {
+    key: "tip",
+    label: "Coach Tip",
+    icon: "bulb",
+    accent: "#F8D44A",
+    audience: "either",
+    hint: "Share a quick coaching tip players can try this week.",
+  },
+  drill: {
+    key: "drill",
+    label: "Drill",
+    icon: "fitness",
+    accent: "#4ECDC4",
+    audience: "either",
+    hint: "Describe a drill — setup, reps, what to focus on.",
+  },
+  coach_spotlight: {
+    key: "coach_spotlight",
+    label: "Coach Spotlight",
+    icon: "star",
+    accent: "#FF6B35",
+    audience: "academy",
+    hint: "Spotlight one of your coaches — milestone, shoutout, or new arrival.",
+  },
+  lesson_recap: {
+    key: "lesson_recap",
+    label: "Lesson Recap",
+    icon: "clipboard",
+    accent: "#9AE66E",
+    audience: "coach",
+    hint: "What did we work on? One highlight + one focus.",
+  },
+  announcement: {
+    key: "announcement",
+    label: "Announcement",
+    icon: "megaphone",
+    accent: "#3B82F6",
+    audience: "either",
+    hint: "Share important news with members.",
+  },
+  schedule_change: {
+    key: "schedule_change",
+    label: "Schedule Change",
+    icon: "alert-circle",
+    accent: "#EF4444",
+    audience: "academy",
+    hint: "Notify members about a schedule change or cancellation.",
+  },
+  event_invite: {
+    key: "event_invite",
+    label: "Event Invite",
+    icon: "calendar",
+    accent: "#E040FB",
+    audience: "academy",
+    hint: "Invite members to a tournament, clinic, or event.",
+  },
+};
 
 export type ContextType = "training" | "match" | "event" | "group" | "achievement" | "free_play";
 
