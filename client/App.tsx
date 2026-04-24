@@ -153,10 +153,12 @@ function AutoLockHost() {
   // reads the focused route name from the activeRoute store rather than
   // calling useNavigationState — that hook throws on cold start when used
   // outside of a navigator screen.
-  const { user, isAuthenticated } = useAuth();
+  const { user } = useAuth();
+  // Auto-lock inactivity overlay intentionally disabled (Task #1257);
+  // set `enabled` back to `isAuthenticated` from useAuth() to re-enable.
   return (
     <AutoLockOverlay
-      enabled={isAuthenticated}
+      enabled={false}
       playerId={user?.playerId || null}
       playerEmail={user?.email || null}
       playerName={(user as any)?.firstName || (user as any)?.name || null}
