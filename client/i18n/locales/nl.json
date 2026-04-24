@@ -1846,6 +1846,7 @@
   "whatsNew": {
     "title": "Wat is nieuw",
     "skip": "Overslaan",
+    "close": "Sluiten",
     "next": "Volgende",
     "letsGo": "Aan de slag",
     "dontShowAgain": "Niet meer tonen bij updates",

@@ -1846,6 +1846,7 @@
   "whatsNew": {
     "title": "What's New",
     "skip": "Skip",
+    "close": "Close",
     "next": "Next",
     "letsGo": "Let's go",
     "dontShowAgain": "Don't show this at future updates",

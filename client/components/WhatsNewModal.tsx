@@ -367,11 +367,16 @@ export function WhatsNewLatestLauncher({
     async (_didDisable: boolean) => {
       // From Settings we don't want to flip the disable toggle silently — the
       // user uses the dedicated Settings switch for that.
-      // We DO want to mark the version seen so the auto modal stops nagging.
-      try {
-        await markVersionSeen(user?.id || null, version);
-      } catch {
-        // best-effort
+      // We DO want to mark the version seen so the auto modal stops nagging,
+      // but ONLY when we have a real version string. If the fetch failed we
+      // keep `version` blank, and writing "" to AsyncStorage would poison the
+      // lastSeen key and trigger a noisy re-show on the next launch.
+      if (version && /^[\w.\-]{1,32}$/.test(version)) {
+        try {
+          await markVersionSeen(user?.id || null, version);
+        } catch {
+          // best-effort
+        }
       }
       onClose();
     },
@@ -428,6 +433,12 @@ const styles = StyleSheet.create({
   skipButton: {
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
+  },
+  closeButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
   skipButtonText: {
     ...Typography.small,
