@@ -6,8 +6,8 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  FlatList,
 } from "react-native";
-import { FlashList } from "@shopify/flash-list";
 import { useQuery } from "@tanstack/react-query";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -160,11 +160,10 @@ export default function AcademyVsAcademyScreen() {
           </Text>
         </View>
       ) : (
-        <FlashList
+        <FlatList
           data={rows}
           keyExtractor={(it) => it.academyId}
           renderItem={({ item }) => <AcademyRow row={item} />}
-          estimatedItemSize={76}
           contentContainerStyle={{
             paddingBottom: insets.bottom + Spacing.xl,
             paddingHorizontal: Spacing.lg,
