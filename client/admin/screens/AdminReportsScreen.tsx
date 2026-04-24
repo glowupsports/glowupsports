@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,7 +18,10 @@ import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
+import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { useWebAlert } from "@/components/WebAlertProvider";
 interface AdminStats {
   totalCoaches: number;
   totalPlayers: number;
@@ -47,6 +51,20 @@ interface RevenueData {
 
 type ReportType = "player-progress" | "session-history" | "revenue" | "coach-performance" | null;
 
+function formatYmd(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isValidYmd(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(s + "T00:00:00");
+  return !Number.isNaN(d.getTime());
+}
+
+
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
@@ -59,6 +77,47 @@ export default function AdminReportsScreen() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  // Cross-platform alert (uses in-app modal on web, native Alert on iOS/Android)
+  const webAlert = useWebAlert();
+  const notify = React.useCallback(
+    (title: string, message?: string) => {
+      if (Platform.OS === "web") {
+        webAlert.show(title, message ?? "");
+      } else {
+        Alert.alert(title, message);
+      }
+    },
+    [webAlert],
+  );
+
+  // Attendance Workbook export state
+  const today = useMemo(() => new Date(), []);
+  const ninetyDaysAgo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 90);
+    return d;
+  }, []);
+  const [showWorkbookModal, setShowWorkbookModal] = useState(false);
+  const [workbookFrom, setWorkbookFrom] = useState<string>(formatYmd(ninetyDaysAgo));
+  const [workbookTo, setWorkbookTo] = useState<string>(formatYmd(today));
+  const [workbookBallLevel, setWorkbookBallLevel] = useState<string | null>(null);
+  const [workbookSeriesId, setWorkbookSeriesId] = useState<string | null>(null);
+  const [isDownloadingWorkbook, setIsDownloadingWorkbook] = useState(false);
+
+  // Series list for the workbook filter (lazy: only loaded when modal opens)
+  type WorkbookSeriesOption = {
+    id: string;
+    title: string;
+    status: string | null;
+    ballLevel: string | null;
+    sessionType: string | null;
+  };
+  const { data: workbookSeriesData } = useQuery<{ series: WorkbookSeriesOption[] }>({
+    queryKey: ["/api/admin/reports/attendance-workbook/series"],
+    enabled: showWorkbookModal,
+  });
+  const workbookSeriesList = workbookSeriesData?.series ?? [];
 
   const { data: coaches = [] } = useQuery<any[]>({
     queryKey: ["/api/coaches"],
@@ -223,13 +282,87 @@ export default function AdminReportsScreen() {
       }
     } catch (error) {
       console.error('PDF export error:', error);
-      if (Platform.OS === 'web') {
-        window.alert('Failed to generate PDF');
-      } else {
-        Alert.alert('Error', 'Failed to generate PDF');
-      }
+      notify('Error', 'Failed to generate PDF');
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleDownloadAttendanceWorkbook = async () => {
+    if (!isValidYmd(workbookFrom) || !isValidYmd(workbookTo)) {
+      notify("Invalid date", "Use YYYY-MM-DD format for both dates.");
+      return;
+    }
+    if (workbookFrom > workbookTo) {
+      notify("Invalid range", "`From` must be on or before `To`.");
+      return;
+    }
+
+    setIsDownloadingWorkbook(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      const url = new URL(
+        "/api/admin/reports/attendance-workbook.xlsx",
+        getApiUrl(),
+      );
+      url.searchParams.set("from", workbookFrom);
+      url.searchParams.set("to", workbookTo);
+      if (workbookBallLevel) url.searchParams.set("ballLevel", workbookBallLevel);
+      if (workbookSeriesId) url.searchParams.set("seriesId", workbookSeriesId);
+
+      const filename = `academy-attendance_${workbookFrom}_${workbookTo}.xlsx`;
+      const xlsxMime =
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+      if (Platform.OS === "web") {
+        const res = await fetch(url.toString(), {
+          credentials: "include",
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) {
+          throw new Error(`Server returned ${res.status}`);
+        }
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = blobUrl;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(blobUrl);
+      } else {
+        const fileUri = `${FileSystem.cacheDirectory}${filename}`;
+        const downloadResult = await FileSystem.downloadAsync(
+          url.toString(),
+          fileUri,
+          { headers: getAuthHeaders() },
+        );
+        if (downloadResult.status !== 200) {
+          throw new Error(`Download failed (${downloadResult.status})`);
+        }
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: xlsxMime,
+            dialogTitle: "Share Attendance Workbook",
+            UTI: "org.openxmlformats.spreadsheetml.sheet",
+          });
+        } else {
+          notify("Workbook saved", `Saved to ${downloadResult.uri}`);
+        }
+      }
+
+      setShowWorkbookModal(false);
+    } catch (error) {
+      console.error("Attendance workbook download error:", error);
+      notify(
+        "Export failed",
+        "Could not generate the attendance workbook. Please try again.",
+      );
+    } finally {
+      setIsDownloadingWorkbook(false);
     }
   };
 
@@ -679,11 +812,210 @@ export default function AdminReportsScreen() {
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>
           </Pressable>
+
+          <Pressable
+            style={[styles.reportCard, CardStyles.elevated]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowWorkbookModal(true);
+            }}
+          >
+            <View style={styles.reportContent}>
+              <Ionicons name="grid-outline" size={24} color={Colors.dark.xpCyan} />
+              <View style={styles.reportText}>
+                <Text style={styles.reportTitle}>Attendance Workbook</Text>
+                <Text style={styles.reportSubtitle}>
+                  Multi-tab Excel export with date matrix per series
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+            </View>
+          </Pressable>
         </View>
         
       </ScrollView>
 
       {renderReportModal()}
+
+      <Modal
+        visible={showWorkbookModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowWorkbookModal(false)}
+      >
+        <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
+          <View style={styles.modalHeader}>
+            <Pressable onPress={() => setShowWorkbookModal(false)}>
+              <Ionicons name="close" size={24} color={Colors.dark.text} />
+            </Pressable>
+            <View style={styles.modalTitleRow}>
+              <Ionicons name="grid-outline" size={24} color={Colors.dark.xpCyan} />
+              <Text style={styles.modalTitle}>Attendance Workbook</Text>
+            </View>
+            <View style={{ width: 24 }} />
+          </View>
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={[
+              styles.modalScrollContent,
+              { paddingBottom: insets.bottom + Spacing.xl },
+            ]}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text style={styles.workbookHelper}>
+              Generate an Excel workbook with a Summary tab, an All Sessions tab,
+              and one tab per coaching series with a date-matrix of attendance.
+            </Text>
+
+            <Text style={styles.workbookLabel}>From</Text>
+            <TextInput
+              value={workbookFrom}
+              onChangeText={setWorkbookFrom}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.workbookInput}
+            />
+
+            <Text style={styles.workbookLabel}>To</Text>
+            <TextInput
+              value={workbookTo}
+              onChangeText={setWorkbookTo}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.workbookInput}
+            />
+
+            <Text style={styles.workbookLabel}>Ball Level (optional)</Text>
+            <View style={styles.ballLevelChips}>
+              <Pressable
+                onPress={() => setWorkbookBallLevel(null)}
+                style={[
+                  styles.ballLevelChip,
+                  workbookBallLevel === null && styles.ballLevelChipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.ballLevelChipText,
+                    workbookBallLevel === null && styles.ballLevelChipTextActive,
+                  ]}
+                >
+                  All
+                </Text>
+              </Pressable>
+              {Object.keys(ballLevelDistribution)
+                .filter((lvl) => lvl !== "unknown")
+                .map((lvl) => (
+                  <Pressable
+                    key={lvl}
+                    onPress={() => setWorkbookBallLevel(lvl)}
+                    style={[
+                      styles.ballLevelChip,
+                      workbookBallLevel === lvl && styles.ballLevelChipActive,
+                      { borderColor: getBallLevelColor(lvl) },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.levelDot,
+                        { backgroundColor: getBallLevelColor(lvl) },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.ballLevelChipText,
+                        workbookBallLevel === lvl && styles.ballLevelChipTextActive,
+                      ]}
+                    >
+                      {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+            </View>
+
+            <Text style={styles.workbookLabel}>Series (optional)</Text>
+            <View style={styles.ballLevelChips}>
+              <Pressable
+                onPress={() => setWorkbookSeriesId(null)}
+                style={[
+                  styles.ballLevelChip,
+                  workbookSeriesId === null && styles.ballLevelChipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.ballLevelChipText,
+                    workbookSeriesId === null && styles.ballLevelChipTextActive,
+                  ]}
+                >
+                  All series
+                </Text>
+              </Pressable>
+              {workbookSeriesList.map((s) => {
+                const isActive = workbookSeriesId === s.id;
+                const dotColor = s.ballLevel
+                  ? getBallLevelColor(s.ballLevel)
+                  : Colors.dark.textMuted;
+                return (
+                  <Pressable
+                    key={s.id}
+                    onPress={() => setWorkbookSeriesId(s.id)}
+                    style={[
+                      styles.ballLevelChip,
+                      isActive && styles.ballLevelChipActive,
+                      { borderColor: dotColor },
+                    ]}
+                  >
+                    <View
+                      style={[styles.levelDot, { backgroundColor: dotColor }]}
+                    />
+                    <Text
+                      style={[
+                        styles.ballLevelChipText,
+                        isActive && styles.ballLevelChipTextActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {s.title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {workbookSeriesList.length === 0 ? (
+                <Text style={styles.workbookHelper}>
+                  No coaching series found in your academy.
+                </Text>
+              ) : null}
+            </View>
+
+            <Pressable
+              style={[
+                styles.exportButton,
+                isDownloadingWorkbook && styles.exportButtonDisabled,
+              ]}
+              onPress={handleDownloadAttendanceWorkbook}
+              disabled={isDownloadingWorkbook}
+            >
+              {isDownloadingWorkbook ? (
+                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="download-outline"
+                    size={20}
+                    color={Colors.dark.buttonText}
+                  />
+                  <Text style={styles.exportButtonText}>Download Workbook</Text>
+                </>
+              )}
+            </Pressable>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1062,5 +1394,57 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.buttonText,
     fontWeight: "600",
+  },
+  workbookHelper: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  workbookLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+    marginTop: Spacing.md,
+    textTransform: "uppercase",
+    fontWeight: "600",
+  },
+  workbookInput: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    backgroundColor: Backgrounds.card,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  ballLevelChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  ballLevelChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Backgrounds.card,
+  },
+  ballLevelChipActive: {
+    backgroundColor: GlowColors.primary,
+    borderColor: GlowColors.primary,
+  },
+  ballLevelChipText: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  ballLevelChipTextActive: {
+    color: Colors.dark.buttonText,
   },
 });
