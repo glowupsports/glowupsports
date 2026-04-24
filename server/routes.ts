@@ -220,6 +220,7 @@ import lessonGroupsRoutes from "./routes/lesson-groups";
 import matchIntelligenceRoutes from "./routes/match-intelligence";
 import playerMatchReadinessRoutes from "./routes/player-match-readiness";
 import matchChallengeRoutes from "./routes/match-challenges";
+import outsideInvitesRoutes from "./routes/outside-invites";
 import playerLevelRoutes from "./routes/player-level";
 import roleMessagesRoutes from "./routes/role-messages";
 import socialFeaturesRoutes from "./routes/social-features";
@@ -540,6 +541,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Match Challenges must be BEFORE matchLogsRoutes (which has /api/matches/:matchId that would catch "challenge" as a matchId)
   app.use("/api/matches/challenge", matchChallengeRoutes);
+
+  // Task #1271 — Outsider invites for the Match Finder revamp.
+  // Mounts /api/outside-invites + the public /i/:token landing page.
+  app.use(outsideInvitesRoutes);
 
   // Session Plans, Match Logs, Evidence, Level-Up Events
   app.use(sessionPlansRoutes);

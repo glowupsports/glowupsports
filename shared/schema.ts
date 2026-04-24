@@ -8481,3 +8481,38 @@ export const releaseNotesCache = pgTable("release_notes_cache", {
 
 export type ReleaseNotesCache = typeof releaseNotesCache.$inferSelect;
 
+// Task #1271 — Outsider invites for the Match Finder revamp.
+// Each row represents a one-time invite a player generated for someone who
+// doesn't have the app yet. The token is what we share via SMS/WhatsApp/email
+// and that we resolve from the deferred deep-link landing page.
+//
+// `targetType` + `targetId` describe what the invitee is being invited to:
+//   - "match_challenge": targetId references match_challenges.id
+//   - "open_match":      targetId references open_matches.id
+//   - "play":            targetId is null — generic "come play with me" link
+// `claimedByPlayerId` is filled when the link is opened in-app and the new
+// player accepts. `expiresAt` defaults to 14 days from creation.
+export const outsideInvites = pgTable("outside_invites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  inviterPlayerId: varchar("inviter_player_id")
+    .references(() => players.id, { onDelete: "cascade" })
+    .notNull(),
+  token: varchar("token", { length: 32 }).notNull().unique(),
+  channel: text("channel"), // whatsapp | sms | email | copy | share
+  hashedContact: text("hashed_contact"), // sha256 of normalized phone/email — used for de-dup
+  targetType: text("target_type").notNull().default("play"), // match_challenge | open_match | play
+  targetId: varchar("target_id"),
+  message: text("message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  claimedByPlayerId: varchar("claimed_by_player_id").references(() => players.id),
+  claimedAt: timestamp("claimed_at"),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("outside_invites_inviter_idx").on(table.inviterPlayerId),
+  index("outside_invites_target_idx").on(table.targetType, table.targetId),
+  index("outside_invites_hashed_contact_idx").on(table.hashedContact),
+]);
+
+export type OutsideInvite = typeof outsideInvites.$inferSelect;
+export type InsertOutsideInvite = typeof outsideInvites.$inferInsert;
+

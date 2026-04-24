@@ -2886,7 +2886,10 @@ export default function PlayScreen() {
                           Haptics.impactAsync(
                             Haptics.ImpactFeedbackStyle.Medium,
                           );
-                          navigation.navigate("CreateMatch" as never);
+                          // Task #1271 — Find a Match now opens the
+                          // players-first Match Finder home; the legacy
+                          // wizard is reachable from its footer.
+                          navigation.navigate("MatchFinderHome" as never);
                         }}
                       >
                         <LinearGradient

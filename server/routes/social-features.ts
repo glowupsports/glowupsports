@@ -3975,6 +3975,26 @@ function socialPostUploadHandler(
           25,
         );
 
+        // Task #1271 — when called from the new Match Finder ("intent=match")
+        // we enrich each row with extra fields the player card needs (city,
+        // last-active timestamp, match-fit score, "why we suggested" chip).
+        const matchIntent = String(req.query.intent || "") === "match";
+        // Task #1271 — Match Finder also passes optional `scope` and
+        // `ballLevel` filters so the chips on the new screen can narrow
+        // the discovery rail without us re-running a separate query path.
+        const scopeFilter = (() => {
+          const v = String(req.query.scope || "").toLowerCase();
+          return v === "academy" || v === "country" || v === "global"
+            ? (v as "academy" | "country" | "global")
+            : null;
+        })();
+        const ballLevelFilter = (() => {
+          const v = String(req.query.ballLevel || "").toLowerCase();
+          return ["green", "yellow", "orange", "red", "glow"].includes(v)
+            ? v
+            : null;
+        })();
+
         // Resolve viewer context.
         const [me] = await db
           .select({
@@ -4054,7 +4074,8 @@ function socialPostUploadHandler(
         const excludedConn = new Set<string>();
         const pendingSentSet = new Set<string>();
         for (const c of conns) {
-          const otherId = c.p1 === playerId ? c.p2 : c.p1;
+          const otherId: string | null =
+            c.p1 === playerId ? c.p2 : c.p1;
           if (!otherId || otherId === playerId) continue;
           const isRequester = c.p1 === playerId;
           if (c.status === "pending" && isRequester) {
@@ -4083,6 +4104,8 @@ function socialPostUploadHandler(
           glowMmr: players.glowMmr,
           country: players.country,
           academyId: players.academyId,
+          city: players.city,
+          lastActiveAt: players.lastActiveAt,
         } as const;
 
         type DiscoveryRow = {
@@ -4094,6 +4117,8 @@ function socialPostUploadHandler(
           glowMmr: number | null;
           country: string | null;
           academyId: string | null;
+          city: string | null;
+          lastActiveAt: Date | string | null;
         };
 
         const stripHidden = (rows: DiscoveryRow[]): DiscoveryRow[] =>
@@ -4183,7 +4208,9 @@ function socialPostUploadHandler(
               p.skill_level   AS "skillLevel",
               p.glow_mmr      AS "glowMmr",
               p.country       AS "country",
-              p.academy_id    AS "academyId"
+              p.academy_id    AS "academyId",
+              p.city          AS "city",
+              p.last_active_at AS "lastActiveAt"
             FROM players p
             INNER JOIN users u ON u.player_id = p.id
             WHERE u.status = 'active'
@@ -4209,10 +4236,94 @@ function socialPostUploadHandler(
         // either "pending" (when the caller already sent a friend request
         // that's still outstanding) or "none". The rail uses this to render
         // a disabled "Pending" button without an extra round-trip.
-        const playersWithStatus = bucket.map((p) => ({
-          ...p,
-          connectionStatus: pendingSentSet.has(p.id) ? "pending" : "none",
-        }));
+        // Apply optional Match Finder chip filters before enriching.
+        let filteredBucket = bucket;
+        if (scopeFilter === "academy" && me.academyId) {
+          filteredBucket = filteredBucket.filter(
+            (p) => p.academyId && p.academyId === me.academyId,
+          );
+        } else if (scopeFilter === "country" && me.country) {
+          filteredBucket = filteredBucket.filter(
+            (p) => p.country && p.country === me.country,
+          );
+        }
+        if (ballLevelFilter) {
+          filteredBucket = filteredBucket.filter(
+            (p) =>
+              !!p.ballLevel &&
+              String(p.ballLevel).toLowerCase() === ballLevelFilter,
+          );
+        }
+
+        const playersWithStatus = filteredBucket.map((p) => {
+          const base = {
+            ...p,
+            connectionStatus: pendingSentSet.has(p.id) ? "pending" : "none",
+          };
+          if (!matchIntent) return base;
+          // Match-fit score (0..100): rewards close MMR / matching ball or
+          // skill level + recency of activity. Cheap deterministic compute,
+          // no extra DB round-trip.
+          let levelScore = 50;
+          if (
+            typeof me.glowMmr === "number" &&
+            typeof p.glowMmr === "number"
+          ) {
+            const delta = Math.abs(me.glowMmr - p.glowMmr);
+            levelScore = Math.max(0, 100 - delta / 4);
+          } else if (me.ballLevel && p.ballLevel) {
+            levelScore = me.ballLevel === p.ballLevel ? 90 : 55;
+          } else if (me.skillLevel && p.skillLevel) {
+            const d = Math.abs(me.skillLevel - p.skillLevel);
+            levelScore = Math.max(20, 100 - d * 30);
+          }
+          let activityScore = 40;
+          if (p.lastActiveAt) {
+            const hours =
+              (Date.now() - new Date(p.lastActiveAt).getTime()) / 3_600_000;
+            if (hours < 1) activityScore = 100;
+            else if (hours < 24) activityScore = 90;
+            else if (hours < 24 * 3) activityScore = 75;
+            else if (hours < 24 * 7) activityScore = 60;
+            else if (hours < 24 * 30) activityScore = 45;
+          }
+          const matchFitScore = Math.round(
+            levelScore * 0.65 + activityScore * 0.35,
+          );
+          // "Why we suggested this player" explainer chip.
+          let whyChip: string | null = null;
+          if (p.academyId && me.academyId && p.academyId === me.academyId) {
+            whyChip = "Same academy";
+          } else if (
+            typeof me.glowMmr === "number" &&
+            typeof p.glowMmr === "number" &&
+            Math.abs(me.glowMmr - p.glowMmr) <= 75
+          ) {
+            whyChip = "Same level";
+          } else if (
+            me.ballLevel &&
+            p.ballLevel &&
+            me.ballLevel === p.ballLevel
+          ) {
+            whyChip = "Same ball level";
+          } else if (p.country && me.country && p.country === me.country) {
+            whyChip = "Plays in your country";
+          }
+          return {
+            ...base,
+            matchFitScore,
+            whyChip,
+          };
+        });
+
+        // For Match Finder, sort the final list by matchFitScore desc so the
+        // top of the rail is the player you're most likely to enjoy playing.
+        if (matchIntent) {
+          playersWithStatus.sort(
+            (a: any, b: any) =>
+              (b?.matchFitScore ?? 0) - (a?.matchFitScore ?? 0),
+          );
+        }
 
         res.json({ players: playersWithStatus });
       } catch (error) {

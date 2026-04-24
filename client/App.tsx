@@ -115,6 +115,13 @@ const linking: LinkingOptions<any> = {
           FamilyLobby: "family",
           News: "news",
           GroupDetail: "group/:groupId",
+          // Task #1271 — outside-invite deep link: glowupsports://i/<token>
+          // Lands on the in-app InviteClaim screen inside the Play stack.
+          PlayStack: {
+            screens: {
+              InviteClaim: "i/:token",
+            },
+          },
         },
       },
       Coach: {

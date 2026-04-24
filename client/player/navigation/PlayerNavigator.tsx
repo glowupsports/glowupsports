@@ -52,6 +52,8 @@ import FriendsListScreen from "@/player/screens/FriendsListScreen";
 import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
 import CountryLeaderboardScreen from "@/player/screens/CountryLeaderboardScreen";
 import CreateMatchScreen from "@/player/screens/CreateMatchScreen";
+import MatchFinderHomeScreen from "@/player/screens/MatchFinderHomeScreen";
+import InviteClaimScreen from "@/player/screens/InviteClaimScreen";
 import ChallengePlayerScreen from "@/player/screens/ChallengePlayerScreen";
 import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
 import GroupsScreen from "@/player/screens/GroupsScreen";
@@ -157,6 +159,8 @@ export type PlayStackParamList = {
   Play: { initialTab?: "Group Lessons" | "Players" | "Leaderboard" } | undefined;
   OpenMatches: undefined;
   CreateMatch: undefined;
+  MatchFinderHome: undefined;
+  InviteClaim: { token?: string };
   ChallengePlayer: {
     opponentId: string;
     opponentName: string;
@@ -371,10 +375,34 @@ function PlayStackNavigator() {
         component={CreateMatchScreen}
         options={{
           headerShown: true,
-          headerTitle: "Find a Match",
+          headerTitle: "Post an open invite",
           headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: Colors.dark.primary,
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
+        }}
+      />
+      <PlayStack.Screen
+        name="MatchFinderHome"
+        component={MatchFinderHomeScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Find a Match",
+          headerTransparent: true,
+          headerBlurEffect: "regular",
+          headerStyle: { backgroundColor: "transparent" },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
+        }}
+      />
+      <PlayStack.Screen
+        name="InviteClaim"
+        component={InviteClaimScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "",
+          headerTransparent: true,
+          headerStyle: { backgroundColor: "transparent" },
+          headerTintColor: Colors.dark.primary,
         }}
       />
       <PlayStack.Screen 
