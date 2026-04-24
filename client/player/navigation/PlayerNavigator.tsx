@@ -101,6 +101,9 @@ import ClassesDiscoveryScreen from "@/player/screens/ClassesDiscoveryScreen";
 import ClassDetailScreen from "@/player/screens/ClassDetailScreen";
 import DiscoveryMapScreen from "@/player/screens/DiscoveryMapScreen";
 import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
+import AcademyVsAcademyScreen from "@/player/screens/AcademyVsAcademyScreen";
+import SkillChallengeSubmissionsScreen from "@/player/screens/SkillChallengeSubmissionsScreen";
+import SquadGroupScreen from "@/player/screens/SquadGroupScreen";
 import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
 import StartLiveMatchScreen from "@/player/screens/StartLiveMatchScreen";
 import MatchSummaryScreen from "@/player/screens/MatchSummaryScreen";
@@ -355,6 +358,9 @@ export type PlayerStackParamList = {
   News: undefined;
   PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
   SpotlightDetail: undefined;
+  AcademyVsAcademy: undefined;
+  SkillChallengeSubmissions: undefined;
+  SquadGroup: { squadId: string; squadName?: string };
   VideoFeedbackPlayer: { feedbackId?: string } | undefined;
   CorporateBenefits: undefined;
   CompanyContactDashboard: undefined;
@@ -1330,6 +1336,42 @@ function PlayerStackNavigator() {
         options={{
           presentation: "card",
           headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AcademyVsAcademy"
+        component={AcademyVsAcademyScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTransparent: true,
+          headerTitle: "Academy Rankings",
+          headerTintColor: Colors.dark.text,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" },
+        }}
+      />
+      <Stack.Screen
+        name="SkillChallengeSubmissions"
+        component={SkillChallengeSubmissionsScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTransparent: true,
+          headerTitle: "Skill Challenge",
+          headerTintColor: Colors.dark.text,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" },
+        }}
+      />
+      <Stack.Screen
+        name="SquadGroup"
+        component={SquadGroupScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTransparent: true,
+          headerTitle: "Squad",
+          headerTintColor: Colors.dark.text,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" },
         }}
       />
       <Stack.Screen 

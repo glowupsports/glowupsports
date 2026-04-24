@@ -3952,7 +3952,9 @@ export const posts = pgTable("posts", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   authorId: varchar("author_id").references(() => users.id).notNull(),
-  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  // Nullable so free players (without an academy) can publish posts —
+  // e.g., country Player-of-the-Week celebration posts.
+  academyId: varchar("academy_id").references(() => academies.id),
   
   // Context - what is this post about?
   contextType: text("context_type").notNull(), // training | match | event | group | achievement | free_play
@@ -4488,6 +4490,53 @@ export const playerStreaks = pgTable("player_streaks", {
 export const insertPlayerStreakSchema = createInsertSchema(playerStreaks).omit({ id: true, updatedAt: true });
 export type InsertPlayerStreak = z.infer<typeof insertPlayerStreakSchema>;
 export type PlayerStreak = typeof playerStreaks.$inferSelect;
+
+// ==================== SOCIAL PHASE 5 — LEADERBOARDS EXTENSION (Task #1125) ====================
+
+// Player of the Week — auto-awarded each Monday by playerOfWeekJob.ts.
+// One row per (scope, scopeId, weekStart). scope = "academy" | "country".
+export const playerOfWeek = pgTable("player_of_week", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  scope: text("scope").notNull(), // "academy" | "country"
+  scopeId: text("scope_id").notNull(), // academy UUID or 2-letter country code
+  weekStart: date("week_start").notNull(), // Monday of the awarded week
+  playerId: varchar("player_id").references(() => players.id).notNull(),
+  xpEarned: integer("xp_earned").notNull().default(0),
+  matchesPlayed: integer("matches_played").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("player_of_week_unique_idx").on(table.scope, table.scopeId, table.weekStart),
+  index("player_of_week_player_idx").on(table.playerId),
+  index("player_of_week_week_idx").on(table.weekStart),
+]);
+
+export const insertPlayerOfWeekSchema = createInsertSchema(playerOfWeek).omit({ id: true, createdAt: true });
+export type InsertPlayerOfWeek = z.infer<typeof insertPlayerOfWeekSchema>;
+export type PlayerOfWeek = typeof playerOfWeek.$inferSelect;
+
+// Weekly Skill Challenge — platform owner sets a weekly title + description.
+// Players submit by posting a Moment with the special tag (handled in social-features).
+export const weeklySkillChallenges = pgTable("weekly_skill_challenges", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  weekStart: date("week_start").notNull().unique(), // Monday of the active week
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  hashtag: text("hashtag").notNull().default("challenge:weekly"), // tag used to associate posts
+  createdBy: varchar("created_by").references(() => users.id),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("weekly_skill_challenges_week_idx").on(table.weekStart),
+  index("weekly_skill_challenges_active_idx").on(table.isActive),
+]);
+
+export const insertWeeklySkillChallengeSchema = createInsertSchema(weeklySkillChallenges).omit({ id: true, createdAt: true });
+export type InsertWeeklySkillChallenge = z.infer<typeof insertWeeklySkillChallengeSchema>;
+export type WeeklySkillChallenge = typeof weeklySkillChallenges.$inferSelect;
 
 // ==================== GLOW MARKET / SHOP ====================
 

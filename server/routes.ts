@@ -228,6 +228,7 @@ import coachEarningsRoutes from "./routes/coach-earnings";
 import playerBookingRoutes from "./routes/player-booking";
 import playerSocialRoutes from "./routes/player-social";
 import tournamentsLaddersRouter from "./routes/tournaments-ladders";
+import leaderboardsExtrasRouter from "./routes/leaderboards-extras";
 import discoveryMapRouter from "./routes/discovery-map";
 import worldChatRouter from "./routes/world-chat";
 import chatRoomsRouter from "./routes/chat-rooms";
@@ -555,6 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(playerBookingRoutes);
   app.use(playerSocialRoutes);
   app.use(tournamentsLaddersRouter);
+  app.use(leaderboardsExtrasRouter);
   app.use(discoveryMapRouter);
   app.use(worldChatRouter);
   app.use(chatRoomsRouter);

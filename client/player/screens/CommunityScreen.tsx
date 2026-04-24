@@ -24,6 +24,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
+import SkillChallengeRail from "@/components/SkillChallengeRail";
 import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { usePlayer } from "@/player/context/PlayerContext";
@@ -287,6 +288,31 @@ export default function CommunityScreen() {
 
       {mainTab === "feed" ? (
         <>
+            <SkillChallengeRail />
+            <View style={styles.compareRail}>
+              <Pressable
+                style={styles.compareRailBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("GlowLeaderboard");
+                }}
+                testID="button-leaderboards"
+              >
+                <Ionicons name="podium-outline" size={16} color={Colors.dark.gold} />
+                <ThemedText style={styles.compareRailText}>Leaderboards</ThemedText>
+              </Pressable>
+              <Pressable
+                style={styles.compareRailBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("AcademyVsAcademy");
+                }}
+                testID="button-academy-vs-academy"
+              >
+                <Ionicons name="trophy-outline" size={16} color={Colors.dark.gold} />
+                <ThemedText style={styles.compareRailText}>Academy vs Academy</ThemedText>
+              </Pressable>
+            </View>
             <FeedFilterTabs active={filter} onChange={(f) => { track(`community:feed_${f}`); setFilter(f); }} />
 
 
@@ -468,6 +494,30 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
     color: "#00BCD4",
     lineHeight: 18,
+  },
+  compareRail: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  compareRailBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  compareRailText: {
+    color: Colors.dark.text,
+    fontSize: 13,
+    fontWeight: "600",
   },
   loadingContainer: {
     flex: 1,

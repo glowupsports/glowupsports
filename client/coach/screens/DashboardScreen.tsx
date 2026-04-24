@@ -64,6 +64,7 @@ import { HelpCenterModal, PLATFORM_GLOSSARY } from "@/components/HelpCenterModal
 import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { RoleSwitchingGuide } from "@/components/RoleSwitchingGuide";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
+import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useTranslation } from "react-i18next";
@@ -2932,6 +2933,8 @@ export default function DashboardScreen() {
           role="coach"
           features={coachFeatureUsage}
         />
+
+        <SquadVsSquadWidget />
 
         {/* === GAMING PLAYER CARD HEADER === */}
         <View style={styles.playerCard}>

@@ -505,6 +505,15 @@ export default function PlayerProfileScreen() {
     enabled: !!data?.player,
   });
 
+  const { data: powData } = useQuery<{
+    awards: Array<{ scope: string; scopeId: string; weekStart: string; xp: number }>;
+  }>({
+    queryKey: [`/api/leaderboards/player-of-week/by-player/${data?.player?.id}`],
+    enabled: !!data?.player?.id,
+    staleTime: 5 * 60_000,
+  });
+  const latestPowAward = powData?.awards?.[0] ?? null;
+
   const equippedTitle = titlesData?.find(t => t.isEquipped);
   const earnedBadges = badgesData || [];
   const unlockedTitles = titlesData || [];
@@ -931,6 +940,16 @@ export default function PlayerProfileScreen() {
                 </Text>
               </View>
             )}
+            {latestPowAward ? (
+              <View style={[styles.titleBadge, { borderColor: "#FFD700" }]} testID="badge-player-of-week">
+                <Ionicons name="trophy" size={12} color="#FFD700" />
+                <Text style={[styles.titleBadgeText, { color: "#FFD700" }]}>
+                  {latestPowAward.scope === "country"
+                    ? `Country PoW · ${latestPowAward.scopeId}`
+                    : "Academy PoW"}
+                </Text>
+              </View>
+            ) : null}
 
             {player.playStyle && PLAY_STYLE_META[player.playStyle as PlayStyleKey] ? (
               <Pressable

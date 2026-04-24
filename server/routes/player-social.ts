@@ -38,6 +38,7 @@ import {
   matchLogs,
   openMatchSlots,
   openMatches,
+  squadMembers,
 } from "@shared/schema";
 import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, ilike, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
@@ -1350,12 +1351,64 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
       const limit = Math.min(isNaN(limitParam) ? 100 : limitParam, 200);
 
       // For global scope: join with academies to support city/country filtering
-      const isGlobalScope = scope === "global";
+      const isGlobalScope = scope === "global" || scope === "world";
+      const isCountryScope = scope === "country";
+      const isSquadScope = scope === "squad";
 
       // Build conditions array
       const conditions: any[] = [eq(players.status, "active")];
-      if (!isGlobalScope && scope === "academy" && academyId) {
+      if (!isGlobalScope && !isCountryScope && !isSquadScope && scope === "academy" && academyId) {
         conditions.push(eq(players.academyId, academyId));
+      }
+
+      // Squad scope: only members of the same squad(s) the caller belongs to.
+      // If the caller has no squad, this returns no rows (front-end shows
+      // an empty state and prompts the player to join one).
+      if (isSquadScope) {
+        if (!playerId) return res.json({ rankings: [], myRank: 0, totalPlayers: 0, currentPlayer: null });
+        const myMemberships = await db
+          .select({ squadId: squadMembers.squadId })
+          .from(squadMembers)
+          .where(eq(squadMembers.playerId, playerId));
+        if (myMemberships.length === 0) {
+          return res.json({ rankings: [], myRank: 0, totalPlayers: 0, currentPlayer: null });
+        }
+        const mySquadIds = myMemberships.map((m) => m.squadId);
+        const teammateRows = await db
+          .selectDistinct({ playerId: squadMembers.playerId })
+          .from(squadMembers)
+          .where(inArray(squadMembers.squadId, mySquadIds));
+        const teammateIds = teammateRows.map((r) => r.playerId);
+        if (teammateIds.length === 0) {
+          return res.json({ rankings: [], myRank: 0, totalPlayers: 0, currentPlayer: null });
+        }
+        conditions.push(inArray(players.id, teammateIds));
+      }
+
+      // Country scope: include players whose own country OR whose academy's
+      // country matches the caller's country (free players included).
+      if (isCountryScope) {
+        let callerCountry = (req.query.country as string | undefined) ?? null;
+        if (!callerCountry && playerId) {
+          const [me] = await db
+            .select({ country: players.country, academyCountry: academies.country })
+            .from(players)
+            .leftJoin(academies, eq(academies.id, players.academyId))
+            .where(eq(players.id, playerId))
+            .limit(1);
+          callerCountry = me?.country ?? me?.academyCountry ?? null;
+        }
+        if (!callerCountry) {
+          return res.json({ rankings: [], myRank: 0, totalPlayers: 0, currentPlayer: null });
+        }
+        // Use a subquery for academy match so we don't depend on a join in
+        // the non-global branches (xp / dss_rating / ball_level / glow_score).
+        conditions.push(
+          or(
+            sql`LOWER(${players.country}) = LOWER(${callerCountry})`,
+            sql`${players.academyId} IN (SELECT id FROM ${academies} WHERE LOWER(country) = LOWER(${callerCountry}))`,
+          )
+        );
       }
 
       // Exclude hidden players in global scope + require active user account

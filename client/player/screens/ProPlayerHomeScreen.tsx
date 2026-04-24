@@ -28,6 +28,8 @@ import { TennisNewsStrip } from "@/player/components/TennisNewsStrip";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
+import StreakRail from "@/components/StreakRail";
+import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import PinEntryModal from "@/components/PinEntryModal";
 import ChooseUsernameModal from "@/player/components/ChooseUsernameModal";
 import { BirthdayConfettiOverlay } from "@/player/components/BirthdayThemeOverlay";
@@ -1643,6 +1645,12 @@ function PlayerHomeContent() {
 
         {/* ── TENNIS NEWS ── horizontal strip after IMPROVE, before COMMUNITY */}
         {secondaryReady && !isGuest ? <TennisNewsStrip /> : null}
+
+        {/* ── STREAKS — show before community feed for daily motivation */}
+        {secondaryReady && !isGuest ? <StreakRail /> : null}
+
+        {/* ── SQUAD vs SQUAD — only meaningful for academy players */}
+        {secondaryReady && !isGuest && !isFreePlayer ? <SquadVsSquadWidget /> : null}
 
         {/* ── COMMUNITY ── only show when there are real social posts */}
         {secondaryReady && !isGuest && socialPosts && socialPosts.length > 0 ? <MiniFeed /> : null}

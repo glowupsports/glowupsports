@@ -13,6 +13,7 @@ import { Card } from "@/components/Card";
 import { getStaticAssetsUrl, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { LockedScreen } from "../components/LockedScreen";
+import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface RankedPlayer {
@@ -37,9 +38,27 @@ interface LeaderboardData {
   rankings: RankedPlayer[];
 }
 
-type CategoryKey = "glow_score" | "xp" | "dss_rating" | "ball_level";
+type CategoryKey =
+  | "xp_weekly"
+  | "wins_monthly"
+  | "streak_current"
+  | "glow_score"
+  | "xp"
+  | "dss_rating"
+  | "ball_level";
 
-const CATEGORIES: { key: CategoryKey; label: string; icon: string; color: string }[] = [
+// Metrics powered by the canonical /api/leaderboards/:scope/:metric endpoint
+// (rolling weekly XP, monthly match wins, current streak).
+const ROLLING_METRIC_KEYS = new Set<CategoryKey>([
+  "xp_weekly",
+  "wins_monthly",
+  "streak_current",
+]);
+
+const CATEGORIES: { key: CategoryKey; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
+  { key: "xp_weekly", label: "Weekly XP", icon: "trending-up", color: Colors.dark.primary },
+  { key: "wins_monthly", label: "Wins (Mo)", icon: "trophy", color: Colors.dark.gold },
+  { key: "streak_current", label: "Streak", icon: "flame", color: "#F97316" },
   { key: "glow_score", label: "Glow", icon: "flame", color: Colors.dark.gold },
   { key: "xp", label: "XP", icon: "star", color: Colors.dark.primary },
   { key: "dss_rating", label: "DSS", icon: "analytics", color: "#8B5CF6" },
@@ -53,14 +72,40 @@ function getRankColor(rank: number): string {
   return Colors.dark.textMuted;
 }
 
-function getRankIcon(rank: number): string {
+type IoniconName = keyof typeof Ionicons.glyphMap;
+
+function getRankIcon(rank: number): IoniconName {
   if (rank === 1) return "trophy";
   if (rank === 2) return "medal";
   if (rank === 3) return "ribbon";
   return "star";
 }
 
-function TopThreePlayer({ player, position }: { player: RankedPlayer; position: 1 | 2 | 3 }) {
+// Returns the icon/color/suffix to render for the active leaderboard metric.
+// `glowScore` is used as the canonical numeric value across both legacy and
+// rolling-window metrics — rolling metric data is mapped into glowScore in
+// `mappedRolling` below.
+function getMetricVisual(metric: CategoryKey): { icon: IoniconName; color: string; suffix?: string } {
+  switch (metric) {
+    case "xp_weekly":
+      return { icon: "trending-up", color: Colors.dark.primary, suffix: " XP" };
+    case "wins_monthly":
+      return { icon: "trophy", color: Colors.dark.gold, suffix: " W" };
+    case "streak_current":
+      return { icon: "flame", color: "#F97316", suffix: " wk" };
+    case "xp":
+      return { icon: "star", color: Colors.dark.primary };
+    case "dss_rating":
+      return { icon: "analytics", color: "#8B5CF6" };
+    case "ball_level":
+      return { icon: "tennisball", color: "#10B981" };
+    case "glow_score":
+    default:
+      return { icon: "flame", color: Colors.dark.gold };
+  }
+}
+
+function TopThreePlayer({ player, position, metric }: { player: RankedPlayer; position: 1 | 2 | 3; metric: CategoryKey }) {
   const navigation = useNavigation<any>();
   const sizes = { 1: { avatar: 80, container: 100 }, 2: { avatar: 64, container: 80 }, 3: { avatar: 64, container: 80 } };
   const size = sizes[position];
@@ -92,21 +137,33 @@ function TopThreePlayer({ player, position }: { player: RankedPlayer; position: 
             )}
           </LinearGradient>
           <View style={[styles.rankBadge, { backgroundColor: color }]}>
-            <Ionicons name={getRankIcon(position) as any} size={12} color={Colors.dark.text} />
+            <Ionicons name={getRankIcon(position)} size={12} color={Colors.dark.text} />
           </View>
         </View>
         <ThemedText style={styles.topPlayerName} numberOfLines={1}>{player.name}</ThemedText>
         <View style={styles.topPlayerScore}>
-          <Ionicons name="flame" size={14} color={Colors.dark.gold} />
-          <ThemedText style={styles.topPlayerScoreText}>{player.glowScore}</ThemedText>
+          {(() => {
+            const v = getMetricVisual(metric);
+            return (
+              <>
+                <Ionicons name={v.icon} size={14} color={v.color} />
+                <ThemedText style={styles.topPlayerScoreText}>
+                  {player.glowScore}
+                  {v.suffix ?? ""}
+                </ThemedText>
+              </>
+            );
+          })()}
         </View>
-        <ThemedText style={styles.topPlayerLevel}>Lvl {player.level}</ThemedText>
+        {metric !== "xp_weekly" && metric !== "wins_monthly" && metric !== "streak_current" ? (
+          <ThemedText style={styles.topPlayerLevel}>Lvl {player.level}</ThemedText>
+        ) : null}
       </Pressable>
     </Animated.View>
   );
 }
 
-function RankingRow({ player, index }: { player: RankedPlayer; index: number }) {
+function RankingRow({ player, index, metric }: { player: RankedPlayer; index: number; metric: CategoryKey }) {
   const navigation = useNavigation<any>();
   
   return (
@@ -149,8 +206,18 @@ function RankingRow({ player, index }: { player: RankedPlayer; index: number }) 
         </View>
         
         <View style={styles.rankScore}>
-          <Ionicons name="flame" size={16} color={Colors.dark.gold} />
-          <ThemedText style={styles.rankScoreText}>{player.glowScore}</ThemedText>
+          {(() => {
+            const v = getMetricVisual(metric);
+            return (
+              <>
+                <Ionicons name={v.icon} size={16} color={v.color} />
+                <ThemedText style={styles.rankScoreText}>
+                  {player.glowScore}
+                  {v.suffix ?? ""}
+                </ThemedText>
+              </>
+            );
+          })()}
         </View>
         
         <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
@@ -177,38 +244,84 @@ function getCategoryScoreDisplay(player: RankedPlayer, category: CategoryKey) {
 export default function GlowLeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const [scope, setScope] = useState<"academy" | "global">("academy");
-  const [category, setCategory] = useState<CategoryKey>("glow_score");
-  
+  const [scope, setScope] = useState<"squad" | "academy" | "country" | "world">("academy");
+  const [category, setCategory] = useState<CategoryKey>("xp_weekly");
+
+  const isRollingMetric = ROLLING_METRIC_KEYS.has(category);
+
   const { data, isLoading, refetch, isRefetching, isError } = useQuery<LeaderboardData>({
     queryKey: ["/api/player/leaderboard", scope, category],
+    enabled: !isRollingMetric,
     queryFn: () => apiFetch(`/api/player/leaderboard?scope=${scope}&category=${category}`),
   });
 
-  const topThree = data?.rankings?.slice(0, 3) ?? [];
-  const restOfRankings = data?.rankings?.slice(3) ?? [];
+  // Canonical rolling-window metric endpoint (xp_weekly | wins_monthly | streak_current).
+  const {
+    data: rollingData,
+    isLoading: rollingLoading,
+    refetch: refetchRolling,
+    isRefetching: rollingRefetching,
+    isError: rollingError,
+  } = useQuery<{
+    rows: Array<{ rank: number; playerId: string; name: string; photoUrl: string | null; value: number }>;
+  }>({
+    queryKey: ["/api/leaderboards", scope, category],
+    enabled: isRollingMetric,
+    staleTime: 60_000,
+    queryFn: () => apiFetch(`/api/leaderboards/${scope}/${category}?limit=50`),
+  });
+
+  const mappedRolling: LeaderboardData | null = useMemo(() => {
+    if (!rollingData?.rows) return null;
+    const rankings: RankedPlayer[] = rollingData.rows.map((r) => ({
+      rank: r.rank,
+      id: r.playerId,
+      name: r.name,
+      photoUrl: r.photoUrl,
+      level: 0,
+      glowScore: r.value,
+      xp: category === "xp_weekly" ? r.value : 0,
+      ballLevel: null,
+      glowMmr: 0,
+      dssRating: null,
+      streak: category === "streak_current" ? r.value : 0,
+      academyName: null,
+      city: null,
+      isCurrentPlayer: false,
+    }));
+    return {
+      rankings,
+      myRank: 0,
+      totalPlayers: rankings.length,
+      currentPlayer: null,
+    };
+  }, [rollingData, category]);
+
+  const effectiveData = isRollingMetric ? mappedRolling : data ?? null;
+  const effectiveLoading = isRollingMetric ? rollingLoading : isLoading;
+  const effectiveError = isRollingMetric ? rollingError : isError;
+  const effectiveRefetching = isRollingMetric ? rollingRefetching : isRefetching;
+  const effectiveRefetch = isRollingMetric ? refetchRolling : refetch;
+
+  const topThree = effectiveData?.rankings?.slice(0, 3) ?? [];
+  const restOfRankings = effectiveData?.rankings?.slice(3) ?? [];
   const currentCat = CATEGORIES.find(c => c.key === category) || CATEGORIES[0];
 
   return (
     <LockedScreen featureKey="glow_leaderboard">
       <View style={styles.container}>
         <View style={styles.scopeToggle}>
-          <Pressable
-            style={[styles.scopeButton, scope === "academy" && styles.scopeButtonActive]}
-            onPress={() => { Haptics.selectionAsync(); setScope("academy"); }}
-          >
-            <ThemedText style={[styles.scopeText, scope === "academy" && styles.scopeTextActive]}>
-              Academy
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            style={[styles.scopeButton, scope === "global" && styles.scopeButtonActive]}
-            onPress={() => { Haptics.selectionAsync(); setScope("global"); }}
-          >
-            <ThemedText style={[styles.scopeText, scope === "global" && styles.scopeTextActive]}>
-              Global
-            </ThemedText>
-          </Pressable>
+          {(["squad", "academy", "country", "world"] as const).map((s) => (
+            <Pressable
+              key={s}
+              style={[styles.scopeButton, scope === s && styles.scopeButtonActive]}
+              onPress={() => { Haptics.selectionAsync(); setScope(s); }}
+            >
+              <ThemedText style={[styles.scopeText, scope === s && styles.scopeTextActive]}>
+                {s === "squad" ? "Squad" : s === "academy" ? "Academy" : s === "country" ? "Country" : "World"}
+              </ThemedText>
+            </Pressable>
+          ))}
         </View>
         
         <View style={styles.categoryTabs}>
@@ -218,7 +331,7 @@ export default function GlowLeaderboardScreen() {
               style={[styles.categoryTab, category === cat.key && { backgroundColor: cat.color + "20", borderColor: cat.color }]}
               onPress={() => { Haptics.selectionAsync(); setCategory(cat.key); }}
             >
-              <Ionicons name={cat.icon as any} size={14} color={category === cat.key ? cat.color : Colors.dark.textMuted} />
+              <Ionicons name={cat.icon as IoniconName} size={14} color={category === cat.key ? cat.color : Colors.dark.textMuted} />
               <ThemedText style={[styles.categoryLabel, category === cat.key && { color: cat.color }]}>
                 {cat.label}
               </ThemedText>
@@ -226,15 +339,15 @@ export default function GlowLeaderboardScreen() {
           ))}
         </View>
 
-      {isLoading ? (
+      {effectiveLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.dark.gold} />
         </View>
-      ) : isError ? (
+      ) : effectiveError ? (
         <View style={styles.loadingContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.danger} />
           <ThemedText style={styles.emptyText}>Failed to load rankings</ThemedText>
-          <Pressable onPress={() => refetch()} style={styles.retryButton}>
+          <Pressable onPress={() => effectiveRefetch()} style={styles.retryButton}>
             <ThemedText style={styles.retryText}>Try Again</ThemedText>
           </Pressable>
         </View>
@@ -243,26 +356,27 @@ export default function GlowLeaderboardScreen() {
           data={restOfRankings}
           keyExtractor={(item) => item.id}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.dark.gold} />
+            <RefreshControl refreshing={effectiveRefetching} onRefresh={effectiveRefetch} tintColor={Colors.dark.gold} />
           }
           ListHeaderComponent={
             <>
+              {scope === "squad" ? <SquadVsSquadWidget /> : null}
               {topThree.length > 0 ? (
                 <View style={styles.podium}>
-                  {topThree[1] ? <TopThreePlayer player={topThree[1]} position={2} /> : <View style={styles.topPlayer} />}
-                  {topThree[0] ? <TopThreePlayer player={topThree[0]} position={1} /> : null}
-                  {topThree[2] ? <TopThreePlayer player={topThree[2]} position={3} /> : <View style={styles.topPlayer} />}
+                  {topThree[1] ? <TopThreePlayer player={topThree[1]} position={2} metric={category} /> : <View style={styles.topPlayer} />}
+                  {topThree[0] ? <TopThreePlayer player={topThree[0]} position={1} metric={category} /> : null}
+                  {topThree[2] ? <TopThreePlayer player={topThree[2]} position={3} metric={category} /> : <View style={styles.topPlayer} />}
                 </View>
               ) : null}
-              
-              {data?.currentPlayer && data.myRank > 3 ? (
+
+              {effectiveData?.currentPlayer && effectiveData.myRank > 3 ? (
                 <Card style={styles.myRankCard}>
                   <ThemedText style={styles.myRankLabel}>Your Rank</ThemedText>
                   <View style={styles.myRankContent}>
-                    <ThemedText style={styles.myRankNumber}>#{data.myRank}</ThemedText>
+                    <ThemedText style={styles.myRankNumber}>#{effectiveData.myRank}</ThemedText>
                     <View style={styles.myRankScore}>
                       <Ionicons name="flame" size={20} color={Colors.dark.gold} />
-                      <ThemedText style={styles.myRankScoreText}>{data.currentPlayer.glowScore}</ThemedText>
+                      <ThemedText style={styles.myRankScoreText}>{effectiveData.currentPlayer.glowScore}</ThemedText>
                     </View>
                   </View>
                 </Card>
@@ -273,7 +387,7 @@ export default function GlowLeaderboardScreen() {
               ) : null}
             </>
           }
-          renderItem={({ item, index }) => <RankingRow player={item} index={index} />}
+          renderItem={({ item, index }) => <RankingRow player={item} index={index} metric={category} />}
           contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl, paddingHorizontal: Spacing.md }}
           ListEmptyComponent={
             <View style={styles.emptyState}>
