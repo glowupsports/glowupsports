@@ -101,6 +101,9 @@ interface Conversation {
   seriesDayOfWeek?: number | null;
   seriesStartTime?: string | null;
   sessionType?: string | null;
+  seriesId?: string | null;
+  communityGroupId?: string | null;
+  communityGroupName?: string | null;
 }
 
 const REACTION_EMOJIS = ["🔥", "❤️", "👍", "😂"];
@@ -2352,6 +2355,27 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   <ThemedText style={{ fontSize: 11, fontWeight: "700", color: "#000" }}>Challenge</ThemedText>
                 </Pressable>
               ) : null}
+              {isPlayerMode
+                && (selectedConversation.type === "series_group" || selectedConversation.type === "lesson_group" || selectedConversation.type === "squad")
+                && selectedConversation.communityGroupId ? (
+                <Pressable
+                  onPress={() => {
+                    const groupId = selectedConversation.communityGroupId!;
+                    const groupName = selectedConversation.communityGroupName || getConvDisplayName(selectedConversation);
+                    setIsFullscreen(false);
+                    setIsExpanded(false);
+                    setSelectedConversation(null);
+                    setTimeout(() => {
+                      navigation.navigate("GroupDetail", { groupId, groupName });
+                    }, 200);
+                  }}
+                  style={styles.openCommunityBtn}
+                  accessibilityLabel="Open community group"
+                >
+                  <Ionicons name="people" size={14} color={NEON_GREEN} />
+                  <ThemedText style={{ fontSize: 11, fontWeight: "700", color: NEON_GREEN }}>Community</ThemedText>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
 
@@ -3430,6 +3454,18 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 14,
     backgroundColor: NEON_GREEN,
+    marginLeft: 8,
+  },
+  openCommunityBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: NEON_GREEN + "66",
+    backgroundColor: NEON_GREEN + "1A",
     marginLeft: 8,
   },
   leftPill: {

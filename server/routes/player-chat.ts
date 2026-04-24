@@ -242,6 +242,32 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       }
     }
 
+    // 7b) Batch community groups linked to recurring class series
+    // (so the player's Squad chat can deep-link to the auto-created community group)
+    const seriesIdsForCommunity = Array.from(new Set(
+      conversations
+        .filter(c => (c.type === "series_group" || c.type === "squad" || c.type === "lesson_group") && c.title && UUID_RE.test(c.title))
+        .map(c => c.title!)
+    ));
+    const communityGroupBySeries = new Map<string, { id: string; name: string }>();
+    if (seriesIdsForCommunity.length > 0) {
+      const linkedGroups = await db.select({
+        id: communityGroups.id,
+        name: communityGroups.name,
+        seriesId: communityGroups.seriesId,
+      }).from(communityGroups).where(
+        and(
+          inArray(communityGroups.seriesId, seriesIdsForCommunity),
+          eq(communityGroups.academyId, academyId),
+        )
+      );
+      for (const g of linkedGroups) {
+        if (g.seriesId && g.name) {
+          communityGroupBySeries.set(g.seriesId, { id: g.id, name: g.name });
+        }
+      }
+    }
+
     // 8) Pure-JS stitch (no further DB calls)
     const enriched = conversations.map((conv) => {
       let coachName: string | null = null;
@@ -284,11 +310,22 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       }
 
       let resolvedTitle = conv.title;
+      let seriesId: string | null = null;
+      let communityGroupId: string | null = null;
+      let communityGroupName: string | null = null;
       if (conv.type === "group" && conv.title) {
         const name = groupNameMap.get(conv.title);
         if (name) resolvedTitle = name;
       }
       if ((conv.type === "series_group" || conv.type === "squad" || conv.type === "lesson_group") && conv.title) {
+        if (UUID_RE.test(conv.title)) {
+          seriesId = conv.title;
+          const linked = communityGroupBySeries.get(conv.title);
+          if (linked) {
+            communityGroupId = linked.id;
+            communityGroupName = linked.name;
+          }
+        }
         const series = seriesById.get(conv.title);
         if (series) {
           resolvedTitle = series.title;
@@ -298,7 +335,7 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
         }
       }
 
-      return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime, sessionType };
+      return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime, sessionType, seriesId, communityGroupId, communityGroupName };
     });
 
     // Filter out conversations where the other player is blocked
