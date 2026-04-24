@@ -313,13 +313,22 @@ export function CoachCreditV2Panel({ playerId }: Props) {
   });
 
   // Task #1060 — remove credits via the existing manual-adjustment endpoint
-  // with a negative delta. Server allows negative balances (debt) so we warn
-  // in the UI rather than block.
+  // with a negative delta.
+  // Task #1173 — block submissions that would push the wallet into debt
+  // (ghost debt). The server now also enforces this; the local check is a
+  // belt-and-braces guard so the UI never round-trips a request it knows
+  // will fail.
   const removeCreditsMutation = useMutation({
     mutationFn: async () => {
       const qty = parseInt(removeQty, 10);
       if (!Number.isFinite(qty) || qty <= 0) {
         throw new Error("Enter a valid number of credits to remove");
+      }
+      const available = Number(wallet?.balance?.[removeType] ?? 0);
+      if (qty > available) {
+        throw new Error(
+          `Cannot remove ${qty} ${removeType.replace("_", " ")} credit${qty === 1 ? "" : "s"} — player only has ${Math.max(0, available)} available.`,
+        );
       }
       const reason = removeReason.trim() || "Coach removed credits";
       const res = await apiRequest("POST", "/api/v2/credits/manual-adjustment", {
@@ -414,13 +423,14 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       if (!Number.isFinite(origDelta) || origDelta === 0) {
         throw new Error("Cannot reverse this adjustment");
       }
-      const origNote = ledgerNote(entry) || "manual adjustment";
-      const dateLabel = fmtDateTime(entry.occurred_at);
+      // Task #1173 — reversals are server-derived: we only pass the
+      // original ledger id and the route looks it up, computes the
+      // inverse delta + audit reason, and exempts the resulting write
+      // from the overdraw guard. Keeping the overdraw exemption
+      // server-side prevents arbitrary callers from flipping it on.
       const body: Record<string, unknown> = {
         playerId,
-        type: entry.type,
-        delta: -origDelta,
-        reason: `Reversal of "${origNote}" (${dateLabel})`,
+        reversalOf: entry.id,
       };
       // Server requires recordPayment to be explicit on positive deltas.
       // Reversing a negative manual adjustment yields a positive delta but
@@ -1253,7 +1263,9 @@ function RemoveCreditsModal({
             }}
           >
             New balance: {fmtNumber(projected)} {TYPE_LABEL[removeType]}
-            {willCreateDebt ? "  ·  This will put the player into debt." : ""}
+            {willCreateDebt
+              ? `  ·  Cannot remove more than the ${fmtNumber(currentBalance)} ${TYPE_LABEL[removeType]} the player has.`
+              : ""}
           </Text>
         ) : null}
 
@@ -1263,13 +1275,13 @@ function RemoveCreditsModal({
 
         <Pressable
           onPress={onSubmit}
-          disabled={isPending || !validQty}
+          disabled={isPending || !validQty || willCreateDebt}
           style={{
             paddingVertical: 14,
             borderRadius: 10,
             backgroundColor: Colors.dark.error,
             alignItems: "center",
-            opacity: isPending || !validQty ? 0.6 : 1,
+            opacity: isPending || !validQty || willCreateDebt ? 0.6 : 1,
           }}
         >
           {isPending ? (

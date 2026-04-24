@@ -853,6 +853,29 @@ export interface ManualAdjustmentInput {
   actorId: string; // required — admin/coach userId
   actorRole?: ActorRole;
   eventKey?: string;
+  /** Task #1173 — set true to allow the adjustment even if the resulting
+   *  balance is negative. Used by reversal flows where the new balance is
+   *  already correct by construction. Default false: a negative delta whose
+   *  absolute value exceeds the current balance is rejected. */
+  allowOverdraw?: boolean;
+}
+
+/**
+ * Task #1173 — surfaced so the route layer can map this to a clean 400.
+ * Thrown when a negative manual adjustment would push the wallet below 0
+ * and the caller did not opt in via `allowOverdraw`.
+ */
+export class ManualAdjustmentOverdrawError extends Error {
+  constructor(
+    public readonly available: number,
+    public readonly requested: number,
+    public readonly type: CreditType,
+  ) {
+    super(
+      `Cannot remove ${requested} ${type} credit${requested === 1 ? "" : "s"} — player only has ${available} available.`,
+    );
+    this.name = "ManualAdjustmentOverdrawError";
+  }
 }
 
 export async function manualAdjustment(input: ManualAdjustmentInput) {
@@ -871,6 +894,16 @@ export async function manualAdjustment(input: ManualAdjustmentInput) {
   return await db.transaction(async (tx) => {
     const before = await lockBalance(tx, input.playerId, input.academyId, input.type);
     const newBalance = before + input.delta;
+    // Task #1173 — block ghost debt from manual removals. Reversal flows can
+    // still legitimately push the balance below 0 (e.g. undoing a positive
+    // grant that has since been spent) and pass `allowOverdraw: true`.
+    if (input.delta < 0 && !input.allowOverdraw && newBalance < 0) {
+      throw new ManualAdjustmentOverdrawError(
+        Math.max(0, before),
+        Math.abs(input.delta),
+        input.type,
+      );
+    }
     const ledger = await insertLedger(tx, {
       playerId: input.playerId,
       academyId: input.academyId,

@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../db";
+import { creditLedgerV2 } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -10,6 +11,7 @@ import {
   getBalance,
   getMoneyWallet,
   manualAdjustment,
+  ManualAdjustmentOverdrawError,
   refundCredit,
   awardMakeupCredit,
   type CreditType,
@@ -280,30 +282,110 @@ router.post(
     try {
       const {
         playerId,
-        type,
-        delta,
-        reason,
         // Task #975 — let coach/admin flag a positive credit grant as a real
         // cash payment so it surfaces on the player Payments tab. Must be
         // explicit so promo/goodwill grants stay invisible there.
         recordPayment,
         paymentAmount,
         paymentMethod,
+        // Task #1173 — reversals are server-derived: the caller passes
+        // the original ledger entry id and the route looks it up,
+        // computes the inverse delta + audit reason, and exempts the
+        // resulting write from the overdraw guard. This keeps overdraw
+        // exemption out of client control. When `reversalOf` is set the
+        // request body's `delta` / `reason` fields are ignored.
+        reversalOf,
       } = req.body || {};
-      if (!playerId || !type || typeof delta !== "number" || !reason?.trim()) {
-        return res.status(400).json({
-          error: "playerId, type, delta (number, non-zero) and reason are required",
-        });
-      }
-      if (!ALLOWED_TYPES.includes(type)) {
-        return res.status(400).json({ error: "Invalid type" });
-      }
-      if (delta === 0) {
-        return res.status(400).json({ error: "delta must be non-zero" });
+      let { type, delta, reason } = (req.body || {}) as {
+        type?: string;
+        delta?: number;
+        reason?: string;
+      };
+
+      if (!playerId) {
+        return res.status(400).json({ error: "playerId is required" });
       }
       const access = await canActorAccessPlayer(req, playerId);
       if (!access.ok || !access.academyId) {
         return res.status(403).json({ error: "Forbidden" });
+      }
+
+      // Task #1173 — when reversing a prior manual entry, the route
+      // derives delta/reason/eventKey from the original row server-side.
+      // Anything the client passed for those fields is overridden. The
+      // overdraw exemption is applied here (and only here) so it cannot
+      // be flipped on by an arbitrary API caller posting a free-form
+      // negative delta.
+      let reversalAllowOverdraw = false;
+      let reversalEventKey: string | undefined;
+      if (reversalOf !== undefined && reversalOf !== null) {
+        if (typeof reversalOf !== "string" || !reversalOf.trim()) {
+          return res
+            .status(400)
+            .json({ error: "reversalOf must be a ledger entry id" });
+        }
+        const [orig] = await db
+          .select()
+          .from(creditLedgerV2)
+          .where(eq(creditLedgerV2.id, reversalOf))
+          .limit(1);
+        if (!orig) {
+          return res
+            .status(404)
+            .json({ error: "Original ledger entry not found" });
+        }
+        if (
+          orig.playerId !== playerId ||
+          orig.academyId !== access.academyId
+        ) {
+          return res
+            .status(403)
+            .json({ error: "Ledger entry does not belong to this player" });
+        }
+        if (orig.reason !== "manual") {
+          return res.status(400).json({
+            error: "Only manual adjustments can be reversed via this endpoint",
+          });
+        }
+        const origDelta = Number(orig.delta);
+        if (!Number.isFinite(origDelta) || origDelta === 0) {
+          return res
+            .status(400)
+            .json({ error: "Original adjustment has no reversible delta" });
+        }
+        const origNote =
+          (orig.metadata as { reason?: string } | null)?.reason ||
+          "manual adjustment";
+        const origDate = orig.occurredAt ? new Date(orig.occurredAt) : null;
+        const dateLabel = origDate
+          ? `${origDate.toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+            })} ${origDate.toLocaleTimeString("en-GB", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })}`
+          : "earlier";
+        type = orig.type;
+        delta = -origDelta;
+        reason = `Reversal of "${origNote}" (${dateLabel})`;
+        reversalAllowOverdraw = true;
+        // Idempotent — a duplicate reversal request returns the existing
+        // result via the engine's DuplicateEventError path.
+        reversalEventKey = `manual:reversal:${orig.id}`;
+      }
+
+      if (!type || typeof delta !== "number" || !reason?.trim()) {
+        return res.status(400).json({
+          error: "playerId, type, delta (number, non-zero) and reason are required",
+        });
+      }
+      if (!ALLOWED_TYPES.includes(type as CreditType)) {
+        return res.status(400).json({ error: "Invalid type" });
+      }
+      if (delta === 0) {
+        return res.status(400).json({ error: "delta must be non-zero" });
       }
 
       // Task #975 — validate payment inputs *before* mutating credits so a
@@ -346,15 +428,42 @@ router.post(
         };
       }
 
-      const result = await manualAdjustment({
-        playerId,
-        academyId: access.academyId,
-        type: type as CreditType,
-        delta,
-        reason: reason.trim(),
-        actorId: req.user!.userId,
-        actorRole: req.user!.role === "coach" ? "coach" : "admin",
-      });
+      // Task #1173 — block ghost debt from manual removals. The credit
+      // engine itself enforces this transactionally too, but we surface the
+      // friendly message here when we already know it will fail (and we
+      // also need to *not* short-circuit the engine's atomic check, so the
+      // engine call below is still authoritative under concurrent writes).
+      // `recordPayment` is positive-side only and `delta` is non-zero so
+      // we only check the negative branch.
+      if (delta < 0 && !reversalAllowOverdraw) {
+        const balances = await getBalance(playerId, access.academyId);
+        const available = balances[type as CreditType] ?? 0;
+        if (available + delta < 0) {
+          return res.status(400).json({
+            error: `Cannot remove ${Math.abs(delta)} ${type} credit${Math.abs(delta) === 1 ? "" : "s"} — player only has ${Math.max(0, available)} available.`,
+          });
+        }
+      }
+
+      let result;
+      try {
+        result = await manualAdjustment({
+          playerId,
+          academyId: access.academyId,
+          type: type as CreditType,
+          delta,
+          reason: reason.trim(),
+          actorId: req.user!.userId,
+          actorRole: req.user!.role === "coach" ? "coach" : "admin",
+          allowOverdraw: reversalAllowOverdraw,
+          eventKey: reversalEventKey,
+        });
+      } catch (engineErr) {
+        if (engineErr instanceof ManualAdjustmentOverdrawError) {
+          return res.status(400).json({ error: engineErr.message });
+        }
+        throw engineErr;
+      }
 
       // Task #975 — record the money side. We log+continue on insert
       // failure: the credit grant has already committed so a 5xx here
