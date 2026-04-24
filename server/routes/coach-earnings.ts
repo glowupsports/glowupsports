@@ -405,13 +405,43 @@ router.get("/api/coach/earnings/breakdown", authMiddleware, async (req: AuthRequ
         seriesPlayersMap.set(sp.seriesId, count + 1);
       }
     }
-    const pricingCache = new Map<string, any>();
-    const getPricingCached = async (academyId: string, sessionType: string) => {
-      const key = `${academyId}_${sessionType}`;
-      if (!pricingCache.has(key)) {
-        pricingCache.set(key, await storage.getAcademyPricingByType(academyId, sessionType));
+    const normalizeSessionTypeLocal = (type: string): string => {
+      const cleaned = (type || "private").toLowerCase().replace(/-/g, "_").trim();
+      if (cleaned === "semi" || cleaned === "semi_private" || cleaned === "semi_private_adjusted") return "semi_private";
+      if (cleaned === "private_adjusted") return "private";
+      if (cleaned === "group_adjusted") return "group";
+      return cleaned;
+    };
+    const pricingMap = new Map<string, any>();
+    const academyIdSet = new Set<string>();
+    const sessionTypeSet = new Set<string>();
+    for (const s of completedSessions) {
+      if (s.academyId) {
+        academyIdSet.add(s.academyId);
+        sessionTypeSet.add(normalizeSessionTypeLocal((s as any).sessionType));
       }
-      return pricingCache.get(key);
+    }
+    if (academyIdSet.size > 0 && sessionTypeSet.size > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const pricingRows = await db.select().from(academyPricing)
+        .where(and(
+          inArray(academyPricing.academyId, Array.from(academyIdSet)),
+          inArray(academyPricing.sessionType, Array.from(sessionTypeSet)),
+          eq(academyPricing.isActive, true),
+          lte(academyPricing.effectiveFrom, today),
+          or(
+            isNull(academyPricing.effectiveUntil),
+            gte(academyPricing.effectiveUntil, today)
+          )
+        ))
+        .orderBy(desc(academyPricing.effectiveFrom));
+      for (const row of pricingRows) {
+        const key = `${row.academyId}_${row.sessionType}`;
+        if (!pricingMap.has(key)) pricingMap.set(key, row);
+      }
+    }
+    const getPricingCached = async (academyId: string, sessionType: string) => {
+      return pricingMap.get(`${academyId}_${sessionType}`) || null;
     };
     const cachedData = { sessionPlayersMap, seriesPlayersMap, getPricing: getPricingCached };
     
