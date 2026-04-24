@@ -13,6 +13,9 @@ import {
   players,
   contentReports as contentReportsTable,
   playerBlocks as playerBlocksTable,
+  matchLogs,
+  playerConnections,
+  openMatchSlots,
 } from "@shared/schema";
 import { eq, sql, and, desc, asc, inArray, gte, count } from "drizzle-orm";
 import {
@@ -21,6 +24,7 @@ import {
   JWTPayload,
 } from "../auth";
 import { filterProfanity } from "../profanityFilter";
+import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { fireQuestEvent } from "../services/quest-events";
 import { chatRateLimiter, postRateLimiter } from "../rateLimiter";
@@ -1539,5 +1543,158 @@ const socialPostUpload = multer({
       res.status(500).json({ error: "Failed to unblock user" });
     }
   });
+
+  // ==================== DISCOVERY (Phase 4) ====================
+  //
+  // Surfaces players in the same country, similar level, never matched
+  // together, who aren't already friends/pending. Ranked by closeness in
+  // glow_mmr (when both sides have it) with a ball-level fallback bucket
+  // when one or both have null mmr.
+  router.get(
+    "/api/social/discovery/players",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId) {
+          return res.json({ players: [] });
+        }
+        const limitVal = Math.min(
+          Math.max(parseInt(String(req.query.limit ?? "10")) || 10, 1),
+          25,
+        );
+
+        // Resolve viewer context.
+        const [me] = await db
+          .select({
+            id: players.id,
+            country: players.country,
+            ballLevel: players.ballLevel,
+            skillLevel: players.skillLevel,
+            glowMmr: players.glowMmr,
+            academyId: players.academyId,
+          })
+          .from(players)
+          .where(eq(players.id, playerId))
+          .limit(1);
+        if (!me?.country) {
+          return res.json({ players: [] });
+        }
+
+        // Players we've already played (matchLogs both directions + open
+        // match slot overlap).
+        const playedRows = await db
+          .select({ id: matchLogs.opponentPlayerId })
+          .from(matchLogs)
+          .where(
+            and(
+              eq(matchLogs.playerId, playerId),
+              sql`${matchLogs.opponentPlayerId} IS NOT NULL`,
+            ),
+          );
+        const playedAgainstMe = await db
+          .select({ id: matchLogs.playerId })
+          .from(matchLogs)
+          .where(eq(matchLogs.opponentPlayerId, playerId));
+        const myMatchIds = await db
+          .select({ matchId: openMatchSlots.matchId })
+          .from(openMatchSlots)
+          .where(eq(openMatchSlots.playerId, playerId));
+        let openMatchOpponents: { id: string }[] = [];
+        if (myMatchIds.length > 0) {
+          openMatchOpponents = await db
+            .select({ id: openMatchSlots.playerId })
+            .from(openMatchSlots)
+            .where(
+              and(
+                inArray(
+                  openMatchSlots.matchId,
+                  myMatchIds.map((r) => r.matchId).filter(Boolean) as string[],
+                ),
+                sql`${openMatchSlots.playerId} <> ${playerId}`,
+              ),
+            );
+        }
+        const playedSet = new Set<string>(
+          [...playedRows, ...playedAgainstMe, ...openMatchOpponents]
+            .map((r) => r.id)
+            .filter((v): v is string => !!v),
+        );
+
+        // Existing connections (any status — pending/declined/accepted).
+        const conns = await db
+          .select({
+            p1: playerConnections.player1Id,
+            p2: playerConnections.player2Id,
+          })
+          .from(playerConnections)
+          .where(
+            sql`${playerConnections.player1Id} = ${playerId} OR ${playerConnections.player2Id} = ${playerId}`,
+          );
+        const connectedSet = new Set<string>();
+        for (const c of conns) {
+          if (c.p1 && c.p1 !== playerId) connectedSet.add(c.p1);
+          if (c.p2 && c.p2 !== playerId) connectedSet.add(c.p2);
+        }
+
+        const exclude = new Set<string>([playerId, ...playedSet, ...connectedSet]);
+
+        // Pull a wider candidate pool (same country) and rank in app — the
+        // table sizes here are small enough to make this safe and avoids
+        // a hairy CASE/COALESCE ORDER BY on null mmr.
+        const candidates = await db
+          .select({
+            id: players.id,
+            name: players.name,
+            profilePhotoUrl: players.profilePhotoUrl,
+            ballLevel: players.ballLevel,
+            skillLevel: players.skillLevel,
+            glowMmr: players.glowMmr,
+            country: players.country,
+            academyId: players.academyId,
+          })
+          .from(players)
+          .where(
+            and(
+              eq(players.country, me.country),
+              sql`${players.id} <> ${playerId}`,
+              sql`${players.id} NOT IN (${sql.join(
+                Array.from(exclude).map((id) => sql`${id}`),
+                sql`, `,
+              )})`,
+            ),
+          )
+          .limit(200);
+
+        // Distance = |mmr diff| if both present, else fallback bucket
+        // distance based on ball level (string match preferred). Filter
+        // hidden/system players.
+        const ranked = candidates
+          .filter((p) => !!p.id && !HIDDEN_PLAYER_IDS.includes(p.id))
+          .map((p) => {
+            let distance = 9999;
+            if (
+              typeof me.glowMmr === "number" &&
+              typeof p.glowMmr === "number"
+            ) {
+              distance = Math.abs(me.glowMmr - p.glowMmr);
+            } else if (me.ballLevel && p.ballLevel) {
+              distance = me.ballLevel === p.ballLevel ? 50 : 500;
+            } else if (me.skillLevel && p.skillLevel) {
+              distance = me.skillLevel === p.skillLevel ? 100 : 750;
+            }
+            return { ...p, distance };
+          })
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, limitVal)
+          .map(({ distance: _d, ...rest }) => rest);
+
+        res.json({ players: ranked });
+      } catch (error) {
+        console.error("[Discovery] Error:", error);
+        res.status(500).json({ error: "Failed to load discovery" });
+      }
+    },
+  );
 
 export default router;

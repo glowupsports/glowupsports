@@ -2440,4 +2440,134 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
     },
   );
 
+  // ==================== COACH-SUGGESTED PRACTICE PAIRS (Phase 4) ====================
+  //
+  // Coach picks two of their players and suggests they pair up for a practice
+  // match. Surfaces in both players' feeds via two scope=friends feed_items
+  // rows (idempotent for the day).
+  router.post(
+    "/api/coach/practice-matches",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const coachId = req.user!.coachId;
+        const academyId = req.user!.academyId;
+        if (!coachId || !academyId) {
+          return res
+            .status(403)
+            .json({ error: "Coach profile with an academy is required" });
+        }
+
+        const { player1Id, player2Id, note } = req.body || {};
+        if (!player1Id || !player2Id || typeof player1Id !== "string" || typeof player2Id !== "string") {
+          return res.status(400).json({ error: "Two player IDs are required" });
+        }
+        if (player1Id === player2Id) {
+          return res
+            .status(400)
+            .json({ error: "Pick two different players" });
+        }
+
+        // Coach must own (be linked to) both players via academy.
+        const [own1, own2] = await Promise.all([
+          validatePlayerOwnership(player1Id, academyId, storage),
+          validatePlayerOwnership(player2Id, academyId, storage),
+        ]);
+        if (!own1.valid || !own1.player) {
+          return res.status(404).json({ error: "First player not found in your academy" });
+        }
+        if (!own2.valid || !own2.player) {
+          return res.status(404).json({ error: "Second player not found in your academy" });
+        }
+
+        const noteClean =
+          typeof note === "string" && note.trim().length > 0
+            ? sanitizeMessage(note.trim()).slice(0, 280)
+            : null;
+
+        // Resolve coach name for display.
+        let coachName: string | null = null;
+        try {
+          const [coachRow] = await db
+            .select({ name: coaches.name })
+            .from(coaches)
+            .where(eq(coaches.id, coachId))
+            .limit(1);
+          coachName = coachRow?.name ?? null;
+        } catch {
+          /* best-effort */
+        }
+
+        const { publishCoachPracticePair } = await import(
+          "../services/feed-publisher"
+        );
+        const result = await publishCoachPracticePair({
+          coachId,
+          player1Id,
+          player2Id,
+          player1Name: own1.player.name ?? null,
+          player2Name: own2.player.name ?? null,
+          coachName,
+          note: noteClean,
+          academyId,
+        });
+
+        // Light push notification for both players (best-effort).
+        (async () => {
+          try {
+            const partnerForP1 = own2.player?.name ?? "another player";
+            const partnerForP2 = own1.player?.name ?? "another player";
+            await db.insert(playerNotifications).values([
+              {
+                playerId: player1Id,
+                title: coachName ? `${coachName} paired you up` : "Coach suggested a practice match",
+                body: `Practice match suggested with ${partnerForP1}`,
+                type: "coach_practice_pair",
+                data: {
+                  partnerId: player2Id,
+                  partnerName: partnerForP1,
+                  coachId,
+                  note: noteClean,
+                },
+              },
+              {
+                playerId: player2Id,
+                title: coachName ? `${coachName} paired you up` : "Coach suggested a practice match",
+                body: `Practice match suggested with ${partnerForP2}`,
+                type: "coach_practice_pair",
+                data: {
+                  partnerId: player1Id,
+                  partnerName: partnerForP2,
+                  coachId,
+                  note: noteClean,
+                },
+              },
+            ]);
+          } catch (err) {
+            console.error("[CoachPracticePair] notify failed", err);
+          }
+        })();
+
+        res.status(201).json({
+          success: true,
+          ...result,
+          player1: {
+            id: own1.player.id,
+            name: own1.player.name,
+          },
+          player2: {
+            id: own2.player.id,
+            name: own2.player.name,
+          },
+        });
+      } catch (error) {
+        console.error("Error creating coach practice pair:", error);
+        res
+          .status(500)
+          .json({ error: "Couldn't suggest a practice match. Try again." });
+      }
+    },
+  );
+
 export default router;

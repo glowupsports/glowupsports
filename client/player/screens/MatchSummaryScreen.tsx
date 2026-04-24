@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -7,14 +7,17 @@ import {
   Pressable,
   Share,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useMutation } from "@tanstack/react-query";
 import { Backgrounds, Spacing, BorderRadius, Colors, Typography, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type MatchSummaryParams = {
@@ -71,6 +74,26 @@ export default function MatchSummaryScreen() {
   const iAmCreator = myPlayerId === creatorId;
   const didWin = iAmCreator ? winnerId === creatorId : winnerId === myPlayerId;
   const wasUndecided = !winnerId;
+
+  // Post-match "Add as friend" chip — auto-accepted, idempotent.
+  const [friendState, setFriendState] = useState<"idle" | "added">("idle");
+  const canShowFriendChip = !!opponentId && !!myPlayerId && opponentId !== myPlayerId;
+
+  const addFriendMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/player/connections/post-match-add", {
+        targetPlayerId: opponentId,
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setFriendState("added");
+    },
+    onError: () => {
+      // Quiet failure — keep the chip clickable so the player can retry.
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    },
+  });
 
   const mmrDelta = iAmCreator ? mmrDeltaCreator : undefined;
   const prevMmr = iAmCreator ? previousMmrCreator : undefined;
@@ -173,6 +196,39 @@ export default function MatchSummaryScreen() {
               <Text style={styles.rankStableText}>Rank: {getRankName(newRank)}</Text>
             ) : null}
           </View>
+        ) : null}
+
+        {/* Add-as-friend chip (auto-accept, idempotent) */}
+        {canShowFriendChip ? (
+          friendState === "added" ? (
+            <View style={[styles.friendChip, styles.friendChipDone]}>
+              <Feather name="check" size={16} color={GlowColors.primary} />
+              <Text style={[styles.friendChipText, { color: GlowColors.primary }]}>
+                Friends with {opponentName}
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [
+                styles.friendChip,
+                pressed && { opacity: 0.8 },
+                addFriendMutation.isPending && { opacity: 0.7 },
+              ]}
+              disabled={addFriendMutation.isPending}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                addFriendMutation.mutate();
+              }}
+              testID="button-add-opponent-friend"
+            >
+              {addFriendMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.dark.text} />
+              ) : (
+                <Feather name="user-plus" size={16} color={Colors.dark.text} />
+              )}
+              <Text style={styles.friendChipText}>Add {opponentName} as friend</Text>
+            </Pressable>
+          )
         ) : null}
 
         {/* Actions */}
@@ -318,6 +374,28 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.textMuted,
     fontWeight: "600",
+  },
+  friendChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    alignSelf: "center",
+    backgroundColor: Colors.dark.chipBackground,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.chipBackgroundStrong,
+  },
+  friendChipDone: {
+    backgroundColor: "rgba(204,255,0,0.10)",
+    borderColor: GlowColors.primary + "55",
+  },
+  friendChipText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
   },
   shareBtn: {
     flexDirection: "row",

@@ -8675,6 +8675,34 @@ router.delete(
     }
   },
 );
+
+// Phase 4 — host-side cap: at most 5 open matches per player per rolling 7
+// days. Counts non-cancelled rows to avoid penalising hosts who clean up
+// stale postings. Returns null when ok, otherwise a {error, retryAfterMs}
+// payload to be sent as 429.
+const WEEKLY_OPEN_MATCH_LIMIT = 5;
+async function assertWeeklyOpenMatchCap(
+  hostPlayerId: string,
+): Promise<{ error: string; retryAfterMs: number } | null> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(openMatches)
+    .where(
+      and(
+        eq(openMatches.hostPlayerId, hostPlayerId),
+        gte(openMatches.createdAt, sevenDaysAgo),
+        ne(openMatches.status, "cancelled"),
+      ),
+    );
+  const total = rows?.[0]?.count ?? 0;
+  if (total < WEEKLY_OPEN_MATCH_LIMIT) return null;
+  return {
+    error: `You can post up to ${WEEKLY_OPEN_MATCH_LIMIT} open matches per week. Cancel one or wait a few days before posting another.`,
+    retryAfterMs: 24 * 60 * 60 * 1000,
+  };
+}
+
 // Create open match
 router.post(
   "/api/open-matches",
@@ -8702,10 +8730,19 @@ router.post(
         courtBookingStatus,
         courtBookingNote,
         courtBookingUrl,
+        invitedPlayerId,
+        matchIntent,
       } = req.body;
 
       if (!bookingId) {
         return res.status(400).json({ error: "Booking ID is required" });
+      }
+
+      // Phase 4 — cap each player at 5 open matches per rolling 7-day window
+      // (host counts only). Prevents feed spam from a single player.
+      const weeklyCap = await assertWeeklyOpenMatchCap(playerId);
+      if (weeklyCap) {
+        return res.status(429).json(weeklyCap);
       }
 
       const [match] = await db
@@ -8757,91 +8794,151 @@ router.post(
 );
 
 // Join open match
+//
+// Race-safe via SELECT … FOR UPDATE + a single transaction. This is the
+// "slot-reservation hold" Phase 4 risk-mitigation reuses: the row lock
+// guarantees that two simultaneous taps on the last open slot can't both
+// succeed (the second one sees the updated row and gets a friendly 400).
+//
+// On commit we also patch the existing `feed_items.payload` for this open
+// match so every viewer's feed reflects the new currentPlayers/status
+// without waiting for a republish — and when the match transitions to
+// `full` we mark the feed payload as confirmed so participants see the
+// post-join state.
 router.post(
   "/api/open-matches/:matchId/join",
   authMiddleware,
   async (req: AuthRequest, res: Response) => {
+    const playerId = req.user?.playerId;
+    const { matchId } = req.params;
+
+    if (!playerId) {
+      return res.status(401).json({ error: "Player profile required" });
+    }
+
+    const client = await pool.connect();
+    let hostPlayerId: string | null = null;
+    let hostAcademyId: string | null = null;
+    let newCount = 0;
+    let newStatus = "open";
+
     try {
-      const playerId = req.user?.playerId;
-      const { matchId } = req.params;
+      await client.query("BEGIN");
 
-      if (!playerId) {
-        return res.status(401).json({ error: "Player profile required" });
-      }
+      // Lock the openMatches row for the duration of the transaction so
+      // capacity checks and the slot insert see a consistent view.
+      const matchRes = await client.query(
+        `SELECT id, host_player_id, academy_id, status,
+                current_players, max_players
+           FROM open_matches
+          WHERE id = $1
+          FOR UPDATE`,
+        [matchId],
+      );
 
-      const [match] = await db
-        .select()
-        .from(openMatches)
-        .where(eq(openMatches.id, matchId));
-
-      if (!match) {
+      if (matchRes.rowCount === 0) {
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "Match not found" });
       }
 
+      const match = matchRes.rows[0];
+      hostPlayerId = match.host_player_id;
+      hostAcademyId = match.academy_id;
+
       if (match.status !== "open") {
-        return res.status(400).json({ error: "Match is not open for joining" });
+        await client.query("ROLLBACK");
+        return res
+          .status(400)
+          .json({ error: "Match is not open for joining" });
       }
 
-      if (match.currentPlayers >= match.maxPlayers) {
+      if (match.current_players >= match.max_players) {
+        await client.query("ROLLBACK");
         return res.status(400).json({ error: "Match is already full" });
       }
 
-      // Check if already joined
-      const [existing] = await db
-        .select()
-        .from(openMatchSlots)
+      // Idempotent slot insert — unique index on (match_id, player_id)
+      // means a duplicate row is silently skipped and we surface the
+      // already-joined message the client treats as a soft success.
+      const insertRes = await client.query(
+        `INSERT INTO open_match_slots
+              (match_id, player_id, role, status)
+         VALUES ($1, $2, 'player', 'confirmed')
+         ON CONFLICT (match_id, player_id) DO NOTHING
+         RETURNING id`,
+        [matchId, playerId],
+      );
 
-        .where(
-          and(
-            eq(openMatchSlots.matchId, matchId),
-            eq(openMatchSlots.playerId, playerId),
-          ),
-        );
-
-      if (existing) {
+      if (insertRes.rowCount === 0) {
+        await client.query("ROLLBACK");
         return res.status(400).json({ error: "Already joined this match" });
       }
 
-      // Add player slot
-      await db.insert(openMatchSlots).values({
-        matchId,
-        playerId,
-        role: "player",
-        status: "confirmed",
-      });
+      newCount = match.current_players + 1;
+      newStatus = newCount >= match.max_players ? "full" : "open";
 
-      // Update player count
-      const newCount = match.currentPlayers + 1;
-      const newStatus = newCount >= match.maxPlayers ? "full" : "open";
+      await client.query(
+        `UPDATE open_matches
+            SET current_players = $1,
+                status = $2,
+                updated_at = NOW()
+          WHERE id = $3`,
+        [newCount, newStatus, matchId],
+      );
 
-      await db
-        .update(openMatches)
-        .set({
-          currentPlayers: newCount,
-          status: newStatus,
-        })
-        .where(eq(openMatches.id, matchId));
+      // Patch the feed item payload so other viewers see the updated
+      // counts + status (and "full" → "confirmed" cue) without waiting
+      // for a republish. ON CONFLICT in publishOpenMatch means we can't
+      // re-insert; an UPDATE here keeps the existing feed row fresh.
+      await client.query(
+        `UPDATE feed_items
+            SET payload = COALESCE(payload, '{}'::jsonb)
+                          || jsonb_build_object(
+                               'currentPlayers', $1::int,
+                               'status', $2::text
+                             )
+          WHERE source_type = 'open_match'
+            AND source_id = $3`,
+        [newCount, newStatus, matchId],
+      );
 
-      // Notify host
-      await storage.createNotification({
-        type: "open_match_join",
-        title: "Player Joined",
-        message: `Someone joined your open match!`,
-        userId: null,
-        playerId: match.hostPlayerId,
-        academyId: match.academyId,
-        data: { matchId },
-      });
-
-      // Real-time push to all participants so any open ManageMatch /
-      // OpenMatchFeed screen refreshes immediately.
-      await emitOpenMatchUpdate(matchId, [], "join");
-
-      res.json({ success: true, message: "Joined match successfully" });
+      await client.query("COMMIT");
     } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
       console.error("Join open match error:", error);
-      res.status(500).json({ error: "Failed to join match" });
+      client.release();
+      return res.status(500).json({ error: "Failed to join match" });
     }
+    client.release();
+
+    // Best-effort post-commit side effects — failures here must not
+    // roll back the join.
+    try {
+      if (hostPlayerId) {
+        await storage.createNotification({
+          type: "open_match_join",
+          title: "Player Joined",
+          message: `Someone joined your open match!`,
+          userId: null,
+          playerId: hostPlayerId,
+          academyId: hostAcademyId,
+          data: { matchId },
+        });
+      }
+      await emitOpenMatchUpdate(matchId, [], "join");
+    } catch (notifyErr) {
+      console.error("[OpenMatch] post-join side-effect failed:", notifyErr);
+    }
+
+    return res.json({
+      success: true,
+      message:
+        newStatus === "full"
+          ? "Joined match — match is now confirmed!"
+          : "Joined match successfully",
+      currentPlayers: newCount,
+      status: newStatus,
+    });
   },
 );
 
@@ -9129,6 +9226,10 @@ router.post(
       // detail/list views) so booking-status context is not lost. Falls
       // through to the legacy matchRequests insert otherwise.
       if (bookingId) {
+        const weeklyCap = await assertWeeklyOpenMatchCap(playerId);
+        if (weeklyCap) {
+          return res.status(429).json(weeklyCap);
+        }
         const [openMatch] = await db
           .insert(openMatches)
           .values({

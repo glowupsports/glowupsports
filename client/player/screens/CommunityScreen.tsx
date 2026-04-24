@@ -28,6 +28,7 @@ import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { usePlayer } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import {
   type FeedFilter,
@@ -44,6 +45,7 @@ import {
   MainTabBar,
   FeedFilterTabs,
   SystemFeedCard,
+  DiscoveryRail,
 } from "../components/community/CommunityCards";
 
 import {
@@ -66,6 +68,7 @@ export default function CommunityScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -210,7 +213,28 @@ export default function CommunityScreen() {
   const handleCreateMoment = () => {
     track("community:create_post");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowCreateModal(true);
+    Alert.alert(
+      "What would you like to do?",
+      undefined,
+      [
+        {
+          text: "Share a Moment",
+          onPress: () => {
+            track("community:composer_moment");
+            setShowCreateModal(true);
+          },
+        },
+        {
+          text: "Post Open Match",
+          onPress: () => {
+            track("community:composer_open_match");
+            navigateToTab("PlayStack", { screen: "CreateMatch" });
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+      { cancelable: true }
+    );
   };
 
   return (
@@ -279,7 +303,18 @@ export default function CommunityScreen() {
               renderItem={({ item }: { item: any }) => {
                 const t = item?.feedType;
                 if (t && t !== "manual_moment") {
-                  return <SystemFeedCard item={item} />;
+                  return (
+                    <SystemFeedCard
+                      item={item}
+                      currentPlayerId={user?.playerId}
+                      onOpenCreateMatch={(opponentId, opponentName) => {
+                        navigateToTab("PlayStack", {
+                          screen: "CreateMatch",
+                          params: opponentId ? { opponentId, opponentName } : undefined,
+                        });
+                      }}
+                    />
+                  );
                 }
                 const post = item?.postId
                   ? { ...item, id: item.postId }
@@ -295,6 +330,19 @@ export default function CommunityScreen() {
                   />
                 );
               }}
+              ListHeaderComponent={
+                filter === "all" ? (
+                  <DiscoveryRail
+                    onSelectPlayer={(p) => navigation.navigate("PublicProfile", { playerId: p.id })}
+                    onChallengePlayer={(p) =>
+                      navigateToTab("PlayStack", {
+                        screen: "CreateMatch",
+                        params: { opponentId: p.id, opponentName: p.name },
+                      })
+                    }
+                  />
+                ) : null
+              }
               contentContainerStyle={[
                 styles.feedList,
                 { paddingBottom: tabBarHeight + chatFooterHeight + Spacing.xl }

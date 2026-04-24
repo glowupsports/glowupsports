@@ -35,6 +35,9 @@ import {
   contentReports as contentReportsTable,
   playerBlocks as playerBlocksTable,
   questChainBonusClaims as questChainBonusClaimsTable,
+  matchLogs,
+  openMatchSlots,
+  openMatches,
 } from "@shared/schema";
 import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, ilike, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
@@ -2152,7 +2155,209 @@ router.post("/api/player/connections/request", authMiddleware, async (req: AuthR
       res.status(500).json({ error: "Something went wrong sending the friend request. Please try again." });
     }
   });
-  
+
+  // Phase 4 — Post-match one-tap "Add as friend".
+  // Creates an immediately-accepted friend connection between the caller and
+  // a target player, gated on a shared recent match (matchLogs OR same
+  // openMatch slot). Idempotent via the partial unique index on
+  // (LEAST(p1,p2), GREATEST(p1,p2)) WHERE connection_type = 'friend'.
+  router.post(
+    "/api/player/connections/post-match-add",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId) {
+          return res.status(403).json({
+            error:
+              "Switch to a player profile to add players from your match summary.",
+          });
+        }
+
+        const { targetPlayerId } = req.body || {};
+        if (!targetPlayerId || typeof targetPlayerId !== "string") {
+          return res.status(400).json({ error: "Target player ID required" });
+        }
+        if (targetPlayerId === playerId) {
+          return res
+            .status(400)
+            .json({ error: "You can't add yourself as a friend" });
+        }
+
+        // Validate target exists
+        const [target] = await db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .where(eq(players.id, targetPlayerId))
+          .limit(1);
+        if (!target) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        // Gate: there must be evidence the two players actually played
+        // together recently (last 30 days). Either side of the matchLogs
+        // pair counts, or any shared openMatchSlots row.
+        const sinceDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const [logHit] = await db
+          .select({ id: matchLogs.id })
+          .from(matchLogs)
+          .where(
+            and(
+              gte(matchLogs.playedAt, sinceDate),
+              or(
+                and(
+                  eq(matchLogs.playerId, playerId),
+                  eq(matchLogs.opponentPlayerId, targetPlayerId),
+                ),
+                and(
+                  eq(matchLogs.playerId, targetPlayerId),
+                  eq(matchLogs.opponentPlayerId, playerId),
+                ),
+              ),
+            ),
+          )
+          .limit(1);
+
+        let sharedMatch = !!logHit;
+        if (!sharedMatch) {
+          // Fallback: shared openMatch — same matchId, both have a slot.
+          const myMatchIds = await db
+            .select({ matchId: openMatchSlots.matchId })
+            .from(openMatchSlots)
+            .where(eq(openMatchSlots.playerId, playerId));
+          const ids = myMatchIds.map((r) => r.matchId).filter(Boolean) as string[];
+          if (ids.length > 0) {
+            const [overlap] = await db
+              .select({ matchId: openMatchSlots.matchId })
+              .from(openMatchSlots)
+              .where(
+                and(
+                  eq(openMatchSlots.playerId, targetPlayerId),
+                  inArray(openMatchSlots.matchId, ids),
+                ),
+              )
+              .limit(1);
+            sharedMatch = !!overlap;
+          }
+        }
+
+        if (!sharedMatch) {
+          return res.status(403).json({
+            error:
+              "You can only add players you've recently played with from match summary.",
+          });
+        }
+
+        // Detect existing connection so we can return the right state.
+        const [existing] = await db
+          .select()
+          .from(playerConnections)
+          .where(
+            or(
+              and(
+                eq(playerConnections.player1Id, playerId),
+                eq(playerConnections.player2Id, targetPlayerId),
+              ),
+              and(
+                eq(playerConnections.player1Id, targetPlayerId),
+                eq(playerConnections.player2Id, playerId),
+              ),
+            ),
+          )
+          .limit(1);
+
+        if (existing) {
+          if (existing.status === "accepted") {
+            return res.json({
+              success: true,
+              alreadyFriends: true,
+              connection: existing,
+            });
+          }
+          // Pending or anything else — flip to accepted (idempotent).
+          const [updated] = await db
+            .update(playerConnections)
+            .set({ status: "accepted", acceptedAt: new Date() })
+            .where(eq(playerConnections.id, existing.id))
+            .returning();
+          return res.json({
+            success: true,
+            alreadyFriends: false,
+            connection: updated,
+          });
+        }
+
+        // Insert new accepted connection. Unique partial index handles races.
+        const [created] = await db
+          .insert(playerConnections)
+          .values({
+            player1Id: playerId,
+            player2Id: targetPlayerId,
+            status: "accepted",
+            connectionType: "friend",
+            acceptedAt: new Date(),
+          })
+          .onConflictDoNothing()
+          .returning();
+
+        // Race fallback — re-read if another insert won.
+        let connectionRow = created;
+        if (!connectionRow) {
+          const [refetched] = await db
+            .select()
+            .from(playerConnections)
+            .where(
+              or(
+                and(
+                  eq(playerConnections.player1Id, playerId),
+                  eq(playerConnections.player2Id, targetPlayerId),
+                ),
+                and(
+                  eq(playerConnections.player1Id, targetPlayerId),
+                  eq(playerConnections.player2Id, playerId),
+                ),
+              ),
+            )
+            .limit(1);
+          connectionRow = refetched;
+        }
+
+        // Best-effort notify the target so they see a new friend in their
+        // connections list. Don't block on it.
+        (async () => {
+          try {
+            await db.insert(playerNotifications).values({
+              playerId: targetPlayerId,
+              title: "New Friend",
+              body: `You and a recent match opponent are now friends on Glow`,
+              type: "friend_accepted",
+              data: {
+                connectionId: connectionRow?.id,
+                fromPlayerId: playerId,
+              },
+            });
+          } catch (err) {
+            console.error(
+              "[PostMatchAdd] Failed to insert notification:",
+              err,
+            );
+          }
+        })();
+
+        res.json({
+          success: true,
+          alreadyFriends: false,
+          connection: connectionRow,
+        });
+      } catch (error) {
+        console.error("Error in post-match friend add:", error);
+        res
+          .status(500)
+          .json({ error: "Couldn't add friend. Try again in a moment." });
+      }
+    },
+  );
+
   // Accept or decline friend request
 router.post("/api/player/connections/:connectionId/respond", authMiddleware, async (req: AuthRequest, res: Response) => {
     const { connectionId } = req.params;

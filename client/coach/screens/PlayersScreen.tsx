@@ -275,6 +275,41 @@ export default function PlayersScreen() {
   // `filteredPlayers` and `rawLoading`, which are computed after the
   // expensive memo blocks below.)
 
+  // Coach-suggested practice match (Phase 4 social): pick two players + note,
+  // POST → both players see a coach_practice_pair feed item.
+  const [showPracticePairModal, setShowPracticePairModal] = useState(false);
+  const [practicePairFirstId, setPracticePairFirstId] = useState<string | null>(null);
+  const [practicePairSecondId, setPracticePairSecondId] = useState<string | null>(null);
+  const [practicePairNote, setPracticePairNote] = useState("");
+  const [practicePairSearch, setPracticePairSearch] = useState("");
+  const [practicePairToast, setPracticePairToast] = useState<string | null>(null);
+
+  const practicePairMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/coach/practice-matches", {
+        player1Id: practicePairFirstId,
+        player2Id: practicePairSecondId,
+        note: practicePairNote.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowPracticePairModal(false);
+      setPracticePairFirstId(null);
+      setPracticePairSecondId(null);
+      setPracticePairNote("");
+      setPracticePairSearch("");
+      setPracticePairToast("Practice match suggested!");
+      setTimeout(() => setPracticePairToast(null), 2400);
+    },
+    onError: (err: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Couldn't suggest match",
+        err?.message || "Something went wrong. Try again."
+      );
+    },
+  });
   // Build cache keys scoped per coach + academy so we never hydrate one
   // account's roster into another's view (data-isolation requirement).
   const cacheKeys = useMemo(() => {
@@ -894,6 +929,21 @@ export default function PlayersScreen() {
           ) : null}
         </View>
         
+        {/* Suggest Practice Match Button */}
+        <Pressable
+          style={styles.sortButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setPracticePairFirstId(null);
+            setPracticePairSecondId(null);
+            setPracticePairNote("");
+            setShowPracticePairModal(true);
+          }}
+          testID="button-suggest-practice-match"
+        >
+          <Ionicons name="people-circle-outline" size={18} color={Colors.dark.xpCyan} />
+        </Pressable>
+
         {/* Sort Button */}
         <Pressable 
           style={styles.sortButton}
@@ -1510,6 +1560,153 @@ export default function PlayersScreen() {
           queryClient.invalidateQueries({ queryKey: ["/api/academy/players-without-baseline"] });
         }}
       />
+
+      {/* Practice Pair Modal — coach picks two players + optional note. */}
+      <Modal
+        visible={showPracticePairModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPracticePairModal(false)}
+      >
+        <View style={practicePairStyles.overlay}>
+          <View style={practicePairStyles.sheet}>
+            <View style={practicePairStyles.headerRow}>
+              <Text style={practicePairStyles.title}>Suggest a Practice Match</Text>
+              <Pressable
+                onPress={() => setShowPracticePairModal(false)}
+                hitSlop={10}
+                testID="button-close-practice-pair"
+              >
+                <Ionicons name="close" size={24} color={Colors.dark.textSecondary} />
+              </Pressable>
+            </View>
+            <Text style={practicePairStyles.subtitle}>
+              Pick two players. They'll both see a card in their feed.
+            </Text>
+
+            <View style={practicePairStyles.searchWrap}>
+              <Ionicons name="search" size={16} color={Colors.dark.textMuted} />
+              <TextInput
+                style={practicePairStyles.searchInput}
+                placeholder="Search players"
+                placeholderTextColor={Colors.dark.textMuted}
+                value={practicePairSearch}
+                onChangeText={setPracticePairSearch}
+              />
+            </View>
+
+            <ScrollView style={practicePairStyles.list} keyboardShouldPersistTaps="handled">
+              {filteredPlayers
+                .filter((p) =>
+                  practicePairSearch.trim().length > 0
+                    ? (p.name || "")
+                        .toLowerCase()
+                        .includes(practicePairSearch.trim().toLowerCase())
+                    : true
+                )
+                .slice(0, 80)
+                .map((player) => {
+                  const isFirst = practicePairFirstId === player.id;
+                  const isSecond = practicePairSecondId === player.id;
+                  const selectedRole = isFirst ? "1" : isSecond ? "2" : null;
+                  return (
+                    <Pressable
+                      key={player.id}
+                      style={[
+                        practicePairStyles.row,
+                        selectedRole && practicePairStyles.rowSelected,
+                      ]}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        if (isFirst) {
+                          setPracticePairFirstId(null);
+                        } else if (isSecond) {
+                          setPracticePairSecondId(null);
+                        } else if (!practicePairFirstId) {
+                          setPracticePairFirstId(player.id);
+                        } else if (!practicePairSecondId) {
+                          setPracticePairSecondId(player.id);
+                        } else {
+                          // Both filled — replace player 2.
+                          setPracticePairSecondId(player.id);
+                        }
+                      }}
+                    >
+                      <View style={practicePairStyles.rowMeta}>
+                        <Text style={practicePairStyles.rowName} numberOfLines={1}>
+                          {player.name}
+                        </Text>
+                        {player.ballLevel ? (
+                          <Text style={practicePairStyles.rowLevel}>
+                            {player.ballLevel}
+                            {player.skillLevel ? ` · ${player.skillLevel}` : ""}
+                          </Text>
+                        ) : null}
+                      </View>
+                      {selectedRole ? (
+                        <View style={practicePairStyles.roleBadge}>
+                          <Text style={practicePairStyles.roleBadgeText}>P{selectedRole}</Text>
+                        </View>
+                      ) : (
+                        <Ionicons
+                          name="ellipse-outline"
+                          size={18}
+                          color={Colors.dark.textMuted}
+                        />
+                      )}
+                    </Pressable>
+                  );
+                })}
+            </ScrollView>
+
+            <View style={practicePairStyles.noteWrap}>
+              <Text style={practicePairStyles.noteLabel}>Note (optional)</Text>
+              <TextInput
+                style={practicePairStyles.noteInput}
+                placeholder="e.g. Work on net play together"
+                placeholderTextColor={Colors.dark.textMuted}
+                value={practicePairNote}
+                onChangeText={setPracticePairNote}
+                maxLength={280}
+                multiline
+              />
+            </View>
+
+            <Pressable
+              disabled={
+                !practicePairFirstId ||
+                !practicePairSecondId ||
+                practicePairMutation.isPending
+              }
+              style={({ pressed }) => [
+                practicePairStyles.submitBtn,
+                (!practicePairFirstId || !practicePairSecondId) &&
+                  practicePairStyles.submitBtnDisabled,
+                pressed && { opacity: 0.85 },
+              ]}
+              onPress={() => {
+                if (!practicePairFirstId || !practicePairSecondId) return;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                practicePairMutation.mutate();
+              }}
+              testID="button-submit-practice-pair"
+            >
+              {practicePairMutation.isPending ? (
+                <ActivityIndicator color={Colors.dark.buttonText} />
+              ) : (
+                <Text style={practicePairStyles.submitBtnText}>Suggest match</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {practicePairToast ? (
+        <View pointerEvents="none" style={practicePairStyles.toast}>
+          <Ionicons name="checkmark-circle" size={18} color={GlowColors.primary} />
+          <Text style={practicePairStyles.toastText}>{practicePairToast}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1524,6 +1721,148 @@ const localStyles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
+  },
+});
+
+const practicePairStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    maxHeight: "85%",
+    gap: Spacing.md,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.chipBackground,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    color: Colors.dark.text,
+    fontSize: 14,
+  },
+  list: {
+    maxHeight: 320,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    marginBottom: 4,
+    backgroundColor: Colors.dark.chipBackground,
+  },
+  rowSelected: {
+    backgroundColor: GlowColors.primary + "1A",
+    borderWidth: 1,
+    borderColor: GlowColors.primary + "55",
+  },
+  rowMeta: {
+    flex: 1,
+    gap: 2,
+    paddingRight: Spacing.sm,
+  },
+  rowName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  rowLevel: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    textTransform: "capitalize",
+  },
+  roleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    backgroundColor: GlowColors.primary,
+  },
+  roleBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.dark.buttonText,
+  },
+  noteWrap: {
+    gap: 6,
+  },
+  noteLabel: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  noteInput: {
+    backgroundColor: Colors.dark.chipBackground,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: 14,
+    minHeight: 64,
+    textAlignVertical: "top",
+  },
+  submitBtn: {
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  submitBtnDisabled: {
+    opacity: 0.5,
+  },
+  submitBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
+  },
+  toast: {
+    position: "absolute",
+    left: Spacing.lg,
+    right: Spacing.lg,
+    bottom: 90,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: GlowColors.primary + "55",
+  },
+  toastText: {
+    color: Colors.dark.text,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 

@@ -30,7 +30,8 @@ export type FeedSourceType =
   | "quest_complete"
   | "tournament_result"
   | "open_match"
-  | "coach_spotlight";
+  | "coach_spotlight"
+  | "coach_practice_pair";
 
 export type FeedScope =
   | "friends"
@@ -495,6 +496,75 @@ export async function publishMomentPost(postId: string): Promise<void> {
   } catch (err) {
     console.error("[FeedPublisher] publishMomentPost error:", err);
   }
+}
+
+/**
+ * Coach-suggested practice pair (Phase 4) — coach asks two players to set up
+ * a practice match. Each suggestion produces TWO feed_items rows (one per
+ * player as authorPlayerId, scope=friends) so each player sees the
+ * suggestion in their own feed and their friends can also discover it.
+ *
+ * sourceId is a deterministic composite of (coachId, sortedPair, day) so the
+ * onConflict guard in insertFeedItem prevents the same coach from re-spamming
+ * the same pair within a day.
+ */
+export async function publishCoachPracticePair(args: {
+  coachId: string;
+  player1Id: string;
+  player2Id: string;
+  player1Name?: string | null;
+  player2Name?: string | null;
+  coachName?: string | null;
+  note?: string | null;
+  academyId?: string | null;
+}): Promise<{ player1FeedKey: string; player2FeedKey: string }> {
+  const sortedPair = [args.player1Id, args.player2Id].sort();
+  const today = new Date().toISOString().slice(0, 10);
+  const dayKey = `${args.coachId}::${sortedPair[0]}::${sortedPair[1]}::${today}`;
+
+  // Two feed items — one keyed for each player so they appear in each
+  // player's personal author stream and friends scope.
+  const ctx1 = await loadPlayerContext(args.player1Id);
+  const ctx2 = await loadPlayerContext(args.player2Id);
+
+  const basePayload = {
+    coachId: args.coachId,
+    coachName: args.coachName ?? null,
+    player1Id: args.player1Id,
+    player1Name: args.player1Name ?? null,
+    player2Id: args.player2Id,
+    player2Name: args.player2Name ?? null,
+    note: args.note ?? null,
+  };
+
+  const player1FeedKey = `${dayKey}::for-${args.player1Id}`;
+  const player2FeedKey = `${dayKey}::for-${args.player2Id}`;
+
+  await insertFeedItem({
+    sourceType: "coach_practice_pair",
+    sourceId: player1FeedKey,
+    scope: "friends",
+    country: ctx1.country,
+    academyId: args.academyId ?? ctx1.academyId,
+    authorUserId: ctx1.userId,
+    authorPlayerId: args.player1Id,
+    occurredAt: new Date(),
+    payload: { ...basePayload, viewerPlayerId: args.player1Id, partnerId: args.player2Id, partnerName: args.player2Name ?? null },
+  });
+
+  await insertFeedItem({
+    sourceType: "coach_practice_pair",
+    sourceId: player2FeedKey,
+    scope: "friends",
+    country: ctx2.country,
+    academyId: args.academyId ?? ctx2.academyId,
+    authorUserId: ctx2.userId,
+    authorPlayerId: args.player2Id,
+    occurredAt: new Date(),
+    payload: { ...basePayload, viewerPlayerId: args.player2Id, partnerId: args.player1Id, partnerName: args.player1Name ?? null },
+  });
+
+  return { player1FeedKey, player2FeedKey };
 }
 
 /**
