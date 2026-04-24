@@ -1313,6 +1313,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   );
 
   // GET /api/player/me/notifications/unread-count
+  // Optional ?type=<notification_type> narrows the count to a single type so
+  // we can show per-feature unread badges (e.g. community_group_join on the
+  // Community tab — Task #1144).
   router.get(
     "/api/player/me/notifications/unread-count",
     authMiddleware,
@@ -1323,20 +1326,66 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         if (!playerId)
           return res.status(400).json({ error: "Player not found" });
 
+        const typeFilter = typeof req.query.type === "string" ? req.query.type : undefined;
+
+        const conditions = [
+          eq(playerNotifications.playerId, playerId),
+          eq(playerNotifications.read, false),
+        ];
+        if (typeFilter) {
+          conditions.push(eq(playerNotifications.type, typeFilter));
+        }
+
         const [result] = await db
           .select({ count: count() })
           .from(playerNotifications)
-          .where(
-            and(
-              eq(playerNotifications.playerId, playerId),
-              eq(playerNotifications.read, false),
-            ),
-          );
+          .where(and(...conditions));
 
         res.json({ count: result?.count || 0 });
       } catch (error) {
         console.error("Error fetching unread count:", error);
         res.status(500).json({ error: "Failed to fetch unread count" });
+      }
+    },
+  );
+
+  // POST /api/player/me/notifications/community-group-join/mark-read
+  // Marks any unread `community_group_join` notification for the given group
+  // as read, so the Community tab badge clears as soon as the player opens
+  // that group's page (Task #1144).
+  router.post(
+    "/api/player/me/notifications/community-group-join/mark-read",
+    authMiddleware,
+    requirePlayerOrOwner,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const playerId = req.user!.playerId;
+        if (!playerId)
+          return res.status(400).json({ error: "Player not found" });
+
+        const bodySchema = z.object({ groupId: z.string().min(1) });
+        const parsed = bodySchema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ error: fromZodError(parsed.error).message });
+        }
+        const { groupId } = parsed.data;
+
+        await db
+          .update(playerNotifications)
+          .set({ read: true, readAt: new Date() })
+          .where(
+            and(
+              eq(playerNotifications.playerId, playerId),
+              eq(playerNotifications.type, "community_group_join"),
+              eq(playerNotifications.read, false),
+              sql`${playerNotifications.data}->>'groupId' = ${groupId}`,
+            ),
+          );
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error marking community group join notifications read:", error);
+        res.status(500).json({ error: "Failed to mark notifications read" });
       }
     },
   );

@@ -125,7 +125,7 @@ import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDr
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { FamilyProvider, useFamily } from "@/player/context/FamilyContext";
-import { getApiUrl } from "@/lib/query-client";
+import { apiFetch, getApiUrl } from "@/lib/query-client";
 
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
 import { ScheduleFocusProvider } from "@/player/context/ScheduleFocusContext";
@@ -908,13 +908,32 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
   const { user } = useAuth();
   const { isFreePlayer, isReady: isPlayerStatusReady } = useFreePlayerStatus();
 
+  // Task #1144 — Show an unread badge on the Community tab whenever the player
+  // has any unread `community_group_join` notification, so they're nudged into
+  // the new group surface even if they never open the Notifications screen.
+  const { data: communityUnread } = useQuery<{ count: number }>({
+    queryKey: ["/api/player/me/notifications/unread-count", "community_group_join"],
+    queryFn: async () => {
+      const resp = await apiFetch(
+        "/api/player/me/notifications/unread-count?type=community_group_join",
+      );
+      if (!resp.ok) return { count: 0 };
+      return resp.json();
+    },
+    enabled: !!user?.playerId,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+  const hasCommunityUnread = (communityUnread?.count ?? 0) > 0;
+
   const playerTabs: TabConfig[] = useMemo(() => [
     { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
-    { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen },
+    { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen, badge: hasCommunityUnread },
     { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
     { key: "Growth", label: "Growth", icon: "trending-up-outline", iconFocused: "trending-up", component: ProgressStackNavigator },
     { key: "Profile", label: "Me", icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
-  ], [t]);
+  ], [t, hasCommunityUnread]);
 
   const validTabKeys = useMemo(() => new Set(playerTabs.map(t => t.key)), [playerTabs]);
   const { initialTabKey, isResolved } = useResolvedInitialTab(

@@ -2331,6 +2331,33 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     queryKey: [`/api/player/groups/${groupId}`],
   });
 
+  // Task #1144 — Clear the Community tab badge as soon as the player opens the
+  // group page linked from the `community_group_join` prompt.
+  useEffect(() => {
+    if (!groupId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await apiRequest(
+          "POST",
+          "/api/player/me/notifications/community-group-join/mark-read",
+          { groupId },
+        );
+        if (cancelled || !resp.ok) return;
+        queryClient.invalidateQueries({
+          queryKey: ["/api/player/me/notifications/unread-count", "community_group_join"],
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/notifications"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/notifications/unread-count"] });
+      } catch {
+        // best-effort; the badge will clear when the player marks read elsewhere
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [groupId, queryClient]);
+
   const { data: feedData, isLoading: feedLoading, refetch: refetchFeed } = useQuery<{ posts: Post[] }>({
     queryKey: [`/api/player/groups/${groupId}/feed`],
     enabled: activeTab === "feed",

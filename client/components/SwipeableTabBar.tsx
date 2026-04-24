@@ -17,6 +17,9 @@ export interface TabConfig {
   icon: keyof typeof Ionicons.glyphMap;
   iconFocused: keyof typeof Ionicons.glyphMap;
   component: React.ComponentType<any>;
+  // When true, render a small unread indicator dot on the tab icon. Number values
+  // are reserved for future count badges; today the renderer only shows a dot.
+  badge?: boolean | number;
 }
 
 export interface CenterButtonConfig {
@@ -75,6 +78,9 @@ function SwipeableTabItem({
           size={24} 
           color={focused ? activeColor : inactiveColor} 
         />
+        {tab.badge ? (
+          <View style={[styles.tabBadgeDot, { backgroundColor: activeColor }]} />
+        ) : null}
       </Animated.View>
       <Animated.Text 
         style={[
@@ -510,6 +516,16 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     height: 28,
     borderRadius: 14,
     opacity: 0.2,
+  },
+  tabBadgeDot: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.backgroundRoot,
   },
   tabDivider: {
     width: 1,
