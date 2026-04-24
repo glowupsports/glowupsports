@@ -24,6 +24,10 @@ import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } fr
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
+import {
+  CourtBookingPicker,
+  type CourtBookingStatus,
+} from "@/player/components/CourtBookingPicker";
 
 interface Player {
   id: string;
@@ -95,6 +99,10 @@ export default function CreateSessionDrawer({
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
   const [travelTime, setTravelTime] = useState(0);
   const [notes, setNotes] = useState("");
+  const [courtBookingStatus, setCourtBookingStatus] =
+    useState<CourtBookingStatus | null>(null);
+  const [courtBookingNote, setCourtBookingNote] = useState("");
+  const [courtBookingUrl, setCourtBookingUrl] = useState("");
   const [isChecking, setIsChecking] = useState(false);
   const [conflicts, setConflicts] = useState<string[]>([]);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -155,10 +163,25 @@ export default function CreateSessionDrawer({
     notes: string | null;
   }
 
-  const { data: courts = [] } = useQuery<{ id: string; name: string }[]>({
+  const { data: courts = [] } = useQuery<
+    { id: string; name: string; requiresExternalBooking?: boolean }[]
+  >({
     queryKey: ["/api/courts"],
     enabled: visible,
   });
+
+  const selectedCourt = selectedCourtId
+    ? courts.find((c) => c.id === selectedCourtId)
+    : null;
+  const requiresExternalBooking = !!selectedCourt?.requiresExternalBooking;
+
+  useEffect(() => {
+    if (!requiresExternalBooking) {
+      setCourtBookingStatus(null);
+      setCourtBookingNote("");
+      setCourtBookingUrl("");
+    }
+  }, [requiresExternalBooking, selectedCourtId]);
 
   const { data: playersData } = useQuery<Player[]>({
     queryKey: ["/api/players"],
@@ -520,6 +543,14 @@ export default function CreateSessionDrawer({
       return;
     }
 
+    if (requiresExternalBooking && !courtBookingStatus) {
+      Alert.alert(
+        "Court booking required",
+        "This court has to be booked externally. Please confirm whether you've already booked it.",
+      );
+      return;
+    }
+
     const endTime = new Date(startTime);
     endTime.setMinutes(endTime.getMinutes() + duration);
 
@@ -537,6 +568,15 @@ export default function CreateSessionDrawer({
       playerIds: selectedPlayers.map((p) => p.id),
       isRecurring,
       weekCount: isRecurring ? weekCount : 1,
+      courtBookingStatus: requiresExternalBooking ? courtBookingStatus : null,
+      courtBookingNote:
+        requiresExternalBooking && courtBookingNote
+          ? courtBookingNote.trim()
+          : null,
+      courtBookingUrl:
+        requiresExternalBooking && courtBookingUrl
+          ? courtBookingUrl.trim()
+          : null,
     };
 
     createSessionMutation.mutate(sessionData);
@@ -734,6 +774,35 @@ export default function CreateSessionDrawer({
               <Text style={styles.noPlayersText}>No courts available</Text>
             ) : null}
           </View>
+
+          {requiresExternalBooking ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                <Ionicons
+                  name="alert-circle"
+                  size={12}
+                  color={Colors.dark.gold}
+                />{" "}
+                Court booking
+              </Text>
+              <Text style={styles.courtBookingHelp}>
+                {selectedCourt?.name ?? "This court"} is booked externally.
+                Confirm whether you&apos;ve already reserved it.
+              </Text>
+              <View style={styles.courtBookingPickerWrapper}>
+                <CourtBookingPicker
+                  isAcademyCourt={false}
+                  requiresExternalBooking
+                  status={courtBookingStatus}
+                  note={courtBookingNote}
+                  url={courtBookingUrl}
+                  onStatusChange={setCourtBookingStatus}
+                  onNoteChange={setCourtBookingNote}
+                  onUrlChange={setCourtBookingUrl}
+                />
+              </View>
+            </View>
+          ) : null}
 
           {/* Step 3: Duration - Select BEFORE time to filter properly */}
           <View style={styles.section}>
@@ -1694,6 +1763,14 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     fontStyle: "italic",
+  },
+  courtBookingHelp: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  courtBookingPickerWrapper: {
+    marginTop: Spacing.xs,
   },
   playerSearchContainer: {
     flexDirection: "row",

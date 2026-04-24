@@ -37,7 +37,7 @@ type ChallengePlayerParams = {
 
 type MatchType = "singles" | "doubles";
 type MatchFormat = "friendly" | "competitive" | "ranking";
-type CourtOption = { id: string; name: string } | null;
+type CourtOption = { id: string; name: string; requiresExternalBooking?: boolean } | null;
 
 const STEPS = ["Match", "Court", "Date & Time", "Confirm"];
 
@@ -84,7 +84,14 @@ export default function ChallengePlayerScreen() {
     // Context changed (or first run): re-derive a sensible default and
     // clear the touched flag so the picker accepts further edits.
     if (currentContext === "academy") {
-      setCourtBooking({ status: "academy_court", note: "", url: "" });
+      // Community / external-booking courts (e.g. Maple via Playtomic) live
+      // inside the academy list but cannot be auto-handled — default to the
+      // safer "I'll book it" option so the user is forced to confirm.
+      if (selectedCourt?.requiresExternalBooking) {
+        setCourtBooking({ status: "external_pending", note: "", url: "" });
+      } else {
+        setCourtBooking({ status: "academy_court", note: "", url: "" });
+      }
     } else if (currentContext === "custom") {
       setCourtBooking((prev) => ({
         status: "external_pending",
@@ -95,7 +102,7 @@ export default function ChallengePlayerScreen() {
       setCourtBooking({ status: null, note: "", url: "" });
     }
     setTouchedContext(null);
-  }, [currentContext, customCourtName, touchedContext]);
+  }, [currentContext, customCourtName, touchedContext, selectedCourt?.requiresExternalBooking]);
 
   const handleCourtBookingChange = useCallback(
     (value: CourtBookingValue) => {
@@ -108,7 +115,15 @@ export default function ChallengePlayerScreen() {
   const academyId = (user as any)?.academyId;
   const playerId = getEffectivePlayerId(user?.playerId);
 
-  const { data: courtsData, isLoading: courtsLoading } = useQuery({
+  type CourtListItem = {
+    id: string;
+    name: string;
+    requiresExternalBooking?: boolean | null;
+    [key: string]: unknown;
+  };
+  type CourtsResponse = { courts?: CourtListItem[] } | CourtListItem[];
+
+  const { data: courtsData, isLoading: courtsLoading } = useQuery<CourtsResponse>({
     queryKey: ["/api/courts", academyId],
     queryFn: async () => {
       const url = academyId
@@ -120,7 +135,11 @@ export default function ChallengePlayerScreen() {
     },
     enabled: true,
   });
-  const courts = Array.isArray(courtsData?.courts) ? courtsData.courts : Array.isArray(courtsData) ? courtsData : [];
+  const courts: CourtListItem[] = Array.isArray(courtsData)
+    ? courtsData
+    : Array.isArray(courtsData?.courts)
+      ? courtsData.courts
+      : [];
 
   const { data: neutralCourtData } = useQuery<{
     suggestedCourtId: string | null;
@@ -385,7 +404,9 @@ export default function ChallengePlayerScreen() {
 
   const renderStep1 = () => {
     const hasTravelData = courtTravelMinutes.size > 0;
-    const suggestedCourt = suggestedCourtId ? courts.find((c: any) => c.id === suggestedCourtId) : null;
+    const suggestedCourt = suggestedCourtId
+      ? courts.find((c) => c.id === suggestedCourtId) ?? null
+      : null;
 
     return (
     <Animated.View entering={FadeInRight.duration(300)} key="step1">
@@ -398,7 +419,11 @@ export default function ChallengePlayerScreen() {
             style={styles.suggestedVenueBanner}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setSelectedCourt({ id: suggestedCourt.id, name: suggestedCourt.name });
+              setSelectedCourt({
+                id: suggestedCourt.id,
+                name: suggestedCourt.name,
+                requiresExternalBooking: !!suggestedCourt.requiresExternalBooking,
+              });
               setShowCustomCourt(false);
               setCustomCourtName("");
               setSelectedTime("");
@@ -440,7 +465,11 @@ export default function ChallengePlayerScreen() {
                   style={[styles.courtCard, isSelected && styles.courtCardSelected, court.id === suggestedCourtId && !isSelected && styles.courtCardSuggested]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    setSelectedCourt({ id: court.id, name: court.name });
+                    setSelectedCourt({
+                      id: court.id,
+                      name: court.name,
+                      requiresExternalBooking: !!court.requiresExternalBooking,
+                    });
                     setShowCustomCourt(false);
                     setCustomCourtName("");
                     setSelectedTime("");
@@ -529,6 +558,7 @@ export default function ChallengePlayerScreen() {
           value={courtBooking}
           onChange={handleCourtBookingChange}
           isAcademyCourt={!!selectedCourt?.id}
+          requiresExternalBooking={!!selectedCourt?.requiresExternalBooking}
         />
       </View>
     </Animated.View>

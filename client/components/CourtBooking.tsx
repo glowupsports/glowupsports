@@ -24,39 +24,67 @@ interface PickerProps {
   value: CourtBookingValue;
   onChange: (value: CourtBookingValue) => void;
   isAcademyCourt?: boolean;
+  /**
+   * When true, the chosen court does NOT belong to the academy's managed inventory
+   * (e.g. a community court like Maple that requires Playtomic) and the picker
+   * must always show the external_booked / external_pending options. Defaults to
+   * false for backward compatibility.
+   */
+  requiresExternalBooking?: boolean;
 }
 
-export function CourtBookingPicker({ value, onChange, isAcademyCourt = false }: PickerProps) {
+export function CourtBookingPicker({
+  value,
+  onChange,
+  isAcademyCourt = false,
+  requiresExternalBooking = false,
+}: PickerProps) {
   const setStatus = (status: CourtBookingStatus) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onChange({ ...value, status });
   };
 
-  const options: Array<{ key: CourtBookingStatus; icon: any; label: string; desc: string; color: string }> = [
-    ...(isAcademyCourt
-      ? [{
-          key: "academy_court" as CourtBookingStatus,
-          icon: "school",
-          label: "Academy court — handled for you",
-          desc: "Use the court selected from the academy",
-          color: Colors.dark.primary,
-        }]
-      : []),
-    {
-      key: "external_booked",
-      icon: "checkmark-circle",
-      label: "Yes, I've booked it",
-      desc: "Add a note or confirmation link",
-      color: Colors.dark.successNeon,
-    },
-    {
-      key: "external_pending",
-      icon: "time",
-      label: "Not yet — I'll book it",
-      desc: "Optionally add a note for the other player",
-      color: Colors.dark.gold,
-    },
-  ];
+  const treatAsAcademyCourt = isAcademyCourt && !requiresExternalBooking;
+  const externalOnly = requiresExternalBooking;
+
+  const academyOption = {
+    key: "academy_court" as CourtBookingStatus,
+    icon: "school" as const,
+    label: "Academy court — handled for you",
+    desc: "Use the court selected from the academy",
+    color: Colors.dark.primary,
+  };
+  const externalBookedOption = {
+    key: "external_booked" as CourtBookingStatus,
+    icon: "checkmark-circle" as const,
+    label: "Yes, I've booked it",
+    desc: "Add a note or confirmation link",
+    color: Colors.dark.successNeon,
+  };
+  const externalPendingOption = {
+    key: "external_pending" as CourtBookingStatus,
+    icon: "time" as const,
+    label: "Not yet — I'll book it",
+    desc: "Optionally add a note for the other player",
+    color: Colors.dark.gold,
+  };
+
+  const options: Array<{ key: CourtBookingStatus; icon: any; label: string; desc: string; color: string }> = treatAsAcademyCourt
+    ? [academyOption]
+    : externalOnly
+      ? [externalBookedOption, externalPendingOption]
+      : [academyOption, externalBookedOption, externalPendingOption];
+
+  React.useEffect(() => {
+    if (treatAsAcademyCourt && value.status !== "academy_court") {
+      onChange({ ...value, status: "academy_court" });
+    } else if (externalOnly && value.status === "academy_court") {
+      onChange({ ...value, status: "external_pending" });
+    } else if (externalOnly && value.status == null) {
+      onChange({ ...value, status: "external_pending" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treatAsAcademyCourt, externalOnly]);
 
   return (
     <View style={styles.pickerContainer}>

@@ -1337,7 +1337,35 @@ router.post(
         // for cross-academy drop-in unless the coach explicitly opts out.
         isPublic,
         publicDropInPrice,
+        courtBookingStatus,
+        courtBookingNote,
+        courtBookingUrl,
       } = req.body;
+
+      const VALID_COURT_BOOKING_STATUSES = new Set([
+        "academy_court",
+        "external_booked",
+        "external_pending",
+      ]);
+      const courtBookingPayload: {
+        courtBookingStatus: string | null;
+        courtBookingNote: string | null;
+        courtBookingUrl: string | null;
+      } = {
+        courtBookingStatus:
+          typeof courtBookingStatus === "string" &&
+          VALID_COURT_BOOKING_STATUSES.has(courtBookingStatus)
+            ? courtBookingStatus
+            : null,
+        courtBookingNote:
+          typeof courtBookingNote === "string" && courtBookingNote.trim()
+            ? courtBookingNote.trim().slice(0, 500)
+            : null,
+        courtBookingUrl:
+          typeof courtBookingUrl === "string" && courtBookingUrl.trim()
+            ? courtBookingUrl.trim().slice(0, 500)
+            : null,
+      };
 
       const ballLevelsArr: string[] | null =
         Array.isArray(rawBallLevels) && rawBallLevels.length > 0
@@ -1753,6 +1781,7 @@ router.post(
               maxPlayers: matchingSeries.maxPlayers,
               xpValue: matchingSeries.xpPerSession || 20,
               ...sessionPricing,
+              ...courtBookingPayload,
             });
 
             // Add players to this session
@@ -1871,6 +1900,7 @@ router.post(
               publicDropInPrice != null && Number(publicDropInPrice) > 0
                 ? String(publicDropInPrice)
                 : null,
+            ...courtBookingPayload,
           });
           seriesId = series.id;
 
@@ -2004,6 +2034,7 @@ router.post(
             weekNumber: i + 1,
             sport: validatedSport,
             ...pricingSnapshot,
+            ...courtBookingPayload,
           });
 
           // Create time block
@@ -2181,6 +2212,7 @@ router.post(
           weekNumber: seriesId ? week + 1 : undefined,
           sport: validatedSport,
           ...pricingSnapshot,
+          ...courtBookingPayload,
         });
 
         // Create unified time block to prevent double-booking across academies
@@ -2472,6 +2504,7 @@ router.post(
             publicDropInPrice != null && Number(publicDropInPrice) > 0
               ? String(publicDropInPrice)
               : null,
+          ...courtBookingPayload,
         });
         seriesId = newSeries.id;
 
@@ -2536,6 +2569,7 @@ router.post(
               : sessionType === "semi_private"
                 ? 2
                 : maxPlayers || 6,
+          ...courtBookingPayload,
           recurringGroupId: null,
           seriesId: seriesId || undefined,
           sport: validatedSport,

@@ -154,6 +154,7 @@ interface AcademyCourt {
   surface: string | null;
   locationId: string | null;
   locationName: string | null;
+  requiresExternalBooking?: boolean | null;
 }
 
 const SESSION_TYPE_CARDS: {
@@ -410,6 +411,7 @@ export default function PlayerBookingWizard({
     name: string;
     locationId: string | null;
     surface: string | null;
+    requiresExternalBooking?: boolean;
   }>>({
     queryKey: [availableCourtsUrl],
     enabled: !!availableCourtsUrl && visible,
@@ -863,14 +865,37 @@ export default function PlayerBookingWizard({
     }
   }, [currentSlide]);
 
-  // Resolve which court is in play for this booking (for academy-court detection)
-  const isAcademyCourt = useMemo(() => {
-    const cid =
-      selectedCourtId ?? presetCourtId ??
-      (selectedSlot?.courtId ?? null) ??
-      (isJoining && selectedSession ? (selectedSession as any).courtId ?? null : null);
-    return !!cid;
+  // Resolve court from either academy-scoped list; cross-academy/no-academy
+  // courts won't be found and fall through to the all-options picker.
+  const resolvedCourtId = useMemo<string | null>(() => {
+    return (
+      selectedCourtId ??
+      presetCourtId ??
+      selectedSlot?.courtId ??
+      (isJoining && selectedSession
+        ? (selectedSession as { courtId?: string | null }).courtId ?? null
+        : null)
+    );
   }, [selectedCourtId, presetCourtId, selectedSlot, selectedSession, isJoining]);
+
+  const resolvedCourt = useMemo<{ requiresExternalBooking?: boolean | null } | null>(() => {
+    if (!resolvedCourtId) return null;
+    const fromAvailable = availableCourts.find((c) => c.id === resolvedCourtId);
+    if (fromAvailable) return fromAvailable;
+    const fromAcademy = academyCourts.find((c) => c.id === resolvedCourtId);
+    if (fromAcademy) return fromAcademy;
+    return null;
+  }, [resolvedCourtId, availableCourts, academyCourts]);
+
+  const isAcademyCourt = useMemo(() => {
+    if (!resolvedCourt) return false;
+    if (resolvedCourt.requiresExternalBooking) return false;
+    return true;
+  }, [resolvedCourt]);
+
+  const requiresExternalBooking = useMemo(() => {
+    return !!resolvedCourt?.requiresExternalBooking;
+  }, [resolvedCourt]);
 
   // Court Booking step is the second-to-last slide
   const courtBookingValid = useMemo(() => {
@@ -2109,6 +2134,7 @@ export default function PlayerBookingWizard({
       >
         <CourtBookingPicker
           isAcademyCourt={isAcademyCourt}
+          requiresExternalBooking={requiresExternalBooking}
           status={courtBookingStatus}
           note={courtBookingNote}
           url={courtBookingUrl}

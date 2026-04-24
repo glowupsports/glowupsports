@@ -795,6 +795,7 @@ export default function CreateMatchScreen() {
       </View>
 
       <View style={{ marginBottom: Spacing.lg }}>
+        {/* No academy-court selector in this flow — picker shows all options. */}
         <CourtBookingPicker
           value={courtBooking}
           onChange={setCourtBooking}

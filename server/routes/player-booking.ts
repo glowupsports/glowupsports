@@ -511,6 +511,7 @@ router.get(
           name: court.name,
           locationId: court.locationId,
           surface: court.surface,
+          requiresExternalBooking: !!court.requiresExternalBooking,
         }));
 
       res.json(availableCourts);
@@ -550,6 +551,7 @@ router.get(
             surface: c.surface ?? null,
             locationId: c.locationId ?? null,
             locationName: loc?.name ?? null,
+            requiresExternalBooking: !!c.requiresExternalBooking,
           };
         });
 

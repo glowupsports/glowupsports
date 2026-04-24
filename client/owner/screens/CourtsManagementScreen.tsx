@@ -18,6 +18,7 @@ interface Court {
   indoor?: boolean;
   status?: string;
   sport?: string;
+  requiresExternalBooking?: boolean;
 }
 
 export default function CourtsManagementScreen() {
@@ -33,6 +34,7 @@ export default function CourtsManagementScreen() {
     capacity: "4",
     indoor: false,
     sport: "tennis",
+    requiresExternalBooking: false,
   });
 
   const { data: courts = [], isLoading } = useQuery<Court[]>({
@@ -107,7 +109,7 @@ export default function CourtsManagementScreen() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", surface: "hard", capacity: "4", indoor: false, sport: "tennis" });
+    setFormData({ name: "", surface: "hard", capacity: "4", indoor: false, sport: "tennis", requiresExternalBooking: false });
   };
 
   const handleAdd = () => {
@@ -124,6 +126,7 @@ export default function CourtsManagementScreen() {
       capacity: String(court.capacity || 4),
       indoor: court.indoor || false,
       sport: court.sport || "tennis",
+      requiresExternalBooking: !!court.requiresExternalBooking,
     });
     setShowModal(true);
   };
@@ -178,6 +181,7 @@ export default function CourtsManagementScreen() {
       capacity: parseInt(formData.capacity) || 4,
       indoor: formData.indoor,
       sport: formData.sport || "tennis",
+      requiresExternalBooking: !!formData.requiresExternalBooking,
     };
 
     if (editingCourt) {
@@ -342,6 +346,23 @@ export default function CourtsManagementScreen() {
                 <Text style={styles.label}>Indoor Court</Text>
                 <View style={[styles.toggle, formData.indoor && styles.toggleActive]}>
                   <View style={[styles.toggleKnob, formData.indoor && styles.toggleKnobActive]} />
+                </View>
+              </Pressable>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Pressable
+                style={styles.toggleRow}
+                onPress={() => setFormData(prev => ({ ...prev, requiresExternalBooking: !prev.requiresExternalBooking }))}
+              >
+                <View style={{ flex: 1, paddingRight: Spacing.md }}>
+                  <Text style={styles.label}>Requires external booking</Text>
+                  <Text style={styles.helperText}>
+                    Turn on for community courts (e.g. Maple via Playtomic) that the academy doesn&apos;t own. Players and coaches will be asked to confirm an external reservation.
+                  </Text>
+                </View>
+                <View style={[styles.toggle, formData.requiresExternalBooking && styles.toggleActive]}>
+                  <View style={[styles.toggleKnob, formData.requiresExternalBooking && styles.toggleKnobActive]} />
                 </View>
               </Pressable>
             </View>
@@ -578,6 +599,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  helperText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 4,
   },
   toggle: {
     width: 50,

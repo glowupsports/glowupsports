@@ -667,6 +667,10 @@ export const courts = pgTable("courts", {
   guestsAllowed: boolean("guests_allowed").default(false),
   requiresApproval: boolean("requires_approval").default(false), // academy must approve booking
   bookingEnabled: boolean("booking_enabled").default(true), // false = community-only, visible but not bookable
+  // True = the academy doesn't own/manage this court — players or coaches must book it externally
+  // (e.g. Playtomic, club website, walk-in). When set, the court-booking picker forces an
+  // external_booked / external_pending choice instead of "academy court — handled for you".
+  requiresExternalBooking: boolean("requires_external_booking").default(false).notNull(),
   
   // Operating Hours (JSON for flexibility)
   operatingHours: jsonb("operating_hours").$type<{
@@ -1756,6 +1760,12 @@ export const sessions = pgTable("sessions", {
   // Default 1 (one credit per session). Premium sessions can be set higher.
   creditCost: numeric("credit_cost").default("1"),
 
+  // External court booking declaration (community courts that require external reservation,
+  // e.g. Playtomic). Mirrors the same triplet on bookingRequests / matches / etc.
+  courtBookingStatus: text("court_booking_status"), // 'academy_court' | 'external_booked' | 'external_pending'
+  courtBookingNote: text("court_booking_note"),
+  courtBookingUrl: text("court_booking_url"),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1815,6 +1825,10 @@ export const coachingSeries = pgTable("coaching_series", {
   isPublic: boolean("is_public").notNull().default(false), // Whether this group is publicly listed for drop-in bookings
   publicDropInPrice: numeric("public_drop_in_price"), // Optional drop-in price per session
   
+  courtBookingStatus: text("court_booking_status"), // 'academy_court' | 'external_booked' | 'external_pending'
+  courtBookingNote: text("court_booking_note"),
+  courtBookingUrl: text("court_booking_url"),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 

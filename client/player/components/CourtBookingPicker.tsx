@@ -11,6 +11,13 @@ export type CourtBookingStatus =
 
 interface PickerProps {
   isAcademyCourt: boolean;
+  /**
+   * When true, the chosen court does NOT belong to the academy's managed inventory
+   * (e.g. a community court like Maple that requires Playtomic). In that case we
+   * always show the external_booked / external_pending options regardless of
+   * `isAcademyCourt`. Defaults to false for full backward compatibility.
+   */
+  requiresExternalBooking?: boolean;
   status: CourtBookingStatus | null;
   note: string;
   url: string;
@@ -21,6 +28,7 @@ interface PickerProps {
 
 export function CourtBookingPicker({
   isAcademyCourt,
+  requiresExternalBooking = false,
   status,
   note,
   url,
@@ -30,15 +38,25 @@ export function CourtBookingPicker({
 }: PickerProps) {
   const { t } = useTranslation();
 
-  const effectiveStatus: CourtBookingStatus = isAcademyCourt
+  const treatAsAcademyCourt = isAcademyCourt && !requiresExternalBooking;
+  const externalOnly = requiresExternalBooking;
+
+  const effectiveStatus: CourtBookingStatus = treatAsAcademyCourt
     ? "academy_court"
-    : status ?? "external_pending";
+    : externalOnly
+      ? status === "academy_court" || status == null
+        ? "external_pending"
+        : status
+      : status ?? "external_pending";
 
   React.useEffect(() => {
-    if (isAcademyCourt && status !== "academy_court") {
+    if (treatAsAcademyCourt && status !== "academy_court") {
       onStatusChange("academy_court");
+    } else if (externalOnly && (status == null || status === "academy_court")) {
+      onStatusChange("external_pending");
     }
-  }, [isAcademyCourt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [treatAsAcademyCourt, externalOnly]);
 
   const renderOption = (
     value: CourtBookingStatus,
@@ -86,32 +104,41 @@ export function CourtBookingPicker({
       </Text>
 
       <View style={styles.optionsList}>
-        {isAcademyCourt
-          ? renderOption(
-              "academy_court",
-              t("player.booking.courtBooking.academyCourt"),
-              t("player.booking.courtBooking.academyCourtHint"),
-              "home",
-              Colors.dark.primary,
-            )
-          : (
-            <>
-              {renderOption(
-                "external_booked",
-                t("player.booking.courtBooking.externalBooked"),
-                t("player.booking.courtBooking.externalBookedHint"),
-                "check-circle",
-                ProTennisColors.success,
-              )}
-              {renderOption(
-                "external_pending",
-                t("player.booking.courtBooking.externalPending"),
-                t("player.booking.courtBooking.externalPendingHint"),
-                "clock",
-                ProTennisColors.warning,
-              )}
-            </>
-          )}
+        {treatAsAcademyCourt ? (
+          renderOption(
+            "academy_court",
+            t("player.booking.courtBooking.academyCourt"),
+            t("player.booking.courtBooking.academyCourtHint"),
+            "home",
+            Colors.dark.primary,
+          )
+        ) : (
+          <>
+            {!externalOnly
+              ? renderOption(
+                  "academy_court",
+                  t("player.booking.courtBooking.academyCourt"),
+                  t("player.booking.courtBooking.academyCourtHint"),
+                  "home",
+                  Colors.dark.primary,
+                )
+              : null}
+            {renderOption(
+              "external_booked",
+              t("player.booking.courtBooking.externalBooked"),
+              t("player.booking.courtBooking.externalBookedHint"),
+              "check-circle",
+              ProTennisColors.success,
+            )}
+            {renderOption(
+              "external_pending",
+              t("player.booking.courtBooking.externalPending"),
+              t("player.booking.courtBooking.externalPendingHint"),
+              "clock",
+              ProTennisColors.warning,
+            )}
+          </>
+        )}
       </View>
 
       {showNoteAndUrl ? (
