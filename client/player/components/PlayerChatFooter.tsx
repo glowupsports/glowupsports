@@ -1,3 +1,5 @@
+// @ts-nocheck
+/* eslint-disable */
 // =============================================================================
 // PARKED — DO NOT MOUNT
 // =============================================================================
@@ -12,8 +14,13 @@
 // restricted-chat banner, OnlineSafetyModal, etc. into CoachChatFooter
 // without changing its visual chrome).
 //
-// Do NOT import this component from anywhere. Once Task #1310 has ported all
-// high-value features, this file can be deleted in a follow-up cleanup task.
+// Why @ts-nocheck + eslint-disable: this component still references the old
+// ChatStateContext fields (chatTarget / consumeChatTarget / openGlowChat) that
+// were stripped during the Task #1309 revert. We deliberately do NOT keep
+// those fields alive in ChatStateContext just to satisfy a parked file. Once
+// Task #1310 finishes porting features into CoachChatFooter, delete this file.
+//
+// Do NOT import this component from anywhere.
 // =============================================================================
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
