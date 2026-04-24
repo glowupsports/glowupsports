@@ -2,17 +2,25 @@ import { Platform, Alert } from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
+import { StorageAccessFramework } from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 import logger from "@/lib/logger";
 
-const PRINT_TIMEOUT_MS = 30_000;
-const SHARE_TIMEOUT_MS = 60_000;
+const PRINT_TIMEOUT_MS = 20_000;
+const SHARE_TIMEOUT_MS = 30_000;
 const ANDROID_SHARE_SETTLE_MS = 250;
+const TIMEOUT_TAG = "__sharePdf_timeout__:";
+
+function isTimeoutError(err: unknown): boolean {
+  if (err instanceof Error) return err.message.startsWith(TIMEOUT_TAG);
+  if (typeof err === "string") return err.startsWith(TIMEOUT_TAG);
+  return false;
+}
 
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const t = setTimeout(() => {
-      reject(new Error(`__timeout__:${label}`));
+      reject(new Error(`${TIMEOUT_TAG}${label}`));
     }, ms);
     p.then(
       (v) => {
@@ -59,7 +67,7 @@ export async function prepareImageUri(
         encoding: FileSystem.EncodingType.Base64,
       });
       return target;
-    } catch (e) {
+    } catch (e: unknown) {
       logger.warn("[sharePdf] prepareImageUri failed, using inline base64:", e);
       // Drop the cached failure so a retry can attempt again.
       imagePrepCache.delete(cacheKey);
@@ -88,10 +96,10 @@ export interface SharePdfStrings {
 const DEFAULT_STRINGS: SharePdfStrings = {
   timeoutTitle: "Taking too long",
   timeoutMessage:
-    "We couldn't open the share sheet in time. We can save the PDF to the app's files instead.",
+    "We couldn't open the share sheet in time. You can try again or save the PDF to the app's files instead.",
   shareFailedTitle: "Couldn't share PDF",
   shareFailedMessage:
-    "Sharing didn't open. We can save the PDF to the app's files instead.",
+    "Sharing didn't open. You can try again or save the PDF to the app's files instead.",
   printFailedTitle: "Couldn't generate PDF",
   printFailedMessage:
     "Something went wrong while building the PDF. Please try again.",
@@ -136,14 +144,13 @@ async function trySaveViaSAF(
   uri: string,
   filename: string
 ): Promise<string | null> {
+  if (Platform.OS !== "android") return null;
   try {
-    if (Platform.OS !== "android") return null;
-    const SAF: any = (FileSystem as any).StorageAccessFramework;
-    if (!SAF) return null;
-    const perm = await SAF.requestDirectoryPermissionsAsync();
-    if (!perm?.granted) return null;
+    const perm =
+      await StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!perm.granted) return null;
     const safe = safeFilename(filename);
-    const destUri = await SAF.createFileAsync(
+    const destUri = await StorageAccessFramework.createFileAsync(
       perm.directoryUri,
       `${safe}.pdf`,
       "application/pdf"
@@ -155,7 +162,7 @@ async function trySaveViaSAF(
       encoding: FileSystem.EncodingType.Base64,
     });
     return destUri;
-  } catch (e) {
+  } catch (e: unknown) {
     logger.warn("[sharePdf] SAF save failed:", e);
     return null;
   }
@@ -180,65 +187,74 @@ async function offerSaveFallback(
       strings.savedMessageWithPath.replace("%s", target)
     );
     return { status: "saved", uri: target };
-  } catch (e) {
+  } catch (e: unknown) {
     logger.warn("[sharePdf] copyToDocuments failed:", e);
     Alert.alert(strings.shareFailedTitle, strings.shareFailedMessage);
     return { status: "cancelled" };
   }
 }
 
-export async function sharePdf(opts: SharePdfOptions): Promise<SharePdfResult> {
-  const strings: SharePdfStrings = { ...DEFAULT_STRINGS, ...(opts.strings ?? {}) };
-  const safeName = safeFilename(opts.filename);
+async function printToFile(
+  html: string,
+  strings: SharePdfStrings
+): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const attempt = (): void => {
+      logger.log("[sharePdf] printToFileAsync starting...");
+      withTimeout(
+        Print.printToFileAsync({ html }),
+        PRINT_TIMEOUT_MS,
+        "print"
+      ).then(
+        (result) => {
+          logger.log("[sharePdf] printed to:", result.uri);
+          resolve(result.uri);
+        },
+        (err: unknown) => {
+          const timedOut = isTimeoutError(err);
+          Alert.alert(
+            timedOut ? strings.timeoutTitle : strings.printFailedTitle,
+            timedOut ? strings.timeoutMessage : strings.printFailedMessage,
+            [
+              { text: strings.cancel, style: "cancel", onPress: () => reject(err) },
+              { text: strings.retry, onPress: () => attempt() },
+            ],
+            { cancelable: false }
+          );
+        }
+      );
+    };
+    attempt();
+  });
+}
 
-  let uri: string;
-  try {
-    logger.log("[sharePdf] printToFileAsync starting...");
-    const result = await withTimeout(
-      Print.printToFileAsync({ html: opts.html }),
-      PRINT_TIMEOUT_MS,
-      "print"
-    );
-    uri = result.uri;
-    logger.log("[sharePdf] printed to:", uri);
-  } catch (e: any) {
-    const msg = String(e?.message ?? e);
-    const isTimeout = msg.startsWith("__timeout__:");
-    Alert.alert(
-      isTimeout ? strings.timeoutTitle : strings.printFailedTitle,
-      isTimeout ? strings.timeoutMessage : strings.printFailedMessage
-    );
-    throw e;
-  }
-
-  // Rename for nicer share-sheet preview / saved filename.
-  let finalUri = uri;
+async function renameToFriendly(uri: string, safeName: string): Promise<string> {
   try {
     const dir = FileSystem.cacheDirectory ?? "";
-    if (dir) {
-      const renamed = `${dir}${safeName}.pdf`;
-      if (renamed !== uri) {
-        try {
-          await FileSystem.deleteAsync(renamed, { idempotent: true });
-        } catch {}
-        await FileSystem.copyAsync({ from: uri, to: renamed });
-        finalUri = renamed;
-      }
-    }
-  } catch (e) {
+    if (!dir) return uri;
+    const renamed = `${dir}${safeName}.pdf`;
+    if (renamed === uri) return uri;
+    try {
+      await FileSystem.deleteAsync(renamed, { idempotent: true });
+    } catch {}
+    await FileSystem.copyAsync({ from: uri, to: renamed });
+    return renamed;
+  } catch (e: unknown) {
     logger.warn("[sharePdf] rename failed:", e);
+    return uri;
   }
+}
 
-  const canShare = await Sharing.isAvailableAsync().catch(() => false);
-  logger.log("[sharePdf] sharing available:", canShare);
-  if (!canShare) {
-    return await offerSaveFallback(finalUri, safeName, strings);
-  }
-
+async function shareWithRetry(
+  uri: string,
+  safeName: string,
+  strings: SharePdfStrings,
+  opts: SharePdfOptions
+): Promise<SharePdfResult> {
   if (Platform.OS === "android" && opts.beforeShare) {
     try {
       await opts.beforeShare();
-    } catch (e) {
+    } catch (e: unknown) {
       logger.warn("[sharePdf] beforeShare failed:", e);
     }
     await new Promise((r) => setTimeout(r, ANDROID_SHARE_SETTLE_MS));
@@ -246,7 +262,7 @@ export async function sharePdf(opts: SharePdfOptions): Promise<SharePdfResult> {
 
   try {
     await withTimeout(
-      Sharing.shareAsync(finalUri, {
+      Sharing.shareAsync(uri, {
         mimeType: "application/pdf",
         dialogTitle: safeName,
         UTI: "com.adobe.pdf",
@@ -257,14 +273,13 @@ export async function sharePdf(opts: SharePdfOptions): Promise<SharePdfResult> {
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
-    return { status: "shared", uri: finalUri };
-  } catch (e: any) {
-    const msg = String(e?.message ?? e);
-    const isTimeout = msg.startsWith("__timeout__:");
+    return { status: "shared", uri };
+  } catch (e: unknown) {
+    const timedOut = isTimeoutError(e);
     return await new Promise<SharePdfResult>((resolve) => {
       Alert.alert(
-        isTimeout ? strings.timeoutTitle : strings.shareFailedTitle,
-        isTimeout ? strings.timeoutMessage : strings.shareFailedMessage,
+        timedOut ? strings.timeoutTitle : strings.shareFailedTitle,
+        timedOut ? strings.timeoutMessage : strings.shareFailedMessage,
         [
           {
             text: strings.cancel,
@@ -275,22 +290,52 @@ export async function sharePdf(opts: SharePdfOptions): Promise<SharePdfResult> {
             text: strings.saveToFiles,
             onPress: async () => {
               try {
-                resolve(await offerSaveFallback(finalUri, safeName, strings));
+                resolve(await offerSaveFallback(uri, safeName, strings));
               } catch {
                 resolve({ status: "cancelled" });
               }
             },
           },
-        ]
+          {
+            text: strings.retry,
+            onPress: async () => {
+              try {
+                resolve(await shareWithRetry(uri, safeName, strings, opts));
+              } catch {
+                resolve({ status: "cancelled" });
+              }
+            },
+          },
+        ],
+        { cancelable: false }
       );
     });
   } finally {
     if (Platform.OS === "android" && opts.afterShare) {
       try {
         await opts.afterShare();
-      } catch (e) {
+      } catch (e: unknown) {
         logger.warn("[sharePdf] afterShare failed:", e);
       }
     }
   }
+}
+
+export async function sharePdf(opts: SharePdfOptions): Promise<SharePdfResult> {
+  const strings: SharePdfStrings = { ...DEFAULT_STRINGS, ...(opts.strings ?? {}) };
+  const safeName = safeFilename(opts.filename);
+
+  // 1) Print to file (with timeout + retry).
+  const rawUri = await printToFile(opts.html, strings);
+
+  // 2) Rename to a clean filename for share-sheet preview / saved name.
+  const finalUri = await renameToFriendly(rawUri, safeName);
+
+  // 3) Share or fall back.
+  const canShare = await Sharing.isAvailableAsync().catch(() => false);
+  logger.log("[sharePdf] sharing available:", canShare);
+  if (!canShare) {
+    return await offerSaveFallback(finalUri, safeName, strings);
+  }
+  return await shareWithRetry(finalUri, safeName, strings, opts);
 }
