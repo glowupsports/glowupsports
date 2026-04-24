@@ -9228,16 +9228,20 @@ router.post(
       // Get host player info
       const hostPlayer = await storage.getPlayer(hostPlayerId);
 
-      // Create a notification for the invited player
-      await db.insert(playerNotifications).values({
-        id: crypto.randomUUID(),
-        playerId: playerId,
+      // Create a notification for the invited player. Uses the same
+      // storage.createNotification path that /join and /kick use so
+      // notification routing (push + in-app) stays consistent across
+      // open-match events. Earlier this was an `db.insert(notifications)`
+      // call against an undefined symbol, which made every invite throw
+      // and silently 500 — pinned by the open-match-flow regression test.
+      await storage.createNotification({
         type: "match_invite",
         title: "Match Invitation",
-        body: `${hostPlayer?.name || "A player"} invited you to join their ${match.matchType} match`,
+        message: `${hostPlayer?.name || "A player"} invited you to join their ${match.matchType} match`,
+        userId: null,
+        playerId,
+        academyId: match.academyId,
         data: { matchId, hostPlayerId, matchType: match.matchType },
-        read: false,
-        createdAt: new Date(),
       });
 
       // Real-time push to participants (so the host's own ManageMatch screen
