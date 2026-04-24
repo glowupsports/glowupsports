@@ -67,7 +67,8 @@ import { getPlayerCountryLadderRank, resolvePlayerSports } from "./tournaments-l
   import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "../services/invoicePdf";
   import { getCurrencyForCountry } from "@shared/countries";
   import { getBallLevelFromAge, calculateAgeFromDOB } from "@shared/ballLevel";
-  import { profilePhotoUpload, courtPhotoUpload, socialPostUpload } from "../upload-middleware";
+  import { profilePhotoUpload, courtPhotoUpload, socialPostUpload, wrapUploadHandler } from "../upload-middleware";
+  import { SupabaseStorageError } from "../utils/supabaseStorage";
 import path from "path";
 import fs from "fs";
   const router = Router();
@@ -2296,7 +2297,10 @@ import fs from "fs";
     "/api/player/me/photo",
     authMiddleware,
     requirePlayerOrOwner,
-    profilePhotoUpload.single("photo"),
+    wrapUploadHandler(profilePhotoUpload.single("photo"), {
+      context: "PlayerPhoto",
+      maxBytes: 5 * 1024 * 1024,
+    }),
     async (req: AuthenticatedRequest, res: Response) => {
       const playerId = req.user!.playerId;
       const fileMeta = {
@@ -2307,53 +2311,67 @@ import fs from "fs";
       };
       try {
         if (!playerId) {
-          return res.status(400).json({ error: "Player profile not found" });
+          return res.status(400).json({ error: "Player profile not found", code: "NO_PLAYER" });
         }
 
         if (!req.file) {
-          console.warn("[PhotoUpload] No file in request", fileMeta);
-          return res.status(400).json({ error: "No photo uploaded" });
+          console.warn("[PlayerPhoto] No file in request", fileMeta);
+          return res.status(400).json({ error: "No photo uploaded", code: "NO_FILE" });
         }
 
         if (!req.file.buffer || req.file.buffer.length === 0) {
-          console.warn("[PhotoUpload] Empty buffer", fileMeta);
-          return res.status(400).json({ error: "Uploaded file is empty. Please try a different photo." });
+          console.warn("[PlayerPhoto] Empty buffer", fileMeta);
+          return res.status(400).json({
+            error: "Uploaded file is empty. Please try a different photo.",
+            code: "EMPTY_FILE",
+          });
         }
 
         const mimeType = req.file.mimetype || "image/jpeg";
-        if (!mimeType.startsWith("image/")) {
-          console.warn("[PhotoUpload] Rejected non-image mime", fileMeta);
-          return res.status(400).json({ error: `Unsupported file type: ${mimeType}` });
-        }
-
         const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
         const storagePath = `profile-photos/${playerId}-${Date.now()}.${ext}`;
 
-        console.log("[PhotoUpload] Uploading", { ...fileMeta, storagePath });
+        console.log("[PlayerPhoto] Uploading", { ...fileMeta, storagePath });
 
         const { uploadToSupabaseWithPath, isSupabaseConfigured } = await import("../utils/supabaseStorage");
         if (!isSupabaseConfigured()) {
-          console.error("[PhotoUpload] Supabase storage not configured", fileMeta);
-          return res.status(503).json({ error: "Photo storage is not configured. Please contact support." });
+          console.error("[PlayerPhoto] Supabase storage not configured", fileMeta);
+          return res.status(503).json({
+            error: "Photo storage is not configured. Please contact support.",
+            code: "STORAGE_NOT_CONFIGURED",
+          });
         }
 
         let photoUrl: string;
         try {
           photoUrl = await uploadToSupabaseWithPath(req.file.buffer, storagePath, mimeType);
         } catch (storageError: unknown) {
-          console.error("[PhotoUpload] Storage upload failed", {
-            ...fileMeta,
-            storagePath,
-            error: storageError instanceof Error ? storageError.message : String(storageError),
+          if (storageError instanceof SupabaseStorageError) {
+            console.error("[PlayerPhoto] Supabase storage error", {
+              ...fileMeta,
+              storagePath,
+              code: storageError.code,
+              statusCode: storageError.statusCode,
+              details: storageError.details,
+            });
+          } else {
+            console.error("[PlayerPhoto] Storage upload failed", {
+              ...fileMeta,
+              storagePath,
+              error: storageError instanceof Error ? storageError.message : String(storageError),
+            });
+          }
+          return res.status(502).json({
+            error: "Couldn't reach photo storage. Please try again.",
+            code: "STORAGE_UNAVAILABLE",
           });
-          return res.status(502).json({ error: "Photo storage upload failed. Please try again." });
         }
 
         await db.execute(
           sql`UPDATE players SET profile_photo_url = ${photoUrl} WHERE id = ${playerId}`,
         );
 
-        console.log("[PhotoUpload] Success", { playerId, storagePath, photoUrl });
+        console.log("[PlayerPhoto] Success", { playerId, storagePath, photoUrl });
 
         res.json({
           success: true,
@@ -2361,12 +2379,15 @@ import fs from "fs";
           message: "Profile photo updated successfully",
         });
       } catch (error: any) {
-        console.error("[PhotoUpload] Unexpected error", {
+        console.error("[PlayerPhoto] Unexpected error", {
           ...fileMeta,
           error: error?.message || String(error),
           stack: error?.stack,
         });
-        res.status(500).json({ error: "Failed to upload profile photo. Please try again." });
+        res.status(500).json({
+          error: "Failed to upload profile photo. Please try again.",
+          code: "UPLOAD_FAILED",
+        });
       }
     },
   );
@@ -7210,18 +7231,21 @@ import fs from "fs";
     "/api/upload/court-photo",
     authMiddleware,
     requireRole("admin", "academy_owner", "platform_owner", "coach"),
-    courtPhotoUpload.single("photo"),
+    wrapUploadHandler(courtPhotoUpload.single("photo"), {
+      context: "CourtPhoto",
+      maxBytes: 10 * 1024 * 1024,
+    }),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user?.academyId;
         const courtId = req.body.courtId;
 
         if (!courtId) {
-          return res.status(400).json({ error: "Court ID is required" });
+          return res.status(400).json({ error: "Court ID is required", code: "NO_COURT_ID" });
         }
 
         if (!req.file) {
-          return res.status(400).json({ error: "No photo file provided" });
+          return res.status(400).json({ error: "No photo file provided", code: "NO_FILE" });
         }
 
         // Verify the court exists and belongs to the user's academy
@@ -7233,7 +7257,7 @@ import fs from "fs";
           } catch (e) {
             console.warn("Could not clean up orphaned upload:", e);
           }
-          return res.status(404).json({ error: "Court not found" });
+          return res.status(404).json({ error: "Court not found", code: "COURT_NOT_FOUND" });
         }
 
         // Generate the public URL for the uploaded file
@@ -7278,7 +7302,7 @@ import fs from "fs";
           court: updatedCourt,
         });
       } catch (error) {
-        console.error("Court photo upload error:", error);
+        console.error("[CourtPhoto] Upload error:", error);
         // Clean up uploaded file on error
         if (req.file) {
           try {
@@ -7287,7 +7311,13 @@ import fs from "fs";
             console.warn("Could not clean up file:", e);
           }
         }
-        res.status(500).json({ error: "Failed to upload court photo" });
+        if (error instanceof SupabaseStorageError) {
+          return res.status(502).json({
+            error: "Couldn't reach photo storage. Please try again.",
+            code: "STORAGE_UNAVAILABLE",
+          });
+        }
+        res.status(500).json({ error: "Failed to upload court photo", code: "UPLOAD_FAILED" });
       }
     },
   );

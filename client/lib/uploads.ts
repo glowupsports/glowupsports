@@ -419,3 +419,84 @@ export function uploadWithProgress({
     xhr.send(formData as any);
   });
 }
+
+/**
+ * Stable error contract every multer-backed upload route now returns:
+ * `{ error, code, ... }`. Servers may add extra fields (e.g. `maxBytes`,
+ * `mimetype`); we only depend on `error` + `code` here.
+ */
+export interface UploadErrorPayload {
+  error?: string;
+  code?: string;
+  maxBytes?: number;
+  mimetype?: string;
+}
+
+/**
+ * Parse an upload-route error response into a friendly message users can act
+ * on. Centralises the 413 / 415 / 502 wording so every upload caller speaks
+ * the same language as the social-features upload (Task #1253) — instead of
+ * the generic "Failed to upload" alerts each screen used to render.
+ *
+ * Falls back to `defaultMessage` if the response body can't be parsed (e.g.
+ * the server returned plain text or HTML), so callers always get *something*
+ * actionable.
+ */
+export async function parseUploadErrorResponse(
+  response: Response,
+  defaultMessage = "Upload failed. Please try again.",
+): Promise<{ message: string; code?: string; payload: UploadErrorPayload }> {
+  let payload: UploadErrorPayload = {};
+  try {
+    payload = (await response.json()) as UploadErrorPayload;
+  } catch {
+    try {
+      const text = await response.text();
+      if (text) return { message: text, payload: {} };
+    } catch {
+      // fall through to defaults
+    }
+  }
+
+  const code = payload.code;
+  let message = payload.error;
+  if (!message) {
+    switch (response.status) {
+      case 413:
+        message = "That file is too large. Please pick a smaller one.";
+        break;
+      case 415:
+        message = "That file type isn't supported.";
+        break;
+      case 502:
+        message = "We couldn't reach the upload server. Please try again.";
+        break;
+      case 401:
+      case 403:
+        message = "You don't have permission to upload here.";
+        break;
+      default:
+        message = defaultMessage;
+    }
+  }
+
+  return { message, code, payload };
+}
+
+/**
+ * Typed error shape that upload callers throw after `parseUploadErrorResponse`,
+ * so downstream catch blocks can read the server's `code` and HTTP `status`
+ * without resorting to `any` casts.
+ */
+export type UploadClientError = Error & {
+  code?: string;
+  status?: number;
+};
+
+export function isUploadClientError(value: unknown): value is UploadClientError {
+  if (!(value instanceof Error)) return false;
+  const v = value as { code?: unknown; status?: unknown };
+  const codeOk = v.code === undefined || typeof v.code === "string";
+  const statusOk = v.status === undefined || typeof v.status === "number";
+  return codeOk && statusOk;
+}

@@ -373,8 +373,12 @@ function CreateListingModal({ visible, onClose, onSuccess }: {
             const data = await response.json();
             setImages(prev => [...prev, ...data.images].slice(0, 5));
           } else {
-            const error = await response.json();
-            Alert.alert("Upload Failed", error.error || "Failed to upload images");
+            const { parseUploadErrorResponse } = await import("@/lib/uploads");
+            const { message } = await parseUploadErrorResponse(
+              response,
+              "Failed to upload images. Please try again.",
+            );
+            Alert.alert("Upload Failed", message);
           }
         } catch (uploadError) {
           console.error("Image upload error:", uploadError);

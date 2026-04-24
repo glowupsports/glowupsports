@@ -2770,15 +2770,13 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
           
           logger.log("[Onboarding] Photo upload response:", photoResponse.status);
           if (!photoResponse.ok) {
-            let serverMessage = "";
-            try {
-              const errorBody = await photoResponse.json();
-              serverMessage = errorBody?.error || "";
-            } catch {
-              try { serverMessage = await photoResponse.text(); } catch {}
-            }
-            console.warn("[Onboarding] Photo upload failed:", photoResponse.status, serverMessage);
-            photoUploadErrorRef.current = serverMessage || `Server returned ${photoResponse.status}`;
+            const { parseUploadErrorResponse } = await import("@/lib/uploads");
+            const { message: serverMessage, code } = await parseUploadErrorResponse(
+              photoResponse,
+              `Server returned ${photoResponse.status}`,
+            );
+            console.warn("[Onboarding] Photo upload failed:", photoResponse.status, code, serverMessage);
+            photoUploadErrorRef.current = serverMessage;
           } else {
             const uploadResult = await photoResponse.json();
             logger.log("[Onboarding] Photo upload successful!", uploadResult);

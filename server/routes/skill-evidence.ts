@@ -7,6 +7,7 @@ import { storage as appStorage } from "../storage";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { UnsupportedMediaTypeError, wrapUploadHandler } from "../upload-middleware";
 
 const router = Router();
 
@@ -24,15 +25,19 @@ const multerStorage = multer.diskStorage({
   },
 });
 
+const EVIDENCE_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
+const EVIDENCE_MAX_BYTES = 50 * 1024 * 1024; // 50MB max
+
 const upload = multer({
   storage: multerStorage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+  limits: { fileSize: EVIDENCE_MAX_BYTES },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ["video/mp4", "video/quicktime", "video/webm"];
-    if (allowedTypes.includes(file.mimetype)) {
+    if (EVIDENCE_VIDEO_TYPES.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Only video files are allowed"));
+      // Throw the structured error so wrapUploadHandler returns a 415 with a
+      // stable code instead of multer's generic 500.
+      cb(new UnsupportedMediaTypeError(file.mimetype || "unknown", EVIDENCE_VIDEO_TYPES));
     }
   },
 });
@@ -86,7 +91,10 @@ router.post(
   "/api/players/:playerId/evidence",
   authMiddleware,
   requireAcademy,
-  upload.single("video"),
+  wrapUploadHandler(upload.single("video"), {
+    context: "SkillEvidence",
+    maxBytes: EVIDENCE_MAX_BYTES,
+  }),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
@@ -96,7 +104,7 @@ router.post(
       // Validate player belongs to this academy
       const ownership = await validatePlayerOwnership(playerId, academyId, appStorage);
       if (!ownership.valid) {
-        return res.status(403).json({ error: "Access denied" });
+        return res.status(403).json({ error: "Access denied", code: "FORBIDDEN" });
       }
       
       const {
@@ -109,11 +117,14 @@ router.post(
       } = req.body;
       
       if (!req.file) {
-        return res.status(400).json({ error: "No video file provided" });
+        return res.status(400).json({ error: "No video file provided", code: "NO_FILE" });
       }
       
       if (!skillId || !captureType) {
-        return res.status(400).json({ error: "skillId and captureType are required" });
+        return res.status(400).json({
+          error: "skillId and captureType are required",
+          code: "MISSING_FIELDS",
+        });
       }
       
       const videoUrl = `/uploads/evidence/${req.file.filename}`;
@@ -137,8 +148,8 @@ router.post(
       
       res.status(201).json(evidence);
     } catch (error) {
-      console.error("Error uploading evidence:", error);
-      res.status(500).json({ error: "Failed to upload evidence" });
+      console.error("[SkillEvidence] Error uploading evidence:", error);
+      res.status(500).json({ error: "Failed to upload evidence", code: "UPLOAD_FAILED" });
     }
   }
 );

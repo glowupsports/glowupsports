@@ -87,10 +87,11 @@ import { enrollPlayerInGroupSession } from "../sessionEnrolment";
 import { broadcastToPlayerIds } from "../websocket";
 import { invalidateHomeDataCache } from "./coach-home";
 import { buildFriendStatusMap } from "../services/friendStatus";
-import { paymentProofUpload } from "../upload-middleware";
+import { paymentProofUpload, wrapUploadHandler } from "../upload-middleware";
 import {
   uploadToSupabaseWithPath,
   isSupabaseConfigured,
+  SupabaseStorageError,
 } from "../utils/supabaseStorage";
 import * as fsSync from "fs";
 import * as pathLib from "path";
@@ -5323,7 +5324,10 @@ router.get(
 router.post(
   "/api/parent/payments/:playerId",
   authMiddleware,
-  paymentProofUpload.single("proof"),
+  wrapUploadHandler(paymentProofUpload.single("proof"), {
+    context: "PaymentProof",
+    maxBytes: 8 * 1024 * 1024,
+  }),
   async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user?.userId;
@@ -5331,7 +5335,7 @@ router.post(
       const { playerId } = req.params;
 
       if (!userId) {
-        return res.status(401).json({ error: "User not authenticated" });
+        return res.status(401).json({ error: "User not authenticated", code: "UNAUTHENTICATED" });
       }
       if (userPlayerId !== playerId) {
         const hasAccess = await storage.checkParentPlayerAccess(
@@ -5339,13 +5343,13 @@ router.post(
           playerId,
         );
         if (!hasAccess) {
-          return res.status(403).json({ error: "Access denied" });
+          return res.status(403).json({ error: "Access denied", code: "FORBIDDEN" });
         }
       }
 
       const player = await storage.getPlayer(playerId);
       if (!player || !player.academyId) {
-        return res.status(404).json({ error: "Player or academy not found" });
+        return res.status(404).json({ error: "Player or academy not found", code: "NOT_FOUND" });
       }
 
       const amountRaw = req.body?.amount;
@@ -5361,21 +5365,21 @@ router.post(
 
       const amountNum = parseFloat(amountRaw);
       if (!amountRaw || Number.isNaN(amountNum) || amountNum <= 0) {
-        return res.status(400).json({ error: "Valid amount is required" });
+        return res.status(400).json({ error: "Valid amount is required", code: "INVALID_AMOUNT" });
       }
       if (!["cash", "bank_transfer"].includes(paymentMethod)) {
-        return res.status(400).json({ error: "Invalid payment method" });
+        return res.status(400).json({ error: "Invalid payment method", code: "INVALID_METHOD" });
       }
 
       if (!req.file) {
-        return res.status(400).json({ error: "Proof of payment is required" });
+        return res.status(400).json({ error: "Proof of payment is required", code: "NO_FILE" });
       }
       let proofUrl: string | null = null;
       {
         if (!req.file.buffer || req.file.buffer.length === 0) {
           return res
             .status(400)
-            .json({ error: "Uploaded proof file is empty" });
+            .json({ error: "Uploaded proof file is empty", code: "EMPTY_FILE" });
         }
         const mimeType = req.file.mimetype || "image/jpeg";
         const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
@@ -5399,10 +5403,21 @@ router.post(
             proofUrl = `/uploads/payment-proofs/${fileName}`;
           }
         } catch (err) {
-          console.error("[PaymentProof] upload failed:", err);
+          if (err instanceof SupabaseStorageError) {
+            console.error("[PaymentProof] Supabase storage error:", {
+              code: err.code,
+              statusCode: err.statusCode,
+              details: err.details,
+            });
+          } else {
+            console.error("[PaymentProof] upload failed:", err);
+          }
           return res
             .status(502)
-            .json({ error: "Failed to upload proof image" });
+            .json({
+              error: "Couldn't reach payment-proof storage. Please try again.",
+              code: "STORAGE_UNAVAILABLE",
+            });
         }
       }
 
@@ -5422,8 +5437,8 @@ router.post(
 
       res.status(201).json({ payment });
     } catch (error) {
-      console.error("Submit player payment error:", error);
-      res.status(500).json({ error: "Failed to submit payment" });
+      console.error("[PaymentProof] Submit player payment error:", error);
+      res.status(500).json({ error: "Failed to submit payment", code: "UPLOAD_FAILED" });
     }
   },
 );

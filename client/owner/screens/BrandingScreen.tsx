@@ -159,8 +159,12 @@ export default function BrandingScreen() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error || "Upload failed");
+        const { parseUploadErrorResponse } = await import("@/lib/uploads");
+        const { message } = await parseUploadErrorResponse(
+          res,
+          "Could not upload logo. Please try again.",
+        );
+        throw new Error(message);
       }
       invalidateBranding();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});

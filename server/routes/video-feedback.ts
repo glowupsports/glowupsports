@@ -12,7 +12,7 @@ import {
   requireRole,
   type AuthenticatedRequest,
 } from "../auth";
-import { videoFeedbackUpload } from "../upload-middleware";
+import { videoFeedbackUpload, wrapUploadHandler } from "../upload-middleware";
 import { sendVideoFeedbackNotification } from "../pushNotifications";
 import { db } from "../db";
 import {
@@ -56,11 +56,14 @@ router.post(
   "/api/video-feedback/upload",
   authMiddleware,
   requireRole("coach", "assistant", "academy_owner", "platform_owner"),
-  videoFeedbackUpload.single("video"),
+  wrapUploadHandler(videoFeedbackUpload.single("video"), {
+    context: "VideoFeedback",
+    maxBytes: 200 * 1024 * 1024,
+  }),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.file) {
-        return res.status(400).json({ error: "No video file uploaded" });
+        return res.status(400).json({ error: "No video file uploaded", code: "NO_FILE" });
       }
       const videoUrl = `/uploads/video-feedback/${req.file.filename}`;
 
@@ -82,7 +85,7 @@ router.post(
       return res.json({ videoUrl, thumbnailUrl });
     } catch (err: any) {
       console.error("[VideoFeedback] Upload error:", err);
-      return res.status(500).json({ error: "Upload failed" });
+      return res.status(500).json({ error: "Upload failed", code: "UPLOAD_FAILED" });
     }
   }
 );

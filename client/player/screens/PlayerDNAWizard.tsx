@@ -254,12 +254,12 @@ export default function PlayerDNAWizardScreen({ onComplete }: Props) {
           queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } else {
-          let message = "We couldn't upload your photo. Please try again.";
-          try {
-            const body = await uploadRes.json();
-            if (body?.error) message = body.error;
-          } catch {}
-          console.warn("[DNA Wizard] Photo upload failed:", uploadRes.status, message);
+          const { parseUploadErrorResponse } = await import("@/lib/uploads");
+          const { message, code } = await parseUploadErrorResponse(
+            uploadRes,
+            "We couldn't upload your photo. Please try again.",
+          );
+          console.warn("[DNA Wizard] Photo upload failed:", uploadRes.status, code, message);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           Alert.alert("Photo upload failed", message);
           setDNA(prev => ({ ...prev, profilePhotoUri: null }));

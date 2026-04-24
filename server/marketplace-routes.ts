@@ -14,6 +14,7 @@ import {
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { UnsupportedMediaTypeError, wrapUploadHandler } from "./upload-middleware";
 
 const router = Router();
 
@@ -36,17 +37,21 @@ const marketplacePhotoStorage = multer.diskStorage({
   },
 });
 
+const MARKETPLACE_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+const MARKETPLACE_PHOTO_MAX_BYTES = 10 * 1024 * 1024; // 10MB max per file
+
 const marketplacePhotoUpload = multer({
   storage: marketplacePhotoStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max per file
+    fileSize: MARKETPLACE_PHOTO_MAX_BYTES,
   },
   fileFilter: (_req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
-    if (allowedTypes.includes(file.mimetype)) {
+    if (MARKETPLACE_PHOTO_TYPES.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed."));
+      // Throw the structured error so wrapUploadHandler returns a proper 415
+      // with a stable code instead of multer's generic 500.
+      cb(new UnsupportedMediaTypeError(file.mimetype || "unknown", MARKETPLACE_PHOTO_TYPES));
     }
   },
 });
@@ -71,13 +76,16 @@ router.post(
   authMiddleware,
   requirePlayerProfile,
   requireFeatureUnlock("marketplace"),
-  marketplacePhotoUpload.array("images", 5),
+  wrapUploadHandler(marketplacePhotoUpload.array("images", 5), {
+    context: "MarketplacePhoto",
+    maxBytes: MARKETPLACE_PHOTO_MAX_BYTES,
+  }),
   async (req: AuthRequest, res: Response) => {
     try {
       const files = req.files as Express.Multer.File[];
       
       if (!files || files.length === 0) {
-        return res.status(400).json({ error: "No images uploaded" });
+        return res.status(400).json({ error: "No images uploaded", code: "NO_FILE" });
       }
 
       const imageUrls = files.map(file => `/uploads/marketplace-photos/${file.filename}`);
@@ -89,7 +97,7 @@ router.post(
       });
     } catch (error) {
       console.error("[Marketplace] Error uploading images:", error);
-      res.status(500).json({ error: "Failed to upload images" });
+      res.status(500).json({ error: "Failed to upload images", code: "UPLOAD_FAILED" });
     }
   }
 );

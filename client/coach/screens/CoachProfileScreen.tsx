@@ -20,7 +20,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Sentry from "@sentry/react-native";
 import { Image } from "expo-image";
-import { appendImageToFormData } from "@/lib/uploads";
+import { appendImageToFormData, isUploadClientError, type UploadClientError } from "@/lib/uploads";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -145,7 +145,16 @@ export default function CoachProfileScreen() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to upload photo");
+        const { parseUploadErrorResponse } = await import("@/lib/uploads");
+        const { message, code } = await parseUploadErrorResponse(
+          response,
+          "Failed to upload photo. Please try again.",
+        );
+        const err: UploadClientError = Object.assign(new Error(message), {
+          code,
+          status: response.status,
+        });
+        throw err;
       }
 
       await queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
@@ -155,13 +164,20 @@ export default function CoachProfileScreen() {
       Alert.alert("Success", "Profile photo updated!");
     } catch (error) {
       console.error("Error uploading photo:", error);
+      const uploadErr = isUploadClientError(error) ? error : null;
       Sentry.captureException(error, {
         tags: { area: "coach_profile_photo_upload" },
         extra: {
           message: error instanceof Error ? error.message : String(error),
+          code: uploadErr?.code,
+          status: uploadErr?.status,
         },
       });
-      Alert.alert("Error", "Failed to upload photo. Please try again.");
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to upload photo. Please try again.";
+      Alert.alert("Upload failed", message);
     } finally {
       setIsUploadingPhoto(false);
     }

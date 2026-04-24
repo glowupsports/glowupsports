@@ -271,8 +271,12 @@ export default function AdminCourtsScreen() {
           invalidateCourts();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } else {
-          const errorData = await response.json().catch(() => ({}));
-          Alert.alert("Error", errorData.error || "Failed to upload photo");
+          const { parseUploadErrorResponse } = await import("@/lib/uploads");
+          const { message } = await parseUploadErrorResponse(
+            response,
+            "Failed to upload photo. Please try again.",
+          );
+          Alert.alert("Upload failed", message);
         }
         setUploadingPhoto(false);
       }

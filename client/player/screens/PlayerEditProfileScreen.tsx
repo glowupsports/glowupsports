@@ -250,13 +250,11 @@ export default function PlayerEditProfileScreen() {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!response.ok) {
-        let message = "Upload failed";
-        try {
-          const body = await response.json();
-          if (body?.error) message = body.error;
-        } catch {
-          try { message = await response.text() || message; } catch {}
-        }
+        const { parseUploadErrorResponse } = await import("@/lib/uploads");
+        const { message } = await parseUploadErrorResponse(
+          response,
+          "Could not upload your photo. Please try again.",
+        );
         throw new Error(message);
       }
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });

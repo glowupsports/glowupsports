@@ -106,12 +106,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/academy/logo",
     authMiddleware,
     requireRole("owner", "academy_owner", "platform_owner"),
-    (req, res, next) => {
-      const { academyLogoUpload } = require("../upload-middleware");
-      academyLogoUpload.single("logo")(req, res, (err: any) => {
-        if (err) return res.status(400).json({ error: err.message || "Upload failed" });
-        next();
-      });
+    (req: Request, res: Response, next: NextFunction) => {
+      // Lazy-load to avoid circular import at module init.
+      const { academyLogoUpload, wrapUploadHandler } = require("../upload-middleware");
+      return wrapUploadHandler(academyLogoUpload.single("logo"), {
+        context: "AcademyLogo",
+        maxBytes: 2 * 1024 * 1024,
+      })(req, res, next);
     },
     async (req: AuthenticatedRequest, res: Response) => {
       try {
@@ -121,8 +122,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             ? ((req.body?.academyId ?? req.query.academyId) as string)
             : undefined;
         const academyId = overrideAcademyId ?? req.user?.academyId;
-        if (!academyId) return res.status(400).json({ error: "Academy ID required" });
-        if (!req.file) return res.status(400).json({ error: "No logo uploaded" });
+        if (!academyId) return res.status(400).json({ error: "Academy ID required", code: "NO_ACADEMY" });
+        if (!req.file) return res.status(400).json({ error: "No logo uploaded", code: "NO_FILE" });
 
         const mimeType = req.file.mimetype || "image/png";
         const base64Data = req.file.buffer.toString("base64");
@@ -131,8 +132,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         await storage.updateAcademy(academyId, { logoUrl } as any);
         res.json({ success: true, logoUrl });
       } catch (error) {
-        console.error("Upload academy logo error:", error);
-        res.status(500).json({ error: "Failed to upload logo" });
+        console.error("[AcademyLogo] Upload academy logo error:", error);
+        res.status(500).json({ error: "Failed to upload logo", code: "UPLOAD_FAILED" });
       }
     },
   );

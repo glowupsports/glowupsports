@@ -214,8 +214,12 @@ export default function VideoFeedbackScreen() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Upload failed");
+        const { parseUploadErrorResponse } = await import("@/lib/uploads");
+        const { message } = await parseUploadErrorResponse(
+          res,
+          "Could not upload video. Please try again.",
+        );
+        throw new Error(message);
       }
 
       const data = await res.json();

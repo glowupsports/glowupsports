@@ -649,11 +649,11 @@ export default function PlayerProfileScreen() {
       });
 
       if (!response.ok) {
-        let message = "Failed to upload photo";
-        try {
-          const body = await response.json();
-          if (body?.error) message = body.error;
-        } catch {}
+        const { parseUploadErrorResponse } = await import("@/lib/uploads");
+        const { message } = await parseUploadErrorResponse(
+          response,
+          "Failed to upload photo. Please try again.",
+        );
         throw new Error(message);
       }
 

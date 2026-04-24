@@ -147,11 +147,20 @@ export default function EvidenceCaptureScreen() {
           { text: "OK", onPress: () => navigation.goBack() }
         ]);
       } else {
-        throw new Error("Upload failed");
+        const { parseUploadErrorResponse } = await import("@/lib/uploads");
+        const { message } = await parseUploadErrorResponse(
+          response,
+          "Could not upload evidence. Please try again.",
+        );
+        throw new Error(message);
       }
     } catch (error) {
       console.error("Upload error:", error);
-      Alert.alert("Upload Failed", "Could not upload evidence. Please try again.");
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Could not upload evidence. Please try again.";
+      Alert.alert("Upload Failed", message);
     }
   };
 

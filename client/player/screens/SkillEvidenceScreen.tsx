@@ -165,11 +165,20 @@ export default function SkillEvidenceScreen() {
         setSelectedSkill(null);
         Alert.alert("Success", "Your skill evidence has been uploaded for review!");
       } else {
-        throw new Error("Upload failed");
+        const { parseUploadErrorResponse } = await import("@/lib/uploads");
+        const { message } = await parseUploadErrorResponse(
+          response,
+          "Couldn't upload your video. Please try again.",
+        );
+        throw new Error(message);
       }
     } catch (error) {
       console.error("Upload error:", error);
-      Alert.alert("Upload Failed", "Please try again");
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Couldn't upload your video. Please try again.";
+      Alert.alert("Upload Failed", message);
     }
   };
 

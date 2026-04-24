@@ -61,7 +61,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { filterProfanity } from "../profanityFilter";
   import { isPlayerMinor } from "../childSafety";
   import { chatRateLimiter } from "../rateLimiter";
-  import { profilePhotoUpload } from "../upload-middleware";
+  import { profilePhotoUpload, wrapUploadHandler } from "../upload-middleware";
 
 const router = Router();
 
@@ -341,16 +341,26 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
   router.post(
     "/api/coach/profile/photo",
     authMiddleware,
-    profilePhotoUpload.single("photo"),
+    wrapUploadHandler(profilePhotoUpload.single("photo"), {
+      context: "CoachPhoto",
+      maxBytes: 5 * 1024 * 1024,
+    }),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const coachId = req.user!.coachId;
         if (!coachId) {
-          return res.status(400).json({ error: "Coach profile not found" });
+          return res.status(400).json({ error: "Coach profile not found", code: "NO_COACH" });
         }
 
         if (!req.file) {
-          return res.status(400).json({ error: "No photo uploaded" });
+          return res.status(400).json({ error: "No photo uploaded", code: "NO_FILE" });
+        }
+
+        if (!req.file.buffer || req.file.buffer.length === 0) {
+          return res.status(400).json({
+            error: "Uploaded file is empty. Please try a different photo.",
+            code: "EMPTY_FILE",
+          });
         }
 
         const mimeType = req.file.mimetype || "image/jpeg";
@@ -365,8 +375,8 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
           message: "Profile photo updated successfully",
         });
       } catch (error) {
-        console.error("Error uploading coach profile photo:", error);
-        res.status(500).json({ error: "Failed to upload profile photo" });
+        console.error("[CoachPhoto] Error uploading coach profile photo:", error);
+        res.status(500).json({ error: "Failed to upload profile photo", code: "UPLOAD_FAILED" });
       }
     },
   );
