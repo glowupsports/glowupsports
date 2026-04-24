@@ -298,6 +298,31 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           }
         }
 
+        // Family F — screen-time lock enforcement. If the effective player
+        // is locked, reject every authenticated request with 401 LOCKED so
+        // any active session forcibly drops back to the lobby. The lock
+        // endpoint also closes WebSockets immediately for the sub-60s SLA.
+        if (effectivePlayerId) {
+          try {
+            const { getAccountLockState } = await import("./lib/account-audit");
+            const lockState = await getAccountLockState(effectivePlayerId);
+            if (lockState.locked) {
+              res.status(401).json({
+                error: "ACCOUNT_LOCKED",
+                locked: true,
+                lockedUntil: lockState.lockedUntil?.toISOString() ?? null,
+                lockedByPlayerId: lockState.lockedByPlayerId,
+                reason: lockState.reason,
+                message: "This account is taking a break.",
+              });
+              return;
+            }
+          } catch (lockErr) {
+            // Best-effort — never let a lock-check DB error block the request.
+            console.warn("[Auth] account-lock check failed:", lockErr);
+          }
+        }
+
         req.user = {
           userId: freshUser.id,
           email: freshUser.email,

@@ -41,6 +41,7 @@ import {
   JWT_SECRET,
 } from "../auth";
 import { sendEmail } from "../emailService";
+import { writeAuditLog } from "../lib/account-audit";
 
 const router = Router();
 
@@ -288,6 +289,17 @@ router.post(
         console.warn("[account-pin] addedWithPin update failed (non-fatal):", e);
       }
 
+      // Family F — audit row for the PIN set/change.
+      writeAuditLog({
+        playerId,
+        actorPlayerId: freshUser.playerId ?? playerId,
+        action: "pin_change",
+        metadata: {
+          firstTime: !existing,
+          recoveryEmailSet: Boolean(recovery),
+        },
+      }).catch(() => {});
+
       res.json({ success: true });
     } catch (error) {
       console.error("[account-pin/set] error:", error);
@@ -471,6 +483,14 @@ router.post(
         .update(accountPinRecovery)
         .set({ usedAt: new Date() })
         .where(eq(accountPinRecovery.id, row.id));
+
+      // Family F — audit row for the magic-link PIN recovery.
+      writeAuditLog({
+        playerId: row.playerId,
+        actorPlayerId: row.playerId,
+        action: "pin_recover",
+        metadata: { tokenId: row.id },
+      }).catch(() => {});
 
       res.json({ success: true });
     } catch (error) {

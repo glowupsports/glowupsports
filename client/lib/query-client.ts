@@ -57,6 +57,30 @@ export function buildPhotoUrl(url: string | null | undefined): string | null {
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     if (res.status === 401) {
+      // Family F — peek at the body to see if this is an account-lock 401.
+      // Locked sessions should NOT trigger a token refresh (the new token
+      // would still get rejected, causing an infinite loop). We clear auth
+      // and surface a typed error so callers can route to FamilyLobby.
+      const cloned = res.clone();
+      try {
+        const body = await cloned.json();
+        if (body?.error === "ACCOUNT_LOCKED" || body?.locked === true) {
+          try {
+            const { clearAuthState } = await import("./auth");
+            await clearAuthState();
+          } catch {}
+          const err: any = new Error(
+            body?.message || "This account is taking a break.",
+          );
+          err.code = "ACCOUNT_LOCKED";
+          err.lockedUntil = body?.lockedUntil ?? null;
+          err.status = 401;
+          throw err;
+        }
+      } catch (peekErr: any) {
+        if (peekErr?.code === "ACCOUNT_LOCKED") throw peekErr;
+        // Body wasn't JSON — fall through to the existing refresh path.
+      }
       logger.log("[API] Received 401, attempting token refresh...");
       await triggerUnauthorized();
       // After triggerUnauthorized, check if we got a new token

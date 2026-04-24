@@ -7694,6 +7694,56 @@ export const accountGraduation = pgTable("account_graduation", {
 
 export type AccountGraduation = typeof accountGraduation.$inferSelect;
 
+// ==================== ACCOUNT AUDIT LOG (Family F — Task #1137) ====================
+// Per-account append-only event stream. Visible to the account owner AND every
+// other member of the same family group (transparency by default — no privacy
+// moat between siblings, since there's no role distinction in the family
+// model). UI shows last 90 days only; the table itself is unbounded.
+//
+// `action` values used by the writers:
+//   "login"               — auth/login or auth/apple/login succeeded
+//   "profile_switch_in"   — someone switched INTO this account via family/switch
+//   "pin_change"          — own PIN was set or rotated
+//   "pin_recover"         — PIN was reset via the magic-link flow
+//   "spend_limit_change"  — child spend limit changed (no endpoint yet — reserved)
+//   "lock"                — this account was locked by another family member
+//   "unlock"              — this account's lock was lifted
+export const accountAuditLog = pgTable("account_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // The account this event happened TO (i.e. whose audit log it appears in).
+  playerId: varchar("player_id")
+    .notNull()
+    .references(() => players.id, { onDelete: "cascade" }),
+  // Who triggered the event. NULL for system-initiated events (e.g. auto-lock
+  // expiry sweeps in a future iteration). May equal playerId (self-action).
+  actorPlayerId: varchar("actor_player_id").references(() => players.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+  // Structured detail per action type. e.g. for "lock": { until, reason }.
+  metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+}, (t) => ({
+  byPlayerOccurred: index("account_audit_log_player_occurred_idx").on(t.playerId, t.occurredAt),
+  byActor: index("account_audit_log_actor_idx").on(t.actorPlayerId),
+}));
+
+export type AccountAuditLogRow = typeof accountAuditLog.$inferSelect;
+
+// Per-account temporary lock (screen-time control). One row per locked
+// player; absent row OR locked_until in the past = unlocked. Locks are
+// reversible by either the locker or the account owner via PIN.
+export const accountLocks = pgTable("account_locks", {
+  playerId: varchar("player_id")
+    .primaryKey()
+    .references(() => players.id, { onDelete: "cascade" }),
+  lockedUntil: timestamp("locked_until").notNull(),
+  lockedByPlayerId: varchar("locked_by_player_id").references(() => players.id, { onDelete: "set null" }),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type AccountLockRow = typeof accountLocks.$inferSelect;
+
 // ==================== AI PROGRESS ENGINE ====================
 
 // Per-session AI digest: what was practised, what went well, one focus area

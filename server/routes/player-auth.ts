@@ -54,6 +54,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   } from "@shared/schema";
   import { hashPassword, generateToken, generateRefreshToken } from "../auth";
   import { verifyAccountPin, playerHasPin } from "./account-pin";
+  import { writeAuditLog, getAccountLockState } from "../lib/account-audit";
   import * as Sentry from "@sentry/node";
   const router = Router();
   
@@ -1061,6 +1062,22 @@ router.post(
         return res.status(404).json({ error: "Player not found" });
       }
 
+      // Family F — screen-time lock gate. If the target account is currently
+      // locked, refuse to mint a token for it. The audit middleware will catch
+      // existing sessions on the next request, but blocking the switch here
+      // gives a clearer UX path ("Tennis Bla is taking a break — back at HH:MM").
+      const lockState = await getAccountLockState(targetPlayerId);
+      if (lockState.locked) {
+        return res.status(403).json({
+          error: "ACCOUNT_LOCKED",
+          locked: true,
+          lockedUntil: lockState.lockedUntil?.toISOString() ?? null,
+          lockedByPlayerId: lockState.lockedByPlayerId,
+          reason: lockState.reason,
+          message: `${targetPlayer.name ?? "This account"} is taking a break.`,
+        });
+      }
+
       // PIN gate: only required if (a) target has a PIN AND (b) the caller is
       // not within the 60-second grace window of a switch they just made
       // out of this same target.
@@ -1165,6 +1182,20 @@ router.post(
         toPlayerId: targetPlayerId,
         at: Date.now(),
       });
+
+      // Family F — audit row on the TARGET account's log so the family can
+      // see "X switched into me at HH:MM". The actor is the original caller.
+      writeAuditLog({
+        playerId: targetPlayerId,
+        actorPlayerId: freshUser.playerId,
+        action: "profile_switch_in",
+        metadata: {
+          fromPlayerId: freshUser.playerId,
+          fromName: callerPlayer.name ?? null,
+          usedGrace,
+          requiredPin: targetHasPin && !usedGrace,
+        },
+      }).catch(() => {});
 
       return res.json({
         token,

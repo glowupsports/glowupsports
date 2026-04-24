@@ -241,6 +241,7 @@ import playerAuthRouter from "./routes/player-auth";
 import familyRouter from "./routes/family";
 import spectatorLinksRouter from "./routes/spectator-links";
 import accountPinRouter from "./routes/account-pin";
+import accountAuditRouter from "./routes/account-audit";
 import adminSetupRouter from "./routes/admin-setup";
 import playerCreditsRouter from "./routes/player-credits";
 import creditsV2Router from "./routes/credits-v2";
@@ -583,6 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(spectatorLinksRouter);
   // Family B — per-account PIN management + elevation token endpoint
   app.use(accountPinRouter);
+  app.use(accountAuditRouter);
   app.use(adminSetupRouter);
   app.use(playerCreditsRouter);
   app.use(creditsV2Router);

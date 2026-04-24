@@ -31,6 +31,7 @@ import AcademyProfileScreen from "@/player/screens/AcademyProfileScreen";
 import CoachDirectoryScreen from "@/player/screens/CoachDirectoryScreen";
 import TransferRequestScreen from "@/player/screens/TransferRequestScreen";
 import PlayerHolidaysScreen from "@/player/screens/PlayerHolidaysScreen";
+import AccountAuditLogScreen from "@/player/screens/AccountAuditLogScreen";
 import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
 import PlayerOnboardingV2 from "@/player/screens/PlayerOnboardingV2";
 import ParentDashboardScreen from "@/player/screens/ParentDashboardScreen";
@@ -265,6 +266,7 @@ export type PlayerStackParamList = {
   BookingPreferences: undefined;
   BookingInvites: undefined;
   FamilyLobby: undefined;
+  AccountAuditLog: { playerId?: string; playerName?: string } | undefined;
   News: undefined;
   PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
   SpotlightDetail: undefined;
@@ -1110,6 +1112,17 @@ function PlayerStackNavigator() {
         component={PlayerHolidaysScreen}
         options={{
           presentation: "card",
+        }}
+      />
+      <Stack.Screen
+        name="AccountAuditLog"
+        component={AccountAuditLogScreen}
+        options={{
+          presentation: "card",
+          headerShown: true,
+          headerTitle: "Activity log",
+          headerTransparent: true,
+          headerTintColor: Colors.dark.text,
         }}
       />
       <Stack.Screen

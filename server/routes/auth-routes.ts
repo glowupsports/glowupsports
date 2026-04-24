@@ -53,6 +53,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { calculateAgeFromDOB, getBallLevelFromAge, isValidDOB } from "@shared/ballLevel";
   import { authLimiter, inviteLimiter } from "../rateLimiter";
   import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword, JWT_SECRET, refreshAuthMiddleware } from "../auth";
+  import { writeAuditLog } from "../lib/account-audit";
   import { sendWelcomeEmail, sendPlayerInviteEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP, markEmailVerified, isEmailVerified, clearEmailVerified, sendPasswordResetEmail } from "../emailService";
   import crypto from "crypto";
   import { verifyAppleIdentityToken } from "../utils/appleAuth";
@@ -188,6 +189,23 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       const token = generateToken(jwtPayload);
       const refreshToken = generateRefreshToken(jwtPayload);
 
+      // Family F — audit row on the player's own log so family members can
+      // see "logged in at …". Best-effort, never blocks the response.
+      if (user.playerId) {
+        writeAuditLog({
+          playerId: user.playerId,
+          actorPlayerId: user.playerId,
+          action: "login",
+          metadata: {
+            method: "password",
+            ip: (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+              || req.ip
+              || null,
+            userAgent: req.headers["user-agent"] ?? null,
+          },
+        }).catch(() => {});
+      }
+
       res.json({
         token,
         refreshToken,
@@ -310,6 +328,21 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       };
       const token = generateToken(appleJwtPayload);
       const refreshToken = generateRefreshToken(appleJwtPayload);
+
+      // Family F — audit row for the Apple sign-in path.
+      if (existingUser.playerId) {
+        writeAuditLog({
+          playerId: existingUser.playerId,
+          actorPlayerId: existingUser.playerId,
+          action: "login",
+          metadata: {
+            method: "apple",
+            ip: (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+              || req.ip
+              || null,
+          },
+        }).catch(() => {});
+      }
 
       res.json({
         token,

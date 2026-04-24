@@ -313,6 +313,35 @@ export function broadcastToPlayerIds(
   });
 }
 
+// Family F — Force-disconnect every active socket for a given playerId.
+// Used by the lock endpoint to enforce screen-time blocks within the
+// task's 60-second SLA (Steps §3). Sends a `force_logout` message before
+// closing so the client can show a friendly message + redirect.
+export function disconnectPlayerSockets(playerId: string, reason: string): number {
+  if (!playerId) return 0;
+  let closed = 0;
+  const message = JSON.stringify({
+    type: "force_logout",
+    payload: { reason, playerId, at: new Date().toISOString() },
+  });
+  academyRooms.forEach((room) => {
+    room.forEach((socket) => {
+      if (socket.playerId !== playerId) return;
+      try {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(message);
+        }
+        // Custom 4xxx codes are app-specific — 4010 is "policy enforced".
+        socket.close(4010, reason);
+        closed += 1;
+      } catch (err) {
+        console.warn("[ws] disconnectPlayerSockets close failed:", err);
+      }
+    });
+  });
+  return closed;
+}
+
 // Broadcast to specific connected users only (participant-scoped, no content leak to academy)
 export function broadcastToUserIds(
   academyId: string,

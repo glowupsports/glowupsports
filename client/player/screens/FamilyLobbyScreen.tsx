@@ -32,6 +32,7 @@ import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
 import GraduationFlow from "@/player/components/GraduationFlow";
 import { PinPadModal } from "@/components/PinPadModal";
 import { PinRecoveryModal } from "@/components/PinRecoveryModal";
+import { LockAccountModal } from "@/player/components/LockAccountModal";
 import { callFamilySwitch, applySwitchResult } from "@/lib/familySwitch";
 import { reloadAppAsync } from "expo";
 
@@ -318,12 +319,29 @@ interface ChildCardProps {
   member: FamilyMember;
   todayInfo?: TodayMemberInfo;
   onPress: () => void;
+  onLongPress?: () => void;
+  lockedUntil?: string | null;
   index: number;
   // Family G — Task #1138 — graduation entry-point (banner + button).
   onGraduate?: (member: FamilyMember) => void;
 }
 
-function ChildCard({ member, todayInfo, onPress, index, onGraduate }: ChildCardProps) {
+function formatLockBadge(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const until = new Date(iso);
+  if (Number.isNaN(until.getTime())) return null;
+  const ms = until.getTime() - Date.now();
+  if (ms <= 0) return null;
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `${mins}m left`;
+  const sameDay = until.toDateString() === new Date().toDateString();
+  const timeStr = until.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (sameDay) return `Until ${timeStr}`;
+  return `Until ${until.toLocaleDateString([], { weekday: "short" })} ${timeStr}`;
+}
+
+function ChildCard({ member, todayInfo, onPress, onLongPress, lockedUntil, index, onGraduate }: ChildCardProps) {
+  const lockBadge = formatLockBadge(lockedUntil);
   const hasOutstanding = member.outstandingBalance > 0;
   const lastActiveText = formatLastActive(member.lastActiveAt);
   const chips = buildChipsFor(todayInfo);
@@ -337,6 +355,8 @@ function ChildCard({ member, todayInfo, onPress, index, onGraduate }: ChildCardP
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           onPress();
         }}
+        onLongPress={onLongPress}
+        delayLongPress={350}
         accessibilityRole="button"
         accessibilityLabel={`Open player profile for ${member.name}`}
       >
@@ -344,6 +364,12 @@ function ChildCard({ member, todayInfo, onPress, index, onGraduate }: ChildCardP
           colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
           style={styles.cardGradient}
         >
+          {lockBadge ? (
+            <View style={lockedBadgeStyles.wrap}>
+              <Ionicons name="lock-closed" size={12} color="#FF4136" />
+              <Text style={lockedBadgeStyles.text}>{lockBadge}</Text>
+            </View>
+          ) : null}
           <View style={styles.avatarContainer}>
             {member.avatarUrl ? (
               <Image
@@ -603,6 +629,22 @@ export default function FamilyLobbyScreen() {
   const [pinRecoveryOpen, setPinRecoveryOpen] = useState(false);
   const [showControls, setShowControls] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
+  const [lockTarget, setLockTarget] = useState<FamilyMember | null>(null);
+
+  // Family F — fetch active locks for the family. Polled every 30s so a lock
+  // applied from another device shows up quickly (the auth middleware enforces
+  // it on every request anyway).
+  const locksQuery = useQuery<{ locks: Array<{ playerId: string; lockedUntil: string; lockedByPlayerId: string | null; reason: string | null }> }>({
+    queryKey: ["/api/family/locks"],
+    refetchInterval: 30_000,
+  });
+  const locksByPlayerId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const l of locksQuery.data?.locks ?? []) {
+      if (l?.playerId && l.lockedUntil) map.set(l.playerId, l.lockedUntil);
+    }
+    return map;
+  }, [locksQuery.data]);
   const [showAddChild, setShowAddChild] = useState(false);
   const [showCreateMember, setShowCreateMember] = useState(false);
   const [addChildTab, setAddChildTab] = useState<"email" | "code" | "enter">("email");
@@ -1008,8 +1050,87 @@ export default function FamilyLobbyScreen() {
     }
   };
 
+  const handleUnlockMember = async (member: FamilyMember) => {
+    // Family F — unlock requires the locker's PIN OR the target's PIN. We
+    // try the target's PIN flow first because it's the most universal path
+    // (a kid lifting their own bedtime lock when a parent allows it).
+    setPinTarget(null);
+    Alert.alert(
+      `Unlock ${member.name}?`,
+      "You'll need a 4-digit PIN to confirm. Use either the family member who locked it, or the target's own PIN.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Enter PIN",
+          onPress: async () => {
+            const pinPromise = new Promise<string | null>((resolve) => {
+              // Reuse PinPadModal via a lightweight inline prompt — Alert.prompt
+              // isn't cross-platform, so we hijack the existing pinTarget flow.
+              setPinTarget({ ...member, _unlockMode: true } as any);
+              (handleUnlockMember as any)._resolve = resolve;
+            });
+            await pinPromise;
+          },
+        },
+      ],
+    );
+  };
+
+  const handleMemberLongPress = (member: FamilyMember) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const isLocked = locksByPlayerId.has(member.id);
+    const buttons: Array<{ text: string; onPress?: () => void; style?: "default" | "cancel" | "destructive" }> = [
+      {
+        text: "View activity log",
+        onPress: () => {
+          (navigation as any).navigate("AccountAuditLog", {
+            playerId: member.id,
+            playerName: member.name,
+          });
+        },
+      },
+    ];
+    if (isLocked) {
+      buttons.push({
+        text: "Unlock account",
+        onPress: () => handleUnlockMember(member),
+      });
+    } else {
+      buttons.push({
+        text: "Lock for screen-time break",
+        style: "destructive",
+        onPress: () => setLockTarget(member),
+      });
+    }
+    buttons.push({ text: "Cancel", style: "cancel" });
+    Alert.alert(member.name, "What would you like to do?", buttons);
+  };
+
   const handlePinSubmit = async (pin: string): Promise<string | null> => {
     if (!pinTarget) return "No account selected";
+    // Unlock branch — when long-press chose "Unlock", we reuse the PinPadModal
+    // and route the PIN to the unlock endpoint instead of switching.
+    if ((pinTarget as any)._unlockMode) {
+      const target = pinTarget;
+      try {
+        const res = await apiRequest("DELETE", `/api/family/lock/${target.id}`, { pin });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (typeof data?.attemptsLeft === "number") {
+            return `Wrong PIN — ${data.attemptsLeft} attempts left`;
+          }
+          return data?.error || "Couldn't unlock";
+        }
+        setPinTarget(null);
+        queryClient.invalidateQueries({ queryKey: ["/api/family/locks"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/account/audit-log"] });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Unlocked", `${target.name} is back in the app.`);
+        return null;
+      } catch (err: any) {
+        return err?.message || "Couldn't unlock";
+      }
+    }
     const outcome = await performSwitch(pinTarget, pin);
     if (outcome.ok) {
       setPinTarget(null);
@@ -1289,6 +1410,8 @@ export default function FamilyLobbyScreen() {
               member={member}
               todayInfo={todayByPlayer.get(member.id)}
               onPress={() => handleSelectChild(member)}
+              onLongPress={() => handleMemberLongPress(member)}
+              lockedUntil={locksByPlayerId.get(member.id) ?? null}
               index={index}
               onGraduate={(m) => setGraduationTarget(m)}
             />
@@ -1366,6 +1489,17 @@ export default function FamilyLobbyScreen() {
           // Reload family roster so the "Graduated" badge appears.
           refreshFamily();
           queryClient.invalidateQueries({ queryKey: ["/api/family/me/group"] });
+        }}
+      />
+
+      {/* Family F — Screen-time lock (Task #1137) */}
+      <LockAccountModal
+        visible={!!lockTarget}
+        targetPlayerId={lockTarget?.id ?? null}
+        targetName={lockTarget?.name ?? null}
+        onClose={() => setLockTarget(null)}
+        onLocked={() => {
+          locksQuery.refetch();
         }}
       />
 
@@ -3090,3 +3224,23 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   enterCodeSuccessTitle: { fontSize: FontSizes.xl, fontWeight: "700", color: Colors.dark.text },
   enterCodeSuccessText: { fontSize: FontSizes.md, color: Colors.dark.textMuted, textAlign: "center" },
 }));
+
+// Family F — small floating badge shown on a ChildCard when that account is
+// currently in a screen-time lock. Kept outside the reactive style block so
+// the badge doesn't get rebuilt on every theme tick.
+const lockedBadgeStyles = StyleSheet.create({
+  wrap: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255,65,54,0.18)",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.md,
+    zIndex: 5,
+  },
+  text: { color: "#FF4136", fontSize: FontSizes.xs, fontWeight: "600" },
+});
