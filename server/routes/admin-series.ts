@@ -26,6 +26,8 @@ import {
   bookingRequests,
   payments,
   coachFollows,
+  xpTransactions,
+  coachXpTransactions,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
 import {
@@ -36,12 +38,19 @@ import {
   ne,
   asc,
   inArray,
+  notInArray,
   isNull,
   isNotNull,
   or,
   gte,
   gt,
 } from "drizzle-orm";
+import { sanitizeTemplateName } from "../utils/sanitize";
+import {
+  ensureResolvableLocalTime,
+  getFirstSessionDate,
+  addDaysToLocalDate,
+} from "../utils/timezone";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -726,7 +735,6 @@ router.post(
           locationId: locationId || null,
           startTime: sessionDate,
           endTime: sessionEndTime,
-          duration,
           sessionType,
           ballLevel,
           skillLevel,
@@ -1016,7 +1024,7 @@ router.post(
       } else {
         await storage.addPlayerToSeries({
           seriesId: id,
-          courtId: existing.courtId || undefined,
+          courtId: existingPlayer?.courtId || undefined,
           playerId,
           status: "active",
           linkedPackageId: packageId || null,
@@ -1718,7 +1726,6 @@ router.post(
           locationId,
           startTime: weekStart,
           endTime: weekEnd,
-          duration,
           sessionType,
           ballLevel,
           skillLevel,
@@ -2023,7 +2030,6 @@ router.post(
           academyId,
           startTime: start,
           endTime: end,
-          duration,
           sessionType,
           status: "scheduled",
           name: notes || null,
@@ -4071,7 +4077,7 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.params.id;
-      const { username, email, password, role, name } = req.body;
+      const { username, email, password, role, name, ballLevel } = req.body;
 
       if (!username || !password) {
         return res

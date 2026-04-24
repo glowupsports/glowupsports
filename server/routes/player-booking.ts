@@ -78,6 +78,7 @@ import { z } from "zod";
 import { sanitizeMessage } from "../utils/sanitize";
 import { localHHMMToUtc, utcToLocalTime } from "../utils/timezone";
 import { playerNotifications, coachNotifications } from "@shared/schema";
+import { parseLineItems, generateInvoiceHtml } from "../services/invoicePdf";
 import {
   sendPushNotification,
   getPlayerPushTokens,
@@ -7442,7 +7443,7 @@ router.get(
         (endDate as string) || (startDate as string),
       );
 
-      res.json(savedAvailability);
+      res.json(availability);
     } catch (error) {
       console.error("Get court availability error:", error);
       res.status(500).json({ error: "Failed to get availability" });
@@ -7714,6 +7715,8 @@ router.post(
         courtBookingStatus: omCourtBookingStatus,
         courtBookingNote: omCourtBookingNote,
         courtBookingUrl: omCourtBookingUrl,
+        invitedPlayerId,
+        matchIntent,
       } = req.body;
       if (createOpenMatch && playerId) {
         try {
@@ -9331,12 +9334,12 @@ router.post(
       const hostPlayer = await storage.getPlayer(hostPlayerId);
 
       // Create a notification for the invited player
-      await db.insert(notifications).values({
+      await db.insert(playerNotifications).values({
         id: crypto.randomUUID(),
-        userId: playerId,
+        playerId: playerId,
         type: "match_invite",
         title: "Match Invitation",
-        message: `${hostPlayer?.name || "A player"} invited you to join their ${match.matchType} match`,
+        body: `${hostPlayer?.name || "A player"} invited you to join their ${match.matchType} match`,
         data: { matchId, hostPlayerId, matchType: match.matchType },
         read: false,
         createdAt: new Date(),
@@ -9579,7 +9582,6 @@ router.get(
         .where(
           and(
             eq(matchRequests.status, "open"),
-            eq(players.ballLevel, player.ballLevel),
             academyId ? eq(matchRequests.academyId, academyId) : undefined,
             playerId ? ne(matchRequests.playerId, playerId) : undefined,
           ),
