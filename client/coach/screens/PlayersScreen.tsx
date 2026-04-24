@@ -271,26 +271,9 @@ export default function PlayersScreen() {
       insetsTop + Math.max(headerHeightSV.value + headerTranslation.value, 0),
   }));
 
-  // Always bring the header back when there is no scrollable content to
-  // pull it down with. This covers two strand-the-header scenarios:
-  //   1. Switching roster tab to one with no players (empty/loading).
-  //   2. Filter / mutation reduces the current tab's list to zero.
-  // We trigger on rosterTab too so a tab switch always starts with a
-  // visible header even when the new tab does have data.
-  const headerLockedReason =
-    rawLoading || currentPlayers.length === 0 ? "no-scroll" : "scrollable";
-  useEffect(() => {
-    if (headerLockedReason === "no-scroll") {
-      headerTranslation.value = withTiming(0, { duration: 200 });
-      lastScrollY.value = 0;
-      scrollY.value = 0;
-    }
-  }, [headerLockedReason, headerTranslation, lastScrollY, scrollY]);
-  useEffect(() => {
-    headerTranslation.value = withTiming(0, { duration: 200 });
-    lastScrollY.value = 0;
-    scrollY.value = 0;
-  }, [rosterTab, headerTranslation, lastScrollY, scrollY]);
+  // (Header-reset effects live further down — they depend on
+  // `filteredPlayers` and `rawLoading`, which are computed after the
+  // expensive memo blocks below.)
 
   // Build cache keys scoped per coach + academy so we never hydrate one
   // account's roster into another's view (data-isolation requirement).
@@ -729,6 +712,37 @@ export default function PlayersScreen() {
     setSelectedPlayer(player);
   };
 
+  const currentPlayers = rosterTab === "active" ? players : rosterTab === "past" ? pastPlayers : pendingPaymentPlayers;
+  // Only show the full-screen spinner on a true first load (no cached data
+  // yet). When react-query is refetching in the background, cached data is
+  // already rendered, so suppress the spinner.
+  const rawLoading = rosterTab === "active" ? isLoading : rosterTab === "past" ? isPastLoading : isPendingPaymentLoading;
+  const currentIsLoading = rawLoading && currentPlayers.length === 0;
+
+  // Always bring the header back when there is no scrollable content to
+  // pull it down with. This covers two strand-the-header scenarios:
+  //   1. Switching roster tab to one with no players (empty/loading).
+  //   2. Filter / search reduces the rendered list to zero — `filteredPlayers`
+  //      is what's actually rendered (line ~1283), so we key off that, not
+  //      `currentPlayers`.
+  // We also reset on `rosterTab` change so a tab switch always starts with
+  // a visible header even when the new tab does have data.
+  // NOTE: must live before the `if (selectedPlayer)` early return below so
+  // hook order stays stable.
+  const hasScrollableContent = !currentIsLoading && filteredPlayers.length > 0;
+  useEffect(() => {
+    if (!hasScrollableContent) {
+      headerTranslation.value = withTiming(0, { duration: 200 });
+      lastScrollY.value = 0;
+      scrollY.value = 0;
+    }
+  }, [hasScrollableContent, headerTranslation, lastScrollY, scrollY]);
+  useEffect(() => {
+    headerTranslation.value = withTiming(0, { duration: 200 });
+    lastScrollY.value = 0;
+    scrollY.value = 0;
+  }, [rosterTab, headerTranslation, lastScrollY, scrollY]);
+
   if (selectedPlayer) {
     return (
       <PlayerDetailView
@@ -761,13 +775,6 @@ export default function PlayersScreen() {
       />
     );
   }
-
-  const currentPlayers = rosterTab === "active" ? players : rosterTab === "past" ? pastPlayers : pendingPaymentPlayers;
-  // Only show the full-screen spinner on a true first load (no cached data
-  // yet). When react-query is refetching in the background, cached data is
-  // already rendered, so suppress the spinner.
-  const rawLoading = rosterTab === "active" ? isLoading : rosterTab === "past" ? isPastLoading : isPendingPaymentLoading;
-  const currentIsLoading = rawLoading && currentPlayers.length === 0;
 
   return (
     <View style={styles.container}>
