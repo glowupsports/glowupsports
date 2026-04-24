@@ -14,7 +14,6 @@ import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { useChatState } from "@/coach/context/ChatStateContext";
 
 interface ChatRoom {
   id: string;
@@ -27,7 +26,6 @@ interface ChatRoom {
 export default function BrowseChatRoomsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { openGlowChat } = useChatState();
   const [search, setSearch] = useState("");
 
   const { data: rooms = [], isLoading } = useQuery<ChatRoom[]>({
@@ -49,8 +47,7 @@ export default function BrowseChatRoomsScreen() {
       style={styles.roomRow}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        openGlowChat({ tab: "world", roomId: item.id, fullscreen: true });
-        if (navigation.canGoBack()) navigation.goBack();
+        navigation.navigate("ChatRoom", { roomId: item.id, title: item.title });
       }}
     >
       <View style={styles.flagBox}>

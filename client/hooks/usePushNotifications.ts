@@ -6,7 +6,6 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '@/coach/context/AuthContext';
-import { useChatState } from '@/coach/context/ChatStateContext';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 
 type DeepLinkData = {
@@ -47,7 +46,6 @@ interface PushNotificationState {
 export function usePushNotifications() {
   const { user } = useAuth();
   const navigation = useNavigation<any>();
-  const { openGlowChat } = useChatState();
   const [state, setState] = useState<PushNotificationState>({
     expoPushToken: null,
     isRegistered: false,
@@ -76,12 +74,7 @@ export function usePushNotifications() {
         switch (data.screen) {
           case 'PlayerMessages':
           case 'Messages':
-            openGlowChat({
-              tab: 'auto',
-              conversationId: data.conversationId ?? null,
-              scrollToMessageId: data.messageId ?? null,
-              fullscreen: true,
-            });
+            navigation.navigate('PlayerMessages', params);
             break;
           case 'PlayerNotifications':
           case 'Notifications':
@@ -122,11 +115,11 @@ export function usePushNotifications() {
             break;
           case 'ChatRoom':
             if (data.roomId) {
-              openGlowChat({
-                tab: 'world',
+              navigation.navigate('ChatRoom', {
                 roomId: data.roomId,
-                scrollToMessageId: data.messageId ?? null,
-                fullscreen: true,
+                title: data.roomTitle,
+                scrollToMessageId: data.messageId,
+                ...(data.params || {}),
               });
             }
             break;
@@ -155,7 +148,7 @@ export function usePushNotifications() {
     } catch (error) {
       console.error('[Push] Error handling deep link:', error);
     }
-  }, [navigation, openGlowChat]);
+  }, [navigation]);
 
   const registerForPushNotificationsAsync = useCallback(async (): Promise<string | null> => {
     if (Platform.OS === 'web') {

@@ -18,7 +18,6 @@ import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/coach/context/AuthContext";
-import { useChatState } from "@/coach/context/ChatStateContext";
 import {
   Colors,
   Spacing,
@@ -135,7 +134,7 @@ const GLOSSARY_KEYS: { key: string; icon: keyof typeof Ionicons.glyphMap }[] = [
 interface ExploreEntryDef {
   key: string;
   icon: keyof typeof Ionicons.glyphMap;
-  onPress: (nav: any, ctx: { openGlowChat: (opts?: import("@/coach/context/ChatStateContext").OpenGlowChatOptions) => void }) => void;
+  onPress: (nav: any) => void;
 }
 
 const EXPLORE_GROUPS: { groupKey: string; entries: ExploreEntryDef[] }[] = [
@@ -164,7 +163,7 @@ const EXPLORE_GROUPS: { groupKey: string; entries: ExploreEntryDef[] }[] = [
       { key: "communityFeed", icon: "chatbubbles", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }) },
       { key: "friends", icon: "person-add", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }) },
       { key: "spotlight", icon: "star", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }) },
-      { key: "messages", icon: "mail", onPress: (_nav, ctx) => ctx.openGlowChat({ tab: "auto", fullscreen: true }) },
+      { key: "messages", icon: "mail", onPress: (nav) => nav.navigate("PlayerMessages") },
     ],
   },
   {
@@ -215,7 +214,6 @@ export default function PlayerGuideScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user, isGuest } = useAuth();
-  const { openGlowChat } = useChatState();
   const { t, i18n } = useTranslation();
   const initialTab: TabKey = (route.params?.initialTab as TabKey) || "start";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
@@ -495,7 +493,7 @@ export default function PlayerGuideScreen() {
                     style={styles.exploreCard}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      entry.onPress(navigation, { openGlowChat });
+                      entry.onPress(navigation);
                     }}
                   >
                     <View style={styles.exploreIcon}>

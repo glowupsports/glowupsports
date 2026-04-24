@@ -224,6 +224,7 @@ const linking: LinkingOptions<any> = {
           Progress: "progress",
           Profile: "profile",
           PlayerNotifications: "notifications",
+          PlayerMessages: "messages",
           Settings: "settings",
           SpotlightDetail: "spotlight/:spotlightId",
           MatchDetail: "match/:matchId",

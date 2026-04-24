@@ -75,6 +75,7 @@ The application uses a dark-themed premium sports aesthetic with a simplified co
 - **User Onboarding & Guidance**: Provides checklists, welcome modals, help centers, quick tips, and progress tracking on dashboards.
 - **Role-Specific Applications**: Dedicated applications for Coaches, Players, Platform Owners, and Service Providers.
 - **Glow Market & Community Marketplace**: E-commerce platform with XP-based discounts and used equipment.
+- **Player Chat Surface**: The active player chat surface is `<CoachChatFooter mode="player" />`, mounted by `PlayerNavigator`. The newer `client/player/components/PlayerChatFooter.tsx` is **parked** (header comment, not imported anywhere) — it is the source of truth for new chat features (mentions, pin, mute sheet, typing indicator, restricted-chat banner) that will be ported into `CoachChatFooter` without changing its visual chrome (Task #1310). `PlayerMessagesScreen` and `ChatRoomScreen` remain in `client/player/screens/` because OnlineSafetyModal and ICS-style links still navigate to them.
 - **Group Social Hub**: Features group-specific Events with RSVP and group Chat with emoji reactions.
 - **Coach & Academy Posts**: Post templates authored by coaches or academies, with role-tinted feed rendering, pinned posts, auto lesson-recap drafts, and country-scope publishing for public coaches.
 - **Coach Following**: Players can follow individual public coaches.

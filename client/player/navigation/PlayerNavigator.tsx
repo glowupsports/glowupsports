@@ -57,6 +57,8 @@ import InviteClaimScreen from "@/player/screens/InviteClaimScreen";
 import ChallengePlayerScreen from "@/player/screens/ChallengePlayerScreen";
 import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
 import GroupsScreen from "@/player/screens/GroupsScreen";
+import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
+import ChatRoomScreen from "@/player/screens/ChatRoomScreen";
 import BrowseChatRoomsScreen from "@/player/screens/BrowseChatRoomsScreen";
 import PlayerBookingChatScreen from "@/player/screens/PlayerBookingChatScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
@@ -122,7 +124,7 @@ import TournamentDetailScreen from "@/player/screens/TournamentDetailScreen";
 import LadderDetailScreen from "@/player/screens/LadderDetailScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
-import { PlayerChatFooter } from "@/player/components/PlayerChatFooter";
+import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors, Spacing, FontSizes, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
@@ -246,6 +248,8 @@ export type PlayerStackParamList = {
   FriendsList: { initialTab?: "friends" | "requests" } | undefined;
   Groups: { initialTab?: "communities" | "training" | "discover" } | undefined;
   GroupDetail: { groupId: string; groupName: string };
+  PlayerMessages: undefined;
+  ChatRoom: { roomId: string; title?: string };
   BrowseChatRooms: undefined;
   PlayerBookingChat: { orderId?: string; conversationId?: string };
   PlayerNotifications: undefined;
@@ -902,6 +906,15 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
   
   const hideChat = !SHOW_CHAT_TABS.includes(currentTabKey);
 
+  const handleChallenge = useCallback(
+    (opponentId: string, opponentName: string, opponentPhoto?: string) => {
+      navigation.navigate("PlayerTabs", {
+        screen: "PlayStack",
+        params: { screen: "ChallengePlayer", params: { opponentId, opponentName, opponentPhoto } },
+      });
+    },
+    [navigation],
+  );
   
   const handlePageChange = useCallback((index: number, key: string) => {
     setCurrentTabKey(key);
@@ -926,8 +939,8 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
     if (drawerOpen) return null;
     if (!SHOW_CHAT_TABS.includes(tabKey)) return null;
     
-    return <PlayerChatFooter />;
-  }, [drawerOpen]);
+    return <CoachChatFooter mode="player" onChallenge={handleChallenge} />;
+  }, [handleChallenge, drawerOpen]);
 
   const { isChatExpanded } = useChatState();
 
@@ -952,7 +965,6 @@ function PlayerTabsWithDrawer() {
   const navigation = useNavigation<any>();
   const { setOpenDrawer } = usePlayerDrawer();
   const { navigateToTab } = useTabNavigation();
-  const { openGlowChat } = useChatState();
   
   React.useEffect(() => {
     setOpenDrawer(() => setDrawerVisible(true));
@@ -966,9 +978,7 @@ function PlayerTabsWithDrawer() {
   };
 
   const handleDrawerNavigate = (screen: string, params?: any) => {
-    if (screen === "PlayerMessages") {
-      openGlowChat({ tab: "auto", fullscreen: true });
-    } else if (screen === "PlayerTabs" && params?.screen) {
+    if (screen === "PlayerTabs" && params?.screen) {
       navigateToTab(params.screen, params.params ? params.params : undefined);
     } else {
       navigation.navigate(screen, params);
@@ -1409,10 +1419,22 @@ function PlayerStackNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen 
+        name="PlayerMessages" 
+        component={PlayerMessagesScreen}
+        options={{
+          presentation: "card",
+        }}
+      />
+      <Stack.Screen
+        name="ChatRoom"
+        component={ChatRoomScreen}
+        options={{ presentation: "card", headerShown: false }}
+      />
       <Stack.Screen
         name="BrowseChatRooms"
         component={BrowseChatRoomsScreen}
-        options={{ presentation: "modal", headerShown: false }}
+        options={{ presentation: "card", headerShown: false }}
       />
       <Stack.Screen 
         name="PlayerBookingChat" 

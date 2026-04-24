@@ -1,3 +1,21 @@
+// =============================================================================
+// PARKED — DO NOT MOUNT
+// =============================================================================
+// This file is the 1581-line GLOW Chat rewrite from Task #1294. The user asked
+// to keep the original CoachChatFooter look-and-feel as the player chat surface
+// (see Task #1309 — Restore old chat-look). PlayerNavigator now mounts
+// `<CoachChatFooter mode="player" />` again instead of this component.
+//
+// Why this file is still here: it is the source of truth for the new features
+// the user wants ported back into the existing CoachChatFooter layout — see
+// Task #1310 (port @ mentions, pin messages, mute sheet, typing indicator,
+// restricted-chat banner, OnlineSafetyModal, etc. into CoachChatFooter
+// without changing its visual chrome).
+//
+// Do NOT import this component from anywhere. Once Task #1310 has ported all
+// high-value features, this file can be deleted in a follow-up cleanup task.
+// =============================================================================
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   View,
