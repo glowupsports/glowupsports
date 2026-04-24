@@ -445,6 +445,11 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
             const isFlexible = series.dayOfWeek === -1;
             const dayName = isFlexible ? "Flexible" : DAY_NAMES[series.dayOfWeek];
             const localTime = convertUTCTimeToLocal(series.startTime, timezone);
+            const SHORT_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const autoTitleMatch = series.title.match(/^(.+?) - (Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d{1,2}:\d{2}$/);
+            const displayTitle = autoTitleMatch && !isFlexible
+              ? `${autoTitleMatch[1]} - ${SHORT_DAYS[series.dayOfWeek]} ${localTime}`
+              : series.title;
             const matchedPlayers = (series.playerPreview || []).filter(p => 
               p.name.toLowerCase().includes(searchText.toLowerCase().trim())
             );
@@ -462,7 +467,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
                 <View style={[searchStyles.resultAccent, { backgroundColor: config.color }]} />
                 <View style={searchStyles.resultContent}>
                   <View style={searchStyles.resultHeader}>
-                    <Text style={searchStyles.resultTitle} numberOfLines={1}>{series.title}</Text>
+                    <Text style={searchStyles.resultTitle} numberOfLines={1}>{displayTitle}</Text>
                     <View style={[searchStyles.typeBadge, { backgroundColor: config.color + "25" }]}>
                       <Text style={[searchStyles.typeText, { color: config.color }]}>
                         {SESSION_TYPE_LABELS[series.sessionType] || series.sessionType}
@@ -493,7 +498,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
           {searchResults.length === 0 ? (
             <View style={searchStyles.noResults}>
               <Ionicons name="search-outline" size={32} color={Colors.dark.textMuted} />
-              <Text style={searchStyles.noResultsText}>No classes found for "{searchText}"</Text>
+              <Text style={searchStyles.noResultsText}>No classes found for &quot;{searchText}&quot;</Text>
             </View>
           ) : null}
         </View>
