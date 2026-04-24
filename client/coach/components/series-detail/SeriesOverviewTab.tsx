@@ -1,14 +1,23 @@
-import React, { useState } from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet, Switch } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet, Switch, Platform } from "react-native";
 import { useTranslation } from "react-i18next";
 import { openDirections } from "@/lib/maps";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing } from "@/constants/theme";
 import { formatCredits } from "@/lib/dateUtils";
 import { styles } from "./seriesDetailStyles";
 import { DAY_NAMES, getBallLevelColor } from "./utils";
 import type { SeriesDetail, Player, CourtOption } from "./types";
+
+const DURATION_OPTIONS = [30, 45, 60, 75, 90, 120];
+
+export interface ScheduleDraft {
+  dayOfWeek: number;
+  startTime: string;
+  duration: number;
+}
 
 interface SeriesOverviewTabProps {
   series: SeriesDetail;
@@ -48,6 +57,8 @@ interface SeriesOverviewTabProps {
   handleTogglePublic: (value: boolean) => void;
   handleSaveDropInPrice: (price: string) => boolean;
   updatingVisibility: boolean;
+  onRequestScheduleChange: (draft: ScheduleDraft) => void;
+  scheduleSaving: boolean;
   onSendReminder?: () => void;
 }
 
@@ -89,11 +100,58 @@ export function SeriesOverviewTab({
   handleTogglePublic,
   handleSaveDropInPrice,
   updatingVisibility,
+  onRequestScheduleChange,
+  scheduleSaving,
   onSendReminder,
 }: SeriesOverviewTabProps) {
   const { t } = useTranslation();
   const [editingDropInPrice, setEditingDropInPrice] = useState(false);
   const [dropInPriceInput, setDropInPriceInput] = useState("");
+
+  // ------- Inline schedule editor state -------
+  const [draftDay, setDraftDay] = useState<number>(series.dayOfWeek);
+  const [draftStartTime, setDraftStartTime] = useState<string>(series.startTime);
+  const [draftDuration, setDraftDuration] = useState<number>(series.duration);
+  const [expandedScheduleField, setExpandedScheduleField] = useState<
+    "day" | "time" | "duration" | null
+  >(null);
+  const [showNativeTimePicker, setShowNativeTimePicker] = useState(false);
+
+  useEffect(() => {
+    setDraftDay(series.dayOfWeek);
+    setDraftStartTime(series.startTime);
+    setDraftDuration(series.duration);
+    setExpandedScheduleField(null);
+    setShowNativeTimePicker(false);
+  }, [series.id, series.dayOfWeek, series.startTime, series.duration]);
+
+  const draftTimeAsDate = useMemo(() => {
+    const [h, m] = (draftStartTime || "00:00").split(":").map(Number);
+    const d = new Date();
+    d.setHours(h || 0, m || 0, 0, 0);
+    return d;
+  }, [draftStartTime]);
+
+  const scheduleHasChanges =
+    draftDay !== series.dayOfWeek ||
+    draftStartTime !== series.startTime ||
+    draftDuration !== series.duration;
+
+  const handleSaveSchedule = () => {
+    if (!scheduleHasChanges) return;
+    onRequestScheduleChange({
+      dayOfWeek: draftDay,
+      startTime: draftStartTime,
+      duration: draftDuration,
+    });
+  };
+
+  const handleResetSchedule = () => {
+    setDraftDay(series.dayOfWeek);
+    setDraftStartTime(series.startTime);
+    setDraftDuration(series.duration);
+    setExpandedScheduleField(null);
+  };
 
   return (
     <View style={styles.tabContent}>
@@ -140,18 +198,184 @@ export function SeriesOverviewTab({
 
       <View style={styles.infoSection}>
         <Text style={styles.sectionTitle}>Schedule</Text>
-        <View style={styles.infoRow}>
-          <Ionicons name="calendar-outline" size={16} color={Colors.dark.textMuted} />
-          <Text style={styles.infoText}>
-            {series.dayOfWeek === -1
-              ? `Flexible at ${formatTime(series.startTime)}`
-              : `${DAY_NAMES[series.dayOfWeek]}s at ${formatTime(series.startTime)}`}
-          </Text>
-        </View>
-        <View style={styles.infoRow}>
+
+        {/* Day-of-week row — only shown for fixed-day series.
+            Flexible series (dayOfWeek === -1) only expose time + duration. */}
+        {series.dayOfWeek === -1 ? (
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={16} color={Colors.dark.textMuted} />
+            <Text style={styles.infoText}>Flexible day</Text>
+          </View>
+        ) : (
+          <>
+            <Pressable
+              style={styles.infoRow}
+              onPress={() =>
+                setExpandedScheduleField(
+                  expandedScheduleField === "day" ? null : "day",
+                )
+              }
+            >
+              <Ionicons name="calendar-outline" size={16} color={Colors.dark.textMuted} />
+              <Text style={styles.infoText}>
+                {draftDay === -1 ? "Flexible day" : `${DAY_NAMES[draftDay]}s`}
+              </Text>
+              <Ionicons name="pencil-outline" size={14} color={Colors.dark.disabled} style={{ marginLeft: 6 }} />
+            </Pressable>
+            {expandedScheduleField === "day" ? (
+              <View style={scheduleStyles.expandedBox}>
+                <Text style={scheduleStyles.expandedLabel}>SELECT DAY</Text>
+                <View style={scheduleStyles.chipsRow}>
+                  {[1, 2, 3, 4, 5, 6, 0, -1].map((d) => {
+                    const selected = draftDay === d;
+                    const label = d === -1 ? "Flexible" : DAY_NAMES[d].slice(0, 3);
+                    return (
+                      <Pressable
+                        key={d}
+                        onPress={() => setDraftDay(d)}
+                        style={[scheduleStyles.chip, selected && scheduleStyles.chipSelected]}
+                      >
+                        <Text
+                          style={[scheduleStyles.chipText, selected && scheduleStyles.chipTextSelected]}
+                        >
+                          {label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+          </>
+        )}
+
+        {/* Time row */}
+        <Pressable
+          style={styles.infoRow}
+          onPress={() =>
+            setExpandedScheduleField(
+              expandedScheduleField === "time" ? null : "time",
+            )
+          }
+        >
           <Ionicons name="time-outline" size={16} color={Colors.dark.textMuted} />
-          <Text style={styles.infoText}>{series.duration} minutes</Text>
-        </View>
+          <Text style={styles.infoText}>at {formatTime(draftStartTime)}</Text>
+          <Ionicons name="pencil-outline" size={14} color={Colors.dark.disabled} style={{ marginLeft: 6 }} />
+        </Pressable>
+        {expandedScheduleField === "time" ? (
+          <View style={scheduleStyles.expandedBox}>
+            <Text style={scheduleStyles.expandedLabel}>SELECT TIME</Text>
+            {Platform.OS === "web" ? (
+              <TextInput
+                style={scheduleStyles.webTimeInput}
+                value={draftStartTime}
+                onChangeText={(text) => {
+                  const [hours, minutes] = text.split(":").map(Number);
+                  if (!isNaN(hours) && !isNaN(minutes)) {
+                    setDraftStartTime(
+                      `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+                    );
+                  } else {
+                    setDraftStartTime(text);
+                  }
+                }}
+                placeholder="HH:MM"
+                placeholderTextColor={Colors.dark.textMuted}
+                keyboardType="numbers-and-punctuation"
+              />
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => setShowNativeTimePicker(true)}
+                  style={scheduleStyles.timeButton}
+                >
+                  <Ionicons name="time-outline" size={20} color={Colors.dark.accentCyan} />
+                  <Text style={scheduleStyles.timeButtonText}>{draftStartTime}</Text>
+                </Pressable>
+                {showNativeTimePicker ? (
+                  <DateTimePicker
+                    value={draftTimeAsDate}
+                    mode="time"
+                    is24Hour={true}
+                    display="spinner"
+                    onChange={(_, date) => {
+                      setShowNativeTimePicker(false);
+                      if (date) {
+                        const hh = String(date.getHours()).padStart(2, "0");
+                        const mm = String(date.getMinutes()).padStart(2, "0");
+                        setDraftStartTime(`${hh}:${mm}`);
+                      }
+                    }}
+                  />
+                ) : null}
+              </>
+            )}
+          </View>
+        ) : null}
+
+        {/* Duration row */}
+        <Pressable
+          style={styles.infoRow}
+          onPress={() =>
+            setExpandedScheduleField(
+              expandedScheduleField === "duration" ? null : "duration",
+            )
+          }
+        >
+          <Ionicons name="hourglass-outline" size={16} color={Colors.dark.textMuted} />
+          <Text style={styles.infoText}>{draftDuration} minutes</Text>
+          <Ionicons name="pencil-outline" size={14} color={Colors.dark.disabled} style={{ marginLeft: 6 }} />
+        </Pressable>
+        {expandedScheduleField === "duration" ? (
+          <View style={scheduleStyles.expandedBox}>
+            <Text style={scheduleStyles.expandedLabel}>SELECT DURATION</Text>
+            <View style={scheduleStyles.chipsRow}>
+              {DURATION_OPTIONS.map((d) => {
+                const selected = draftDuration === d;
+                return (
+                  <Pressable
+                    key={d}
+                    onPress={() => setDraftDuration(d)}
+                    style={[scheduleStyles.chip, selected && scheduleStyles.chipSelected]}
+                  >
+                    <Text
+                      style={[scheduleStyles.chipText, selected && scheduleStyles.chipTextSelected]}
+                    >
+                      {d} min
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Save / reset bar */}
+        {scheduleHasChanges ? (
+          <View style={scheduleStyles.saveBar}>
+            <Pressable
+              style={scheduleStyles.resetButton}
+              onPress={handleResetSchedule}
+              disabled={scheduleSaving}
+            >
+              <Text style={scheduleStyles.resetButtonText}>Reset</Text>
+            </Pressable>
+            <Pressable
+              style={[scheduleStyles.saveButton, scheduleSaving && scheduleStyles.saveButtonDisabled]}
+              onPress={handleSaveSchedule}
+              disabled={scheduleSaving}
+            >
+              {scheduleSaving ? (
+                <ActivityIndicator size="small" color={Colors.dark.text} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={18} color={Colors.dark.text} />
+                  <Text style={scheduleStyles.saveButtonText}>Save schedule changes</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
         <Pressable style={styles.infoRow} onPress={() => setShowSeriesCourtPicker(!showSeriesCourtPicker)}>
           <Ionicons name="location-outline" size={16} color={Colors.dark.textMuted} />
           <Text style={styles.infoText}>
@@ -683,6 +907,108 @@ export function SeriesOverviewTab({
     </View>
   );
 }
+
+const scheduleStyles = StyleSheet.create({
+  expandedBox: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  expandedLabel: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  chipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  chipSelected: {
+    borderColor: Colors.dark.accentCyan,
+    backgroundColor: "rgba(0, 200, 255, 0.15)",
+  },
+  chipText: {
+    color: Colors.dark.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  chipTextSelected: {
+    color: Colors.dark.accentCyan,
+  },
+  webTimeInput: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: Colors.dark.text,
+    fontSize: 16,
+    fontFamily: Platform.OS === "web" ? "monospace" : undefined,
+    minWidth: 100,
+    alignSelf: "flex-start",
+  },
+  timeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignSelf: "flex-start",
+  },
+  timeButtonText: {
+    color: Colors.dark.text,
+    fontSize: 16,
+  },
+  saveBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+  },
+  resetButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  resetButtonText: {
+    color: Colors.dark.textMuted,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  saveButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.accentCyan,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    color: Colors.dark.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+});
 
 const publicStyles = StyleSheet.create({
   toggleRow: {

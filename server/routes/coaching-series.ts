@@ -1544,6 +1544,7 @@ router.patch(
         "title",
         "courtId",
         "locationId",
+        "dayOfWeek",
         "startTime",
         "duration",
         "ballLevel",
@@ -1557,6 +1558,32 @@ router.patch(
         "isPublic",
         "publicDropInPrice",
       ];
+
+      // Validation for schedule fields
+      if (req.body.dayOfWeek !== undefined) {
+        const dow = Number(req.body.dayOfWeek);
+        if (!Number.isInteger(dow) || (dow !== -1 && (dow < 0 || dow > 6))) {
+          return res
+            .status(400)
+            .json({ error: "dayOfWeek must be -1 (flexible) or 0-6" });
+        }
+      }
+      if (req.body.startTime !== undefined) {
+        const t = String(req.body.startTime);
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) {
+          return res
+            .status(400)
+            .json({ error: "startTime must be in HH:MM 24h format" });
+        }
+      }
+      if (req.body.duration !== undefined) {
+        const d = Number(req.body.duration);
+        if (!Number.isInteger(d) || d < 5 || d > 480) {
+          return res
+            .status(400)
+            .json({ error: "duration must be an integer between 5 and 480" });
+        }
+      }
 
       const validSessionTypes = [
         "private",
@@ -1659,7 +1686,316 @@ router.patch(
         );
       }
 
-      res.json(updated);
+      // === Schedule propagation: dayOfWeek / startTime / duration ===
+      let scheduleResult: {
+        updated: number;
+        skipped: number;
+        skippedReasons: { sessionId: string; date: string; reason: string }[];
+        notified: number;
+      } | null = null;
+
+      const scheduleChanged =
+        updates.dayOfWeek !== undefined ||
+        updates.startTime !== undefined ||
+        updates.duration !== undefined;
+
+      if (scheduleChanged) {
+        const academy = await storage.getAcademy(existing.academyId!);
+        const academyTimezone = academy?.timezone || "Europe/Amsterdam";
+
+        const oldDow = existing.dayOfWeek;
+        const oldHHMM = existing.startTime;
+        const oldDuration = existing.duration;
+        const newDow =
+          updates.dayOfWeek !== undefined ? updates.dayOfWeek : oldDow;
+        const newHHMM =
+          updates.startTime !== undefined ? updates.startTime : oldHHMM;
+        const newDuration =
+          updates.duration !== undefined ? updates.duration : oldDuration;
+
+        const oldIsFlexible = oldDow === -1;
+        const newIsFlexible = newDow === -1;
+        // Day shift only applies to fixed→fixed transitions. For
+        // fixed→flex / flex→flex we keep the existing date (just change
+        // time/duration). For flex→fixed we compute the shift per-session
+        // based on each session's current local weekday.
+        let baseDayShift = 0;
+        if (!oldIsFlexible && !newIsFlexible) {
+          // Normalize to range [-3, 3] so each session moves to the
+          // *closest* occurrence of the new weekday (e.g. Mon→Sun shifts
+          // 1 day earlier rather than 6 days later). If a particular
+          // session lands in the past we roll forward by 7 days below.
+          baseDayShift = newDow - oldDow;
+          if (baseDayShift > 3) baseDayShift -= 7;
+          if (baseDayShift < -3) baseDayShift += 7;
+        }
+
+        // Helper: number of whole days between two YYYY-MM-DD strings,
+        // interpreted as UTC midnights (DST-safe because we only need
+        // a 7-day modulus, not wall-clock time).
+        const dayDifference = (fromYmd: string, toYmd: string): number => {
+          const [fy, fm, fd] = fromYmd.split("-").map(Number);
+          const [ty, tm, td] = toYmd.split("-").map(Number);
+          const fromMs = Date.UTC(fy, (fm ?? 1) - 1, fd ?? 1);
+          const toMs = Date.UTC(ty, (tm ?? 1) - 1, td ?? 1);
+          return Math.round((toMs - fromMs) / 86400000);
+        };
+
+        // The series's anchor date for cadence checks (stored as YYYY-MM-DD).
+        const seriesAnchorYmd: string =
+          typeof existing.seriesStartDate === "string"
+            ? existing.seriesStartDate
+            : new Date(existing.seriesStartDate as unknown as Date)
+                .toISOString()
+                .slice(0, 10);
+
+        // Find future scheduled sessions for this series
+        const now = new Date();
+        const futureSessions = await db
+          .select()
+          .from(sessions)
+          .where(
+            and(
+              or(eq(sessions.seriesId, id), eq(sessions.recurringGroupId, id)),
+              eq(sessions.status, "scheduled"),
+              gt(sessions.startTime, now),
+            ),
+          );
+
+        let updatedCount = 0;
+        const skippedReasons: {
+          sessionId: string;
+          date: string;
+          reason: string;
+        }[] = [];
+
+        for (const sess of futureSessions) {
+          const sessUtc =
+            sess.startTime instanceof Date
+              ? sess.startTime
+              : new Date(sess.startTime);
+          const local = utcToLocalTime(sessUtc, academyTimezone);
+          const sessLocalHHMM = local.time;
+          const sessLocalDow = local.dayOfWeek;
+
+          // Match the OLD recurring slot. A session is treated as
+          // "regular" (and therefore eligible for propagation) only if
+          // it still matches the original cadence:
+          //  - local start time matches the old HH:MM
+          //  - duration matches the old duration
+          //  - for fixed series: the session's local weekday matches
+          //    AND its date is on a 7-day multiple of seriesStartDate
+          //    (i.e. it has not been rescheduled to a different date)
+          //  - for flexible series: only time + duration must match
+          //    (any date is valid because there is no recurring cadence)
+          const onCadence =
+            oldIsFlexible ||
+            dayDifference(seriesAnchorYmd, local.date) % 7 === 0;
+          const matchesOldSlot =
+            sessLocalHHMM === oldHHMM &&
+            sess.duration === oldDuration &&
+            (oldIsFlexible || sessLocalDow === oldDow) &&
+            onCadence;
+
+          if (!matchesOldSlot) {
+            skippedReasons.push({
+              sessionId: sess.id,
+              date: local.date,
+              reason: "Previously rescheduled or customized",
+            });
+            continue;
+          }
+
+          // Compute the per-session day shift.
+          //  - new flexible: keep current date (date is no longer constrained)
+          //  - old flexible, new fixed: shift each session to the closest
+          //    occurrence of the new weekday (relative to its own current
+          //    weekday, normalized to [-3, 3])
+          //  - fixed → fixed: use the pre-computed baseDayShift
+          let perSessionDayShift = 0;
+          if (newIsFlexible) {
+            perSessionDayShift = 0;
+          } else if (oldIsFlexible) {
+            let s = newDow - sessLocalDow;
+            if (s > 3) s -= 7;
+            if (s < -3) s += 7;
+            perSessionDayShift = s;
+          } else {
+            perSessionDayShift = baseDayShift;
+          }
+
+          // Compute new local date in academy timezone. If the resulting
+          // datetime would land in the past (only possible when the shift
+          // is negative and the session is within a few days of "now"),
+          // roll forward by exactly 7 days so the session keeps its
+          // weekly cadence on the new weekday rather than being dropped.
+          let newLocalDate =
+            perSessionDayShift === 0
+              ? local.date
+              : addDaysToLocalDate(local.date, perSessionDayShift);
+
+          let resolution = ensureResolvableLocalTime(
+            newLocalDate,
+            newHHMM,
+            academyTimezone,
+          );
+          if (!resolution.ok) {
+            skippedReasons.push({
+              sessionId: sess.id,
+              date: newLocalDate,
+              reason: resolution.error.message,
+            });
+            continue;
+          }
+
+          if (!newIsFlexible && resolution.utcDate.getTime() <= now.getTime()) {
+            const rolledDate = addDaysToLocalDate(newLocalDate, 7);
+            const rolled = ensureResolvableLocalTime(
+              rolledDate,
+              newHHMM,
+              academyTimezone,
+            );
+            if (rolled.ok && rolled.utcDate.getTime() > now.getTime()) {
+              newLocalDate = rolledDate;
+              resolution = rolled;
+            }
+          }
+
+          const newStart = resolution.utcDate;
+          const newEnd = new Date(
+            newStart.getTime() + newDuration * 60000,
+          );
+
+          // Final guard: if still in the past (e.g. flexible series whose
+          // *time* moved earlier than now), skip with a clear reason.
+          if (newStart.getTime() <= now.getTime()) {
+            skippedReasons.push({
+              sessionId: sess.id,
+              date: newLocalDate,
+              reason: "New time is in the past",
+            });
+            continue;
+          }
+
+          // Conflict check (excluding the session itself)
+          const coachConflict = await storage.checkCoachConflict(
+            existing.coachId!,
+            newStart,
+            newEnd,
+            sess.id,
+            existing.academyId!,
+          );
+          const courtConflict = sess.courtId
+            ? await storage.checkCourtConflict(
+                sess.courtId,
+                newStart,
+                newEnd,
+                sess.id,
+                existing.academyId!,
+              )
+            : false;
+
+          if (coachConflict || courtConflict) {
+            const reasons: string[] = [];
+            if (coachConflict) reasons.push("Coach already booked");
+            if (courtConflict) reasons.push("Court already booked");
+            skippedReasons.push({
+              sessionId: sess.id,
+              date: newLocalDate,
+              reason: reasons.join(" and "),
+            });
+            continue;
+          }
+
+          // Apply update
+          await db
+            .update(sessions)
+            .set({
+              startTime: newStart,
+              endTime: newEnd,
+              duration: newDuration,
+            })
+            .where(eq(sessions.id, sess.id));
+
+          // Update corresponding coach time block (if any)
+          const newLocal = utcToLocalTime(newStart, academyTimezone);
+          const newLocalEnd = utcToLocalTime(newEnd, academyTimezone);
+          await db
+            .update(coachTimeBlocks)
+            .set({
+              date: newLocal.date,
+              startTime: newLocal.time,
+              endTime: newLocalEnd.time,
+              updatedAt: new Date(),
+            })
+            .where(eq(coachTimeBlocks.sourceSessionId, sess.id));
+
+          updatedCount++;
+        }
+
+        // Notify enrolled active players whenever the schedule template
+        // changes, even if there happen to be zero matching future sessions
+        // to move (e.g. all upcoming sessions were already customized, or
+        // the series currently has no scheduled future sessions).
+        let notified = 0;
+        const activeMembers = await db
+          .select({ playerId: seriesPlayers.playerId })
+          .from(seriesPlayers)
+          .where(
+            and(
+              eq(seriesPlayers.seriesId, id),
+              eq(seriesPlayers.status, "active"),
+            ),
+          );
+
+        if (activeMembers.length > 0) {
+          const dayNames = [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ];
+          const newDayLabel =
+            newDow === -1 ? "Flexible" : dayNames[newDow] ?? "";
+          const titleStr = "Class schedule updated";
+          const bodyStr = newIsFlexible
+            ? `${existing.title}: now flexible at ${newHHMM} for ${newDuration} min`
+            : `${existing.title}: now ${newDayLabel}s at ${newHHMM} for ${newDuration} min`;
+
+          await db.insert(playerNotifications).values(
+            activeMembers.map((m) => ({
+              playerId: m.playerId,
+              title: titleStr,
+              body: bodyStr,
+              type: "class_schedule_change",
+              data: {
+                seriesId: id,
+                dayOfWeek: newDow,
+                startTime: newHHMM,
+                duration: newDuration,
+                updatedSessions: updatedCount,
+              },
+            })),
+          );
+          notified = activeMembers.length;
+        }
+
+        scheduleResult = {
+          updated: updatedCount,
+          skipped: skippedReasons.length,
+          skippedReasons,
+          notified,
+        };
+
+        console.log(
+          `[SeriesUpdate] Schedule changed for series ${id}: ${updatedCount} sessions updated, ${skippedReasons.length} skipped, ${notified} players notified`,
+        );
+      }
+
+      res.json({ ...updated, scheduleResult });
     } catch (error) {
       console.error("Error updating coaching series:", error);
       res.status(500).json({ error: "Failed to update coaching series" });

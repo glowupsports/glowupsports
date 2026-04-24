@@ -21,7 +21,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { invalidatePlayersList } from "@/lib/credit-cache";
-import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
+import { convertUTCTimeToLocal, formatCredits, getTimeInTimezone, getDayOfWeekInTimezone, getLocalDateString } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -38,6 +38,8 @@ import { SeriesProgressTab } from "./series-detail/SeriesProgressTab";
 import { SeriesPlanTab } from "./series-detail/SeriesPlanTab";
 import { SeriesRestoreSessionModal } from "./series-detail/SeriesRestoreSessionModal";
 import { SeriesRescheduleSessionModal } from "./series-detail/SeriesRescheduleSessionModal";
+import { SeriesEditScheduleModal, type ScheduleChangeProposal } from "./series-detail/SeriesEditScheduleModal";
+import type { ScheduleDraft } from "./series-detail/SeriesOverviewTab";
 import { SeriesPausePlayerModal } from "./series-detail/SeriesPausePlayerModal";
 import { SeriesRemovePlayerModal } from "./series-detail/SeriesRemovePlayerModal";
 import { SeriesEditJoinDateModal } from "./series-detail/SeriesEditJoinDateModal";
@@ -1170,6 +1172,160 @@ export default function SeriesDetailDrawer({
     },
   });
 
+  // Schedule edit (day-of-week / start time / duration)
+  type ScheduleResult = {
+    updated: number;
+    skipped: number;
+    notified: number;
+    skippedReasons: { sessionId: string; date: string; reason: string }[];
+  };
+  type SchedulePatchPayload = { dayOfWeek?: number; startTime?: string; duration?: number };
+  type SchedulePatchResponse = { scheduleResult?: ScheduleResult | null };
+
+  const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
+  const [pendingScheduleChange, setPendingScheduleChange] = useState<{
+    payload: SchedulePatchPayload;
+    proposal: ScheduleChangeProposal;
+  } | null>(null);
+
+  // Compute a deterministic preview of how many future scheduled sessions
+  // would be moved vs. kept (because they were previously rescheduled or
+  // moved off the original recurring cadence).
+  const buildScheduleProposal = (draft: ScheduleDraft): ScheduleChangeProposal | null => {
+    if (!series) return null;
+
+    const oldDow = series.dayOfWeek;
+    const oldStart = series.startTime;
+    const oldDuration = series.duration;
+    const oldIsFlexible = oldDow === -1;
+    const newIsFlexible = draft.dayOfWeek === -1;
+
+    // Series anchor date for cadence checking (YYYY-MM-DD).
+    const anchorYmd =
+      typeof series.seriesStartDate === "string"
+        ? series.seriesStartDate.slice(0, 10)
+        : "";
+
+    const dayDifference = (fromYmd: string, toYmd: string): number => {
+      const [fy, fm, fd] = fromYmd.split("-").map(Number);
+      const [ty, tm, td] = toYmd.split("-").map(Number);
+      if (
+        !Number.isFinite(fy) ||
+        !Number.isFinite(ty) ||
+        !fm ||
+        !tm ||
+        !fd ||
+        !td
+      ) {
+        return 0;
+      }
+      const fromMs = Date.UTC(fy, fm - 1, fd);
+      const toMs = Date.UTC(ty, tm - 1, td);
+      return Math.round((toMs - fromMs) / 86400000);
+    };
+
+    const now = Date.now();
+    let movedCount = 0;
+    let customizedSkippedCount = 0;
+    let pastUntouchedCount = 0;
+
+    for (const sess of series.sessions) {
+      if (sess.status !== "scheduled") continue;
+      const startMs = new Date(sess.startTime).getTime();
+      if (!Number.isFinite(startMs)) continue;
+      if (startMs <= now) {
+        pastUntouchedCount++;
+        continue;
+      }
+      const endMs = new Date(sess.endTime).getTime();
+      const sessDuration = Number.isFinite(endMs)
+        ? Math.round((endMs - startMs) / 60000)
+        : oldDuration;
+
+      const { hours, minutes } = getTimeInTimezone(sess.startTime, tz);
+      const sessLocalHHMM = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+      const sessLocalDow = getDayOfWeekInTimezone(sess.startTime, tz);
+      const sessLocalDate = getLocalDateString(sess.startTime, tz);
+
+      const onCadence =
+        oldIsFlexible ||
+        anchorYmd === "" ||
+        dayDifference(anchorYmd, sessLocalDate) % 7 === 0;
+
+      const matchesOldSlot =
+        sessLocalHHMM === oldStart &&
+        sessDuration === oldDuration &&
+        (oldIsFlexible || sessLocalDow === oldDow) &&
+        onCadence;
+
+      if (matchesOldSlot) movedCount++;
+      else customizedSkippedCount++;
+    }
+
+    const notifiedCount = series.players.filter((p) => p.status === "active").length;
+
+    return {
+      oldDayOfWeek: oldDow,
+      newDayOfWeek: draft.dayOfWeek,
+      oldStartTime: oldStart,
+      newStartTime: draft.startTime,
+      oldDuration: oldDuration,
+      newDuration: draft.duration,
+      oldIsFlexible,
+      newIsFlexible,
+      movedCount,
+      customizedSkippedCount,
+      notifiedCount,
+      pastUntouchedCount,
+    };
+  };
+
+  const handleRequestScheduleChange = (draft: ScheduleDraft) => {
+    if (!series) return;
+    const proposal = buildScheduleProposal(draft);
+    if (!proposal) return;
+    const payload: SchedulePatchPayload = {};
+    if (draft.dayOfWeek !== series.dayOfWeek) payload.dayOfWeek = draft.dayOfWeek;
+    if (draft.startTime !== series.startTime) payload.startTime = draft.startTime;
+    if (draft.duration !== series.duration) payload.duration = draft.duration;
+    setPendingScheduleChange({ payload, proposal });
+    setShowEditScheduleModal(true);
+  };
+
+  const editScheduleMutation = useMutation<ScheduleResult | null, Error, SchedulePatchPayload>({
+    mutationFn: async (changes) => {
+      const res = await apiRequest("PATCH", `/api/coach/series/${seriesId}`, changes);
+      const data = (await res.json()) as SchedulePatchResponse;
+      return data.scheduleResult ?? null;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          typeof q.queryKey[0] === "string" &&
+          (q.queryKey[0] as string).includes("/api/coach/calendar"),
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      setShowEditScheduleModal(false);
+      setPendingScheduleChange(null);
+      if (result) {
+        const lines: string[] = [];
+        lines.push(`${result.updated} session${result.updated === 1 ? "" : "s"} moved.`);
+        if (result.skipped > 0)
+          lines.push(`${result.skipped} kept their custom time or could not move.`);
+        if (result.notified > 0)
+          lines.push(`${result.notified} player${result.notified === 1 ? "" : "s"} notified.`);
+        Alert.alert("Schedule updated", lines.join("\n"));
+      } else {
+        Alert.alert("Schedule updated", "Class details have been saved.");
+      }
+    },
+    onError: (error) => {
+      Alert.alert("Error", error.message || "Failed to update schedule");
+    },
+  });
+
   // Extra lesson modal - 3-step wizard
   const [showExtraLessonModal, setShowExtraLessonModal] = useState(false);
   const [extraLessonStep, setExtraLessonStep] = useState(1); // 1=Court, 2=Date, 3=Time
@@ -1472,6 +1628,8 @@ export default function SeriesDetailDrawer({
         handleTogglePublic={handleTogglePublic}
         handleSaveDropInPrice={handleSaveDropInPrice}
         updatingVisibility={updateVisibilityMutation.isPending}
+        onRequestScheduleChange={handleRequestScheduleChange}
+        scheduleSaving={editScheduleMutation.isPending}
         onSendReminder={() => setShowReminderModal(true)}
       />
     );
@@ -1789,6 +1947,21 @@ export default function SeriesDetailDrawer({
         restoringSession={restoringSession}
         bottomInset={insets.bottom}
       />
+
+      {series && pendingScheduleChange ? (
+        <SeriesEditScheduleModal
+          visible={showEditScheduleModal}
+          onClose={() => {
+            if (editScheduleMutation.isPending) return;
+            setShowEditScheduleModal(false);
+            setPendingScheduleChange(null);
+          }}
+          proposal={pendingScheduleChange.proposal}
+          bottomInset={insets.bottom}
+          saving={editScheduleMutation.isPending}
+          onConfirm={() => editScheduleMutation.mutate(pendingScheduleChange.payload)}
+        />
+      ) : null}
 
       <SeriesRescheduleSessionModal
         visible={showRescheduleModal}
