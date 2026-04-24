@@ -109,6 +109,9 @@ import {
   // Community Groups (Discord-style)
   communityGroups,
   groupMembers,
+  // Family groups (Task #1132 / #1135)
+  familyGroups,
+  familyMembers,
   // Court Preferences System
   coachCourtPreferences,
   coachCourtRules,
@@ -701,6 +704,266 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
     }
   } catch (err) {
     console.error(`[syncCommunityGroupForSeries] Failed for series ${seriesId}:`, err);
+  }
+}
+
+// ==================== FAMILY CHAT SYNC (Task #1135) ====================
+// Keep a community_groups row + chat conversation in lock-step with each
+// non-archived family_groups row. Idempotent: computes desired members,
+// diffs against current, inserts/deletes the difference. Safe to call after
+// any mutation that could change family membership.
+//
+// Mirrors `syncCommunityGroupForSeries` (Task #1115) but academy-independent
+// — family chats live alongside class chats and Free Players (no academy)
+// can still participate.
+//
+// On archive: tears down the chat group, conversation participants, and
+// conversation row (preserving only legacy messages would require schema
+// support; for now archived families lose their chat history).
+export async function syncFamilyChatGroup(familyGroupId: string): Promise<void> {
+  try {
+    const [family] = await db
+      .select()
+      .from(familyGroups)
+      .where(eq(familyGroups.id, familyGroupId))
+      .limit(1);
+    if (!family) return;
+
+    const [existingGroup] = await db
+      .select()
+      .from(communityGroups)
+      .where(eq(communityGroups.familyGroupId, familyGroupId))
+      .limit(1);
+
+    // Archived family → tear down everything.
+    if (family.archivedAt) {
+      if (existingGroup) {
+        const convRows = await db
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(and(eq(conversations.type, "group"), eq(conversations.title, existingGroup.id)));
+        const convIds = convRows.map((c) => c.id);
+        if (convIds.length > 0) {
+          await db
+            .delete(conversationParticipants)
+            .where(inArray(conversationParticipants.conversationId, convIds));
+          await db.delete(messages).where(inArray(messages.conversationId, convIds));
+          await db.delete(conversations).where(inArray(conversations.id, convIds));
+        }
+        await db.delete(groupMembers).where(eq(groupMembers.groupId, existingGroup.id));
+        await db.delete(communityGroups).where(eq(communityGroups.id, existingGroup.id));
+      }
+      return;
+    }
+
+    // Compute the display name. Prefer the explicit family.name; otherwise
+    // fall back to "{creatorFirstName}'s Family" (or just "Family" if we
+    // can't resolve a creator name).
+    let groupName = family.name?.trim() || "";
+    if (!groupName) {
+      let creatorName: string | null = null;
+      if (family.createdByPlayerId) {
+        const [creator] = await db
+          .select({ name: players.name })
+          .from(players)
+          .where(eq(players.id, family.createdByPlayerId))
+          .limit(1);
+        creatorName = creator?.name ?? null;
+      }
+      const firstName = creatorName ? creatorName.trim().split(/\s+/)[0] : null;
+      groupName = firstName ? `${firstName}'s Family` : "Family";
+    }
+
+    // Resolve creator's userId to set as createdBy on the community group.
+    let creatorUserId: string | null = null;
+    if (family.createdByPlayerId) {
+      const [u] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.playerId, family.createdByPlayerId))
+        .limit(1);
+      creatorUserId = u?.id ?? null;
+    }
+
+    let group = existingGroup;
+    if (!group) {
+      const [created] = await db
+        .insert(communityGroups)
+        .values({
+          academyId: null,
+          name: groupName,
+          description: "Private family chat",
+          type: "family",
+          familyGroupId,
+          isPrivate: true,
+          allowChat: true,
+          // Family chat is messaging-only — keep social posts off.
+          allowPosts: false,
+          memberCount: 0,
+          createdBy: creatorUserId,
+        })
+        .returning();
+      group = created;
+    } else {
+      const needsTextUpdate =
+        existingGroup.name !== groupName ||
+        existingGroup.type !== "family" ||
+        existingGroup.isPrivate !== true ||
+        existingGroup.allowPosts !== false;
+      if (needsTextUpdate) {
+        await db
+          .update(communityGroups)
+          .set({
+            name: groupName,
+            type: "family",
+            isPrivate: true,
+            allowPosts: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(communityGroups.id, existingGroup.id));
+      }
+    }
+    if (!group) return;
+
+    // Build desired member set: every family member who has a user account.
+    // Family members without a linked `users` row (legacy player-only stubs
+    // created via /api/family/create-member) are silently skipped — they
+    // can't sign in to read chat anyway, and they'll be auto-included as
+    // soon as they claim an account.
+    const memberRows = await db
+      .select({ playerId: familyMembers.playerId })
+      .from(familyMembers)
+      .where(eq(familyMembers.familyGroupId, familyGroupId));
+
+    const playerIds = memberRows.map((m) => m.playerId);
+    const playerToUser = new Map<string, string>();
+    if (playerIds.length > 0) {
+      const userRows = await db
+        .select({ id: users.id, playerId: users.playerId })
+        .from(users)
+        .where(inArray(users.playerId, playerIds));
+      for (const u of userRows) {
+        if (u.playerId) playerToUser.set(u.playerId, u.id);
+      }
+    }
+
+    const desired = new Map<string, "admin" | "member">();
+    const desiredPlayerByUser = new Map<string, string>();
+    for (const pid of playerIds) {
+      const uid = playerToUser.get(pid);
+      if (!uid) continue;
+      const role = pid === family.createdByPlayerId ? "admin" : "member";
+      desired.set(uid, role);
+      desiredPlayerByUser.set(uid, pid);
+    }
+
+    // Sync community group_members.
+    const currentMembers = await db
+      .select()
+      .from(groupMembers)
+      .where(eq(groupMembers.groupId, group.id));
+    const currentMap = new Map<string, (typeof currentMembers)[number]>();
+    for (const m of currentMembers) currentMap.set(m.userId, m);
+
+    const toInsert: Array<{ groupId: string; userId: string; role: string }> = [];
+    const toDelete: string[] = [];
+    for (const [uid, role] of desired) {
+      const existing = currentMap.get(uid);
+      if (!existing) {
+        toInsert.push({ groupId: group.id, userId: uid, role });
+      } else if (existing.role !== role) {
+        await db.update(groupMembers).set({ role }).where(eq(groupMembers.id, existing.id));
+      }
+    }
+    for (const uid of currentMap.keys()) {
+      if (!desired.has(uid)) toDelete.push(uid);
+    }
+    if (toInsert.length > 0) await db.insert(groupMembers).values(toInsert);
+    if (toDelete.length > 0) {
+      await db
+        .delete(groupMembers)
+        .where(and(eq(groupMembers.groupId, group.id), inArray(groupMembers.userId, toDelete)));
+    }
+
+    const [{ cnt }] = await db
+      .select({ cnt: sql<number>`count(*)::int` })
+      .from(groupMembers)
+      .where(eq(groupMembers.groupId, group.id));
+    if ((group.memberCount ?? 0) !== Number(cnt)) {
+      await db
+        .update(communityGroups)
+        .set({ memberCount: Number(cnt) })
+        .where(eq(communityGroups.id, group.id));
+    }
+
+    // Ensure a chat conversation exists (so the chat shows up in the chat
+    // list immediately, not lazily on first open) and keep its participants
+    // in sync with the family roster.
+    let [conv] = await db
+      .select()
+      .from(conversations)
+      .where(and(eq(conversations.type, "group"), eq(conversations.title, group.id)))
+      .limit(1);
+    if (!conv) {
+      const [created] = await db
+        .insert(conversations)
+        .values({
+          type: "group",
+          title: group.id,
+          playerId: null,
+          coachId: null,
+          academyId: null,
+        })
+        .returning();
+      conv = created;
+    }
+    if (!conv) return;
+
+    const currentParts = await db
+      .select()
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.conversationId, conv.id),
+          eq(conversationParticipants.participantType, "player"),
+        ),
+      );
+    const currentPartByPlayer = new Map<string, (typeof currentParts)[number]>();
+    for (const p of currentParts) {
+      if (p.playerId) currentPartByPlayer.set(p.playerId, p);
+    }
+
+    const desiredPlayerIds = new Set<string>(desiredPlayerByUser.values());
+
+    const partsToInsert: Array<typeof conversationParticipants.$inferInsert> = [];
+    for (const pid of desiredPlayerIds) {
+      if (!currentPartByPlayer.has(pid)) {
+        partsToInsert.push({
+          conversationId: conv.id,
+          playerId: pid,
+          coachId: null,
+          participantType: "player",
+          role: pid === family.createdByPlayerId ? "owner" : "member",
+          canPost: true,
+          academyId: null,
+        });
+      }
+    }
+    if (partsToInsert.length > 0) {
+      await db.insert(conversationParticipants).values(partsToInsert);
+    }
+
+    const partIdsToRemove: string[] = [];
+    for (const [pid, part] of currentPartByPlayer) {
+      if (!desiredPlayerIds.has(pid)) partIdsToRemove.push(part.id);
+    }
+    if (partIdsToRemove.length > 0) {
+      await db
+        .delete(conversationParticipants)
+        .where(inArray(conversationParticipants.id, partIdsToRemove));
+    }
+  } catch (err) {
+    console.error(`[syncFamilyChatGroup] Failed for family ${familyGroupId}:`, err);
   }
 }
 
@@ -6479,7 +6742,14 @@ export const storage = {
       eq(conversations.isArchived, false)
     ];
     if (academyId) {
-      conditions.push(eq(conversations.academyId, academyId));
+      // Match academy-scoped conversations OR academy-independent ones
+      // (family chats from Task #1135 have academyId=null and span academies).
+      conditions.push(
+        or(
+          eq(conversations.academyId, academyId),
+          isNull(conversations.academyId),
+        )!,
+      );
     }
     
     return db

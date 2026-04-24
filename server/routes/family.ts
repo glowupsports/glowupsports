@@ -27,6 +27,7 @@ import {
 import { eq, and, inArray, isNull } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { resolveOrCreateFamilyForCaller, addPlayerToFamily } from "../lib/family-groups";
+import { syncFamilyChatGroup } from "../storage";
 
 const router = Router();
 
@@ -260,6 +261,13 @@ router.post("/api/family/members/accept/:code", authMiddleware, async (req: Auth
       throw err;
     }
 
+    // Task #1135 — pull the new member into the family chat. Wrapped inside
+    // syncFamilyChatGroup's try/catch so a chat-sync failure never breaks
+    // the invite-accept response.
+    if (!alreadyMember) {
+      await syncFamilyChatGroup(inviterFamilyId);
+    }
+
     // Mirror to the legacy parentEmail link so email-based reads stay aligned
     // until they migrate to family_members. Always points at the FAMILY
     // CREATOR's email — this matches what /api/family/create-member writes,
@@ -338,6 +346,11 @@ router.delete("/api/family/members/:playerId", authMiddleware, async (req: Authe
 
     await db.delete(familyMembers).where(eq(familyMembers.id, targetMembership.id));
 
+    // Task #1135 — drop the removed member from the family chat. We sync
+    // again at the bottom of the handler if the family ends up archived
+    // (which tears down the chat entirely).
+    await syncFamilyChatGroup(groupId);
+
     // Best-effort: if the removed player was linked via parentEmail, clear it
     // so they no longer show up as a "child" in legacy email-based queries.
     const targetPlayer = await storage.getPlayer(targetPlayerId);
@@ -359,6 +372,8 @@ router.delete("/api/family/members/:playerId", authMiddleware, async (req: Authe
         .update(familyGroups)
         .set({ archivedAt: new Date() })
         .where(eq(familyGroups.id, groupId));
+      // Tear down the chat now that the family is archived.
+      await syncFamilyChatGroup(groupId);
     }
 
     res.json({ success: true });

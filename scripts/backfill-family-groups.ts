@@ -19,6 +19,7 @@ import "dotenv/config";
 import { db } from "../server/db";
 import { players, familyGroups, familyMembers, parentPlayerRelations, users } from "../shared/schema";
 import { eq, sql, and, isNotNull } from "drizzle-orm";
+import { syncFamilyChatGroup } from "../server/storage";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
@@ -258,6 +259,23 @@ async function main() {
   // Don't auto-create groups for every solo player here — that's done lazily
   // by `resolveOrCreateFamilyForCaller` on first /api/family/me/group hit.
   // This keeps the backfill bounded.
+
+  // ---- Pass 5: Task #1135 — auto-create the family chat (community_groups
+  // row + conversation + members) for every existing family. Idempotent and
+  // safe to re-run. Each sync is wrapped in its own try/catch inside the
+  // helper, so a single bad family won't abort the rest.
+  if (DRY_RUN) {
+    console.log("[backfill-family-groups] pass 5: skipped (dry run)");
+  } else {
+    const allGroups = await db.select({ id: familyGroups.id }).from(familyGroups);
+    console.log(`[backfill-family-groups] pass 5: syncing chat for ${allGroups.length} families`);
+    let synced = 0;
+    for (const g of allGroups) {
+      await syncFamilyChatGroup(g.id);
+      synced++;
+    }
+    console.log(`[backfill-family-groups] pass 5: synced ${synced} family chats`);
+  }
 
   console.log("[backfill-family-groups] done", JSON.stringify(stats, null, 2));
 }

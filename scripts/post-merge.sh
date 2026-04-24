@@ -29,6 +29,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS "family_members_group_player_unique"
 CREATE INDEX IF NOT EXISTS "family_members_by_player_idx"
   ON "family_members" ("player_id");
 SQL
+
+  # Task #1135 — Family D: family_chat schema additions on community_groups.
+  # - Make academy_id nullable (families are academy-independent — Free Players
+  #   in a family still get a chat).
+  # - Add family_group_id column + index so we can find the chat for a family.
+  # Idempotent: ALTER ... DROP NOT NULL is a no-op once already nullable;
+  # ADD COLUMN IF NOT EXISTS is safe to re-run.
+  echo "[post-merge] ensuring community_groups family-chat columns..."
+  psql "$DB_URL" <<'SQL'
+ALTER TABLE "community_groups"
+  ALTER COLUMN "academy_id" DROP NOT NULL;
+ALTER TABLE "community_groups"
+  ADD COLUMN IF NOT EXISTS "family_group_id" varchar;
+CREATE INDEX IF NOT EXISTS "community_groups_family_idx"
+  ON "community_groups" ("family_group_id");
+-- Task #1135 — guarantee at most one community_groups row per family.
+-- Partial unique so non-family rows (NULL family_group_id) are unaffected.
+CREATE UNIQUE INDEX IF NOT EXISTS "community_groups_family_group_id_unique"
+  ON "community_groups" ("family_group_id")
+  WHERE "family_group_id" IS NOT NULL;
+SQL
+
   echo "[post-merge] running family-groups backfill (idempotent)..."
   npx tsx scripts/backfill-family-groups.ts || echo "[post-merge] backfill returned non-zero — continuing"
 else

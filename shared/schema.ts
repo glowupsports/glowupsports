@@ -3827,18 +3827,24 @@ export type CoachContract = typeof coachContracts.$inferSelect;
 // ==================== SOCIAL FEATURES ====================
 
 // Community Groups (Discord-style micro-communities)
+// `academyId` is nullable to support academy-independent group types such as
+// `type='family'` (Task #1135), where members may be Free Players that don't
+// belong to any academy. Class-derived groups (type='team') still always set
+// it; the `syncCommunityGroupForSeries` helper enforces that.
 export const communityGroups = pgTable("community_groups", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
   
   name: text("name").notNull(),
   description: text("description"),
-  type: text("type").notNull().default("level"), // academy | level | team | event | friends
+  type: text("type").notNull().default("level"), // academy | level | team | event | friends | family
   
   // For level/team groups - link to series
   seriesId: varchar("series_id").references(() => coachingSeries.id),
+  // For family-type groups - link to the family this chat belongs to (Task #1135)
+  familyGroupId: varchar("family_group_id"),
   
   // Group settings
   isPrivate: boolean("is_private").default(false),
@@ -3859,6 +3865,12 @@ export const communityGroups = pgTable("community_groups", {
   index("community_groups_academy_idx").on(table.academyId),
   index("community_groups_type_idx").on(table.type),
   index("community_groups_series_idx").on(table.seriesId),
+  index("community_groups_family_idx").on(table.familyGroupId),
+  // Task #1135 — guarantee at most one community group per family.
+  // Partial unique so non-family rows (NULL family_group_id) are unaffected.
+  uniqueIndex("community_groups_family_group_id_unique")
+    .on(table.familyGroupId)
+    .where(sql`${table.familyGroupId} IS NOT NULL`),
 ]);
 
 export const insertCommunityGroupSchema = createInsertSchema(communityGroups).omit({ id: true, createdAt: true, updatedAt: true });

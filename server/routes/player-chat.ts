@@ -61,12 +61,15 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       return res.json([]);
     }
 
-    const academyId = player.academyId;
-    if (!academyId) {
-      return res.json([]);
-    }
+    // Free Players (no academy) can still belong to a family, and a family
+    // chat (Task #1135) is academy-independent. So instead of short-circuiting
+    // here, we pass `academyId ?? undefined` to storage, which then returns
+    // every conversation the player participates in (regardless of academy
+    // scoping). Academy-scoped sub-queries below stay opt-in via `if
+    // (academyId)` guards.
+    const academyId = player.academyId || null;
 
-    const conversationsRaw = await storage.getConversationsForPlayer(playerId, academyId);
+    const conversationsRaw = await storage.getConversationsForPlayer(playerId, academyId ?? undefined);
 
     // Get the current user's userId to check against playerBlocks
     const currentUserId = req.user!.userId;
@@ -227,18 +230,20 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       }
     }
 
-    // 7) Batch community group names
+    // 7) Batch community group names + types (Task #1135 — type drives the
+    // family-chat label/icon on the client).
     const groupTitleIds = Array.from(new Set(
       conversations.filter(c => c.type === "group" && c.title).map(c => c.title!)
     ));
-    const groupNameMap = new Map<string, string>();
+    const groupMetaMap = new Map<string, { name: string; type: string }>();
     if (groupTitleIds.length > 0) {
       const groupRows = await db.select({
         id: communityGroups.id,
         name: communityGroups.name,
+        type: communityGroups.type,
       }).from(communityGroups).where(inArray(communityGroups.id, groupTitleIds));
       for (const g of groupRows) {
-        if (g.name) groupNameMap.set(g.id, g.name);
+        if (g.name) groupMetaMap.set(g.id, { name: g.name, type: g.type });
       }
     }
 
@@ -250,7 +255,7 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
         .map(c => c.title!)
     ));
     const communityGroupBySeries = new Map<string, { id: string; name: string }>();
-    if (seriesIdsForCommunity.length > 0) {
+    if (seriesIdsForCommunity.length > 0 && academyId) {
       const linkedGroups = await db.select({
         id: communityGroups.id,
         name: communityGroups.name,
@@ -313,9 +318,15 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       let seriesId: string | null = null;
       let communityGroupId: string | null = null;
       let communityGroupName: string | null = null;
+      let communityGroupType: string | null = null;
       if (conv.type === "group" && conv.title) {
-        const name = groupNameMap.get(conv.title);
-        if (name) resolvedTitle = name;
+        const meta = groupMetaMap.get(conv.title);
+        if (meta) {
+          resolvedTitle = meta.name;
+          communityGroupId = conv.title;
+          communityGroupName = meta.name;
+          communityGroupType = meta.type;
+        }
       }
       if ((conv.type === "series_group" || conv.type === "squad" || conv.type === "lesson_group") && conv.title) {
         if (UUID_RE.test(conv.title)) {
@@ -335,7 +346,7 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
         }
       }
 
-      return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime, sessionType, seriesId, communityGroupId, communityGroupName };
+      return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime, sessionType, seriesId, communityGroupId, communityGroupName, communityGroupType };
     });
 
     // Filter out conversations where the other player is blocked

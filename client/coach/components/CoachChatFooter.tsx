@@ -104,6 +104,11 @@ interface Conversation {
   seriesId?: string | null;
   communityGroupId?: string | null;
   communityGroupName?: string | null;
+  // Task #1135 — `type` of the linked community_groups row (e.g. 'family',
+  // 'team'). Drives the icon + label distinction between family chats and
+  // class group chats. Server only sets this for conversations of type
+  // 'group' that resolve to a community_groups row.
+  communityGroupType?: string | null;
 }
 
 const REACTION_EMOJIS = ["🔥", "❤️", "👍", "😂"];
@@ -1650,6 +1655,13 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       return cleanTitle(cAny.seriesTitle) || cleanTitle(conv.title) || "Lesson Group";
     }
     if (conv.type === "squad" || conv.type === "group") {
+      // Task #1135 — family chats resolve to community_groups.type='family';
+      // prefix the family name so it's distinguishable from class chats in
+      // the Squad list.
+      if (conv.communityGroupType === "family") {
+        const baseName = cleanTitle(conv.communityGroupName) || cleanTitle(conv.title) || "Family";
+        return baseName.toLowerCase().startsWith("family") ? baseName : `Family — ${baseName}`;
+      }
       return cleanTitle(conv.title) || "Squad Chat";
     }
     if (conv.type === "coach_coach") return cleanTitle(conv.title) || "Coach Chat";
@@ -1676,7 +1688,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       case "coach_coach": return "ribbon";
       case "academy": return "home";
       case "squad":
-      case "group": return "fitness";
+      case "group":
+        // Task #1135 — distinguish family chats from class chats so they
+        // don't all share the generic fitness/team icon in the Squad list.
+        if (conv.communityGroupType === "family") return "home-outline";
+        return "fitness";
       default: return "person";
     }
   };

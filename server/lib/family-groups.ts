@@ -6,6 +6,7 @@
 import { db } from "../db";
 import { players, familyGroups, familyMembers } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
+import { syncFamilyChatGroup } from "../storage";
 
 /**
  * Resolve the family group id for a player. If the player is not yet in a
@@ -81,6 +82,11 @@ export async function ensureGroupForCreator(playerId: string): Promise<string> {
     addedWithPin: false,
   });
 
+  // Task #1135 — keep the family chat group in sync. Wrapped in try/catch
+  // inside `syncFamilyChatGroup` so a chat-sync failure never breaks the
+  // family-create path.
+  await syncFamilyChatGroup(group.id);
+
   return group.id;
 }
 
@@ -120,6 +126,9 @@ export async function addPlayerToFamily(
     addedByPlayerId: opts.addedByPlayerId,
     addedWithPin: opts.addedWithPin ?? false,
   });
+
+  // Task #1135 — pull the new member into the family chat.
+  await syncFamilyChatGroup(groupId);
 }
 
 /**
