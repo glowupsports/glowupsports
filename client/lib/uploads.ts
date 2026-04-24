@@ -228,6 +228,93 @@ export async function appendImageToFormData(
 }
 
 /**
+ * Thrown by `appendMediaToFormData` when we can't materialize the picked URI
+ * into an uploadable Blob/File on the current platform (e.g. the web `fetch`
+ * for a stale `blob:` URL fails, or a `data:` URL is malformed). Distinct
+ * from a network error so callers can render a more accurate banner copy and
+ * diagnostic log instead of the generic "couldn't reach the server" fallback.
+ *
+ * Diagnostic fields are declared as own enumerable properties so they survive
+ * `console.error`/`JSON.stringify` and aren't swallowed into an empty `{}`.
+ */
+export class MediaPrepareError extends Error {
+  scheme: string;
+  uriPreview: string;
+  originalName?: string;
+  originalMessage?: string;
+  constructor(
+    message: string,
+    info: {
+      scheme: string;
+      uriPreview: string;
+      originalName?: string;
+      originalMessage?: string;
+    },
+  ) {
+    super(message);
+    // Restore the prototype chain — required when targeting ES5 (some
+    // RN/web bundles still do) so `instanceof MediaPrepareError` works in
+    // the calling site's catch block.
+    Object.setPrototypeOf(this, MediaPrepareError.prototype);
+    this.name = "MediaPrepareError";
+    this.scheme = info.scheme;
+    this.uriPreview = info.uriPreview;
+    this.originalName = info.originalName;
+    this.originalMessage = info.originalMessage;
+  }
+}
+
+/**
+ * Returns the URI scheme (`data`, `blob`, `file`, `https`, …) lowercased, or
+ * `"unknown"` if the URI doesn't carry one. Used purely for diagnostics and
+ * to pick a fallback materialization strategy on web.
+ */
+function uriScheme(uri: string): string {
+  const m = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(uri);
+  return m ? m[1].toLowerCase() : "unknown";
+}
+
+/**
+ * Truncate a URI for logging. We never want to dump a multi-MB `data:` URL
+ * into the console (kills devtools) or leak full picker URIs into bug reports.
+ */
+function previewUri(uri: string, max = 80): string {
+  if (uri.length <= max) return uri;
+  return `${uri.slice(0, max)}…(${uri.length} chars)`;
+}
+
+/**
+ * Decode the bytes embedded in a `data:` URL into a Blob. Used as a fallback
+ * for the rare case where `fetch(dataUri)` rejects on web (some browsers
+ * throttle or refuse very large `data:` URLs even though decoding the bytes
+ * directly works fine).
+ *
+ * Returns `null` if the URL isn't a recognizable `data:` URL — caller should
+ * propagate the original fetch error in that case so the user sees a real
+ * diagnostic rather than a silently-broken upload.
+ */
+function dataUrlToBlob(uri: string): Blob | null {
+  const match = /^data:([^;,]+)?(?:;([^,]+))?,(.*)$/s.exec(uri);
+  if (!match) return null;
+  const mime = match[1] || "application/octet-stream";
+  const meta = match[2] || "";
+  const payload = match[3] || "";
+  const isBase64 = meta.split(";").some((p) => p.trim().toLowerCase() === "base64");
+  try {
+    if (isBase64) {
+      const binary = atob(payload);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
+    }
+    const decoded = decodeURIComponent(payload);
+    return new Blob([decoded], { type: mime });
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Append a picked image OR video to FormData in the platform-correct way.
  *
  * Mirrors `appendImageToFormData` but accepts an explicit mediaType so the
@@ -237,7 +324,12 @@ export async function appendImageToFormData(
  * - Web: builds a standard `File` blob with the correct filename and mimetype
  *   so multer parses `originalname`/`mimetype` correctly (a bare Blob with no
  *   `.type` lands on the server as `application/octet-stream`, which fails the
- *   fileFilter and surfaces as a generic 500).
+ *   fileFilter and surfaces as a generic 500). If `fetch(uri)` fails (stale
+ *   `blob:` URL after re-render, oversize `data:` URL the browser refuses to
+ *   re-fetch, blocked external `https:` URL), we fall back to decoding `data:`
+ *   bytes directly and otherwise throw a `MediaPrepareError` with diagnostic
+ *   context so the caller can surface a targeted banner instead of the
+ *   generic "couldn't reach the server" copy.
  * - Native (iOS/Android): uses the RN FormData `{ uri, name, type }` shape.
  */
 export async function appendMediaToFormData(
@@ -254,9 +346,47 @@ export async function appendMediaToFormData(
   const filename = hasExt ? rawFilename : `${mediaType === "video" ? "video" : "photo"}.${fallbackExt}`;
 
   if (Platform.OS === "web") {
-    const res = await fetch(uri);
-    const blob = await res.blob();
-    const resolvedType = blob.type && blob.type !== "application/octet-stream" ? blob.type : fallbackType;
+    const scheme = uriScheme(uri);
+    let blob: Blob | null = null;
+    let fetchError: { name?: string; message?: string } | null = null;
+
+    try {
+      const res = await fetch(uri);
+      if (!res.ok) {
+        fetchError = {
+          name: "FetchNotOk",
+          message: `fetch(uri) returned HTTP ${res.status}`,
+        };
+      } else {
+        blob = await res.blob();
+      }
+    } catch (err: any) {
+      fetchError = {
+        name: err?.name || "Error",
+        message: err?.message || String(err),
+      };
+    }
+
+    if (!blob && scheme === "data") {
+      // Some browsers reject `fetch()` on huge `data:` URLs even though the
+      // bytes are perfectly valid. Decode them directly as a last resort.
+      blob = dataUrlToBlob(uri);
+    }
+
+    if (!blob) {
+      throw new MediaPrepareError(
+        `Couldn't prepare the selected ${mediaType} for upload (scheme=${scheme}).`,
+        {
+          scheme,
+          uriPreview: previewUri(uri),
+          originalName: fetchError?.name,
+          originalMessage: fetchError?.message,
+        },
+      );
+    }
+
+    const resolvedType =
+      blob.type && blob.type !== "application/octet-stream" ? blob.type : fallbackType;
     const ext = (resolvedType.split("/")[1] || fallbackExt).split(";")[0];
     const safeName = `${mediaType === "video" ? "video" : "photo"}-${Date.now()}.${ext}`;
     const webFile = new window.File([blob], safeName, { type: resolvedType });
@@ -303,6 +433,40 @@ export interface UploadWithProgressResult {
   ok: boolean;
   body: any;
   rawText: string;
+}
+
+/**
+ * Network-layer XHR failure (ERR_FAILED, ERR_CONNECTION_REFUSED, blocked by
+ * CORS preflight, DNS failure, mixed content, etc.) where the request never
+ * produced an HTTP response. Carries the XHR's `readyState` and last-known
+ * `status` (almost always `0`) so the catch site can log something useful
+ * instead of just `Error: Network error during upload`.
+ *
+ * Diagnostic fields are own enumerable props so they survive `console.error`
+ * / `JSON.stringify` and aren't swallowed into an empty `{}`.
+ */
+export class UploadNetworkError extends Error {
+  status: number;
+  readyState: number;
+  responseSnippet: string;
+  kind: "network" | "timeout" | "abort";
+  constructor(
+    message: string,
+    info: {
+      status: number;
+      readyState: number;
+      responseSnippet: string;
+      kind: "network" | "timeout" | "abort";
+    },
+  ) {
+    super(message);
+    Object.setPrototypeOf(this, UploadNetworkError.prototype);
+    this.name = info.kind === "abort" ? "AbortError" : "UploadNetworkError";
+    this.status = info.status;
+    this.readyState = info.readyState;
+    this.responseSnippet = info.responseSnippet;
+    this.kind = info.kind;
+  }
 }
 
 /**
@@ -380,21 +544,49 @@ export function uploadWithProgress({
       });
     };
 
+    const snippet = (): string => {
+      try {
+        const text = xhr.responseText || "";
+        return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+      } catch {
+        return "";
+      }
+    };
+
     xhr.onerror = () => {
       cleanup();
-      reject(new Error("Network error during upload"));
+      reject(
+        new UploadNetworkError("Network error during upload", {
+          status: xhr.status || 0,
+          readyState: xhr.readyState,
+          responseSnippet: snippet(),
+          kind: "network",
+        }),
+      );
     };
 
     xhr.ontimeout = () => {
       cleanup();
-      reject(new Error("Upload timed out"));
+      reject(
+        new UploadNetworkError("Upload timed out", {
+          status: xhr.status || 0,
+          readyState: xhr.readyState,
+          responseSnippet: snippet(),
+          kind: "timeout",
+        }),
+      );
     };
 
     xhr.onabort = () => {
       cleanup();
-      const err = new Error("Upload aborted");
-      (err as any).name = "AbortError";
-      reject(err);
+      reject(
+        new UploadNetworkError("Upload aborted", {
+          status: xhr.status || 0,
+          readyState: xhr.readyState,
+          responseSnippet: "",
+          kind: "abort",
+        }),
+      );
     };
 
     if (signal) {

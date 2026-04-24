@@ -31,7 +31,9 @@ import {
   compressImageForMoment,
   formatMediaSize,
   getMediaSizeBytes,
+  MediaPrepareError,
   MOMENT_MAX_UPLOAD_BYTES,
+  UploadNetworkError,
   uploadWithProgress,
 } from "@/lib/uploads";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -1204,6 +1206,8 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
       // `File` (web) or RN FormData `{ uri, name, type }` part (native) so
       // the server sees a proper `originalname` + `mimetype` and multer's
       // fileFilter doesn't reject the upload as `application/octet-stream`.
+      // Throws a `MediaPrepareError` if the picker URI can't be materialized
+      // — distinct from a network failure, so we surface a different banner.
       await appendMediaToFormData(formData, "images", selectedMedia.uri, selectedMedia.type);
 
       const result = await uploadWithProgress({
@@ -1233,16 +1237,56 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
       return null;
     } catch (error: any) {
       // User-initiated cancel — silently reset upload state.
-      if (error?.name === "AbortError") {
+      const aborted =
+        controller.signal.aborted ||
+        error?.name === "AbortError" ||
+        (error instanceof UploadNetworkError && error.kind === "abort");
+      if (aborted) {
         setIsUploading(false);
         setUploadProgress(0);
         setUploadError(null);
         return null;
       }
-      console.error("[Social] Upload error:", error);
-      setUploadError(
-        "We couldn't reach the server. Please check your connection and try again.",
-      );
+
+      // Build a structured diagnostic payload so the console line is actually
+      // useful (was previously logging an empty `{}` because Error props are
+      // non-enumerable). Includes upload-kind so future regressions are
+      // bisectable from a single screenshot.
+      const diagnostic: Record<string, unknown> = {
+        kind: "unknown",
+        name: error?.name,
+        message: error?.message,
+        aborted,
+      };
+
+      let userMessage =
+        "We couldn't reach the server. Please check your connection and try again.";
+
+      if (error instanceof MediaPrepareError) {
+        diagnostic.kind = "media-prepare";
+        diagnostic.scheme = error.scheme;
+        diagnostic.uriPreview = error.uriPreview;
+        diagnostic.originalName = error.originalName;
+        diagnostic.originalMessage = error.originalMessage;
+        // Keep copy media-neutral — Moments support both photos and videos.
+        const mediaNoun = selectedMedia?.type === "video" ? "video" : "photo";
+        userMessage = `We couldn't prepare that ${mediaNoun} on this device. Try picking it again or choose a different one.`;
+      } else if (error instanceof UploadNetworkError) {
+        diagnostic.kind = error.kind; // "network" | "timeout" | "abort"
+        diagnostic.status = error.status;
+        diagnostic.readyState = error.readyState;
+        diagnostic.responseSnippet = error.responseSnippet;
+        if (error.kind === "timeout") {
+          userMessage =
+            "Upload timed out. Check your connection and try again.";
+        }
+      } else {
+        diagnostic.stack =
+          typeof error?.stack === "string" ? error.stack.split("\n").slice(0, 3).join("\n") : undefined;
+      }
+
+      console.error("[Social] Upload error:", diagnostic);
+      setUploadError(userMessage);
       setIsUploading(false);
       return null;
     } finally {
