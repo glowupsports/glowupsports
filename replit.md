@@ -6,6 +6,43 @@ Glow Up Sports is a comprehensive multi-academy SaaS platform for Tennis Coaches
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+### ⛔ STOP — READ THIS BEFORE TOUCHING THE DATABASE ⛔
+### CRITICAL: Database Queries — Supabase ONLY. The local SQL tool LIES.
+
+> **The only real database is Supabase. The `executeSql` / `code_execution` SQL
+> tool points at a LOCAL sandbox DB. Using it for real data will silently give
+> you the WRONG answer.**
+> Full reference: see [`DATABASE.md`](./DATABASE.md). Helper: `bash scripts/db-query.sh -c "..."`.
+
+**WRONG — queries the LOCAL sandbox, not Supabase:**
+
+```js
+// code_execution / executeSql → LOCAL sandbox, NOT Supabase. Do not use for real data.
+await executeSql({ sqlQuery: "select count(*) from users" });
+```
+
+```bash
+# $DATABASE_URL on Replit = LOCAL sandbox. Same trap.
+psql "$DATABASE_URL" -c "select count(*) from users"
+npx drizzle-kit push   # migrates the sandbox, NOT prod
+```
+
+**RIGHT — queries the REAL Supabase DB:**
+
+```bash
+# Direct
+psql "$SUPABASE_DATABASE_URL" -c "select count(*) from users"
+
+# Or via the helper (errors clearly if SUPABASE_DATABASE_URL is unset)
+bash scripts/db-query.sh -c "select count(*) from users"
+
+# Schema migrations / drizzle push → use the wrapper that swaps in $SUPABASE_DATABASE_URL
+bash scripts/sync-to-supabase.sh
+```
+
+This applies to inspection, debugging, migrations, and one-off fixes. No exceptions.
+Read [`DATABASE.md`](./DATABASE.md) before your first DB query in any task.
+
 ### CRITICAL: App Store Version Rule
 **EVERY new App Store build MUST have a new version number in `app.json`!**
 - Bug fixes / small changes → bump patch: 1.3.2 → 1.3.3
@@ -26,10 +63,6 @@ Preferred communication style: Simple, everyday language.
 **OTA pushes ship only the React Native client bundle. The Replit Express server runs code from the last successful Replit Republish.**
 Any change touching `server/`, `shared/schema.ts`, migrations, or env-var contracts requires a Replit Republish (use `suggest_deploy`). Client-only changes (`client/`) can use the OTA Push workflow.
 For mixed changes (server + client): Republish first, then OTA push.
-
-### CRITICAL: Database Queries — Always Use Supabase
-**The `executeSql` / `code_execution` SQL tool queries a LOCAL database, NOT Supabase.**
-**ALWAYS use `psql "$SUPABASE_DATABASE_URL" -c "..."` for any real database query or mutation.**
 
 ### CRITICAL: Lint guardrail against missing-import crashes
 **`eslint.config.js` enforces `react/jsx-no-undef: error` and `no-undef: error` on `client/**` and `server/**`.**
@@ -57,7 +90,7 @@ The application uses a dark-themed premium sports aesthetic with a simplified co
 ### Technical Implementations
 - **Frontend**: React Native with Expo SDK 54, React Navigation, React Context, `AsyncStorage`, and `React Native Reanimated`.
 - **Backend**: Express.js with TypeScript, providing RESTful API endpoints.
-- **Data Storage**: `AsyncStorage` for client-side; `Drizzle ORM` with Supabase PostgreSQL for server-side.
+- **Data Storage**: `AsyncStorage` for client-side; `Drizzle ORM` with Supabase PostgreSQL for server-side. **Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATABASE_URL"` — see [`DATABASE.md`](./DATABASE.md).**
 - **Build System**: Concurrent Expo and Express servers; static Expo web build served by Express. `Drizzle Kit` for PostgreSQL schema migrations.
 - **API Caching**: In-memory caching with TTLs and pattern-based invalidation.
 - **Token Refresh**: Automatic client-side token refresh via `refreshAuthMiddleware`.
@@ -97,7 +130,7 @@ The application uses a dark-themed premium sports aesthetic with a simplified co
 
 ## External Dependencies
 
-- **Database**: Supabase PostgreSQL.
+- **Database**: Supabase PostgreSQL — see [`DATABASE.md`](./DATABASE.md). Always query via `psql "$SUPABASE_DATABASE_URL"` or `bash scripts/db-query.sh`; the local `executeSql` tool hits a sandbox DB and will mislead you.
 - **Media Storage**: Supabase Storage.
 - **Deployment**: Replit.
 - **Push Notifications**: Firebase Cloud Messaging (FCM).
