@@ -839,10 +839,16 @@ export function GroupsSection() {
 
   const applyGroupFilter = (groups: Group[]) => {
     if (groupFilter === "all") return groups;
+    // Class-derived community groups (auto-created from coaching_series) are
+    // identified by `seriesId`. They live under the Training tab regardless of
+    // their stored `type` (which is "team" for class groups). All other groups
+    // — friends/social/family/level — fall under Social. Mirrors the
+    // `isTrainingGroup` helper in client/player/screens/GroupsScreen.tsx so
+    // the two surfaces stay in sync.
     if (groupFilter === "training") {
-      return groups.filter(g => g.type === "training" || g.type === "skill_level" || g.type === "tournament");
+      return groups.filter(g => !!g.seriesId);
     }
-    return groups.filter(g => g.type === "social" || g.type === "age_group" || g.type === "friends");
+    return groups.filter(g => !g.seriesId);
   };
 
   const allMyGroups = groupsResponse?.myGroups || [];

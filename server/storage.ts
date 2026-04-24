@@ -617,6 +617,14 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
       // created public (or accidentally toggled), force it back to private on
       // every sync so re-syncing a series never reverts the privacy flag.
       const needsPrivacyFix = existingGroup.isPrivate !== true;
+      if (needsTextUpdate) {
+        // Task #1198 — log the diff before updating so if any other writer
+        // races us back to the legacy raw-UTC text we can spot it in the
+        // deploy logs (seriesId, current DB name, expected helper output, tz).
+        console.log(
+          `[syncCommunityGroupForSeries] Rewriting group text for series=${seriesId} tz=${academyTimezone}: dbName=${JSON.stringify(existingGroup.name)} -> expectedName=${JSON.stringify(name)}`,
+        );
+      }
       if (needsTextUpdate || needsPrivacyFix) {
         await db
           .update(communityGroups)

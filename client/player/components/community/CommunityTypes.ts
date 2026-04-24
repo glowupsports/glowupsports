@@ -310,6 +310,7 @@ export interface Group {
   isMember?: boolean;
   isPrivate?: boolean;
   role?: string | null;
+  seriesId?: string | null;
 }
 
 export interface Achievement {
