@@ -134,6 +134,7 @@ import { AcademyThemeProvider } from "@/contexts/AcademyThemeContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WebContainer } from "@/components/WebContainer";
 import { WebAlertProvider } from "@/components/WebAlertProvider";
+import { ChatStateProvider } from "@/coach/context/ChatStateContext";
 
 // react-native-keyboard-controller uses NativeEventEmitter which is unavailable
 // on web. Load KeyboardProvider only on native (iOS/Android) to prevent crashes.
@@ -170,7 +171,6 @@ const linking: LinkingOptions<any> = {
           Progress: "progress",
           Profile: "profile",
           PlayerNotifications: "notifications",
-          PlayerMessages: "messages",
           Settings: "settings",
           SpotlightDetail: "spotlight/:spotlightId",
           MatchDetail: "match/:matchId",
@@ -388,7 +388,9 @@ export default function App() {
                                         <WebContainer>
                                           <RTLDirectionWrapper>
                                             <ImpersonationBanner />
-                                            <NavigationContainerWithRef />
+                                            <ChatStateProvider>
+                                              <NavigationContainerWithRef />
+                                            </ChatStateProvider>
                                             <WhatsNewGate />
                                           </RTLDirectionWrapper>
                                         </WebContainer>

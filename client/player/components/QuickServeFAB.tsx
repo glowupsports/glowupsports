@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTabNavigation } from "@/components/TabNavigationContext";
+import { useChatState } from "@/coach/context/ChatStateContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useGlassTint } from "@/hooks/useGlassTint";
@@ -80,6 +81,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
+  const { openGlowChat } = useChatState();
   const progress = useSharedValue(0);
   const fabScale = useSharedValue(1);
   const track = useTrackFeature();
@@ -124,7 +126,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       color: "rgba(255, 255, 255, 0.6)",
       onPress: () => {
         track("action:chat_coach");
-        navigation.navigate("PlayerMessages");
+        openGlowChat({ tab: "coaches", fullscreen: true });
       },
     },
     {

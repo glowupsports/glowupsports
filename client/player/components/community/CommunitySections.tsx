@@ -29,6 +29,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useChatState } from "@/coach/context/ChatStateContext";
 import {
   type Achievement,
   type NewsItem,
@@ -304,6 +305,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
+  const { openGlowChat } = useChatState();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
@@ -384,10 +386,9 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
 
   const handleMessage = (_friend: Friend) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // PlayerMessages lives on the root PlayerStack (the stack that owns the
-    // PlayerTabs screen), so a plain navigate bubbles up the React Navigation
-    // tree and resolves correctly from any tab.
-    navigation.navigate("PlayerMessages");
+    // GLOW CHAT consolidation: open the chat footer on the players tab
+    // instead of navigating to the deleted PlayerMessages screen.
+    openGlowChat({ tab: "players", fullscreen: true });
   };
 
   const extractServerError = (e: unknown): string | null => {

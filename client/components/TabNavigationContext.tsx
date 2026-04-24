@@ -29,6 +29,10 @@ interface TabNavigationProviderProps {
 
 let globalNavigationRef: NavigationContainerRef<any> | null = null;
 
+export function getGlobalNavigation(): NavigationContainerRef<any> | null {
+  return globalNavigationRef;
+}
+
 export function TabNavigationProvider({ children }: TabNavigationProviderProps) {
   const pagerRefStore = useRef<React.RefObject<PagerView | null> | null>(null);
   const tabsStore = useRef<{ key: string }[]>([]);

@@ -49,7 +49,6 @@ import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors } from "@/constants/theme";
-import { ChatStateProvider } from "@/coach/context/ChatStateContext";
 import { useTranslation } from "react-i18next";
 import { DesktopShell } from "@/components/DesktopShell";
 import { IntakeModalProvider, useIntakeModal } from "@/coach/context/IntakeModalContext";
@@ -552,14 +551,12 @@ export default function CoachNavigator() {
   return (
     <AIModalProvider>
       <IntakeModalProvider>
-        <ChatStateProvider>
-          <TabNavigationProvider>
-            <View style={styles.container}>
-              <OfflineBanner />
-              <CoachStackNavigator />
-            </View>
-          </TabNavigationProvider>
-        </ChatStateProvider>
+        <TabNavigationProvider>
+          <View style={styles.container}>
+            <OfflineBanner />
+            <CoachStackNavigator />
+          </View>
+        </TabNavigationProvider>
       </IntakeModalProvider>
     </AIModalProvider>
   );
