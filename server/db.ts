@@ -955,6 +955,59 @@ pool.query('SELECT 1').then(async () => {
     console.warn('[Database] coaches public_profile_enabled backfill skipped:', e.message);
   }
 
+  // Task #1109 — Auto-show all coaches in public directory. The Task #1037
+  // backfill above was opt-in (every existing coach got public_profile_enabled
+  // = FALSE) which left the landing-page Coaches rail looking empty even when
+  // there were real coaches on the platform. We're flipping the model so every
+  // existing coach is publicly discoverable by default. The schema default is
+  // already TRUE, so newly created coaches are unaffected.
+  //
+  // This runs ONCE per database, guarded by a fresh marker column
+  // (`public_profile_default_on_backfilled`). Any coach who explicitly toggles
+  // their "Discoverable worldwide" switch OFF after this migration completes
+  // keeps their opt-out — re-running this migration will not touch them
+  // because the marker is already TRUE for every row at that point.
+  // Wrap the ALTER/UPDATE/ALTER sequence in a transaction so a coach insert
+  // racing the migration can't slip in between the UPDATE and the default
+  // change and end up with an unprocessed marker that re-triggers next boot.
+  const migrationClient = await pool.connect();
+  try {
+    await migrationClient.query("BEGIN");
+    await migrationClient.query(
+      `ALTER TABLE coaches ADD COLUMN IF NOT EXISTS public_profile_default_on_backfilled BOOLEAN DEFAULT FALSE`,
+    );
+
+    // Flip every existing coach who hasn't been processed by this migration
+    // to enabled=TRUE, then mark them as processed. Idempotent: subsequent
+    // boots find no unprocessed rows and the UPDATE is a no-op.
+    const r = await migrationClient.query(`
+      UPDATE coaches
+         SET public_profile_enabled = TRUE,
+             public_profile_default_on_backfilled = TRUE
+       WHERE public_profile_default_on_backfilled IS NOT TRUE
+    `);
+    if (r.rowCount && r.rowCount > 0) {
+      console.log(
+        `[Database] coaches public_profile_enabled default-on backfill: ${r.rowCount} coaches flipped to discoverable`,
+      );
+    }
+
+    // Pre-mark freshly inserted coaches as already processed so a future
+    // re-run of this migration is guaranteed to be a no-op for them.
+    await migrationClient.query(
+      `ALTER TABLE coaches ALTER COLUMN public_profile_default_on_backfilled SET DEFAULT TRUE`,
+    );
+    await migrationClient.query("COMMIT");
+  } catch (e: any) {
+    await migrationClient.query("ROLLBACK").catch(() => {});
+    console.warn(
+      '[Database] coaches public_profile_enabled default-on backfill skipped:',
+      e.message,
+    );
+  } finally {
+    migrationClient.release();
+  }
+
   // Seed USTA assessment items (idempotent — uses ON CONFLICT DO NOTHING)
   try {
     const { seedUstaAssessmentItems } = await import("./seeds/usta-assessment-items-seed");

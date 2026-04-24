@@ -505,12 +505,14 @@ export const coaches = pgTable("coaches", {
   specializations: jsonb("specializations").$type<string[]>(), // technique, footwork, mental, fitness, competition, etc.
   languages: jsonb("languages").$type<string[]>(), // en, nl, es, fr, ar, etc.
 
-  // Public Profile (Task #1037 — Public Coach Profiles)
+  // Public Profile (Task #1037 — Public Coach Profiles, flipped to default-on
+  // by Task #1109 — Auto-show all coaches in public directory).
   // When true, the coach is publicly discoverable in the worldwide coach directory
   // and shows a public profile (bio, sports, certifications, sample reviews,
   // open lessons, drop-in price). New coaches default to ON (opt-out at signup);
-  // existing coaches were backfilled to OFF (opt-in) so we never expose anyone
-  // publicly without explicit consent.
+  // existing coaches were backfilled to ON by the Task #1109 migration. Coaches
+  // who explicitly turn the toggle OFF after that migration runs keep their
+  // opt-out (the migration is one-shot, guarded by a marker column).
   publicProfileEnabled: boolean("public_profile_enabled").default(true),
   // Optional separate avatar used on the public profile (falls back to photoUrl).
   publicAvatarUrl: text("public_avatar_url"),
