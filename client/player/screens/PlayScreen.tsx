@@ -25,7 +25,29 @@ import {
   Modal,
   Linking,
 } from "react-native";
-import MapView, { Marker, Callout, PROVIDER_DEFAULT } from "react-native-maps";
+// react-native-maps is a native module. On builds where the native side
+// isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
+// build, a missing/expired Google Maps key, or a future SDK upgrade) the
+// require can throw at module-eval time and produce a white screen on
+// navigate. We require it lazily inside a try/catch so the screen can
+// fall back to a list view instead of crashing. Mirrors the pattern in
+// client/player/screens/DiscoveryMapScreen.tsx.
+let MapViewLib: any = null;
+let MarkerLib: any = null;
+let CalloutLib: any = null;
+let PROVIDER_DEFAULT_VAL: any = undefined;
+let MAPS_LOAD_ERROR: Error | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const maps = require("react-native-maps");
+  MapViewLib = maps.default ?? maps.MapView;
+  MarkerLib = maps.Marker;
+  CalloutLib = maps.Callout;
+  PROVIDER_DEFAULT_VAL = maps.PROVIDER_DEFAULT;
+} catch (e: any) {
+  MAPS_LOAD_ERROR = e instanceof Error ? e : new Error(String(e));
+  console.warn("[PlayScreen] react-native-maps failed to load:", MAPS_LOAD_ERROR.message);
+}
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -1917,7 +1939,11 @@ export default function PlayScreen() {
   });
 
   const [courtsViewMode, setCourtsViewMode] = useState<"list" | "map">("list");
-  const courtsMapRef = useRef<MapView>(null);
+  const courtsMapRef = useRef<any>(null);
+  // Require all map exports we render — a partial load (where one export is
+  // missing) would still crash at render, so treat that as unavailable.
+  const mapsAvailable =
+    !!MapViewLib && !!MarkerLib && !!CalloutLib && !MAPS_LOAD_ERROR;
   const [nearbyCourtsLocation, setNearbyCourtsLocation] = useState<{
     lat: number;
     lng: number;
@@ -2282,7 +2308,7 @@ export default function PlayScreen() {
               </View>
             ))}
           </ScrollView>
-        ) : Platform.OS === "web" ? (
+        ) : Platform.OS === "web" || !mapsAvailable ? (
           <View style={styles.courtsMapWebFallback}>
             <Ionicons
               name="map-outline"
@@ -2290,15 +2316,17 @@ export default function PlayScreen() {
               color={Colors.dark.textMuted}
             />
             <Text style={styles.courtsMapWebFallbackText}>
-              Open the app in Expo Go to view the interactive courts map
+              {Platform.OS === "web"
+                ? "Open the app in Expo Go to view the interactive courts map"
+                : "Map view needs the latest app version from the store. Use the list view above."}
             </Text>
           </View>
         ) : (
           <View style={styles.courtsMapContainer}>
-            <MapView
+            <MapViewLib
               ref={courtsMapRef}
               style={styles.courtsMap}
-              provider={PROVIDER_DEFAULT}
+              provider={PROVIDER_DEFAULT_VAL}
               showsUserLocation={true}
               showsMyLocationButton={false}
               onMapReady={fitMapToMarkers}
@@ -2314,7 +2342,7 @@ export default function PlayScreen() {
               }
             >
               {courtsWithCoords.map((court) => (
-                <Marker
+                <MarkerLib
                   key={court.id}
                   coordinate={{ latitude: court.lat!, longitude: court.lng! }}
                   pinColor={
@@ -2323,7 +2351,7 @@ export default function PlayScreen() {
                       : Colors.dark.textMuted
                   }
                 >
-                  <Callout tooltip={false}>
+                  <CalloutLib tooltip={false}>
                     <View style={styles.courtsMapCallout}>
                       <Text
                         style={styles.courtsMapCalloutName}
@@ -2360,10 +2388,10 @@ export default function PlayScreen() {
                         </Pressable>
                       ) : null}
                     </View>
-                  </Callout>
-                </Marker>
+                  </CalloutLib>
+                </MarkerLib>
               ))}
-            </MapView>
+            </MapViewLib>
           </View>
         )}
       </View>
