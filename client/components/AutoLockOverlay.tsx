@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable, BackHandler } from "react-native";
-import { useNavigationState } from "@react-navigation/native";
 import { Colors, Spacing, FontSizes } from "@/constants/theme";
 import { PinPadModal } from "./PinPadModal";
 import { PinRecoveryModal } from "./PinRecoveryModal";
@@ -12,6 +11,7 @@ import {
   evaluateForegroundIdle,
   AUTO_LOCK_MS,
 } from "@/lib/autoLock";
+import { useActiveRouteName } from "@/lib/activeRoute";
 import { getApiUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 
@@ -69,17 +69,12 @@ export function AutoLockOverlay({
     return () => sub.remove();
   }, [locked]);
 
-  // Determine the active route so we can suppress the overlay.
-  const routeName = useNavigationState((state) => {
-    if (!state) return undefined;
-    let s: any = state;
-    while (s?.routes && s.index != null) {
-      const r = s.routes[s.index];
-      if (!r?.state) return r?.name as string | undefined;
-      s = r.state;
-    }
-    return undefined;
-  });
+  // Determine the active route so we can suppress the overlay. We read this
+  // from a module-level store fed by NavigationContainer's onStateChange in
+  // App.tsx — using `useNavigationState` here would throw on cold start
+  // because this component is mounted as a sibling of the root navigator,
+  // not inside one of its screens.
+  const routeName = useActiveRouteName();
   const suppressed = routeName ? LOCK_SUPPRESSED_ROUTES.has(routeName) : false;
 
   const visible = enabled && locked && !suppressed && !!playerId;

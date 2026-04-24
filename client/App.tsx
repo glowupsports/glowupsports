@@ -49,6 +49,7 @@ import { getEnv } from "@/lib/env";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { AutoLockOverlay } from "@/components/AutoLockOverlay";
+import { setActiveRouteName, getDeepestRouteName } from "@/lib/activeRoute";
 import { useAuth } from "@/coach/context/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UpdateController } from "@/components/UpdateController";
@@ -147,9 +148,11 @@ const linking: LinkingOptions<any> = {
 };
 
 function AutoLockHost() {
-  // Mounted inside NavigationContainer (so useNavigationState works) and
-  // inside AuthProvider (so we can read the current user). The overlay
-  // suppresses itself on Login / FamilyLobby / etc.
+  // Mounted inside NavigationContainer (so the active-route store is hot)
+  // and inside AuthProvider (so we can read the current user). The overlay
+  // reads the focused route name from the activeRoute store rather than
+  // calling useNavigationState — that hook throws on cold start when used
+  // outside of a navigator screen.
   const { user, isAuthenticated } = useAuth();
   return (
     <AutoLockOverlay
@@ -165,15 +168,32 @@ function NavigationContainerWithRef() {
   const navigationRef = useNavigationContainerRef();
   const { registerNavigation } = useTabNavigation();
   const [navReady, setNavReady] = useState(false);
-  
+
   const handleReady = useCallback(() => {
     logger.log("[NavigationContainerWithRef] Navigation ready, registering ref");
     registerNavigation(navigationRef);
     setNavReady(true);
+    // Seed the active-route store with the initial route so consumers
+    // (AutoLockOverlay) get a value before the first state change fires.
+    try {
+      const initial = navigationRef.getCurrentRoute?.()?.name;
+      if (initial) setActiveRouteName(initial);
+    } catch {
+      // Navigation not fully initialized yet — onStateChange will catch up.
+    }
   }, [registerNavigation, navigationRef]);
-  
+
+  const handleStateChange = useCallback((state: any) => {
+    setActiveRouteName(getDeepestRouteName(state));
+  }, []);
+
   return (
-    <NavigationContainer ref={navigationRef} onReady={handleReady} linking={linking}>
+    <NavigationContainer
+      ref={navigationRef}
+      onReady={handleReady}
+      onStateChange={handleStateChange}
+      linking={linking}
+    >
       <RootStackNavigator navigationRef={navReady ? navigationRef : null} />
       <AutoLockHost />
     </NavigationContainer>
