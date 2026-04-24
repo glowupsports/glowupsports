@@ -47,6 +47,7 @@ export default function BrowseChatRoomsScreen() {
       style={styles.roomRow}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (navigation.canGoBack()) navigation.goBack();
         navigation.navigate("ChatRoom", { roomId: item.id, title: item.title });
       }}
     >

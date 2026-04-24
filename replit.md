@@ -98,6 +98,7 @@ The application uses a dark-themed premium sports aesthetic with a simplified co
 - **Corporate/Business Accounts**: Companies purchase session credit pools for employees, managed via dedicated API routes and dashboards.
 - **What's New Modal**: Auto-shows a role-aware, locale-aware carousel once per app version after splash + auth.
 - **Feed Retention**: A daily prune job trims auto-generated `feed_items` rows older than the retention window.
+- **Player Chat Surface**: The player tab uses the legacy `CoachChatFooter mode="player"` footer plus the standalone `PlayerMessagesScreen` and `ChatRoomScreen` (the GLOW chat consolidation from task #1294 was reverted in task #1309). `ChatStateProvider` is mounted once at the root in `App.tsx` and exposes only `isChatExpanded`/`setChatExpanded`. `client/player/components/PlayerChatFooter.tsx` is parked on disk (not mounted) and serves as the source for porting individual new chat features (mentions, pin, mute, typing, compliance) back into `CoachChatFooter`.
 
 ## External Dependencies
 
