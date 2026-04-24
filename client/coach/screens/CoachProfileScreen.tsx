@@ -571,6 +571,22 @@ export default function CoachProfileScreen() {
             </LinearGradient>
           </View>
 
+          {/* Task #1110: lets coaches preview their listing as players see it
+              before deciding to stay discoverable. */}
+          <Pressable
+            style={styles.previewButton}
+            disabled={!coach?.id}
+            onPress={() => {
+              if (!coach?.id) return;
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("CoachPublicPreview" as never, { coachId: coach.id, previewMode: true } as never);
+            }}
+          >
+            <Ionicons name="eye-outline" size={18} color={Colors.dark.xpCyan} />
+            <Text style={styles.previewButtonText}>Preview my public profile</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+          </Pressable>
+
           <View style={styles.field}>
             <LinearGradient
               colors={["rgba(255, 255, 255, 0.02)", "transparent"]}
@@ -961,5 +977,24 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.text,
     lineHeight: 18,
+  },
+  previewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+    backgroundColor: Colors.dark.xpCyan + "10",
+  },
+  previewButtonText: {
+    flex: 1,
+    fontSize: Typography.body.fontSize,
+    fontWeight: "600",
+    color: Colors.dark.text,
   },
 });

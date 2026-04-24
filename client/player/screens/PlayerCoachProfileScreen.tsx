@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, ScrollView, Pressable, Linking, Platform, Image as RNImage } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Linking, Platform, Image as RNImage, Alert } from "react-native";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -94,7 +94,7 @@ export default function PlayerCoachProfileScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { coachId } = route.params || {};
+  const { coachId, previewMode } = route.params || {};
 
   const { data: coach, isLoading } = useQuery<CoachDetails>({
     queryKey: ["/api/player/coach", coachId],
@@ -105,13 +105,29 @@ export default function PlayerCoachProfileScreen() {
     navigation.goBack();
   };
 
+  // Task #1110: When the coach is previewing their own public profile we
+  // intercept all outbound actions (booking, contact, academy nav) so they
+  // stay on the preview screen instead of trying to navigate into player-only
+  // routes that don't exist in the coach stack.
+  const showPreviewBlockedAlert = (action: string) => {
+    Alert.alert("Preview", `Players will tap here to ${action}.`);
+  };
+
   const handleContact = () => {
+    if (previewMode) {
+      showPreviewBlockedAlert("email you about lessons");
+      return;
+    }
     if (coach?.email) {
       Linking.openURL(`mailto:${coach.email}?subject=Private Lesson Request`);
     }
   };
 
   const handleCall = () => {
+    if (previewMode) {
+      showPreviewBlockedAlert("call you");
+      return;
+    }
     if (coach?.phone && Platform.OS !== "web") {
       Linking.openURL(`tel:${coach.phone}`);
     }
@@ -121,15 +137,27 @@ export default function PlayerCoachProfileScreen() {
   // Passes the coachId so LessonBooking can pre-select this coach.
   const handlePrivateLesson = () => {
     if (!coach) return;
+    if (previewMode) {
+      showPreviewBlockedAlert("book a lesson with you");
+      return;
+    }
     navigation.navigate("LessonBooking", { coachId: coach.id, coachName: coach.name });
   };
 
   const handleBookSession = (sessionId: string) => {
     if (!coach) return;
+    if (previewMode) {
+      showPreviewBlockedAlert("book this group session");
+      return;
+    }
     navigation.navigate("LessonBooking", { coachId: coach.id, sessionId, coachName: coach.name });
   };
 
   const handleAcademyPress = () => {
+    if (previewMode) {
+      showPreviewBlockedAlert("open your academy page");
+      return;
+    }
     if (coach?.academyId) {
       navigation.navigate("AcademyProfile", { academyId: coach.academyId });
     }
@@ -178,9 +206,20 @@ export default function PlayerCoachProfileScreen() {
         <Pressable onPress={handleBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
-        <ThemedText style={styles.headerTitle}>Coach Profile</ThemedText>
+        <ThemedText style={styles.headerTitle}>
+          {previewMode ? "Public Profile Preview" : "Coach Profile"}
+        </ThemedText>
         <View style={styles.placeholder} />
       </View>
+
+      {previewMode ? (
+        <View style={styles.previewBanner}>
+          <Ionicons name="eye-outline" size={16} color={Colors.dark.backgroundRoot} />
+          <ThemedText style={styles.previewBannerText}>
+            Preview · This is what players see in the public coach directory
+          </ThemedText>
+        </View>
+      ) : null}
 
       <ScrollView
         style={styles.scrollView}
@@ -469,6 +508,20 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   loadingText: {
     color: Colors.dark.textSecondary,
+  },
+  previewBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    backgroundColor: NEON_GREEN,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+  },
+  previewBannerText: {
+    color: Colors.dark.backgroundRoot,
+    fontSize: 12,
+    fontWeight: "600",
   },
   academyBanner: {
     flexDirection: "row",

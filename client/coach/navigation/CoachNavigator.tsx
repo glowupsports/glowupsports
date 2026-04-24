@@ -13,6 +13,7 @@ import SettingsScreen from "@/coach/screens/SettingsScreen";
 import HistoryScreen from "@/coach/screens/HistoryScreen";
 import NotificationsScreen from "@/coach/screens/NotificationsScreen";
 import CoachProfileScreen from "@/coach/screens/CoachProfileScreen";
+import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
 import ChatInboxScreen from "@/coach/screens/ChatInboxScreen";
 import AvailabilityScreen from "@/coach/screens/AvailabilityScreen";
 import CourtPreferencesScreen from "@/coach/screens/CourtPreferencesScreen";
@@ -77,6 +78,7 @@ export type CoachStackParamList = {
   History: undefined;
   Notifications: undefined;
   CoachProfile: undefined;
+  CoachPublicPreview: { coachId: string };
   ChatInbox: undefined;
   Availability: undefined;
   CourtPreferences: undefined;
@@ -267,6 +269,14 @@ function CoachStackNavigator() {
         component={CoachProfileScreen}
         options={{
           presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="CoachPublicPreview"
+        component={PlayerCoachProfileScreen}
+        options={{
+          presentation: "modal",
+          headerShown: false,
         }}
       />
       <Stack.Screen 

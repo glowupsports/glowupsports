@@ -6112,10 +6112,17 @@ router.get(
       // to players who already share an academy with the coach (in-academy
       // directory access). Otherwise we treat the coach as not found so a
       // direct-ID probe cannot leak hidden coaches across academies.
+      // Task #1110: also allow the coach themselves to fetch their own
+      // profile so they can preview how it looks before deciding whether
+      // to stay discoverable.
       if (coach.publicProfileEnabled === false) {
         const requesterPlayerId = req.user?.playerId;
+        const requesterCoachId = req.user?.coachId;
         let allowed = false;
-        if (requesterPlayerId) {
+        if (requesterCoachId && requesterCoachId === coachId) {
+          allowed = true;
+        }
+        if (!allowed && requesterPlayerId) {
           const player = await storage.getPlayer(requesterPlayerId);
           if (player?.academyId && player.academyId === coach.academyId) {
             allowed = true;
