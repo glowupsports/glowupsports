@@ -43,6 +43,8 @@ import Animated, {
   withSequence,
   interpolate,
   runOnJS,
+  useAnimatedScrollHandler,
+  Extrapolation,
 } from "react-native-reanimated";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
@@ -197,6 +199,78 @@ export default function PlayersScreen() {
   const [showBaselineDrawer, setShowBaselineDrawer] = useState(false);
   // Active/Past/Pending Payment tab switcher
   const [rosterTab, setRosterTab] = useState<"active" | "past" | "pending_payment">("active");
+
+  // Collapsing-header state — mirrors PlayScreen pattern so the chrome
+  // (title block, tabs, search, filter pills) hides on scroll-down and
+  // reappears on scroll-up.
+  const scrollY = useSharedValue(0);
+  const lastScrollY = useSharedValue(0);
+  const headerTranslation = useSharedValue(0);
+  const headerHeightSV = useSharedValue(0);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const currentY = event.contentOffset.y;
+      const delta = currentY - lastScrollY.value;
+      lastScrollY.value = currentY;
+      scrollY.value = currentY;
+
+      if (currentY <= 0) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+        return;
+      }
+
+      const newTranslation = headerTranslation.value - delta;
+      headerTranslation.value = Math.max(
+        -headerHeightSV.value,
+        Math.min(0, newTranslation),
+      );
+    },
+    onBeginDrag: () => {
+      lastScrollY.value = scrollY.value;
+    },
+    onEndDrag: (event) => {
+      const currentY = event.contentOffset.y;
+      if (currentY <= 0) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+      } else if (headerTranslation.value > -headerHeightSV.value / 2) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+      } else {
+        headerTranslation.value = withTiming(-headerHeightSV.value, {
+          duration: 200,
+        });
+      }
+    },
+    onMomentumEnd: (event) => {
+      const currentY = event.contentOffset.y;
+      if (currentY <= 0) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+      } else if (headerTranslation.value > -headerHeightSV.value / 2) {
+        headerTranslation.value = withTiming(0, { duration: 200 });
+      } else {
+        headerTranslation.value = withTiming(-headerHeightSV.value, {
+          duration: 200,
+        });
+      }
+    },
+  });
+
+  const animatedHeaderStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: headerTranslation.value }],
+    opacity: interpolate(
+      headerTranslation.value,
+      [-headerHeightSV.value, 0],
+      [0, 1],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  const insetsTop = insets.top;
+  const animatedMainContentStyle = useAnimatedStyle(() => ({
+    paddingTop:
+      insetsTop + Math.max(headerHeightSV.value + headerTranslation.value, 0),
+  }));
 
   // Build cache keys scoped per coach + academy so we never hydrate one
   // account's roster into another's view (data-isolation requirement).
@@ -676,7 +750,15 @@ export default function PlayersScreen() {
   const currentIsLoading = rawLoading && currentPlayers.length === 0;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
+      <Animated.View
+        style={[localStyles.animatedHeader, { top: insets.top }, animatedHeaderStyle]}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height;
+          setHeaderHeight(h);
+          headerHeightSV.value = h;
+        }}
+      >
       {/* === GAMING HEADER === */}
       <LinearGradient
         colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
@@ -1128,7 +1210,9 @@ export default function PlayersScreen() {
           })}
         </View>
       ) : null}
+      </Animated.View>
 
+      <Animated.View style={[localStyles.mainContent, animatedMainContentStyle]}>
       {currentIsLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
@@ -1172,7 +1256,12 @@ export default function PlayersScreen() {
           />
         )
       ) : (
-        <ScrollView style={styles.playerList} showsVerticalScrollIndicator={false}>
+        <Animated.ScrollView
+          style={styles.playerList}
+          showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+        >
           {filteredPlayers.map((player) => (
             <View key={player.id}>
               <GamingPlayerCard 
@@ -1256,9 +1345,10 @@ export default function PlayersScreen() {
             </View>
           ))}
           <View style={{ height: TAB_BAR_HEIGHT + insets.bottom + Spacing.xl }} />
-        </ScrollView>
+        </Animated.ScrollView>
         
       )}
+      </Animated.View>
 
       <PremiumAddPlayerFlow
         visible={showAddModal}
@@ -1398,5 +1488,18 @@ export default function PlayersScreen() {
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  animatedHeader: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  mainContent: {
+    flex: 1,
+  },
+});
 
 
