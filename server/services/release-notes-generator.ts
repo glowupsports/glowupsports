@@ -111,8 +111,10 @@ function safeGitLog(
   // Strategy chain:
   //   1) v<since>..HEAD or <since>..HEAD if a release tag exists
   //   2) <cached-sha>..HEAD if we previously stored the commit SHA for `since`
-  //   3) Last 50 commits (count window) — relevant-but-not-perfect since we
-  //      don't tag releases
+  //   3) Last 50 commits (count window) — ALWAYS the final fallback so a
+  //      brand-new release rolling out for the first time (no tag, no cached
+  //      SHA for the prior version) still produces highlights instead of
+  //      silently dismissing.
   //   4) Empty (caller should treat as "no relevant commits")
   type Strategy = { range: string; kind: "tag" | "sha" | "count" };
   const strategies: Strategy[] = [];
@@ -123,11 +125,10 @@ function safeGitLog(
   if (cachedSinceSha) {
     strategies.push({ range: `${cachedSinceSha}..HEAD`, kind: "sha" });
   }
-  // Only fall back to a count-window when we have no other signal at all.
-  // Without `since` we still want SOMETHING for the manual launcher.
-  if (!sinceVersion && !cachedSinceSha) {
-    strategies.push({ range: `-n 50`, kind: "count" });
-  }
+  // Final, unconditional fallback: last 50 commits. Without this, a first-time
+  // release where neither a tag nor a cached SHA exists for `sinceVersion`
+  // would yield zero commits and the auto carousel would never show.
+  strategies.push({ range: `-n 50`, kind: "count" });
 
   for (const s of strategies) {
     try {

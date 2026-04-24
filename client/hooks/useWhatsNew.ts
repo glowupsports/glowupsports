@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { useTranslation } from "react-i18next";
@@ -27,7 +28,21 @@ const STORAGE_VERSION_PREFIX = "@glow_whatsnew_seen_v_";
 const STORAGE_DISABLED_PREFIX = "@glow_whatsnew_disabled_";
 
 function getCurrentVersion(): string {
-  return Constants.expoConfig?.version || "0.0.0";
+  // iOS and Android run on different versions in app.json (e.g. 1.3.4 / 1.3.5).
+  // Prefer the platform-specific version so the storage key matches what the
+  // user actually has installed — otherwise an iOS user on 1.3.4 would key off
+  // the Android 1.3.5 string and never see the carousel for an iOS-only bump.
+  const cfg = Constants.expoConfig;
+  const platformVersion =
+    Platform.OS === "ios"
+      ? (cfg?.ios as { version?: string } | undefined)?.version
+      : Platform.OS === "android"
+        ? (cfg?.android as { version?: string } | undefined)?.version
+        : undefined;
+  if (platformVersion && /^[\w.\-]{1,32}$/.test(platformVersion)) {
+    return platformVersion;
+  }
+  return cfg?.version || "0.0.0";
 }
 
 function compareVersions(a: string, b: string): number {
