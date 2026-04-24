@@ -154,6 +154,11 @@ export const academies = pgTable("academies", {
   country: text("country"), // for search/discovery
   description: text("description"), // short public description
   ownerId: varchar("owner_id"), // references coaches.id (set after coach creation)
+
+  // Join Settings — when true (default), players can join instantly without
+  // coach approval. When false, players must submit a join request that the
+  // coach reviews. See Task #1131.
+  openJoin: boolean("open_join").default(true).notNull(),
   
   // Public Profile Fields (Academy Directory)
   website: text("website"),

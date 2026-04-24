@@ -7,6 +7,7 @@ import {
   Pressable,
   ActivityIndicator,
   Linking,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +15,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 
+import { useTranslation } from "react-i18next";
 import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -37,6 +39,7 @@ interface AcademyProfile {
   coachCount: number;
   playerCount: number;
   coaches: CoachInfo[];
+  openJoin?: boolean;
 }
 
 interface CoachInfo {
@@ -106,8 +109,9 @@ export default function AcademyProfileScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  
+  const { user, refreshAuth } = useAuth();
+  const { t } = useTranslation();
+
   const academyId = route.params?.academyId;
 
   const { data: profileData, isLoading } = useQuery<{ profile: AcademyProfile }>({
@@ -126,22 +130,53 @@ export default function AcademyProfileScreen() {
   });
 
   const joinMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/join-requests", { 
+    mutationFn: async (isOpen: boolean) => {
+      const response = await apiRequest("POST", "/api/join-requests", {
         academyId,
-        message: "I would like to join your academy",
+        // Open-join academies don't show a message field; approval-required
+        // ones get the legacy default message.
+        message: isOpen ? "" : "I would like to join your academy",
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/join-requests/my"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Task #1131: For instant joins, refresh auth state so the new academy
+      // appears in the player's app immediately.
+      if (data?.joined) {
+        try {
+          await refreshAuth();
+        } catch {
+          // Non-blocking.
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+        const academyName = data?.academy?.name ?? profile?.name ?? "";
+        Alert.alert(
+          t("academy.joinFlow.welcomeTitle"),
+          t("academy.joinFlow.welcomeMessage", { name: academyName }),
+        );
+      } else {
+        const academyName = data?.academy?.name ?? profile?.name ?? "";
+        Alert.alert(
+          t("academy.joinFlow.requestSentTitle"),
+          t("academy.joinFlow.requestSentMessage", { name: academyName }),
+        );
+      }
+    },
+    onError: (error: any) => {
+      Alert.alert(
+        t("common.error"),
+        error?.message || t("academy.joinFlow.joinFailed"),
+      );
     },
   });
 
   const profile = profileData?.profile;
   const myRequests = requestsData?.requests || [];
   const pendingRequest = myRequests.find(r => r.academyId === academyId);
+  const isOpenJoin = profile?.openJoin !== false;
 
   if (isLoading) {
     return (
@@ -308,9 +343,9 @@ export default function AcademyProfileScreen() {
             </Text>
           </View>
         ) : (
-          <Pressable 
+          <Pressable
             style={[styles.joinButton, joinMutation.isPending && styles.buttonDisabled]}
-            onPress={() => joinMutation.mutate()}
+            onPress={() => joinMutation.mutate(isOpenJoin)}
             disabled={joinMutation.isPending}
           >
             {joinMutation.isPending ? (
@@ -318,7 +353,11 @@ export default function AcademyProfileScreen() {
             ) : (
               <>
                 <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
-                <Text style={styles.joinButtonText}>Request to Join</Text>
+                <Text style={styles.joinButtonText}>
+                  {isOpenJoin
+                    ? t("academy.joinFlow.join")
+                    : t("academy.joinFlow.requestToJoin")}
+                </Text>
               </>
             )}
           </Pressable>

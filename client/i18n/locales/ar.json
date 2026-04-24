@@ -1616,5 +1616,21 @@
       "later": "لاحقًا",
       "dismissA11y": "إغلاق الترحيب"
     }
+  },
+  "academy": {
+    "joinFlow": {
+      "join": "انضم",
+      "requestToJoin": "طلب الانضمام",
+      "sendRequest": "إرسال الطلب",
+      "welcomeTitle": "مرحبًا!",
+      "welcomeMessage": "لقد انضممت إلى {{name}}.",
+      "requestSentTitle": "تم إرسال الطلب",
+      "requestSentMessage": "سنخبرك عندما يردّ {{name}}.",
+      "joinFailed": "فشل إرسال طلب الانضمام",
+      "settingsSection": "إعدادات الانضمام",
+      "openJoinLabel": "انضمام مفتوح",
+      "openJoinHelperOn": "يمكن لأي شخص الانضمام إلى أكاديميتك على الفور.",
+      "openJoinHelperOff": "ستراجع كل عضو جديد وتوافق عليه."
+    }
   }
 }

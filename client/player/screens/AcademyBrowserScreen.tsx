@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -30,6 +31,7 @@ interface Academy {
   logoUrl?: string | null;
   coachCount?: number;
   playerCount?: number;
+  openJoin?: boolean;
 }
 
 interface JoinRequest {
@@ -48,14 +50,24 @@ interface AcademyCardProps {
 }
 
 function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitting }: AcademyCardProps) {
+  const { t } = useTranslation();
   const [showMessageInput, setShowMessageInput] = useState(false);
   const [message, setMessage] = useState("");
+
+  // Task #1131: Open-join academies skip the message step and join instantly.
+  const isOpenJoin = academy.openJoin !== false;
 
   const handleJoinPress = () => {
     if (pendingRequest) {
       return;
     }
-    
+
+    if (isOpenJoin) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onJoin(academy.id, "");
+      return;
+    }
+
     if (showMessageInput) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onJoin(academy.id, message);
@@ -183,13 +195,17 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
               <ActivityIndicator size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
-                <Ionicons 
-                  name={showMessageInput ? "send" : "add-circle"} 
-                  size={16} 
-                  color={Colors.dark.buttonText} 
+                <Ionicons
+                  name={showMessageInput ? "send" : "add-circle"}
+                  size={16}
+                  color={Colors.dark.buttonText}
                 />
                 <Text style={styles.joinButtonText}>
-                  {showMessageInput ? "Send Request" : "Request to Join"}
+                  {showMessageInput
+                    ? t("academy.joinFlow.sendRequest")
+                    : isOpenJoin
+                      ? t("academy.joinFlow.join")
+                      : t("academy.joinFlow.requestToJoin")}
                 </Text>
               </>
             )}
@@ -204,7 +220,8 @@ export default function AcademyBrowserScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, refreshAuth } = useAuth();
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: academiesData, isLoading: academiesLoading } = useQuery<{ academies: Academy[] }>({
@@ -221,13 +238,37 @@ export default function AcademyBrowserScreen() {
       const response = await apiRequest("POST", "/api/join-requests", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/join-requests/my"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Request Sent", "Your request to join this academy has been submitted. You'll be notified when it's reviewed.");
+      // Task #1131: Open-join academies link the player immediately. Refresh
+      // auth state and player dashboard so the new academy appears right away.
+      if (data?.joined) {
+        try {
+          await refreshAuth();
+        } catch {
+          // Non-blocking — UI will still show the success message.
+        }
+        queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+        const academyName = data?.academy?.name ?? "";
+        Alert.alert(
+          t("academy.joinFlow.welcomeTitle"),
+          t("academy.joinFlow.welcomeMessage", { name: academyName }),
+        );
+      } else {
+        const academyName = data?.academy?.name ?? "";
+        Alert.alert(
+          t("academy.joinFlow.requestSentTitle"),
+          t("academy.joinFlow.requestSentMessage", { name: academyName }),
+        );
+      }
     },
     onError: (error: any) => {
-      Alert.alert("Error", error.message || "Failed to submit join request");
+      Alert.alert(
+        t("common.error"),
+        error.message || t("academy.joinFlow.joinFailed"),
+      );
     },
   });
 

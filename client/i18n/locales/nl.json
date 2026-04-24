@@ -1272,6 +1272,20 @@
         "updateFailed": "Tarief bijwerken mislukt",
         "disableFailed": "Tarief uitschakelen mislukt"
       }
+    },
+    "joinFlow": {
+      "join": "Aanmelden",
+      "requestToJoin": "Verzoek om lid te worden",
+      "sendRequest": "Verzoek versturen",
+      "welcomeTitle": "Welkom!",
+      "welcomeMessage": "Je bent nu lid van {{name}}.",
+      "requestSentTitle": "Verzoek verstuurd",
+      "requestSentMessage": "We laten je weten zodra {{name}} reageert.",
+      "joinFailed": "Aanmeldverzoek versturen mislukt",
+      "settingsSection": "AANMELDINSTELLINGEN",
+      "openJoinLabel": "Open aanmelding",
+      "openJoinHelperOn": "Iedereen kan zich direct aanmelden bij je academie.",
+      "openJoinHelperOff": "Je beoordeelt en keurt elk nieuw lid goed."
     }
   },
   "onboarding": {

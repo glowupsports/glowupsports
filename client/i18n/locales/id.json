@@ -1606,5 +1606,21 @@
       "later": "Nanti",
       "dismissA11y": "Tutup sambutan"
     }
+  },
+  "academy": {
+    "joinFlow": {
+      "join": "Gabung",
+      "requestToJoin": "Minta Gabung",
+      "sendRequest": "Kirim Permintaan",
+      "welcomeTitle": "Selamat datang!",
+      "welcomeMessage": "Kamu sudah bergabung dengan {{name}}.",
+      "requestSentTitle": "Permintaan terkirim",
+      "requestSentMessage": "Kami akan memberi tahu saat {{name}} merespons.",
+      "joinFailed": "Gagal mengirim permintaan bergabung",
+      "settingsSection": "PENGATURAN BERGABUNG",
+      "openJoinLabel": "Bergabung terbuka",
+      "openJoinHelperOn": "Siapa saja dapat langsung bergabung dengan akademi Anda.",
+      "openJoinHelperOff": "Anda akan meninjau dan menyetujui setiap anggota baru."
+    }
   }
 }

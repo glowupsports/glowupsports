@@ -587,6 +587,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             logoUrl: academy.logoUrl,
             averageRating: academy.averageRating ? Number(academy.averageRating) : null,
             sports: academy.sports ?? ["tennis"],
+            // Task #1131: expose openJoin so the client can pick the right
+            // button label ("Join" vs "Request to Join").
+            openJoin: academy.openJoin !== false,
             coachCount: coaches.length,
             playerCount: players.length,
           };
@@ -1741,6 +1744,37 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
+        // Task #1131: Instant join when academy has openJoin enabled (default).
+        // Approval-required academies (openJoin=false) keep the legacy pending
+        // request flow.
+        const isOpenJoin = academy.openJoin !== false;
+
+        if (isOpenJoin) {
+          // Create the join request already in approved state and link the
+          // player to the academy immediately, mirroring the approve endpoint.
+          const joinRequest = await storage.createJoinRequest({
+            playerId,
+            academyId,
+            message: message || null,
+            status: "approved",
+            reviewedAt: new Date(),
+          });
+
+          await storage.updatePlayer(playerId, { academyId });
+
+          const user = await storage.getUserByPlayerId(playerId);
+          if (user) {
+            await storage.updateUser(user.id, { academyId });
+          }
+
+          return res.status(201).json({
+            request: joinRequest,
+            joined: true,
+            academy: { id: academy.id, name: academy.name },
+            message: `You've joined ${academy.name}`,
+          });
+        }
+
         const joinRequest = await storage.createJoinRequest({
           playerId,
           academyId,
@@ -1750,6 +1784,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         res.status(201).json({
           request: joinRequest,
+          joined: false,
+          academy: { id: academy.id, name: academy.name },
           message: "Join request submitted successfully",
         });
       } catch (error) {

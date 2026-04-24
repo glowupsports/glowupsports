@@ -22,6 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -46,6 +47,7 @@ interface AcademySettings {
   address: string | null;
   websiteUrl: string | null;
   vatRegistrationNumber: string | null;
+  openJoin?: boolean;
 }
 
 interface AcademyInvite {
@@ -107,6 +109,7 @@ export default function AcademySettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"settings" | "team" | "invites">("settings");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("coach");
@@ -130,6 +133,7 @@ export default function AcademySettingsScreen() {
     acceptsCash: true,
     acceptsBankTransfer: true,
     vatRegistrationNumber: "",
+    openJoin: true,
   });
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -219,6 +223,7 @@ export default function AcademySettingsScreen() {
         acceptsCash: (settings as any).acceptsCash !== false,
         acceptsBankTransfer: (settings as any).acceptsBankTransfer !== false,
         vatRegistrationNumber: (settings as any).vatRegistrationNumber || "",
+        openJoin: settings.openJoin !== false,
       });
       setHasChanges(false);
     }
@@ -264,6 +269,7 @@ export default function AcademySettingsScreen() {
       acceptsCash: formData.acceptsCash,
       acceptsBankTransfer: formData.acceptsBankTransfer,
       vatRegistrationNumber: formData.vatRegistrationNumber || null,
+      openJoin: formData.openJoin,
     } as any);
   };
 
@@ -403,6 +409,38 @@ export default function AcademySettingsScreen() {
             </AnimatedButton>
           </View>
         )}
+      </View>
+
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>{t("academy.joinFlow.settingsSection")}</Text>
+
+        <View style={styles.toggleRow}>
+          <View style={[styles.toggleInfo, { flex: 1, paddingRight: Spacing.md }]}>
+            <Ionicons
+              name={formData.openJoin ? "lock-open-outline" : "lock-closed-outline"}
+              size={20}
+              color={formData.openJoin ? Colors.dark.primary : Colors.dark.gold}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.toggleLabel}>{t("academy.joinFlow.openJoinLabel")}</Text>
+              <Text style={styles.openJoinHelper}>
+                {formData.openJoin
+                  ? t("academy.joinFlow.openJoinHelperOn")
+                  : t("academy.joinFlow.openJoinHelperOff")}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            style={[styles.toggle, formData.openJoin && styles.toggleActive]}
+            onPress={() => {
+              setFormData(prev => ({ ...prev, openJoin: !prev.openJoin }));
+              setHasChanges(true);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <View style={[styles.toggleKnob, formData.openJoin && styles.toggleKnobActive]} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.glassSection}>
@@ -977,6 +1015,11 @@ const styles = StyleSheet.create({
   toggleLabel: {
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  openJoinHelper: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
   },
   toggle: {
     width: 50,

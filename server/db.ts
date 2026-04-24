@@ -627,6 +627,15 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] academies monthly_token_budget migration skipped:', e.message);
   }
+  // Task #1131: Instant join academy with optional approval toggle.
+  // Adds the open_join flag (default true) used by the join endpoint to decide
+  // between instant membership and the legacy pending-request flow.
+  try {
+    await pool.query(`ALTER TABLE academies ADD COLUMN IF NOT EXISTS open_join boolean NOT NULL DEFAULT true`);
+    console.log('[Database] academies open_join column migration successful');
+  } catch (e: any) {
+    console.log('[Database] academies open_join migration skipped:', e.message);
+  }
   // Startup repair: mark all sessions with status='scheduled' but end_time < NOW() as 'completed'.
   // These are sessions that were missed due to server downtime (the 24hr auto-complete window lapsed).
   // processAutoAttendance will create session_player records for sessions within 7 days.

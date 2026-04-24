@@ -242,6 +242,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           paymentInstructions: (academy as any)?.paymentInstructions || null,
           acceptsCash: (academy as any)?.acceptsCash !== false,
           acceptsBankTransfer: (academy as any)?.acceptsBankTransfer !== false,
+          // Task #1131: openJoin lives on the academies table.
+          openJoin: academy?.openJoin !== false,
         };
 
         res.json(response);
@@ -269,6 +271,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           paymentInstructions,
           acceptsCash,
           acceptsBankTransfer,
+          // Task #1131: openJoin lives on the academies table, not the
+          // academy_settings table — extract and persist alongside bank fields.
+          openJoin,
           ...settingsData
         } = req.body;
 
@@ -288,6 +293,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         if (hasBankFields) {
           await storage.updateAcademy(academyId, bankFields);
+        }
+
+        if (openJoin !== undefined) {
+          await storage.updateAcademy(academyId, { openJoin: !!openJoin });
         }
 
         const settings = await storage.upsertAcademySettings(

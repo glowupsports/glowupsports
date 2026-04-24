@@ -1272,6 +1272,20 @@
         "updateFailed": "Failed to update pricing",
         "disableFailed": "Failed to disable pricing"
       }
+    },
+    "joinFlow": {
+      "join": "Join",
+      "requestToJoin": "Request to Join",
+      "sendRequest": "Send Request",
+      "welcomeTitle": "Welcome!",
+      "welcomeMessage": "You've joined {{name}}.",
+      "requestSentTitle": "Request sent",
+      "requestSentMessage": "We'll let you know when {{name}} responds.",
+      "joinFailed": "Failed to submit join request",
+      "settingsSection": "JOIN SETTINGS",
+      "openJoinLabel": "Open join",
+      "openJoinHelperOn": "Anyone can join your academy instantly.",
+      "openJoinHelperOff": "You'll review and approve each new member."
     }
   },
   "onboarding": {
