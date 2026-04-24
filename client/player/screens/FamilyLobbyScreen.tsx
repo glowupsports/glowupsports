@@ -28,6 +28,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
 import { getAuthToken, secureSet, clearAuthState } from "@/lib/auth";
 import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
+import GraduationFlow from "@/player/components/GraduationFlow";
 import { PinPadModal } from "@/components/PinPadModal";
 import { PinRecoveryModal } from "@/components/PinRecoveryModal";
 import { callFamilySwitch, applySwitchResult } from "@/lib/familySwitch";
@@ -317,9 +318,11 @@ interface ChildCardProps {
   todayInfo?: TodayMemberInfo;
   onPress: () => void;
   index: number;
+  // Family G — Task #1138 — graduation entry-point (banner + button).
+  onGraduate?: (member: FamilyMember) => void;
 }
 
-function ChildCard({ member, todayInfo, onPress, index }: ChildCardProps) {
+function ChildCard({ member, todayInfo, onPress, index, onGraduate }: ChildCardProps) {
   const hasOutstanding = member.outstandingBalance > 0;
   const lastActiveText = formatLastActive(member.lastActiveAt);
   const chips = buildChipsFor(todayInfo);
@@ -361,6 +364,34 @@ function ChildCard({ member, todayInfo, onPress, index }: ChildCardProps) {
           </View>
 
           <Text style={styles.childName} numberOfLines={1}>{member.name}</Text>
+
+          {member.graduated ? (
+            <View style={styles.graduatedBadge}>
+              <Ionicons name="school" size={12} color="#00E676" />
+              <Text style={styles.graduatedBadgeText}>Graduated</Text>
+            </View>
+          ) : member.daysUntilEighteen != null &&
+            member.daysUntilEighteen <= 30 &&
+            member.daysUntilEighteen >= 0 &&
+            onGraduate ? (
+            <Pressable
+              style={styles.graduateBanner}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onGraduate(member);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Start graduation for ${member.name}`}
+            >
+              <Ionicons name="school-outline" size={12} color={Colors.dark.gold} />
+              <Text style={styles.graduateBannerText}>
+                {member.daysUntilEighteen === 0
+                  ? "Turns 18 today — Graduate"
+                  : `Turns 18 in ${member.daysUntilEighteen}d — Graduate`}
+              </Text>
+            </Pressable>
+          ) : null}
 
           {member.ballLevel ? (
             <View style={[styles.ballLevelTextBadge, { backgroundColor: getBallColor(member.ballLevel) + "25" }]}>
@@ -584,6 +615,11 @@ export default function FamilyLobbyScreen() {
   const [enterCodeLoading, setEnterCodeLoading] = useState(false);
   const [enterCodeClaiming, setEnterCodeClaiming] = useState(false);
   const [enterCodeClaimed, setEnterCodeClaimed] = useState(false);
+
+  // ── Family G — Account Graduation (Task #1138) ───────────────────────────
+  // Holds the member whose graduation modal is currently open. The modal does
+  // its own PIN elevation, so we don't need to thread one through here.
+  const [graduationTarget, setGraduationTarget] = useState<FamilyMember | null>(null);
 
   // ── Family H — Spectator (read-only family stream) state ─────────────────
   const [showSpectator, setShowSpectator] = useState(false);
@@ -1237,6 +1273,7 @@ export default function FamilyLobbyScreen() {
               todayInfo={todayByPlayer.get(member.id)}
               onPress={() => handleSelectChild(member)}
               index={index}
+              onGraduate={(m) => setGraduationTarget(m)}
             />
           ))}
         </View>
@@ -1297,6 +1334,22 @@ export default function FamilyLobbyScreen() {
         visible={!!pinTarget && pinRecoveryOpen}
         targetPlayerId={pinTarget?.id}
         onClose={() => setPinRecoveryOpen(false)}
+      />
+
+      {/* Family G — Account Graduation (Task #1138) */}
+      <GraduationFlow
+        visible={!!graduationTarget}
+        targetPlayerId={graduationTarget?.id ?? null}
+        targetName={graduationTarget?.name ?? null}
+        currentEmail={null}
+        daysUntilEighteen={graduationTarget?.daysUntilEighteen ?? null}
+        onClose={() => setGraduationTarget(null)}
+        onComplete={() => {
+          setGraduationTarget(null);
+          // Reload family roster so the "Graduated" badge appears.
+          refreshFamily();
+          queryClient.invalidateQueries({ queryKey: ["/api/family/me/group"] });
+        }}
       />
 
       <Modal visible={showControls} transparent animationType="slide">
@@ -2020,6 +2073,38 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: FontSizes.xs,
     fontWeight: "600",
     color: Colors.dark.gold,
+  },
+  graduateBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.gold + "22",
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "55",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    marginTop: 4,
+  },
+  graduateBannerText: {
+    fontSize: FontSizes.xs,
+    fontWeight: "600",
+    color: Colors.dark.gold,
+  },
+  graduatedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#00E676" + "22",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    marginTop: 4,
+  },
+  graduatedBadgeText: {
+    fontSize: FontSizes.xs,
+    fontWeight: "600",
+    color: "#00E676",
   },
   diveInButton: {
     flexDirection: "row",

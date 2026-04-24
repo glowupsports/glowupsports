@@ -7633,6 +7633,29 @@ export const accountPinRecovery = pgTable("account_pin_recovery", {
 
 export type AccountPinRecovery = typeof accountPinRecovery.$inferSelect;
 
+// ==================== ACCOUNT GRADUATION (Family G — Task #1138) ====================
+// One row per player who has graduated from a child-of-family account into a
+// fully independent account. The row is the source of truth for "this account
+// is owned by the graduate themselves" — Family E (spend-limit ownership)
+// MUST consult this table before letting another family member edit limits.
+// Lawrence stays in `family_members` after graduation; the family link is
+// purely informational once `account_graduation` exists for him.
+export const accountGraduation = pgTable("account_graduation", {
+  // One graduation row per player. Idempotent: re-graduating is a no-op.
+  playerId: varchar("player_id")
+    .primaryKey()
+    .references(() => players.id, { onDelete: "cascade" }),
+  graduatedAt: timestamp("graduated_at").defaultNow().notNull(),
+  // Who triggered the graduation — usually the parent, sometimes the graduate
+  // themselves if they're the one driving it.
+  graduatedByPlayerId: varchar("graduated_by_player_id")
+    .references(() => players.id),
+  // What the user.email value was BEFORE graduation, for audit/recovery.
+  previousEmail: text("previous_email"),
+});
+
+export type AccountGraduation = typeof accountGraduation.$inferSelect;
+
 // ==================== AI PROGRESS ENGINE ====================
 
 // Per-session AI digest: what was practised, what went well, one focus area

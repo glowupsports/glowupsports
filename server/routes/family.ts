@@ -16,10 +16,12 @@
 // drifting state.
 
 import { Router, Response } from "express";
+import bcrypt from "bcrypt";
 import { db } from "../db";
 import { storage } from "../storage";
 import {
   players,
+  users,
   familyGroups,
   familyMembers,
   familyInviteCodes,
@@ -30,12 +32,19 @@ import {
   coaches,
   matchChallenges,
   openMatchSlots,
+  accountPins,
+  accountGraduation,
 } from "@shared/schema";
-import { eq, and, inArray, isNull, gte, lte } from "drizzle-orm";
+import { eq, and, inArray, isNull, gte, lte, ne, sql } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { resolveOrCreateFamilyForCaller, addPlayerToFamily } from "../lib/family-groups";
 import { syncFamilyChatGroup } from "../storage";
-import { playerHasPin, verifyElevationToken } from "./account-pin";
+import { playerHasPin, verifyElevationToken, verifyAccountPin } from "./account-pin";
+import {
+  daysUntilEighteen,
+  getGraduationStatus,
+  isAccountGraduated,
+} from "../lib/account-graduation";
 
 const router = Router();
 
@@ -119,6 +128,29 @@ router.get("/api/family/me/group", authMiddleware, async (req: AuthenticatedRequ
       })
       .filter(<T,>(v: T | null): v is T => v !== null);
 
+    // Family G — annotate each member with graduation status so the lobby
+    // can render the 30-day banner and the "graduated" badge without a second
+    // round trip per card.
+    const memberPlayerIds = members.map((m) => m.id);
+    const graduationRows = memberPlayerIds.length
+      ? await db
+          .select()
+          .from(accountGraduation)
+          .where(inArray(accountGraduation.playerId, memberPlayerIds))
+      : [];
+    const graduationByPlayerId = new Map(graduationRows.map((g) => [g.playerId, g] as const));
+    const membersWithGraduation = members.map((m) => {
+      const player = playerById.get(m.id);
+      const graduated = graduationByPlayerId.get(m.id) ?? null;
+      return {
+        ...m,
+        dateOfBirth: player?.dateOfBirth ?? null,
+        daysUntilEighteen: daysUntilEighteen(player?.dateOfBirth),
+        graduated: !!graduated,
+        graduatedAt: graduated?.graduatedAt ? graduated.graduatedAt.toISOString() : null,
+      };
+    });
+
     res.json({
       group: {
         id: group.id,
@@ -128,7 +160,7 @@ router.get("/api/family/me/group", authMiddleware, async (req: AuthenticatedRequ
         creatorName: creatorPlayer?.name ?? null,
         creatorEmail: creatorPlayer?.email ?? null,
       },
-      members,
+      members: membersWithGraduation,
     });
   } catch (error) {
     console.error("[family/me/group] error:", error);
@@ -807,5 +839,310 @@ router.get("/api/family/me/today", authMiddleware, async (req: AuthenticatedRequ
     return res.status(500).json({ error: "Failed to load family today data" });
   }
 });
+// Family G — Account Graduation (Task #1138)
+// ---------------------------------------------------------------------------
+// Lifecycle handover for a child member who's ready to own their account.
+// Two read endpoints + one write endpoint. The write endpoint requires PIN
+// elevation (caller's own PIN via /api/family/elevate-pin OR the graduate's
+// own PIN passed inline) and uniqueness-checks the new email so a graduate
+// can't lock another user out by typing their address.
+// ---------------------------------------------------------------------------
+
+const PIN_REGEX = /^\d{4}$/;
+const PIN_BCRYPT_COST = 10;
+
+// GET /api/family/graduate/:playerId/status — returns DOB, days-to-18 and
+// whether already graduated. Caller must share a family group with the
+// target. Used by the lobby card + graduation flow.
+router.get(
+  "/api/family/graduate/:playerId/status",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const tokenUser = req.user!;
+      const targetPlayerId = req.params.playerId;
+      const freshUser = await storage.getUserById(tokenUser.userId);
+      if (!freshUser?.playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+
+      // Shared-family check (mirrors /api/account/pin/recover).
+      if (targetPlayerId !== freshUser.playerId) {
+        const callerGroups = await db
+          .select({ familyGroupId: familyMembers.familyGroupId })
+          .from(familyMembers)
+          .where(eq(familyMembers.playerId, freshUser.playerId));
+        const targetGroups = await db
+          .select({ familyGroupId: familyMembers.familyGroupId })
+          .from(familyMembers)
+          .where(eq(familyMembers.playerId, targetPlayerId));
+        const shared = callerGroups.some((c) =>
+          targetGroups.some((t) => t.familyGroupId === c.familyGroupId),
+        );
+        if (!shared) {
+          return res.status(403).json({ error: "Not in your family" });
+        }
+      }
+
+      const status = await getGraduationStatus(targetPlayerId);
+      const targetPlayer = await storage.getPlayer(targetPlayerId);
+      const targetUser = targetPlayerId
+        ? await db
+            .select({ email: users.email })
+            .from(users)
+            .where(eq(users.playerId, targetPlayerId))
+            .limit(1)
+            .then((r) => r[0] ?? null)
+        : null;
+      res.json({
+        ...status,
+        currentEmail: targetUser?.email ?? targetPlayer?.email ?? null,
+        targetName: targetPlayer?.name ?? null,
+        // Hint for the UI: the 30-day pre-notification window.
+        bannerVisible:
+          !status.graduated &&
+          status.daysUntilEighteen !== null &&
+          status.daysUntilEighteen <= 30 &&
+          status.daysUntilEighteen >= -3650,
+      });
+    } catch (error) {
+      console.error("[family/graduate/status] error:", error);
+      res.status(500).json({ error: "Failed to load graduation status" });
+    }
+  },
+);
+
+// POST /api/family/graduate/:playerId
+// Body: {
+//   newEmail:                string,           // graduate's own email
+//   newPin:                  string (4 digits),// new PIN replacing the old
+//   currentPinElevationToken?: string,         // caller's own PIN elevation
+//   targetCurrentPin?:       string (4 digits),// alternative: graduate's PIN
+// }
+// Either currentPinElevationToken OR targetCurrentPin is required. Both can
+// be supplied — we accept the first one that validates.
+router.post(
+  "/api/family/graduate/:playerId",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const tokenUser = req.user!;
+      const targetPlayerId = req.params.playerId;
+      const {
+        newEmail,
+        newPin,
+        currentPinElevationToken,
+        targetCurrentPin,
+      } = (req.body ?? {}) as {
+        newEmail?: unknown;
+        newPin?: unknown;
+        currentPinElevationToken?: unknown;
+        targetCurrentPin?: unknown;
+      };
+
+      if (typeof newEmail !== "string" || newEmail.trim().length === 0) {
+        return res.status(400).json({ error: "newEmail is required" });
+      }
+      const trimmedEmail = newEmail.trim();
+      // Light email-format check; we don't try to be RFC-perfect, just guard
+      // against obvious typos that would otherwise lock the account out.
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        return res.status(400).json({ error: "newEmail is not a valid email address" });
+      }
+      if (typeof newPin !== "string" || !PIN_REGEX.test(newPin)) {
+        return res.status(400).json({ error: "newPin must be exactly 4 digits" });
+      }
+
+      const freshUser = await storage.getUserById(tokenUser.userId);
+      if (!freshUser?.playerId) {
+        return res.status(403).json({ error: "Player profile required" });
+      }
+
+      // Family membership check — caller and target must share a family group.
+      // The graduate themselves can also call this (self-graduation).
+      let isCallerSelf = freshUser.playerId === targetPlayerId;
+      if (!isCallerSelf) {
+        const callerGroups = await db
+          .select({ familyGroupId: familyMembers.familyGroupId })
+          .from(familyMembers)
+          .where(eq(familyMembers.playerId, freshUser.playerId));
+        const targetGroups = await db
+          .select({ familyGroupId: familyMembers.familyGroupId })
+          .from(familyMembers)
+          .where(eq(familyMembers.playerId, targetPlayerId));
+        const shared = callerGroups.some((c) =>
+          targetGroups.some((t) => t.familyGroupId === c.familyGroupId),
+        );
+        if (!shared) {
+          return res
+            .status(403)
+            .json({ error: "You can only graduate accounts in your own family" });
+        }
+      }
+
+      const targetPlayer = await storage.getPlayer(targetPlayerId);
+      if (!targetPlayer) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      // Already graduated → idempotent OK with a clear flag.
+      const alreadyGraduated = await isAccountGraduated(targetPlayerId);
+      if (alreadyGraduated) {
+        return res
+          .status(409)
+          .json({ error: "This account has already graduated", alreadyGraduated: true });
+      }
+
+      // PIN gate: accept either the caller's elevation token (own PIN) OR
+      // the graduate's current 4-digit PIN supplied inline.
+      let pinGateOk = false;
+      if (typeof currentPinElevationToken === "string" && currentPinElevationToken.length > 0) {
+        const verified = verifyElevationToken(currentPinElevationToken);
+        if (verified && verified.playerId === freshUser.playerId) {
+          pinGateOk = true;
+        }
+      }
+      if (!pinGateOk && typeof targetCurrentPin === "string" && PIN_REGEX.test(targetCurrentPin)) {
+        const verify = await verifyAccountPin(targetPlayerId, targetCurrentPin);
+        if (verify.ok) {
+          pinGateOk = true;
+        } else if ("locked" in verify && verify.locked) {
+          return res.status(429).json({
+            error: "Too many wrong attempts on the target PIN. Try again later.",
+            retryAfter: (verify as { retryAfter: number }).retryAfter,
+          });
+        }
+      }
+      if (!pinGateOk) {
+        return res.status(401).json({
+          error: "PIN required",
+          pinRequired: true,
+          message:
+            "Confirm your own PIN (or the account's current PIN) before graduating.",
+        });
+      }
+
+      // Find the auth user backing this player. Graduation is meaningless
+      // without a user row to flip the email on.
+      const [targetUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.playerId, targetPlayerId))
+        .limit(1);
+      if (!targetUser) {
+        return res.status(404).json({ error: "Linked auth user not found" });
+      }
+      const previousEmail = targetUser.email ?? null;
+
+      // Email collision: any OTHER user already on this email is rejected.
+      // Same-user (re-graduate to same address) is allowed and silently
+      // becomes a no-op for the email column.
+      const conflict = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(
+          and(
+            sql`LOWER(${users.email}) = ${trimmedEmail.toLowerCase()}`,
+            ne(users.id, targetUser.id),
+            eq(users.deleted, false),
+          ),
+        )
+        .limit(1);
+      if (conflict.length > 0) {
+        return res.status(409).json({
+          error:
+            "Another account is already using this email. Use 'Link existing account' instead, or pick a different address.",
+          emailCollision: true,
+        });
+      }
+
+      // Atomic transition: update users.email, replace PIN, insert
+      // graduation row, mirror email onto players row. Audit log is written
+      // outside the transaction since it's append-only and best-effort.
+      const newPinHash = await bcrypt.hash(newPin, PIN_BCRYPT_COST);
+      const now = new Date();
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(users)
+          .set({ email: trimmedEmail })
+          .where(eq(users.id, targetUser.id));
+
+        // Mirror onto players.email so coach-facing screens (which read from
+        // `players`) also see the new address.
+        await tx
+          .update(players)
+          .set({ email: trimmedEmail })
+          .where(eq(players.id, targetPlayerId));
+
+        const existingPin = await tx
+          .select({ playerId: accountPins.playerId })
+          .from(accountPins)
+          .where(eq(accountPins.playerId, targetPlayerId))
+          .limit(1);
+        if (existingPin.length > 0) {
+          await tx
+            .update(accountPins)
+            .set({
+              pinHash: newPinHash,
+              pinSetAt: now,
+              pinRecoveryEmail: trimmedEmail,
+              failedAttempts: 0,
+              lockedUntil: null,
+              updatedAt: now,
+            })
+            .where(eq(accountPins.playerId, targetPlayerId));
+        } else {
+          await tx.insert(accountPins).values({
+            playerId: targetPlayerId,
+            pinHash: newPinHash,
+            pinRecoveryEmail: trimmedEmail,
+          });
+        }
+
+        await tx.insert(accountGraduation).values({
+          playerId: targetPlayerId,
+          graduatedAt: now,
+          graduatedByPlayerId: freshUser.playerId,
+          previousEmail,
+        });
+      });
+
+      // Best-effort audit row (not in the transaction so an audit-log
+      // failure can't roll the graduation back).
+      try {
+        await storage.createAuditLog({
+          academyId: targetPlayer.academyId ?? null,
+          entityType: "player",
+          entityId: targetPlayerId,
+          action: "graduate",
+          performedBy: freshUser.playerId,
+          performedByRole: "player",
+          beforeState: { email: previousEmail },
+          afterState: { email: trimmedEmail, graduated: true },
+          metadata: JSON.stringify({
+            note: "Graduated from family to independent account",
+            graduatedByPlayerId: freshUser.playerId,
+            isCallerSelf,
+          }),
+          ipAddress: (req.ip || (req.headers["x-forwarded-for"] as string) || null) as string | null,
+        } as any);
+      } catch (err) {
+        console.warn("[family/graduate] audit log failed (non-fatal):", err);
+      }
+
+      res.json({
+        success: true,
+        graduated: true,
+        graduatedAt: now.toISOString(),
+        previousEmail,
+        newEmail: trimmedEmail,
+      });
+    } catch (error) {
+      console.error("[family/graduate] error:", error);
+      res.status(500).json({ error: "Failed to graduate account" });
+    }
+  },
+);
 
 export default router;

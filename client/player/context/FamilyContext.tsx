@@ -18,6 +18,12 @@ export interface FamilyMember {
   lastActiveAt: string | null;
   chatEnabled: boolean | null;
   communityEnabled: boolean | null;
+  // Family G — Task #1138 — graduation surface fields. Server attaches these
+  // to /api/family/me/group; null when DOB unknown.
+  dateOfBirth?: string | null;
+  daysUntilEighteen?: number | null;
+  graduated?: boolean;
+  graduatedAt?: string | null;
 }
 
 interface FamilyData {

@@ -47,6 +47,7 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, startGlowPlansScheduler, startBirthdayNotificationScheduler, processSessionMaintenance, fixHolidayOvercharges, fixAlmaZaleskiCredits, fixRouzbehGhostCredit } from "./pushNotifications";
 import { startBookingExpiryJob } from "./bookingExpiryJob";
 import { startPlayerOfWeekJob } from "./playerOfWeekJob";
+import { startFamilyGraduationJob } from "./familyGraduationJob";
 import { startDigestJobs } from "./services/digestJobs";
 import { startFeedPruneScheduler } from "./feedPruneJob";
 import { startFamilyPickupNotificationsJob } from "./familyPickupNotificationsJob";
@@ -1012,6 +1013,8 @@ function setupErrorHandler(app: express.Application) {
       startMatchPrepNotificationScheduler();
       startBookingExpiryJob();
       startPlayerOfWeekJob();
+      // Family G — Task #1138 — daily 30-day-pre-18 graduation pre-notification.
+      startFamilyGraduationJob();
       // Task #1126 — weekly/monthly/yearly digests + family/coach digests.
       startDigestJobs();
       startFeedPruneScheduler();
