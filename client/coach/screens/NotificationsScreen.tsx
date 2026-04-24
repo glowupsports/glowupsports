@@ -83,6 +83,8 @@ function NotificationCard({
         return "calendar-outline";
       case "booking_request":
         return "person-add-outline";
+      case "player_joined":
+        return "person-add-outline";
       default:
         return "notifications-outline";
     }
@@ -104,6 +106,8 @@ function NotificationCard({
         return Colors.dark.xpCyan;
       case "booking_request":
         return Colors.dark.primary;
+      case "player_joined":
+        return Colors.dark.xpCyan;
       case "absence":
         return Colors.dark.error;
       case "holiday":

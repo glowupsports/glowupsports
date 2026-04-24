@@ -53,7 +53,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { authLimiter, inviteLimiter } from "../rateLimiter";
   import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword } from "../auth";
   import { sendCoachInviteEmail, sendWelcomeEmail } from "../emailService";
-  import { sendSessionConfirmedNotification } from "../pushNotifications";
+  import { sendSessionConfirmedNotification, sendCoachNotification } from "../pushNotifications";
   import { getCurrencyForCountry } from "@shared/countries";
   import crypto from "crypto";
   import { generateShortInviteCode } from "../utils/inviteCode";
@@ -1765,6 +1765,65 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           const user = await storage.getUserByPlayerId(playerId);
           if (user) {
             await storage.updateUser(user.id, { academyId });
+          }
+
+          // Task #1156 — Notify coaches/owners that a new player just joined
+          // via the instant-join path. Best-effort: any failure here must not
+          // block the join response.
+          try {
+            const player = await storage.getPlayer(playerId);
+            const playerName = player?.name || "A new player";
+            const academyCoaches = await storage.getCoachesByAcademy(academy.id);
+            if (academyCoaches.length > 0) {
+              const title = "New player joined";
+              const body = `${playerName} just joined ${academy.name}`;
+              const metadata = {
+                playerId,
+                playerName,
+                academyId: academy.id,
+              };
+
+              await Promise.all(
+                academyCoaches.map(async (coach) => {
+                  try {
+                    await storage.createNotification({
+                      coachId: coach.id,
+                      type: "player_joined",
+                      title,
+                      message: body,
+                      priority: "low",
+                      metadata,
+                    });
+                  } catch (notifyErr) {
+                    console.error(
+                      `[InstantJoin] Failed to create in-app notification for coach ${coach.id}:`,
+                      notifyErr,
+                    );
+                  }
+
+                  try {
+                    await sendCoachNotification(coach.id, title, body, {
+                      type: "player_joined",
+                      screen: "PlayerProfile",
+                      params: { playerId },
+                      playerId,
+                      playerName,
+                      academyId: academy.id,
+                    });
+                  } catch (pushErr) {
+                    console.error(
+                      `[InstantJoin] Failed to send push notification to coach ${coach.id}:`,
+                      pushErr,
+                    );
+                  }
+                }),
+              );
+            }
+          } catch (notifyErr) {
+            console.error(
+              "[InstantJoin] Failed to notify academy coaches of new player join:",
+              notifyErr,
+            );
           }
 
           return res.status(201).json({
