@@ -50,6 +50,8 @@ import {
   SystemFeedCard,
 } from "../components/community/CommunityCards";
 
+import { DiscoveryRail } from "../components/community/DiscoveryRail";
+
 import {
   AchievementShowcase,
   NewsSection,
@@ -512,6 +514,11 @@ export default function CommunityScreen() {
                   onRefresh={refetch}
                   tintColor={Colors.dark.primary}
                 />
+              }
+              ListHeaderComponent={
+                filter === "all" ? (
+                  <DiscoveryRail currentUserId={user?.id} />
+                ) : null
               }
               ListEmptyComponent={<EmptyFeed filter={filter} />}
               showsVerticalScrollIndicator={false}

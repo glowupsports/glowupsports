@@ -3625,10 +3625,15 @@ const socialPostUpload = multer({
 
   // ==================== DISCOVERY (Phase 4) ====================
   //
-  // Surfaces players in the same country, similar level, never matched
-  // together, who aren't already friends/pending. Ranked by closeness in
-  // glow_mmr (when both sides have it) with a ball-level fallback bucket
-  // when one or both have null mmr.
+  // Surfaces players for the "Players you might match" rail on the
+  // Community Feed. The preferred (strict) bucket keeps the original
+  // ranking — same country + closeness in glow_mmr / ball level — but
+  // when that bucket is empty we widen the pool in steps so a fresh
+  // account doesn't see an empty rail:
+  //   1) same country, ranked by similar level
+  //   2) same academy, any country
+  //   3) recently active worldwide (last 14 days)
+  // Self, hidden players, and existing connections are always excluded.
   router.get(
     "/api/social/discovery/players",
     authMiddleware,
@@ -3656,7 +3661,7 @@ const socialPostUpload = multer({
           .from(players)
           .where(eq(players.id, playerId))
           .limit(1);
-        if (!me?.country) {
+        if (!me) {
           return res.json({ players: [] });
         }
 
@@ -3717,58 +3722,143 @@ const socialPostUpload = multer({
         }
 
         const exclude = new Set<string>([playerId, ...playedSet, ...connectedSet]);
+        const excludeArr = Array.from(exclude);
 
-        // Pull a wider candidate pool (same country) and rank in app — the
-        // table sizes here are small enough to make this safe and avoids
-        // a hairy CASE/COALESCE ORDER BY on null mmr.
-        const candidates = await db
-          .select({
-            id: players.id,
-            name: players.name,
-            profilePhotoUrl: players.profilePhotoUrl,
-            ballLevel: players.ballLevel,
-            skillLevel: players.skillLevel,
-            glowMmr: players.glowMmr,
-            country: players.country,
-            academyId: players.academyId,
-          })
-          .from(players)
-          .where(
-            and(
-              eq(players.country, me.country),
-              sql`${players.id} <> ${playerId}`,
-              sql`${players.id} NOT IN (${sql.join(
-                Array.from(exclude).map((id) => sql`${id}`),
-                sql`, `,
-              )})`,
-            ),
-          )
-          .limit(200);
+        // Restrict to players whose user account is verified/active and
+        // who aren't privacy-hidden — same rules used by other discovery
+        // surfaces so we don't surface dormant or private accounts.
+        const baseSelect = {
+          id: players.id,
+          name: players.name,
+          profilePhotoUrl: players.profilePhotoUrl,
+          ballLevel: players.ballLevel,
+          skillLevel: players.skillLevel,
+          glowMmr: players.glowMmr,
+          country: players.country,
+          academyId: players.academyId,
+        } as const;
 
-        // Distance = |mmr diff| if both present, else fallback bucket
-        // distance based on ball level (string match preferred). Filter
-        // hidden/system players.
-        const ranked = candidates
-          .filter((p) => !!p.id && !HIDDEN_PLAYER_IDS.includes(p.id))
-          .map((p) => {
-            let distance = 9999;
-            if (
-              typeof me.glowMmr === "number" &&
-              typeof p.glowMmr === "number"
-            ) {
-              distance = Math.abs(me.glowMmr - p.glowMmr);
-            } else if (me.ballLevel && p.ballLevel) {
-              distance = me.ballLevel === p.ballLevel ? 50 : 500;
-            } else if (me.skillLevel && p.skillLevel) {
-              distance = me.skillLevel === p.skillLevel ? 100 : 750;
-            }
-            return { ...p, distance };
-          })
-          .sort((a, b) => a.distance - b.distance)
-          .slice(0, limitVal)
-          .map(({ distance: _d, ...rest }) => rest);
+        type DiscoveryRow = {
+          id: string;
+          name: string | null;
+          profilePhotoUrl: string | null;
+          ballLevel: string | null;
+          skillLevel: number | null;
+          glowMmr: number | null;
+          country: string | null;
+          academyId: string | null;
+        };
 
-        res.json({ players: ranked });
+        const stripHidden = (rows: DiscoveryRow[]): DiscoveryRow[] =>
+          rows.filter(
+            (p) =>
+              !!p.id &&
+              !HIDDEN_PLAYER_IDS.includes(p.id) &&
+              p.name &&
+              p.name.trim().length > 0,
+          );
+
+        // BUCKET 1 — strict: same country, ranked by mmr/ball-level
+        // closeness. Returns up to limitVal results.
+        let bucket: DiscoveryRow[] = [];
+        if (me.country) {
+          const sameCountry = await db
+            .select(baseSelect)
+            .from(players)
+            .where(
+              and(
+                eq(players.country, me.country),
+                sql`${players.id} <> ${playerId}`,
+                sql`COALESCE(${players.privacyLevel}, 'platform') <> 'hidden'`,
+                sql`EXISTS (SELECT 1 FROM users WHERE users.player_id = ${players.id} AND users.status = 'active')`,
+                excludeArr.length > 0
+                  ? sql`${players.id} NOT IN (${sql.join(
+                      excludeArr.map((id) => sql`${id}`),
+                      sql`, `,
+                    )})`
+                  : sql`TRUE`,
+              ),
+            )
+            .limit(200);
+
+          const ranked = stripHidden(sameCountry as DiscoveryRow[])
+            .map((p) => {
+              let distance = 9999;
+              if (
+                typeof me.glowMmr === "number" &&
+                typeof p.glowMmr === "number"
+              ) {
+                distance = Math.abs(me.glowMmr - p.glowMmr);
+              } else if (me.ballLevel && p.ballLevel) {
+                distance = me.ballLevel === p.ballLevel ? 50 : 500;
+              } else if (me.skillLevel && p.skillLevel) {
+                distance = me.skillLevel === p.skillLevel ? 100 : 750;
+              }
+              return { p, distance };
+            })
+            .sort((a, b) => a.distance - b.distance)
+            .map((x) => x.p);
+          bucket = ranked.slice(0, limitVal);
+        }
+
+        // BUCKET 2 — same academy, any country.
+        if (bucket.length === 0 && me.academyId) {
+          const sameAcademy = await db
+            .select(baseSelect)
+            .from(players)
+            .where(
+              and(
+                eq(players.academyId, me.academyId),
+                sql`${players.id} <> ${playerId}`,
+                sql`COALESCE(${players.privacyLevel}, 'platform') <> 'hidden'`,
+                sql`EXISTS (SELECT 1 FROM users WHERE users.player_id = ${players.id} AND users.status = 'active')`,
+                excludeArr.length > 0
+                  ? sql`${players.id} NOT IN (${sql.join(
+                      excludeArr.map((id) => sql`${id}`),
+                      sql`, `,
+                    )})`
+                  : sql`TRUE`,
+              ),
+            )
+            .limit(limitVal * 4);
+          bucket = stripHidden(sameAcademy as DiscoveryRow[]).slice(0, limitVal);
+        }
+
+        // BUCKET 3 — recently active worldwide (last 14 days). Joins
+        // through users.last_login_at so we don't surface stale accounts.
+        if (bucket.length === 0) {
+          const recent = await db.execute<DiscoveryRow>(sql`
+            SELECT
+              p.id            AS "id",
+              p.name          AS "name",
+              p.profile_photo_url AS "profilePhotoUrl",
+              p.ball_level    AS "ballLevel",
+              p.skill_level   AS "skillLevel",
+              p.glow_mmr      AS "glowMmr",
+              p.country       AS "country",
+              p.academy_id    AS "academyId"
+            FROM players p
+            INNER JOIN users u ON u.player_id = p.id
+            WHERE u.status = 'active'
+              AND u.last_login_at IS NOT NULL
+              AND u.last_login_at >= NOW() - INTERVAL '14 days'
+              AND p.id <> ${playerId}
+              AND COALESCE(p.privacy_level, 'platform') <> 'hidden'
+              ${
+                excludeArr.length > 0
+                  ? sql`AND p.id NOT IN (${sql.join(
+                      excludeArr.map((id) => sql`${id}`),
+                      sql`, `,
+                    )})`
+                  : sql``
+              }
+            ORDER BY u.last_login_at DESC
+            LIMIT ${limitVal * 4}
+          `);
+          bucket = stripHidden(recent.rows as DiscoveryRow[]).slice(0, limitVal);
+        }
+
+        res.json({ players: bucket });
       } catch (error) {
         console.error("[Discovery] Error:", error);
         res.status(500).json({ error: "Failed to load discovery" });
