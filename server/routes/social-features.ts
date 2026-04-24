@@ -21,6 +21,7 @@ import {
   matchLogs,
   playerConnections,
   openMatchSlots,
+  userFeedPreferences,
 } from "@shared/schema";
 import { eq, sql, and, desc, asc, inArray, notInArray, gte, count, ne, or } from "drizzle-orm";
 import {
@@ -642,6 +643,111 @@ async function sendSocialNotification(opts: {
   }
 }
 
+// ==================== FEED TYPE PREFERENCES ====================
+//
+// The Community feed mixes seven event categories. Users can opt out of
+// individual categories from the filter sheet on the Community screen.
+// FEED_CATEGORY_KEYS is the contract shared with the client; each category
+// maps to one or more feed_items.source_type values that the SQL query
+// uses to narrow the result set so payloads stay small.
+export type FeedCategoryKey =
+  | "matches"
+  | "level_ups"
+  | "quests"
+  | "tournaments"
+  | "open_matches"
+  | "coach_posts"
+  | "friend_moments";
+
+export const FEED_CATEGORY_KEYS: FeedCategoryKey[] = [
+  "matches",
+  "level_ups",
+  "quests",
+  "tournaments",
+  "open_matches",
+  "coach_posts",
+  "friend_moments",
+];
+
+export const CATEGORY_TO_SOURCE_TYPES: Record<FeedCategoryKey, string[]> = {
+  matches: ["match_result"],
+  level_ups: ["level_up"],
+  quests: ["quest_complete"],
+  tournaments: ["tournament_result"],
+  open_matches: ["open_match"],
+  coach_posts: ["coach_spotlight", "coach_practice_pair"],
+  friend_moments: ["manual_moment"],
+};
+
+export const PREFERENCE_COLUMN_BY_CATEGORY: Record<
+  FeedCategoryKey,
+  | "showMatches"
+  | "showLevelUps"
+  | "showQuests"
+  | "showTournaments"
+  | "showOpenMatches"
+  | "showCoachPosts"
+  | "showFriendMoments"
+> = {
+  matches: "showMatches",
+  level_ups: "showLevelUps",
+  quests: "showQuests",
+  tournaments: "showTournaments",
+  open_matches: "showOpenMatches",
+  coach_posts: "showCoachPosts",
+  friend_moments: "showFriendMoments",
+};
+
+export function defaultFeedPreferences() {
+  return {
+    showMatches: true,
+    showLevelUps: true,
+    showQuests: true,
+    showTournaments: true,
+    showOpenMatches: true,
+    showCoachPosts: true,
+    showFriendMoments: true,
+  };
+}
+
+export function preferencesToCategories(prefs: ReturnType<typeof defaultFeedPreferences>): FeedCategoryKey[] {
+  return FEED_CATEGORY_KEYS.filter((k) => prefs[PREFERENCE_COLUMN_BY_CATEGORY[k]]);
+}
+
+// Resolve the set of categories the viewer wants in their feed. Explicit
+// types query params win over saved preferences so the client can preview
+// a different selection without a round-trip through the DB.
+export async function resolveActiveCategories(
+  userId: string,
+  rawTypes: unknown,
+): Promise<FeedCategoryKey[]> {
+  const list: string[] | null = (() => {
+    if (rawTypes === undefined || rawTypes === null) return null;
+    if (Array.isArray(rawTypes)) return rawTypes.map(String);
+    const s = String(rawTypes);
+    if (!s) return [];
+    return s.split(",").map((p) => p.trim()).filter(Boolean);
+  })();
+
+  if (list !== null) {
+    return list.filter((t): t is FeedCategoryKey =>
+      (FEED_CATEGORY_KEYS as string[]).includes(t),
+    );
+  }
+
+  try {
+    const [row] = await db
+      .select()
+      .from(userFeedPreferences)
+      .where(eq(userFeedPreferences.userId, userId))
+      .limit(1);
+    if (!row) return [...FEED_CATEGORY_KEYS];
+    return preferencesToCategories(row);
+  } catch {
+    return [...FEED_CATEGORY_KEYS];
+  }
+}
+
 const socialPostUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -653,12 +759,10 @@ const socialPostUpload = multer({
     if (allowedImageTypes.includes(file.mimetype) || allowedVideoTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only images (JPEG, PNG, WebP, HEIC, GIF) and videos (MP4, MOV, WebM) are allowed."));
+      cb(new Error("Invalid file type. Only images and videos are allowed."));
     }
   },
 });
-
-  // Get social feed for user
   router.get("/api/social/feed", authMiddleware, requireFeatureUnlock("community_feed"), async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user!.userId;
@@ -674,6 +778,23 @@ const socialPostUpload = multer({
       // manual moments. Visible to academy AND Free Players via country/global
       // scope.
       if (filterStr === "all" || filterStr === "for_you") {
+        // Honour per-user category preferences (or explicit `types` query
+        // param) so we don't pull rows the viewer has switched off.
+        // Accepted query forms (any of):
+        //   ?types=matches,level_ups,quests          (canonical: CSV string)
+        //   ?types=matches&types=level_ups            (repeated)
+        //   ?types[]=matches&types[]=level_ups        (PHP-style array)
+        // When omitted entirely the user's saved preferences row is used.
+        const activeCategories = await resolveActiveCategories(
+          userId,
+          req.query.types ?? req.query["types[]"],
+        );
+        if (activeCategories.length === 0) {
+          return res.json([]);
+        }
+        const allowedSourceTypes = Array.from(
+          new Set(activeCategories.flatMap((k) => CATEGORY_TO_SOURCE_TYPES[k])),
+        );
         // Resolve viewer's country (from player or fallback to academy)
         let viewerCountry: string | null = null;
         let viewerPlayerId: string | null = playerId || null;
@@ -792,6 +913,12 @@ const socialPostUpload = multer({
         whereParts.push(`(author_user_id = $${pi++})`);
         params.push(userId);
 
+        // Restrict by source_type per the viewer's category preferences. The
+        // visibility OR-block above stays the same; this AND-clause sits
+        // outside it so it intersects all the scopes.
+        const sourceTypeParam = `$${pi++}::text[]`;
+        params.push(allowedSourceTypes);
+
         const limitParam = `$${pi++}`;
         params.push(limitVal);
         const offsetParam = `$${pi++}`;
@@ -806,6 +933,7 @@ const socialPostUpload = multer({
                    cheer_count, comment_count
               FROM feed_items
              WHERE is_hidden = false
+               AND source_type = ANY(${sourceTypeParam})
                AND (${whereParts.join(" OR ")})
              ORDER BY COALESCE(occurred_at, created_at) DESC
              LIMIT ${limitParam} OFFSET ${offsetParam}
@@ -3646,8 +3774,6 @@ const socialPostUpload = multer({
         res.status(500).json({ error: "Failed to load discovery" });
       }
     },
-  );
-
   // =====================================================================
   // Phase 2 — notification preferences, unseen counter, mention search
   // =====================================================================
@@ -3690,33 +3816,33 @@ const socialPostUpload = multer({
         }
 
         const current = await getSocialNotifPrefs(userId);
-        const next = { ...current, ...patch };
+        const nextNotif = { ...current, ...patch };
 
         await db
           .insert(playerSocialNotifPrefs)
           .values({
             userId,
-            cheers: next.cheers as boolean,
-            comments: next.comments as boolean,
-            replies: next.replies as boolean,
-            mentions: next.mentions as boolean,
-            quietHoursStart: next.quietHoursStart as number | null,
-            quietHoursEnd: next.quietHoursEnd as number | null,
+            cheers: nextNotif.cheers as boolean,
+            comments: nextNotif.comments as boolean,
+            replies: nextNotif.replies as boolean,
+            mentions: nextNotif.mentions as boolean,
+            quietHoursStart: nextNotif.quietHoursStart as number | null,
+            quietHoursEnd: nextNotif.quietHoursEnd as number | null,
           })
           .onConflictDoUpdate({
             target: playerSocialNotifPrefs.userId,
             set: {
-              cheers: next.cheers as boolean,
-              comments: next.comments as boolean,
-              replies: next.replies as boolean,
-              mentions: next.mentions as boolean,
-              quietHoursStart: next.quietHoursStart as number | null,
-              quietHoursEnd: next.quietHoursEnd as number | null,
+              cheers: nextNotif.cheers as boolean,
+              comments: nextNotif.comments as boolean,
+              replies: nextNotif.replies as boolean,
+              mentions: nextNotif.mentions as boolean,
+              quietHoursStart: nextNotif.quietHoursStart as number | null,
+              quietHoursEnd: nextNotif.quietHoursEnd as number | null,
               updatedAt: new Date(),
             },
           });
 
-        res.json(next);
+        res.json(nextNotif);
       } catch (err) {
         console.error("[social-prefs] patch error:", err);
         res.status(500).json({ error: "Failed to update preferences" });
@@ -3833,6 +3959,102 @@ const socialPostUpload = multer({
       } catch (err) {
         console.error("[feed-seen] error:", err);
         res.status(500).json({ error: "Failed to update last seen" });
+      }
+    },
+  );
+
+  // ==================== FEED CATEGORY PREFERENCES ====================
+  //
+  // Per-user toggles for which event categories appear in the Community feed.
+  // The GET response always returns a row (defaults are all-on for users who
+  // have never opened the filter sheet). PUT upserts the row.
+  router.get(
+    "/api/social/feed-preferences",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const [row] = await db
+          .select()
+          .from(userFeedPreferences)
+          .where(eq(userFeedPreferences.userId, userId))
+          .limit(1);
+        const prefs = row
+          ? {
+              showMatches: row.showMatches,
+              showLevelUps: row.showLevelUps,
+              showQuests: row.showQuests,
+              showTournaments: row.showTournaments,
+              showOpenMatches: row.showOpenMatches,
+              showCoachPosts: row.showCoachPosts,
+              showFriendMoments: row.showFriendMoments,
+            }
+          : defaultFeedPreferences();
+        res.json({
+          ...prefs,
+          categories: preferencesToCategories(prefs),
+        });
+      } catch (error) {
+        console.error("[FeedPreferences] GET error:", error);
+        res.json({
+          ...defaultFeedPreferences(),
+          categories: [...FEED_CATEGORY_KEYS],
+        });
+      }
+    },
+  );
+
+  router.put(
+    "/api/social/feed-preferences",
+    authMiddleware,
+    async (req: AuthRequest, res: Response) => {
+      try {
+        const userId = req.user!.userId;
+        const body = req.body || {};
+        // Load any existing row so partial PUTs preserve untouched fields
+        // instead of resetting them to the default (true).
+        const [existing] = await db
+          .select()
+          .from(userFeedPreferences)
+          .where(eq(userFeedPreferences.userId, userId))
+          .limit(1);
+        const toBool = (v: unknown, fallback: boolean) =>
+          typeof v === "boolean" ? v : fallback;
+        const nextFeed = {
+          showMatches: toBool(body.showMatches, existing?.showMatches ?? true),
+          showLevelUps: toBool(body.showLevelUps, existing?.showLevelUps ?? true),
+          showQuests: toBool(body.showQuests, existing?.showQuests ?? true),
+          showTournaments: toBool(
+            body.showTournaments,
+            existing?.showTournaments ?? true,
+          ),
+          showOpenMatches: toBool(
+            body.showOpenMatches,
+            existing?.showOpenMatches ?? true,
+          ),
+          showCoachPosts: toBool(
+            body.showCoachPosts,
+            existing?.showCoachPosts ?? true,
+          ),
+          showFriendMoments: toBool(
+            body.showFriendMoments,
+            existing?.showFriendMoments ?? true,
+          ),
+        };
+        await db
+          .insert(userFeedPreferences)
+          .values({ userId, ...nextFeed })
+          .onConflictDoUpdate({
+            target: userFeedPreferences.userId,
+            set: { ...nextFeed, updatedAt: new Date() },
+          });
+        res.json({
+          ...nextFeed,
+          categories: preferencesToCategories(nextFeed),
+        });
+      } catch (error) {
+        console.error("[FeedPreferences] PUT error:", error);
+        res.status(500).json({ error: "Failed to save feed preferences" });
       }
     },
   );

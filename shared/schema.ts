@@ -4187,6 +4187,35 @@ export const insertFeedItemSchema = createInsertSchema(feedItems).omit({ id: tru
 export type InsertFeedItem = z.infer<typeof insertFeedItemSchema>;
 export type FeedItem = typeof feedItems.$inferSelect;
 
+// Per-user preferences for which event types appear in the Community feed.
+// Defaults are all-on so existing users see no change until they opt out of
+// categories. The server reads these and narrows the feed_items query so the
+// payload stays small for users who turn categories off.
+export const userFeedPreferences = pgTable("user_feed_preferences", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .references(() => users.id, { onDelete: "cascade" })
+    .notNull()
+    .unique(),
+  showMatches: boolean("show_matches").notNull().default(true),
+  showLevelUps: boolean("show_level_ups").notNull().default(true),
+  showQuests: boolean("show_quests").notNull().default(true),
+  showTournaments: boolean("show_tournaments").notNull().default(true),
+  showOpenMatches: boolean("show_open_matches").notNull().default(true),
+  showCoachPosts: boolean("show_coach_posts").notNull().default(true),
+  showFriendMoments: boolean("show_friend_moments").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("user_feed_preferences_user_idx").on(table.userId),
+]);
+
+export const insertUserFeedPreferenceSchema = createInsertSchema(userFeedPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertUserFeedPreference = z.infer<typeof insertUserFeedPreferenceSchema>;
+export type UserFeedPreference = typeof userFeedPreferences.$inferSelect;
+
 // Comment likes - tracks which users liked which comments
 export const commentLikes = pgTable("comment_likes", {
   id: varchar("id")

@@ -1,5 +1,5 @@
 import logger from "@/lib/logger";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import {
   View,
@@ -35,7 +35,11 @@ import {
   type Post,
   type Achievement,
   type FriendActivity,
+  type FeedPreferences,
   TAB_BAR_HEIGHT,
+  DEFAULT_FEED_PREFERENCES,
+  FEED_CATEGORY_DEFINITIONS,
+  preferencesToActiveCategories,
 } from "../components/community/CommunityTypes";
 
 import {
@@ -58,6 +62,7 @@ import {
   SharePreviewModal,
   PostDetailModal,
   CreateMomentModal,
+  FeedTypeFilterModal,
 } from "../components/community/CommunityModals";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
@@ -80,7 +85,115 @@ export default function CommunityScreen() {
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [showPostDetailModal, setShowPostDetailModal] = useState(false);
   const [selectedFriendActivity, setSelectedFriendActivity] = useState<FriendActivity | null>(null);
+  const [showFeedFilterModal, setShowFeedFilterModal] = useState(false);
   const chatFooterHeight = 70;
+
+  // Per-user category preferences for the unified feed. Defaults are all on
+  // until the user opens the filter sheet and turns categories off.
+  const { data: feedPreferences } = useQuery<FeedPreferences>({
+    queryKey: ["/api/social/feed-preferences"],
+    queryFn: async () => {
+      const response = await apiFetch(`/api/social/feed-preferences`);
+      if (!response.ok) return DEFAULT_FEED_PREFERENCES;
+      const json = await response.json();
+      return {
+        showMatches: json.showMatches ?? true,
+        showLevelUps: json.showLevelUps ?? true,
+        showQuests: json.showQuests ?? true,
+        showTournaments: json.showTournaments ?? true,
+        showOpenMatches: json.showOpenMatches ?? true,
+        showCoachPosts: json.showCoachPosts ?? true,
+        showFriendMoments: json.showFriendMoments ?? true,
+      };
+    },
+  });
+  const effectivePreferences: FeedPreferences = feedPreferences || DEFAULT_FEED_PREFERENCES;
+  const activeCategories = useMemo(
+    () => preferencesToActiveCategories(effectivePreferences),
+    [effectivePreferences],
+  );
+  const disabledCategoryCount =
+    FEED_CATEGORY_DEFINITIONS.length - activeCategories.length;
+
+  // Track the latest mutation seq so out-of-order responses can't clobber UI.
+  const prefMutationSeqRef = useRef(0);
+  const prefDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const updatePreferencesMutation = useMutation({
+    mutationFn: async (next: FeedPreferences) => {
+      const response = await apiRequest("PUT", "/api/social/feed-preferences", next);
+      return response.json();
+    },
+    onMutate: async (next) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/social/feed-preferences"] });
+      const previous = queryClient.getQueryData<FeedPreferences>([
+        "/api/social/feed-preferences",
+      ]);
+      const seq = ++prefMutationSeqRef.current;
+      queryClient.setQueryData(["/api/social/feed-preferences"], next);
+      return { previous, seq };
+    },
+    onError: (_err, _next, ctx) => {
+      // Only roll back if this is the most recent mutation; otherwise a newer
+      // optimistic update already replaced the data.
+      if (ctx?.seq === prefMutationSeqRef.current && ctx?.previous) {
+        queryClient.setQueryData(["/api/social/feed-preferences"], ctx.previous);
+      }
+      Alert.alert("Couldn't save", "Your feed preferences didn't save. Try again.");
+    },
+    onSettled: (_data, _err, _next, ctx) => {
+      // Refetch only after the most recent mutation has settled to converge
+      // client and server state without flicker during rapid toggling.
+      if (ctx?.seq === prefMutationSeqRef.current) {
+        queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+        // Re-fetch preferences too so the client converges to the
+        // server-canonical row, hardening cache state in retry/edge cases.
+        queryClient.invalidateQueries({
+          queryKey: ["/api/social/feed-preferences"],
+        });
+      }
+    },
+  });
+
+  // Holds the latest pending value so flushPendingPreferences can persist it.
+  const pendingPrefValueRef = useRef<FeedPreferences | null>(null);
+
+  const flushPendingPreferences = () => {
+    if (prefDebounceRef.current) {
+      clearTimeout(prefDebounceRef.current);
+      prefDebounceRef.current = null;
+    }
+    const pending = pendingPrefValueRef.current;
+    if (pending) {
+      pendingPrefValueRef.current = null;
+      updatePreferencesMutation.mutate(pending);
+    }
+  };
+
+  // Debounce PUTs so rapid toggling coalesces into a single request.
+  const handleChangePreferences = (next: FeedPreferences) => {
+    queryClient.setQueryData(["/api/social/feed-preferences"], next);
+    pendingPrefValueRef.current = next;
+    if (prefDebounceRef.current) {
+      clearTimeout(prefDebounceRef.current);
+    }
+    prefDebounceRef.current = setTimeout(() => {
+      prefDebounceRef.current = null;
+      const value = pendingPrefValueRef.current;
+      if (value) {
+        pendingPrefValueRef.current = null;
+        updatePreferencesMutation.mutate(value);
+      }
+    }, 350);
+  };
+
+  useEffect(() => {
+    return () => {
+      // Flush any pending preference change so a quick toggle followed by
+      // unmount still persists to the server.
+      flushPendingPreferences();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: friendsData } = useQuery<{ friends: any[]; pendingRequests: any[] }>({
     queryKey: ["/api/player/me/friends"],
@@ -116,10 +229,24 @@ export default function CommunityScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mainTab, feedUnseenCount]);
 
+  const activeCategoriesParam = useMemo(
+    () => activeCategories.join(","),
+    [activeCategories],
+  );
   const { data: rawFeed = [], isLoading, refetch, isFetching } = useQuery<Post[]>({
-    queryKey: ["/api/social/feed", { filter }],
+    queryKey: ["/api/social/feed", { filter, types: activeCategoriesParam }],
     queryFn: async () => {
-      const response = await apiFetch(`/api/social/feed?filter=${filter}`);
+      const isUnified = filter === "all";
+      const params = new URLSearchParams({ filter });
+      // The unified feed honours per-user category toggles. Other named tabs
+      // (academy/news/events/moments) keep their existing behaviour.
+      if (isUnified) {
+        if (activeCategories.length === 0) {
+          return [];
+        }
+        params.set("types", activeCategoriesParam);
+      }
+      const response = await apiFetch(`/api/social/feed?${params.toString()}`);
       if (response.status === 403) return [];
       if (!response.ok) throw new Error("Failed to fetch feed");
       return response.json();
@@ -261,6 +388,32 @@ export default function CommunityScreen() {
         <ThemedText style={styles.title}>{t('player.community.title')}</ThemedText>
 
         <View style={styles.headerActions}>
+          {mainTab === "feed" && filter === "all" ? (
+            <Pressable
+              style={styles.headerButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                track("community:open_feed_filter");
+                setShowFeedFilterModal(true);
+              }}
+              testID="button-feed-filter"
+            >
+              <View style={styles.addButton}>
+                <Ionicons
+                  name="options"
+                  size={20}
+                  color={Colors.dark.buttonText}
+                />
+                {disabledCategoryCount > 0 ? (
+                  <View style={styles.filterBadge}>
+                    <ThemedText style={styles.filterBadgeText}>
+                      {disabledCategoryCount}
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
+            </Pressable>
+          ) : null}
           <Pressable
             style={styles.headerButton}
             onPress={() => {
@@ -417,6 +570,17 @@ export default function CommunityScreen() {
         }}
       />
 
+      <FeedTypeFilterModal
+        visible={showFeedFilterModal}
+        onClose={() => {
+          flushPendingPreferences();
+          setShowFeedFilterModal(false);
+        }}
+        preferences={effectivePreferences}
+        onChange={handleChangePreferences}
+        isSaving={updatePreferencesMutation.isPending}
+      />
+
       <OnlineSafetyModal
         visible={showSafetyModal}
         onAccept={() => setShowSafetyModal(false)}
@@ -457,6 +621,26 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.primary,
     justifyContent: "center",
     alignItems: "center",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: "#FF6B35",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: Colors.dark.backgroundRoot,
+  },
+  filterBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+    lineHeight: 12,
   },
   restrictedBanner: {
     flexDirection: "row",

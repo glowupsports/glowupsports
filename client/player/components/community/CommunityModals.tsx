@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Share,
+  Switch,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -30,10 +31,14 @@ import {
   type Achievement,
   type FriendActivity,
   type ContextType,
+  type FeedPreferences,
   CONTEXT_OPTIONS,
   CONTEXT_BADGE_STYLES,
   DRAWER_HEIGHT,
+  FEED_CATEGORY_DEFINITIONS,
+  DEFAULT_FEED_PREFERENCES,
 } from "./CommunityTypes";
+import { useTranslation } from "react-i18next";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface CommentsModalProps {
@@ -2261,5 +2266,337 @@ const createStyles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 14,
     color: Colors.dark.primary,
     fontWeight: "500",
+  },
+}));
+
+// ==================== FEED TYPE FILTER MODAL ====================
+
+interface FeedTypeFilterModalProps {
+  visible: boolean;
+  onClose: () => void;
+  preferences: FeedPreferences;
+  onChange: (next: FeedPreferences) => void;
+  isSaving?: boolean;
+}
+
+export function FeedTypeFilterModal({
+  visible,
+  onClose,
+  preferences,
+  onChange,
+  isSaving,
+}: FeedTypeFilterModalProps) {
+  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState<FeedPreferences>(preferences);
+
+  useEffect(() => {
+    if (visible) {
+      setDraft(preferences);
+    }
+  }, [visible, preferences]);
+
+  const enabledCount = FEED_CATEGORY_DEFINITIONS.reduce(
+    (sum, def) => (draft[def.prefField] ? sum + 1 : sum),
+    0,
+  );
+
+  const allOn = enabledCount === FEED_CATEGORY_DEFINITIONS.length;
+  const allOff = enabledCount === 0;
+
+  const handleToggle = (field: keyof FeedPreferences, value: boolean) => {
+    Haptics.selectionAsync();
+    const next = { ...draft, [field]: value };
+    setDraft(next);
+    onChange(next);
+  };
+
+  const handleResetAll = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next = { ...DEFAULT_FEED_PREFERENCES };
+    setDraft(next);
+    onChange(next);
+  };
+
+  const handleSelectNone = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const next: FeedPreferences = {
+      showMatches: false,
+      showLevelUps: false,
+      showQuests: false,
+      showTournaments: false,
+      showOpenMatches: false,
+      showCoachPosts: false,
+      showFriendMoments: false,
+    };
+    setDraft(next);
+    onChange(next);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
+      <View style={feedFilterStyles.backdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View
+          style={[
+            feedFilterStyles.sheet,
+            { paddingBottom: insets.bottom + Spacing.lg },
+          ]}
+        >
+          <View style={feedFilterStyles.handle} />
+          <View style={feedFilterStyles.header}>
+            <View style={{ flex: 1 }}>
+              <ThemedText style={feedFilterStyles.title}>
+                {t("player.community.feedTypes.title", "Customize your feed")}
+              </ThemedText>
+              <ThemedText style={feedFilterStyles.subtitle}>
+                {t(
+                  "player.community.feedTypes.subtitle",
+                  "Choose what shows up in your Community feed.",
+                )}
+              </ThemedText>
+            </View>
+            <Pressable
+              onPress={onClose}
+              style={feedFilterStyles.closeBtn}
+              hitSlop={8}
+              testID="button-close-feed-filter"
+            >
+              <Ionicons name="close" size={22} color={Colors.dark.text} />
+            </Pressable>
+          </View>
+
+          <View style={feedFilterStyles.bulkRow}>
+            <Pressable
+              style={[
+                feedFilterStyles.bulkBtn,
+                allOn && feedFilterStyles.bulkBtnDisabled,
+              ]}
+              disabled={allOn}
+              onPress={handleResetAll}
+              testID="button-feed-filter-all"
+            >
+              <ThemedText style={feedFilterStyles.bulkBtnText}>
+                {t("player.community.feedTypes.selectAll", "Show all")}
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={[
+                feedFilterStyles.bulkBtn,
+                allOff && feedFilterStyles.bulkBtnDisabled,
+              ]}
+              disabled={allOff}
+              onPress={handleSelectNone}
+              testID="button-feed-filter-none"
+            >
+              <ThemedText style={feedFilterStyles.bulkBtnText}>
+                {t("player.community.feedTypes.selectNone", "Hide all")}
+              </ThemedText>
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={feedFilterStyles.list}
+            contentContainerStyle={feedFilterStyles.listContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {FEED_CATEGORY_DEFINITIONS.map((def) => {
+              const value = draft[def.prefField];
+              return (
+                <View key={def.key} style={feedFilterStyles.row}>
+                  <View
+                    style={[
+                      feedFilterStyles.iconWrap,
+                      { backgroundColor: `${def.color}22` },
+                    ]}
+                  >
+                    <Ionicons
+                      name={def.icon}
+                      size={20}
+                      color={def.color}
+                    />
+                  </View>
+                  <View style={feedFilterStyles.rowText}>
+                    <ThemedText style={feedFilterStyles.rowLabel}>
+                      {t(def.i18nLabelKey, def.defaultLabel)}
+                    </ThemedText>
+                    <ThemedText style={feedFilterStyles.rowDescription}>
+                      {t(def.i18nDescriptionKey, def.defaultDescription)}
+                    </ThemedText>
+                  </View>
+                  <Switch
+                    value={value}
+                    onValueChange={(v) => handleToggle(def.prefField, v)}
+                    trackColor={{
+                      false: Colors.dark.border,
+                      true: def.color,
+                    }}
+                    thumbColor={Colors.dark.text}
+                    testID={`switch-feed-${def.key}`}
+                  />
+                </View>
+              );
+            })}
+          </ScrollView>
+
+          {allOff ? (
+            <View style={feedFilterStyles.warningBanner}>
+              <Ionicons name="alert-circle" size={16} color="#FFD166" />
+              <ThemedText style={feedFilterStyles.warningText}>
+                {t(
+                  "player.community.feedTypes.allHiddenWarning",
+                  "Your feed will be empty until you turn at least one category back on.",
+                )}
+              </ThemedText>
+            </View>
+          ) : null}
+
+          {isSaving ? (
+            <View style={feedFilterStyles.savingRow}>
+              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <ThemedText style={feedFilterStyles.savingText}>
+                {t("player.community.feedTypes.saving", "Saving…")}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const feedFilterStyles = makeReactiveStyles(() => StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    maxHeight: "85%",
+  },
+  handle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.border,
+    marginBottom: Spacing.md,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  subtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    lineHeight: 18,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bulkRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  bulkBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+  },
+  bulkBtnDisabled: {
+    opacity: 0.4,
+  },
+  bulkBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  list: {
+    flexGrow: 0,
+  },
+  listContent: {
+    gap: Spacing.sm,
+    paddingBottom: Spacing.md,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowText: {
+    flex: 1,
+  },
+  rowLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  rowDescription: {
+    marginTop: 2,
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  warningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#FFD16615",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#FFD166",
+    lineHeight: 16,
+  },
+  savingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingTop: Spacing.sm,
+  },
+  savingText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
   },
 }));

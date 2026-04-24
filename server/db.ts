@@ -977,6 +977,32 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] chat_rooms migration skipped:', e.message);
   }
 
+  // Task #1146 — per-user feed category preferences. One row per user with a
+  // boolean flag for each of the seven event categories rendered in the
+  // Community feed. Defaults are all true so users who never open the filter
+  // sheet keep the existing experience.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_feed_preferences (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id VARCHAR NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        show_matches BOOLEAN NOT NULL DEFAULT TRUE,
+        show_level_ups BOOLEAN NOT NULL DEFAULT TRUE,
+        show_quests BOOLEAN NOT NULL DEFAULT TRUE,
+        show_tournaments BOOLEAN NOT NULL DEFAULT TRUE,
+        show_open_matches BOOLEAN NOT NULL DEFAULT TRUE,
+        show_coach_posts BOOLEAN NOT NULL DEFAULT TRUE,
+        show_friend_moments BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS user_feed_preferences_user_idx ON user_feed_preferences(user_id)`);
+    console.log('[Database] user_feed_preferences migration applied');
+  } catch (e: any) {
+    console.log('[Database] user_feed_preferences migration skipped:', e.message);
+  }
+
   // Task #1037 — Public Coach Profiles. The schema default for
   // public_profile_enabled is true so newly created coaches are publicly
   // discoverable, but for privacy we must keep ALL pre-existing coaches

@@ -1,4 +1,7 @@
 import { Dimensions } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
+
+export type IoniconsName = keyof typeof Ionicons.glyphMap;
 
 export const TAB_BAR_HEIGHT = 80;
 
@@ -7,6 +10,132 @@ export const DRAWER_HEIGHT = Math.min(SCREEN_HEIGHT * 0.55, 450);
 
 export type FeedFilter = "all" | "news" | "academy" | "moments" | "events";
 export type MainTab = "feed" | "friends" | "groups";
+
+// Categories the player can toggle on/off in the feed-type filter sheet.
+// Keep this list in sync with the server's FEED_CATEGORY_KEYS.
+export type FeedCategoryKey =
+  | "matches"
+  | "level_ups"
+  | "quests"
+  | "tournaments"
+  | "open_matches"
+  | "coach_posts"
+  | "friend_moments";
+
+export interface FeedCategoryDefinition {
+  key: FeedCategoryKey;
+  prefField:
+    | "showMatches"
+    | "showLevelUps"
+    | "showQuests"
+    | "showTournaments"
+    | "showOpenMatches"
+    | "showCoachPosts"
+    | "showFriendMoments";
+  icon: IoniconsName;
+  color: string;
+  defaultLabel: string;
+  defaultDescription: string;
+  i18nLabelKey: string;
+  i18nDescriptionKey: string;
+}
+
+export const FEED_CATEGORY_DEFINITIONS: FeedCategoryDefinition[] = [
+  {
+    key: "matches",
+    prefField: "showMatches",
+    icon: "tennisball",
+    color: "#9AE66E",
+    defaultLabel: "Matches",
+    defaultDescription: "Match results from your network",
+    i18nLabelKey: "player.community.feedTypes.matches.label",
+    i18nDescriptionKey: "player.community.feedTypes.matches.description",
+  },
+  {
+    key: "level_ups",
+    prefField: "showLevelUps",
+    icon: "rocket",
+    color: "#00D9FF",
+    defaultLabel: "Level-ups",
+    defaultDescription: "When players reach a new level",
+    i18nLabelKey: "player.community.feedTypes.levelUps.label",
+    i18nDescriptionKey: "player.community.feedTypes.levelUps.description",
+  },
+  {
+    key: "quests",
+    prefField: "showQuests",
+    icon: "checkmark-done-circle",
+    color: "#FFD166",
+    defaultLabel: "Quests",
+    defaultDescription: "Quest completions and challenges",
+    i18nLabelKey: "player.community.feedTypes.quests.label",
+    i18nDescriptionKey: "player.community.feedTypes.quests.description",
+  },
+  {
+    key: "tournaments",
+    prefField: "showTournaments",
+    icon: "trophy",
+    color: "#FFB347",
+    defaultLabel: "Tournaments",
+    defaultDescription: "Tournament results and winners",
+    i18nLabelKey: "player.community.feedTypes.tournaments.label",
+    i18nDescriptionKey: "player.community.feedTypes.tournaments.description",
+  },
+  {
+    key: "open_matches",
+    prefField: "showOpenMatches",
+    icon: "people",
+    color: "#4ECDC4",
+    defaultLabel: "Open matches",
+    defaultDescription: "Players looking for a game",
+    i18nLabelKey: "player.community.feedTypes.openMatches.label",
+    i18nDescriptionKey: "player.community.feedTypes.openMatches.description",
+  },
+  {
+    key: "coach_posts",
+    prefField: "showCoachPosts",
+    icon: "megaphone",
+    color: "#E040FB",
+    defaultLabel: "Coach posts",
+    defaultDescription: "Updates and tips from coaches",
+    i18nLabelKey: "player.community.feedTypes.coachPosts.label",
+    i18nDescriptionKey: "player.community.feedTypes.coachPosts.description",
+  },
+  {
+    key: "friend_moments",
+    prefField: "showFriendMoments",
+    icon: "camera",
+    color: "#FF6B35",
+    defaultLabel: "Friend moments",
+    defaultDescription: "Moments shared by your community",
+    i18nLabelKey: "player.community.feedTypes.friendMoments.label",
+    i18nDescriptionKey: "player.community.feedTypes.friendMoments.description",
+  },
+];
+
+export interface FeedPreferences {
+  showMatches: boolean;
+  showLevelUps: boolean;
+  showQuests: boolean;
+  showTournaments: boolean;
+  showOpenMatches: boolean;
+  showCoachPosts: boolean;
+  showFriendMoments: boolean;
+}
+
+export const DEFAULT_FEED_PREFERENCES: FeedPreferences = {
+  showMatches: true,
+  showLevelUps: true,
+  showQuests: true,
+  showTournaments: true,
+  showOpenMatches: true,
+  showCoachPosts: true,
+  showFriendMoments: true,
+};
+
+export function preferencesToActiveCategories(prefs: FeedPreferences): FeedCategoryKey[] {
+  return FEED_CATEGORY_DEFINITIONS.filter((d) => prefs[d.prefField]).map((d) => d.key);
+}
 
 export interface Post {
   id: string;

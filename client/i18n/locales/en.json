@@ -713,7 +713,43 @@
       "joinGroup": "Join Group",
       "groupMembers": "Members",
       "training": "Training",
-      "social": "Social"
+      "social": "Social",
+      "feedTypes": {
+        "title": "Customize your feed",
+        "subtitle": "Choose what shows up in your Community feed.",
+        "selectAll": "Show all",
+        "selectNone": "Hide all",
+        "saving": "Saving…",
+        "allHiddenWarning": "Your feed will be empty until you turn at least one category back on.",
+        "matches": {
+          "label": "Matches",
+          "description": "Match results from your network"
+        },
+        "levelUps": {
+          "label": "Level-ups",
+          "description": "When players reach a new level"
+        },
+        "quests": {
+          "label": "Quests",
+          "description": "Quest completions and challenges"
+        },
+        "tournaments": {
+          "label": "Tournaments",
+          "description": "Tournament results and winners"
+        },
+        "openMatches": {
+          "label": "Open matches",
+          "description": "Players looking for a game"
+        },
+        "coachPosts": {
+          "label": "Coach posts",
+          "description": "Updates and tips from coaches"
+        },
+        "friendMoments": {
+          "label": "Friend moments",
+          "description": "Moments shared by your community"
+        }
+      }
     },
     "profile": {
       "title": "Profile",
