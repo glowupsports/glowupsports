@@ -165,11 +165,30 @@ function timeAgo(dateStr: string): string {
 
 // ─── MEMBER GRID CELL ──────────────────────────────────────────────────────────
 
-function MemberGridCell({ member, typeColor }: { member: GroupDetail["members"][0]; typeColor: string }) {
+function MemberGridCell({
+  member,
+  typeColor,
+  canManage,
+  onRemove,
+}: {
+  member: GroupDetail["members"][0];
+  typeColor: string;
+  canManage: boolean;
+  onRemove: (member: GroupDetail["members"][0]) => void;
+}) {
   const photoUri = getPhotoUri(member.avatarUrl);
+  // Only manually-invited members can be removed from the screen. Auto-synced
+  // members (who are in the group because they're enrolled in the underlying
+  // class) would just be re-added on the next sync, so removing them here
+  // would be confusing — those should be removed via the class roster.
+  const isRemovable = canManage && member.role !== "admin" && !!member.addedManually;
   return (
     <Animated.View entering={FadeInDown.duration(200)} style={styles.memberCell}>
-      <View style={styles.memberCellAvatarWrap}>
+      <Pressable
+        onLongPress={isRemovable ? () => onRemove(member) : undefined}
+        delayLongPress={300}
+        style={styles.memberCellAvatarWrap}
+      >
         {photoUri ? (
           <Image source={{ uri: photoUri }} style={styles.memberCellAvatarImg} />
         ) : (
@@ -184,7 +203,16 @@ function MemberGridCell({ member, typeColor }: { member: GroupDetail["members"][
             <Ionicons name="star" size={9} color={Colors.dark.gold} />
           </View>
         ) : null}
-      </View>
+        {isRemovable ? (
+          <Pressable
+            style={styles.memberRemoveBadge}
+            onPress={() => onRemove(member)}
+            hitSlop={8}
+          >
+            <Ionicons name="close" size={11} color="#fff" />
+          </Pressable>
+        ) : null}
+      </Pressable>
       <Text style={styles.memberCellName} numberOfLines={1}>{member.name.split(" ")[0]}</Text>
     </Animated.View>
   );
@@ -673,7 +701,11 @@ function AddMembersModal({
   const [search, setSearch] = useState("");
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
-  const { data, isLoading } = useQuery<{ friends: SuggestedPlayer[]; academy: SuggestedPlayer[] }>({
+  const { data, isLoading } = useQuery<{
+    friends: SuggestedPlayer[];
+    academy: SuggestedPlayer[];
+    parents: SuggestedPlayer[];
+  }>({
     queryKey: [`/api/player/groups/${groupId}/member-suggestions`],
     enabled: visible,
   });
@@ -706,7 +738,8 @@ function AddMembersModal({
 
   const friends = filterPlayers(data?.friends || []);
   const academy = filterPlayers(data?.academy || []);
-  const isEmpty = friends.length === 0 && academy.length === 0;
+  const parents = filterPlayers(data?.parents || []);
+  const isEmpty = friends.length === 0 && academy.length === 0 && parents.length === 0;
 
   const renderPlayer = (item: SuggestedPlayer) => {
     const photoUri = getPhotoUri(item.avatarUrl);
@@ -777,7 +810,7 @@ function AddMembersModal({
             <View style={styles.addMembersEmpty}>
               <Ionicons name="people-outline" size={40} color="#334455" />
               <Text style={styles.addMembersEmptyText}>
-                {search.trim() ? "No players match your search" : "Everyone in your academy is already in the group"}
+                {search.trim() ? "Nobody matches your search" : "Everyone in your academy is already in the group"}
               </Text>
             </View>
           ) : (
@@ -802,6 +835,15 @@ function AddMembersModal({
                     <Text style={styles.sectionHeaderText}>Academy Players</Text>
                   </View>
                   {academy.map(renderPlayer)}
+                </>
+              ) : null}
+              {parents.length > 0 ? (
+                <>
+                  <View style={styles.sectionHeaderRow}>
+                    <Ionicons name="people" size={12} color="#7A8EA0" />
+                    <Text style={styles.sectionHeaderText}>Parents</Text>
+                  </View>
+                  {parents.map(renderPlayer)}
                 </>
               ) : null}
               <View style={{ height: 32 }} />
@@ -2391,6 +2433,37 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
     },
   });
 
+  const removeMemberMutation = useMutation({
+    mutationFn: (targetUserId: string) =>
+      apiRequest("DELETE", `/api/player/groups/${groupId}/members/${targetUserId}`),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: [`/api/player/groups/${groupId}`] });
+      queryClient.invalidateQueries({
+        queryKey: [`/api/player/groups/${groupId}/member-suggestions`],
+      });
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error?.message || "Failed to remove member");
+    },
+  });
+
+  const handleRemoveMember = (member: GroupDetail["members"][0]) => {
+    if (member.userId === user?.id) return;
+    Alert.alert(
+      "Remove Member",
+      `Remove ${member.name} from this group? They'll lose access to the chat, feed, and member list.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => removeMemberMutation.mutate(member.userId),
+        },
+      ],
+    );
+  };
+
   const handleLeave = () => {
     Alert.alert("Leave Group", `Leave "${groupName}"?`, [
       { text: "Cancel", style: "cancel" },
@@ -2607,7 +2680,14 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
           data={members}
           keyExtractor={(item) => item.id}
           numColumns={4}
-          renderItem={({ item }) => <MemberGridCell member={item} typeColor={typeColor} />}
+          renderItem={({ item }) => (
+            <MemberGridCell
+              member={item}
+              typeColor={typeColor}
+              canManage={isAdmin && item.userId !== user?.id}
+              onRemove={handleRemoveMember}
+            />
+          )}
           contentContainerStyle={[styles.memberGrid, { paddingBottom: insets.bottom + 100 }]}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -2732,6 +2812,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   memberCellAvatarImg: { width: 58, height: 58, borderRadius: 29 },
   memberCellInitial: { fontSize: 20, fontWeight: "700" },
   adminStarBadge: { position: "absolute", bottom: 0, right: 0, width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.dark.gold + "25", borderWidth: 1.5, borderColor: Backgrounds.root, justifyContent: "center", alignItems: "center" },
+  memberRemoveBadge: { position: "absolute", top: -4, right: -4, width: 20, height: 20, borderRadius: 10, backgroundColor: "#FF4D6D", borderWidth: 1.5, borderColor: Backgrounds.root, justifyContent: "center", alignItems: "center" },
   memberCellName: { fontSize: 11, fontWeight: "500", color: "#7A8EA0", textAlign: "center", maxWidth: 70 },
 
   // Empty state

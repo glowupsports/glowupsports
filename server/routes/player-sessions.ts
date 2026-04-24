@@ -50,6 +50,7 @@ import { getPlayerCountryLadderRank, resolvePlayerSports } from "./tournaments-l
     openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
     questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
     dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
+    parentPlayerRelations,
     badges as badgesTable, playerBadges as playerBadgesTable,
     titles as titlesTable, playerTitles as playerTitlesTable,
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
@@ -2793,6 +2794,7 @@ import fs from "fs";
           role: m.member.role,
           joinedAt: m.member.joinedAt,
           avatarUrl: m.playerPhoto || null,
+          addedManually: m.member.addedManually,
         }));
 
         res.json({
@@ -3145,7 +3147,7 @@ import fs from "fs";
       try {
         const { groupId } = req.params;
         const userId = req.user!.userId!;
-        const playerId = req.user!.playerId!;
+        const callerPlayerId = req.user!.playerId ?? null;
 
         // Must be admin of the group
         const [membership] = await db
@@ -3156,41 +3158,47 @@ import fs from "fs";
           return res.status(403).json({ error: "Only group admins can view member suggestions" });
         }
 
-        const player = await storage.getPlayer(playerId);
-        if (!player || !player.academyId) {
-          return res.status(400).json({ error: "Player must be in an academy" });
+        // Resolve the academy from the group itself so coach admins (who don't
+        // have a playerId) can still load suggestions for their class group.
+        const [group] = await db
+          .select({ academyId: communityGroupsTable.academyId })
+          .from(communityGroupsTable)
+          .where(eq(communityGroupsTable.id, groupId));
+        if (!group) {
+          return res.status(404).json({ error: "Group not found" });
         }
+        const academyId = group.academyId;
 
         // Get all current member userIds for exclusion
         const currentMembers = await db
           .select({ userId: groupMembersTable.userId })
           .from(groupMembersTable)
           .where(eq(groupMembersTable.groupId, groupId));
-        const memberUserIds = currentMembers.map((m) => m.userId);
+        const memberUserIds = new Set(currentMembers.map((m) => m.userId));
 
-        // Get accepted friend connections for this player
-        const friendConns = await db
-          .select({
-            player1Id: playerConnections.player1Id,
-            player2Id: playerConnections.player2Id,
-          })
-          .from(playerConnections)
-          .where(
-            and(
-              eq(playerConnections.status, "accepted"),
-              or(
-                eq(playerConnections.player1Id, playerId),
-                eq(playerConnections.player2Id, playerId),
+        // Friends section is only meaningful for player callers
+        let friendUsers: Array<{ userId: string; name: string; avatarUrl: string | null }> = [];
+        if (callerPlayerId) {
+          const friendConns = await db
+            .select({
+              player1Id: playerConnections.player1Id,
+              player2Id: playerConnections.player2Id,
+            })
+            .from(playerConnections)
+            .where(
+              and(
+                eq(playerConnections.status, "accepted"),
+                or(
+                  eq(playerConnections.player1Id, callerPlayerId),
+                  eq(playerConnections.player2Id, callerPlayerId),
+                ),
               ),
-            ),
+            );
+          const friendPlayerIds = friendConns.map((c) =>
+            c.player1Id === callerPlayerId ? c.player2Id : c.player1Id,
           );
-        const friendPlayerIds = friendConns.map((c) =>
-          c.player1Id === playerId ? c.player2Id : c.player1Id,
-        );
-
-        // Resolve friend playerIds → users (who are not already members)
-        const friendUsers = friendPlayerIds.length > 0
-          ? await db
+          if (friendPlayerIds.length > 0) {
+            friendUsers = await db
               .select({
                 userId: users.id,
                 name: players.name,
@@ -3198,11 +3206,12 @@ import fs from "fs";
               })
               .from(players)
               .innerJoin(users, eq(users.playerId, players.id))
-              .where(inArray(players.id, friendPlayerIds))
-          : [];
+              .where(inArray(players.id, friendPlayerIds));
+          }
+        }
 
-        // Academy players not already members (excluding self)
-        const academyUsers = await db
+        // Academy players (excluding caller themselves)
+        const academyPlayers = await db
           .select({
             userId: users.id,
             name: players.name,
@@ -3212,21 +3221,62 @@ import fs from "fs";
           .innerJoin(users, eq(users.playerId, players.id))
           .where(
             and(
-              eq(players.academyId, player.academyId),
-              ne(players.id, playerId),
+              eq(players.academyId, academyId),
+              callerPlayerId ? ne(players.id, callerPlayerId) : sql`true`,
             ),
           )
-          .limit(60);
+          .limit(80);
 
-        // Filter out existing members and cap total to 50 (friends have priority)
-        const notMember = (u: { userId: string }) => !memberUserIds.includes(u.userId);
+        // Parents in this academy — users with at least one parent_player_relations
+        // row pointing at a player in the same academy. We dedupe parent userIds
+        // and look up basic profile info from users.
+        const parentRows = await db
+          .select({
+            parentUserId: parentPlayerRelations.parentUserId,
+            childName: players.name,
+          })
+          .from(parentPlayerRelations)
+          .innerJoin(players, eq(players.id, parentPlayerRelations.playerId))
+          .where(eq(players.academyId, academyId));
+
+        const parentUserIds = Array.from(
+          new Set(parentRows.map((r) => r.parentUserId).filter((id) => id !== userId)),
+        );
+        const parents: Array<{ userId: string; name: string; avatarUrl: string | null }> = [];
+        if (parentUserIds.length > 0) {
+          const parentUsers = await db
+            .select({ id: users.id, username: users.username, email: users.email })
+            .from(users)
+            .where(inArray(users.id, parentUserIds));
+          // Build a "Name (parent of Child)" label so the inviter knows who's who.
+          const childMap = new Map<string, string>();
+          for (const r of parentRows) {
+            if (!childMap.has(r.parentUserId)) childMap.set(r.parentUserId, r.childName);
+          }
+          for (const pu of parentUsers) {
+            const child = childMap.get(pu.id);
+            const baseName = pu.username || pu.email || "Parent";
+            parents.push({
+              userId: pu.id,
+              name: child ? `${baseName} (parent of ${child})` : baseName,
+              avatarUrl: null,
+            });
+          }
+        }
+
+        // Filter out existing members and the caller themselves
+        const notMember = (u: { userId: string }) =>
+          !memberUserIds.has(u.userId) && u.userId !== userId;
         const friends = friendUsers.filter(notMember).slice(0, 50);
         const friendUserIds = new Set(friends.map((f) => f.userId));
-        const academy = academyUsers
+        const academy = academyPlayers
           .filter((u) => notMember(u) && !friendUserIds.has(u.userId))
-          .slice(0, 50 - friends.length);
+          .slice(0, 60);
+        const academyParents = parents
+          .filter((u) => notMember(u) && !friendUserIds.has(u.userId))
+          .slice(0, 60);
 
-        res.json({ friends, academy });
+        res.json({ friends, academy, parents: academyParents });
       } catch (error) {
         console.error("Error fetching member suggestions:", error);
         res.status(500).json({ error: "Failed to fetch suggestions" });
@@ -3234,7 +3284,9 @@ import fs from "fs";
     },
   );
 
-  // Admin adds a player to the group directly
+  // Admin invites a person (player, parent, assistant) into the group directly.
+  // Inserted rows are flagged addedManually=true so the series→group sync
+  // function never silently removes them.
   router.post(
     "/api/player/groups/:groupId/members",
     authMiddleware,
@@ -3268,21 +3320,43 @@ import fs from "fs";
           return res.status(404).json({ error: "Group not found" });
         }
 
-        // Validate target user belongs to the same academy
-        const [adminPlayer] = await db
-          .select({ academyId: players.academyId })
-          .from(players)
-          .innerJoin(users, eq(users.playerId, players.id))
-          .where(eq(users.id, userId));
-
-        const [targetPlayer] = await db
-          .select({ academyId: players.academyId })
-          .from(players)
-          .innerJoin(users, eq(users.playerId, players.id))
+        // Validate the target belongs to the same academy. We accept any user
+        // (players, parents, assistants, coaches) — academy membership can come
+        // from users.academyId directly, from a player profile, or from a
+        // parent_player_relations row pointing to a player in this academy.
+        const [targetUser] = await db
+          .select({ id: users.id, academyId: users.academyId, playerId: users.playerId })
+          .from(users)
           .where(eq(users.id, targetUserId));
+        if (!targetUser) {
+          return res.status(404).json({ error: "User not found" });
+        }
 
-        if (!targetPlayer || targetPlayer.academyId !== group.academyId) {
-          return res.status(400).json({ error: "Player is not in the same academy as this group" });
+        let inAcademy = targetUser.academyId === group.academyId;
+        if (!inAcademy && targetUser.playerId) {
+          const [pp] = await db
+            .select({ academyId: players.academyId })
+            .from(players)
+            .where(eq(players.id, targetUser.playerId));
+          inAcademy = pp?.academyId === group.academyId;
+        }
+        if (!inAcademy) {
+          const [parentLink] = await db
+            .select({ playerId: parentPlayerRelations.playerId })
+            .from(parentPlayerRelations)
+            .innerJoin(players, eq(players.id, parentPlayerRelations.playerId))
+            .where(
+              and(
+                eq(parentPlayerRelations.parentUserId, targetUserId),
+                eq(players.academyId, group.academyId),
+              ),
+            )
+            .limit(1);
+          inAcademy = !!parentLink;
+        }
+
+        if (!inAcademy) {
+          return res.status(400).json({ error: "User is not in the same academy as this group" });
         }
 
         // Check if target already a member
@@ -3291,13 +3365,14 @@ import fs from "fs";
           .from(groupMembersTable)
           .where(and(eq(groupMembersTable.groupId, groupId), eq(groupMembersTable.userId, targetUserId)));
         if (existing) {
-          return res.status(409).json({ error: "Player is already a member" });
+          return res.status(409).json({ error: "User is already a member" });
         }
 
         await db.insert(groupMembersTable).values({
           groupId,
           userId: targetUserId,
           role: "member",
+          addedManually: true,
         });
 
         await db
@@ -3309,6 +3384,86 @@ import fs from "fs";
       } catch (error) {
         console.error("Error adding group member:", error);
         res.status(500).json({ error: "Failed to add member" });
+      }
+    },
+  );
+
+  // Admin removes a member from the group. Works for both auto-added and
+  // manually-invited members; auto-added players will be re-added the next
+  // time the underlying class is re-synced (which is the right behaviour —
+  // removal here is a community-membership action, not a class enrollment one).
+  router.delete(
+    "/api/player/groups/:groupId/members/:userId",
+    authMiddleware,
+    requirePlayerOrOwner,
+    requireFeatureUnlock("groups"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { groupId, userId: targetUserId } = req.params;
+        const callerUserId = req.user!.userId!;
+
+        if (targetUserId === callerUserId) {
+          return res.status(400).json({
+            error: "You cannot remove yourself — use Leave Group or Delete Group instead",
+          });
+        }
+
+        const [callerMembership] = await db
+          .select()
+          .from(groupMembersTable)
+          .where(
+            and(
+              eq(groupMembersTable.groupId, groupId),
+              eq(groupMembersTable.userId, callerUserId),
+            ),
+          );
+        if (!callerMembership || callerMembership.role !== "admin") {
+          return res.status(403).json({ error: "Only group admins can remove members" });
+        }
+
+        const [target] = await db
+          .select()
+          .from(groupMembersTable)
+          .where(
+            and(
+              eq(groupMembersTable.groupId, groupId),
+              eq(groupMembersTable.userId, targetUserId),
+            ),
+          );
+        if (!target) {
+          return res.status(404).json({ error: "Member not found in this group" });
+        }
+        if (target.role === "admin") {
+          return res.status(400).json({ error: "Admins cannot be removed by other admins" });
+        }
+        // Only manually-invited members can be removed here. Auto-synced
+        // members (from class enrollment) would be re-added on the next
+        // series→group resync, so removing them here would be confusing —
+        // those should be removed by editing the underlying class roster.
+        if (!target.addedManually) {
+          return res.status(400).json({
+            error: "This member was added from class enrollment. Remove them from the class roster instead.",
+          });
+        }
+
+        await db
+          .delete(groupMembersTable)
+          .where(
+            and(
+              eq(groupMembersTable.groupId, groupId),
+              eq(groupMembersTable.userId, targetUserId),
+            ),
+          );
+
+        await db
+          .update(communityGroupsTable)
+          .set({ memberCount: sql`GREATEST(${communityGroupsTable.memberCount} - 1, 0)` })
+          .where(eq(communityGroupsTable.id, groupId));
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error removing group member:", error);
+        res.status(500).json({ error: "Failed to remove member" });
       }
     },
   );

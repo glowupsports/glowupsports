@@ -3898,6 +3898,12 @@ export const groupMembers = pgTable("group_members", {
   mutedUntil: timestamp("muted_until"),
   notificationsEnabled: boolean("notifications_enabled").default(true),
   
+  // True when an admin manually invited this person into the group
+  // (e.g. coach invited a parent or assistant into a class-derived group).
+  // The series→group sync function leaves these rows alone so re-syncing
+  // a class never silently kicks out manually-invited members.
+  addedManually: boolean("added_manually").notNull().default(false),
+  
   joinedAt: timestamp("joined_at").defaultNow(),
 }, (table) => [
   index("group_members_group_idx").on(table.groupId),

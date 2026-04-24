@@ -662,13 +662,23 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
       .select()
       .from(groupMembers)
       .where(eq(groupMembers.groupId, group.id));
+    // Manually-invited members (e.g. parents, assistants) are managed by the
+    // coach via the in-app invite flow — sync must never touch their rows.
+    // We exclude them from both the diff and the delete pass below.
+    const autoMembers = currentMembers.filter((m) => !m.addedManually);
     const currentMap = new Map<string, (typeof currentMembers)[number]>();
-    for (const m of currentMembers) currentMap.set(m.userId, m);
+    for (const m of autoMembers) currentMap.set(m.userId, m);
+    const manuallyAddedUserIds = new Set(
+      currentMembers.filter((m) => m.addedManually).map((m) => m.userId),
+    );
 
     const toInsert: Array<{ groupId: string; userId: string; role: string }> = [];
     const toDelete: string[] = [];
 
     for (const [uid, role] of desired) {
+      // If this user was manually invited, leave their row as-is — don't
+      // duplicate-insert and don't override their (probably "member") role.
+      if (manuallyAddedUserIds.has(uid)) continue;
       const existing = currentMap.get(uid);
       if (!existing) {
         toInsert.push({ groupId: group.id, userId: uid, role });
