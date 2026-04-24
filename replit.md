@@ -36,6 +36,13 @@ For mixed changes (server + client): Republish first, then OTA push.
 The OTA push script (`scripts/ota-push.sh`) runs a lint pre-flight that **hard-aborts** the push on any error in changed files.
 Always run `npm run lint` (and ideally `npm run check:types`) **before** OTA-pushing or merging. Do NOT lower these rules to `warn` or `off`.
 
+### CRITICAL: OTA Push kill switch (Task #1289)
+**`scripts/ota-push.sh` is currently DISABLED. It refuses to run unless `OTA_PUSH_ENABLED=1` is set in the environment.**
+On 24 April 2026 the OTA Push workflow re-fired automatically (post-merge picked up `.local/.commit_message` as a publish trigger) and OVERWROTE a freshly published rollback marker with the still-broken bundle, force-closing end users a second time. The kill switch fails closed so an unattended re-fire can never overwrite a rollback again.
+- To intentionally publish a hotfix: `OTA_PUSH_ENABLED=1 OTA_MESSAGE="Hotfix XYZ" bash scripts/ota-push.sh`.
+- To re-publish a rollback marker: `bash scripts/ota-rollback.sh` (which calls `eas update:republish --group <id>` for both platforms; intentionally does NOT honour the kill switch).
+- Remove the kill switch ONLY after the bundle crash is root-caused, fixed, and a clean hotfix has been validated end-to-end on a bisect channel.
+
 ### CRITICAL: API Development Rule
 **DO NOT create new API endpoints without explicit permission!**
 1. **First**: Check existing endpoints.

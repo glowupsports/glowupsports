@@ -51,6 +51,42 @@
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
+# EMERGENCY KILL SWITCH (Task #1289)
+#
+# Earlier today the OTA Push workflow re-fired automatically (post-merge of
+# Task #1286 left a `.local/.commit_message`, which this script picks up as
+# a publish trigger) and OVERWROTE a freshly published rollback with the
+# still-broken bundle. End users force-closed again.
+#
+# Until the bundle crash is root-caused and a clean hotfix is staged, this
+# script REFUSES to run unless the operator sets OTA_PUSH_ENABLED=1. The
+# Replit "OTA Push" workflow does NOT set this flag, so accidental re-runs
+# (manual or post-merge) now fail closed.
+#
+# To intentionally publish:
+#   OTA_PUSH_ENABLED=1 OTA_MESSAGE="Hotfix XYZ" bash scripts/ota-push.sh
+# ---------------------------------------------------------------------------
+if [[ "${OTA_PUSH_ENABLED:-0}" != "1" ]]; then
+  cat <<'OTA_DISABLED'
+################################################################
+#  OTA Push is DISABLED.
+#
+#  An emergency kill switch is in place (see scripts/ota-push.sh
+#  header — Task #1289) because a recent push crashed end users
+#  on cold start and an automatic re-fire overwrote the rollback.
+#
+#  To re-enable a single push intentionally:
+#    OTA_PUSH_ENABLED=1 OTA_MESSAGE="..." bash scripts/ota-push.sh
+#
+#  Remove the kill switch only after the bundle crash is root-
+#  caused, fixed, and a clean hotfix has been validated on a
+#  bisect channel (`production-hotfix` or similar).
+################################################################
+OTA_DISABLED
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
 # Parse arguments — OTA_MESSAGE / OTA_PLATFORM env vars are fallbacks
 #
 # Precedence (highest → lowest):

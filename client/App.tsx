@@ -41,6 +41,44 @@ if (SENTRY_DSN) {
       return event;
     },
   });
+
+  // Boot beacon (Task #1289) — proves the new OTA bundle actually evaluated
+  // module-top-level on the device. Tagged with the exact OTA update id so we
+  // can correlate Sentry events with the EAS dashboard. Without this, when a
+  // bundle crashes during JS init we have no telemetry signal at all and can
+  // only bisect blind.
+  //
+  // expo-updates is loaded via guarded `require` (NOT a static `import`) so
+  // that a missing/broken module on web/dev cannot prevent the bundle's first
+  // line of telemetry from firing. The whole block is wrapped in try/catch
+  // for the same reason.
+  try {
+    let otaUpdateId = "embedded";
+    let otaRuntime = "unknown";
+    let otaChannel = "unknown";
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Updates = require("expo-updates");
+      if (Updates) {
+        otaUpdateId = String(Updates.updateId || "embedded");
+        otaRuntime = String(Updates.runtimeVersion || "unknown");
+        otaChannel = String(Updates.channel || "unknown");
+      }
+    } catch {
+      // expo-updates not present (web build, dev) — fall back to defaults.
+    }
+    Sentry.setTag("ota_update_id", otaUpdateId);
+    Sentry.setTag("ota_runtime", otaRuntime);
+    Sentry.setTag("ota_channel", otaChannel);
+    Sentry.addBreadcrumb({
+      category: "boot",
+      level: "info",
+      message: `App.tsx evaluated · ota=${otaUpdateId} rt=${otaRuntime} channel=${otaChannel}`,
+    });
+    Sentry.captureMessage(`[boot] App.tsx evaluated rt=${otaRuntime}`, "info");
+  } catch {
+    // never let telemetry crash the app
+  }
 }
 
 import { QueryClientProvider } from "@tanstack/react-query";
