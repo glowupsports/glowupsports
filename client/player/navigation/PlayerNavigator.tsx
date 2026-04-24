@@ -61,7 +61,6 @@ import BrowseChatRoomsScreen from "@/player/screens/BrowseChatRoomsScreen";
 import PlayerBookingChatScreen from "@/player/screens/PlayerBookingChatScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerGuideScreen from "@/player/screens/PlayerGuideScreen";
-import { FloatingHelpButton } from "@/player/components/FloatingHelpButton";
 import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
 import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
 import PlayerAcademyProfileScreen from "@/player/screens/PlayerAcademyProfileScreen";
@@ -1841,7 +1840,6 @@ export default function PlayerNavigator() {
                     <PlayerThemedRoot>
                       <FamilySwitchBackBanner />
                       <PlayerStackNavigator />
-                      <FloatingHelpButton />
                     </PlayerThemedRoot>
                   </PlayerLevelProvider>
                 </FamilyProvider>

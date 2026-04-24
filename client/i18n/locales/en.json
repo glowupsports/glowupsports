@@ -1763,9 +1763,6 @@
       "openGuide": "Open the guide",
       "later": "Later",
       "dismissA11y": "Dismiss welcome"
-    },
-    "helpButton": {
-      "a11y": "Open player guide and help"
     }
   },
   "coachCredit": {

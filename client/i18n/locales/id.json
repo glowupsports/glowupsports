@@ -1605,9 +1605,6 @@
       "openGuide": "Buka panduan",
       "later": "Nanti",
       "dismissA11y": "Tutup sambutan"
-    },
-    "helpButton": {
-      "a11y": "Buka panduan dan bantuan pemain"
     }
   }
 }
