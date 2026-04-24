@@ -8954,7 +8954,18 @@ async function assertWeeklyOpenMatchCap(
   };
 }
 
-// Create open match
+// Create open match.
+//
+// Task #1274: this is now the single create-path for open matches. The
+// Find-a-Match wizard previously POSTed to a thin compatibility shim
+// (`/api/play/create-match-request`) introduced in Task #1270. The shim has
+// been removed; the wizard talks to this endpoint directly. Therefore:
+//   - `bookingId` is optional (the wizard advertises a slot first and may
+//     attach a court booking later via `courtBookingStatus`).
+//   - The wizard's extra fields (`preferredDate`, `preferredTime`,
+//     `requiredBallLevel`, `isAdult`) are accepted and persisted so the
+//     listing endpoint can filter/render them without re-deriving from a
+//     linked booking that doesn't exist.
 router.post(
   "/api/open-matches",
   authMiddleware,
@@ -8972,9 +8983,12 @@ router.post(
         matchType,
         title,
         description,
+        preferredDate,
+        preferredTime,
         requiredLevelMin,
         requiredLevelMax,
         requiredBallLevel,
+        isAdult,
         maxPlayers,
         visibility,
         costPerPlayer,
@@ -8984,10 +8998,6 @@ router.post(
         invitedPlayerId,
         matchIntent,
       } = req.body;
-
-      if (!bookingId) {
-        return res.status(400).json({ error: "Booking ID is required" });
-      }
 
       // Phase 4 — cap each player at 5 open matches per rolling 7-day window
       // (host counts only). Prevents feed spam from a single player.
@@ -8999,25 +9009,32 @@ router.post(
       const [match] = await db
         .insert(openMatches)
         .values({
-          bookingId,
+          bookingId: bookingId || null,
           hostPlayerId: playerId,
           academyId,
           matchType: matchType || "singles",
-          title,
+          matchIntent: matchIntent || "friendly",
+          title: title || `Looking for ${matchType || "singles"} partner`,
           description,
+          preferredDate: preferredDate || null,
+          preferredTime: preferredTime || null,
           requiredLevelMin: requiredLevelMin || 1,
           requiredLevelMax: requiredLevelMax || 20,
           requiredBallLevel,
+          isAdult: isAdult ?? true,
           maxPlayers: maxPlayers || (matchType === "doubles" ? 4 : 2),
           currentPlayers: 1,
           invitedPlayerId: invitedPlayerId || null,
           status: invitedPlayerId ? "pending_invite" : "open",
-          matchIntent: matchIntent || "friendly",
           visibility: visibility || "academy",
           costPerPlayer,
           currency: "AED",
           xpBonus: 25,
-          courtBookingStatus: courtBookingStatus || "academy_court",
+          // When the picker is attached to a real court booking, default to
+          // academy_court; otherwise honor whatever the wizard chose
+          // (external_booked / external_pending) or null.
+          courtBookingStatus:
+            courtBookingStatus || (bookingId ? "academy_court" : null),
           courtBookingNote: courtBookingNote || null,
           courtBookingUrl: courtBookingUrl || null,
         })
@@ -9455,117 +9472,12 @@ router.post(
 
 // ==================== MATCH REQUESTS (Tinder-style Match Finding) ====================
 
-// Create a match request.
-//
-// Task #1270 — compatibility shim. The Find-a-Match wizard still POSTs to
-// this route name, but the canonical storage is now `open_matches` +
-// `open_match_slots` (same as the slot-based join/leave/invite/kick
-// endpoints). This route writes there directly and inserts the host slot
-// so capacity counts work and Join requests resolve to the same row.
-//
-// The legacy `match_requests` insert is intentionally removed — the
-// listing endpoint and join/leave endpoints no longer read from it, so
-// continuing to write there would re-introduce the desync this task
-// is explicitly fixing. The table itself is preserved for history /
-// future cleanup (see task scope).
-router.post(
-  "/api/play/create-match-request",
-  authMiddleware,
-  async (req: AuthRequest, res: Response) => {
-    try {
-      const playerId = req.user?.playerId;
-      const academyId = req.user?.academyId;
-
-      if (!playerId) {
-        return res.status(401).json({ error: "Player profile required" });
-      }
-
-      const {
-        matchType,
-        title,
-        description,
-        preferredDate,
-        preferredTime,
-        requiredLevelMin,
-        requiredLevelMax,
-        requiredBallLevel,
-        maxPlayers,
-        invitedPlayerId,
-        matchIntent,
-        courtBookingStatus,
-        courtBookingNote,
-        courtBookingUrl,
-        bookingId,
-        isAdult,
-      } = req.body;
-
-      // Phase 4 — cap each player at 5 open matches per rolling 7-day
-      // window. Same cap the /api/open-matches POST enforces so wizard +
-      // booking-attached creates can't exceed it independently.
-      const weeklyCap = await assertWeeklyOpenMatchCap(playerId);
-      if (weeklyCap) {
-        return res.status(429).json(weeklyCap);
-      }
-
-      const [openMatch] = await db
-        .insert(openMatches)
-        .values({
-          bookingId: bookingId || null,
-          hostPlayerId: playerId,
-          academyId,
-          matchType: matchType || "singles",
-          matchIntent: matchIntent || "friendly",
-          title: title || `Looking for ${matchType || "singles"} partner`,
-          description,
-          preferredDate: preferredDate || null,
-          preferredTime: preferredTime || null,
-          requiredLevelMin: requiredLevelMin || 1,
-          requiredLevelMax: requiredLevelMax || 20,
-          requiredBallLevel,
-          isAdult: isAdult ?? true,
-          maxPlayers: maxPlayers || (matchType === "doubles" ? 4 : 2),
-          currentPlayers: 1,
-          invitedPlayerId: invitedPlayerId || null,
-          status: invitedPlayerId ? "pending_invite" : "open",
-          visibility: "public",
-          // When the picker is attached to a real court booking, default
-          // to academy_court; otherwise honor whatever the wizard chose
-          // (external_booked / external_pending) or null.
-          courtBookingStatus:
-            courtBookingStatus || (bookingId ? "academy_court" : null),
-          courtBookingNote: courtBookingNote || null,
-          courtBookingUrl: courtBookingUrl || null,
-        })
-        .returning();
-
-      // Insert host as the first confirmed slot so capacity counts and
-      // the slot-based endpoints (/leave, /kick, etc.) work for hosts
-      // immediately.
-      await db.insert(openMatchSlots).values({
-        matchId: openMatch.id,
-        playerId,
-        role: "host",
-        status: "confirmed",
-      });
-
-      if (openMatch?.id) {
-        const { publishOpenMatch } = await import("../services/feed-publisher");
-        publishOpenMatch(openMatch.id).catch(() => {});
-      }
-
-      console.log(
-        "[OpenMatch] (deprecated route /api/play/create-match-request) Created:",
-        openMatch.id,
-        "booking:",
-        bookingId || "none",
-      );
-      res.status(201).json(openMatch);
-    } catch (error) {
-      console.error("Create match request error:", error);
-      res.status(500).json({ error: "Failed to create match request" });
-    }
-  },
-);
+// Task #1274 — the `/api/play/create-match-request` compatibility shim
+// (introduced in Task #1270 to keep the Find-a-Match wizard working while
+// storage was unified into `open_matches`) has been removed. The wizard
+// now POSTs directly to `/api/open-matches`. The `match_requests` table
+// itself is preserved for history; the legacy GET endpoints below remain
+// only so older clients reading their own old rows don't 404.
 
 // Get all open match requests
 router.get(

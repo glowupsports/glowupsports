@@ -41,9 +41,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { useSport } from "@/player/context/SportContext";
-import { getAuthToken } from "@/lib/auth";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Slider from "@react-native-community/slider";
 
@@ -98,13 +97,19 @@ export default function CreateMatchScreen() {
   const [description, setDescription] = useState("");
   const [selectedPartner, setSelectedPartner] = useState<any>(preSelectedOpponent);
   const [matchIntent, setMatchIntent] = useState<"friendly" | "competitive" | "ranking">("friendly");
+  // partnerOption controls how the open match is filled:
+  //   "find"   → leave the remaining slots open for any matching player
+  //   "select" → invite one specific friend (creates a pending_invite open match)
   const [partnerOption, setPartnerOption] = useState<"find" | "select" | null>(preSelectedOpponent ? "select" : null);
+  const [createdMatchId, setCreatedMatchId] = useState<string | null>(null);
   const [courtBooking, setCourtBooking] = useState<CourtBookingValue>({ status: null, note: "", url: "" });
 
-  // Fetch friends for partner selection
+  // Fetch friends for partner selection. We need them in both singles and
+  // doubles flows now — the wizard always asks "leave open or invite a
+  // specific friend?" before publishing the open match.
   const { data: friendsData } = useQuery({
     queryKey: ["/api/player/me/friends"],
-    enabled: matchType === "doubles",
+    enabled: matchType !== null,
   });
 
   // Get player info to determine if adult or kid
@@ -131,68 +136,62 @@ export default function CreateMatchScreen() {
   const progressWidth = useSharedValue(0);
   const celebrationScale = useSharedValue(0);
 
-  // Step progress
-  const steps: Step[] = matchType === "doubles" 
-    ? ["type", "partner", "datetime", "level", "details", "success"]
-    : ["type", "datetime", "level", "details", "success"];
+  // Step progress. Both singles and doubles now go through the partner
+  // step so the wizard always speaks the open-match language: "leave open"
+  // vs "invite a friend" — Task #1274.
+  const steps: Step[] = ["type", "partner", "datetime", "level", "details", "success"];
   const stepIndex = steps.indexOf(currentStep);
 
   useEffect(() => {
-    const totalSteps = matchType === "doubles" ? 5 : 4;
+    const totalSteps = 5;
     progressWidth.value = withSpring((stepIndex / (totalSteps - 1)) * 100, {
       damping: 15,
       stiffness: 100,
     });
   }, [currentStep, matchType]);
 
-  // Create match mutation
+  // Create open match mutation. Task #1274 — the wizard now talks to the
+  // canonical `/api/open-matches` endpoint directly (the temporary
+  // `/api/play/create-match-request` shim has been removed). The payload
+  // mirrors the open_matches columns 1:1 so capacity, slots and the
+  // optional invitee all flow straight into the open-match feed.
+  const maxPlayersForType = matchType === "doubles" ? 4 : 2;
   const createMatchMutation = useMutation({
     mutationFn: async () => {
       logger.log("[CreateMatch] Starting publish...");
       const matchData = {
-        invitedPlayerId: selectedPartner?.id || null,
+        // bookingId is intentionally omitted — the wizard advertises an open
+        // match before any court booking is attached. The picker below
+        // surfaces external_booked / external_pending if the host already
+        // arranged a court themselves.
+        invitedPlayerId: partnerOption === "select" ? selectedPartner?.id || null : null,
         matchType,
+        matchIntent,
         title: title || `Looking for ${matchType} partner`,
         description,
+        preferredDate: selectedDate.toISOString().split("T")[0],
+        preferredTime: selectedTime,
         requiredLevelMin: isAdult ? skillLevelMin : 1,
         requiredLevelMax: isAdult ? skillLevelMax : 20,
         requiredBallLevel: !isAdult ? selectedBallLevel : null,
-        preferredDate: selectedDate.toISOString().split("T")[0],
-        preferredTime: selectedTime,
-        maxPlayers: matchType === "doubles" ? 4 : 2,
-        matchIntent,
+        isAdult,
+        maxPlayers: maxPlayersForType,
+        visibility: "academy",
         sport: activeSport,
         courtBookingStatus: courtBooking.status,
         courtBookingNote: courtBooking.note || null,
         courtBookingUrl: courtBooking.url || null,
       };
-      
-      logger.log("[CreateMatch] Match data:", matchData);
-      const token = getAuthToken();
-      logger.log("[CreateMatch] Auth token present:", !!token);
-      
-      const res = await fetch(new URL("/api/play/create-match-request", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: "include",
-        body: JSON.stringify(matchData),
-      });
-      
-      logger.log("[CreateMatch] Response status:", res.status);
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("[CreateMatch] Error response:", errorText);
-        throw new Error("Failed to create match");
-      }
+
+      logger.log("[CreateMatch] Open match data:", matchData);
+      const res = await apiRequest("POST", "/api/open-matches", matchData);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (created: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/social"] });
       queryClient.invalidateQueries({ queryKey: ["/api/play/match-requests"] });
+      setCreatedMatchId(created?.id ?? null);
       setCurrentStep("success");
       celebrationScale.value = withSequence(
         withTiming(1.2, { duration: 300 }),
@@ -214,21 +213,20 @@ export default function CreateMatchScreen() {
       withSpring(1, { damping: 10, stiffness: 200 })
     );
     setMatchType(type);
-    
+
+    // Always advance to the partner step — singles flows now ask "open to
+    // anyone" vs "invite a friend" too (Task #1274).
     setTimeout(() => {
-      if (type === "doubles") {
-        setCurrentStep("partner");
-      } else {
-        setCurrentStep("datetime");
-      }
+      setCurrentStep("partner");
     }, 400);
   };
 
+  // Step order is the same for singles and doubles now — both publish an
+  // open match, both ask "open vs invite" first.
+  const stepOrder: Step[] = ["type", "partner", "datetime", "level", "details"];
+
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const stepOrder: Step[] = matchType === "doubles" 
-      ? ["type", "partner", "datetime", "level", "details"]
-      : ["type", "datetime", "level", "details"];
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex < stepOrder.length - 1) {
       setCurrentStep(stepOrder[currentIndex + 1]);
@@ -237,9 +235,6 @@ export default function CreateMatchScreen() {
 
   const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const stepOrder: Step[] = matchType === "doubles" 
-      ? ["type", "partner", "datetime", "level", "details"]
-      : ["type", "datetime", "level", "details"];
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex > 0) {
       setCurrentStep(stepOrder[currentIndex - 1]);
@@ -295,9 +290,7 @@ export default function CreateMatchScreen() {
   };
 
   const renderStepIndicator = () => {
-    const stepDots = matchType === "doubles" 
-      ? ["type", "partner", "datetime", "level", "details"]
-      : ["type", "datetime", "level", "details"];
+    const stepDots: Step[] = ["type", "partner", "datetime", "level", "details"];
     
     return (
       <View style={styles.stepIndicator}>
@@ -463,8 +456,14 @@ export default function CreateMatchScreen() {
         exiting={SlideOutLeft.duration(200)}
         style={styles.stepContainer}
       >
-        <Text style={styles.stepTitle}>Your Doubles Partner</Text>
-        <Text style={styles.stepSubtitle}>Play with a friend or find a partner</Text>
+        <Text style={styles.stepTitle}>
+          {matchType === "doubles" ? "Your Doubles Partner" : "Who can join?"}
+        </Text>
+        <Text style={styles.stepSubtitle}>
+          {matchType === "doubles"
+            ? `Leave the ${maxPlayersForType - 1} open spots for anyone, or invite a friend to play with`
+            : "Open the spot to anyone in your academy, or invite a specific friend"}
+        </Text>
 
         <View style={styles.partnerOptions}>
           <Pressable
@@ -476,17 +475,19 @@ export default function CreateMatchScreen() {
             }}
           >
             <View style={[styles.partnerIconCircle, partnerOption === "find" && { backgroundColor: Colors.dark.primary }]}>
-              <Ionicons 
-                name="search" 
-                size={28} 
-                color={partnerOption === "find" ? Colors.dark.backgroundRoot : Colors.dark.primary} 
+              <Ionicons
+                name="search"
+                size={28}
+                color={partnerOption === "find" ? Colors.dark.backgroundRoot : Colors.dark.primary}
               />
             </View>
             <Text style={[styles.partnerOptionTitle, partnerOption === "find" && { color: Colors.dark.primary }]}>
-              Find a Partner
+              Open to anyone
             </Text>
             <Text style={styles.partnerOptionDesc}>
-              Post match & find someone
+              {matchType === "doubles"
+                ? `Post the match — fills the ${maxPlayersForType - 1} remaining slots`
+                : "Post the match — first to join takes the spot"}
             </Text>
           </Pressable>
 
@@ -804,10 +805,29 @@ export default function CreateMatchScreen() {
       </View>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>Match Summary</Text>
+        <Text style={styles.summaryTitle}>Open Match Summary</Text>
         <View style={styles.summaryRow}>
           <Ionicons name={matchType === "singles" ? "person" : "people"} size={18} color={Colors.dark.primary} />
           <Text style={styles.summaryText}>{matchType === "singles" ? "Singles" : "Doubles"}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Ionicons name="people-circle" size={18} color={Colors.dark.primary} />
+          <Text style={styles.summaryText}>
+            {/* You're slot 1; the rest are advertised on the open-match feed. */}
+            {`Capacity: ${maxPlayersForType} · You + ${maxPlayersForType - 1} open ${maxPlayersForType - 1 === 1 ? "slot" : "slots"}`}
+          </Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Ionicons
+            name={partnerOption === "select" ? "person-add" : "globe"}
+            size={18}
+            color={Colors.dark.primary}
+          />
+          <Text style={styles.summaryText}>
+            {partnerOption === "select" && selectedPartner
+              ? `Inviting ${selectedPartner.firstName || selectedPartner.name || "friend"}`
+              : "Open to anyone matching your filters"}
+          </Text>
         </View>
         <View style={styles.summaryRow}>
           <Ionicons name="calendar" size={18} color={Colors.dark.primary} />
@@ -821,6 +841,18 @@ export default function CreateMatchScreen() {
             {isAdult ? `GLOW ${skillLevelMin} - ${skillLevelMax}` : selectedBallLevel.charAt(0).toUpperCase() + selectedBallLevel.slice(1)}
           </Text>
         </View>
+        {courtBooking.status && (
+          <View style={styles.summaryRow}>
+            <Ionicons name="tennisball" size={18} color={Colors.dark.primary} />
+            <Text style={styles.summaryText}>
+              {courtBooking.status === "external_booked"
+                ? "Court already booked"
+                : courtBooking.status === "external_pending"
+                ? "Court arrangement pending"
+                : "Academy court"}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={[styles.bottomActions, { paddingBottom: insets.bottom + 100 }]}>
@@ -841,7 +873,7 @@ export default function CreateMatchScreen() {
             ) : (
               <>
                 <Ionicons name="rocket" size={20} color={Colors.dark.buttonText} />
-                <Text style={styles.nextButtonText}>Publish Match</Text>
+                <Text style={styles.nextButtonText}>Create Open Match</Text>
               </>
             )}
           </LinearGradient>
@@ -864,37 +896,46 @@ export default function CreateMatchScreen() {
         </LinearGradient>
       </Animated.View>
 
-      <Animated.Text 
+      <Animated.Text
         entering={FadeInUp.delay(200).duration(400)}
         style={styles.successTitle}
       >
-        Match Posted!
+        Open Match Created!
       </Animated.Text>
-      
-      <Animated.Text 
+
+      <Animated.Text
         entering={FadeInUp.delay(400).duration(400)}
         style={styles.successSubtitle}
       >
-        Other players can now see and join your match. We'll notify you when someone joins!
+        {partnerOption === "select" && selectedPartner
+          ? `${selectedPartner.firstName || selectedPartner.name || "Your friend"} has been invited. Manage the match below.`
+          : "Other players can now see and join. We'll notify you when someone joins!"}
       </Animated.Text>
 
       <Animated.View entering={FadeInUp.delay(600).duration(400)}>
-        <Pressable 
+        {/* Primary CTA jumps straight to the open match's manage screen so
+            the host can see slots, invite, or share — Task #1274. Falls
+            back to the open-match feed if (somehow) we don't have an id. */}
+        <Pressable
           style={styles.doneButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.goBack();
+            if (createdMatchId) {
+              navigation.navigate("ManageMatch" as never, { matchId: createdMatchId } as never);
+            } else {
+              navigation.navigate("OpenMatches" as never);
+            }
           }}
         >
           <LinearGradient
             colors={[Colors.dark.primary, Colors.dark.primaryGlow]}
             style={styles.doneButtonGradient}
           >
-            <Text style={styles.doneButtonText}>Done</Text>
+            <Text style={styles.doneButtonText}>Manage Open Match</Text>
           </LinearGradient>
         </Pressable>
 
-        <Pressable 
+        <Pressable
           style={styles.viewMatchesButton}
           onPress={() => {
             navigation.navigate("OpenMatches" as never);
