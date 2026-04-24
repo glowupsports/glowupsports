@@ -1,5 +1,5 @@
 import logger from "@/lib/logger";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -26,7 +26,7 @@ import Animated, { FadeIn, FadeInDown, SlideInUp, useSharedValue, useAnimatedSty
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl, getAuthHeaders } from "@/lib/query-client";
-import { appendMediaToFormData } from "@/lib/uploads";
+import { appendMediaToFormData, uploadWithProgress } from "@/lib/uploads";
 import { useAuth } from "@/coach/context/AuthContext";
 import {
   type Achievement,
@@ -1080,88 +1080,104 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
   };
 
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const handleSubmit = async () => {
-    if (!selectedContext || isSubmitting || isUploading) return;
-
-    setIsUploading(true);
-    let uploadedMediaUrls: string[] = [];
-    let uploadedMediaTypes: string[] = [];
-
-    if (selectedMedia) {
-      try {
-        const formData = new FormData();
-        // Use the project's standard cross-platform helper. This builds a real
-        // `File` (web) or RN FormData `{ uri, name, type }` part (native) so
-        // the server sees a proper `originalname` + `mimetype` and multer's
-        // fileFilter doesn't reject the upload as `application/octet-stream`.
-        await appendMediaToFormData(formData, "images", selectedMedia.uri, selectedMedia.type);
-
-        const uploadResponse = await fetch(`${getApiUrl()}/api/social/posts/upload-images`, {
-          method: "POST",
-          // Do NOT set Content-Type — let fetch / RN set the multipart boundary.
-          headers: getAuthHeaders(),
-          body: formData,
-          credentials: "include",
-        });
-
-        if (uploadResponse.ok) {
-          const result = await uploadResponse.json();
-          uploadedMediaUrls = result.images || [];
-          uploadedMediaTypes = uploadedMediaUrls.map(() => selectedMedia.type);
-          logger.log("[Social] Uploaded media:", uploadedMediaUrls, "types:", uploadedMediaTypes);
-        } else {
-          // Parse the structured server error and surface a specific message.
-          // Server returns: { error: string, code?: string, ... }.
-          let serverError: { error?: string; code?: string; message?: string } = {};
-          try {
-            serverError = await uploadResponse.json();
-          } catch {
-            // Body wasn't JSON — fall back to status-based message.
-          }
-          console.error("[Social] Upload failed", {
-            status: uploadResponse.status,
-            code: serverError.code,
-            error: serverError.error,
-          });
-
-          let userMessage = "We couldn't upload your media. Please try again.";
-          switch (uploadResponse.status) {
-            case 413:
-              userMessage = "This file is too large — please pick something under 50 MB.";
-              break;
-            case 415:
-              userMessage = "We can't upload this file type. Try a JPG, PNG, or MP4.";
-              break;
-            case 502:
-              userMessage = "Couldn't reach storage right now. Please try again in a moment.";
-              break;
-            case 401:
-            case 403:
-              userMessage = "You don't have access to share moments. Please sign in again.";
-              break;
-            default:
-              if (serverError.error) userMessage = serverError.error;
-          }
-
-          Alert.alert("Couldn't share moment", userMessage);
-          setIsUploading(false);
-          // Keep modal open + preserve caption / context / group / media so the
-          // user can retry or swap the file without re-entering anything.
-          return;
-        }
-      } catch (error) {
-        console.error("[Social] Upload error:", error);
-        Alert.alert(
-          "Couldn't share moment",
-          "We couldn't reach the server. Please check your connection and try again.",
-        );
-        setIsUploading(false);
-        return;
-      }
+  // Map an upload HTTP status (or thrown error) to a friendly user-facing
+  // message. Kept in sync with the previous Alert-based copy from Task #1253.
+  const messageForUploadStatus = (
+    status: number,
+    serverError?: { error?: string; code?: string },
+  ): string => {
+    switch (status) {
+      case 413:
+        return "This file is too large — please pick something under 50 MB.";
+      case 415:
+        return "We can't upload this file type. Try a JPG, PNG, or MP4.";
+      case 502:
+        return "Couldn't reach storage right now. Please try again in a moment.";
+      case 401:
+      case 403:
+        return "You don't have access to share moments. Please sign in again.";
+      default:
+        if (serverError?.error) return serverError.error;
+        return "We couldn't upload your media. Please try again.";
     }
+  };
 
-    logger.log("[Social] Creating post with mediaUrls:", uploadedMediaUrls);
+  // Upload the currently-selected media via XHR so we can surface real upload
+  // progress to the user. Returns the uploaded URLs on success, `null` if the
+  // upload failed (in which case `uploadError` is set and the modal stays
+  // open with caption / context / media preserved for a retry), or `null` if
+  // the user cancelled mid-flight.
+  const runUpload = async (): Promise<string[] | null> => {
+    if (!selectedMedia) return [];
+
+    setUploadError(null);
+    setUploadProgress(0);
+    setIsUploading(true);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const formData = new FormData();
+      // Use the project's standard cross-platform helper. This builds a real
+      // `File` (web) or RN FormData `{ uri, name, type }` part (native) so
+      // the server sees a proper `originalname` + `mimetype` and multer's
+      // fileFilter doesn't reject the upload as `application/octet-stream`.
+      await appendMediaToFormData(formData, "images", selectedMedia.uri, selectedMedia.type);
+
+      const result = await uploadWithProgress({
+        url: `${getApiUrl()}/api/social/posts/upload-images`,
+        formData,
+        // Do NOT set Content-Type — let XHR set the multipart boundary.
+        headers: getAuthHeaders(),
+        signal: controller.signal,
+        onProgress: (event) => setUploadProgress(event.percent),
+      });
+
+      if (result.ok) {
+        const uploaded: string[] = result.body?.images || [];
+        logger.log("[Social] Uploaded media:", uploaded);
+        setUploadProgress(100);
+        return uploaded;
+      }
+
+      const serverError = (result.body || {}) as { error?: string; code?: string };
+      console.error("[Social] Upload failed", {
+        status: result.status,
+        code: serverError.code,
+        error: serverError.error,
+      });
+      setUploadError(messageForUploadStatus(result.status, serverError));
+      setIsUploading(false);
+      return null;
+    } catch (error: any) {
+      // User-initiated cancel — silently reset upload state.
+      if (error?.name === "AbortError") {
+        setIsUploading(false);
+        setUploadProgress(0);
+        setUploadError(null);
+        return null;
+      }
+      console.error("[Social] Upload error:", error);
+      setUploadError(
+        "We couldn't reach the server. Please check your connection and try again.",
+      );
+      setIsUploading(false);
+      return null;
+    } finally {
+      abortControllerRef.current = null;
+    }
+  };
+
+  const finishPost = (uploadedMediaUrls: string[]) => {
+    if (!selectedContext) return;
+    const uploadedMediaTypes = selectedMedia
+      ? uploadedMediaUrls.map(() => selectedMedia.type)
+      : [];
 
     let visibility = "friends";
     if (selectedContext === "group") {
@@ -1178,18 +1194,61 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
       visibility,
       groupId: selectedGroupId || undefined,
     });
-    setIsUploading(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedContext || isSubmitting || isUploading) return;
+
+    if (selectedMedia) {
+      const uploaded = await runUpload();
+      if (uploaded == null) {
+        // Upload failed (banner shown) or was cancelled — keep modal open.
+        return;
+      }
+      finishPost(uploaded);
+      setIsUploading(false);
+      setUploadProgress(0);
+      return;
+    }
+
+    finishPost([]);
+  };
+
+  const handleRetryUpload = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    handleSubmit();
+  };
+
+  const handleDismissUploadError = () => {
+    setUploadError(null);
+  };
+
+  const handleCancelUpload = () => {
+    abortControllerRef.current?.abort();
   };
 
   const handleClose = () => {
+    abortControllerRef.current?.abort();
     setStep("context");
     setSelectedContext(null);
     setSelectedGroupId(null);
     setSelectedGroupName(null);
     setCaption("");
     setSelectedMedia(null);
+    setIsUploading(false);
+    setUploadProgress(0);
+    setUploadError(null);
     onClose();
   };
+
+  // Abort any in-flight upload if the modal is closed externally (e.g. parent
+  // toggled `visible` to false) so we never resume an upload against a stale
+  // modal session.
+  useEffect(() => {
+    if (!visible) {
+      abortControllerRef.current?.abort();
+    }
+  }, [visible]);
 
   const handleSelectContext = (context: ContextType) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1240,7 +1299,9 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
                 (!caption.trim() || isSubmitting || isUploading) && createStyles.postButtonDisabled
               ]}
             >
-              {(isSubmitting || isUploading) ? (
+              {isUploading ? (
+                <ThemedText style={createStyles.postButtonText}>{uploadProgress}%</ThemedText>
+              ) : isSubmitting ? (
                 <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
                 <ThemedText style={createStyles.postButtonText}>Post</ThemedText>
@@ -1348,12 +1409,73 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
                 ) : (
                   <Image source={{ uri: selectedMedia.uri }} style={createStyles.imagePreview} />
                 )}
-                <Pressable
-                  style={createStyles.removeImageButton}
-                  onPress={() => setSelectedMedia(null)}
-                >
-                  <Ionicons name="close-circle" size={28} color={Colors.dark.text} />
-                </Pressable>
+                {!isUploading ? (
+                  <Pressable
+                    style={createStyles.removeImageButton}
+                    onPress={() => setSelectedMedia(null)}
+                  >
+                    <Ionicons name="close-circle" size={28} color={Colors.dark.text} />
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+
+            {isUploading ? (
+              <View style={createStyles.uploadProgressContainer}>
+                <View style={createStyles.uploadProgressHeader}>
+                  <View style={createStyles.uploadProgressLabelRow}>
+                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                    <ThemedText style={createStyles.uploadProgressLabel}>
+                      Uploading… {uploadProgress}%
+                    </ThemedText>
+                  </View>
+                  <Pressable onPress={handleCancelUpload} hitSlop={8}>
+                    <ThemedText style={createStyles.uploadCancelText}>Cancel</ThemedText>
+                  </Pressable>
+                </View>
+                <View style={createStyles.uploadProgressTrack}>
+                  <View
+                    style={[
+                      createStyles.uploadProgressFill,
+                      { width: `${Math.max(2, uploadProgress)}%` },
+                    ]}
+                  />
+                </View>
+              </View>
+            ) : null}
+
+            {uploadError && !isUploading ? (
+              <View style={createStyles.uploadErrorBanner}>
+                <Ionicons
+                  name="alert-circle"
+                  size={20}
+                  color="#EF4444"
+                  style={{ marginTop: 1 }}
+                />
+                <View style={createStyles.uploadErrorBody}>
+                  <ThemedText style={createStyles.uploadErrorTitle}>
+                    Upload failed
+                  </ThemedText>
+                  <ThemedText style={createStyles.uploadErrorMessage}>
+                    {uploadError}
+                  </ThemedText>
+                  <View style={createStyles.uploadErrorActions}>
+                    <Pressable
+                      onPress={handleRetryUpload}
+                      style={createStyles.uploadRetryButton}
+                    >
+                      <Ionicons name="refresh" size={14} color={Colors.dark.buttonText} />
+                      <ThemedText style={createStyles.uploadRetryText}>Try again</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      onPress={handleDismissUploadError}
+                      style={createStyles.uploadDismissButton}
+                      hitSlop={8}
+                    >
+                      <ThemedText style={createStyles.uploadDismissText}>Dismiss</ThemedText>
+                    </Pressable>
+                  </View>
+                </View>
               </View>
             ) : null}
 
@@ -2280,6 +2402,100 @@ const createStyles = makeReactiveStyles(() => StyleSheet.create({
   mediaButtonText: {
     fontSize: 14,
     color: Colors.dark.primary,
+    fontWeight: "500",
+  },
+  uploadProgressContainer: {
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: 12,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    gap: Spacing.sm,
+  },
+  uploadProgressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  uploadProgressLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  uploadProgressLabel: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  uploadCancelText: {
+    fontSize: 14,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  uploadProgressTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    overflow: "hidden",
+  },
+  uploadProgressFill: {
+    height: "100%",
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 3,
+  },
+  uploadErrorBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: 12,
+    backgroundColor: "#EF444415",
+    borderWidth: 1,
+    borderColor: "#EF444450",
+  },
+  uploadErrorBody: {
+    flex: 1,
+    gap: 4,
+  },
+  uploadErrorTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#EF4444",
+  },
+  uploadErrorMessage: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    lineHeight: 18,
+  },
+  uploadErrorActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  uploadRetryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#EF4444",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: BorderRadius.full,
+  },
+  uploadRetryText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
+  },
+  uploadDismissButton: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  uploadDismissText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
     fontWeight: "500",
   },
 }));

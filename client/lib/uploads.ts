@@ -110,3 +110,140 @@ export async function appendMediaToFormData(
   // polyfill's expected shape.
   form.append(field, { uri, name: filename, type: inferredType } as any);
 }
+
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+}
+
+export interface UploadWithProgressOptions {
+  url: string;
+  formData: FormData;
+  headers?: Record<string, string>;
+  onProgress?: (event: UploadProgress) => void;
+  signal?: AbortSignal;
+  withCredentials?: boolean;
+}
+
+export interface UploadWithProgressResult {
+  status: number;
+  ok: boolean;
+  body: any;
+  rawText: string;
+}
+
+/**
+ * POST a multipart `FormData` body via `XMLHttpRequest`, exposing real upload
+ * progress events. The `fetch` API on both web and React Native does not emit
+ * upload progress, so for any flow that needs a progress bar (e.g. the
+ * Community Moment media upload) we fall back to XHR.
+ *
+ * - Mirrors `apiFetch` semantics: passes auth headers verbatim, defaults to
+ *   `withCredentials: true`, and never sets `Content-Type` (so XHR computes
+ *   the multipart boundary itself).
+ * - Supports cancellation through an `AbortSignal`. An aborted upload rejects
+ *   with an `AbortError`-named error so callers can distinguish user-cancelled
+ *   uploads from genuine network failures.
+ */
+export function uploadWithProgress({
+  url,
+  formData,
+  headers,
+  onProgress,
+  signal,
+  withCredentials = true,
+}: UploadWithProgressOptions): Promise<UploadWithProgressResult> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let abortHandler: (() => void) | null = null;
+
+    const cleanup = () => {
+      if (signal && abortHandler) {
+        signal.removeEventListener("abort", abortHandler);
+      }
+    };
+
+    xhr.open("POST", url);
+
+    if (headers) {
+      for (const [key, value] of Object.entries(headers)) {
+        if (value != null) xhr.setRequestHeader(key, value);
+      }
+    }
+
+    xhr.withCredentials = withCredentials;
+
+    if (xhr.upload && onProgress) {
+      // RN/web both fire upload progress events with `{lengthComputable,
+      // loaded, total}`. Type as `any` because RN's lib doesn't ship a
+      // ProgressEvent global.
+      xhr.upload.onprogress = (event: any) => {
+        if (event && event.lengthComputable && event.total > 0) {
+          const percent = Math.min(
+            100,
+            Math.max(0, Math.round((event.loaded / event.total) * 100)),
+          );
+          onProgress({ loaded: event.loaded, total: event.total, percent });
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      cleanup();
+      const rawText = xhr.responseText || "";
+      let body: any = null;
+      if (rawText) {
+        try {
+          body = JSON.parse(rawText);
+        } catch {
+          body = null;
+        }
+      }
+      resolve({
+        status: xhr.status,
+        ok: xhr.status >= 200 && xhr.status < 300,
+        body,
+        rawText,
+      });
+    };
+
+    xhr.onerror = () => {
+      cleanup();
+      reject(new Error("Network error during upload"));
+    };
+
+    xhr.ontimeout = () => {
+      cleanup();
+      reject(new Error("Upload timed out"));
+    };
+
+    xhr.onabort = () => {
+      cleanup();
+      const err = new Error("Upload aborted");
+      (err as any).name = "AbortError";
+      reject(err);
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        try {
+          xhr.abort();
+        } catch {
+          // ignore
+        }
+        return;
+      }
+      abortHandler = () => {
+        try {
+          xhr.abort();
+        } catch {
+          // ignore
+        }
+      };
+      signal.addEventListener("abort", abortHandler);
+    }
+
+    xhr.send(formData as any);
+  });
+}
