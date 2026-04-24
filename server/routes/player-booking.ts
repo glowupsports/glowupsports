@@ -8303,7 +8303,12 @@ router.post(
 
 // ==================== OPEN MATCHES (Phase 3) ====================
 
-// Get open matches (queries match_requests table from Find a Match wizard)
+// Get open matches.
+//
+// Task #1270: switched from match_requests to open_matches as the single
+// source of truth. The slot-based join/leave/invite/kick endpoints all
+// write to open_matches + open_match_slots, so reading from a different
+// table here was the root cause of the "404 Match not found" join error.
 router.get(
   "/api/open-matches",
   authMiddleware,
@@ -8342,33 +8347,46 @@ router.get(
         "glow",
       ];
 
-      // Query from match_requests table (where matches are created via Find a Match wizard)
-      const matches = await db
+      // Query from open_matches table (single source of truth — same table
+      // /join, /leave, /invite, /kick write to).
+      const rows = await db
         .select({
-          id: matchRequests.id,
-          playerId: matchRequests.playerId,
-          academyId: matchRequests.academyId,
-          matchType: matchRequests.matchType,
-          title: matchRequests.title,
-          description: matchRequests.description,
-          preferredDate: matchRequests.preferredDate,
-          preferredTime: matchRequests.preferredTime,
-          requiredLevelMin: matchRequests.requiredLevelMin,
-          requiredLevelMax: matchRequests.requiredLevelMax,
-          requiredBallLevel: matchRequests.requiredBallLevel,
-          isAdult: matchRequests.isAdult,
-          maxPlayers: matchRequests.maxPlayers,
-          status: matchRequests.status,
-          createdAt: matchRequests.createdAt,
+          id: openMatches.id,
+          playerId: openMatches.hostPlayerId,
+          academyId: openMatches.academyId,
+          matchType: openMatches.matchType,
+          title: openMatches.title,
+          description: openMatches.description,
+          preferredDate: openMatches.preferredDate,
+          preferredTime: openMatches.preferredTime,
+          requiredLevelMin: openMatches.requiredLevelMin,
+          requiredLevelMax: openMatches.requiredLevelMax,
+          requiredBallLevel: openMatches.requiredBallLevel,
+          isAdult: openMatches.isAdult,
+          maxPlayers: openMatches.maxPlayers,
+          currentPlayers: openMatches.currentPlayers,
+          status: openMatches.status,
+          createdAt: openMatches.createdAt,
           playerName: players.name,
           hostBallLevel: players.ballLevel,
           playerAvatar: players.profilePhotoUrl,
           playerLevel: players.skillLevel,
           playerBallLevel: players.ballLevel,
         })
-        .from(matchRequests)
-        .leftJoin(players, eq(matchRequests.playerId, players.id))
-        .where(eq(matchRequests.status, "open"));
+        .from(openMatches)
+        .leftJoin(players, eq(openMatches.hostPlayerId, players.id))
+        .where(eq(openMatches.status, "open"));
+      // preferred_date is a `date` column in pg, but the upstream code path
+      // expects a `YYYY-MM-DD` string (it does string comparisons against
+      // the ?date= query param and string-splits "HH:MM" off preferredTime).
+      // Normalize once here so the rest of the function is unchanged.
+      const matches = rows.map((r) => ({
+        ...r,
+        preferredDate:
+          r.preferredDate instanceof Date
+            ? r.preferredDate.toISOString().slice(0, 10)
+            : (r.preferredDate as string | null),
+      }));
 
       // Apply filters
       let filteredMatches = matches;
@@ -8559,7 +8577,7 @@ router.get(
           requiredBallLevel: m.requiredBallLevel || m.playerBallLevel,
           ballLevel: m.requiredBallLevel || m.playerBallLevel,
           maxPlayers: m.maxPlayers || (m.matchType === "doubles" ? 4 : 2),
-          currentPlayers: 1,
+          currentPlayers: m.currentPlayers ?? 1,
           status: m.status || "open",
           visibility: "public",
           costPerPlayer: null,
@@ -8842,7 +8860,10 @@ router.get(
   },
 );
 
-// Delete/Cancel open match
+// Delete/Cancel open match — task #1270 unified storage means hosts cancel
+// open_matches rows here. Legacy match_requests rows have already been
+// migrated; cancelling a stale id will surface a 410 MATCH_MIGRATED so the
+// client can refetch.
 router.delete(
   "/api/open-matches/:matchId",
   authMiddleware,
@@ -8856,17 +8877,29 @@ router.delete(
       }
 
       // Find the match
-      const [matchRequest] = await db
+      const [match] = await db
         .select()
-        .from(matchRequests)
-        .where(eq(matchRequests.id, matchId));
+        .from(openMatches)
+        .where(eq(openMatches.id, matchId));
 
-      if (!matchRequest) {
+      if (!match) {
+        // Stale id may live in match_requests as 'migrated' — tell the
+        // client to refetch the listing instead of a generic 404.
+        const [legacy] = await db
+          .select({ status: matchRequests.status })
+          .from(matchRequests)
+          .where(eq(matchRequests.id, matchId));
+        if (legacy?.status === "migrated") {
+          return res.status(410).json({
+            error: "This match has moved — pull to refresh",
+            code: "MATCH_MIGRATED",
+          });
+        }
         return res.status(404).json({ error: "Match not found" });
       }
 
       // Check ownership
-      if (matchRequest.playerId !== playerId) {
+      if (match.hostPlayerId !== playerId) {
         return res
           .status(403)
           .json({ error: "You can only cancel your own matches" });
@@ -8874,9 +8907,14 @@ router.delete(
 
       // Update status to cancelled
       await db
-        .update(matchRequests)
-        .set({ status: "cancelled" })
-        .where(eq(matchRequests.id, matchId));
+        .update(openMatches)
+        .set({ status: "cancelled", updatedAt: new Date() })
+        .where(eq(openMatches.id, matchId));
+
+      // Notify other participants their match was cancelled.
+      try {
+        await emitOpenMatchUpdate(matchId, [], "cancel");
+      } catch {}
 
       res.json({ success: true, message: "Match cancelled successfully" });
     } catch (error) {
@@ -9048,6 +9086,21 @@ router.post(
 
       if (matchRes.rowCount === 0) {
         await client.query("ROLLBACK");
+        // Task #1270 — when the row exists in the legacy match_requests
+        // table as 'migrated', tell the client to refetch the listing
+        // instead of an opaque 404. Belt-and-braces for the deploy
+        // window where a stale cache may still hold the legacy id; the
+        // backfill keeps the same id so a refetched cache will resolve.
+        const legacyRes = await client.query(
+          `SELECT status FROM match_requests WHERE id = $1`,
+          [matchId],
+        );
+        if (legacyRes.rowCount > 0 && legacyRes.rows[0].status === "migrated") {
+          return res.status(410).json({
+            error: "This match has moved — pull to refresh",
+            code: "MATCH_MIGRATED",
+          });
+        }
         return res.status(404).json({ error: "Match not found" });
       }
 
@@ -9399,7 +9452,19 @@ router.post(
 
 // ==================== MATCH REQUESTS (Tinder-style Match Finding) ====================
 
-// Create a match request
+// Create a match request.
+//
+// Task #1270 — compatibility shim. The Find-a-Match wizard still POSTs to
+// this route name, but the canonical storage is now `open_matches` +
+// `open_match_slots` (same as the slot-based join/leave/invite/kick
+// endpoints). This route writes there directly and inserts the host slot
+// so capacity counts work and Join requests resolve to the same row.
+//
+// The legacy `match_requests` insert is intentionally removed — the
+// listing endpoint and join/leave endpoints no longer read from it, so
+// continuing to write there would re-introduce the desync this task
+// is explicitly fixing. The table itself is preserved for history /
+// future cleanup (see task scope).
 router.post(
   "/api/play/create-match-request",
   authMiddleware,
@@ -9422,102 +9487,76 @@ router.post(
         requiredLevelMax,
         requiredBallLevel,
         maxPlayers,
-        sport,
         invitedPlayerId,
         matchIntent,
         courtBookingStatus,
         courtBookingNote,
         courtBookingUrl,
         bookingId,
+        isAdult,
       } = req.body;
 
-      // When the picker is attached to a real court booking, persist on the
-      // new openMatches table (which is the canonical source for match
-      // detail/list views) so booking-status context is not lost. Falls
-      // through to the legacy matchRequests insert otherwise.
-      if (bookingId) {
-        const weeklyCap = await assertWeeklyOpenMatchCap(playerId);
-        if (weeklyCap) {
-          return res.status(429).json(weeklyCap);
-        }
-        const [openMatch] = await db
-          .insert(openMatches)
-          .values({
-            bookingId,
-            hostPlayerId: playerId,
-            academyId,
-            matchType: matchType || "singles",
-            title: title || `Looking for ${matchType || "singles"} partner`,
-            description,
-            requiredLevelMin: requiredLevelMin || 1,
-            requiredLevelMax: requiredLevelMax || 20,
-            requiredBallLevel,
-            maxPlayers: maxPlayers || (matchType === "doubles" ? 4 : 2),
-            currentPlayers: 1,
-            invitedPlayerId: invitedPlayerId || null,
-            status: invitedPlayerId ? "pending_invite" : "open",
-            matchIntent: matchIntent || "friendly",
-            visibility: "academy",
-            // A bookingId implies a real court booking attached, so default
-            // to academy_court (matches the other openMatches creation paths).
-            courtBookingStatus: courtBookingStatus || "academy_court",
-            courtBookingNote: courtBookingNote || null,
-            courtBookingUrl: courtBookingUrl || null,
-          })
-          .returning();
-
-        await db.insert(openMatchSlots).values({
-          matchId: openMatch.id,
-          playerId,
-          role: "host",
-          status: "confirmed",
-        });
-
-        if (openMatch?.id) {
-          const { publishOpenMatch } = await import("../services/feed-publisher");
-          publishOpenMatch(openMatch.id).catch(() => {});
-        }
-
-        console.log(
-          "[OpenMatch] Created via create-match-request:",
-          openMatch.id,
-          "booking:",
-          bookingId,
-        );
-        return res.status(201).json(openMatch);
+      // Phase 4 — cap each player at 5 open matches per rolling 7-day
+      // window. Same cap the /api/open-matches POST enforces so wizard +
+      // booking-attached creates can't exceed it independently.
+      const weeklyCap = await assertWeeklyOpenMatchCap(playerId);
+      if (weeklyCap) {
+        return res.status(429).json(weeklyCap);
       }
 
-      const [request] = await db
-        .insert(matchRequests)
+      const [openMatch] = await db
+        .insert(openMatches)
         .values({
-          playerId,
+          bookingId: bookingId || null,
+          hostPlayerId: playerId,
           academyId,
           matchType: matchType || "singles",
+          matchIntent: matchIntent || "friendly",
           title: title || `Looking for ${matchType || "singles"} partner`,
           description,
-          preferredDate,
-          preferredTime,
+          preferredDate: preferredDate || null,
+          preferredTime: preferredTime || null,
           requiredLevelMin: requiredLevelMin || 1,
-          requiredLevelMax: requiredLevelMax || 9,
+          requiredLevelMax: requiredLevelMax || 20,
           requiredBallLevel,
+          isAdult: isAdult ?? true,
           maxPlayers: maxPlayers || (matchType === "doubles" ? 4 : 2),
+          currentPlayers: 1,
           invitedPlayerId: invitedPlayerId || null,
           status: invitedPlayerId ? "pending_invite" : "open",
-          matchIntent: matchIntent || "friendly",
-          sport: sport || "tennis",
-          courtBookingStatus: courtBookingStatus || null,
+          visibility: "public",
+          // When the picker is attached to a real court booking, default
+          // to academy_court; otherwise honor whatever the wizard chose
+          // (external_booked / external_pending) or null.
+          courtBookingStatus:
+            courtBookingStatus || (bookingId ? "academy_court" : null),
           courtBookingNote: courtBookingNote || null,
           courtBookingUrl: courtBookingUrl || null,
         })
         .returning();
 
-      console.log(
-        "[MatchRequest] Created:",
-        request.id,
-        "by player:",
+      // Insert host as the first confirmed slot so capacity counts and
+      // the slot-based endpoints (/leave, /kick, etc.) work for hosts
+      // immediately.
+      await db.insert(openMatchSlots).values({
+        matchId: openMatch.id,
         playerId,
+        role: "host",
+        status: "confirmed",
+      });
+
+      if (openMatch?.id) {
+        const { publishOpenMatch } = await import("../services/feed-publisher");
+        publishOpenMatch(openMatch.id).catch(() => {});
+      }
+
+      console.log(
+        "[OpenMatch] (deprecated route /api/play/create-match-request) Created:",
+        openMatch.id,
+        "booking:",
+        bookingId || "none",
       );
-      res.status(201).json(request);
+      res.status(201).json(openMatch);
     } catch (error) {
       console.error("Create match request error:", error);
       res.status(500).json({ error: "Failed to create match request" });

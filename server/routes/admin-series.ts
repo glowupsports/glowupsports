@@ -10,6 +10,7 @@ import {
   creditTransactions,
   players,
   matchRequests,
+  openMatches,
   posts as postsTable,
   users,
   coaches,
@@ -5514,7 +5515,10 @@ router.get(
         }
       }
 
-      // Add open matches from match_requests table
+      // Add open matches from open_matches table.
+      // Task #1270 — switched from match_requests to open_matches as part of
+      // unifying open match storage. Same filtering logic (ball-level match,
+      // academy scope, status=open).
       // Skip if type filter excludes open_match, or if a specific sport filter is active
       // (open_match records do not carry a sport field, so they cannot be sport-filtered)
       const includeOpenMatches =
@@ -5532,30 +5536,30 @@ router.get(
           matchLimit > 0
             ? await db
                 .select({
-                  id: matchRequests.id,
-                  playerId: matchRequests.playerId,
-                  matchType: matchRequests.matchType,
-                  title: matchRequests.title,
-                  preferredDate: matchRequests.preferredDate,
-                  preferredTime: matchRequests.preferredTime,
-                  requiredLevelMin: matchRequests.requiredLevelMin,
-                  requiredLevelMax: matchRequests.requiredLevelMax,
-                  maxPlayers: matchRequests.maxPlayers,
-                  status: matchRequests.status,
-                  createdAt: matchRequests.createdAt,
+                  id: openMatches.id,
+                  playerId: openMatches.hostPlayerId,
+                  matchType: openMatches.matchType,
+                  title: openMatches.title,
+                  preferredDate: openMatches.preferredDate,
+                  preferredTime: openMatches.preferredTime,
+                  requiredLevelMin: openMatches.requiredLevelMin,
+                  requiredLevelMax: openMatches.requiredLevelMax,
+                  maxPlayers: openMatches.maxPlayers,
+                  status: openMatches.status,
+                  createdAt: openMatches.createdAt,
                   playerName: players.name,
                   hostBallLevel: players.ballLevel,
                   playerAvatar: players.profilePhotoUrl,
                 })
-                .from(matchRequests)
-                .leftJoin(players, eq(matchRequests.playerId, players.id))
+                .from(openMatches)
+                .leftJoin(players, eq(openMatches.hostPlayerId, players.id))
                 .where(
                   and(
-                    eq(matchRequests.status, "open"),
+                    eq(openMatches.status, "open"),
                     eq(players.ballLevel, player.ballLevel),
                     or(
-                      eq(matchRequests.academyId, player.academyId),
-                      isNull(matchRequests.academyId),
+                      eq(openMatches.academyId, player.academyId),
+                      isNull(openMatches.academyId),
                     ),
                   ),
                 )

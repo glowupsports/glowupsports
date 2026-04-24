@@ -115,6 +115,7 @@ interface OpenMatchLite {
   costPerPlayer?: string | null;
   currency?: string;
   ballLevel?: string | null;
+  status?: string;
   levelMatch?: "exact" | "adjacent";
   levelDirection?: "higher" | "lower" | null;
   host?: {
@@ -314,6 +315,22 @@ function CompeteCard() {
       Alert.alert("Joined!", "You're in. See match details in Play.");
     },
     onError: (err: any) => {
+      // Task #1270 — when the home card is holding a stale id from before
+      // the match_requests → open_matches storage flip, the server returns
+      // 410 with code MATCH_MIGRATED. Refetch silently and tell the user
+      // to tap again instead of an opaque "Could not join" alert.
+      const message = String(err?.message || "");
+      if (message.includes("MATCH_MIGRATED") || message.startsWith("410:")) {
+        queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+        queryClient.invalidateQueries({
+          queryKey: ["/api/open-matches", { includeMine: true }],
+        });
+        Alert.alert(
+          "Match list updated",
+          "Please tap Join again — we just refreshed the list.",
+        );
+        return;
+      }
       Alert.alert("Could not join", err?.message || "Please try again.");
     },
   });
@@ -394,7 +411,14 @@ function CompeteCard() {
   // Priority: own upcoming match first (so player can manage it), then any
   // other joinable upcoming match. We never show an empty CTA when the
   // player already has a hosted match queued up.
+  //
+  // Task #1270 — defensive status guard. The listing endpoint already filters
+  // to status='open', but the home card is rendered against a cache that
+  // can briefly hold cancelled/full/migrated rows (e.g. mid-deploy). Drop
+  // anything that isn't openly joinable so we don't surface a Join CTA on
+  // a row that will 404 / 410.
   const futureSorted = openMatches
+    .filter((m) => !m.status || m.status === "open")
     .filter((m) => m.scheduledTime && new Date(m.scheduledTime) > new Date())
     .sort(
       (a, b) =>

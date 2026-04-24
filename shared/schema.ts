@@ -852,28 +852,42 @@ export const openMatches = pgTable("open_matches", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  bookingId: varchar("booking_id").references(() => courtBookings.id).notNull(),
+  // Nullable: Find-a-Match wizard creates open matches without a real court
+  // booking attached (the host advertises a slot first; they may book the
+  // court later or via the courtBookingStatus picker below). Task #1270 made
+  // this column nullable when match_requests was unified into open_matches.
+  bookingId: varchar("booking_id").references(() => courtBookings.id),
   hostPlayerId: varchar("host_player_id").references(() => players.id).notNull(),
   academyId: varchar("academy_id").references(() => academies.id),
   
   // Match details
   matchType: text("match_type").default("singles"), // singles | doubles | practice | rally
+  matchIntent: text("match_intent").default("friendly"), // friendly | competitive | ranking
   title: text("title"), // "Looking for doubles partner"
   description: text("description"),
-  
+
+  // Preferred date/time — mirrored from the wizard so listing endpoints
+  // don't have to re-derive this from the linked court booking. Task #1270.
+  preferredDate: date("preferred_date"),
+  preferredTime: text("preferred_time"), // "18:00"
+
   // Skill matching
   requiredLevelMin: integer("required_level_min").default(1), // Player XP level
   requiredLevelMax: integer("required_level_max").default(20),
   requiredBallLevel: text("required_ball_level"), // red | orange | green | yellow
   skillFlexibility: text("skill_flexibility").default("flexible"), // strict | flexible | any
-  
+  isAdult: boolean("is_adult").default(true),
+
   // Capacity
   maxPlayers: integer("max_players").default(2), // 2 for singles, 4 for doubles
   currentPlayers: integer("current_players").default(1), // host counts as 1
-  
+
   // Status
-  status: text("status").default("open"), // draft | open | full | cancelled | completed
-  
+  status: text("status").default("open"), // draft | open | full | cancelled | completed | pending_invite
+
+  // Direct invite (when host targets one specific friend)
+  invitedPlayerId: varchar("invited_player_id").references(() => players.id),
+
   // Visibility
   visibility: text("visibility").default("academy"), // public | academy | friends_only
   
@@ -899,6 +913,7 @@ export const openMatches = pgTable("open_matches", {
   hostIdx: index("open_matches_host_idx").on(table.hostPlayerId),
   statusIdx: index("open_matches_status_idx").on(table.status),
   academyStatusIdx: index("open_matches_academy_status_idx").on(table.academyId, table.status),
+  preferredDateIdx: index("open_matches_preferred_date_idx").on(table.preferredDate),
 }));
 
 export const insertOpenMatchSchema = createInsertSchema(openMatches).omit({ id: true, createdAt: true, updatedAt: true });
