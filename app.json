@@ -89,7 +89,7 @@
       ]
     ],
     "experiments": {
-      "reactCompiler": true
+      "reactCompiler": false
     },
     "extra": {
       "eas": {

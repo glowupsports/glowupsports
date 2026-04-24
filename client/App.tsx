@@ -52,6 +52,16 @@ if (SENTRY_DSN) {
   // that a missing/broken module on web/dev cannot prevent the bundle's first
   // line of telemetry from firing. The whole block is wrapped in try/catch
   // for the same reason.
+  //
+  // Task #1290 — added the `react_compiler` tag so the Sentry dashboard can
+  // split crash rate for REACT-NATIVE-36 (iOS Fabric MountingCoordinator
+  // EXC_BAD_ACCESS) by whether the React Compiler experiment is on or off.
+  // The mitigation we shipped for #1290 is `experiments.reactCompiler: false`
+  // in app.json — see the post-mortem in that task's commit message and in
+  // .local/tasks/task-1290.md. If the crash rate stays flat on the bundle
+  // tagged `react_compiler=off`, this flip was not the trigger and the next
+  // lever (per the task's bisection plan) is the upstream RN patch from
+  // step 3.
   try {
     let otaUpdateId = "embedded";
     let otaRuntime = "unknown";
@@ -73,17 +83,23 @@ if (SENTRY_DSN) {
     const commitSha = String(
       process.env.EXPO_PUBLIC_COMMIT_SHA || "unknown",
     ).slice(0, 12);
+    // Keep this in sync with `experiments.reactCompiler` in app.json.
+    // We hard-code rather than reading from Constants.expoConfig because the
+    // experiments block is stripped from the runtime config in some builds,
+    // and we want the tag to be authoritative for crash-rate splitting.
+    const reactCompiler = "off"; // Task #1290 mitigation
     Sentry.setTag("ota_update_id", otaUpdateId);
     Sentry.setTag("ota_runtime", otaRuntime);
     Sentry.setTag("ota_channel", otaChannel);
     Sentry.setTag("ota_commit_sha", commitSha);
+    Sentry.setTag("react_compiler", reactCompiler);
     Sentry.addBreadcrumb({
       category: "boot",
       level: "info",
-      message: `App.tsx evaluated · ota=${otaUpdateId} rt=${otaRuntime} channel=${otaChannel} sha=${commitSha}`,
+      message: `App.tsx evaluated · ota=${otaUpdateId} rt=${otaRuntime} channel=${otaChannel} sha=${commitSha} rc=${reactCompiler}`,
     });
     Sentry.captureMessage(
-      `[boot] App.tsx evaluated rt=${otaRuntime} sha=${commitSha}`,
+      `[boot] App.tsx evaluated rt=${otaRuntime} sha=${commitSha} rc=${reactCompiler}`,
       "info",
     );
   } catch {
