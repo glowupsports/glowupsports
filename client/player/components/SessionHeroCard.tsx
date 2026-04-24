@@ -570,8 +570,9 @@ export function SessionHeroCard({
     if (onFindMatch) {
       onFindMatch();
     } else {
-      // Navigate to Play tab with Players sub-tab selected
-      navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Players" } });
+      // Navigate to the Find a Match flow (CreateMatch wizard).
+      // Mirrors the "Find a Match" home tile in PlayScreen.
+      navigateToTab("PlayStack", { screen: "CreateMatch" });
     }
   };
 
@@ -1773,9 +1774,13 @@ export function SessionHeroCard({
             </View>
             <View style={{ flex: 1 }}>
               <SwipeBlocker>
-                <Pressable style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]} onPress={handleFindMatch}>
-                  <Feather name="users" size={14} color={Colors.dark.accentText} />
-                  <Text style={styles.commandOutlineButtonText}>{t("player.home.findPlayers")}</Text>
+                <Pressable
+                  style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]}
+                  onPress={handleFindMatch}
+                  accessibilityLabel="Find Match"
+                >
+                  <Feather name="zap" size={14} color={Colors.dark.accentText} />
+                  <Text style={styles.commandOutlineButtonText}>{t("player.home.findMatch")}</Text>
                 </Pressable>
               </SwipeBlocker>
             </View>
@@ -1829,9 +1834,10 @@ export function SessionHeroCard({
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={handleFindMatch}
+                accessibilityLabel="Find Match"
               >
-                <Feather name="users" size={16} color={Colors.dark.accentText} />
-                <Text style={styles.openDaySmallButtonText}>{t("player.home.findPlayers").toUpperCase()}</Text>
+                <Feather name="zap" size={16} color={Colors.dark.accentText} />
+                <Text style={styles.openDaySmallButtonText}>{t("player.home.findMatch")}</Text>
               </Pressable>
 
               <Pressable
@@ -2712,9 +2718,10 @@ export function SessionHeroCard({
                     pressed && styles.buttonPressed,
                   ]}
                   onPress={handleFindMatch}
+                  accessibilityLabel="Find Match"
                 >
-                  <Feather name="users" size={14} color={Colors.dark.accentText} />
-                  <Text style={styles.commandOutlineButtonText}>{t("player.home.findPlayers")}</Text>
+                  <Feather name="zap" size={14} color={Colors.dark.accentText} />
+                  <Text style={styles.commandOutlineButtonText}>{t("player.home.findMatch")}</Text>
                 </Pressable>
               </SwipeBlocker>
             </View>
