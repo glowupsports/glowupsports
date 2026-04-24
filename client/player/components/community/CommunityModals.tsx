@@ -1493,7 +1493,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
               ) : (
                 <View style={createStyles.noGroupsMessage}>
                   <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
-                  <ThemedText style={createStyles.noGroupsText}>You're not in any groups yet</ThemedText>
+                  <ThemedText style={createStyles.noGroupsText}>You&apos;re not in any groups yet</ThemedText>
                 </View>
               )}
             </ScrollView>
