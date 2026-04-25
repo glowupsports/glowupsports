@@ -581,7 +581,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 ? Math.round((presentCount / nonCancelledRecords.length) * 100)
                 : 0,
           },
-          records,
+          // Task #1335 — exclude cancelled sessions from the listed sessions
+          // in PDF / Share Link / Email exports, matching the in-app
+          // attendance history view. Holiday/vacation rows still appear.
+          records: records.filter((r) => r.status !== "cancelled"),
           seriesMap: Object.fromEntries(
             Object.entries(seriesMap).map(([id, info]) => [
               id,
@@ -1389,7 +1392,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           })
           .sort((a, b) => a.dayOfWeek - b.dayOfWeek);
 
-        res.json({ history, seriesSummaries });
+        // Task #1335 — exclude cancelled sessions from the attendance history
+        // list. They aren't charged and shouldn't appear as rows in the
+        // player's history. The per-series summary math above already
+        // excludes them via `nonCancelledHistory`.
+        res.json({ history: nonCancelledHistory, seriesSummaries });
       } catch (error) {
         console.error("Error fetching player attendance history:", error);
         res.status(500).json({ error: "Failed to fetch attendance history" });

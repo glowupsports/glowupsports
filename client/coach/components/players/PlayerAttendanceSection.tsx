@@ -77,7 +77,13 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
   const { data: attendanceData } = useQuery<AttendanceHistoryResponse>({
     queryKey: [`/api/coach/players/${playerId}/attendance-history`],
   });
-  const attendanceHistory = attendanceData?.history || [];
+  // Task #1335 — defensive client-side filter: cancelled sessions should
+  // never appear in the attendance history list, the visible counts shown
+  // in the "Show All (N)" button, or the per-series counters. The server
+  // already strips them, but this is a safety net in case any leak through.
+  const attendanceHistory = (attendanceData?.history || []).filter(
+    (r) => r.status !== "cancelled",
+  );
   const seriesAttendanceSummaries = attendanceData?.seriesSummaries || [];
 
   interface SessionRatingRecord {
