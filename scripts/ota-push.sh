@@ -228,11 +228,20 @@ export EXPO_PUBLIC_API_URL="https://glow-up-sports--ltvjeugd.replit.app"
 export EXPO_PUBLIC_DOMAIN="glow-up-sports--ltvjeugd.replit.app"
 export EXPO_PUBLIC_ENV="production"
 
+# Inject short git SHA so client/App.tsx can tag every Sentry boot event
+# (`ota_commit_sha` and the `[boot] ...` breadcrumbs) with the exact commit
+# that produced this OTA bundle. EXPO_PUBLIC_* must be set BEFORE
+# `expo export` / `eas update` so Metro inlines it into the bundle.
+# Falls back to "unknown" if git isn't available (matches App.tsx default).
+RESOLVED_COMMIT_SHA="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+export EXPO_PUBLIC_COMMIT_SHA="$RESOLVED_COMMIT_SHA"
+
 echo "  Injected env for OTA bundle:"
-echo "    EXPO_PUBLIC_API_URL = $EXPO_PUBLIC_API_URL"
-echo "    EXPO_PUBLIC_DOMAIN  = $EXPO_PUBLIC_DOMAIN"
-echo "    EXPO_PUBLIC_ENV     = $EXPO_PUBLIC_ENV"
-echo "    NODE_OPTIONS        = $NODE_OPTIONS"
+echo "    EXPO_PUBLIC_API_URL        = $EXPO_PUBLIC_API_URL"
+echo "    EXPO_PUBLIC_DOMAIN         = $EXPO_PUBLIC_DOMAIN"
+echo "    EXPO_PUBLIC_ENV            = $EXPO_PUBLIC_ENV"
+echo "    EXPO_PUBLIC_COMMIT_SHA     = $EXPO_PUBLIC_COMMIT_SHA"
+echo "    NODE_OPTIONS               = $NODE_OPTIONS"
 
 # ---------------------------------------------------------------------------
 # Pause "Start App" Metro on :8081 so the bundler isn't fighting it for
