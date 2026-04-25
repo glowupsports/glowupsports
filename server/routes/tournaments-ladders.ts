@@ -253,7 +253,7 @@ router.get("/api/player/tournaments/:id", authMiddleware, async (req: AuthReques
       player: {
         id: players.id,
         name: players.name,
-        photoUrl: players.photoUrl,
+        photoUrl: players.profilePhotoUrl,
       },
     }).from(tournamentParticipants)
       .innerJoin(players, eq(tournamentParticipants.playerId, players.id))
@@ -619,7 +619,7 @@ router.get("/api/player/tournaments/:id/participants", authMiddleware, async (re
       player: {
         id: players.id,
         name: players.name,
-        photoUrl: players.photoUrl,
+        photoUrl: players.profilePhotoUrl,
       },
     }).from(tournamentParticipants)
       .innerJoin(players, eq(tournamentParticipants.playerId, players.id))
@@ -1013,7 +1013,7 @@ router.get("/api/player/ladders/:id", authMiddleware, async (req: AuthRequest, r
       player: {
         id: players.id,
         name: players.name,
-        photoUrl: players.photoUrl,
+        photoUrl: players.profilePhotoUrl,
       },
     }).from(ladderPlayers)
       .innerJoin(players, eq(ladderPlayers.playerId, players.id))
@@ -1517,7 +1517,7 @@ router.get("/api/tournaments/:id", authMiddleware, async (req: AuthRequest, res:
       player: {
         id: players.id,
         name: players.name,
-        photoUrl: players.photoUrl,
+        photoUrl: players.profilePhotoUrl,
       },
     }).from(tournamentParticipants)
       .innerJoin(players, eq(tournamentParticipants.playerId, players.id))

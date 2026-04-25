@@ -2045,8 +2045,6 @@ export const storage = {
       specializations: coaches.specializations,
       languages: coaches.languages,
       hourlyRate: coaches.hourlyRate,
-      city: coaches.city,
-      country: coaches.country,
       academyId: coaches.academyId,
       publicProfileEnabled: coaches.publicProfileEnabled,
     }).from(coaches).where(and(

@@ -819,7 +819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const coachesData =
           coachIds.length > 0
             ? await db
-                .select({ id: coaches.id, displayName: coaches.displayName })
+                .select({ id: coaches.id, displayName: coaches.name })
                 .from(coaches)
                 .where(inArray(coaches.id, coachIds as string[]))
             : [];
