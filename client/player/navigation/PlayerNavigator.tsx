@@ -839,11 +839,27 @@ function useResolvedInitialTab(
             JSON.stringify({ role, tab: candidate, userId } satisfies StoredTabState),
           ).catch(() => { /* best-effort */ });
         }
-        setResolved({ tab: candidate, ready: true });
+        // Bail out when the resolution is unchanged. Without this guard,
+        // every refetch of validTabKeys (whenever the Community unread
+        // badge flips) would hand SwipeableTabBar a NEW key prop —
+        // forcing a full unmount/remount of every tab and feeding any
+        // child setState-in-effect a fresh deps reference. That cascade
+        // is the most likely contributor to the "Maximum update depth
+        // exceeded" warning seen on the player surface.
+        setResolved((prev) =>
+          prev.tab === candidate && prev.ready === true
+            ? prev
+            : { tab: candidate, ready: true },
+        );
       })
       .catch(() => {
         if (cancelled) return;
-        setResolved({ tab: rolesDefaultTab(role), ready: true });
+        setResolved((prev) => {
+          const next = rolesDefaultTab(role);
+          return prev.tab === next && prev.ready === true
+            ? prev
+            : { tab: next, ready: true };
+        });
       });
     return () => { cancelled = true; };
   }, [isFreePlayer, isPlayerStatusReady, userId, validTabKeys]);

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
 
 // PARKED helper types — kept ONLY so the parked PlayerChatFooter.tsx
 // (see task #1309) still typechecks. They are not wired to any real
@@ -39,15 +39,23 @@ export function ChatStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const consumeChatTarget = useCallback(() => null, []);
 
+  // Memoize the provider value so consumers don't see a fresh object on
+  // every parent re-render. Without this, every consumer of useChatState()
+  // re-renders any time ChatStateProvider itself re-renders, even when
+  // the underlying state is unchanged — a classic source of cascading
+  // updates that can amplify unrelated render loops elsewhere in the tree.
+  const value = useMemo(
+    () => ({
+      isChatExpanded,
+      setChatExpanded,
+      chatTarget: null,
+      consumeChatTarget,
+    }),
+    [isChatExpanded, setChatExpanded, consumeChatTarget],
+  );
+
   return (
-    <ChatStateContext.Provider
-      value={{
-        isChatExpanded,
-        setChatExpanded,
-        chatTarget: null,
-        consumeChatTarget,
-      }}
-    >
+    <ChatStateContext.Provider value={value}>
       {children}
     </ChatStateContext.Provider>
   );

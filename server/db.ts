@@ -540,6 +540,72 @@ pool.query('SELECT 1').then(async () => {
       )
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS player_ai_usage_user_idx ON player_ai_usage(user_id)`);
+    // Backfill the (user_id, month) UNIQUE constraint on databases where the
+    // table was created before the constraint was added — without it the
+    // ON CONFLICT upsert in incrementAiCallCount throws Postgres 42P10 and
+    // every AI-coach chat request returns 500.
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conname = 'player_ai_usage_user_month'
+            AND conrelid = 'public.player_ai_usage'::regclass
+        ) AND NOT EXISTS (
+          SELECT 1
+          FROM pg_index ix
+          JOIN pg_class i ON i.oid = ix.indexrelid
+          JOIN pg_class t ON t.oid = ix.indrelid
+          WHERE t.relname = 'player_ai_usage'
+            AND ix.indisunique
+            AND (
+              SELECT array_agg(attname::text ORDER BY attname::text)
+              FROM pg_attribute
+              WHERE attrelid = t.oid AND attnum = ANY (ix.indkey)
+            ) = ARRAY['month','user_id']
+        ) THEN
+          -- Consolidate duplicate (user_id, month) rows deterministically:
+          -- keep the survivor with the lowest ctid per group, hoist its
+          -- call_count to the group MAX and updated_at to the latest seen,
+          -- then delete the losing rows. We materialise the ranking into
+          -- a temp table because a CTE only lives for ONE statement and
+          -- we need the same ranked data for both UPDATE and DELETE.
+          CREATE TEMP TABLE _player_ai_usage_dedup ON COMMIT DROP AS
+          SELECT ctid AS row_ctid,
+                 user_id,
+                 month,
+                 FIRST_VALUE(ctid) OVER (
+                   PARTITION BY user_id, month
+                   ORDER BY ctid
+                 ) AS keep_ctid,
+                 MAX(call_count) OVER (
+                   PARTITION BY user_id, month
+                 ) AS max_call_count,
+                 MAX(updated_at) OVER (
+                   PARTITION BY user_id, month
+                 ) AS max_updated_at
+          FROM player_ai_usage;
+
+          UPDATE player_ai_usage p
+          SET call_count = r.max_call_count,
+              updated_at = r.max_updated_at
+          FROM _player_ai_usage_dedup r
+          WHERE p.ctid = r.keep_ctid
+            AND (p.call_count IS DISTINCT FROM r.max_call_count
+                 OR p.updated_at IS DISTINCT FROM r.max_updated_at);
+
+          DELETE FROM player_ai_usage p
+          USING _player_ai_usage_dedup r
+          WHERE p.ctid = r.row_ctid
+            AND r.row_ctid <> r.keep_ctid;
+
+          DROP TABLE _player_ai_usage_dedup;
+
+          ALTER TABLE player_ai_usage
+            ADD CONSTRAINT player_ai_usage_user_month UNIQUE (user_id, month);
+        END IF;
+      END $$;
+    `);
     console.log('[Database] player_ai_usage migration successful');
   } catch (e: any) {
     console.log('[Database] player_ai_usage migration skipped:', e.message);

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback, useRef, useState, ReactNode } from "react";
+import React, { createContext, useContext, useCallback, useMemo, useRef, useState, ReactNode } from "react";
 import { Platform } from "react-native";
 import PagerView from "react-native-pager-view";
 import * as Haptics from "expo-haptics";
@@ -117,8 +117,41 @@ export function TabNavigationProvider({ children }: TabNavigationProviderProps) 
     }
   }, []);
 
+  // Memoize the provider value so a fresh object isn't handed to every
+  // consumer on each render. Without this, every component using
+  // useTabNavigation() (PlayerNavigator, SwipeableTabBar, DesktopShell,
+  // ProPlayerHomeScreen, and many more) re-renders on every parent
+  // re-render — a known anti-pattern that can cascade into update-depth
+  // loops when one of those consumers also setState's in an effect that
+  // depends on a destructured field.
+  const value = useMemo(
+    () => ({
+      navigateToTab,
+      registerPager,
+      registerNavigation,
+      getNavigation,
+      registerTabCallback,
+      registerWebTabSetter,
+      registerActiveTabListener,
+      notifyActiveTab,
+      scrollEnabled,
+      setScrollEnabled,
+    }),
+    [
+      navigateToTab,
+      registerPager,
+      registerNavigation,
+      getNavigation,
+      registerTabCallback,
+      registerWebTabSetter,
+      registerActiveTabListener,
+      notifyActiveTab,
+      scrollEnabled,
+    ],
+  );
+
   return (
-    <TabNavigationContext.Provider value={{ navigateToTab, registerPager, registerNavigation, getNavigation, registerTabCallback, registerWebTabSetter, registerActiveTabListener, notifyActiveTab, scrollEnabled, setScrollEnabled }}>
+    <TabNavigationContext.Provider value={value}>
       {children}
     </TabNavigationContext.Provider>
   );
