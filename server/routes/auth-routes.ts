@@ -164,7 +164,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       if (user.coachId) {
         const coach = await storage.getCoach(user.coachId);
         if (coach) {
-          profilePhotoUrl = coach.profilePhotoUrl || null;
+          profilePhotoUrl = coach.photoUrl || null;
           displayName = coach.name || user.username;
         }
       } else if (user.playerId) {
@@ -306,7 +306,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       if (existingUser.coachId) {
         const coach = await storage.getCoach(existingUser.coachId);
         if (coach) {
-          profilePhotoUrl = coach.profilePhotoUrl || null;
+          profilePhotoUrl = coach.photoUrl || null;
           displayName = coach.name || existingUser.username;
         }
       } else if (existingUser.playerId) {

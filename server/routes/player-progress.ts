@@ -1544,7 +1544,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           // that still live in V1 `credit_transactions`, `cancelSessionDebt`
           // is kept as a first pass on the refund branch.
           const { consumeCredit, refundCredit } = await import("../services/credit-engine");
-          const actorId = req.user!.coachId || req.user!.id || null;
+          const actorId = req.user!.coachId || req.user!.userId || null;
 
           if (creditAdjustment > 0) {
             // Refund branch.

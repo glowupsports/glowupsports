@@ -89,7 +89,7 @@ router.get("/api/lesson-templates/:templateId", authMiddleware, requireAcademy, 
 router.post("/api/sessions/:sessionId/plan/generate", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { sessionId } = req.params;
-    const coachId = req.user!.coachId || req.user!.id;
+    const coachId = req.user!.coachId || req.user!.userId;
     const academyId = req.user!.academyId;
     const { templateId, customBlocks } = req.body;
     

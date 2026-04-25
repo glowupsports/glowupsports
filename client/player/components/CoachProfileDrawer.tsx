@@ -124,9 +124,9 @@ export default function CoachProfileDrawer({
             contentContainerStyle={styles.scrollContent}
           >
             <View style={styles.heroSection}>
-              {coach.profilePhotoUrl ? (
+              {coach.photoUrl ? (
                 <Image
-                  source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
+                  source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
                   style={styles.heroPhoto}
                   contentFit="cover"
                 />

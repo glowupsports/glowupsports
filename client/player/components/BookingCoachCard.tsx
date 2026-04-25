@@ -106,9 +106,9 @@ export default function BookingCoachCard({
         >
           <View style={styles.cardContent}>
             <View style={styles.photoSection}>
-              {coach.profilePhotoUrl ? (
+              {coach.photoUrl ? (
                 <Image
-                  source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
+                  source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
                   style={styles.photo}
                   contentFit="cover"
                 />

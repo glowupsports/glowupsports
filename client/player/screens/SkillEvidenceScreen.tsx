@@ -65,7 +65,7 @@ const STATUS_CONFIG: Record<string, { color: string; label: string; icon: string
 export default function SkillEvidenceScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { player } = usePlayer();
+  const { playerId } = usePlayer();
   const queryClient = useQueryClient();
   const [showCamera, setShowCamera] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
@@ -78,8 +78,8 @@ export default function SkillEvidenceScreen() {
   const [selectedVideo, setSelectedVideo] = useState<Evidence | null>(null);
 
   const { data: evidence = [], isLoading: loadingEvidence } = useQuery<Evidence[]>({
-    queryKey: [`/api/players/${player?.id}/evidence`],
-    enabled: !!player?.id,
+    queryKey: [`/api/players/${playerId}/evidence`],
+    enabled: !!playerId,
   });
 
   const { data: skills = [] } = useQuery<Skill[]>({
@@ -133,7 +133,7 @@ export default function SkillEvidenceScreen() {
   };
 
   const uploadEvidence = async (videoUri: string) => {
-    if (!player?.id || !selectedSkill) return;
+    if (!playerId || !selectedSkill) return;
     
     try {
       const formData = new FormData();
@@ -148,7 +148,7 @@ export default function SkillEvidenceScreen() {
       formData.append("captureType", "skill_demo");
       
       const response = await fetch(
-        new URL(`/api/players/${player.id}/evidence`, getApiUrl()).toString(),
+        new URL(`/api/players/${playerId}/evidence`, getApiUrl()).toString(),
         {
           method: "POST",
           body: formData,
@@ -160,7 +160,7 @@ export default function SkillEvidenceScreen() {
       
       if (response.ok) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/evidence`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/evidence`] });
         setShowCamera(false);
         setSelectedSkill(null);
         Alert.alert("Success", "Your skill evidence has been uploaded for review!");

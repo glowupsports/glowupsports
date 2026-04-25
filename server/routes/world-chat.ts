@@ -484,7 +484,7 @@ router.post(
           .json({ error: fromZodError(parsedMsg.error).message });
       }
       const { body, messageType } = parsedMsg.data;
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const coachId = req.user!.coachId;
       const playerId = req.user!.playerId;
 
@@ -2744,7 +2744,7 @@ router.patch(
 
       // Sync to Google Calendar if event exists (non-blocking)
       if (session.googleCalendarEventId) {
-        const sessionPlayers = await storage.getSessionPlayers(id);
+        const sessionPlayers = await storage.getSessionPlayersWithPlayerInfo(id);
         const playerNames = sessionPlayers
           .map((sp) => sp.player?.name)
           .filter(Boolean) as string[];

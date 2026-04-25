@@ -620,7 +620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     authMiddleware,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const userId = req.user!.id;
+        const userId = req.user!.userId;
         const key = `user_onboarding_${userId}`;
         const existing = await db
           .select()
@@ -642,7 +642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     authMiddleware,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const userId = req.user!.id;
+        const userId = req.user!.userId;
         const onboardingStateSchema = z.object({ key: z.string().min(1).max(128), value: z.unknown() });
         const parsedOnboarding = onboardingStateSchema.safeParse(req.body);
         if (!parsedOnboarding.success) return res.status(400).json({ error: fromZodError(parsedOnboarding.error).message });
@@ -1182,7 +1182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: fromZodError(parsed.error).message });
         }
         const { severity, message, screen, context, userComment } = parsed.data;
-        const userId = req.user?.id;
+        const userId = req.user?.userId;
         const academyId = req.user?.academyId;
         const userRole = req.user?.role;
 
@@ -1283,7 +1283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (status === "resolved") {
           const report = await storage.resolveDiagnosticReport(
             req.params.id,
-            req.user!.id,
+            req.user!.userId,
             resolutionNotes,
           );
           if (!report) {

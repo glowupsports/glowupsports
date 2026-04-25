@@ -62,7 +62,7 @@ async function isCallerChildOf(userId: string, playerId: string): Promise<boolea
 
 router.get("/api/parent/children", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
 
     const childIds = await getCallerChildPlayerIds(userId);
     if (childIds.length === 0) return res.json([]);
@@ -116,7 +116,7 @@ router.get("/api/parent/children", authMiddleware, async (req: AuthenticatedRequ
 
 router.get("/api/parent/children/:playerId/progress", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { playerId } = req.params;
 
     if (!(await isCallerChildOf(userId, playerId))) {
@@ -179,7 +179,7 @@ router.get("/api/parent/children/:playerId/progress", authMiddleware, async (req
 
 router.get("/api/parent/children/:playerId/sessions", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { playerId } = req.params;
     const { limit = "10" } = req.query;
 
@@ -225,7 +225,7 @@ router.get("/api/parent/children/:playerId/sessions", authMiddleware, async (req
 
 router.get("/api/parent/children/:playerId/feedback", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { playerId } = req.params;
     const { limit = "10" } = req.query;
 
@@ -256,7 +256,7 @@ router.get("/api/parent/children/:playerId/feedback", authMiddleware, async (req
 
 router.get("/api/parent/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     
     const parentMessages = await db
       .select({
@@ -282,7 +282,7 @@ router.get("/api/parent/messages", authMiddleware, async (req: AuthenticatedRequ
 // GET /api/parent/children/:playerId/session-ratings — parent view of child's self-submitted lesson ratings
 router.get("/api/parent/children/:playerId/session-ratings", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const { playerId } = req.params;
     const { limit = "10" } = req.query;
 

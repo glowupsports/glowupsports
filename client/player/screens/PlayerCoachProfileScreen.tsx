@@ -318,16 +318,16 @@ export default function PlayerCoachProfileScreen() {
         ) : null}
 
         <View style={styles.profileHeader}>
-          {coach.profilePhotoUrl ? (
+          {coach.photoUrl ? (
             Platform.OS === "web" ? (
               <RNImage
-                source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
+                source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
                 style={styles.avatarLargeImage}
                 resizeMode="cover"
               />
             ) : (
               <Image
-                source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
+                source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
                 style={styles.avatarLargeImage}
                 contentFit="cover"
               />

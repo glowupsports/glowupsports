@@ -884,8 +884,8 @@ router.get("/api/leaderboards/skill-challenge/submissions", authMiddleware, requ
         createdAt: postsTable.createdAt,
         cheerCount: postsTable.cheerCount,
         commentCount: postsTable.commentCount,
-        authorName: users.name,
-        authorPhotoUrl: users.profilePhotoUrl,
+        authorName: users.username,
+        authorPhotoUrl: sql<string | null>`NULL`,
       })
       .from(postsTable)
       .innerJoin(users, eq(users.id, postsTable.authorId))

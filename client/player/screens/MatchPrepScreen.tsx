@@ -132,18 +132,18 @@ export default function MatchPrepScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<PlayerStackParamList>>();
   const route = useRoute();
-  const { player } = usePlayer();
+  const { playerId } = usePlayer();
   const queryClient = useQueryClient();
   const params = route.params as { planId?: string; matchId?: string };
 
   const { data: plan, isLoading: loadingPlan } = useQuery<MatchPlan>({
-    queryKey: [`/api/match-intelligence/plans/${params?.planId}?playerId=${player?.id}`],
-    enabled: !!params?.planId && !!player?.id,
+    queryKey: [`/api/match-intelligence/plans/${params?.planId}?playerId=${playerId}`],
+    enabled: !!params?.planId && !!playerId,
   });
 
   const { data: opponents } = useQuery<Opponent[]>({
-    queryKey: [`/api/match-intelligence/opponents?playerId=${player?.id}`],
-    enabled: !!player?.id,
+    queryKey: [`/api/match-intelligence/opponents?playerId=${playerId}`],
+    enabled: !!playerId,
   });
 
   const [selectedOpponentId, setSelectedOpponentId] = useState<string | null>(null);
@@ -174,7 +174,7 @@ export default function MatchPrepScreen() {
   const createPlanMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/match-intelligence/plans", {
-        playerId: player?.id,
+        playerId: playerId,
         opponentId: selectedOpponentId,
         primaryTactic,
         mentalCue,
@@ -198,7 +198,7 @@ export default function MatchPrepScreen() {
   const updatePlanMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("PUT", `/api/match-intelligence/plans/${params.planId}`, {
-        playerId: player?.id,
+        playerId: playerId,
         opponentId: selectedOpponentId,
         primaryTactic,
         mentalCue,
@@ -225,7 +225,7 @@ export default function MatchPrepScreen() {
     if (!params.matchId) return;
     try {
       await apiRequest("POST", `/api/match-intelligence/matches/${params.matchId}/reflection`, {
-        playerId: player?.id,
+        playerId: playerId,
         preMatchMood: preMatchMood || null,
         preMatchConfidence: confidence || null,
         preMatchGoal: preMatchGoal.trim() || null,

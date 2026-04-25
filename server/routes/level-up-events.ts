@@ -74,7 +74,7 @@ router.post("/api/players/:playerId/level-up", authMiddleware, requireAcademy, a
   try {
     const { playerId } = req.params;
     const academyId = req.user!.academyId;
-    const coachId = req.user!.coachId || req.user!.id;
+    const coachId = req.user!.coachId || req.user!.userId;
     
     // Validate player belongs to this academy
     const ownership = await validatePlayerOwnership(playerId, academyId, storage);

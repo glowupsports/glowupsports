@@ -1454,7 +1454,18 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     requireRole("platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const academies = await storage.getAllAcademies();
+        // Some computed/legacy fields (`isActive`, `subscriptionStatus`,
+        // `monthlyRevenue`) are not part of the strict schema typing but are
+        // either present at runtime via joins or treated as undefined for
+        // older deployments. Cast through `any` so the route keeps working
+        // exactly as before without inventing new schema columns.
+        const academies = (await storage.getAllAcademies()) as Array<
+          Awaited<ReturnType<typeof storage.getAllAcademies>>[number] & {
+            isActive?: boolean | null;
+            subscriptionStatus?: string | null;
+            monthlyRevenue?: number | null;
+          }
+        >;
         const allPlayers: any[] = [];
         const allCoaches: any[] = [];
 
@@ -1714,7 +1725,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const thirtyDaysAgo = new Date(now);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const academies = await storage.getAllAcademies();
+        const academies = (await storage.getAllAcademies()) as Array<
+          Awaited<ReturnType<typeof storage.getAllAcademies>>[number] & {
+            isActive?: boolean | null;
+            subscriptionStatus?: string | null;
+            monthlyRevenue?: number | null;
+          }
+        >;
 
         // Calculate MRR from academy monthlyRevenue (already in AED)
         const totalMrr = academies.reduce(
@@ -2920,7 +2937,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           });
         }
 
-        console.log(`[FullCreditRebuild] Triggered by user ${req.user?.id} (role=${role}) for academy ${academyId}`);
+        console.log(`[FullCreditRebuild] Triggered by user ${req.user?.userId} (role=${role}) for academy ${academyId}`);
 
         const { fullCreditRebuildForAcademy } = await import("../storage");
         const result = await fullCreditRebuildForAcademy(academyId);

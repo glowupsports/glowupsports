@@ -71,7 +71,7 @@ export function aiQuotaMiddleware(req: AuthenticatedRequest, res: Response, next
     return next();
   }
 
-  const userId = user.id;
+  const userId = user.userId;
 
   getUserAiCallsToday(userId).then((todayCount) => {
     if (todayCount >= limit) {

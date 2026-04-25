@@ -79,7 +79,7 @@ router.post(
           creditBalance,
           "top_up",
           "Initial credit balance",
-          req.user!.id,
+          req.user!.userId,
         );
       }
 
@@ -205,7 +205,7 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const { id } = req.params;
       const account = await corporateStorage.getCorporateAccount(id);
       if (!account || account.academyId !== academyId) {
@@ -438,7 +438,7 @@ router.post(
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const playerId = req.user!.playerId;
       if (!playerId) {
         return res.status(400).json({ error: "You must have a player profile to accept a corporate invite" });
@@ -526,7 +526,7 @@ router.get(
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
 
       // Resolve the user's verified email from the database (not just session data)
       const userRow = await db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1);
@@ -581,7 +581,7 @@ router.post(
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const { accountId } = req.params;
 
       // Verify user email from DB (not session cache) before granting write access

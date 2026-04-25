@@ -482,12 +482,12 @@ async function isAuthorizedToViewMatch(
           and(
             or(
               and(
-                eq(playerConnections.playerId, user.playerId),
-                inArray(playerConnections.connectedPlayerId, allParticipants),
+                eq(playerConnections.player1Id, user.playerId),
+                inArray(playerConnections.player2Id, allParticipants),
               ),
               and(
-                inArray(playerConnections.playerId, allParticipants),
-                eq(playerConnections.connectedPlayerId, user.playerId),
+                inArray(playerConnections.player1Id, allParticipants),
+                eq(playerConnections.player2Id, user.playerId),
               ),
             ),
             eq(playerConnections.status, "connected"),
@@ -530,12 +530,12 @@ async function isAuthorizedToViewHistory(
           and(
             or(
               and(
-                eq(playerConnections.playerId, user.playerId),
-                eq(playerConnections.connectedPlayerId, targetPlayerId),
+                eq(playerConnections.player1Id, user.playerId),
+                eq(playerConnections.player2Id, targetPlayerId),
               ),
               and(
-                eq(playerConnections.playerId, targetPlayerId),
-                eq(playerConnections.connectedPlayerId, user.playerId),
+                eq(playerConnections.player1Id, targetPlayerId),
+                eq(playerConnections.player2Id, user.playerId),
               ),
             ),
             eq(playerConnections.status, "connected"),

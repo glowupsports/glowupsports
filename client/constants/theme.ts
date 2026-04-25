@@ -81,6 +81,10 @@ export const GlowColors = {
   dark: "#7FB300",        // Pressed, muted glow
   shadow: "rgba(200, 255, 61, 0.12)",
   shadowSubtle: "rgba(200, 255, 61, 0.06)",
+  // Legacy aliases (kept to maintain backwards compat with older Player screens)
+  secondary: "#A6E92A",   // alias of soft
+  tertiary: "#7FB300",    // alias of dark
+  orange: "#FF851B",      // RoleColors.admin
 };
 
 // Function Colors (1 meaning = 1 color)
@@ -134,11 +138,15 @@ export const ProTennisColors = {
   surfaceDark: Backgrounds.card,
   surfaceCard: "#1A2235",
   surfaceElevated: Backgrounds.elevated,
+  surfaceLight: Backgrounds.elevated,
+  borderSubtle: "rgba(255, 255, 255, 0.06)",
   
   // Primary Accent - Electric Tennis Yellow/Green
   electricGreen: GlowColors.primary,
   electricGreenLight: "#DFFF40",
   electricGreenMuted: GlowColors.dark,
+  // Legacy alias for older screens that still reference `neonGreen`.
+  neonGreen: GlowColors.primary,
   
   // Secondary Accent - Neon Cyan for social/cold actions
   neonCyan: FunctionColors.info,
@@ -288,6 +296,23 @@ export const Colors = {
     accentNeon: FunctionColors.info,
     accentGreen: FunctionColors.success,
     accent: FunctionColors.info,
+    // Legacy aliases — older screens still reference these tokens.
+    card: LightBackgrounds.card,
+    cardLight: LightBackgrounds.elevated,
+    cardElevated: LightBackgrounds.elevated,
+    cardBackground: LightBackgrounds.card,
+    background: LightBackgrounds.root,
+    backgroundElevated: LightBackgrounds.elevated,
+    tint: LightAccentMoss,
+    textTertiary: LightTextColors.muted,
+    textPrimary: LightTextColors.primary,
+    danger: FunctionColors.error,
+    success: FunctionColors.success,
+    surfaceAlt: LightBackgrounds.surface,
+    surfaceElevated: LightBackgrounds.elevated,
+    panel: LightBackgrounds.card,
+    panelBorder: "rgba(11, 13, 16, 0.10)",
+    errorNeon: FunctionColors.error,
   },
   dark: {
     text: TextColors.primary,
@@ -394,7 +419,52 @@ export const Colors = {
     accentNeon: FunctionColors.info,
     accentGreen: FunctionColors.success,
     accent: FunctionColors.info,
+    // Legacy aliases — older screens still reference these tokens.
+    card: Backgrounds.card,
+    cardLight: Backgrounds.elevated,
+    cardElevated: Backgrounds.elevated,
+    cardBackground: Backgrounds.card,
+    background: Backgrounds.root,
+    backgroundElevated: Backgrounds.elevated,
+    tint: GlowColors.primary,
+    textTertiary: TextColors.muted,
+    textPrimary: TextColors.primary,
+    danger: FunctionColors.error,
+    success: FunctionColors.success,
+    surfaceAlt: Backgrounds.surface,
+    panel: Backgrounds.card,
+    panelBorder: "rgba(255, 255, 255, 0.06)",
+    errorNeon: FunctionColors.error,
   },
+  // Top-level legacy aliases — older screens still reference Colors.warning,
+  // Colors.text, Colors.textSecondary, Colors.primary, etc. directly without
+  // a scheme prefix. Keep them pointing at the dark scheme tokens so existing
+  // visuals stay identical until those screens are migrated.
+  warning: FunctionColors.social,
+  text: TextColors.primary,
+  textMuted: TextColors.secondary,
+  textSubtle: TextColors.muted,
+  textSecondary: TextColors.secondary,
+  textTertiary: TextColors.muted,
+  primary: GlowColors.primary,
+  secondary: GlowColors.soft,
+  background: Backgrounds.root,
+  card: Backgrounds.card,
+  cardLight: Backgrounds.elevated,
+  cardBackground: Backgrounds.card,
+  surface: Backgrounds.surface,
+  border: "rgba(255, 255, 255, 0.15)",
+  error: FunctionColors.error,
+  danger: FunctionColors.error,
+  success: FunctionColors.success,
+  info: FunctionColors.info,
+  tint: GlowColors.primary,
+  accent: FunctionColors.info,
+  accentError: FunctionColors.error,
+  accentWarning: FunctionColors.social,
+  accentInfo: FunctionColors.info,
+  gold: RoleColors.owner,
+  orange: RoleColors.admin,
 };
 
 // Snapshot Colors.dark / Colors.light so we can restore them when switching
@@ -669,6 +739,9 @@ export const Spacing = {
   "3xl": 40,
   "4xl": 48,
   "5xl": 56,
+  // Legacy aliases — older screens still reference xxl/xxxl which used to map to "2xl"/"3xl".
+  xxl: 32,
+  xxxl: 40,
   inputHeight: 48,
   buttonHeight: 48,
   headerHeight: 140,
@@ -767,6 +840,39 @@ export const Typography = {
     fontWeight: "600" as const,
     letterSpacing: 0.8,
     textTransform: "uppercase" as const,
+  },
+  // Legacy aliases (kept for older screens)
+  bodySmall: {
+    fontSize: 14,
+    fontWeight: "400" as const,
+  },
+  bodyLarge: {
+    fontSize: 16,
+    fontWeight: "400" as const,
+  },
+  bodyBold: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+  },
+  heading1: {
+    fontSize: 28,
+    fontWeight: "700" as const,
+  },
+  heading2: {
+    fontSize: 20,
+    fontWeight: "600" as const,
+  },
+  heading3: {
+    fontSize: 18,
+    fontWeight: "600" as const,
+  },
+  heading4: {
+    fontSize: 16,
+    fontWeight: "600" as const,
+  },
+  subtitle: {
+    fontSize: 18,
+    fontWeight: "600" as const,
   },
 };
 

@@ -57,19 +57,19 @@ const DEFAULT_ACTION_CONFIG = { icon: "flash", color: Colors.dark.primary, label
 export default function XPHistoryScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { player } = usePlayer();
+  const { playerId } = usePlayer();
   const { level, currentXp, xpForNextLevel } = usePlayerLevelContext();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: xpHistory = [], isLoading } = useQuery<XPEvent[]>({
-    queryKey: [`/api/player-level/player/${player?.id}/xp-history`],
-    enabled: !!player?.id,
+    queryKey: [`/api/player-level/player/${playerId}/xp-history`],
+    enabled: !!playerId,
   });
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await queryClient.invalidateQueries({ queryKey: [`/api/player-level/player/${player?.id}/xp-history`] });
+    await queryClient.invalidateQueries({ queryKey: [`/api/player-level/player/${playerId}/xp-history`] });
     setRefreshing(false);
   };
 

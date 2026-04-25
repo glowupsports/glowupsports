@@ -754,7 +754,7 @@ import fs from "fs";
         // Create diagnostic report for platform owner visibility
         await storage.createDiagnosticReport({
           errorId: crypto.randomUUID(),
-          userId: req.user!.id,
+          userId: req.user!.userId,
           academyId: session.academyId ?? undefined,
           userRole: "player",
           severity: issueType === "safety" ? "critical" : "error",
@@ -822,7 +822,7 @@ import fs from "fs";
           // Create additional critical-level diagnostic for immediate visibility
           await storage.createDiagnosticReport({
             errorId: crypto.randomUUID(),
-            userId: req.user!.id,
+            userId: req.user!.userId,
             academyId: session.academyId ?? undefined,
             userRole: "player",
             severity: "critical",
@@ -4148,7 +4148,7 @@ import fs from "fs";
         let token: string | undefined;
         let refreshToken: string | undefined;
         if (newPlayerCreated) {
-          const user = await storage.getUser(req.user!.id);
+          const user = await storage.getUser(req.user!.userId);
           if (user) {
             const onboardingJwtPayload = {
               userId: user.id,
@@ -4353,7 +4353,7 @@ import fs from "fs";
         const updatedCoach = await storage.updateCoach(coachId, {
           bioStatus: action === "approve" ? "approved" : "rejected",
           bioReviewedAt: new Date(),
-          bioReviewedBy: req.user!.id,
+          bioReviewedBy: req.user!.userId,
           bioRejectionReason: action === "reject" ? rejectionReason : null,
         });
 

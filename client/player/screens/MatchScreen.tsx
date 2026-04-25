@@ -70,7 +70,7 @@ export default function MatchScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<PlayerStackParamList>>();
   const route = useRoute<NativeStackScreenProps<ScheduleStackParamList, "Match">["route"]>();
-  const { player } = usePlayer();
+  const { playerId } = usePlayer();
   const queryClient = useQueryClient();
   const track = useTrackFeature();
   const [activeTab, setActiveTab] = useState<"upcoming" | "history">(
@@ -88,18 +88,18 @@ export default function MatchScreen() {
   const [selectedPlan, setSelectedPlan] = useState<MatchPlan | null>(null);
 
   const { data: upcomingMatches, isLoading: loadingUpcoming } = useQuery<MatchPlan[]>({
-    queryKey: [`/api/match-intelligence/upcoming?playerId=${player?.id}`],
-    enabled: !!player?.id,
+    queryKey: [`/api/match-intelligence/upcoming?playerId=${playerId}`],
+    enabled: !!playerId,
   });
 
   const { data: matchHistory, isLoading: loadingHistory } = useQuery<Match[]>({
-    queryKey: [`/api/match-intelligence/matches?playerId=${player?.id}`],
-    enabled: !!player?.id,
+    queryKey: [`/api/match-intelligence/matches?playerId=${playerId}`],
+    enabled: !!playerId,
   });
 
   const { data: opponents } = useQuery<Opponent[]>({
-    queryKey: [`/api/match-intelligence/opponents?playerId=${player?.id}`],
-    enabled: !!player?.id,
+    queryKey: [`/api/match-intelligence/opponents?playerId=${playerId}`],
+    enabled: !!playerId,
   });
 
   const renderUpcomingCard = (plan: MatchPlan) => (
@@ -305,7 +305,7 @@ export default function MatchScreen() {
       <MatchPrepareModal
         visible={showPrepareModal}
         onClose={() => setShowPrepareModal(false)}
-        playerId={player?.id || ""}
+        playerId={playerId || ""}
         opponents={opponents || []}
       />
 
@@ -315,7 +315,7 @@ export default function MatchScreen() {
           setShowResultModal(false);
           setSelectedPlan(null);
         }}
-        playerId={player?.id || ""}
+        playerId={playerId || ""}
         plan={selectedPlan}
         onSuccess={(matchId) => {
           setShowResultModal(false);

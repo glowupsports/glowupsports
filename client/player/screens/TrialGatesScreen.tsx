@@ -67,11 +67,11 @@ function getBallColor(levelName: string): string {
 export default function TrialGatesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { player } = usePlayer();
+  const { playerId } = usePlayer();
 
   const { data: trials = [], isLoading } = useQuery<Trial[]>({
-    queryKey: [`/api/glow/players/${player?.id}/trials`],
-    enabled: !!player?.id,
+    queryKey: [`/api/glow/players/${playerId}/trials`],
+    enabled: !!playerId,
   });
 
   const activeTrials = trials.filter(t => t.trial.status === "in_progress");

@@ -56,18 +56,18 @@ const BALL_COLORS: Record<string, string> = {
 export default function LevelUpHistoryScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { player } = usePlayer();
+  const { playerId } = usePlayer();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: levelUpHistory = [], isLoading } = useQuery<LevelUpEvent[]>({
-    queryKey: [`/api/players/${player?.id}/level-ups`],
-    enabled: !!player?.id,
+    queryKey: [`/api/players/${playerId}/level-ups`],
+    enabled: !!playerId,
   });
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await queryClient.invalidateQueries({ queryKey: [`/api/players/${player?.id}/level-ups`] });
+    await queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/level-ups`] });
     setRefreshing(false);
   };
 

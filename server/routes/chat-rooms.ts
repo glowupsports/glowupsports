@@ -574,7 +574,7 @@ router.post("/api/chat-rooms/:roomId/messages", authMiddleware, async (req: Auth
     const parsed = postSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: fromZodError(parsed.error).message });
 
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const coachId = req.user!.coachId;
     const playerId = req.user!.playerId;
 
@@ -866,7 +866,7 @@ router.post("/api/chat-rooms/:roomId/mute", authMiddleware, async (req: Authenti
     if (!parsed.success) return res.status(400).json({ error: fromZodError(parsed.error).message });
     const room = await db.select().from(chatRooms).where(eq(chatRooms.id, req.params.roomId)).limit(1);
     if (room.length === 0) return res.status(404).json({ error: "Room not found" });
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     const mutedUntil = parsed.data.hours
       ? new Date(Date.now() + parsed.data.hours * 60 * 60 * 1000)
       : null;
@@ -890,7 +890,7 @@ router.post("/api/chat-rooms/:roomId/mute", authMiddleware, async (req: Authenti
 router.delete("/api/chat-rooms/:roomId/mute", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!(await requireChatEligibility(req, res))) return;
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     await db
       .delete(chatRoomMutes)
       .where(and(eq(chatRoomMutes.roomId, req.params.roomId), eq(chatRoomMutes.userId, userId)));
@@ -905,7 +905,7 @@ router.post("/api/chat-rooms/:roomId/admin-mute", authMiddleware, async (req: Au
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: "Admins only" });
     const enable = req.body?.enable !== false;
-    const userId = req.user!.id;
+    const userId = req.user!.userId;
     await db
       .update(chatRooms)
       .set({ mutedAt: enable ? new Date() : null, mutedBy: enable ? userId : null })
@@ -1057,7 +1057,7 @@ router.post(
       const parsed = reportSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: fromZodError(parsed.error).message });
       if (!(await requireChatEligibility(req, res))) return;
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const messageId = req.params.messageId;
       const msg = await db.select().from(messages).where(eq(messages.id, messageId)).limit(1);
       if (msg.length === 0) return res.status(404).json({ error: "Message not found" });

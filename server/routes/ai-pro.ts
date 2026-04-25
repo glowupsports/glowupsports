@@ -33,7 +33,7 @@ router.get(
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const role = req.user!.role;
 
       if (role !== "player") {

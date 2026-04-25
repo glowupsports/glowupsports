@@ -6547,7 +6547,7 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     try {
       const { playerId } = req.params;
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       const coachId = req.user?.coachId;
 
       if (!userId && !coachId) {
@@ -9867,7 +9867,7 @@ router.post(
   requireRole("player"),
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       if (!userId)
         return res.status(403).json({ error: "Player access required" });
       const { sessionId } = req.params;
@@ -9991,7 +9991,7 @@ router.get(
   requireRole("player"),
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       if (!userId)
         return res.status(403).json({ error: "Player access required" });
       const { sessionId } = req.params;
@@ -10024,7 +10024,7 @@ router.get(
   requireRole("player"),
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.userId;
       if (!userId)
         return res.status(403).json({ error: "Player access required" });
 

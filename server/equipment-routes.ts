@@ -332,7 +332,7 @@ router.post(
           .set({
             status: "returned",
             returnedAt: new Date(),
-            checkedInBy: req.user!.id,
+            checkedInBy: req.user!.userId,
             updatedAt: new Date(),
           })
           .where(eq(equipmentRentals.id, id));
@@ -378,7 +378,7 @@ router.post(
         .update(equipmentRentals)
         .set({
           status: "active",
-          checkedOutBy: req.user!.id,
+          checkedOutBy: req.user!.userId,
           updatedAt: new Date(),
         })
         .where(eq(equipmentRentals.id, id));
@@ -623,7 +623,7 @@ router.post(
             type: EQUIPMENT_CREDIT_TYPE,
             delta: -creditsUsed,
             reason: `equipment_rental:${rental!.id}`,
-            actorId: req.user!.id,
+            actorId: req.user!.userId,
             actorRole: "player",
             eventKey: `equipment:debit:rental:${rental!.id}`,
           });
@@ -777,7 +777,7 @@ router.post(
             type: EQUIPMENT_CREDIT_TYPE,
             delta: -totalCredits,
             reason: `equipment_purchase:${purchase!.id}`,
-            actorId: req.user!.id,
+            actorId: req.user!.userId,
             actorRole: "player",
             eventKey: `equipment:debit:purchase:${purchase!.id}`,
           });
@@ -856,7 +856,7 @@ router.post(
           type: EQUIPMENT_CREDIT_TYPE,
           delta: rental[0].creditsUsed,
           reason: `equipment_rental_refund:${id}`,
-          actorId: req.user!.id,
+          actorId: req.user!.userId,
           actorRole: "player",
           eventKey: `equipment:refund:rental:${id}`,
         });

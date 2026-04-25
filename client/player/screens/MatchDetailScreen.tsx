@@ -1482,7 +1482,7 @@ export default function MatchDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute();
   const { matchId } = route.params as { matchId: string };
-  const { player } = usePlayer();
+  const { playerId } = usePlayer();
 
   const { data: match, isLoading } = useQuery<MatchDetail>({
     queryKey: [`/api/match-intelligence/matches/${matchId}`],
@@ -1691,26 +1691,26 @@ export default function MatchDetailScreen() {
         </View>
 
         {/* ─── DEEP ANALYSIS SECTION ─── */}
-        {player?.id ? (
+        {playerId ? (
           <>
             {/* Self-Rate Pillars */}
             <PillarSelfRating
               matchId={matchId}
-              playerId={player.id}
+              playerId={playerId}
               playerPillarScores={match.playerPillarScores}
             />
 
             {/* Goal vs Outcome */}
             <GoalOutcomeCheck
               matchId={matchId}
-              playerId={player.id}
+              playerId={playerId}
               preMatchGoal={match.reflection?.preMatchGoal || undefined}
             />
 
             {/* Pressure Moments */}
             <PressureMomentLogger
               matchId={matchId}
-              playerId={player.id}
+              playerId={playerId}
               existingMoments={match.pressureMoments || []}
             />
 

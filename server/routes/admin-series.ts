@@ -2086,7 +2086,7 @@ router.post(
         entityType: "session",
         entityId: createdSessions[0].id,
         action: `admin_bulk_create_${createdSessions.length}`,
-        performedBy: req.user?.id || "admin",
+        performedBy: req.user?.userId || "admin",
       });
 
       res.status(201).json({
@@ -2725,7 +2725,7 @@ router.post(
           .json({ error: fromZodError(parsedPayout.error).message });
       const { paymentMethod, paymentReference, notes } = parsedPayout.data;
       const academyId = req.user?.currentAcademyId;
-      const adminId = req.user?.coachId || req.user?.id;
+      const adminId = req.user?.coachId || req.user?.userId;
 
       const coach = await storage.getCoach(coachId);
       if (!coach || (academyId && coach.academyId !== academyId)) {

@@ -29,7 +29,7 @@ router.get(
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const { playerId } = req.params;
 
       const parentRelation = await db
@@ -82,7 +82,7 @@ router.get(
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const { playerId, reportId } = req.params;
 
       const parentRelation = await db
@@ -139,7 +139,7 @@ router.get(
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const { playerId, reportId } = req.params;
 
       const parentRelation = await db
@@ -210,7 +210,7 @@ router.get(
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user!.userId;
       const { playerId, reportId } = req.params;
 
       const parentRelation = await db

@@ -1562,7 +1562,7 @@ router.get("/api/glow/trials/:trialId/tests", authMiddleware, requireAcademy, as
 router.post("/api/glow/trials/:trialId/tests/:testId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { trialId, testId } = req.params;
-    const coachId = req.user!.coachId || req.user!.id; // Fall back to user id for academy admins
+    const coachId = req.user!.coachId || req.user!.userId; // Fall back to user id for academy admins
     const academyId = req.user!.academyId;
     const { passed, score, notes, metrics } = req.body;
     

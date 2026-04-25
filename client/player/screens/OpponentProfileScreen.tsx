@@ -108,7 +108,7 @@ export default function OpponentProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute();
-  const { player } = usePlayer();
+  const { playerId } = usePlayer();
   const queryClient = useQueryClient();
   const params = route.params as { opponentId?: string | null };
 
@@ -145,7 +145,7 @@ export default function OpponentProfileScreen() {
   const createMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/match-intelligence/opponents", {
-        playerId: player?.id,
+        playerId: playerId,
         name: name.trim(),
         club: club.trim() || undefined,
         rating: rating.trim() || undefined,

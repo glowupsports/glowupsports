@@ -99,7 +99,7 @@ router.post(
     try {
       const { playerId } = req.params;
       const academyId = req.user!.academyId;
-      const coachId = req.user!.coachId || req.user!.id;
+      const coachId = req.user!.coachId || req.user!.userId;
       
       // Validate player belongs to this academy
       const ownership = await validatePlayerOwnership(playerId, academyId, appStorage);
@@ -159,7 +159,7 @@ router.post("/api/players/:playerId/evidence/record", authMiddleware, requireAca
   try {
     const { playerId } = req.params;
     const academyId = req.user!.academyId;
-    const coachId = req.user!.coachId || req.user!.id;
+    const coachId = req.user!.coachId || req.user!.userId;
     
     // Validate player belongs to this academy
     const ownership = await validatePlayerOwnership(playerId, academyId, appStorage);
@@ -211,7 +211,7 @@ router.post("/api/evidence/:evidenceId/review", authMiddleware, requireAcademy, 
   try {
     const { evidenceId } = req.params;
     const academyId = req.user!.academyId;
-    const coachId = req.user!.coachId || req.user!.id;
+    const coachId = req.user!.coachId || req.user!.userId;
     const { reviewScore, reviewNotes, approved } = req.body;
     
     // Get evidence with player info for ownership check

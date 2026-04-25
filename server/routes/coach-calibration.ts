@@ -186,11 +186,11 @@ router.get("/anomalies", authMiddleware, requireRole("coach", "academy_owner", "
 
       if (deviation > 0.8) {
         const [player] = await db
-          .select({ firstName: players.firstName, lastName: players.lastName })
+          .select({ name: players.name })
           .from(players)
           .where(eq(players.id, score.playerId));
 
-        const playerName = player ? `${player.firstName} ${player.lastName}` : "Unknown Player";
+        const playerName = player?.name || "Unknown Player";
 
         anomalies.push({
           id: score.id,
