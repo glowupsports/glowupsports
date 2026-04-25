@@ -40,6 +40,60 @@ function safeSentry(fn: () => void): void {
   }
 }
 
+// Known-transient OTA error codes from expo-updates that we routinely
+// see on devices with patchy connectivity (Huawei without GMS, captive
+// portals, brief CDN hiccups). They are NOT crashes — the app falls
+// back to the embedded / last-loaded bundle and keeps running. Reporting
+// them at error-level produces noisy per-device Sentry alerts; we
+// downgrade to a single grouped warning instead.
+//
+// Note: ERR_UPDATES_RELOAD intentionally NOT included — a failed manual
+// restart is a deliberate user action and rare enough to deserve full
+// error-level visibility from the existing captureException in
+// handleRestartNow.
+const TRANSIENT_OTA_CODES = new Set([
+  "ERR_UPDATES_CHECK",
+  "ERR_UPDATES_FETCH",
+]);
+
+function reportOtaError(
+  err: unknown,
+  context: "check" | "fetch_retry",
+): void {
+  const code =
+    err && typeof err === "object" && "code" in err
+      ? String((err as { code?: unknown }).code ?? "")
+      : "";
+  const message = err instanceof Error ? err.message : String(err);
+  const isTransient = TRANSIENT_OTA_CODES.has(code);
+
+  safeSentry(() => {
+    if (isTransient) {
+      // Single grouped warning — one issue across all devices/sessions.
+      Sentry.captureMessage(`ota_${context}_transient`, {
+        level: "warning",
+        fingerprint: ["ota-transient", context, code || "no_code"],
+        tags: {
+          ota_error_code: code || "unknown",
+          ota_error_phase: context,
+        },
+        extra: {
+          message,
+          code,
+        },
+      });
+    } else {
+      // Truly unexpected — keep error-level + full stack capture.
+      Sentry.captureException(err, {
+        tags: {
+          ota_error_code: code || "unknown",
+          ota_error_phase: context,
+        },
+      });
+    }
+  });
+}
+
 /**
  * Server kill switch fetch. Fail-open by design: any error, timeout, or
  * non-OK response → returns `false` (OTA stays enabled). This way a
@@ -259,7 +313,7 @@ async function runOnceCheck(onUpdateReady: () => void): Promise<void> {
                 ? fetchErr2.message
                 : String(fetchErr2);
             errorCode = (fetchErr2 as { code?: string })?.code;
-            safeSentry(() => Sentry.captureException(fetchErr2));
+            reportOtaError(fetchErr2, "fetch_retry");
           }
         }
       } else {
@@ -270,7 +324,7 @@ async function runOnceCheck(onUpdateReady: () => void): Promise<void> {
     checkResult = "error";
     errorMessage = err instanceof Error ? err.message : String(err);
     errorCode = (err as { code?: string })?.code;
-    safeSentry(() => Sentry.captureException(err));
+    reportOtaError(err, "check");
   }
 
   captureBootStatus({
