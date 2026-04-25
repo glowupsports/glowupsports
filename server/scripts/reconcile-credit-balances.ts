@@ -185,6 +185,7 @@ async function main() {
   console.log(`  - duplicate consume rows: ${dupRows.length}`);
 
   if (apply && dupRows.length > 0) {
+    let voided = 0;
     for (const d of dupRows) {
       // Look up the (player_id, academy_id, type) of the dup row.
       const ctx = await db.execute(sql`
@@ -194,6 +195,9 @@ async function main() {
       if (!ctxRow) continue;
       const restock = -Number(d.dup_delta); // dup.delta is negative ⇒ restock is positive
       const eventKey = `task-1332-dedup-refund:${d.dup_id}`;
+
+      // 1. Write the audit refund row (+restock) so wallet math still
+      //    sums to the single canonical consume.
       await db.execute(sql`
         INSERT INTO credit_ledger_v2 (
           player_id, academy_id, type, delta, reason, event_key,
@@ -217,8 +221,26 @@ async function main() {
         )
         ON CONFLICT (event_key) DO NOTHING
       `);
+
+      // 2. Materially dedupe: rename the duplicate row's reason from
+      //    'consume' to 'consume_voided_dup' so:
+      //      - the verification query GROUP BY session_player_id HAVING
+      //        COUNT(*) > 1 against reason='consume' returns 0,
+      //      - the partial unique idx credit_ledger_v2_no_dup_consume
+      //        (WHERE reason='consume') no longer holds this row,
+      //      - the row remains in the ledger as audit history (delta
+      //        unchanged, original event_key unchanged).
+      //    Net wallet math: original_consume(-X) + voided_dup(-X) +
+      //    refund_dup_consume(+X) = -X (matches single canonical consume).
+      const voidUpd = await db.execute(sql`
+        UPDATE credit_ledger_v2
+        SET reason = 'consume_voided_dup'
+        WHERE id = ${d.dup_id} AND reason = 'consume'
+      `);
+      voided += Number((voidUpd as unknown as { rowCount?: number }).rowCount ?? 0);
     }
     console.log(`  - refund_dup_consume rows written: ${dupRows.length}`);
+    console.log(`  - duplicate consume rows voided:  ${voided}`);
   }
 
   // ----------------------------------------------------------------------
@@ -512,36 +534,68 @@ async function main() {
   //    safer than guessing).
   // ----------------------------------------------------------------------
   console.log(`\n[Step 3/4] Syncing packages.remaining_credits from canonical lot state...`);
-  const pkgPreview = await db.execute(sql`
-    WITH lot_sums AS (
-      SELECT source_package_id, SUM(qty_remaining::numeric) AS qty_rem
-      FROM credit_lots
-      WHERE source_package_id IS NOT NULL
-      GROUP BY source_package_id
-    )
-    SELECT COUNT(*)::int AS n
-    FROM packages p
-    JOIN lot_sums ls ON ls.source_package_id = p.id
-    WHERE p.remaining_credits::numeric <> ls.qty_rem
-  `);
+  // When --player is set, scope BOTH the preview and the update to that
+  // player's lots so a targeted run never silently mutates other players'
+  // packages. Otherwise reconcile the full table.
+  const pkgPreview = playerFilter
+    ? await db.execute(sql`
+        WITH lot_sums AS (
+          SELECT source_package_id, SUM(qty_remaining::numeric) AS qty_rem
+          FROM credit_lots
+          WHERE source_package_id IS NOT NULL
+            AND player_id = ${playerFilter}
+          GROUP BY source_package_id
+        )
+        SELECT COUNT(*)::int AS n
+        FROM packages p
+        JOIN lot_sums ls ON ls.source_package_id = p.id
+        WHERE p.remaining_credits::numeric <> ls.qty_rem
+      `)
+    : await db.execute(sql`
+        WITH lot_sums AS (
+          SELECT source_package_id, SUM(qty_remaining::numeric) AS qty_rem
+          FROM credit_lots
+          WHERE source_package_id IS NOT NULL
+          GROUP BY source_package_id
+        )
+        SELECT COUNT(*)::int AS n
+        FROM packages p
+        JOIN lot_sums ls ON ls.source_package_id = p.id
+        WHERE p.remaining_credits::numeric <> ls.qty_rem
+      `);
   const pkgDriftCount = Number((pkgPreview.rows[0] as { n: number } | undefined)?.n ?? 0);
-  console.log(`  - packages with drift: ${pkgDriftCount}`);
+  console.log(`  - packages with drift: ${pkgDriftCount}${playerFilter ? `  (scoped to player ${playerFilter})` : ""}`);
 
   let packagesUpdated = 0;
   if (apply && pkgDriftCount > 0) {
-    const pkgUpdate = await db.execute(sql`
-      WITH lot_sums AS (
-        SELECT source_package_id, SUM(qty_remaining::numeric) AS qty_rem
-        FROM credit_lots
-        WHERE source_package_id IS NOT NULL
-        GROUP BY source_package_id
-      )
-      UPDATE packages p
-      SET remaining_credits = ls.qty_rem
-      FROM lot_sums ls
-      WHERE p.id = ls.source_package_id
-        AND p.remaining_credits::numeric <> ls.qty_rem
-    `);
+    const pkgUpdate = playerFilter
+      ? await db.execute(sql`
+          WITH lot_sums AS (
+            SELECT source_package_id, SUM(qty_remaining::numeric) AS qty_rem
+            FROM credit_lots
+            WHERE source_package_id IS NOT NULL
+              AND player_id = ${playerFilter}
+            GROUP BY source_package_id
+          )
+          UPDATE packages p
+          SET remaining_credits = ls.qty_rem
+          FROM lot_sums ls
+          WHERE p.id = ls.source_package_id
+            AND p.remaining_credits::numeric <> ls.qty_rem
+        `)
+      : await db.execute(sql`
+          WITH lot_sums AS (
+            SELECT source_package_id, SUM(qty_remaining::numeric) AS qty_rem
+            FROM credit_lots
+            WHERE source_package_id IS NOT NULL
+            GROUP BY source_package_id
+          )
+          UPDATE packages p
+          SET remaining_credits = ls.qty_rem
+          FROM lot_sums ls
+          WHERE p.id = ls.source_package_id
+            AND p.remaining_credits::numeric <> ls.qty_rem
+        `);
     packagesUpdated = Number(
       (pkgUpdate as unknown as { rowCount?: number }).rowCount ?? pkgDriftCount,
     );
@@ -554,27 +608,52 @@ async function main() {
   //    re-discovery loop without touching balances.
   // ----------------------------------------------------------------------
   console.log(`\n[Step 4/4] Stamping credit_deducted_at on legacy NULL rows...`);
-  const stampSelect = await db.execute(sql`
-    WITH null_flag AS (
-      SELECT sp.id
-      FROM session_players sp
-      JOIN sessions s ON s.id = sp.session_id
-      WHERE s.status = 'completed'
-        AND sp.attendance_status IN ('present','late')
-        AND sp.credit_deducted_at IS NULL
-    ),
-    v2_consumes AS (
-      SELECT session_player_id,
-             MIN(occurred_at) AS occurred_at,
-             (array_agg(id ORDER BY occurred_at ASC))[1] AS ledger_id
-      FROM credit_ledger_v2
-      WHERE reason='consume' AND session_player_id IS NOT NULL
-      GROUP BY session_player_id
-    )
-    SELECT nf.id AS sp_id, vc.occurred_at, vc.ledger_id
-    FROM null_flag nf
-    JOIN v2_consumes vc ON vc.session_player_id = nf.id
-  `);
+  // Scope to --player when set so a targeted run only touches their rows.
+  const stampSelect = playerFilter
+    ? await db.execute(sql`
+        WITH null_flag AS (
+          SELECT sp.id
+          FROM session_players sp
+          JOIN sessions s ON s.id = sp.session_id
+          WHERE s.status = 'completed'
+            AND sp.attendance_status IN ('present','late')
+            AND sp.credit_deducted_at IS NULL
+            AND sp.player_id = ${playerFilter}
+        ),
+        v2_consumes AS (
+          SELECT session_player_id,
+                 MIN(occurred_at) AS occurred_at,
+                 (array_agg(id ORDER BY occurred_at ASC))[1] AS ledger_id
+          FROM credit_ledger_v2
+          WHERE reason='consume' AND session_player_id IS NOT NULL
+            AND player_id = ${playerFilter}
+          GROUP BY session_player_id
+        )
+        SELECT nf.id AS sp_id, vc.occurred_at, vc.ledger_id
+        FROM null_flag nf
+        JOIN v2_consumes vc ON vc.session_player_id = nf.id
+      `)
+    : await db.execute(sql`
+        WITH null_flag AS (
+          SELECT sp.id
+          FROM session_players sp
+          JOIN sessions s ON s.id = sp.session_id
+          WHERE s.status = 'completed'
+            AND sp.attendance_status IN ('present','late')
+            AND sp.credit_deducted_at IS NULL
+        ),
+        v2_consumes AS (
+          SELECT session_player_id,
+                 MIN(occurred_at) AS occurred_at,
+                 (array_agg(id ORDER BY occurred_at ASC))[1] AS ledger_id
+          FROM credit_ledger_v2
+          WHERE reason='consume' AND session_player_id IS NOT NULL
+          GROUP BY session_player_id
+        )
+        SELECT nf.id AS sp_id, vc.occurred_at, vc.ledger_id
+        FROM null_flag nf
+        JOIN v2_consumes vc ON vc.session_player_id = nf.id
+      `);
   const stampRows = stampSelect.rows as unknown as RawStampRow[];
 
   console.log(`  - rows to stamp:     ${stampRows.length}`);
