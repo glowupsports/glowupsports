@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Modal, Pressable, StyleSheet, ScrollView } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
@@ -11,18 +12,50 @@ interface OnlineSafetyModalProps {
   onAccept: () => void;
 }
 
-let safetyReminderShown = false;
+// Persist the acknowledgement across cold starts via AsyncStorage. The
+// public `hasShownSafetyReminder()` stays synchronous (returns the cached
+// value, defaulting to false) so existing call sites that pass it
+// straight into useState() keep working. Callers who need the freshly-
+// loaded value can await `loadSafetyReminderState()` once on mount and
+// then read `hasShownSafetyReminder()` synchronously.
+const SAFETY_REMINDER_KEY = "@glow_safety_reminder_v1";
+let safetyReminderShownCache: boolean = false;
+let safetyReminderHydrated = false;
+let safetyReminderHydratePromise: Promise<boolean> | null = null;
 
 export function hasShownSafetyReminder(): boolean {
-  return safetyReminderShown;
+  // Kick off a one-shot hydration in the background so subsequent calls
+  // in the same session see the persisted value without forcing every
+  // call site to await.
+  if (!safetyReminderHydrated && !safetyReminderHydratePromise) {
+    safetyReminderHydratePromise = loadSafetyReminderState();
+  }
+  return safetyReminderShownCache;
+}
+
+export async function loadSafetyReminderState(): Promise<boolean> {
+  if (safetyReminderHydrated) return safetyReminderShownCache;
+  try {
+    const v = await AsyncStorage.getItem(SAFETY_REMINDER_KEY);
+    safetyReminderShownCache = v === "1";
+  } catch {
+    // Keep the default (false) on storage errors.
+  }
+  safetyReminderHydrated = true;
+  safetyReminderHydratePromise = null;
+  return safetyReminderShownCache;
 }
 
 export function markSafetyReminderShown(): void {
-  safetyReminderShown = true;
+  safetyReminderShownCache = true;
+  safetyReminderHydrated = true;
+  AsyncStorage.setItem(SAFETY_REMINDER_KEY, "1").catch(() => {});
 }
 
 export function resetSafetyReminder(): void {
-  safetyReminderShown = false;
+  safetyReminderShownCache = false;
+  safetyReminderHydrated = true;
+  AsyncStorage.removeItem(SAFETY_REMINDER_KEY).catch(() => {});
 }
 
 export default function OnlineSafetyModal({ visible, onAccept }: OnlineSafetyModalProps) {

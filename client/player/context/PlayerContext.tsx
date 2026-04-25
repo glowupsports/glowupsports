@@ -48,7 +48,7 @@ function checkIsBirthday(dateOfBirth: string | null): boolean {
   return today.getMonth() === birthMonth && today.getDate() === birthDay;
 }
 
-const PlayerContext = createContext<PlayerContextData | undefined>(undefined);
+export const PlayerContext = createContext<PlayerContextData | undefined>(undefined);
 
 interface PlayerProviderProps {
   children: ReactNode;

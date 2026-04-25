@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useContext, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   useWindowDimensions,
   Modal,
@@ -41,6 +42,8 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload, type OnlineStatusPayload } from "@/lib/useWebSocket";
 import { useChatState } from "@/coach/context/ChatStateContext";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
+import { PlayerContext } from "@/player/context/PlayerContext";
+import OnlineSafetyModal, { loadSafetyReminderState } from "@/player/components/OnlineSafetyModal";
 
 interface ChatFooterProps {
   mode?: "coach" | "player";
@@ -109,6 +112,8 @@ interface Conversation {
   // class group chats. Server only sets this for conversations of type
   // 'group' that resolve to a community_groups row.
   communityGroupType?: string | null;
+  // Optional per-conversation unread count when surfaced by the server.
+  unreadCount?: number | null;
 }
 
 const REACTION_EMOJIS = ["🔥", "❤️", "👍", "😂"];
@@ -217,13 +222,35 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const isPlayerMode = mode === "player";
   const userId = isPlayerMode ? user?.playerId : coach?.id;
   const userType = isPlayerMode ? "player" : "coach";
-  const CHAT_TABS = isPlayerMode ? PLAYER_CHAT_TABS : COACH_CHAT_TABS;
+
+  // PlayerContext is only mounted under PlayerProvider; useContext returns
+  // undefined in coach mode so this stays a no-op outside player mode.
+  const playerCtx = useContext(PlayerContext);
+  const isMinor = isPlayerMode ? !!playerCtx?.isMinor : false;
+  const chatEnabled = isPlayerMode ? (playerCtx?.chatEnabled ?? true) : true;
+  const restrictChat = isPlayerMode && isMinor && !chatEnabled;
+
+  // Minors with restricted chat lose the World tab entirely.
+  const CHAT_TABS = useMemo(() => {
+    const base = isPlayerMode ? PLAYER_CHAT_TABS : COACH_CHAT_TABS;
+    return restrictChat ? base.filter(t => t.id !== "world") : base;
+  }, [isPlayerMode, restrictChat]);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [inputText, setInputText] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [showReactions, setShowReactions] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<ChatTab>(isPlayerMode ? "world" : "players");
+
+  // If PlayerContext flips restricted while we're on World, redirect off.
+  useEffect(() => {
+    if (!restrictChat || currentTab !== "world") return;
+    const fallback = CHAT_TABS[0]?.id;
+    if (fallback && fallback !== currentTab) {
+      setCurrentTab(fallback);
+      setSelectedConversation(null);
+    }
+  }, [restrictChat, currentTab, CHAT_TABS]);
   const [replyTo, setReplyTo] = useState<{ id: string; body: string; senderName: string } | null>(null);
   const [onlinePlayerIds, setOnlinePlayerIds] = useState<Set<string>>(new Set());
   const [playerLastSeenMap, setPlayerLastSeenMap] = useState<Record<string, string>>({});
@@ -253,6 +280,10 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const [editingQuickReply, setEditingQuickReply] = useState<{ id: string; body: string } | null>(null);
   const [newQuickReplyText, setNewQuickReplyText] = useState("");
   const userBackedFromConvRef = useRef(false);
+  // Player-only state ported from PlayerChatFooter
+  const [refreshing, setRefreshing] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [showSafetyModal, setShowSafetyModal] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem("@glow_muted_conv").then(v => {
@@ -450,12 +481,131 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         sendTyping(selectedConversation.id, false);
       }, 3000);
     }
-  }, [selectedConversation, isConnected, sendTyping]);
+    // @-mention picker: enabled on DM/group surfaces and on the World
+    // tab (which has its own composer); chat-rooms have their own
+    // composer in ChatRoomScreen.
+    const t = selectedConversation?.type;
+    const isWorldSurface = currentTab === "world";
+    const isConvMentionable =
+      !!t &&
+      t !== "world" &&
+      t !== "world_chat" &&
+      t !== "global" &&
+      t !== "provider_player";
+    const isMentionableSurface = isConvMentionable || isWorldSurface;
+    if (isMentionableSurface) {
+      const match = text.match(/(?:^|\s)@(\w*)$/);
+      setMentionQuery(match ? match[1].toLowerCase() : null);
+    } else if (mentionQuery !== null) {
+      setMentionQuery(null);
+    }
+  }, [selectedConversation, currentTab, isConnected, sendTyping, mentionQuery]);
+
+  const insertMention = useCallback((handle: string) => {
+    setInputText((prev) =>
+      prev.replace(/(?:^|\s)@(\w*)$/, (m) => {
+        const lead = m.startsWith(" ") ? " " : "";
+        return `${lead}@${handle} `;
+      })
+    );
+    setMentionQuery(null);
+  }, []);
+
+  // Reusable @-mention picker: roster + recent thread senders + recent
+  // World senders, deduped. Used by the DM/group composer and by the
+  // World composer.
+  const renderMentionPicker = (): React.ReactNode => {
+    if (mentionQuery === null) return null;
+    const q = mentionQuery;
+    const seen = new Set<string>();
+    type MentionCandidate = { key: string; name: string; handle: string };
+    const out: MentionCandidate[] = [];
+    const pushCandidate = (rawName: string | null | undefined, key: string) => {
+      const name = (rawName || "").trim();
+      if (!name) return;
+      const handle = name.replace(/\s+/g, "").toLowerCase();
+      if (!handle || seen.has(handle)) return;
+      if (q !== "" && !name.toLowerCase().includes(q) && !handle.includes(q)) return;
+      seen.add(handle);
+      out.push({ key, name, handle });
+    };
+    // Recent thread senders first — mirror renderMessage's isOwn check
+    // so the user never sees themselves.
+    for (const m of messages) {
+      if (!m) continue;
+      const mineHere = isPlayerMode
+        ? (m.senderType === "player" && m.senderPlayerId === userId)
+        : (m.senderType === "coach" && m.senderCoachId === userId);
+      if (mineHere) continue;
+      const stableKey = m.senderCoachId || m.senderPlayerId || m.id;
+      pushCandidate(m.senderName, `s:${stableKey}`);
+      if (out.length >= 8) break;
+    }
+    // Recent World senders (when on World tab) so the picker is useful
+    // there too.
+    if (currentTab === "world") {
+      for (const wm of worldMessages) {
+        if (!wm) continue;
+        const mineHere =
+          (coach?.id != null && wm.senderCoachId === coach.id) ||
+          (user?.playerId != null && wm.senderPlayerId === user.playerId);
+        if (mineHere) continue;
+        const stableKey = wm.senderCoachId || wm.senderPlayerId || wm.id;
+        pushCandidate(wm.senderName, `w:${stableKey}`);
+        if (out.length >= 12) break;
+      }
+    }
+    // Then the roster.
+    for (const p of (players || [])) {
+      pushCandidate(p.name || `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim(), `p:${p.id}`);
+      if (out.length >= 12) break;
+    }
+    const candidates = out.slice(0, 6);
+    if (candidates.length === 0) return null;
+    return (
+      <View style={{ paddingVertical: 6, paddingHorizontal: Spacing.sm, gap: 4 }}>
+        {candidates.map((c) => (
+          <Pressable
+            key={c.key}
+            onPress={() => insertMention(c.handle)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)' }}
+          >
+            <Ionicons name="at-outline" size={14} color={NEON_GREEN} />
+            <ThemedText style={{ fontSize: 13, color: Colors.dark.text }}>{c.name}</ThemedText>
+            <ThemedText style={{ fontSize: 11, color: Colors.dark.textMuted }}>@{c.handle}</ThemedText>
+          </Pressable>
+        ))}
+      </View>
+    );
+  };
 
   const currentTypingUsers = selectedConversation
     ? typingUsers.get(selectedConversation.id)
     : undefined;
-  const isOtherTyping = currentTypingUsers && currentTypingUsers.size > 0;
+  const isOtherTyping = !!currentTypingUsers && currentTypingUsers.size > 0;
+
+  // Name-aware typing indicator. Falls back to
+  // "Someone" for group surfaces where the per-user identity isn't
+  // resolved client-side.
+  const typingDisplayName = useMemo<string | null>(() => {
+    if (!selectedConversation) return null;
+    if (selectedConversation.type === "coach_player" || selectedConversation.type === "direct_message") {
+      return isPlayerMode
+        ? (selectedConversation.coachName || "Coach")
+        : (selectedConversation.playerName || selectedConversation.playerFirstName || "Player");
+    }
+    if (selectedConversation.type === "player_player") {
+      return selectedConversation.playerName || "Player";
+    }
+    if (selectedConversation.type === "coach_coach") {
+      return selectedConversation.coachName || selectedConversation.title || "Coach";
+    }
+    if (selectedConversation.type === "provider_player") {
+      return selectedConversation.providerName || "Provider";
+    }
+    return "Someone";
+  }, [selectedConversation, isPlayerMode]);
+
 
   const toggleFullscreen = () => {
     if (isFullscreen) {
@@ -523,6 +673,37 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     enabled: !!userId,
     refetchInterval: 30000,
   });
+
+  // Show OnlineSafetyModal once per device for minor players on first open.
+  useEffect(() => {
+    if (!isPlayerMode || !isMinor) return;
+    if (!isExpanded && !isFullscreen) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const seen = await loadSafetyReminderState();
+        if (!cancelled && !seen) setShowSafetyModal(true);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [isPlayerMode, isMinor, isExpanded, isFullscreen]);
+
+  // Pull-to-refresh: conversations + global unread (+ open thread).
+  const handlePullToRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: conversationsQueryKey }),
+        queryClient.invalidateQueries({ queryKey: unreadQueryKey }),
+        selectedConversation?.id
+          ? queryClient.invalidateQueries({ queryKey: messagesQueryKey })
+          : Promise.resolve(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient, selectedConversation?.id, isPlayerMode, userId]);
 
   const { data: playersData } = useQuery<Player[]>({
     queryKey: isPlayerMode ? ["/api/players/squad-members"] : ["/api/players"],
@@ -790,9 +971,18 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   });
 
   const handleSelectConversation = useCallback((conversation: Conversation) => {
+    // Provider DMs (coach booked through a service
+    // provider) live in PlayerBookingChatScreen. Collapse the footer and
+    // route there instead of trying to render them inline.
+    if (isPlayerMode && conversation.type === "provider_player") {
+      setIsExpanded(false);
+      setIsFullscreen(false);
+      navigation.navigate("PlayerBookingChat", { conversationId: conversation.id });
+      return;
+    }
     setSelectedConversation(conversation);
     markAsReadMutation.mutate(conversation);
-  }, [markAsReadMutation]);
+  }, [markAsReadMutation, isPlayerMode, navigation]);
 
   const senderUserIdForBlockCheck = selectedSender?.senderUserId ?? null;
   const { data: blockStatusData } = useQuery<{ isBlocked: boolean }>({
@@ -880,12 +1070,49 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   };
 
   const currentTabConfig = CHAT_TABS.find(t => t.id === currentTab);
-  const filteredConversations = conversations.filter(conv => {
-    if (currentTab === "players") {
-      return currentTabConfig?.types.includes(conv.type);
+  const filteredConversations = useMemo(() => {
+    let list = conversations.filter(conv => {
+      // Restricted-chat: minor without chatEnabled may
+      // only see coach- and academy-supervised threads.
+      if (restrictChat) {
+        if (
+          conv.type !== "coach_player" &&
+          conv.type !== "direct_message" &&
+          conv.type !== "academy" &&
+          conv.type !== "group"
+        ) {
+          return false;
+        }
+      }
+      if (currentTab === "players") {
+        return currentTabConfig?.types.includes(conv.type);
+      }
+      return currentTabConfig?.types.includes(conv.type) ?? false;
+    });
+    // Players tab: dedupe rows pointing at the same otherPlayerId,
+    // keeping the most recently active conversation.
+    if (isPlayerMode && currentTab === "players") {
+      const byOther = new Map<string, Conversation>();
+      const passthrough: Conversation[] = [];
+      for (const c of list) {
+        const key = c.otherPlayerId;
+        if (!key) {
+          passthrough.push(c);
+          continue;
+        }
+        const existing = byOther.get(key);
+        if (!existing) {
+          byOther.set(key, c);
+        } else {
+          const a = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
+          const b = existing.lastMessageAt ? new Date(existing.lastMessageAt).getTime() : 0;
+          if (a >= b) byOther.set(key, c);
+        }
+      }
+      list = [...byOther.values(), ...passthrough];
     }
-    return currentTabConfig?.types.includes(conv.type) ?? false;
-  });
+    return list;
+  }, [conversations, currentTab, currentTabConfig, restrictChat, isPlayerMode]);
   // Note: lessonGroupChats is merged into displayConversations below (defined after hook calls)
   const latestConversation = conversations.find(c => c.lastMessagePreview) || conversations[0];
   const unreadCount = unreadData?.unreadCount || 0;
@@ -1092,6 +1319,10 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 
   const handleTabChange = (tab: ChatTab) => {
     Keyboard.dismiss();
+    // Restricted minors can never enter the World tab.
+    if (restrictChat && tab === "world") {
+      return;
+    }
     setCurrentTab(tab);
 
     setShowNewMessage(false);
@@ -1311,7 +1542,18 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           isPlayerMode && isOwn && { color: "#000000" },
           isPlayerMode && !isOwn && { color: "#FFFFFF" },
         ]}>
-          {item.body}
+          {/* Highlight inline @-mentions. */}
+          {item.body.split(/(\s+)/).map((tok, i) => {
+            const m = tok.match(/^@(\w+)$/);
+            if (m) {
+              return (
+                <ThemedText key={i} style={{ color: NEON_GREEN, fontWeight: '700' }}>
+                  {tok}
+                </ThemedText>
+              );
+            }
+            return tok;
+          })}
         </ThemedText>
         {isPending ? (
           <View style={styles.messageMeta}>
@@ -1929,7 +2171,19 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               </ThemedText>
             </Pressable>
           )}
-          <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>{item.body}</ThemedText>
+          <ThemedText style={[styles.messageText, isOwn && styles.ownMessageText]}>
+            {item.body.split(/(\s+)/).map((tok, i) => {
+              const mm = tok.match(/^@(\w+)$/);
+              if (mm) {
+                return (
+                  <ThemedText key={i} style={{ color: NEON_GREEN, fontWeight: '700' }}>
+                    {tok}
+                  </ThemedText>
+                );
+              }
+              return tok;
+            })}
+          </ThemedText>
           <View style={styles.messageMeta}>
             <ThemedText style={[styles.timestamp, isOwn && styles.ownTimestamp]}>{formatTime(item.createdAt)}</ThemedText>
           </View>
@@ -2022,10 +2276,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             </Pressable>
           ) : null}
       </View>
+      {renderMentionPicker()}
       <View style={styles.inputContainer}>
         <TextInput
           value={inputText}
-          onChangeText={setInputText}
+          onChangeText={handleInputChange}
           placeholder="Message the world..."
           placeholderTextColor={Colors.dark.textMuted}
           style={styles.input}
@@ -2160,10 +2415,31 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           </Pressable>
         ) : null}
       </View>
+      {/* Restricted-chat banner for minors without chatEnabled. */}
+      {restrictChat ? (
+        <View style={{ paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: 'rgba(255,193,7,0.12)', borderRadius: 10, marginHorizontal: Spacing.md, marginBottom: Spacing.xs, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="shield-checkmark-outline" size={16} color="#FFC107" />
+          <ThemedText style={{ fontSize: 12, color: Colors.dark.textSecondary, flex: 1 }}>
+            Chat is limited to your coaches and academy. Ask a parent to enable open chat.
+          </ThemedText>
+        </View>
+      ) : null}
       <FlatList
         data={displayConversations}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handlePullToRefresh}
+            tintColor={Colors.dark.text}
+          />
+        }
+        renderItem={({ item }) => {
+          // Bold name+preview + unread dot all gate on the same flag so
+          // server unreadCount and local mark-unread stay in sync.
+          const hasUnread = ((item.unreadCount ?? 0) > 0) || markedUnreadSet.has(item.id);
+          const lastTs = item.lastMessageAt ? formatRelativeTime(item.lastMessageAt) : "";
+          return (
           <Pressable
             onPress={() => {
               if (markedUnreadSet.has(item.id)) {
@@ -2195,14 +2471,26 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             </View>
             <View style={styles.conversationInfo}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <ThemedText style={[styles.conversationName, { flexShrink: 1 }]} numberOfLines={1}>
+                <ThemedText
+                  style={[
+                    styles.conversationName,
+                    { flexShrink: 1 },
+                    hasUnread ? styles.conversationNameUnread : null,
+                  ]}
+                  numberOfLines={1}
+                >
                   {getConvDisplayName(item)}
                 </ThemedText>
                 {isConvMuted(item.id) ? (
                   <Ionicons name="notifications-off-outline" size={12} color={Colors.dark.textMuted} />
                 ) : null}
-                {markedUnreadSet.has(item.id) ? (
+                {hasUnread ? (
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: NEON_GREEN }} />
+                ) : null}
+                {lastTs ? (
+                  <ThemedText style={{ marginLeft: 'auto', fontSize: 10, color: Colors.dark.textMuted }}>
+                    {lastTs}
+                  </ThemedText>
                 ) : null}
               </View>
               {(item.type === "series_group" || item.type === "lesson_group" || item.type === "squad")
@@ -2223,7 +2511,13 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                   })()
                 : null}
               {item.lastMessagePreview ? (
-                <ThemedText numberOfLines={1} style={styles.conversationPreview}>
+                <ThemedText
+                  numberOfLines={1}
+                  style={[
+                    styles.conversationPreview,
+                    hasUnread ? styles.conversationPreviewUnread : null,
+                  ]}
+                >
                   {item.lastMessagePreview}
                 </ThemedText>
               ) : null}
@@ -2246,7 +2540,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               })()}
             </View>
           </Pressable>
-        )}
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="chatbubbles-outline" size={40} color={Colors.dark.tabIconDefault} />
@@ -2310,6 +2605,10 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     }
 
     if (currentTab === "world") {
+      // Last-ditch guard before the redirect effect runs.
+      if (restrictChat) {
+        return <>{safetyBanner}</>;
+      }
       return <>{safetyBanner}{renderWorldChat()}</>;
     }
 
@@ -2450,7 +2749,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                 <View style={[styles.typingDot, { opacity: 0.7 }]} />
                 <View style={[styles.typingDot, { opacity: 0.5 }]} />
               </View>
-              <ThemedText style={styles.typingText}>typing...</ThemedText>
+              <ThemedText style={styles.typingText}>{typingDisplayName ? `${typingDisplayName} is typing...` : "typing..."}</ThemedText>
             </View>
           ) : null}
 
@@ -2518,6 +2817,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
               </ScrollView>
             </View>
           ) : null}
+          {/* @-mention picker: roster + recent thread senders, deduped. */}
+          {renderMentionPicker()}
           <View style={[styles.inputContainer, isPlayerMode && { backgroundColor: "#0D1525CC", borderWidth: 1, borderColor: NEON_GREEN + "22" }]}>
             {isConnected ? (
               <View style={styles.inputConnectionIndicator}>
@@ -3204,6 +3505,14 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           </View>
         </View>
       </Modal>
+
+      {/* Online safety reminder for minor players. */}
+      {isPlayerMode && isMinor ? (
+        <OnlineSafetyModal
+          visible={showSafetyModal}
+          onAccept={() => setShowSafetyModal(false)}
+        />
+      ) : null}
     </Animated.View>
   );
 }
@@ -3916,10 +4225,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
+  // Bolder name + brighter preview on unread rows.
+  conversationNameUnread: {
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
   conversationPreview: {
     fontSize: 11,
     color: Colors.dark.tabIconDefault,
     marginTop: 1,
+  },
+  conversationPreviewUnread: {
+    fontWeight: "700",
+    color: Colors.dark.text,
   },
   loadingContainer: {
     flex: 1,

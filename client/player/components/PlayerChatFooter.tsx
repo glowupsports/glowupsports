@@ -1,11 +1,16 @@
-// PARKED — DO NOT MOUNT.
+// VOLLEDIG GEPARKEERD — DO NOT MOUNT, SAFE TO DELETE.
 // This file is the GLOW Chat rewrite from Task #1294. Task #1309 restored the
 // original <CoachChatFooter mode="player" /> as the active player chat
-// surface; this component is no longer imported anywhere. It is kept on disk
-// as the feature reference for Task #1310, which will port mentions, pin,
-// mute, typing indicator, restricted-chat banner, etc. back into
-// CoachChatFooter without changing its visual chrome. Delete this file once
-// Task #1310 has merged.
+// surface; this component is no longer imported anywhere. Task #1310 has
+// since back-ported the high-value features (@ mentions, name-aware typing
+// indicator, unread bold + relative time on conv rows, pull-to-refresh,
+// player-DM dedupe, provider-DM routing, restricted-chat banner + filter,
+// minor online-safety modal) into CoachChatFooter without changing its
+// visual chrome. Pin/mute already exist for chat-rooms in
+// client/player/screens/ChatRoomScreen.tsx, and emoji reactions + sender
+// name+avatar already exist on the active surface, so those were skipped.
+// This file may be deleted once everyone has confirmed nothing else is
+// pointing at it.
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
