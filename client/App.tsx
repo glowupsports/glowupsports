@@ -32,6 +32,7 @@ import { setActiveRouteName, getDeepestRouteName } from "@/lib/activeRoute";
 import { useAuth , AuthProvider } from "@/coach/context/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { UpdateController } from "@/components/UpdateController";
+import { ForceUpdateGate } from "@/components/ForceUpdateGate";
 import { AnimatedSplashScreen } from "@/components/AnimatedSplashScreen";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import { WhatsNewGate } from "@/components/WhatsNewModal";
@@ -445,6 +446,7 @@ export default function App() {
                                               <NavigationContainerWithRef />
                                             </ChatStateProvider>
                                             <WhatsNewGate />
+                                            <ForceUpdateGate />
                                           </RTLDirectionWrapper>
                                         </WebContainer>
                                       </WebAlertProvider>

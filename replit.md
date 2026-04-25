@@ -41,6 +41,14 @@ For mixed changes (server + client): Republish first, then OTA push.
 - **`client/lib/logger.ts` is a `noop` in production.** Anything you want to see from a real device must go through Sentry directly. Don't use `logger.log` for diagnostics that matter.
 - Sentry tags for filtering: `ota_check_result`, `ota_fetch_result`, `ota_kill_switch_active`, `ota_reload_requested`, `boot_source` (`embedded` vs `ota`), `ota_is_embedded_launch`, `ota_is_emergency_launch`, `ota_app_version`, `ota_runtime`, `ota_update_id`, `ota_commit_sha`.
 
+### Force-update + soft update prompt (Task #1321)
+**Per-platform store-version gate, configured server-side.** On every cold start (and on background → foreground after >1h) the client compares its installed `nativeApplicationVersion` against `GET /api/app-version`. Result: `ok` (silent), `soft` (dismissible "Update available" sheet, suppressed 24h per device per version) or `force` (full-screen blocking gate with only an "Open store" button). Web is a no-op. Endpoint is public, no DB call, cached 5 min at the edge + 5 min in react-query.
+- **Bump at every store release**: edit `server/config/appVersion.ts` and bump `latestVersion` for the platform you just published.
+- **Only bump `minSupportedVersion` when the old version truly cannot keep working** (e.g. breaking API change). Most releases leave it untouched.
+- **iOS approval flip**: when a new version goes Android-first, keep iOS `minSupportedVersion: "0.0.0"` so iOS gets only the soft prompt. Once Apple approves and the new iOS binary is live, bump iOS `minSupportedVersion` up to match `latestVersion` to harden the floor (mirrors what Android does immediately).
+- The gate is mounted in `client/App.tsx` as `<ForceUpdateGate />` next to `<WhatsNewGate />`. Logic lives in `client/hooks/useAppVersionCheck.ts` (semver compare + react-query) and `client/components/ForceUpdateGate.tsx` (UI). Sentry breadcrumbs are emitted on dismiss / open-store.
+- **This does NOT replace the OTA flow** above — it's an additive layer for users on outdated *binaries* who can no longer be reached via OTA at all.
+
 ### CRITICAL: Lint guardrail against missing-import crashes
 **`eslint.config.js` enforces `react/jsx-no-undef: error` and `no-undef: error` on `client/**` and `server/**`.**
 The OTA push script (`scripts/ota-push.sh`) runs a lint pre-flight that **hard-aborts** the push on any error in changed files.

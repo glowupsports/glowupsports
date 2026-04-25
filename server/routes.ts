@@ -1900,6 +1900,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { registerReleaseNotesRoutes } = await import("./routes/release-notes");
   registerReleaseNotesRoutes(app);
 
+  // Task #1321 — Force-update + soft update prompt: GET /api/app-version.
+  // Public, no DB call. Drives the client `ForceUpdateGate` so users on
+  // outdated store versions are routed to the App Store / Play Store.
+  const { registerAppVersionRoutes } = await import("./routes/app-version");
+  registerAppVersionRoutes(app);
+
   const httpServer = createServer(app);
 
   // Set up WebSocket server for real-time chat

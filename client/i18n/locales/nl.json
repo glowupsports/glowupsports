@@ -1858,5 +1858,19 @@
       "autoShowHelp": "Als de app een update krijgt, zie je in het kort wat er nieuw is.",
       "viewLatest": "Laatste updates bekijken"
     }
+  },
+  "appUpdate": {
+    "soft": {
+      "title": "Nieuwe versie beschikbaar",
+      "subtitle": "Er staat een nieuwe versie klaar in de store.",
+      "subtitleVersion": "Er staat een nieuwe versie (v{{version}}) klaar in de store.",
+      "updateNow": "Update nu",
+      "later": "Later"
+    },
+    "force": {
+      "title": "Update vereist om door te gaan",
+      "body": "Deze versie van Glow Up Sports wordt niet meer ondersteund. Update via de store om verder te spelen.",
+      "openStore": "Open store"
+    }
   }
 }
