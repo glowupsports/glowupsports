@@ -2,9 +2,36 @@ import { db, pool } from "./db";
 import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants, playerSessionReflections, playerMatchReadiness, communityGroups, coachingSeries } from "@shared/schema";
 import { buildMatchReadinessScore } from "./services/ai-progress-engine";
-import { storage, ensureCreditProcessed, normalizeSessionTypeToCreditType } from "./storage";
+import { storage, ensureCreditProcessed as _ensureCreditProcessed, normalizeSessionTypeToCreditType } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
+
+// Task #1332 — emergency kill-switch for the maintenance cron's auto-charge
+// behavior. V2 `consumeCredit` is idempotent (event_key uniqueness blocks any
+// re-charge of the same session_player), so the cron is normally safe. This
+// flag exists ONLY as a Plan B if a future regression reintroduces a
+// double-charge code path: set the Replit Secret `SESSION_MAINTENANCE_AUTOCHARGE`
+// to `off` to halt every cron-driven `ensureCreditProcessed` call without
+// shipping a build. Default (unset, "on", or anything else) preserves the
+// existing behavior so we never accidentally under-charge real attendance.
+let _autochargeOffLogCounter = 0;
+async function ensureCreditProcessed(
+  sessionPlayerId: string,
+  opts?: { academyIdHint?: string | null },
+): ReturnType<typeof _ensureCreditProcessed> {
+  const flag = (process.env.SESSION_MAINTENANCE_AUTOCHARGE ?? "on").toLowerCase();
+  if (flag === "off") {
+    if (++_autochargeOffLogCounter % 100 === 1) {
+      // Every 100th skip — enough to know the kill-switch is active without
+      // drowning the log under tens of thousands of rows per cron sweep.
+      console.warn(
+        `[Cron] SESSION_MAINTENANCE_AUTOCHARGE=off — skipping ensureCreditProcessed (sample sp=${sessionPlayerId}, total skipped this process=${_autochargeOffLogCounter})`,
+      );
+    }
+    return { success: false, action: "error" as const, error: "autocharge_disabled" };
+  }
+  return await _ensureCreditProcessed(sessionPlayerId, opts);
+}
 
 // Initialize Firebase on module load
 initializeFirebase();

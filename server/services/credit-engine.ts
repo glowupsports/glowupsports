@@ -528,6 +528,22 @@ export async function consumeCredit(
 
     await writeBalance(tx, sp.player_id, sp.academy_id, type, newBalance);
 
+    // Task #1332 — atomically stamp the legacy V1 `credit_deducted_at` flag
+    // and link `credit_transaction_id` to this V2 ledger row id, IN THE SAME
+    // TRANSACTION as the ledger insert. Without this, the cron paths
+    // (`processAutoAttendance`, `repairNullAttendance`) keep "finding" these
+    // session_player rows on every run and re-calling `consumeCredit`. V2's
+    // event_key uniqueness short-circuits the duplicate, so no real
+    // double-charge occurs, but it's wasted work and noisy logs. We only
+    // overwrite the column when it's currently NULL so we never clobber a
+    // legitimate V1 historical timestamp set before this academy migrated.
+    await tx.execute(sql`
+      UPDATE session_players
+      SET credit_deducted_at = ${occurredAt},
+          credit_transaction_id = ${ledger.id}
+      WHERE id = ${sp.id} AND credit_deducted_at IS NULL
+    `);
+
     return {
       ok: true as const,
       alreadyApplied: false,

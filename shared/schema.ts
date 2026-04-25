@@ -8226,6 +8226,15 @@ export const creditLedgerV2 = pgTable("credit_ledger_v2", {
   index("credit_ledger_v2_academy_time_idx").on(table.academyId, table.occurredAt),
   index("credit_ledger_v2_session_idx").on(table.sessionId),
   index("credit_ledger_v2_session_player_idx").on(table.sessionPlayerId),
+  // Task #1332 — belt-and-suspenders against any future code path inserting a
+  // second `consume` ledger row for the same session_player. The eventKey
+  // unique idx already blocks the canonical write (eventKey = consume:<spId>),
+  // but this partial unique idx blocks ANY consume row sharing a session_player_id
+  // even if the eventKey is constructed differently (e.g. accidentally
+  // suffixed with a timestamp by a future caller).
+  uniqueIndex("credit_ledger_v2_no_dup_consume")
+    .on(table.sessionPlayerId)
+    .where(sql`reason = 'consume' AND session_player_id IS NOT NULL`),
 ]);
 
 export type CreditLedgerV2 = typeof creditLedgerV2.$inferSelect;

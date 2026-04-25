@@ -1,7 +1,7 @@
 # Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-Glow Up Sports is a comprehensive multi-academy SaaS platform designed for Tennis Coaches and Players. Its primary goal is to optimize academy administration, monitor player advancement, and enrich both the coaching and playing experience. The platform integrates gamification, progress tracking, and resource management, offering specialized applications tailored for Platform Owners, Academy Owners, Coaches, and Players. The project envisions significant market potential by transforming tennis academy operations through technology, fostering player engagement, and providing robust tools for coaches and administrators.
+Glow Up Sports is a comprehensive multi-academy SaaS platform for Tennis Coaches and Players, designed to optimize academy administration, monitor player advancement, and enrich both coaching and playing experiences. It integrates gamification, progress tracking, and resource management, offering specialized applications for Platform Owners, Academy Owners, Coaches, and Players. The project aims to transform tennis academy operations through technology, foster player engagement, and provide robust tools for management and development, envisioning significant market potential.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -54,6 +54,13 @@ For mixed changes (server + client): Republish first, then OTA push.
 The OTA push script (`scripts/ota-push.sh`) runs a lint pre-flight that **hard-aborts** the push on any error in changed files.
 Always run `npm run lint` (and ideally `npm run check:types`) **before** OTA-pushing or merging. Do NOT lower these rules to `warn` or `off`.
 
+### CRITICAL: Credit System V2 (Task #1332 — Apr 2026 reconcile)
+**The "double-charge" bursts users reported were NOT actually duplicate charges.** V2 `consumeCredit` is idempotent on `event_key = "consume:<sessionPlayerId>"`, blocked by both a unique index on `event_key` AND a partial unique idx `credit_ledger_v2_no_dup_consume` on `(session_player_id) WHERE reason='consume'`. The visible "burst" was the maintenance cron iterating a large batch in one tick — every row short-circuited as `already_processed`.
+- **Truth-table priority for credits:** `credit_ledger_v2` is canonical. `player_credit_balance.credits` MUST equal `SUM(ledger.delta)`. `credit_lots.qty_remaining` is FIFO-derived from the ledger.
+- **Atomic V1-flag stamp:** `consumeCredit` UPDATEs `session_players.credit_deducted_at` + `credit_transaction_id` in the SAME txn as the ledger insert. This stops the cron's NULL-flag re-discovery loop without harming idempotency.
+- **Emergency kill-switch:** Replit Secret `SESSION_MAINTENANCE_AUTOCHARGE=off` halts every cron-driven `ensureCreditProcessed` call without a redeploy. Default is ON — only flip OFF if a fresh regression appears.
+- **Reconcile script:** `tsx server/scripts/reconcile-credit-balances.ts [--apply] [--player <id>]`. Re-derives lots via FIFO replay, clamps wallets to `MAX(0, canonical)`, and write-offs negative wallets via `manual` ledger rows with deterministic eventKey `task-1332-debt-writeoff:<player>:<academy>:<type>` (re-runs are idempotent). Always run dry-run first.
+
 ### CRITICAL: API Development Rule
 **DO NOT create new API endpoints without explicit permission!**
 1. **First**: Check existing endpoints.
@@ -63,59 +70,59 @@ Always run `npm run lint` (and ideally `npm run check:types`) **before** OTA-pus
 ## System Architecture
 
 ### UI/UX Decisions
-The platform features a dark-themed premium sports aesthetic, utilizing a simplified color palette of Neon Green, White, and Yellow. The UI is characterized by card-based elements, drawer navigation, custom headers, collapsible chat footers, and animated empty states. Theming is token-based for chrome and surface colors. Each user role (Coach, Player, Platform Owner, Service Provider) has a dedicated UI theme and navigation tailored to their specific needs.
+The platform uses a dark-themed premium sports aesthetic with Neon Green, White, and Yellow. The UI features card-based elements, drawer navigation, custom headers, collapsible chat footers, and animated empty states. Theming is token-based. Each user role (Coach, Player, Platform Owner, Service Provider) has a dedicated UI theme and navigation tailored to their specific needs.
 
 ### Technical Implementations
-- **Frontend**: Built with React Native, leveraging Expo SDK 54, React Navigation for routing, React Context for state management, `AsyncStorage` for local data persistence, and `React Native Reanimated` for animations.
-- **Backend**: An Express.js server developed with TypeScript, providing RESTful API endpoints.
-- **Data Storage**: `AsyncStorage` handles client-side data, while `Drizzle ORM` interfaces with Supabase PostgreSQL for server-side data management.
-- **Build System**: Utilizes concurrent Expo and Express servers, with the static Expo web build served by Express. `Drizzle Kit` manages PostgreSQL schema migrations.
-- **API Caching**: Implements in-memory caching with TTLs and pattern-based invalidation to optimize API performance.
-- **Authentication**: Features automatic client-side token refresh via `refreshAuthMiddleware`.
-- **Internationalization**: Supports multiple languages (English, Arabic (RTL), Indonesian) using `i18next` and `react-i18next`.
-- **Timezone Handling**: Manages academy-specific IANA timezones both client-side and server-side, employing `AT TIME ZONE` in PostgreSQL for accurate time representation.
-- **Credit System**: Manages proportional credit charging, notifications, and handles absent players.
-- **Gamification & Rating Systems**: Includes "Glow Leveling OS" for skill certification (12 levels), "Adult Glow DSS Rating System" (ELO-based MMR), and a 50-level XP Engine.
-- **Player Assessment**: Incorporates a "Start Baseline System" and "Skill Evidence Capture" through 10-second video recordings.
-- **Session & Match Management**: Provides features for lesson templates, session planning, match logging, and a "Match Challenge System."
-- **Session Player Integrity**: A three-layer protection system (`processAutoAttendance`, `repairMissingSessionPlayers`, Series Auto-Heal) ensures the reliability of `session_player` records.
-- **Player Onboarding**: A 17-step onboarding process adapts to age, skill, goals, and academy selection.
-- **User Onboarding & Guidance**: Offers checklists, welcome modals, help centers, quick tips, and dashboard progress tracking.
-- **Role-Specific Applications**: Dedicated applications are provided for Coaches, Players, Platform Owners, and Service Providers.
-- **Glow Market & Community Marketplace**: An e-commerce platform with XP-based discounts and a marketplace for used equipment.
-- **Player Chat Surface**: Features like inline `@` mentions with autocomplete, name-aware typing indicators, and unread message affordances are incorporated. Minors have restricted chat functionality.
-- **Group Social Hub**: Includes group-specific Events with RSVP and group Chat with emoji reactions.
-- **Coach & Academy Posts**: Supports post templates, role-tinted feed rendering, pinned posts, auto lesson-recap drafts, and country-scope publishing for public coaches.
+- **Frontend**: React Native with Expo SDK 54, React Navigation, React Context for state, `AsyncStorage` for local persistence, and `React Native Reanimated` for animations.
+- **Backend**: Express.js server with TypeScript, providing RESTful API endpoints.
+- **Data Storage**: `AsyncStorage` client-side; Drizzle ORM with Supabase PostgreSQL server-side.
+- **Build System**: Concurrent Expo and Express servers, with static Expo web build served by Express. Drizzle Kit manages PostgreSQL migrations.
+- **API Caching**: In-memory caching with TTLs and pattern-based invalidation.
+- **Authentication**: Automatic client-side token refresh via `refreshAuthMiddleware`.
+- **Internationalization**: `i18next` and `react-i18next` for English, Arabic (RTL), Indonesian.
+- **Timezone Handling**: Academy-specific IANA timezones managed client-side and server-side using `AT TIME ZONE` in PostgreSQL.
+- **Credit System**: Manages proportional credit charging, notifications, and absent players.
+- **Gamification & Rating Systems**: "Glow Leveling OS" (12 skill certification levels), "Adult Glow DSS Rating System" (ELO-based MMR), and a 50-level XP Engine.
+- **Player Assessment**: "Start Baseline System" and "Skill Evidence Capture" via 10-second video recordings.
+- **Session & Match Management**: Lesson templates, session planning, match logging, and "Match Challenge System."
+- **Session Player Integrity**: Three-layer protection (`processAutoAttendance`, `repairMissingSessionPlayers`, Series Auto-Heal) for `session_player` records.
+- **Player Onboarding**: A 17-step process adaptable to age, skill, goals, and academy selection.
+- **User Onboarding & Guidance**: Checklists, welcome modals, help centers, quick tips, and dashboard progress tracking.
+- **Role-Specific Applications**: Dedicated apps for Coaches, Players, Platform Owners, and Service Providers.
+- **Glow Market & Community Marketplace**: E-commerce with XP-based discounts and used equipment marketplace.
+- **Player Chat Surface**: Inline `@` mentions, typing indicators, unread message affordances. Restricted functionality for minors.
+- **Group Social Hub**: Group-specific Events with RSVP and group Chat with emoji reactions.
+- **Coach & Academy Posts**: Post templates, role-tinted feed rendering, pinned posts, auto lesson-recap drafts, and country-scope publishing.
 - **Coach Following**: Players can follow individual public coaches.
-- **Session Waitlist**: Allows players to join waitlists for full sessions.
-- **Tournament Management**: Manages the full tournament lifecycle, including creation, registration, draw generation, result recording, and XP awards.
-- **Ladder System**: Implements challenge-based player ladders.
-- **Multiple Locations per Academy**: Academies can manage multiple named locations.
-- **Live Scoring**: Provides real-time match scoring with public viewer access and live match banners.
-- **Free Player Mode**: Enables app usage without academy membership for court booking, discovery, and social features.
-- **Player Calendar Integration**: Players can subscribe to upcoming sessions via ICS feed and add individual sessions to native calendars.
-- **Venue/Club System**: Supports various academy types, including coaching, court rental, and social clubs.
-- **Playtomic-Style Court Booking System**: Features multi-phase booking with friend invites, cost splitting, and smart availability.
-- **Slot Reservation System**: Prevents double-booking race conditions by atomically claiming a 5-minute hold.
-- **Family Lobby System**: Offers Netflix-style multi-account management with audit logs and reversible screen-time locks.
-- **Family Wallet**: Provides a family-level Stripe payment method with per-member and per-category monthly spend caps.
-- **Quest System**: Supports daily, weekly, and monthly quests with streak tracking, XP multipliers, and evidence upload.
-- **Week Planner**: A coach's "Week View" displays active groups, player lists, capacity, and holiday/paused counts.
+- **Session Waitlist**: Players can join waitlists for full sessions.
+- **Tournament Management**: Full tournament lifecycle management.
+- **Ladder System**: Challenge-based player ladders.
+- **Multiple Locations per Academy**: Academies manage multiple named locations.
+- **Live Scoring**: Real-time match scoring with public viewer access.
+- **Free Player Mode**: App usage without academy membership for court booking, discovery, and social features.
+- **Player Calendar Integration**: ICS feed subscription and native calendar integration.
+- **Venue/Club System**: Supports coaching, court rental, and social clubs.
+- **Playtomic-Style Court Booking System**: Multi-phase booking with friend invites, cost splitting, and smart availability.
+- **Slot Reservation System**: Atomically claims 5-minute holds to prevent double-booking.
+- **Family Lobby System**: Netflix-style multi-account management with audit logs and screen-time locks.
+- **Family Wallet**: Family-level Stripe payment with per-member and per-category monthly spend caps.
+- **Quest System**: Daily, weekly, monthly quests with streak tracking, XP multipliers, and evidence upload.
+- **Week Planner**: Coach's "Week View" displays active groups, player lists, capacity, and holiday/paused counts.
 - **Guest Player System**: Coaches can add temporary "guest" players to groups.
-- **Smart Fill**: Coaches can use "Smart Fill" to add holidaying players from other groups as guests.
-- **Corporate/Business Accounts**: Companies can purchase session credit pools for employees, managed via dedicated API routes and dashboards.
-- **What's New Modal**: Automatically shows a role-aware, locale-aware carousel once per app version after splash and authentication.
-- **Feed Retention**: A daily prune job trims auto-generated `feed_items` rows older than the retention window.
+- **Smart Fill**: Coaches can add holidaying players from other groups as guests.
+- **Corporate/Business Accounts**: Companies purchase session credit pools for employees via dedicated APIs and dashboards.
+- **What's New Modal**: Role and locale-aware carousel shown once per app version after splash and authentication.
+- **Feed Retention**: Daily job prunes old `feed_items` rows.
 
 ## External Dependencies
 
-- **Database**: Supabase PostgreSQL.
-- **Media Storage**: Supabase Storage.
-- **Deployment**: Replit.
-- **Push Notifications**: Firebase Cloud Messaging (FCM).
-- **Email Service**: Resend API.
-- **Calendar Integration**: Google Calendar.
-- **Server State Management**: TanStack Query.
-- **Expo Modules**: Haptics, Linear Gradient, Blur, Image, Splash Screen.
-- **UI Components**: `expo-glass-effect`.
-- **Keyboard Management**: `react-native-keyboard-controller`.
+- **Database**: Supabase PostgreSQL
+- **Media Storage**: Supabase Storage
+- **Deployment**: Replit
+- **Push Notifications**: Firebase Cloud Messaging (FCM)
+- **Email Service**: Resend API
+- **Calendar Integration**: Google Calendar
+- **Server State Management**: TanStack Query
+- **Expo Modules**: Haptics, Linear Gradient, Blur, Image, Splash Screen
+- **UI Components**: `expo-glass-effect`
+- **Keyboard Management**: `react-native-keyboard-controller`
