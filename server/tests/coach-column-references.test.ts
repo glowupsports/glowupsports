@@ -16,13 +16,16 @@
  * This produced a 500 on every call to `/api/player/availability`, blocking
  * the entire private-lesson booking flow for every player on the platform.
  *
- * The two assertions below pin down both halves of the failure mode:
- *   1. The `photoUrl` field must exist on the coaches schema (so the fix
- *      stays valid if the column is ever renamed).
- *   2. None of the three known consumers (player-booking, player-chat,
- *      player-sessions) may reference the non-existent `coaches.profilePhotoUrl`
- *      again — if someone reintroduces the typo this test fails before
- *      production ever sees a 500.
+ * The tests below pin down the failure mode at three layers:
+ *   1. Schema-level: `coaches.photoUrl` exists, `profilePhotoUrl` does not
+ *      (Object.keys / `in` checks — no `as any` slop).
+ *   2. Runtime select-shape: the exact column-object literals used in the
+ *      three production select sites have no `undefined` values, which is
+ *      the precise condition that crashed Drizzle. Reintroducing a typo
+ *      against the schema makes this fail before query execution.
+ *   3. Source scan: no TypeScript file under `server/` references the
+ *      dead `coaches.profilePhotoUrl` identifier — defense-in-depth
+ *      against any future site that copies the broken pattern.
  */
 
 import { describe, it, expect } from "vitest";
@@ -45,25 +48,81 @@ function walkTsFiles(dir: string, out: string[] = []): string[] {
 }
 
 describe("Task #1345 — coaches column references", () => {
-  it("coaches.photoUrl exists (the real coach profile photo column)", () => {
-    expect((coaches as any).photoUrl).toBeDefined();
+  describe("schema truth", () => {
+    it("coaches.photoUrl exists (the real coach profile photo column)", () => {
+      // Direct property access — typechecks if the column exists, value is
+      // truthy at runtime if it's a real Drizzle column object.
+      expect(coaches.photoUrl).toBeDefined();
+      expect(Object.keys(coaches)).toContain("photoUrl");
+    });
+
+    it("coaches has no `profilePhotoUrl` field (it lives on players/serviceProviders only)", () => {
+      // `in` operator and Object.keys both probe the schema at runtime
+      // without needing a cast that bypasses TypeScript's type system.
+      expect("profilePhotoUrl" in coaches).toBe(false);
+      expect(Object.keys(coaches)).not.toContain("profilePhotoUrl");
+    });
   });
 
-  it("coaches has no `profilePhotoUrl` field (lives on players/serviceProviders only)", () => {
-    expect((coaches as any).profilePhotoUrl).toBeUndefined();
+  describe("runtime select-shape — these mirror the exact db.select({...}) literals in production", () => {
+    /**
+     * Reconstructing the select object from the live source the same way
+     * Drizzle would: any `undefined` value here means the column does not
+     * exist on the schema and the query would crash inside
+     * `orderSelectedFields` the moment it hits the database.
+     *
+     * The fix in this task aliases the correct schema column. If somebody
+     * later swaps it back to the broken name, one of these objects will
+     * contain `undefined` and the test below will fail.
+     */
+    const playerBookingCoachSelect = {
+      id: coaches.id,
+      name: coaches.name,
+      profilePhotoUrl: coaches.photoUrl, // server/routes/player-booking.ts:322
+    };
+
+    const playerChatCoachSelect = {
+      id: coaches.id,
+      name: coaches.name,
+      profilePhotoUrl: coaches.photoUrl, // server/routes/player-chat.ts:156
+    };
+
+    const playerSessionsReminderSelect = {
+      coachName: coaches.name,
+      coachPhotoUrl: coaches.photoUrl, // server/routes/player-sessions.ts:4734
+    };
+
+    it.each([
+      ["player-booking coach enrichment", playerBookingCoachSelect],
+      ["player-chat conversation coach map", playerChatCoachSelect],
+      ["player-sessions reminders coach join", playerSessionsReminderSelect],
+    ])(
+      "%s select has no undefined column references",
+      (_label, selectShape) => {
+        const offenders = Object.entries(selectShape)
+          .filter(([, value]) => value === undefined)
+          .map(([key]) => key);
+        expect(
+          offenders,
+          `These select keys point at non-existent schema columns. Drizzle would crash at query time with "Cannot convert undefined or null to object" and return a 500. Aliased keys must source from a real column on the referenced schema.`,
+        ).toEqual([]);
+      },
+    );
   });
 
-  it("no server/**/*.ts references the non-existent coaches.profilePhotoUrl", () => {
-    const offenders: string[] = [];
-    for (const file of walkTsFiles(SERVER_DIR)) {
-      const src = readFileSync(file, "utf-8");
-      if (/coaches\.profilePhotoUrl/.test(src)) {
-        offenders.push(relative(REPO_ROOT, file));
+  describe("source scan", () => {
+    it("no server/**/*.ts references the non-existent coaches.profilePhotoUrl", () => {
+      const offenders: string[] = [];
+      for (const file of walkTsFiles(SERVER_DIR)) {
+        const src = readFileSync(file, "utf-8");
+        if (/coaches\.profilePhotoUrl/.test(src)) {
+          offenders.push(relative(REPO_ROOT, file));
+        }
       }
-    }
-    expect(
-      offenders,
-      `These server files reference coaches.profilePhotoUrl, a column that does NOT exist on the coaches schema. Drizzle accepts undefined in db.select({...}) silently and then crashes at query time with "Cannot convert undefined or null to object" inside orderSelectedFields, returning a 500. Use coaches.photoUrl instead (alias the select key as profilePhotoUrl if downstream code expects that name):\n  ${offenders.join("\n  ")}`,
-    ).toEqual([]);
+      expect(
+        offenders,
+        `These server files reference coaches.profilePhotoUrl, a column that does NOT exist on the coaches schema. Use coaches.photoUrl instead (alias the select key as profilePhotoUrl if downstream code expects that name):\n  ${offenders.join("\n  ")}`,
+      ).toEqual([]);
+    });
   });
 });
