@@ -1582,19 +1582,19 @@
       "intro": "Pembaruan dan peningkatan terbaru di aplikasi.",
       "items": {
         "unifiedGuide": {
-              "title": "Panduan Pemain Terpadu",
+          "title": "Panduan Pemain Terpadu",
           "desc": "Semua yang kamu butuhkan untuk mempelajari aplikasi — Mulai, Jelajahi, FAQ, dan Yang Baru — kini di satu tempat."
         },
         "searchableFaq": {
-              "title": "FAQ yang dapat dicari",
+          "title": "FAQ yang dapat dicari",
           "desc": "Cari FAQ berdasarkan kata kunci dan filter kategori untuk menemukan jawaban lebih cepat."
         },
         "smarterEmpty": {
-              "title": "Layar kosong yang lebih pintar",
+          "title": "Layar kosong yang lebih pintar",
           "desc": "Daftar kosong kini menampilkan penjelasan satu baris dan aksi satu ketuk agar kamu tahu langkah berikutnya."
         },
         "helpButton": {
-              "title": "Tombol bantuan di setiap header",
+          "title": "Tombol bantuan di setiap header",
           "desc": "Cari tombol tanda tanya di kanan atas layar pemain mana pun untuk langsung kembali ke sini."
         }
       }
@@ -1624,6 +1624,18 @@
     }
   },
   "appUpdate": {
+    "soft": {
+      "title": "Pembaruan tersedia",
+      "subtitle": "Versi baru tersedia di toko.",
+      "subtitleVersion": "Versi baru (v{{version}}) tersedia di toko.",
+      "updateNow": "Perbarui sekarang",
+      "later": "Nanti"
+    },
+    "force": {
+      "title": "Perlu pembaruan untuk melanjutkan",
+      "body": "Versi Glow Up Sports ini sudah tidak didukung. Silakan perbarui dari toko untuk terus bermain.",
+      "openStore": "Buka toko"
+    },
     "ota": {
       "title": "Pembaruan siap",
       "subtitle": "Versi baru sudah siap. Mulai ulang sekarang atau akan diterapkan otomatis saat Anda membuka aplikasi lagi.",

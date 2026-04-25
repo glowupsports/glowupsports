@@ -389,7 +389,7 @@ export function UpdateController({ children }: UpdateControllerProps) {
     } catch (err) {
       safeSentry(() => Sentry.captureException(err));
       setIsReloading(false);
-      // Banner stays so the user can try again, or dismiss.
+      // Sheet stays so the user can try again, or dismiss.
     }
   };
 
