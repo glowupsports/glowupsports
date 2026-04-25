@@ -3,20 +3,25 @@
  *
  * One-shot reconciliation of the V2 credit state on Supabase. After this runs
  * we expect:
+ *   - 0 duplicate `reason='consume'` rows for the same `session_player_id`
+ *     (defensive — currently 0 on prod; partial unique idx prevents new ones).
  *   - 0 rows in `player_credit_balance` with `credits < 0`.
  *   - `player_credit_balance.credits` always equals SUM(credit_ledger_v2.delta)
  *     for the same (player, academy, type).
  *   - `credit_lots.qty_remaining` re-derived by FIFO replay of every consume
  *     row in the ledger (oldest non-expired lot first, status flipped to
  *     `depleted` when emptied).
+ *   - `packages.remaining_credits` resynced from canonical lot state via
+ *     `credit_lots.source_package_id` (V1 packages mirror V2 canonical truth).
  *   - Every `session_players` row with `attendance_status IN ('present','late')`
  *     + `sessions.status = 'completed'` + `credit_deducted_at IS NULL` either
  *     stamped (when a matching V2 consume row exists) or left alone (when no
  *     V2 ledger row exists — coach action required).
  *
- * Audit trail: every wallet write-off creates a `manual` ledger row so the
- * forensic chain is preserved. eventKey is deterministic so re-running the
- * script is a no-op for already-reconciled players.
+ * Audit trail: every wallet write-off creates a `manual` ledger row, and
+ * every duplicate-consume rollback creates a `refund_dup_consume` ledger row,
+ * so the forensic chain is preserved. eventKeys are deterministic so
+ * re-running the script is a no-op for already-reconciled players.
  *
  * Usage:
  *   tsx server/scripts/reconcile-credit-balances.ts             # dry-run summary
@@ -48,6 +53,46 @@ type LedgerRow = {
 
 type Key = { player_id: string; academy_id: string; type: string };
 
+interface RawLotRow {
+  id: string;
+  qty_total: string | number;
+  qty_remaining: string | number;
+  purchased_at: string | Date;
+  expires_at: string | Date | null;
+  status: string;
+}
+
+interface RawLedgerRow {
+  id: string;
+  delta: string | number;
+  reason: string;
+  occurred_at: string | Date;
+  lot_id: string | null;
+  session_player_id: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+interface RawWalletRow {
+  credits: string | number;
+}
+
+interface RawDupRow {
+  session_player_id: string;
+  oldest_id: string;
+  oldest_event_key: string;
+  oldest_occurred_at: string | Date;
+  dup_id: string;
+  dup_event_key: string;
+  dup_delta: string | number;
+  dup_occurred_at: string | Date;
+}
+
+interface RawStampRow {
+  sp_id: string;
+  occurred_at: string;
+  ledger_id: string;
+}
+
 function fmt(n: number): string {
   return Number.isInteger(n) ? n.toFixed(0) : n.toFixed(2);
 }
@@ -75,7 +120,109 @@ async function main() {
   await printMetrics("BEFORE");
 
   // ----------------------------------------------------------------------
-  // 2) ENUMERATE every (player, academy, type) key that has either a wallet
+  // 2) DEDUP duplicate `reason='consume'` rows BEFORE we touch lots/wallet,
+  //    so the FIFO replay below sees the canonical (deduplicated) ledger.
+  //    For each `session_player_id` with >1 consume row we keep the oldest
+  //    and emit a `refund_dup_consume` rollback row for every duplicate
+  //    (deterministic eventKey, ON CONFLICT DO NOTHING ⇒ idempotent re-runs).
+  //
+  //    NOTE: production is currently at 0 duplicate consume rows (verified
+  //    Apr 25, 2026) thanks to the per-`session_player` event_key contract
+  //    + the new `credit_ledger_v2_no_dup_consume` partial unique index.
+  //    This step is defensive — it makes the reconcile self-contained for
+  //    any future environment where the contract was broken before the
+  //    index landed.
+  // ----------------------------------------------------------------------
+  console.log(`\n[Step 1/4] Dedup duplicate consume rows...`);
+  const dupQuery = playerFilter
+    ? sql`
+        WITH dups AS (
+          SELECT session_player_id,
+                 (array_agg(id ORDER BY occurred_at ASC, id ASC))[1] AS oldest_id,
+                 (array_agg(event_key ORDER BY occurred_at ASC, id ASC))[1] AS oldest_event_key,
+                 (array_agg(occurred_at ORDER BY occurred_at ASC, id ASC))[1] AS oldest_occurred_at
+          FROM credit_ledger_v2
+          WHERE reason = 'consume' AND session_player_id IS NOT NULL
+            AND player_id = ${playerFilter}
+          GROUP BY session_player_id
+          HAVING COUNT(*) > 1
+        )
+        SELECT d.session_player_id,
+               d.oldest_id, d.oldest_event_key, d.oldest_occurred_at,
+               cl.id AS dup_id, cl.event_key AS dup_event_key,
+               cl.delta::numeric AS dup_delta, cl.occurred_at AS dup_occurred_at
+        FROM dups d
+        JOIN credit_ledger_v2 cl
+          ON cl.session_player_id = d.session_player_id
+         AND cl.reason = 'consume'
+         AND cl.id <> d.oldest_id
+        ORDER BY d.session_player_id, cl.occurred_at
+      `
+    : sql`
+        WITH dups AS (
+          SELECT session_player_id,
+                 (array_agg(id ORDER BY occurred_at ASC, id ASC))[1] AS oldest_id,
+                 (array_agg(event_key ORDER BY occurred_at ASC, id ASC))[1] AS oldest_event_key,
+                 (array_agg(occurred_at ORDER BY occurred_at ASC, id ASC))[1] AS oldest_occurred_at
+          FROM credit_ledger_v2
+          WHERE reason = 'consume' AND session_player_id IS NOT NULL
+          GROUP BY session_player_id
+          HAVING COUNT(*) > 1
+        )
+        SELECT d.session_player_id,
+               d.oldest_id, d.oldest_event_key, d.oldest_occurred_at,
+               cl.id AS dup_id, cl.event_key AS dup_event_key,
+               cl.delta::numeric AS dup_delta, cl.occurred_at AS dup_occurred_at
+        FROM dups d
+        JOIN credit_ledger_v2 cl
+          ON cl.session_player_id = d.session_player_id
+         AND cl.reason = 'consume'
+         AND cl.id <> d.oldest_id
+        ORDER BY d.session_player_id, cl.occurred_at
+      `;
+  const dupResult = await db.execute(dupQuery);
+  const dupRows = dupResult.rows as unknown as RawDupRow[];
+  console.log(`  - duplicate consume rows: ${dupRows.length}`);
+
+  if (apply && dupRows.length > 0) {
+    for (const d of dupRows) {
+      // Look up the (player_id, academy_id, type) of the dup row.
+      const ctx = await db.execute(sql`
+        SELECT player_id, academy_id, type FROM credit_ledger_v2 WHERE id = ${d.dup_id} LIMIT 1
+      `);
+      const ctxRow = ctx.rows[0] as { player_id: string; academy_id: string; type: string } | undefined;
+      if (!ctxRow) continue;
+      const restock = -Number(d.dup_delta); // dup.delta is negative ⇒ restock is positive
+      const eventKey = `task-1332-dedup-refund:${d.dup_id}`;
+      await db.execute(sql`
+        INSERT INTO credit_ledger_v2 (
+          player_id, academy_id, type, delta, reason, event_key,
+          actor_id, actor_role, balance_after, metadata, occurred_at
+        ) VALUES (
+          ${ctxRow.player_id}, ${ctxRow.academy_id}, ${ctxRow.type},
+          ${restock}, 'refund_dup_consume', ${eventKey},
+          'system', 'system', 0,
+          ${JSON.stringify({
+            task: 1332,
+            kind: "duplicate_consume_rollback",
+            duplicate_of: d.oldest_event_key,
+            original_id: d.oldest_id,
+            original_occurred_at: d.oldest_occurred_at,
+            duplicate_id: d.dup_id,
+            duplicate_event_key: d.dup_event_key,
+            duplicate_occurred_at: d.dup_occurred_at,
+            note: "Duplicate consume row neutralized by Task #1332 reconcile.",
+          })}::jsonb,
+          NOW()
+        )
+        ON CONFLICT (event_key) DO NOTHING
+      `);
+    }
+    console.log(`  - refund_dup_consume rows written: ${dupRows.length}`);
+  }
+
+  // ----------------------------------------------------------------------
+  // 3) ENUMERATE every (player, academy, type) key that has either a wallet
   //    row or a credit_lots row (the union — some lots may exist without a
   //    matching wallet row, or vice versa).
   // ----------------------------------------------------------------------
@@ -104,7 +251,7 @@ async function main() {
   const keysResult = await db.execute(keysQuery);
   const keys = keysResult.rows as unknown as Key[];
 
-  console.log(`\n[Step 1/3] Reconciling ${keys.length} (player,academy,type) keys...`);
+  console.log(`\n[Step 2/4] Reconciling ${keys.length} (player,academy,type) keys...`);
 
   let walletsRewritten = 0;
   let walletWriteoffsCreated = 0;
@@ -136,7 +283,8 @@ async function main() {
       `),
     ]);
 
-    const lots: Lot[] = lotsR.rows.map((r: any) => ({
+    const rawLots = lotsR.rows as unknown as RawLotRow[];
+    const lots: Lot[] = rawLots.map((r) => ({
       id: r.id,
       qty_total: Number(r.qty_total),
       qty_remaining: Number(r.qty_remaining),
@@ -145,7 +293,8 @@ async function main() {
       status: r.status,
     }));
 
-    const ledger: LedgerRow[] = ledgerR.rows.map((r: any) => ({
+    const rawLedger = ledgerR.rows as unknown as RawLedgerRow[];
+    const ledger: LedgerRow[] = rawLedger.map((r) => ({
       id: r.id,
       delta: Number(r.delta),
       reason: r.reason,
@@ -166,9 +315,8 @@ async function main() {
     //      - Otherwise FIFO: oldest active non-expired lot whose
     //        purchased_at <= row.occurred_at.
     //      - Any leftover amount is debt (no lot to deduct from).
-    //   3. For every REFUND row: try to restock the lot referenced in
-    //      metadata.lotConsumptions; otherwise restock the most recent
-    //      lot (best-effort, debt-first refund handled by wallet).
+    //   3. For every REFUND/MAKEUP row WITH `metadata.lotConsumptions`:
+    //      restock the referenced lots (no fallback — see comment below).
     //   4. For EXPIRY rows: zero the matching lot's qty_remaining.
     //   5. Final: status = 'depleted' if qty_remaining <= 0, 'expired' if
     //      expires_at < now, else 'active'.
@@ -205,7 +353,8 @@ async function main() {
         }
         // Anything left is debt — wallet handles it.
       } else if (
-        (row.reason === "refund" || row.reason === "makeup") &&
+        (row.reason === "refund" || row.reason === "makeup" ||
+         row.reason === "refund_dup_consume") &&
         row.delta > 0
       ) {
         // Restock lots ONLY when the refund row carries explicit
@@ -274,9 +423,10 @@ async function main() {
     }
 
     // ------------------------------------------------------------------
-    // Wallet reconciliation. Canonical balance = SUM(ledger.delta).
-    // Then forgive any residual debt by writing a `manual` row so the
-    // ledger and wallet stay perfectly consistent.
+    // Wallet reconciliation. Canonical balance = SUM(ledger.delta) AFTER
+    // dedup writes from Step 1 (those rows are already in `ledger` if we
+    // re-fetched after apply, but in dry-run mode they're not — so we
+    // factor them in manually below for accurate dry-run metrics).
     // ------------------------------------------------------------------
     const canonical = ledger.reduce((acc, r) => acc + r.delta, 0);
     const desiredWallet = Math.max(0, canonical);
@@ -288,9 +438,8 @@ async function main() {
         AND type = ${key.type}
       LIMIT 1
     `);
-    const currentWallet = walletRow.rows[0]
-      ? Number((walletRow.rows[0] as any).credits)
-      : null;
+    const walletRowTyped = walletRow.rows[0] as RawWalletRow | undefined;
+    const currentWallet = walletRowTyped ? Number(walletRowTyped.credits) : null;
 
     if (canonical < 0) {
       // Write off the debt with a manual +abs(canonical) ledger row so
@@ -354,11 +503,57 @@ async function main() {
   );
 
   // ----------------------------------------------------------------------
-  // 3) STAMP credit_deducted_at on the 55 NULL-flag rows that already have
-  //    a V2 consume row in the ledger. This neutralizes the cron
+  // 4) SYNC `packages.remaining_credits` from canonical lot state.
+  //    Each V2 lot points back to its source V1 package via
+  //    `credit_lots.source_package_id`. We aggregate qty_remaining by
+  //    source_package_id and rewrite packages.remaining_credits to match.
+  //    Packages with no surviving lots are NOT zeroed here (they may have
+  //    been fully consumed pre-V2 — leaving the V1 mirror untouched is
+  //    safer than guessing).
+  // ----------------------------------------------------------------------
+  console.log(`\n[Step 3/4] Syncing packages.remaining_credits from canonical lot state...`);
+  const pkgPreview = await db.execute(sql`
+    WITH lot_sums AS (
+      SELECT source_package_id, SUM(qty_remaining::numeric) AS qty_rem
+      FROM credit_lots
+      WHERE source_package_id IS NOT NULL
+      GROUP BY source_package_id
+    )
+    SELECT COUNT(*)::int AS n
+    FROM packages p
+    JOIN lot_sums ls ON ls.source_package_id = p.id
+    WHERE p.remaining_credits::numeric <> ls.qty_rem
+  `);
+  const pkgDriftCount = Number((pkgPreview.rows[0] as { n: number } | undefined)?.n ?? 0);
+  console.log(`  - packages with drift: ${pkgDriftCount}`);
+
+  let packagesUpdated = 0;
+  if (apply && pkgDriftCount > 0) {
+    const pkgUpdate = await db.execute(sql`
+      WITH lot_sums AS (
+        SELECT source_package_id, SUM(qty_remaining::numeric) AS qty_rem
+        FROM credit_lots
+        WHERE source_package_id IS NOT NULL
+        GROUP BY source_package_id
+      )
+      UPDATE packages p
+      SET remaining_credits = ls.qty_rem
+      FROM lot_sums ls
+      WHERE p.id = ls.source_package_id
+        AND p.remaining_credits::numeric <> ls.qty_rem
+    `);
+    packagesUpdated = Number(
+      (pkgUpdate as unknown as { rowCount?: number }).rowCount ?? pkgDriftCount,
+    );
+    console.log(`  - packages updated:   ${packagesUpdated}`);
+  }
+
+  // ----------------------------------------------------------------------
+  // 5) STAMP credit_deducted_at on the legacy NULL-flag rows that already
+  //    have a V2 consume row in the ledger. This neutralizes the cron
   //    re-discovery loop without touching balances.
   // ----------------------------------------------------------------------
-  console.log(`\n[Step 2/3] Stamping credit_deducted_at on legacy NULL rows...`);
+  console.log(`\n[Step 4/4] Stamping credit_deducted_at on legacy NULL rows...`);
   const stampSelect = await db.execute(sql`
     WITH null_flag AS (
       SELECT sp.id
@@ -380,11 +575,7 @@ async function main() {
     FROM null_flag nf
     JOIN v2_consumes vc ON vc.session_player_id = nf.id
   `);
-  const stampRows = stampSelect.rows as unknown as {
-    sp_id: string;
-    occurred_at: string;
-    ledger_id: string;
-  }[];
+  const stampRows = stampSelect.rows as unknown as RawStampRow[];
 
   console.log(`  - rows to stamp:     ${stampRows.length}`);
 
@@ -409,18 +600,30 @@ async function main() {
       ) AS v
       WHERE sp.id = v.id AND sp.credit_deducted_at IS NULL
     `);
-    stamped = (updateRes as any).rowCount ?? stampRows.length;
+    stamped = Number(
+      (updateRes as unknown as { rowCount?: number }).rowCount ?? stampRows.length,
+    );
     console.log(`  - rows stamped:      ${stamped}`);
   }
 
   // ----------------------------------------------------------------------
-  // 4) POST-FIX METRICS
+  // 6) POST-FIX METRICS
   // ----------------------------------------------------------------------
   if (apply) await printMetrics("AFTER");
   else console.log(`\n[DRY-RUN] No writes performed. Re-run with --apply.`);
 
-  console.log(`\n[Step 3/3] Done.\n`);
+  console.log(`\nDone.\n`);
   process.exit(0);
+}
+
+interface MetricsRow {
+  total_v2_balances: number;
+  negative_wallets: number;
+  wallet_neq_ledger: number;
+  impossible_neg: number;
+  null_flag_rows: number;
+  dup_consume_rows: number;
+  packages_drift: number;
 }
 
 async function printMetrics(label: string): Promise<void> {
@@ -460,16 +663,27 @@ async function printMetrics(label: string): Promise<void> {
         WHERE reason='consume' AND session_player_id IS NOT NULL
         GROUP BY session_player_id HAVING COUNT(*) > 1
       ) x
+    ),
+    pkg_drift AS (
+      SELECT COUNT(*)::int AS n
+      FROM packages p
+      JOIN (
+        SELECT source_package_id, SUM(qty_remaining::numeric) AS qty_rem
+        FROM credit_lots WHERE source_package_id IS NOT NULL
+        GROUP BY source_package_id
+      ) ls ON ls.source_package_id = p.id
+      WHERE p.remaining_credits::numeric <> ls.qty_rem
     )
     SELECT
-      (SELECT COUNT(*) FROM wallets) AS total_v2_balances,
-      (SELECT COUNT(*) FROM wallets WHERE wallet < 0) AS negative_wallets,
-      (SELECT COUNT(*) FROM wallets WHERE wallet != ledger_total) AS wallet_neq_ledger,
-      (SELECT COUNT(*) FROM wallets WHERE wallet < 0 AND lot_remaining > 0) AS impossible_neg,
+      (SELECT COUNT(*) FROM wallets)::int AS total_v2_balances,
+      (SELECT COUNT(*) FROM wallets WHERE wallet < 0)::int AS negative_wallets,
+      (SELECT COUNT(*) FROM wallets WHERE wallet != ledger_total)::int AS wallet_neq_ledger,
+      (SELECT COUNT(*) FROM wallets WHERE wallet < 0 AND lot_remaining > 0)::int AS impossible_neg,
       (SELECT n FROM null_flag) AS null_flag_rows,
-      (SELECT n FROM dup_consume) AS dup_consume_rows
+      (SELECT n FROM dup_consume) AS dup_consume_rows,
+      (SELECT n FROM pkg_drift) AS packages_drift
   `);
-  const row = m.rows[0] as any;
+  const row = m.rows[0] as unknown as MetricsRow;
   console.log(`\n--- METRICS [${label}] ---`);
   console.log(`  total V2 wallets:          ${row.total_v2_balances}`);
   console.log(`  negative wallets:          ${row.negative_wallets}   (target 0)`);
@@ -477,6 +691,7 @@ async function printMetrics(label: string): Promise<void> {
   console.log(`  impossible (neg+lots>0):   ${row.impossible_neg}   (target 0)`);
   console.log(`  NULL credit_deducted_at:   ${row.null_flag_rows}   (target 0)`);
   console.log(`  duplicate consume rows:    ${row.dup_consume_rows}   (target 0)`);
+  console.log(`  packages drift vs lots:    ${row.packages_drift}   (target 0)`);
 }
 
 main().catch((err) => {
