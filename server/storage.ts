@@ -4586,6 +4586,23 @@ export const storage = {
       await this.cancelSessionDebt(sp.playerId, id, "session_cancelled");
     }
 
+    // Task #1338 — V2 ledger refund. The legacy `cancelSessionDebt` path
+    // above only touches V1 `creditTransactions`. Any V2
+    // `credit_ledger_v2.consume` row tied to a `session_player` of this
+    // now-cancelled session is left as a permanent over-charge unless we
+    // explicitly refund it here. Idempotent on
+    // `event_key = cancelled-session-refund:<sessionPlayerId>`.
+    //
+    // Fail-closed: if the V2 refund fails, we re-throw so the caller sees an
+    // error instead of "success with silent drift". The refund query is
+    // idempotent (event_key UNIQUE), so a retry of `cancelSession` is safe
+    // — `cancelSessionDebt` is also keyed on existing V1 status and won't
+    // double-cancel.
+    const { refundV2ConsumesForCancelledSession } = await import(
+      "./services/ledger-integrity"
+    );
+    await refundV2ConsumesForCancelledSession(id);
+
     return result[0];
   },
 
@@ -5078,14 +5095,46 @@ export const storage = {
   },
 
   async removePlayerFromSession(sessionId: string, playerId: string): Promise<void> {
-    await db
-      .delete(sessionPlayers)
-      .where(
-        and(
-          eq(sessionPlayers.sessionId, sessionId),
-          eq(sessionPlayers.playerId, playerId)
-        )
-      );
+    // Task #1338 — refund + delete in a SINGLE transaction so the two writes
+    // are atomic:
+    //   - if the refund throws → ROLLBACK skips the DELETE → no new ghost
+    //     orphans (consume ledger rows whose session_player_id no longer
+    //     resolves to a session_players row).
+    //   - if the DELETE throws after the refund → ROLLBACK undoes the
+    //     refund too → no over-credit.
+    // Both bugs the V2 integrity audit closes (BUG_B-style ghost orphans
+    // and net-positive drift) are prevented this way.
+    //
+    // Idempotent: the refund eventKey `player-removed-refund:<sp_id>` is
+    // unique, so a retry after a transient failure is safe — re-runs just
+    // skip the (already-applied) refund and the (already-deleted) row.
+    const { refundV2ConsumesForRemovedSessionPlayer } = await import(
+      "./services/ledger-integrity"
+    );
+    await db.transaction(async (tx) => {
+      const sps = await tx
+        .select({ id: sessionPlayers.id })
+        .from(sessionPlayers)
+        .where(
+          and(
+            eq(sessionPlayers.sessionId, sessionId),
+            eq(sessionPlayers.playerId, playerId),
+          ),
+        );
+
+      for (const sp of sps) {
+        await refundV2ConsumesForRemovedSessionPlayer(sessionId, sp.id, tx);
+      }
+
+      await tx
+        .delete(sessionPlayers)
+        .where(
+          and(
+            eq(sessionPlayers.sessionId, sessionId),
+            eq(sessionPlayers.playerId, playerId),
+          ),
+        );
+    });
   },
 
   async updateAttendance(

@@ -865,7 +865,7 @@ export interface ManualAdjustmentInput {
   academyId: string;
   type: CreditType;
   delta: number; // positive or negative
-  reason: string; // required
+  reason: string; // required — human-readable note stored in metadata.reason
   actorId: string; // required — admin/coach userId
   actorRole?: ActorRole;
   eventKey?: string;
@@ -874,6 +874,19 @@ export interface ManualAdjustmentInput {
    *  already correct by construction. Default false: a negative delta whose
    *  absolute value exceeds the current balance is rejected. */
   allowOverdraw?: boolean;
+  /** Task #1338 — override the canonical `ledger.reason` column. Defaults to
+   *  `'manual'`. Used by integrity-refund flows so a refund row can be
+   *  detected by `reason IN ('refund_cancelled_session','refund_player_removed',
+   *  'refund_orphan_consume')` instead of being indistinguishable from any
+   *  other manual write. The human note is still preserved in
+   *  `metadata.reason` from `input.reason`. */
+  ledgerReason?: string;
+  /** Task #1338 — link the refund row back to the originating
+   *  `session_players.id` so the integrity verification query (which joins
+   *  consume↔refund on `session_player_id`) can match. */
+  sessionPlayerId?: string | null;
+  /** Task #1338 — link to the originating session for audit trail. */
+  sessionId?: string | null;
 }
 
 /**
@@ -895,6 +908,36 @@ export class ManualAdjustmentOverdrawError extends Error {
 }
 
 export async function manualAdjustment(input: ManualAdjustmentInput) {
+  validateManualAdjustmentInput(input);
+  const eventKey = manualAdjustmentEventKey(input);
+  return await db.transaction(async (tx) => {
+    return await manualAdjustmentTxBody(tx, input, eventKey);
+  }).catch((err) => {
+    if (err instanceof DuplicateEventError) {
+      return { ok: true as const, alreadyApplied: true, newBalance: NaN };
+    }
+    throw err;
+  });
+}
+
+/**
+ * Task #1338 — tx-aware variant of `manualAdjustment` for callers that need
+ * the ledger write to participate in an existing transaction (e.g.
+ * `removePlayerFromSession` requires refund + delete to be atomic). Unlike
+ * the public wrapper, this does NOT swallow `DuplicateEventError` — the
+ * caller decides how to react (so an outer tx can ROLLBACK instead of
+ * silently treating a duplicate as success).
+ */
+export async function manualAdjustmentTx(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  input: ManualAdjustmentInput,
+) {
+  validateManualAdjustmentInput(input);
+  const eventKey = manualAdjustmentEventKey(input);
+  return await manualAdjustmentTxBody(tx, input, eventKey);
+}
+
+function validateManualAdjustmentInput(input: ManualAdjustmentInput) {
   if (!input.reason || !input.reason.trim()) {
     throw new Error("[credit-engine] manualAdjustment requires a reason");
   }
@@ -904,43 +947,44 @@ export async function manualAdjustment(input: ManualAdjustmentInput) {
   if (input.delta === 0) {
     throw new Error("[credit-engine] manualAdjustment delta must be non-zero");
   }
-  const eventKey = input.eventKey
-    ?? `manual:${input.actorId}:${input.playerId}:${input.academyId}:${input.type}:${Date.now()}`;
+}
 
-  return await db.transaction(async (tx) => {
-    const before = await lockBalance(tx, input.playerId, input.academyId, input.type);
-    const newBalance = before + input.delta;
-    // Task #1173 — block ghost debt from manual removals. Reversal flows can
-    // still legitimately push the balance below 0 (e.g. undoing a positive
-    // grant that has since been spent) and pass `allowOverdraw: true`.
-    if (input.delta < 0 && !input.allowOverdraw && newBalance < 0) {
-      throw new ManualAdjustmentOverdrawError(
-        Math.max(0, before),
-        Math.abs(input.delta),
-        input.type,
-      );
-    }
-    const ledger = await insertLedger(tx, {
-      playerId: input.playerId,
-      academyId: input.academyId,
-      type: input.type,
-      delta: input.delta,
-      reason: "manual",
-      eventKey,
-      actorId: input.actorId,
-      actorRole: input.actorRole ?? "admin",
-      balanceAfter: newBalance,
-      metadata: { reason: input.reason.trim() },
-    });
-    if (ledger === null) throw new DuplicateEventError(eventKey);
-    await writeBalance(tx, input.playerId, input.academyId, input.type, newBalance);
-    return { ok: true as const, alreadyApplied: false, newBalance };
-  }).catch((err) => {
-    if (err instanceof DuplicateEventError) {
-      return { ok: true as const, alreadyApplied: true, newBalance: NaN };
-    }
-    throw err;
+function manualAdjustmentEventKey(input: ManualAdjustmentInput) {
+  return input.eventKey
+    ?? `manual:${input.actorId}:${input.playerId}:${input.academyId}:${input.type}:${Date.now()}`;
+}
+
+async function manualAdjustmentTxBody(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  input: ManualAdjustmentInput,
+  eventKey: string,
+) {
+  const before = await lockBalance(tx, input.playerId, input.academyId, input.type);
+  const newBalance = before + input.delta;
+  if (input.delta < 0 && !input.allowOverdraw && newBalance < 0) {
+    throw new ManualAdjustmentOverdrawError(
+      Math.max(0, before),
+      Math.abs(input.delta),
+      input.type,
+    );
+  }
+  const ledger = await insertLedger(tx, {
+    playerId: input.playerId,
+    academyId: input.academyId,
+    type: input.type,
+    delta: input.delta,
+    reason: (input.ledgerReason ?? "manual") as LedgerReason,
+    eventKey,
+    actorId: input.actorId,
+    actorRole: input.actorRole ?? "admin",
+    sessionId: input.sessionId ?? null,
+    sessionPlayerId: input.sessionPlayerId ?? null,
+    balanceAfter: newBalance,
+    metadata: { reason: input.reason.trim() },
   });
+  if (ledger === null) throw new DuplicateEventError(eventKey);
+  await writeBalance(tx, input.playerId, input.academyId, input.type, newBalance);
+  return { ok: true as const, alreadyApplied: false, newBalance };
 }
 
 

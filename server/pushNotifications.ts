@@ -5,6 +5,8 @@ import { buildMatchReadinessScore } from "./services/ai-progress-engine";
 import { storage, ensureCreditProcessed as _ensureCreditProcessed, normalizeSessionTypeToCreditType } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
+import * as Sentry from "@sentry/node";
+import { computeLedgerIntegrityReport } from "./routes/admin-credit-integrity";
 
 // Task #1332 — emergency kill-switch for the maintenance cron's auto-charge
 // behavior. V2 `consumeCredit` is idempotent (event_key uniqueness blocks any
@@ -1690,17 +1692,62 @@ export async function repairNullAttendance(): Promise<void> {
 export async function processSessionMaintenance(): Promise<void> {
   console.log("[SessionMaintenance] Starting maintenance sequence");
   try {
-    console.log("[SessionMaintenance] Step 1/4: Repairing missing session_players");
+    console.log("[SessionMaintenance] Step 1/5: Repairing missing session_players");
     await repairMissingSessionPlayers();
-    console.log("[SessionMaintenance] Step 2/4: Processing auto-attendance");
+    console.log("[SessionMaintenance] Step 2/5: Processing auto-attendance");
     await processAutoAttendance();
-    console.log("[SessionMaintenance] Step 3/4: Cleaning up stale session_players");
+    console.log("[SessionMaintenance] Step 3/5: Cleaning up stale session_players");
     await cleanupStaleSessionPlayers();
-    console.log("[SessionMaintenance] Step 4/4: Repairing NULL attendance");
+    console.log("[SessionMaintenance] Step 4/5: Repairing NULL attendance");
     await repairNullAttendance();
+    console.log("[SessionMaintenance] Step 5/5: Checking V2 ledger integrity");
+    await checkV2LedgerIntegrity();
     console.log("[SessionMaintenance] All steps complete");
   } catch (error) {
     console.error("[SessionMaintenance] Error:", error);
+  }
+}
+
+/**
+ * Task #1338 — daily probe for V2 ledger drift. Runs after auto-attendance
+ * so any consume row written this tick is included. Emits a Sentry warning
+ * (`ledger_integrity_drift`) if either the cancelled-session over-charge
+ * count OR the ghost-orphan count is > 0. Tags carry the per-bug counts so
+ * Sentry filtering on `bug:cancelled_session` / `bug:ghost_orphan` works.
+ *
+ * Sentry call is wrapped in try/catch — telemetry must never crash the cron.
+ */
+async function checkV2LedgerIntegrity(): Promise<void> {
+  try {
+    const report = await computeLedgerIntegrityReport(10);
+    const total = report.stale_cancelled_count + report.ghost_orphan_count;
+    if (total === 0) {
+      console.log("[LedgerIntegrity] OK — 0 stale rows");
+      return;
+    }
+    console.warn(
+      `[LedgerIntegrity] DRIFT — cancelled_session=${report.stale_cancelled_count} ghost_orphan=${report.ghost_orphan_count}`,
+    );
+    try {
+      Sentry.captureMessage("ledger_integrity_drift", {
+        level: "warning",
+        tags: {
+          bug_a_count: String(report.stale_cancelled_count),
+          bug_b_count: String(report.ghost_orphan_count),
+          bug_cancelled_session: report.stale_cancelled_count > 0 ? "1" : "0",
+          bug_ghost_orphan: report.ghost_orphan_count > 0 ? "1" : "0",
+        },
+        extra: {
+          stale_cancelled_count: report.stale_cancelled_count,
+          ghost_orphan_count: report.ghost_orphan_count,
+          examples: report.examples,
+        },
+      });
+    } catch (sentryErr) {
+      console.error("[LedgerIntegrity] Sentry telemetry failed:", sentryErr);
+    }
+  } catch (err) {
+    console.error("[LedgerIntegrity] Probe failed:", err);
   }
 }
 
