@@ -1,7 +1,7 @@
 # Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-Glow Up Sports is a comprehensive multi-academy SaaS platform for Tennis Coaches and Players. It aims to streamline academy management, track player development, and enhance the coaching and playing experience. The platform includes gamification, progress tracking, and resource management, with distinct applications for Platform Owner, Academy Owner, Coach, and Player roles.
+Glow Up Sports is a comprehensive multi-academy SaaS platform designed for Tennis Coaches and Players. Its primary goal is to optimize academy administration, monitor player advancement, and enrich both the coaching and playing experience. The platform integrates gamification, progress tracking, and resource management, offering specialized applications tailored for Platform Owners, Academy Owners, Coaches, and Players. The project envisions significant market potential by transforming tennis academy operations through technology, fostering player engagement, and providing robust tools for coaches and administrators.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -63,50 +63,49 @@ Always run `npm run lint` (and ideally `npm run check:types`) **before** OTA-pus
 ## System Architecture
 
 ### UI/UX Decisions
-The application uses a dark-themed premium sports aesthetic with a simplified color system (Neon Green, White, Yellow). UI elements are card-based, include drawer navigation, custom headers, collapsible chat footers, and animated empty states. Theming uses token-based chrome and surface colors. Each user role (Coach, Player, Platform Owner, Service Provider) has dedicated UI themes and navigation.
+The platform features a dark-themed premium sports aesthetic, utilizing a simplified color palette of Neon Green, White, and Yellow. The UI is characterized by card-based elements, drawer navigation, custom headers, collapsible chat footers, and animated empty states. Theming is token-based for chrome and surface colors. Each user role (Coach, Player, Platform Owner, Service Provider) has a dedicated UI theme and navigation tailored to their specific needs.
 
 ### Technical Implementations
-- **Frontend**: React Native with Expo SDK 54, React Navigation, React Context, `AsyncStorage`, and `React Native Reanimated`.
-- **Backend**: Express.js with TypeScript, providing RESTful API endpoints.
-- **Data Storage**: `AsyncStorage` for client-side; `Drizzle ORM` with Supabase PostgreSQL for server-side.
-- **Build System**: Concurrent Expo and Express servers; static Expo web build served by Express. `Drizzle Kit` for PostgreSQL schema migrations.
-- **API Caching**: In-memory caching with TTLs and pattern-based invalidation.
-- **Authentication**: Automatic client-side token refresh via `refreshAuthMiddleware`.
-- **Internationalization**: `i18next` with `react-i18next` supporting English, Arabic (RTL), and Indonesian.
-- **Timezone Handling**: Academy-specific IANA timezones handled client-side and server-side using `AT TIME ZONE` in PostgreSQL.
-- **Credit System**: Manages proportional credit charging, notifications, and absent players.
-- **Gamification & Rating Systems**: Includes "Glow Leveling OS" (12-level skill certification), "Adult Glow DSS Rating System" (ELO-based MMR), and a 50-level XP Engine.
-- **Player Assessment**: Features "Start Baseline System" and "Skill Evidence Capture" (10-second video).
-- **Session & Match Management**: Supports lesson templates, session plans, match logging, and a "Match Challenge System."
-- **Session Player Integrity**: Three-layer protection (`processAutoAttendance`, `repairMissingSessionPlayers`, Series Auto-Heal) prevents loss of `session_player` records.
-- **Player Onboarding**: A 17-step flow adapting for age, skill, goals, and academy selection.
-- **User Onboarding & Guidance**: Provides checklists, welcome modals, help centers, quick tips, and progress tracking on dashboards.
-- **Role-Specific Applications**: Dedicated applications for Coaches, Players, Platform Owners, and Service Providers.
-- **Glow Market & Community Marketplace**: E-commerce platform with XP-based discounts and used equipment.
-- **Player Chat Surface**: The active player chat surface is `<CoachChatFooter mode="player" />`, mounted by `PlayerNavigator`. Task #1310 ported the high-value features from the parked `client/player/components/PlayerChatFooter.tsx` into `CoachChatFooter` without changing its visual chrome: inline `@` mentions (active on every DM/group surface served by the footer — player↔player, coach↔player, direct_message, coach↔coach, squad/lesson_group/series_group, academy; chat-rooms keep their own composer in `ChatRoomScreen`) with an autocomplete picker that merges recent thread senders + the local roster (deduped by handle, never offering the user themselves) and inline highlighting of `@word` tokens; name-aware typing indicator; pull-to-refresh on the conversation list; bold name+preview + unread dot + relative timestamp on unread rows (all gated on the same `hasUnread` boolean so future server `unreadCount` updates light up every affordance at once); dedupe of player-DM rows by `otherPlayerId`; provider-DM auto-routing to `PlayerBookingChatScreen`; a restricted-chat banner+filter for minors without `chatEnabled` that also strips the `world` tab from `CHAT_TABS`, blocks `handleTabChange("world")`, defensively redirects out of the world surface if a stale state lands there, and refuses to render the world chat for restricted users; and the `OnlineSafetyModal` reminder for minor players whose acknowledgement is persisted in AsyncStorage (`@glow_safety_reminder_v1`) so it does not re-show after a cold start. Pin/mute/emoji-reactions/sender-name+avatar already existed on the active surface or in `ChatRoomScreen` and were intentionally skipped. `PlayerChatFooter` now carries a `VOLLEDIG GEPARKEERD` header and is safe to delete. `CoachChatFooter` reads `PlayerContext` (now exported from `client/player/context/PlayerContext.tsx`) via `useContext` so it stays a no-op outside `PlayerProvider`. `PlayerMessagesScreen` and `ChatRoomScreen` remain in `client/player/screens/` because OnlineSafetyModal and ICS-style links still navigate to them.
-- **Group Social Hub**: Features group-specific Events with RSVP and group Chat with emoji reactions.
-- **Coach & Academy Posts**: Post templates authored by coaches or academies, with role-tinted feed rendering, pinned posts, auto lesson-recap drafts, and country-scope publishing for public coaches.
+- **Frontend**: Built with React Native, leveraging Expo SDK 54, React Navigation for routing, React Context for state management, `AsyncStorage` for local data persistence, and `React Native Reanimated` for animations.
+- **Backend**: An Express.js server developed with TypeScript, providing RESTful API endpoints.
+- **Data Storage**: `AsyncStorage` handles client-side data, while `Drizzle ORM` interfaces with Supabase PostgreSQL for server-side data management.
+- **Build System**: Utilizes concurrent Expo and Express servers, with the static Expo web build served by Express. `Drizzle Kit` manages PostgreSQL schema migrations.
+- **API Caching**: Implements in-memory caching with TTLs and pattern-based invalidation to optimize API performance.
+- **Authentication**: Features automatic client-side token refresh via `refreshAuthMiddleware`.
+- **Internationalization**: Supports multiple languages (English, Arabic (RTL), Indonesian) using `i18next` and `react-i18next`.
+- **Timezone Handling**: Manages academy-specific IANA timezones both client-side and server-side, employing `AT TIME ZONE` in PostgreSQL for accurate time representation.
+- **Credit System**: Manages proportional credit charging, notifications, and handles absent players.
+- **Gamification & Rating Systems**: Includes "Glow Leveling OS" for skill certification (12 levels), "Adult Glow DSS Rating System" (ELO-based MMR), and a 50-level XP Engine.
+- **Player Assessment**: Incorporates a "Start Baseline System" and "Skill Evidence Capture" through 10-second video recordings.
+- **Session & Match Management**: Provides features for lesson templates, session planning, match logging, and a "Match Challenge System."
+- **Session Player Integrity**: A three-layer protection system (`processAutoAttendance`, `repairMissingSessionPlayers`, Series Auto-Heal) ensures the reliability of `session_player` records.
+- **Player Onboarding**: A 17-step onboarding process adapts to age, skill, goals, and academy selection.
+- **User Onboarding & Guidance**: Offers checklists, welcome modals, help centers, quick tips, and dashboard progress tracking.
+- **Role-Specific Applications**: Dedicated applications are provided for Coaches, Players, Platform Owners, and Service Providers.
+- **Glow Market & Community Marketplace**: An e-commerce platform with XP-based discounts and a marketplace for used equipment.
+- **Player Chat Surface**: Features like inline `@` mentions with autocomplete, name-aware typing indicators, and unread message affordances are incorporated. Minors have restricted chat functionality.
+- **Group Social Hub**: Includes group-specific Events with RSVP and group Chat with emoji reactions.
+- **Coach & Academy Posts**: Supports post templates, role-tinted feed rendering, pinned posts, auto lesson-recap drafts, and country-scope publishing for public coaches.
 - **Coach Following**: Players can follow individual public coaches.
-- **Session Waitlist**: Allows players to join a waitlist for full sessions.
-- **Tournament Management**: Full tournament lifecycle including creation, registration, draw generation, result recording, and XP awards.
-- **Ladder System**: Challenge-based player ladders.
+- **Session Waitlist**: Allows players to join waitlists for full sessions.
+- **Tournament Management**: Manages the full tournament lifecycle, including creation, registration, draw generation, result recording, and XP awards.
+- **Ladder System**: Implements challenge-based player ladders.
 - **Multiple Locations per Academy**: Academies can manage multiple named locations.
-- **Live Scoring**: Real-time match scoring with public viewer access and live match banners.
-- **Free Player Mode**: Allows app usage without academy membership for court booking, discovery, and social features.
+- **Live Scoring**: Provides real-time match scoring with public viewer access and live match banners.
+- **Free Player Mode**: Enables app usage without academy membership for court booking, discovery, and social features.
 - **Player Calendar Integration**: Players can subscribe to upcoming sessions via ICS feed and add individual sessions to native calendars.
-- **Venue/Club System**: Supports various academy types including coaching, court rental, and social clubs.
-- **Playtomic-Style Court Booking System**: Multi-phase booking with friend invites, cost splitting, and smart availability.
+- **Venue/Club System**: Supports various academy types, including coaching, court rental, and social clubs.
+- **Playtomic-Style Court Booking System**: Features multi-phase booking with friend invites, cost splitting, and smart availability.
 - **Slot Reservation System**: Prevents double-booking race conditions by atomically claiming a 5-minute hold.
-- **Family Lobby System**: Netflix-style multi-account management with audit logs and reversible screen-time locks.
-- **Family Wallet**: Family-level Stripe payment method with per-member and per-category monthly spend caps.
+- **Family Lobby System**: Offers Netflix-style multi-account management with audit logs and reversible screen-time locks.
+- **Family Wallet**: Provides a family-level Stripe payment method with per-member and per-category monthly spend caps.
 - **Quest System**: Supports daily, weekly, and monthly quests with streak tracking, XP multipliers, and evidence upload.
-- **Week Planner**: Coach "Week View" showing active groups, player lists, capacity, and holiday/paused counts.
+- **Week Planner**: A coach's "Week View" displays active groups, player lists, capacity, and holiday/paused counts.
 - **Guest Player System**: Coaches can add temporary "guest" players to groups.
 - **Smart Fill**: Coaches can use "Smart Fill" to add holidaying players from other groups as guests.
-- **Corporate/Business Accounts**: Companies purchase session credit pools for employees, managed via dedicated API routes and dashboards.
-- **What's New Modal**: Auto-shows a role-aware, locale-aware carousel once per app version after splash + auth.
+- **Corporate/Business Accounts**: Companies can purchase session credit pools for employees, managed via dedicated API routes and dashboards.
+- **What's New Modal**: Automatically shows a role-aware, locale-aware carousel once per app version after splash and authentication.
 - **Feed Retention**: A daily prune job trims auto-generated `feed_items` rows older than the retention window.
-- **Player Chat Surface**: The player tab uses the legacy `CoachChatFooter mode="player"` footer plus the standalone `PlayerMessagesScreen` and `ChatRoomScreen` (the GLOW chat consolidation from task #1294 was reverted in task #1309). `ChatStateProvider` is mounted once at the root in `App.tsx` and exposes only `isChatExpanded`/`setChatExpanded`. `client/player/components/PlayerChatFooter.tsx` is parked on disk (not mounted) and serves as the source for porting individual new chat features (mentions, pin, mute, typing, compliance) back into `CoachChatFooter`.
 
 ## External Dependencies
 
