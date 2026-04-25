@@ -1581,6 +1581,13 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
               sessionType = series.sessionType;
             }
           }
+          // Task #1318 — surface the authenticated coach's own
+          // participant row so the chat list can show pinned/muted
+          // state and sort pinned conversations to the top. Use the
+          // first participant whose coachId matches the requester.
+          const myParticipant = participants.find((p) => p.coachId === coachId);
+          const muteUntil = myParticipant?.muteUntil ?? null;
+          const pinnedAt = myParticipant?.pinnedAt ?? null;
           return {
             ...conv,
             title: resolvedTitle,
@@ -1589,6 +1596,8 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
             seriesDayOfWeek,
             seriesStartTime,
             sessionType,
+            muteUntil: muteUntil ? muteUntil.toISOString() : null,
+            pinnedAt: pinnedAt ? pinnedAt.toISOString() : null,
           };
         });
 
@@ -2053,6 +2062,10 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
 
           for (const participant of participants) {
             if (participant.playerId) {
+              // Task #1318 — skip push for participants who muted
+              // this conversation (`mute_until` in the future).
+              const muteUntil = participant.muteUntil;
+              if (muteUntil && muteUntil.getTime() > Date.now()) continue;
               sendNewMessageNotification(
                 participant.playerId,
                 senderName,

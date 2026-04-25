@@ -14,8 +14,20 @@ import { db } from "../db";
 import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks, groupMembers, communityGroups, seriesPlayers, coachingSeries, sessions, userQuickReplies, coaches, players } from "../../shared/schema";
 import { broadcastProviderPlayerMessage, broadcastNewMessage, broadcastToUserIds, broadcastNewConversation, broadcastMessageDeleted, broadcastReactionUpdated, getPlayerPresence } from "../websocket";
 import { eq, and, inArray, or, gt, asc, type SQL } from "drizzle-orm";
+import { apiCache, CACHE_KEYS } from "../cache";
 
 const router = Router();
+
+// Sentinel timestamp meaning "muted forever". Stored in
+// conversation_participants.mute_until; treated as indefinite by
+// `isParticipantMuted` and surfaced as a stable far-future ISO string
+// to clients. Year 9999 is well outside any realistic timer range.
+const MUTE_FOREVER_DATE = new Date("9999-12-31T23:59:59.000Z");
+
+function isParticipantMuted(muteUntil: Date | null | undefined): boolean {
+  if (!muteUntil) return false;
+  return muteUntil.getTime() > Date.now();
+}
 
 // Throttle cache for group chat push notifications (1 per 5 min per conversation)
 const groupChatPushCache = new Map<string, number>();
@@ -247,6 +259,33 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       }
     }
 
+    // 7a) Batch the player's own participant rows so we can surface
+    // per-conversation mute/pin state inline. Stored in
+    // conversation_participants.{mute_until,pinned_at}.
+    const myParticipantState = new Map<string, { muteUntil: Date | null; pinnedAt: Date | null }>();
+    if (conversations.length > 0) {
+      const myRows = await db
+        .select({
+          conversationId: conversationParticipants.conversationId,
+          muteUntil: conversationParticipants.muteUntil,
+          pinnedAt: conversationParticipants.pinnedAt,
+        })
+        .from(conversationParticipants)
+        .where(
+          and(
+            inArray(conversationParticipants.conversationId, conversations.map(c => c.id)),
+            eq(conversationParticipants.participantType, "player"),
+            eq(conversationParticipants.playerId, playerId),
+          ),
+        );
+      for (const r of myRows) {
+        myParticipantState.set(r.conversationId, {
+          muteUntil: r.muteUntil ?? null,
+          pinnedAt: r.pinnedAt ?? null,
+        });
+      }
+    }
+
     // 7b) Batch community groups linked to recurring class series
     // (so the player's Squad chat can deep-link to the auto-created community group)
     const seriesIdsForCommunity = Array.from(new Set(
@@ -346,7 +385,34 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
         }
       }
 
-      return { ...conv, title: resolvedTitle, coachName, coachPhoto, playerName, playerPhoto, providerName, providerPhoto, otherPlayerId, otherPlayerUserId, isBlockedByMe, seriesDayOfWeek, seriesStartTime, sessionType, seriesId, communityGroupId, communityGroupName, communityGroupType };
+      const myState = myParticipantState.get(conv.id);
+      const muteUntil = myState?.muteUntil ?? null;
+      const pinnedAt = myState?.pinnedAt ?? null;
+      return {
+        ...conv,
+        title: resolvedTitle,
+        coachName,
+        coachPhoto,
+        playerName,
+        playerPhoto,
+        providerName,
+        providerPhoto,
+        otherPlayerId,
+        otherPlayerUserId,
+        isBlockedByMe,
+        seriesDayOfWeek,
+        seriesStartTime,
+        sessionType,
+        seriesId,
+        communityGroupId,
+        communityGroupName,
+        communityGroupType,
+        // Per-user pin/mute state (Task #1318). `muteUntil` is the
+        // moment the mute expires; year 9999 means "Forever". Null
+        // means not muted/pinned.
+        muteUntil: muteUntil ? muteUntil.toISOString() : null,
+        pinnedAt: pinnedAt ? pinnedAt.toISOString() : null,
+      };
     });
 
     // Filter out conversations where the other player is blocked
@@ -761,6 +827,9 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
 
     for (const participant of participants) {
       if (participant.coachId) {
+        // Task #1318 — skip push notifications for participants who
+        // muted this conversation, until the timer expires.
+        if (isParticipantMuted(participant.muteUntil)) continue;
         const tokens = await getCoachPushTokens(participant.coachId);
         if (tokens.length > 0) {
           sendPushNotification(
@@ -814,7 +883,10 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
       const now = Date.now();
       if (now - lastPushTime > 5 * 60 * 1000) {
         groupChatPushCache.set(cacheKey, now);
-        const otherParticipants = participants.filter(p => p.playerId && p.playerId !== playerId);
+        // Task #1318 — exclude players who muted this group chat.
+        const otherParticipants = participants.filter(p =>
+          p.playerId && p.playerId !== playerId && !isParticipantMuted(p.muteUntil),
+        );
         for (const p of otherParticipants) {
           if (p.playerId) {
             const tokens = await getPlayerPushTokens(p.playerId);
@@ -1386,6 +1458,151 @@ router.get("/api/me/chat-onboarding", authMiddleware, async (req: AuthRequest, r
   } catch (e) {
     console.error("Error fetching chat onboarding status:", e);
     res.status(500).json({ error: "Failed to fetch chat onboarding status" });
+  }
+});
+
+// ==================== CONVERSATION PIN/MUTE ENDPOINTS ====================
+// Task #1318 — per-conversation pin and mute for direct/group chats.
+// These routes work for both player and coach participants: they look
+// up the participant row owned by the authenticated user and update
+// `pinned_at` or `mute_until` accordingly.
+
+async function findMyParticipantId(
+  conversationId: string,
+  user: JWTPayload,
+): Promise<string | null> {
+  const conditions: SQL[] = [eq(conversationParticipants.conversationId, conversationId)];
+  if (user.coachId) {
+    conditions.push(eq(conversationParticipants.coachId, user.coachId));
+    conditions.push(eq(conversationParticipants.participantType, "coach"));
+  } else if (user.playerId) {
+    conditions.push(eq(conversationParticipants.playerId, user.playerId));
+    conditions.push(eq(conversationParticipants.participantType, "player"));
+  } else {
+    return null;
+  }
+  const rows = await db
+    .select({ id: conversationParticipants.id })
+    .from(conversationParticipants)
+    .where(and(...conditions))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
+// Bust the in-memory coach conversations cache for the calling coach
+// so the next list refetch sees the updated `pinned_at` / `mute_until`.
+// Player-side `/api/player/me/conversations` is uncached, so no
+// invalidation is needed for player callers.
+function invalidateConversationListCacheKeys(user: JWTPayload): void {
+  if (user.coachId) {
+    apiCache.invalidate(CACHE_KEYS.COACH_CONVERSATIONS(user.coachId));
+  }
+}
+
+// Pin a conversation for the current user.
+router.post("/api/conversations/:id/pin", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user || (!user.playerId && !user.coachId)) {
+      return res.status(403).json({ error: "Player or coach account required" });
+    }
+    const { id: conversationId } = req.params;
+    const participantId = await findMyParticipantId(conversationId, user);
+    if (!participantId) {
+      return res.status(404).json({ error: "Not a participant in this conversation" });
+    }
+    const now = new Date();
+    await db
+      .update(conversationParticipants)
+      .set({ pinnedAt: now })
+      .where(eq(conversationParticipants.id, participantId));
+    invalidateConversationListCacheKeys(user);
+    res.json({ success: true, pinnedAt: now.toISOString() });
+  } catch (error) {
+    console.error("Error pinning conversation:", error);
+    res.status(500).json({ error: "Failed to pin conversation" });
+  }
+});
+
+// Unpin a conversation for the current user.
+router.delete("/api/conversations/:id/pin", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user || (!user.playerId && !user.coachId)) {
+      return res.status(403).json({ error: "Player or coach account required" });
+    }
+    const { id: conversationId } = req.params;
+    const participantId = await findMyParticipantId(conversationId, user);
+    if (!participantId) {
+      return res.status(404).json({ error: "Not a participant in this conversation" });
+    }
+    await db
+      .update(conversationParticipants)
+      .set({ pinnedAt: null })
+      .where(eq(conversationParticipants.id, participantId));
+    invalidateConversationListCacheKeys(user);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error unpinning conversation:", error);
+    res.status(500).json({ error: "Failed to unpin conversation" });
+  }
+});
+
+// Mute a conversation for the current user. Body: { hours?: number }.
+// Omitted body or hours <= 0 mutes "Forever" (sentinel year-9999
+// timestamp). 1, 24, etc. mute for that many hours.
+router.post("/api/conversations/:id/mute", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user || (!user.playerId && !user.coachId)) {
+      return res.status(403).json({ error: "Player or coach account required" });
+    }
+    const { id: conversationId } = req.params;
+    const rawHours = req.body?.hours;
+    const hoursNum = typeof rawHours === "number" && Number.isFinite(rawHours) ? rawHours : 0;
+    // Clamp to 1 year so a malicious client can't write absurd values
+    // beyond the forever sentinel.
+    const clamped = Math.max(0, Math.min(hoursNum, 24 * 365));
+    const muteUntil = clamped > 0
+      ? new Date(Date.now() + clamped * 60 * 60 * 1000)
+      : MUTE_FOREVER_DATE;
+    const participantId = await findMyParticipantId(conversationId, user);
+    if (!participantId) {
+      return res.status(404).json({ error: "Not a participant in this conversation" });
+    }
+    await db
+      .update(conversationParticipants)
+      .set({ muteUntil })
+      .where(eq(conversationParticipants.id, participantId));
+    invalidateConversationListCacheKeys(user);
+    res.json({ success: true, muteUntil: muteUntil.toISOString() });
+  } catch (error) {
+    console.error("Error muting conversation:", error);
+    res.status(500).json({ error: "Failed to mute conversation" });
+  }
+});
+
+// Unmute a conversation for the current user.
+router.delete("/api/conversations/:id/mute", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = req.user;
+    if (!user || (!user.playerId && !user.coachId)) {
+      return res.status(403).json({ error: "Player or coach account required" });
+    }
+    const { id: conversationId } = req.params;
+    const participantId = await findMyParticipantId(conversationId, user);
+    if (!participantId) {
+      return res.status(404).json({ error: "Not a participant in this conversation" });
+    }
+    await db
+      .update(conversationParticipants)
+      .set({ muteUntil: null })
+      .where(eq(conversationParticipants.id, participantId));
+    invalidateConversationListCacheKeys(user);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error unmuting conversation:", error);
+    res.status(500).json({ error: "Failed to unmute conversation" });
   }
 });
 

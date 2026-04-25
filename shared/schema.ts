@@ -2487,8 +2487,15 @@ export const conversationParticipants = pgTable("conversation_participants", {
   canPost: boolean("can_post").default(true),
   
   lastReadAt: timestamp("last_read_at"),
+  // Per-conversation mute. `null` = not muted. A timestamp far in the
+  // future (year 9999) represents an indefinite "Forever" mute. Other
+  // values represent the moment when the mute expires.
   muteUntil: timestamp("mute_until"),
-  
+  // Per-conversation pin. `null` = not pinned. When set, the
+  // conversation is sorted to the top of the participant's chat list.
+  // Newer pins float above older ones.
+  pinnedAt: timestamp("pinned_at"),
+
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 

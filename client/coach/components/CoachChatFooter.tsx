@@ -114,6 +114,11 @@ interface Conversation {
   communityGroupType?: string | null;
   // Optional per-conversation unread count when surfaced by the server.
   unreadCount?: number | null;
+  // Task #1318 — per-user pin/mute state. Server returns ISO strings;
+  // null means not pinned/muted. A `muteUntil` in year 9999 represents
+  // an indefinite "Forever" mute.
+  pinnedAt?: string | null;
+  muteUntil?: string | null;
 }
 
 const REACTION_EMOJIS = ["🔥", "❤️", "👍", "😂"];
@@ -313,12 +318,16 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     AsyncStorage.setItem("@glow_world_hype", JSON.stringify(m)).catch(() => {});
   }, []);
 
+  // Task #1318 — combine local AsyncStorage cache with the server's
+  // authoritative `muteUntil` so the icon shows immediately on a
+  // fresh install before the optimistic update lands.
   const isConvMuted = useCallback((convId: string) => {
     const until = mutedConvMap[convId];
-    if (!until) return false;
-    if (until < Date.now()) return false;
-    return true;
-  }, [mutedConvMap]);
+    if (until && until > Date.now()) return true;
+    const conv = conversations.find(c => c.id === convId);
+    const serverUntil = conv?.muteUntil ? new Date(conv.muteUntil).getTime() : 0;
+    return serverUntil > Date.now();
+  }, [mutedConvMap, conversations]);
 
   const height = useSharedValue(FOOTER_COLLAPSED);
   const tickerOffset = useSharedValue(0);
@@ -924,6 +933,74 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     },
   });
 
+  // Task #1318 — pin / unpin / mute / unmute mutations. Both player
+  // and coach modes hit the same `/api/conversations/:id/{pin,mute}`
+  // routes; the server resolves the participant row from the JWT.
+  // Pin/unpin do an optimistic patch of the local cache so the row
+  // jumps to/from the top without waiting for a refetch.
+  const patchConversationCache = useCallback(
+    (conversationId: string, patch: Partial<Conversation>) => {
+      queryClient.setQueryData<Conversation[]>(conversationsQueryKey, (prev) => {
+        if (!Array.isArray(prev)) return prev;
+        return prev.map(c => (c.id === conversationId ? { ...c, ...patch } : c));
+      });
+    },
+    [queryClient, conversationsQueryKey],
+  );
+
+  const pinConversationMutation = useMutation({
+    mutationFn: async (conversationId: string) => {
+      const r = await apiRequest("POST", `/api/conversations/${conversationId}/pin`, {});
+      return r.json() as Promise<{ success: boolean; pinnedAt?: string }>;
+    },
+    onMutate: async (conversationId: string) => {
+      patchConversationCache(conversationId, { pinnedAt: new Date().toISOString() });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+    },
+  });
+
+  const unpinConversationMutation = useMutation({
+    mutationFn: async (conversationId: string) => {
+      return apiRequest("DELETE", `/api/conversations/${conversationId}/pin`);
+    },
+    onMutate: async (conversationId: string) => {
+      patchConversationCache(conversationId, { pinnedAt: null });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+    },
+  });
+
+  const muteConversationMutation = useMutation({
+    mutationFn: async ({ conversationId, hours }: { conversationId: string; hours: number }) => {
+      const r = await apiRequest("POST", `/api/conversations/${conversationId}/mute`, { hours });
+      return r.json() as Promise<{ success: boolean; muteUntil?: string }>;
+    },
+    onMutate: async ({ conversationId, hours }) => {
+      const muteUntil = hours > 0
+        ? new Date(Date.now() + hours * 3600 * 1000).toISOString()
+        : "9999-12-31T23:59:59.000Z";
+      patchConversationCache(conversationId, { muteUntil });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+    },
+  });
+
+  const unmuteConversationMutation = useMutation({
+    mutationFn: async (conversationId: string) => {
+      return apiRequest("DELETE", `/api/conversations/${conversationId}/mute`);
+    },
+    onMutate: async (conversationId: string) => {
+      patchConversationCache(conversationId, { muteUntil: null });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey });
+    },
+  });
+
   const blockMutation = useMutation({
     mutationFn: async (targetUserId: string) => {
       return apiRequest("POST", `/api/social/users/${targetUserId}/block`, {});
@@ -1272,10 +1349,28 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     refetchInterval: false,
   });
 
-  const displayConversations = currentTab === "squad" && isPlayerMode
+  const displayConversationsRaw = currentTab === "squad" && isPlayerMode
     ? [...filteredConversations, ...lessonGroupChats.filter(lgc => !filteredConversations.find(c => c.id === lgc.id))]
         .filter(c => c.sessionType !== "private")
     : filteredConversations;
+
+  // Task #1318 — pinned conversations float to the top of every tab.
+  // Within each bucket (pinned / unpinned) keep the pre-existing
+  // ordering (recent activity first) so unrelated logic above this
+  // memo continues to work.
+  const displayConversations = useMemo(() => {
+    const pinned: Conversation[] = [];
+    const rest: Conversation[] = [];
+    for (const c of displayConversationsRaw) {
+      if (c.pinnedAt) pinned.push(c); else rest.push(c);
+    }
+    pinned.sort((a, b) => {
+      const at = a.pinnedAt ? new Date(a.pinnedAt).getTime() : 0;
+      const bt = b.pinnedAt ? new Date(b.pinnedAt).getTime() : 0;
+      return bt - at;
+    });
+    return [...pinned, ...rest];
+  }, [displayConversationsRaw]);
 
   // Initial fetch of online players on mount; WS events keep this up to date in real-time
   useEffect(() => {
@@ -1754,14 +1849,24 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 
   const handleConvLongPress = (conv: Conversation) => {
     const name = getConvDisplayName(conv);
-    const muteOpt = (hours: number) => ({
-      text: `Mute ${hours}h`,
+    // Task #1318 — server-backed mute/pin. AsyncStorage is kept as a
+    // local cache for immediate UI feedback before the server round
+    // trips. `hours === 0` means a "Forever" mute on the server (year
+    // 9999 sentinel) and we map that to ~10 years locally so the
+    // legacy `isConvMuted` reader keeps showing the icon.
+    const FOREVER_LOCAL_MS = 10 * 365 * 24 * 3600 * 1000;
+    const muteOpt = (hours: number, label: string) => ({
+      text: label,
       onPress: () => {
+        const localExpiry = hours > 0
+          ? Date.now() + hours * 3600 * 1000
+          : Date.now() + FOREVER_LOCAL_MS;
         setMutedConvMap(prev => {
-          const next = { ...prev, [conv.id]: Date.now() + hours * 3600 * 1000 };
+          const next = { ...prev, [conv.id]: localExpiry };
           persistMuted(next);
           return next;
         });
+        muteConversationMutation.mutate({ conversationId: conv.id, hours });
       },
     });
     const unmuteOpt = {
@@ -1773,6 +1878,15 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           persistMuted(next);
           return next;
         });
+        unmuteConversationMutation.mutate(conv.id);
+      },
+    };
+    const isPinned = !!conv.pinnedAt;
+    const pinOpt = {
+      text: isPinned ? "Unpin" : "Pin",
+      onPress: () => {
+        if (isPinned) unpinConversationMutation.mutate(conv.id);
+        else pinConversationMutation.mutate(conv.id);
       },
     };
     const markUnreadOpt = {
@@ -1788,10 +1902,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     };
     type AlertOpt = { text: string; style?: "default" | "cancel" | "destructive"; onPress?: () => void };
     const opts: AlertOpt[] = [];
+    opts.push(pinOpt);
     if (isConvMuted(conv.id)) {
       opts.push(unmuteOpt);
     } else {
-      opts.push(muteOpt(1), muteOpt(8), muteOpt(24));
+      opts.push(muteOpt(1, "Mute 1h"), muteOpt(24, "Mute 24h"), muteOpt(0, "Mute Forever"));
     }
     opts.push(markUnreadOpt);
     if (isPlayerMode && conv.type === "player_player") {
