@@ -1,25 +1,11 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Platform,
-  AppState,
-} from "react-native";
+import { Platform, AppState } from "react-native";
 import * as Updates from "expo-updates";
 import * as Sentry from "@sentry/react-native";
-import { Feather } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import {
-  Colors,
-  Spacing,
-  BorderRadius,
-  TextColors,
-} from "@/constants/theme";
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useTranslation } from "react-i18next";
 import { getApiUrl } from "@/lib/query-client";
+import { UpdateSheet } from "@/components/update/UpdateSheet";
+import { useAppVersionCheck } from "@/hooks/useAppVersionCheck";
 
 interface UpdateControllerProps {
   children: React.ReactNode;
@@ -341,7 +327,24 @@ async function runOnceCheck(onUpdateReady: () => void): Promise<void> {
 export function UpdateController({ children }: UpdateControllerProps) {
   const [showBanner, setShowBanner] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
-  const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  // Overlay-priority guard: if the install is below `minSupportedVersion`,
+  // ForceUpdateGate is rendering its own blocking modal. We must NOT stack
+  // the OTA "Update ready" sheet on top of it — that would let the user
+  // tap "Restart now" to re-launch into the same broken version they're
+  // already being told to update via the store. The hook is TanStack-Query
+  // backed and shares its cache with ForceUpdateGate, so this adds no extra
+  // network call. Network failures fail-open to "ok" inside the hook.
+  //
+  // Cold-start race: the version query starts as `isLoading: true` with a
+  // default status of "ok", so a fast OTA check could otherwise flash the
+  // OTA sheet before ForceUpdateGate's force modal mounts. We suppress
+  // while the check is unresolved so force always wins on the very first
+  // paint after cold launch.
+  const { status: appVersionStatus, isLoading: appVersionLoading } =
+    useAppVersionCheck();
+  const suppressForForceGate =
+    appVersionLoading || appVersionStatus === "force";
 
   useEffect(() => {
     if (__DEV__ || Platform.OS === "web") return;
@@ -401,138 +404,28 @@ export function UpdateController({ children }: UpdateControllerProps) {
     setShowBanner(false);
   };
 
+  const primaryLabel = isReloading
+    ? t("appUpdate.ota.restarting", { defaultValue: "Restarting…" })
+    : t("appUpdate.ota.restartNow", { defaultValue: "Restart now" });
+
   return (
     <>
       {children}
-      {showBanner ? (
-        <View
-          pointerEvents="box-none"
-          style={[styles.bannerWrap, { paddingTop: insets.top + Spacing.sm }]}
-        >
-          <View style={styles.banner}>
-            <View style={styles.bannerIcon}>
-              <Feather
-                name="download-cloud"
-                size={18}
-                color={Colors.dark.primary}
-              />
-            </View>
-            <View style={styles.bannerText}>
-              <Text style={styles.bannerTitle}>Update ready</Text>
-              <Text style={styles.bannerSubtitle}>
-                Restart now or later — it will apply on next launch.
-              </Text>
-            </View>
-            <View style={styles.bannerActions}>
-              <Pressable
-                onPress={handleLater}
-                style={styles.laterButton}
-                accessibilityRole="button"
-                accessibilityLabel="Apply update later"
-              >
-                <Text style={styles.laterButtonText}>Later</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleRestartNow}
-                disabled={isReloading}
-                style={styles.restartButton}
-                accessibilityRole="button"
-                accessibilityLabel="Restart now to apply update"
-              >
-                <LinearGradient
-                  colors={[Colors.dark.primary, Colors.dark.accent]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.restartButtonGradient}
-                >
-                  <Text style={styles.restartButtonText}>
-                    {isReloading ? "Restarting…" : "Restart now"}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </View>
-        </View>
+      {showBanner && !suppressForForceGate ? (
+        <UpdateSheet
+          iconName="download-cloud"
+          title={t("appUpdate.ota.title", { defaultValue: "Update ready" })}
+          subtitle={t("appUpdate.ota.subtitle", {
+            defaultValue:
+              "A new version is ready. Restart now or apply automatically next time you open the app.",
+          })}
+          primaryLabel={primaryLabel}
+          onPrimary={handleRestartNow}
+          primaryDisabled={isReloading}
+          secondaryLabel={t("appUpdate.ota.later", { defaultValue: "Later" })}
+          onSecondary={handleLater}
+        />
       ) : null}
     </>
   );
 }
-
-const styles = makeReactiveStyles(() =>
-  StyleSheet.create({
-    bannerWrap: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      paddingHorizontal: Spacing.md,
-      zIndex: 1000,
-      elevation: 1000,
-    },
-    banner: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: Colors.dark.surface,
-      borderRadius: BorderRadius.lg,
-      borderWidth: 1,
-      borderColor: Colors.dark.border,
-      paddingVertical: Spacing.sm,
-      paddingHorizontal: Spacing.md,
-      gap: Spacing.sm,
-      shadowColor: "#000",
-      shadowOpacity: 0.25,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
-    },
-    bannerIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "rgba(255, 255, 255, 0.06)",
-    },
-    bannerText: {
-      flex: 1,
-      minWidth: 0,
-    },
-    bannerTitle: {
-      color: Colors.dark.text,
-      fontSize: 14,
-      fontWeight: "600",
-    },
-    bannerSubtitle: {
-      color: Colors.dark.textSecondary,
-      fontSize: 12,
-      marginTop: 2,
-    },
-    bannerActions: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Spacing.xs,
-    },
-    laterButton: {
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: Spacing.xs,
-      borderRadius: BorderRadius.md,
-    },
-    laterButtonText: {
-      color: Colors.dark.textSecondary,
-      fontSize: 13,
-      fontWeight: "500",
-    },
-    restartButton: {
-      borderRadius: BorderRadius.md,
-      overflow: "hidden",
-    },
-    restartButtonGradient: {
-      paddingHorizontal: Spacing.md,
-      paddingVertical: Spacing.xs + 2,
-    },
-    restartButtonText: {
-      color: TextColors.primary,
-      fontSize: 13,
-      fontWeight: "600",
-    },
-  }),
-);

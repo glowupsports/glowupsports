@@ -1871,6 +1871,13 @@
       "title": "Update vereist om door te gaan",
       "body": "Deze versie van Glow Up Sports wordt niet meer ondersteund. Update via de store om verder te spelen.",
       "openStore": "Open store"
+    },
+    "ota": {
+      "title": "Update klaar",
+      "subtitle": "Er staat een nieuwe versie klaar. Herstart nu, of de update wordt automatisch toegepast wanneer je de app opnieuw opent.",
+      "restartNow": "Herstart nu",
+      "restarting": "Bezig met herstarten…",
+      "later": "Later"
     }
   }
 }

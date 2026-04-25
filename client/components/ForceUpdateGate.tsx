@@ -31,6 +31,7 @@ import {
   useAppVersionCheck,
   type AppVersionStatus,
 } from "@/hooks/useAppVersionCheck";
+import { UpdateSheet } from "@/components/update/UpdateSheet";
 
 const SOFT_DISMISS_PREFIX = "@glow_app_version_soft_dismissed_";
 const SOFT_DISMISS_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -210,88 +211,30 @@ function SoftUpdatePrompt({
   onUpdate: () => void;
   onLater: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
+  const subtitle = version
+    ? t("appUpdate.soft.subtitleVersion", {
+        defaultValue: "A new version (v{{version}}) is available in the store.",
+        version,
+      })
+    : t("appUpdate.soft.subtitle", {
+        defaultValue: "A new version is available in the store.",
+      });
+
   return (
-    <Modal
-      visible
-      transparent
-      animationType="fade"
-      statusBarTranslucent
-      onRequestClose={onLater}
-    >
-      <View style={styles.softBackdrop}>
-        <View
-          style={[
-            styles.softSheet,
-            { paddingBottom: insets.bottom + Spacing.lg },
-          ]}
-        >
-          <View style={styles.softHandle} />
-          <View style={styles.softIconCircle}>
-            <Feather
-              name="download-cloud"
-              size={28}
-              color={GlowColors.primary}
-            />
-          </View>
-          <Text style={styles.softTitle}>
-            {t("appUpdate.soft.title", { defaultValue: "Update available" })}
-          </Text>
-          <Text style={styles.softSubtitle}>
-            {version
-              ? t("appUpdate.soft.subtitleVersion", {
-                  defaultValue:
-                    "A new version (v{{version}}) is available in the store.",
-                  version,
-                })
-              : t("appUpdate.soft.subtitle", {
-                  defaultValue: "A new version is available in the store.",
-                })}
-          </Text>
-          {releaseNotes ? (
-            <Text style={styles.softReleaseNotes}>{releaseNotes}</Text>
-          ) : null}
-
-          <Pressable
-            onPress={onUpdate}
-            style={({ pressed }) => [
-              styles.softPrimaryButton,
-              pressed ? styles.softPrimaryButtonPressed : null,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={t("appUpdate.soft.updateNow", {
-              defaultValue: "Update now",
-            })}
-          >
-            <LinearGradient
-              colors={[Colors.dark.primary, Colors.dark.accent]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.softPrimaryButtonGradient}
-            >
-              <Text style={styles.softPrimaryButtonText}>
-                {t("appUpdate.soft.updateNow", { defaultValue: "Update now" })}
-              </Text>
-            </LinearGradient>
-          </Pressable>
-
-          <Pressable
-            onPress={onLater}
-            style={styles.softSecondaryButton}
-            accessibilityRole="button"
-            accessibilityLabel={t("appUpdate.soft.later", {
-              defaultValue: "Later",
-            })}
-          >
-            <Text style={styles.softSecondaryButtonText}>
-              {t("appUpdate.soft.later", { defaultValue: "Later" })}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
+    <UpdateSheet
+      iconName="download-cloud"
+      title={t("appUpdate.soft.title", { defaultValue: "Update available" })}
+      subtitle={subtitle}
+      releaseNotes={releaseNotes}
+      primaryLabel={t("appUpdate.soft.updateNow", {
+        defaultValue: "Update now",
+      })}
+      onPrimary={onUpdate}
+      secondaryLabel={t("appUpdate.soft.later", { defaultValue: "Later" })}
+      onSecondary={onLater}
+    />
   );
 }
 
@@ -367,56 +310,9 @@ function ForceUpdateScreen({ onOpenStore }: { onOpenStore: () => void }) {
 export type { AppVersionStatus };
 
 const styles = StyleSheet.create({
-  /* soft */
-  softBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    justifyContent: "flex-end",
-  },
-  softSheet: {
-    backgroundColor: Backgrounds.card,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.md,
-    alignItems: "center",
-    ...Shadows.glow,
-  },
-  softHandle: {
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.dark.border,
-    marginBottom: Spacing.lg,
-  },
-  softIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Backgrounds.elevated,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.lg,
-  },
-  softTitle: {
-    ...Typography.h2,
-    color: Colors.dark.text,
-    textAlign: "center",
-    marginBottom: Spacing.sm,
-  },
-  softSubtitle: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-    textAlign: "center",
-    marginBottom: Spacing.lg,
-  },
-  softReleaseNotes: {
-    ...Typography.small,
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
-    marginBottom: Spacing.lg,
-    paddingHorizontal: Spacing.md,
-  },
+  /* force-update CTA — visually mirrors the shared UpdateSheet's
+     primary button so the blocking screen and the dismissible sheet
+     stay aligned without depending on UpdateSheet's internals. */
   softPrimaryButton: {
     width: "100%",
     borderRadius: BorderRadius.lg,
@@ -434,16 +330,6 @@ const styles = StyleSheet.create({
     color: TextColors.primary,
     fontWeight: "700",
     fontSize: 16,
-  },
-  softSecondaryButton: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    marginTop: Spacing.sm,
-  },
-  softSecondaryButtonText: {
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
-    fontSize: 14,
   },
   /* force */
   forceContainer: {

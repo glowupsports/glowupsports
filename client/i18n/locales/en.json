@@ -1907,6 +1907,13 @@
       "title": "Update required to continue",
       "body": "This version of Glow Up Sports is no longer supported. Please update from the store to keep playing.",
       "openStore": "Open store"
+    },
+    "ota": {
+      "title": "Update ready",
+      "subtitle": "A new version is ready. Restart now or apply automatically next time you open the app.",
+      "restartNow": "Restart now",
+      "restarting": "Restarting…",
+      "later": "Later"
     }
   }
 }

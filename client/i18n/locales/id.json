@@ -1622,5 +1622,14 @@
       "openJoinHelperOn": "Siapa saja dapat langsung bergabung dengan akademi Anda.",
       "openJoinHelperOff": "Anda akan meninjau dan menyetujui setiap anggota baru."
     }
+  },
+  "appUpdate": {
+    "ota": {
+      "title": "Pembaruan siap",
+      "subtitle": "Versi baru sudah siap. Mulai ulang sekarang atau akan diterapkan otomatis saat Anda membuka aplikasi lagi.",
+      "restartNow": "Mulai ulang sekarang",
+      "restarting": "Memulai ulang…",
+      "later": "Nanti"
+    }
   }
 }
