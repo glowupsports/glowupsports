@@ -1,7 +1,7 @@
 # Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-Glow Up Sports is a comprehensive multi-academy SaaS platform for Tennis Coaches and Players, designed to optimize academy administration, monitor player advancement, and enrich both coaching and playing experiences. It integrates gamification, progress tracking, and resource management, offering specialized applications for Platform Owners, Academy Owners, Coaches, and Players. The project aims to transform tennis academy operations through technology, foster player engagement, and provide robust tools for management and development, envisioning significant market potential.
+Glow Up Sports is a comprehensive multi-academy SaaS platform for Tennis Coaches and Players. It aims to optimize academy administration, monitor player advancement, and enhance both coaching and playing experiences through gamification, progress tracking, and resource management. The platform offers specialized applications for Platform Owners, Academy Owners, Coaches, and Players, with the vision of transforming tennis academy operations and fostering player engagement.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -33,36 +33,6 @@ Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATA
 Any change touching `server/`, `shared/schema.ts`, migrations, or env-var contracts requires a Replit Republish (use `suggest_deploy`). Client-only changes (`client/`) can use the OTA Push workflow.
 For mixed changes (server + client): Republish first, then OTA push.
 
-### CRITICAL: Production-safe OTA system (Task #1306)
-**OTA never auto-reloads anymore.** When a new bundle is downloaded, the user sees a small non-blocking "Update ready" banner with **Restart now** / **Later**. If they pick Later, the update is applied automatically on the next cold start (standard `expo-updates` behavior once `isUpdateReady` is true).
-- `client/components/UpdateController.tsx` runs **exactly once per cold start** (module-scoped flag + `AppState` guard). No retry loops, no background re-checks.
-- Before checking, it hits `GET /api/ota-status` (1s timeout, **fail-open**) — set `OTA_KILL_SWITCH=true` (Replit Secret) to stop OTA distribution platform-wide without a new build.
-- All OTA telemetry goes through Sentry (`addBreadcrumb`, `captureMessage("ota_boot_status")`, `captureException`), wrapped in `try/catch` so telemetry can never crash the app.
-- **`client/lib/logger.ts` is a `noop` in production.** Anything you want to see from a real device must go through Sentry directly. Don't use `logger.log` for diagnostics that matter.
-- Sentry tags for filtering: `ota_check_result`, `ota_fetch_result`, `ota_kill_switch_active`, `ota_reload_requested`, `boot_source` (`embedded` vs `ota`), `ota_is_embedded_launch`, `ota_is_emergency_launch`, `ota_app_version`, `ota_runtime`, `ota_update_id`, `ota_commit_sha`.
-
-### Force-update + soft update prompt (Task #1321)
-**Per-platform store-version gate, configured server-side.** On every cold start (and on background → foreground after >1h) the client compares its installed `nativeApplicationVersion` against `GET /api/app-version`. Result: `ok` (silent), `soft` (dismissible "Update available" sheet, suppressed 24h per device per version) or `force` (full-screen blocking gate with only an "Open store" button). Web is a no-op. Endpoint is public, no DB call, cached 5 min at the edge + 5 min in react-query.
-- **Bump at every store release**: edit `server/config/appVersion.ts` and bump `latestVersion` for the platform you just published.
-- **Only bump `minSupportedVersion` when the old version truly cannot keep working** (e.g. breaking API change). Most releases leave it untouched.
-- **iOS approval flip**: when a new version goes Android-first, keep iOS `minSupportedVersion: "0.0.0"` so iOS gets only the soft prompt. Once Apple approves and the new iOS binary is live, bump iOS `minSupportedVersion` up to match `latestVersion` to harden the floor (mirrors what Android does immediately).
-- The gate is mounted in `client/App.tsx` as `<ForceUpdateGate />` next to `<WhatsNewGate />`. Logic lives in `client/hooks/useAppVersionCheck.ts` (semver compare + react-query) and `client/components/ForceUpdateGate.tsx` (UI). Sentry breadcrumbs are emitted on dismiss / open-store.
-- **This does NOT replace the OTA flow** above — it's an additive layer for users on outdated *binaries* who can no longer be reached via OTA at all.
-
-### CRITICAL: Lint guardrail against missing-import crashes
-**`eslint.config.js` enforces `react/jsx-no-undef: error` and `no-undef: error` on `client/**` and `server/**`.**
-The OTA push script (`scripts/ota-push.sh`) runs a lint pre-flight that **hard-aborts** the push on any error in changed files.
-Always run `npm run lint` (and ideally `npm run check:types`) **before** OTA-pushing or merging. Do NOT lower these rules to `warn` or `off`.
-
-### CRITICAL: Credit System V2 (Task #1332 — Apr 2026 reconcile)
-**The "double-charge" bursts users reported were NOT actually duplicate charges.** V2 `consumeCredit` is idempotent on `event_key = "consume:<sessionPlayerId>"`, blocked by both a unique index on `event_key` AND a partial unique idx `credit_ledger_v2_no_dup_consume` on `(session_player_id) WHERE reason='consume'`. The visible "burst" was the maintenance cron iterating a large batch in one tick — every row short-circuited as `already_processed`.
-- **Truth-table priority for credits:** `credit_ledger_v2` is canonical. `player_credit_balance.credits` MUST equal `SUM(ledger.delta)`. `credit_lots.qty_remaining` is FIFO-derived from the ledger.
-- **Atomic V1-flag stamp:** `consumeCredit` UPDATEs `session_players.credit_deducted_at` + `credit_transaction_id` in the SAME txn as the ledger insert. This stops the cron's NULL-flag re-discovery loop without harming idempotency.
-- **Emergency kill-switch:** Replit Secret `SESSION_MAINTENANCE_AUTOCHARGE=off` halts every cron-driven `ensureCreditProcessed` call without a redeploy. Default is ON — only flip OFF if a fresh regression appears.
-- **Reconcile script:** `tsx server/scripts/reconcile-credit-balances.ts [--apply] [--player <id>]`. Re-derives lots via FIFO replay, clamps wallets to `MAX(0, canonical)`, and write-offs negative wallets via `manual` ledger rows with deterministic eventKey `task-1332-debt-writeoff:<player>:<academy>:<type>` (re-runs are idempotent). Always run dry-run first.
-- **V2 ledger integrity refunds (Task #1338):** `cancelSession` and `removePlayerFromSession` MUST refund any unrefunded `consume` ledger row tied to the affected `session_player`. Both call helpers in `server/services/ledger-integrity.ts` with deterministic event keys: `cancelled-session-refund:<sp_id>` (reason `refund_cancelled_session`), `player-removed-refund:<sp_id>` (reason `refund_player_removed`). The backfill `tsx server/scripts/backfill-ledger-integrity.ts [--apply]` covers historical drift via Pass A (cancelled-session over-charge) and Pass B (ghost orphan: consume row with no surviving session_player) using event keys `cancelled-session-refund:<sp_id>` and `orphan-refund:<sp_id>` (reason `refund_orphan_consume`). DO NOT use the `task-1337-…` event-key prefix here — it is reserved for the downstream package-reversal task.
-- **Integrity monitoring:** `GET /api/admin/credit-ledger-integrity` (platform_owner only) returns live drift counts + a small example list. The same probe runs every cron tick from `processSessionMaintenance` (Step 5/5) and emits `Sentry.captureMessage('ledger_integrity_drift', level=warning)` whenever drift > 0, tagged with `bug_cancelled_session` / `bug_ghost_orphan`. Drift should always be 0 on a healthy DB.
-
 ### CRITICAL: API Development Rule
 **DO NOT create new API endpoints without explicit permission!**
 1. **First**: Check existing endpoints.
@@ -72,18 +42,18 @@ Always run `npm run lint` (and ideally `npm run check:types`) **before** OTA-pus
 ## System Architecture
 
 ### UI/UX Decisions
-The platform uses a dark-themed premium sports aesthetic with Neon Green, White, and Yellow. The UI features card-based elements, drawer navigation, custom headers, collapsible chat footers, and animated empty states. Theming is token-based. Each user role (Coach, Player, Platform Owner, Service Provider) has a dedicated UI theme and navigation tailored to their specific needs.
+The platform features a dark-themed premium sports aesthetic with Neon Green, White, and Yellow, utilizing card-based elements, drawer navigation, custom headers, and animated empty states. Theming is token-based, with dedicated UI themes and navigation tailored for each user role (Coach, Player, Platform Owner, Service Provider).
 
 ### Technical Implementations
-- **Frontend**: React Native with Expo SDK 54, React Navigation, React Context for state, `AsyncStorage` for local persistence, and `React Native Reanimated` for animations.
+- **Frontend**: React Native with Expo SDK 54, React Navigation, React Context for state, `AsyncStorage`, and `React Native Reanimated`.
 - **Backend**: Express.js server with TypeScript, providing RESTful API endpoints.
 - **Data Storage**: `AsyncStorage` client-side; Drizzle ORM with Supabase PostgreSQL server-side.
-- **Build System**: Concurrent Expo and Express servers, with static Expo web build served by Express. Drizzle Kit manages PostgreSQL migrations.
+- **Build System**: Concurrent Expo and Express servers; static Expo web build served by Express; Drizzle Kit for PostgreSQL migrations.
 - **API Caching**: In-memory caching with TTLs and pattern-based invalidation.
 - **Authentication**: Automatic client-side token refresh via `refreshAuthMiddleware`.
 - **Internationalization**: `i18next` and `react-i18next` for English, Arabic (RTL), Indonesian.
 - **Timezone Handling**: Academy-specific IANA timezones managed client-side and server-side using `AT TIME ZONE` in PostgreSQL.
-- **Credit System**: Manages proportional credit charging, notifications, and absent players.
+- **Credit System**: Manages proportional credit charging, notifications, and absent players, with a V2 ledger for integrity.
 - **Gamification & Rating Systems**: "Glow Leveling OS" (12 skill certification levels), "Adult Glow DSS Rating System" (ELO-based MMR), and a 50-level XP Engine.
 - **Player Assessment**: "Start Baseline System" and "Skill Evidence Capture" via 10-second video recordings.
 - **Session & Match Management**: Lesson templates, session planning, match logging, and "Match Challenge System."
@@ -92,7 +62,7 @@ The platform uses a dark-themed premium sports aesthetic with Neon Green, White,
 - **User Onboarding & Guidance**: Checklists, welcome modals, help centers, quick tips, and dashboard progress tracking.
 - **Role-Specific Applications**: Dedicated apps for Coaches, Players, Platform Owners, and Service Providers.
 - **Glow Market & Community Marketplace**: E-commerce with XP-based discounts and used equipment marketplace.
-- **Player Chat Surface**: Inline `@` mentions, typing indicators, unread message affordances. Restricted functionality for minors.
+- **Player Chat Surface**: Inline `@` mentions, typing indicators, unread message affordances, with restricted functionality for minors.
 - **Group Social Hub**: Group-specific Events with RSVP and group Chat with emoji reactions.
 - **Coach & Academy Posts**: Post templates, role-tinted feed rendering, pinned posts, auto lesson-recap drafts, and country-scope publishing.
 - **Coach Following**: Players can follow individual public coaches.
@@ -114,7 +84,6 @@ The platform uses a dark-themed premium sports aesthetic with Neon Green, White,
 - **Smart Fill**: Coaches can add holidaying players from other groups as guests.
 - **Corporate/Business Accounts**: Companies purchase session credit pools for employees via dedicated APIs and dashboards.
 - **What's New Modal**: Role and locale-aware carousel shown once per app version after splash and authentication.
-- **Feed Retention**: Daily job prunes old `feed_items` rows.
 
 ## External Dependencies
 
