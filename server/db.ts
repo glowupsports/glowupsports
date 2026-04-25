@@ -936,6 +936,33 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] user_quick_replies migration skipped:', e.message);
   }
 
+  // Task #1320: message_mentions table — persists resolved @mentions for
+  // each message so the inbox can badge mention-only threads and so we can
+  // send mention pushes that bypass the recipient's chat-mute. Created here
+  // (in addition to being declared in shared/schema.ts) because drizzle-kit
+  // push currently prompts to disambiguate an unrelated rename and cannot be
+  // run non-interactively in fresh environments. See follow-up task to fix.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS message_mentions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        message_id VARCHAR NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+        conversation_id VARCHAR NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        player_id VARCHAR REFERENCES players(id) ON DELETE CASCADE,
+        coach_id VARCHAR REFERENCES coaches(id) ON DELETE CASCADE,
+        handle VARCHAR(64) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS message_mentions_message_idx ON message_mentions(message_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS message_mentions_conv_idx ON message_mentions(conversation_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS message_mentions_player_idx ON message_mentions(player_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS message_mentions_coach_idx ON message_mentions(coach_id)`);
+    console.log('[Database] message_mentions migration applied');
+  } catch (e: any) {
+    console.log('[Database] message_mentions migration skipped:', e.message);
+  }
+
   try {
     await pool.query(`
       ALTER TABLE users

@@ -25,7 +25,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
   import {
     users, coaches, players, academies, sessions, coachingSeries, seriesPlayers,
-    conversations, conversationParticipants, messages,
+    conversations, conversationParticipants, messages, messageMentions,
     invoices, payments, sessionPlayers, sessionWaitlist,
     locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
     sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
@@ -55,6 +55,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   } from "@shared/schema";
   import { broadcastNewMessage } from "../websocket";
   import { sendNewMessageNotification, getPlayerPushTokens, getCoachPushTokens, sendPushNotification } from "../pushNotifications";
+  import { resolveConversationMentions, extractMentionHandles, type ResolvedConversationMention } from "../utils/conversationMentions";
   import { sendFeedbackNotificationEmail, sendLevelUpEmail } from "../emailService";
   import { awardXP } from "../services/xp-service";
   import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection } from "../googleCalendarService";
@@ -1801,6 +1802,39 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
           academyId,
         );
 
+        // Task #1320 — Hydrate @mentions in one batched query so the inbox
+        // can badge mention-only threads and the bubble UI can highlight
+        // them without N+1.
+        const messageIds = messages.map((m) => m.id).filter(Boolean);
+        const mentionRowsByMessage = new Map<
+          string,
+          Array<{ handle: string; playerId: string | null; coachId: string | null }>
+        >();
+        if (messageIds.length > 0) {
+          try {
+            const rows = await db
+              .select({
+                messageId: messageMentions.messageId,
+                handle: messageMentions.handle,
+                playerId: messageMentions.playerId,
+                coachId: messageMentions.coachId,
+              })
+              .from(messageMentions)
+              .where(inArray(messageMentions.messageId, messageIds));
+            for (const r of rows) {
+              const list = mentionRowsByMessage.get(r.messageId) ?? [];
+              list.push({
+                handle: r.handle,
+                playerId: r.playerId,
+                coachId: r.coachId,
+              });
+              mentionRowsByMessage.set(r.messageId, list);
+            }
+          } catch (err) {
+            console.error("[coach-mgmt] mention hydrate error:", err);
+          }
+        }
+
         // Enrich with reactions
         const enriched = await Promise.all(
           messages.map(async (msg) => {
@@ -1809,7 +1843,8 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
               coachId!,
               academyId,
             );
-            return { ...msg, reactions };
+            const mentions = mentionRowsByMessage.get(msg.id) ?? [];
+            return { ...msg, reactions, mentions };
           }),
         );
 
@@ -1957,7 +1992,16 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
           body,
           messageType,
           replyToId,
-        } = req.body;
+          mentions: clientMentions,
+        } = req.body as {
+          senderType?: string;
+          senderCoachId?: string | null;
+          senderPlayerId?: string | null;
+          body?: string;
+          messageType?: string;
+          replyToId?: string | null;
+          mentions?: string[];
+        };
 
         if (!body || !senderType) {
           return res
@@ -2031,6 +2075,54 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
           });
         }
 
+        // Task #1320 — Persist @mentions before broadcasting/responding so
+        // the WS payload + JSON body can include the resolved targets and
+        // the inbox can badge mention-only threads. Player senders also get
+        // their friends list mixed into the candidate set.
+        const requestedHandles =
+          Array.isArray(clientMentions) && clientMentions.length > 0
+            ? clientMentions
+            : extractMentionHandles(sanitizedBody);
+        let resolvedMentions: ResolvedConversationMention[] = [];
+        const mentionedPlayerIds = new Set<string>();
+        const mentionedCoachIds = new Set<string>();
+        if (requestedHandles.length > 0) {
+          try {
+            resolvedMentions = await resolveConversationMentions({
+              conversationId,
+              rawHandles: requestedHandles,
+              senderPlayerId: senderPlayerId || null,
+              academyId,
+            });
+            if (resolvedMentions.length > 0) {
+              await db
+                .insert(messageMentions)
+                .values(
+                  resolvedMentions.map((m) => ({
+                    messageId: message.id,
+                    conversationId,
+                    playerId: m.playerId,
+                    coachId: m.coachId,
+                    handle: m.handle,
+                  })),
+                )
+                .onConflictDoNothing();
+              for (const m of resolvedMentions) {
+                if (m.playerId) mentionedPlayerIds.add(m.playerId);
+                if (m.coachId) mentionedCoachIds.add(m.coachId);
+              }
+            }
+          } catch (err) {
+            console.error("[coach-mgmt] mention persist error:", err);
+          }
+        }
+        const mentionsPayload = resolvedMentions.map((m) => ({
+          handle: m.handle,
+          playerId: m.playerId,
+          coachId: m.coachId,
+          name: m.name,
+        }));
+
         // Broadcast new message via WebSocket to all academy members
         broadcastNewMessage(academyId, {
           conversationId,
@@ -2042,12 +2134,15 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
               message.senderCoachId || message.senderPlayerId || undefined,
             createdAt:
               message.createdAt?.toISOString() || new Date().toISOString(),
+            mentions: mentionsPayload,
           },
         });
 
-        res.status(201).json(message);
+        res.status(201).json({ ...message, mentions: mentionsPayload });
 
-        // Send push notification to recipient (non-blocking)
+        // Send push notification to recipient (non-blocking). Mentioned
+        // players are skipped here because they receive a dedicated mention
+        // push below that bypasses their global chat-mute preference.
         if (senderType === "coach" && senderCoachId) {
           // Get players in this conversation to notify them
           const participants = await storage.getConversationParticipants(
@@ -2056,9 +2151,7 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
             academyId,
           );
           const coachData = await storage.getCoach(senderCoachId);
-          const senderName = coachData?.firstName
-            ? `${coachData.firstName} ${coachData.lastName || ""}`.trim()
-            : "Coach";
+          const senderName = coachData?.name?.trim() || "Coach";
 
           for (const participant of participants) {
             if (participant.playerId) {
@@ -2066,6 +2159,10 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
               // this conversation (`mute_until` in the future).
               const muteUntil = participant.muteUntil;
               if (muteUntil && muteUntil.getTime() > Date.now()) continue;
+              // Task #1320 — Mentioned players get a dedicated mention push
+              // (handled below). Skip the regular "new message" push here
+              // to avoid double-pinging them.
+              if (mentionedPlayerIds.has(participant.playerId)) continue;
               sendNewMessageNotification(
                 participant.playerId,
                 senderName,
@@ -2076,6 +2173,54 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
                   err,
                 ),
               );
+            }
+          }
+        }
+
+        // Task #1320 — Mention pushes (fire-and-forget). Always sent —
+        // they bypass the recipient's global chat-messages preference
+        // because a direct @-tag is treated as higher-signal than a
+        // generic group message. Self-mentions are skipped.
+        if (mentionedPlayerIds.size > 0 || mentionedCoachIds.size > 0) {
+          const senderDisplay =
+            senderType === "coach" && senderCoachId
+              ? (await storage.getCoach(senderCoachId))?.name?.trim() || "Coach"
+              : senderType === "player" && senderPlayerId
+                ? (await storage.getPlayer(senderPlayerId))?.name?.trim() ||
+                  "Someone"
+                : "Someone";
+          const preview = sanitizedBody.replace(/\s+/g, " ").slice(0, 120);
+          const title = `${senderDisplay} mentioned you`;
+          const data: Record<string, unknown> = {
+            type: "chat_mention",
+            screen: "Messages",
+            conversationId,
+            messageId: message.id,
+          };
+          for (const targetPlayerId of mentionedPlayerIds) {
+            if (senderPlayerId && targetPlayerId === senderPlayerId) continue;
+            try {
+              const tokens = await getPlayerPushTokens(targetPlayerId);
+              if (tokens.length === 0) continue;
+              await sendPushNotification(
+                tokens,
+                title,
+                preview,
+                data,
+                targetPlayerId,
+              );
+            } catch (err) {
+              console.error("[coach-mgmt] mention push (player) error:", err);
+            }
+          }
+          for (const targetCoachId of mentionedCoachIds) {
+            if (senderCoachId && targetCoachId === senderCoachId) continue;
+            try {
+              const tokens = await getCoachPushTokens(targetCoachId);
+              if (tokens.length === 0) continue;
+              await sendPushNotification(tokens, title, preview, data);
+            } catch (err) {
+              console.error("[coach-mgmt] mention push (coach) error:", err);
             }
           }
         }

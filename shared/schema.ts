@@ -8354,6 +8354,31 @@ export const chatRoomMessageMentions = pgTable("chat_room_message_mentions", {
 
 export type ChatRoomMessageMention = typeof chatRoomMessageMentions.$inferSelect;
 
+// Task #1320 — @mentions inside player/coach conversation messages (squad,
+// lesson-group, coach↔player, academy, player↔player DMs). Mirrors
+// chatRoomMessageMentions but targets messages that live under a regular
+// `conversations` row instead of a world chat room. Either playerId or
+// coachId is set, never both — the row records the resolved target so the
+// inbox can badge mention-only threads even when global chat notifications
+// are off.
+export const messageMentions = pgTable("message_mentions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").references(() => messages.id, { onDelete: "cascade" }).notNull(),
+  conversationId: varchar("conversation_id").references(() => conversations.id, { onDelete: "cascade" }).notNull(),
+  playerId: varchar("player_id").references(() => players.id, { onDelete: "cascade" }),
+  coachId: varchar("coach_id").references(() => coaches.id, { onDelete: "cascade" }),
+  handle: varchar("handle", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("message_mentions_message_idx").on(table.messageId),
+  index("message_mentions_conv_idx").on(table.conversationId),
+  index("message_mentions_player_idx").on(table.playerId),
+  index("message_mentions_coach_idx").on(table.coachId),
+]);
+
+export type MessageMention = typeof messageMentions.$inferSelect;
+export type InsertMessageMention = typeof messageMentions.$inferInsert;
+
 // Persistent log of series-group reminders sent by coaches. Used to enforce a
 // per-(coach, series) rate limit (max 3 per trailing 60 minutes) that survives
 // server restarts and is shared across instances.

@@ -44,6 +44,15 @@ interface NewMessagePayload {
     senderPhotoUrl?: string | null;
     senderBallLevel?: string | null;
     createdAt: string;
+    // Task #1320 — Resolved @mentions for the message. Recipients use this
+    // to badge mention-only threads in the inbox and to render highlights
+    // without a follow-up fetch.
+    mentions?: Array<{
+      handle: string;
+      playerId: string | null;
+      coachId: string | null;
+      name?: string;
+    }>;
   };
 }
 

@@ -74,6 +74,15 @@ interface Message {
     reactorCoachId: string | null;
     reactorPlayerId: string | null;
   }[];
+  // Task #1320 — Resolved @mentions for the message. Populated by the server
+  // (GET /messages and POST response). Used by the inbox to badge
+  // mention-only threads and by the bubble UI to render highlights.
+  mentions?: {
+    handle: string;
+    playerId: string | null;
+    coachId: string | null;
+    name?: string;
+  }[];
   _optimistic?: true;
   _failed?: true;
   isDeleted?: boolean | null;
@@ -520,23 +529,34 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     setMentionQuery(null);
   }, []);
 
-  // Reusable @-mention picker: roster + recent thread senders + recent
-  // World senders, deduped. Used by the DM/group composer and by the
-  // World composer.
+  // Reusable @-mention picker: recent thread senders + roster + (player
+  // mode) accepted friends + recent World senders, deduped. Used by the
+  // DM/group composer and by the World composer. Task #1320 widens the
+  // candidate pool to friends so a player can mention any teammate even
+  // in a busy academy/lesson group.
   const renderMentionPicker = (): React.ReactNode => {
     if (mentionQuery === null) return null;
     const q = mentionQuery;
     const seen = new Set<string>();
-    type MentionCandidate = { key: string; name: string; handle: string };
+    type MentionCandidate = {
+      key: string;
+      name: string;
+      handle: string;
+      badge?: "Friend" | "Squad" | "Recent" | "World";
+    };
     const out: MentionCandidate[] = [];
-    const pushCandidate = (rawName: string | null | undefined, key: string) => {
+    const pushCandidate = (
+      rawName: string | null | undefined,
+      key: string,
+      badge?: MentionCandidate["badge"],
+    ) => {
       const name = (rawName || "").trim();
       if (!name) return;
       const handle = name.replace(/\s+/g, "").toLowerCase();
       if (!handle || seen.has(handle)) return;
       if (q !== "" && !name.toLowerCase().includes(q) && !handle.includes(q)) return;
       seen.add(handle);
-      out.push({ key, name, handle });
+      out.push({ key, name, handle, badge });
     };
     // Recent thread senders first — mirror renderMessage's isOwn check
     // so the user never sees themselves.
@@ -547,7 +567,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
         : (m.senderType === "coach" && m.senderCoachId === userId);
       if (mineHere) continue;
       const stableKey = m.senderCoachId || m.senderPlayerId || m.id;
-      pushCandidate(m.senderName, `s:${stableKey}`);
+      pushCandidate(m.senderName, `s:${stableKey}`, "Recent");
       if (out.length >= 8) break;
     }
     // Recent World senders (when on World tab) so the picker is useful
@@ -560,14 +580,26 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           (user?.playerId != null && wm.senderPlayerId === user.playerId);
         if (mineHere) continue;
         const stableKey = wm.senderCoachId || wm.senderPlayerId || wm.id;
-        pushCandidate(wm.senderName, `w:${stableKey}`);
+        pushCandidate(wm.senderName, `w:${stableKey}`, "World");
         if (out.length >= 12) break;
       }
     }
-    // Then the roster.
+    // Then the squad/roster.
     for (const p of (players || [])) {
-      pushCandidate(p.name || `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim(), `p:${p.id}`);
+      pushCandidate(
+        p.name || `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim(),
+        `p:${p.id}`,
+        "Squad",
+      );
       if (out.length >= 12) break;
+    }
+    // Then the player's accepted friends (player mode + mentionable
+    // surface only). Friends extend the pool past the conversation roster.
+    if (isPlayerMode && isCurrentConvMentionable) {
+      for (const f of friends) {
+        pushCandidate(f.name, `f:${f.id}`, "Friend");
+        if (out.length >= 18) break;
+      }
     }
     const candidates = out.slice(0, 6);
     if (candidates.length === 0) return null;
@@ -582,6 +614,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
             <Ionicons name="at-outline" size={14} color={NEON_GREEN} />
             <ThemedText style={{ fontSize: 13, color: Colors.dark.text }}>{c.name}</ThemedText>
             <ThemedText style={{ fontSize: 11, color: Colors.dark.textMuted }}>@{c.handle}</ThemedText>
+            {c.badge ? (
+              <ThemedText style={{ fontSize: 10, color: Colors.dark.textMuted, marginLeft: 'auto', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                {c.badge}
+              </ThemedText>
+            ) : null}
           </Pressable>
         ))}
       </View>
@@ -732,6 +769,24 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     enabled: !!userId && (currentTab === "squad" || showSquadSelector),
   });
 
+  // Task #1320 — Player's accepted friends, used to widen the @-mention
+  // picker beyond the conversation roster. Coaches don't have a friends
+  // graph, so this query is gated to player mode and only fires when a
+  // mention-capable conversation is open (we still want to lazy-load it,
+  // not on every footer render).
+  const isCurrentConvMentionable =
+    !!selectedConversation &&
+    selectedConversation.type !== "world" &&
+    selectedConversation.type !== "world_chat" &&
+    selectedConversation.type !== "global" &&
+    selectedConversation.type !== "provider_player";
+  const { data: friendsData } = useQuery<{ friends?: Array<{ id: string; name: string }> }>({
+    queryKey: ["/api/player/me/friends"],
+    enabled: !!userId && isPlayerMode && isCurrentConvMentionable,
+    staleTime: 5 * 60 * 1000,
+  });
+  const friends = Array.isArray(friendsData?.friends) ? friendsData.friends : [];
+
   const createConversationMutation = useMutation({
     mutationFn: async ({ type, playerId, otherPlayerId, title, otherCoachId, coachId, squadId }: { type: string; playerId?: string; otherPlayerId?: string; title?: string; otherCoachId?: string; coachId?: string; squadId?: string }): Promise<Conversation> => {
       if (!userId) throw new Error("No user");
@@ -760,10 +815,16 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const sendMessageMutation = useMutation({
     mutationFn: async ({ body, optimisticId }: { body: string; optimisticId: string }) => {
       if (!selectedConversation || !userId) return;
+      // Task #1320 — Parse @handles client-side and pass them to the server
+      // so it can resolve + persist mention rows (used for inbox badging and
+      // bypass-mute push notifications). Server still re-parses as a safety
+      // net, so this is purely a hint.
+      const mentions = Array.from(body.matchAll(/@([\w][\w._-]{1,30})/g)).map((m) => m[1]);
       if (isPlayerMode) {
         const res = await apiRequest("POST", `/api/player/me/conversations/${selectedConversation.id}/messages`, {
           body,
           messageType: "text",
+          mentions,
         });
         return res.json();
       } else {
@@ -772,6 +833,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
           senderCoachId: userId,
           body,
           messageType: "text",
+          mentions,
         });
         return res.json();
       }

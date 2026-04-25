@@ -11,10 +11,11 @@ import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { chatRateLimiter } from "../rateLimiter";
 import { getCoachPushTokens, sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 import { db } from "../db";
-import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, playerBlocks, groupMembers, communityGroups, seriesPlayers, coachingSeries, sessions, userQuickReplies, coaches, players } from "../../shared/schema";
+import { serviceProviders, users, shopOrders, conversations, conversationParticipants, messageReactions, messages, messageMentions, playerBlocks, groupMembers, communityGroups, seriesPlayers, coachingSeries, sessions, userQuickReplies, coaches, players } from "../../shared/schema";
 import { broadcastProviderPlayerMessage, broadcastNewMessage, broadcastToUserIds, broadcastNewConversation, broadcastMessageDeleted, broadcastReactionUpdated, getPlayerPresence } from "../websocket";
 import { eq, and, inArray, or, gt, asc, type SQL } from "drizzle-orm";
 import { apiCache, CACHE_KEYS } from "../cache";
+import { resolveConversationMentions, extractMentionHandles, type ResolvedConversationMention } from "../utils/conversationMentions";
 
 const router = Router();
 
@@ -740,10 +741,36 @@ router.get("/api/player/me/conversations/:id/messages", authMiddleware, requireP
 
     const messages = await storage.getMessagesForPlayer(id, playerId, academyId, limit);
 
+    // Task #1320 — Hydrate @mentions for the page in a single batched query
+    // so the inbox + bubble UI can highlight mention-only threads without N+1.
+    const messageIds = messages.map((m) => m.id).filter(Boolean);
+    const mentionRowsByMessage = new Map<string, Array<{ handle: string; playerId: string | null; coachId: string | null }>>();
+    if (messageIds.length > 0) {
+      try {
+        const rows = await db
+          .select({
+            messageId: messageMentions.messageId,
+            handle: messageMentions.handle,
+            playerId: messageMentions.playerId,
+            coachId: messageMentions.coachId,
+          })
+          .from(messageMentions)
+          .where(inArray(messageMentions.messageId, messageIds));
+        for (const r of rows) {
+          const list = mentionRowsByMessage.get(r.messageId) ?? [];
+          list.push({ handle: r.handle, playerId: r.playerId, coachId: r.coachId });
+          mentionRowsByMessage.set(r.messageId, list);
+        }
+      } catch (err) {
+        console.error("[player-chat] mention hydrate error:", err);
+      }
+    }
+
     const enriched = await Promise.all(
       messages.map(async (msg) => {
         const reactions = await storage.getMessageReactionsForPlayer(msg.id, playerId, academyId);
-        return { ...msg, reactions };
+        const mentions = mentionRowsByMessage.get(msg.id) ?? [];
+        return { ...msg, reactions, mentions };
       })
     );
 
@@ -768,7 +795,11 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
 
     const { id } = req.params;
     const academyId = player.academyId || null;
-    const { body, messageType } = req.body;
+    const { body, messageType, mentions: clientMentions } = req.body as {
+      body?: string;
+      messageType?: string;
+      mentions?: string[];
+    };
 
     if (!body || !body.trim()) {
       return res.status(400).json({ error: "Message body required" });
@@ -800,6 +831,45 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
       lastMessagePreview: filteredBody.substring(0, 100),
     });
 
+    // Task #1320 — Parse + persist @mentions, then build a quick lookup so we
+    // can flag "mentioned" recipients in the push fan-out below. Mentions are
+    // best-effort; failures here must never block message delivery.
+    const requestedHandles = (Array.isArray(clientMentions) && clientMentions.length > 0)
+      ? clientMentions
+      : extractMentionHandles(filteredBody);
+    let resolvedMentions: ResolvedConversationMention[] = [];
+    const mentionedPlayerIds = new Set<string>();
+    const mentionedCoachIds = new Set<string>();
+    if (requestedHandles.length > 0) {
+      try {
+        resolvedMentions = await resolveConversationMentions({
+          conversationId: id,
+          rawHandles: requestedHandles,
+          senderPlayerId: playerId,
+          academyId,
+        });
+        if (resolvedMentions.length > 0 && message?.id) {
+          await db
+            .insert(messageMentions)
+            .values(
+              resolvedMentions.map((m) => ({
+                messageId: message.id,
+                conversationId: id,
+                playerId: m.playerId,
+                coachId: m.coachId,
+                handle: m.handle,
+              })),
+            )
+            .onConflictDoNothing();
+          for (const m of resolvedMentions) {
+            if (m.playerId) mentionedPlayerIds.add(m.playerId);
+            if (m.coachId) mentionedCoachIds.add(m.coachId);
+          }
+        }
+      } catch (err) {
+        console.error("[player-chat] mention persist error:", err);
+      }
+    }
 
     const participants = await storage.getConversationParticipants(id, undefined, academyId);
 
@@ -830,6 +900,10 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
         // Task #1318 — skip push notifications for participants who
         // muted this conversation, until the timer expires.
         if (isParticipantMuted(participant.muteUntil)) continue;
+        // Task #1320 — Mentioned coaches get a dedicated mention push
+        // (handled below) so their global chat-mute preference is bypassed.
+        // Skip the regular "new message" push here to avoid double-pinging.
+        if (mentionedCoachIds.has(participant.coachId)) continue;
         const tokens = await getCoachPushTokens(participant.coachId);
         if (tokens.length > 0) {
           sendPushNotification(
@@ -842,7 +916,48 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
       }
     }
 
+    // Task #1320 — Mention pushes. These bypass the recipient's global
+    // chat-messages preference (a direct @-tag is treated as a higher-signal
+    // ping than a generic message) and skip self-mentions. Targets here are
+    // the resolved playerIds + coachIds collected during the persist step.
+    if (mentionedPlayerIds.size > 0 || mentionedCoachIds.size > 0) {
+      const mentionedBy = player.name || "Someone";
+      const preview = filteredBody.replace(/\s+/g, " ").slice(0, 120);
+      const title = `${mentionedBy} mentioned you`;
+      const data: Record<string, unknown> = {
+        type: "chat_mention",
+        screen: "Messages",
+        conversationId: id,
+        messageId: message?.id,
+      };
+      for (const targetPlayerId of mentionedPlayerIds) {
+        if (targetPlayerId === playerId) continue;
+        try {
+          const tokens = await getPlayerPushTokens(targetPlayerId);
+          if (tokens.length === 0) continue;
+          await sendPushNotification(tokens, title, preview, data, targetPlayerId);
+        } catch (err) {
+          console.error("[player-chat] mention push (player) error:", err);
+        }
+      }
+      for (const targetCoachId of mentionedCoachIds) {
+        try {
+          const tokens = await getCoachPushTokens(targetCoachId);
+          if (tokens.length === 0) continue;
+          await sendPushNotification(tokens, title, preview, data);
+        } catch (err) {
+          console.error("[player-chat] mention push (coach) error:", err);
+        }
+      }
+    }
+
     // Broadcast new_message WS event so recipients get real-time updates
+    const mentionsPayload = resolvedMentions.map((m) => ({
+      handle: m.handle,
+      playerId: m.playerId,
+      coachId: m.coachId,
+      name: m.name,
+    }));
     const wsPayload = {
       conversationId: id,
       message: {
@@ -855,6 +970,7 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
         senderPhotoUrl: player.profilePhotoUrl || null,
         senderBallLevel: player.ballLevel || null,
         createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
+        mentions: mentionsPayload,
       },
     };
     if (academyId) {
@@ -903,7 +1019,7 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
       }
     }
 
-    res.status(201).json(message);
+    res.status(201).json({ ...message, mentions: mentionsPayload });
   } catch (error) {
     console.error("Error sending player message:", error);
     res.status(500).json({ error: "Failed to send message" });
