@@ -4731,7 +4731,7 @@ import fs from "fs";
             createdAt: messagesTable.createdAt,
             coachId: messagesTable.senderCoachId,
             coachName: coaches.name,
-            coachPhotoUrl: coaches.profilePhotoUrl,
+            coachPhotoUrl: coaches.photoUrl,
           })
           .from(messagesTable)
           .leftJoin(coaches, eq(coaches.id, messagesTable.senderCoachId))

@@ -153,7 +153,7 @@ router.get("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner,
       const coachRows = await db.select({
         id: coaches.id,
         name: coaches.name,
-        profilePhotoUrl: coaches.profilePhotoUrl,
+        profilePhotoUrl: coaches.photoUrl,
       }).from(coaches).where(coachConditions);
       for (const c of coachRows) {
         coachMap.set(c.id, { name: c.name ?? null, profilePhotoUrl: c.profilePhotoUrl ?? null });

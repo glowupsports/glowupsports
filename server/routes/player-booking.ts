@@ -319,7 +319,7 @@ router.get(
               .select({
                 id: coaches.id,
                 name: coaches.name,
-                profilePhotoUrl: coaches.profilePhotoUrl,
+                profilePhotoUrl: coaches.photoUrl,
               })
               .from(coaches)
               .where(inArray(coaches.id, slotCoachIds))
