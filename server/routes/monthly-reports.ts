@@ -43,15 +43,11 @@ router.get(
         )
         .limit(1);
 
-      const player = await db
-        .select({ parentUserId: players.parentUserId })
-        .from(players)
-        .where(eq(players.id, playerId))
-        .limit(1);
-
-      const isLinked =
-        parentRelation.length > 0 ||
-        (player.length > 0 && player[0].parentUserId === userId);
+      // Parent ↔ player linkage lives exclusively in the
+      // `parentPlayerRelations` join table — the `players` row itself does
+      // not carry a `parentUserId` column. The relation check above is the
+      // sole authoritative gate.
+      const isLinked = parentRelation.length > 0;
 
       if (!isLinked) {
         return res.status(403).json({ error: "Access denied" });
@@ -96,15 +92,10 @@ router.get(
         )
         .limit(1);
 
-      const player = await db
-        .select({ parentUserId: players.parentUserId, firstName: players.firstName, lastName: players.lastName, name: players.name, academyId: players.academyId })
-        .from(players)
-        .where(eq(players.id, playerId))
-        .limit(1);
-
-      const isLinked =
-        parentRelation.length > 0 ||
-        (player.length > 0 && player[0].parentUserId === userId);
+      // Linkage is gated solely by the parentPlayerRelations join — the
+      // players table has no parentUserId column. We don't need any
+      // player columns here other than the relation existence check.
+      const isLinked = parentRelation.length > 0;
 
       if (!isLinked) {
         return res.status(403).json({ error: "Access denied" });
@@ -153,20 +144,18 @@ router.get(
         )
         .limit(1);
 
+      // The players table has only a single `name` column (no separate
+      // first/last/parentUserId). Linkage is gated on parentPlayerRelations
+      // alone.
       const [playerRow] = await db
         .select({
-          parentUserId: players.parentUserId,
-          firstName: players.firstName,
-          lastName: players.lastName,
           name: players.name,
           academyId: players.academyId,
         })
         .from(players)
         .where(eq(players.id, playerId));
 
-      const isLinked =
-        parentRelation.length > 0 ||
-        (playerRow && playerRow.parentUserId === userId);
+      const isLinked = parentRelation.length > 0;
 
       if (!isLinked) {
         return res.status(403).json({ error: "Access denied" });
@@ -188,7 +177,7 @@ router.get(
         return res.status(404).json({ error: "Report not found" });
       }
 
-      const playerName = playerRow?.name || `${playerRow?.firstName || ""} ${playerRow?.lastName || ""}`.trim() || "Player";
+      const playerName = playerRow?.name || "Player";
       let academyName = "Academy";
       if (report.academyId) {
         const [academy] = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, report.academyId));
@@ -224,20 +213,18 @@ router.get(
         )
         .limit(1);
 
+      // The players table has only a single `name` column (no separate
+      // first/last/parentUserId). Linkage is gated on parentPlayerRelations
+      // alone.
       const [playerRow] = await db
         .select({
-          parentUserId: players.parentUserId,
-          firstName: players.firstName,
-          lastName: players.lastName,
           name: players.name,
           academyId: players.academyId,
         })
         .from(players)
         .where(eq(players.id, playerId));
 
-      const isLinked =
-        parentRelation.length > 0 ||
-        (playerRow && playerRow.parentUserId === userId);
+      const isLinked = parentRelation.length > 0;
 
       if (!isLinked) {
         return res.status(403).json({ error: "Access denied" });
@@ -259,7 +246,7 @@ router.get(
         return res.status(404).json({ error: "Report not found" });
       }
 
-      const playerName = playerRow?.name || `${playerRow?.firstName || ""} ${playerRow?.lastName || ""}`.trim() || "Player";
+      const playerName = playerRow?.name || "Player";
 
       let academyName = "Tennis Academy";
       if (report.academyId) {
@@ -326,8 +313,9 @@ router.get(
       const { playerId, reportId } = req.params;
       const academyId = req.user!.academyId!;
 
+      // players has only a single `name` column (no firstName/lastName).
       const [player] = await db
-        .select({ academyId: players.academyId, firstName: players.firstName, lastName: players.lastName, name: players.name })
+        .select({ academyId: players.academyId, name: players.name })
         .from(players)
         .where(eq(players.id, playerId));
 
@@ -350,7 +338,7 @@ router.get(
         return res.status(404).json({ error: "Report not found" });
       }
 
-      const playerName = player.name || `${player.firstName || ""} ${player.lastName || ""}`.trim();
+      const playerName = player.name || "Player";
       let academyName = "Tennis Academy";
       const [academy] = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, academyId));
       if (academy) academyName = academy.name;
@@ -519,11 +507,10 @@ router.get(
       const { playerId, reportId } = req.params;
       const academyId = req.user!.academyId!;
 
+      // players has only a single `name` column (no firstName/lastName).
       const [player] = await db
         .select({
           academyId: players.academyId,
-          firstName: players.firstName,
-          lastName: players.lastName,
           name: players.name,
         })
         .from(players)
@@ -548,7 +535,7 @@ router.get(
         return res.status(404).json({ error: "Report not found" });
       }
 
-      const playerName = player.name || `${player.firstName || ""} ${player.lastName || ""}`.trim();
+      const playerName = player.name || "Player";
       let academyName = "Tennis Academy";
       const [academy] = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, academyId));
       if (academy) academyName = academy.name;

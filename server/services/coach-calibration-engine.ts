@@ -76,7 +76,7 @@ export async function checkForScoringAnomaly(
     .where(and(
       eq(playerSkillScores.skillId, skillId),
       sql`${playerSkillScores.coachId} != ${coachId}`,
-      gte(playerSkillScores.scoredAt, lookbackDate)
+      gte(playerSkillScores.createdAt, lookbackDate)
     ));
 
   if (peerScores.length < 3) {

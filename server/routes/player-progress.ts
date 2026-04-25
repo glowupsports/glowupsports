@@ -185,11 +185,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return sessionDate >= threeMonthsAgo && sessionDate <= now && ps.session.status !== "cancelled" && ps.playerRecord.attendanceStatus !== "cancelled";
         });
 
-        const attendedSessionsAll = sessions.filter(
-          (s: any) =>
-            (s.attendanceStatus === "present" || s.status === "completed") &&
-            new Date(s.startTime) <= dubaiNow,
-        );
+        // Note: a stale `attendedSessionsAll` calculation here previously
+        // referenced the imported `sessions` schema table as if it were a
+        // local array (Drizzle tables have no `.filter` method), which
+        // would crash the moment this code path executed. The variable
+        // was unused so it has been dropped — the `recentSessions` filter
+        // immediately below is the value the rest of the function uses.
         const attendedSessions = recentSessions.filter(
           (ps) =>
             ps.playerRecord.attendanceStatus === "present" ||

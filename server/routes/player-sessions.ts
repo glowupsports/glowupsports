@@ -8789,7 +8789,9 @@ router.get(
           startTime: sessions.startTime,
           endTime: sessions.endTime,
           sessionType: sessions.sessionType,
-          courtName: sessions.courtName,
+          // sessions has no denormalized courtName column — the court is
+          // referenced via courtId and resolved separately by the caller.
+          courtId: sessions.courtId,
           coachId: sessions.coachId,
         })
         .from(sessionPlayers)

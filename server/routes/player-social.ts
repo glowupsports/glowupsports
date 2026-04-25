@@ -1253,9 +1253,13 @@ router.get("/api/player/mission-control", authMiddleware, async (req: AuthReques
         
         if (sessionIds.length > 0) {
           const allSessions = await db.select().from(sessions).where(inArray(sessions.id, sessionIds));
+          // sessions schema: cancellation is signalled by a non-null
+          // `cancelledAt` (or status === "cancelled"); the schedule
+          // anchor is `startTime`. There is no `isCancelled` boolean
+          // and no `date` column.
           upcomingSessions = allSessions
-            .filter(s => !s.isCancelled && new Date(s.date) >= now)
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .filter(s => !s.cancelledAt && s.status !== "cancelled" && new Date(s.startTime) >= now)
+            .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
             .slice(0, 1);
         }
       } catch (e) {
@@ -1290,8 +1294,10 @@ router.get("/api/player/mission-control", authMiddleware, async (req: AuthReques
         console.log("Social count queries skipped:", e);
       }
       
-      // Calculate streak
-      const streak = player?.consecutiveDays || 0;
+      // Calculate streak. Schema column is `streak` (not the legacy
+      // `consecutiveDays` name) and the player's photo lives on
+      // `profilePhotoUrl`; `xp` is `totalXp`.
+      const streak = player?.streak || 0;
       
       // Calculate daily quest progress
       const completedQuests = todayQuests.filter(q => q.quest.status === "completed").length;
@@ -1300,8 +1306,8 @@ router.get("/api/player/mission-control", authMiddleware, async (req: AuthReques
       res.json({
         player: {
           name: player?.name,
-          photoUrl: player?.photoUrl,
-          xp: player?.xp || 0,
+          photoUrl: player?.profilePhotoUrl,
+          xp: player?.totalXp || 0,
           level: player?.level || 1,
           glowScore: player?.glowScore || 0,
           ballLevel: player?.ballLevel,
@@ -1464,11 +1470,11 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
           photoUrl: players.profilePhotoUrl,
           level: players.level,
           glowScore: players.glowScore,
-          xp: players.xp,
+          xp: players.totalXp,
           ballLevel: players.ballLevel,
           glowMmr: players.glowMmr,
           glowRank: players.glowRank,
-          streak: players.consecutiveDays,
+          streak: players.streak,
           academyName: academies.name,
           city: sql<string>`COALESCE(${academies.city}, ${players.city})`,
           country: sql<string>`COALESCE(${academies.country}, ${players.country})`,
@@ -1486,18 +1492,18 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
           photoUrl: players.profilePhotoUrl,
           level: players.level,
           glowScore: players.glowScore,
-          xp: players.xp,
+          xp: players.totalXp,
           ballLevel: players.ballLevel,
           glowMmr: players.glowMmr,
           glowRank: players.glowRank,
-          streak: players.consecutiveDays,
+          streak: players.streak,
           academyName: sql<string | null>`NULL`,
           city: sql<string | null>`NULL`,
           country: sql<string | null>`NULL`,
         })
         .from(players)
         .where(and(...conditions))
-        .orderBy(desc(players.xp))
+        .orderBy(desc(players.totalXp))
         .limit(50);
       } else if (category === "dss_rating") {
         topPlayers = await db.select({
@@ -1506,11 +1512,11 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
           photoUrl: players.profilePhotoUrl,
           level: players.level,
           glowScore: players.glowScore,
-          xp: players.xp,
+          xp: players.totalXp,
           ballLevel: players.ballLevel,
           glowMmr: players.glowMmr,
           glowRank: players.glowRank,
-          streak: players.consecutiveDays,
+          streak: players.streak,
           academyName: sql<string | null>`NULL`,
           city: sql<string | null>`NULL`,
           country: sql<string | null>`NULL`,
@@ -1526,11 +1532,11 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
           photoUrl: players.profilePhotoUrl,
           level: players.level,
           glowScore: players.glowScore,
-          xp: players.xp,
+          xp: players.totalXp,
           ballLevel: players.ballLevel,
           glowMmr: players.glowMmr,
           glowRank: players.glowRank,
-          streak: players.consecutiveDays,
+          streak: players.streak,
           academyName: sql<string | null>`NULL`,
           city: sql<string | null>`NULL`,
           country: sql<string | null>`NULL`,
@@ -1550,11 +1556,11 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
           photoUrl: players.profilePhotoUrl,
           level: players.level,
           glowScore: players.glowScore,
-          xp: players.xp,
+          xp: players.totalXp,
           ballLevel: players.ballLevel,
           glowMmr: players.glowMmr,
           glowRank: players.glowRank,
-          streak: players.consecutiveDays,
+          streak: players.streak,
           academyName: sql<string | null>`NULL`,
           city: sql<string | null>`NULL`,
           country: sql<string | null>`NULL`,
@@ -1606,11 +1612,11 @@ router.get("/api/player/leaderboard", authMiddleware, requireFeatureUnlock("glow
             photoUrl: players.profilePhotoUrl,
             level: players.level,
             glowScore: players.glowScore,
-            xp: players.xp,
+            xp: players.totalXp,
             ballLevel: players.ballLevel,
             glowMmr: players.glowMmr,
             glowRank: players.glowRank,
-            streak: players.consecutiveDays,
+            streak: players.streak,
             academyName: academies.name,
             city: sql<string>`COALESCE(${academies.city}, ${players.city})`,
             country: sql<string>`COALESCE(${academies.country}, ${players.country})`,
@@ -1971,10 +1977,16 @@ router.get("/api/player/open-to-play", authMiddleware, requireFeatureUnlock("pla
         
         listings = await db.select({
           id: openToPlayTable.id,
-          playerId: openToPlayTable.playerId,
+          // The openToPlay schema keys listings by user id (no player id
+          // column exists). Alias as `playerId` so the API contract stays
+          // stable for the client; downstream resolves to a player by
+          // joining users.playerId if needed.
+          playerId: openToPlayTable.userId,
           message: openToPlayTable.message,
           availableUntil: openToPlayTable.availableUntil,
-          skillPreference: openToPlayTable.skillPreference,
+          // The schema models skill preference as a free-form level range
+          // string ("RED_2..ORANGE_1" etc.) rather than a single skill enum.
+          skillPreference: openToPlayTable.levelRange,
         })
         .from(openToPlayTable)
         .where(and(...listingConditions))

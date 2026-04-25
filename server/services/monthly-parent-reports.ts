@@ -83,7 +83,9 @@ export async function generateMonthlyReportForPlayer(
       return null;
     }
 
-    if (!player.parentUserId) {
+    // The players table has no `parentUserId` column — the canonical
+    // parent linkage lives in the parentPlayerRelations join table.
+    {
       const parentRelations = await db
         .select()
         .from(parentPlayerRelations)
@@ -175,13 +177,16 @@ export async function generateMonthlyReportForPlayer(
           eq(playerBallLevels.status, "active")
         )
       )
-      .orderBy(desc(playerBallLevels.activatedAt))
+      .orderBy(desc(playerBallLevels.assignedAt))
       .limit(1);
 
     let nextMilestone = "Continue developing current skills";
     if (currentLevel?.levelId) {
       const [levelDetail] = await db
-        .select({ name: ballLevels.name })
+        // ballLevels has no `name` column; use displayNamePlayer (the
+        // player-facing label like "Red 3"). Aliased as `name` to keep
+        // the local variable shape unchanged.
+        .select({ name: ballLevels.displayNamePlayer })
         .from(ballLevels)
         .where(eq(ballLevels.id, currentLevel.levelId));
 
@@ -253,7 +258,7 @@ export async function generateMonthlyReportForPlayer(
             .join(", ")
         : "No pillar data this month.";
 
-    const prompt = `Player: ${player.name || player.firstName + " " + player.lastName}, age ${player.age ?? "unknown"}, level ${currentLevel?.levelId || player.ballLevel || "unknown"}
+    const prompt = `Player: ${player.name || "Player"}, age ${player.age ?? "unknown"}, level ${currentLevel?.levelId || player.ballLevel || "unknown"}
 Month: ${monthYear}
 Sessions attended: ${sessionsAttended}/${sessionsTotal}
 Pillar highlights: ${pillarText}
@@ -335,8 +340,12 @@ export async function generateMonthlyReportsForAcademy(
   let skipped = 0;
 
   try {
+    // Players are linked to their parent user via the
+    // `parentPlayerRelations` join table (no `parentUserId` column lives
+    // on the players table itself). The parent-user check below is done
+    // by intersecting against `linkedPlayerIds` populated from that table.
     const allPlayers = await db
-      .select({ id: players.id, parentUserId: players.parentUserId })
+      .select({ id: players.id })
       .from(players)
       .where(
         and(
@@ -358,7 +367,11 @@ export async function generateMonthlyReportsForAcademy(
     }
 
     for (const player of allPlayers) {
-      const hasParent = linkedPlayerIds.has(player.id) || !!player.parentUserId;
+      // Parent linkage is determined entirely by the
+      // parentPlayerRelations join (already preloaded into
+      // `linkedPlayerIds`). The legacy `parentUserId` column never
+      // existed on the players table.
+      const hasParent = linkedPlayerIds.has(player.id);
       if (!hasParent) {
         skipped++;
         continue;

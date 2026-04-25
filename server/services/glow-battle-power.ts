@@ -49,14 +49,17 @@ export async function calculateGlowBattlePower(playerId: string): Promise<GlowBa
       .where(
         and(
           eq(playerProgress.playerId, playerId),
-          eq(playerProgress.domain, pillarId.toLowerCase())
+          // Schema column is `skillArea`, not `domain`. The pillar id values
+          // ("PHYSICAL", "MENTAL", …) are stored lower-cased.
+          eq(playerProgress.skillArea, pillarId.toLowerCase())
         )
       )
       .orderBy(desc(playerProgress.createdAt))
       .limit(1);
 
-    if (latestEntry.length > 0 && latestEntry[0].score !== null) {
-      pillarScores[pillarId.toLowerCase()] = Number(latestEntry[0].score);
+    // Schema column is `rating` (1-10 numeric), not `score`.
+    if (latestEntry.length > 0 && latestEntry[0].rating !== null) {
+      pillarScores[pillarId.toLowerCase()] = Number(latestEntry[0].rating);
     }
   }
 

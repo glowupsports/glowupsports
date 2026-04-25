@@ -4741,13 +4741,19 @@ router.post(
       // Public profile gate — only coaches who have opted in to the public
       // directory may be followed. Mirrors the visibility check in the
       // GET /api/player/coach/:coachId endpoint.
+      //
+      // The coach → user link is stored on `users.coachId` (the user
+      // table owns the relationship; coaches has no `userId` column).
+      // Left-join users to surface the owning user id for the
+      // self-follow guard below.
       const [coachRow] = await db
         .select({
           id: coachesTable.id,
           publicProfileEnabled: coachesTable.publicProfileEnabled,
-          userId: coachesTable.userId,
+          ownerUserId: users.id,
         })
         .from(coachesTable)
+        .leftJoin(users, eq(users.coachId, coachesTable.id))
         .where(eq(coachesTable.id, coachId))
         .limit(1);
       if (!coachRow) {
@@ -4760,7 +4766,7 @@ router.post(
       }
       // Don't let a coach follow themselves — pointless and would inflate
       // the count.
-      if (coachRow.userId && coachRow.userId === userId) {
+      if (coachRow.ownerUserId && coachRow.ownerUserId === userId) {
         return res.status(400).json({ error: "You can't follow yourself" });
       }
 

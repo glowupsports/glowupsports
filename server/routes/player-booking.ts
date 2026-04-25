@@ -9881,10 +9881,18 @@ router.post(
       }
       const { rating, comment } = parseResult.data;
 
-      // Resolve playerId from userId
-      const playerRow = await db.query.players.findFirst({
-        where: eq(players.userId, userId),
+      // Resolve playerId from userId. The user → player link is stored on
+      // `users.playerId` (the players table itself has no `userId` column),
+      // so we look up the user row first and then pull the player by id.
+      const userRow = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { playerId: true },
       });
+      const playerRow = userRow?.playerId
+        ? await db.query.players.findFirst({
+            where: eq(players.id, userRow.playerId),
+          })
+        : undefined;
       if (!playerRow)
         return res.status(404).json({ error: "Player not found" });
       const playerId = playerRow.id;
@@ -9996,9 +10004,16 @@ router.get(
         return res.status(403).json({ error: "Player access required" });
       const { sessionId } = req.params;
 
-      const playerRow = await db.query.players.findFirst({
-        where: eq(players.userId, userId),
+      // Resolve player via users.playerId (players has no userId column).
+      const userRow = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { playerId: true },
       });
+      const playerRow = userRow?.playerId
+        ? await db.query.players.findFirst({
+            where: eq(players.id, userRow.playerId),
+          })
+        : undefined;
       if (!playerRow)
         return res.status(404).json({ error: "Player not found" });
 
@@ -10028,9 +10043,16 @@ router.get(
       if (!userId)
         return res.status(403).json({ error: "Player access required" });
 
-      const playerRow = await db.query.players.findFirst({
-        where: eq(players.userId, userId),
+      // Resolve player via users.playerId (players has no userId column).
+      const userRow = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { playerId: true },
       });
+      const playerRow = userRow?.playerId
+        ? await db.query.players.findFirst({
+            where: eq(players.id, userRow.playerId),
+          })
+        : undefined;
       if (!playerRow)
         return res.status(404).json({ error: "Player not found" });
       const playerId = playerRow.id;

@@ -231,7 +231,7 @@ async function getPlayerSkillScores(playerId: string, levelId: string): Promise<
       eq(playerSkillScores.playerId, playerId),
       inArray(playerSkillScores.skillId, skillIds)
     ))
-    .orderBy(playerSkillScores.skillId, desc(playerSkillScores.scoredAt));
+    .orderBy(playerSkillScores.skillId, desc(playerSkillScores.createdAt));
 
   const skillScoresMap: Record<string, { scores: number[]; movingAverage: number }> = {};
   for (const score of scores) {

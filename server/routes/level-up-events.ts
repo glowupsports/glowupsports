@@ -26,14 +26,18 @@ router.get("/api/players/:playerId/level-ups", authMiddleware, requireAcademy, a
       return res.status(403).json({ error: "Access denied" });
     }
     
+    // ballLevels schema columns: id (e.g. "RED_3"), displayNamePlayer
+    // (e.g. "Red 3"), displayNameCoach, stage (RED|ORANGE|GREEN|YELLOW —
+    // semantically the "color"). Aliases below preserve the {name,
+    // displayName, color} response shape the client already consumes.
     const events = await db
       .select({
         event: levelUpEvents,
         fromLevel: {
           id: ballLevels.id,
-          name: ballLevels.name,
-          displayName: ballLevels.displayName,
-          color: ballLevels.color,
+          name: ballLevels.id,
+          displayName: ballLevels.displayNamePlayer,
+          color: ballLevels.stage,
         },
       })
       .from(levelUpEvents)
@@ -47,9 +51,9 @@ router.get("/api/players/:playerId/level-ups", authMiddleware, requireAcademy, a
         const [toLevel] = await db
           .select({
             id: ballLevels.id,
-            name: ballLevels.name,
-            displayName: ballLevels.displayName,
-            color: ballLevels.color,
+            name: ballLevels.id,
+            displayName: ballLevels.displayNamePlayer,
+            color: ballLevels.stage,
           })
           .from(ballLevels)
           .where(eq(ballLevels.id, e.event.toLevelId));
@@ -181,9 +185,9 @@ router.get("/api/players/:playerId/pending-celebrations", authMiddleware, requir
         event: levelUpEvents,
         toLevel: {
           id: ballLevels.id,
-          name: ballLevels.name,
-          displayName: ballLevels.displayName,
-          color: ballLevels.color,
+          name: ballLevels.id,
+          displayName: ballLevels.displayNamePlayer,
+          color: ballLevels.stage,
         },
       })
       .from(levelUpEvents)

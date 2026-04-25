@@ -2777,10 +2777,11 @@ export async function processDailyTipsScheduler(): Promise<void> {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+    // Schema column is `lastActiveAt` (timestamp), not `lastActive`.
     const activePlayers = await db
       .select({ id: players.id })
       .from(players)
-      .where(gte(players.lastActive, thirtyDaysAgo));
+      .where(gte(players.lastActiveAt, thirtyDaysAgo));
 
     console.log(`[DailyTips] Sending tips to ${activePlayers.length} active players`);
 

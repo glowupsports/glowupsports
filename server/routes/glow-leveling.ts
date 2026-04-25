@@ -583,7 +583,7 @@ router.get("/api/glow/players/:playerId/pillars", authMiddleware, requireAcademy
             .select({ skillId: playerSkillScores.skillId, movingAverage: playerSkillScores.movingAverage, score: playerSkillScores.score })
             .from(playerSkillScores)
             .where(and(eq(playerSkillScores.playerId, playerId), inArray(playerSkillScores.skillId, skillIds)))
-            .orderBy(desc(playerSkillScores.scoredAt));
+            .orderBy(desc(playerSkillScores.createdAt));
           for (const row of scoreRows) {
             if (!latestScores.has(row.skillId)) {
               latestScores.set(row.skillId, Number(row.movingAverage ?? row.score ?? 0));

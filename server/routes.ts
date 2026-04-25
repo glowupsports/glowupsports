@@ -852,7 +852,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const matchesData = await db
           .select({
             id: matchLogs.id,
-            didWin: matchLogs.didWin,
+            // The matchLogs table records the outcome as a string
+            // ("won" | "lost" | "draw") rather than a boolean. Aliasing
+            // here keeps the column reference real; the boolean derivation
+            // happens below.
+            result: matchLogs.result,
           })
           .from(matchLogs)
           .where(
@@ -864,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
 
         const matchesPlayed = matchesData.length;
-        const matchesWon = matchesData.filter((m) => m.didWin).length;
+        const matchesWon = matchesData.filter((m) => m.result === "won").length;
         const matchesLost = matchesPlayed - matchesWon;
 
         // Get XP earned this month
@@ -968,16 +972,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }),
         );
 
-        // Get glow level
+        // Get glow level. playerBallLevels.levelId is the canonical
+        // schema column (e.g. "RED_3") — alias it as `ballLevel` to keep
+        // the downstream variable name expressive.
         const [ballLevel] = await db
-          .select({ ballLevel: playerBallLevels.ballLevel })
+          .select({ ballLevel: playerBallLevels.levelId })
           .from(playerBallLevels)
           .where(eq(playerBallLevels.playerId, playerId))
           .limit(1);
 
         const glowLevel = ballLevel?.ballLevel
           ? ballLevel.ballLevel.charAt(0).toUpperCase() +
-            ballLevel.ballLevel.slice(1)
+            ballLevel.ballLevel.slice(1).toLowerCase()
           : undefined;
 
         // Send the report

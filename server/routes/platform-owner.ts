@@ -2751,7 +2751,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           const sessRows = await db.select({
             id: sessions.id,
             sessionType: sessions.sessionType,
-            date: sessions.date,
+            // sessions has no `date` column; the canonical schedule
+            // anchor is `startTime`. Aliased to keep the existing
+            // `date` field in the response payload.
+            date: sessions.startTime,
             duration: sessions.duration,
             status: sessions.status,
           }).from(sessions)

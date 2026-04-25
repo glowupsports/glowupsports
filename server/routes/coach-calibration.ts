@@ -152,14 +152,17 @@ router.get("/anomalies", authMiddleware, requireRole("coach", "academy_owner", "
         playerId: playerSkillScores.playerId,
         skillId: playerSkillScores.skillId,
         score: playerSkillScores.score,
-        scoredAt: playerSkillScores.scoredAt,
+        // Schema column is `created_at` (no separate `scored_at` — when the
+        // score row is inserted IS when it was scored). Alias preserves the
+        // existing `scoredAt` field on the response payload.
+        scoredAt: playerSkillScores.createdAt,
       })
       .from(playerSkillScores)
       .where(and(
         eq(playerSkillScores.coachId, coachId),
-        gte(playerSkillScores.scoredAt, lookbackDate)
+        gte(playerSkillScores.createdAt, lookbackDate)
       ))
-      .orderBy(desc(playerSkillScores.scoredAt))
+      .orderBy(desc(playerSkillScores.createdAt))
       .limit(50);
 
     const anomalies: {

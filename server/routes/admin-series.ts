@@ -1187,23 +1187,28 @@ router.get(
         return res.json({ friends: [], pendingRequests: [] });
       }
 
+      // sessionFeedback is keyed per-session (one row per session) and has
+      // no `createdAt` or `playerId` columns — it's session-wide coach
+      // notes/intensity/mood, not per-player. Order by id (insertion
+      // order is roughly stable for uuid v7-style ids; not strictly
+      // chronological but acceptable for this admin view) and surface
+      // the session's start time as the user-visible date.
       const feedback = await db
         .select()
         .from(sessionFeedback)
         .where(inArray(sessionFeedback.sessionId, sessionIds))
-        .orderBy(desc(sessionFeedback.createdAt));
+        .orderBy(desc(sessionFeedback.id));
 
-      const enrichedFeedback = await Promise.all(
-        feedback.map(async (f) => {
-          const player = await storage.getPlayer(f.playerId);
-          const session = seriesSessions.find((s) => s.id === f.sessionId);
-          return {
-            ...f,
-            playerName: player?.name || "Unknown",
-            sessionDate: session?.startTime,
-          };
-        }),
-      );
+      const enrichedFeedback = feedback.map((f) => {
+        const session = seriesSessions.find((s) => s.id === f.sessionId);
+        return {
+          ...f,
+          // Per-player attribution is not available on session-wide
+          // feedback — the caller treats this as session-level commentary.
+          playerName: null,
+          sessionDate: session?.startTime,
+        };
+      });
 
       res.json(enrichedFeedback);
     } catch (error) {
@@ -4922,20 +4927,22 @@ router.get(
         return res.json({ friends: [], pendingRequests: [] });
       }
 
-      // Find players at the same ball level in this academy
+      // Find players at the same ball level in this academy.
+      // Schema columns: ballLevel (the ball level enum), displayName
+      // (optional public alias). There is no `currentLevel` column.
       const similarPlayers = await db
         .select({
           id: players.id,
           displayName: players.displayName,
           profilePhotoUrl: players.profilePhotoUrl,
-          currentLevel: players.currentLevel,
+          currentLevel: players.ballLevel,
         })
         .from(players)
         .where(
           and(
             eq(players.academyId, academyId),
             eq(players.status, "active"),
-            eq(players.currentLevel, ballLevel),
+            eq(players.ballLevel, ballLevel),
             req.user?.playerId ? ne(players.id, req.user.playerId) : sql`1=1`,
           ),
         )

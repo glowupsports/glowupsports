@@ -135,7 +135,7 @@ export async function calculateGlowRank(playerId: string): Promise<GlowRank | nu
       eq(playerSkillScores.playerId, playerId),
       inArray(playerSkillScores.skillId, skillIds)
     ))
-    .orderBy(desc(playerSkillScores.scoredAt)) : [];
+    .orderBy(desc(playerSkillScores.createdAt)) : [];
 
   // Get latest score for each skill
   const latestScores = new Map<string, typeof playerSkillScoresData[0]>();
@@ -327,7 +327,7 @@ export async function updateSkillScoreWithEMA(
       eq(playerSkillScores.playerId, playerId),
       eq(playerSkillScores.skillId, skillId)
     ))
-    .orderBy(desc(playerSkillScores.scoredAt))
+    .orderBy(desc(playerSkillScores.createdAt))
     .limit(10);
 
   let movingAverage: number;
