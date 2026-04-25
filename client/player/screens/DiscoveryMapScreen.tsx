@@ -12,6 +12,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Location from "expo-location";
+import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
+import { ThemedText } from "@/components/ThemedText";
+import { apiFetch } from "@/lib/query-client";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Local navigation contract: only the routes this screen targets, including
 // nested-tab targets for OpenMatches (Play tab) and TournamentDetail (Growth tab).
@@ -23,9 +30,6 @@ type DiscoveryMapNav = {
     | { screen: "PlayStack"; params: { screen: "OpenMatches"; params?: { matchId?: string } } }
     | { screen: "Growth"; params: { screen: "TournamentDetail"; params: { tournamentId: string } } };
 };
-import { useQuery } from "@tanstack/react-query";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import * as Location from "expo-location";
 // react-native-maps is a native module. On builds where the native side
 // isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
 // build) the require can throw at module-eval time and produce a white
@@ -46,10 +50,6 @@ try {
   console.warn("[DiscoveryMap] react-native-maps failed to load:", MAPS_LOAD_ERROR.message);
 }
 type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
-import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
-import { ThemedText } from "@/components/ThemedText";
-import { apiFetch } from "@/lib/query-client";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 type FilterKey = "all" | "academies" | "lessons" | "matches" | "tournaments";
 type PinType = "academy" | "lesson" | "match" | "tournament";
@@ -367,7 +367,7 @@ function DiscoveryMapScreenInner() {
     };
     init();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const onRegionChangeComplete = useCallback((r: Region) => {
@@ -532,7 +532,7 @@ function DiscoveryMapScreenInner() {
             <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
           ) : isError ? (
             <View style={{ alignItems: "center", marginTop: Spacing.xl }}>
-              <Text style={styles.empty}>Couldn't load map data.</Text>
+              <Text style={styles.empty}>Couldn&apos;t load map data.</Text>
               <Pressable
                 onPress={() => refetch()}
                 style={{
@@ -642,7 +642,7 @@ function DiscoveryMapScreenInner() {
           style={[styles.permBanner, { position: "absolute", top: headerTop + 60, alignSelf: "center" }]}
         >
           <Ionicons name="alert-circle-outline" size={14} color="#fff" />
-          <Text style={styles.permBannerText}>Couldn't load map data. Tap to retry.</Text>
+          <Text style={styles.permBannerText}>Couldn&apos;t load map data. Tap to retry.</Text>
         </Pressable>
       ) : null}
 

@@ -57,6 +57,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   } from "@shared/schema";
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
+  import { broadcastSessionUpdate } from "../websocket";
   const router = Router();
 
   function requirePlayerOrOwner(

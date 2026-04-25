@@ -213,7 +213,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
           <Animated.View entering={FadeInDown.duration(400)} style={styles.previewCard}>
             <View style={styles.previewCheckRow}>
               <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
-              <Text style={styles.previewLabel}>You've been invited to:</Text>
+              <Text style={styles.previewLabel}>You&apos;ve been invited to:</Text>
             </View>
             <Text style={styles.previewPlayerName}>{invitePreview.playerName}</Text>
             <Text style={styles.previewAcademy}>{invitePreview.academyName}</Text>
@@ -226,7 +226,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
               {claimLoading ? (
                 <ActivityIndicator size="small" color={Colors.dark.buttonText} />
               ) : (
-                <Text style={styles.confirmBtnText}>Confirm — I'm {invitePreview.playerName}</Text>
+                <Text style={styles.confirmBtnText}>Confirm — I&apos;m {invitePreview.playerName}</Text>
               )}
             </Pressable>
           </Animated.View>

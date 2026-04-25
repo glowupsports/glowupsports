@@ -14,7 +14,7 @@ type SelectChain = {
 
 type InsertChain = {
   values: (v: Record<string, unknown>) => {
-    returning: () => Promise<Array<Record<string, unknown>>>;
+    returning: () => Promise<Record<string, unknown>[]>;
   };
 };
 

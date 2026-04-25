@@ -16,7 +16,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import type { TabProps } from "./types";
+import type { TabProps, SessionTemplate } from "./types";
 import { styles } from "./coachingStyles";
 import { useCoachingScroll } from "./CoachingScrollContext";
 

@@ -14,7 +14,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { Colors, Spacing, BorderRadius, TextColors } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { WebView } from "react-native-webview";
@@ -274,7 +274,7 @@ export default function ParentReportsScreen() {
           <View style={[styles.card, styles.noteCard]}>
             <View style={styles.noteHeader}>
               <Ionicons name="person-circle" size={18} color="#f59e0b" />
-              <Text style={styles.noteLabel}>Coach's Note</Text>
+              <Text style={styles.noteLabel}>Coach&apos;s Note</Text>
             </View>
             <Text style={styles.noteText}>{selectedReport.coachNote}</Text>
           </View>

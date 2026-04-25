@@ -203,7 +203,7 @@ export default function CoachHQScreen() {
       </View>
 
       <View style={styles.sectionHeader}>
-        <ThemedText style={styles.sectionTitle}>Today's Sessions</ThemedText>
+        <ThemedText style={styles.sectionTitle}>Today&apos;s Sessions</ThemedText>
         <Pressable 
           onPress={() => navigation.navigate("AllSessions")}
           style={styles.viewAllButton}
@@ -324,7 +324,7 @@ export default function CoachHQScreen() {
           <Card style={styles.glowPlansEmptyCard}>
             <Ionicons name="flash-outline" size={32} color={Colors.dark.disabled} />
             <ThemedText style={styles.glowPlansEmptyText}>No plans yet for this week</ThemedText>
-            <ThemedText style={styles.glowPlansEmptySubtext}>Plans are auto-generated Monday morning. You can also generate them manually from a player's profile.</ThemedText>
+            <ThemedText style={styles.glowPlansEmptySubtext}>Plans are auto-generated Monday morning. You can also generate them manually from a player&apos;s profile.</ThemedText>
           </Card>
         ) : (
           glowPlans.map((plan) => {

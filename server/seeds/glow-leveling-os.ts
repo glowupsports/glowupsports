@@ -579,7 +579,7 @@ const tests = [
 ];
 
 // Level-skill mappings
-const levelSkillMappings: Array<{ levelId: string; skillId: string; targetScore: number; weight: string; isRequired: boolean }> = [
+const levelSkillMappings: { levelId: string; skillId: string; targetScore: number; weight: string; isRequired: boolean }[] = [
   // RED_3 skills
   { levelId: "RED_3", skillId: "FH_CONTACT", targetScore: 2, weight: "1.00", isRequired: true },
   { levelId: "RED_3", skillId: "BH_CONTACT", targetScore: 1, weight: "1.00", isRequired: true },

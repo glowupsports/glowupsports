@@ -577,7 +577,7 @@ export default function AdminCourtsScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterRowContent}>
-          {(["all", ...SPORTS, "multi"] as Array<SportOrMulti | "all">).map((s) => {
+          {(["all", ...SPORTS, "multi"] as (SportOrMulti | "all")[]).map((s) => {
             const isSelected = sportFilter === s;
             const label = s === "all" ? "All" : s === "multi" ? "Multi" : s.charAt(0).toUpperCase() + s.slice(1);
             return (
@@ -748,7 +748,7 @@ export default function AdminCourtsScreen() {
                   <View style={styles.newLocationBanner}>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
                     <Text style={styles.newLocationBannerText}>
-                      New location "{newLocationBanner}" created — rename it in Settings → Locations
+                      New location &quot;{newLocationBanner}&quot; created — rename it in Settings → Locations
                     </Text>
                   </View>
                 ) : null}
@@ -965,7 +965,7 @@ export default function AdminCourtsScreen() {
                   <View style={styles.newLocationBanner}>
                     <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
                     <Text style={styles.newLocationBannerText}>
-                      New location "{newLocationBanner}" created — rename it in Settings → Locations
+                      New location &quot;{newLocationBanner}&quot; created — rename it in Settings → Locations
                     </Text>
                   </View>
                 ) : null}

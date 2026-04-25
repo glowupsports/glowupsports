@@ -16,19 +16,10 @@ import {
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-
-const TAB_BAR_HEIGHT = 80;
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getCurrentAcademyId } from "@/lib/auth";
-
-// Cache key prefixes (v1). Real keys are namespaced per coach + academy
-// at runtime so a different coach or switched-academy on the same device
-// can never see another roster's cached data.
-const PLAYERS_CACHE_PREFIX = "@coach.playersList.v1";
-const PAST_PLAYERS_CACHE_PREFIX = "@coach.pastPlayersList.v1";
-const PENDING_PLAYERS_CACHE_PREFIX = "@coach.pendingPlayersList.v1";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import * as Print from "expo-print";
@@ -58,6 +49,19 @@ import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
 import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useTabNavigation } from "@/components/TabNavigationContext";
+
+import { GamingPlayerCard } from "@/coach/components/players/GamingPlayerCard";
+import { PlayerDetailView } from "@/coach/components/players/PlayerDetailView";
+import { styles } from "@/coach/components/players/playersStyles";
+
+const TAB_BAR_HEIGHT = 80;
+
+// Cache key prefixes (v1). Real keys are namespaced per coach + academy
+// at runtime so a different coach or switched-academy on the same device
+// can never see another roster's cached data.
+const PLAYERS_CACHE_PREFIX = "@coach.playersList.v1";
+const PAST_PLAYERS_CACHE_PREFIX = "@coach.pastPlayersList.v1";
+const PENDING_PLAYERS_CACHE_PREFIX = "@coach.pendingPlayersList.v1";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -158,10 +162,6 @@ const NOTE_CATEGORIES = [
   { value: "general", label: "General", icon: "document-text-outline" as const },
 ];
 
-import { GamingPlayerCard } from "@/coach/components/players/GamingPlayerCard";
-import { PlayerDetailView } from "@/coach/components/players/PlayerDetailView";
-import { styles } from "@/coach/components/players/playersStyles";
-
 let persistedPlayerId: string | null = null;
 
 export default function PlayersScreen() {
@@ -177,12 +177,12 @@ export default function PlayersScreen() {
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [filterPlayerIds, setFilterPlayerIds] = useState<string[] | null>(null);
   const [impactedSessionIds, setImpactedSessionIds] = useState<string[]>([]);
-  const [impactedSessions, setImpactedSessions] = useState<Array<{
+  const [impactedSessions, setImpactedSessions] = useState<{
     id: string;
     startTime: string;
     sessionType?: string | null;
     title?: string | null;
-  }>>([]);
+  }[]>([]);
   const [sortBy, setSortBy] = useState<"name" | "nameDesc" | "credits" | "creditsDesc" | "negative" | "nonDebt" | "lastLesson" | "oldestLesson" | "newest" | "oldest" | "notActivated" | "appActive">("name");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -552,12 +552,12 @@ export default function PlayersScreen() {
           ? (params.impactedSessionIds as string[])
           : [];
         const sessionsList = Array.isArray(params?.impactedSessions)
-          ? (params.impactedSessions as Array<{
+          ? (params.impactedSessions as {
               id: string;
               startTime: string;
               sessionType?: string | null;
               title?: string | null;
-            }>)
+            }[])
           : [];
         setImpactedSessionIds(ids);
         setImpactedSessions(sessionsList);
@@ -1581,7 +1581,7 @@ export default function PlayersScreen() {
               </Pressable>
             </View>
             <Text style={practicePairStyles.subtitle}>
-              Pick two players. They'll both see a card in their feed.
+              Pick two players. They&apos;ll both see a card in their feed.
             </Text>
 
             <View style={practicePairStyles.searchWrap}>

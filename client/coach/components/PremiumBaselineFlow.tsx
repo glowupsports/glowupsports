@@ -463,7 +463,7 @@ export function PremiumBaselineFlow({
           
           <Text style={styles.introTitle}>Welcome to the Baseline Assessment</Text>
           <Text style={styles.introDescription}>
-            In just a few steps, we'll determine the perfect starting level and track which skills {player?.name} already has.
+            In just a few steps, we&apos;ll determine the perfect starting level and track which skills {player?.name} already has.
           </Text>
           
           {/* Show auto-detected player type info */}
@@ -729,7 +729,7 @@ export function PremiumBaselineFlow({
       >
         <View style={styles.levelSuggestContent}>
           <Text style={styles.sublevelIntro}>
-            Which stage best describes {player?.name}'s current ability at {selectedBallLevel} level?
+            Which stage best describes {player?.name}&apos;s current ability at {selectedBallLevel} level?
           </Text>
           
           {sublevels.map(({ level, name, description }) => (
@@ -933,7 +933,7 @@ export function PremiumBaselineFlow({
         
         <Text style={styles.completeTitle}>Baseline Complete!</Text>
         <Text style={styles.completeSubtitle}>
-          {player?.name}'s starting level and skills have been saved
+          {player?.name}&apos;s starting level and skills have been saved
         </Text>
         
         <View style={styles.completeActions}>

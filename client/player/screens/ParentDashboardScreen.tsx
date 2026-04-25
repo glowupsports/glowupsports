@@ -150,7 +150,7 @@ export default function ParentDashboardScreen() {
             </View>
 
             <View style={styles.summarySection}>
-              <Text style={styles.sectionTitle}>This Month's Lessons</Text>
+              <Text style={styles.sectionTitle}>This Month&apos;s Lessons</Text>
               <View style={styles.lessonSummaryCard}>
                 <View style={styles.lessonRow}>
                   <View style={styles.lessonStat}>

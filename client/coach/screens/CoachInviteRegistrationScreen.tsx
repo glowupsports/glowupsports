@@ -310,7 +310,7 @@ export default function CoachInviteRegistrationScreen({
           <View style={styles.academyIcon}>
             <Ionicons name="tennisball" size={32} color={Colors.dark.primary} />
           </View>
-          <Text style={styles.welcomeText}>You're invited to join</Text>
+          <Text style={styles.welcomeText}>You&apos;re invited to join</Text>
           <Text style={styles.academyName}>{inviteData.academyName}</Text>
           <Text style={styles.roleText}>as a {inviteData.role}</Text>
           <View style={styles.expiryBadge}>

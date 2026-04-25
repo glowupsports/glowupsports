@@ -782,7 +782,7 @@ export default function AttendanceDrawer({
         {isOffline ? (
           <View style={styles.offlineIndicator}>
             <Ionicons name="wifi-outline" size={16} color={Colors.dark.accentWarning} />
-            <Text style={styles.offlineText}>You're offline. Saving is disabled.</Text>
+            <Text style={styles.offlineText}>You&apos;re offline. Saving is disabled.</Text>
           </View>
         ) : null}
 

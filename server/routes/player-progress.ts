@@ -62,6 +62,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
   import { aiQuotaMiddleware, logAiCall } from "../middleware/aiQuotaMiddleware";
+  import { broadcastSessionUpdate } from "../websocket";
   const router = Router();
   
     // ==================== PLAYER PROGRESS ====================
@@ -137,7 +138,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         const { generateProgressReportHtml, ProgressReportData } = await import(
-          "./services/progressReportPdf"
+          "../services/progressReportPdf"
         );
 
         const player = await storage.getPlayer(id);
@@ -173,10 +174,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }),
         ).then(
           (results) =>
-            results.filter(Boolean) as Array<{
+            results.filter(Boolean) as {
               session: any;
               playerRecord: any;
-            }>,
+            }[],
         );
 
         const recentSessions = playerSessions.filter((ps) => {
@@ -207,11 +208,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             : 0;
 
         const pillars = (
-          (summary as Array<{
+          (summary as {
             skillArea: string;
             latestRating: number;
             trend: string;
-          }>) || []
+          }[]) || []
         ).map((s) => ({
           name: s.skillArea || "General",
           score: s.latestRating || 0,
@@ -2443,7 +2444,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   // Helper: fetch pillar score history from detailed baseline skill assessments.
   // Queries player_baseline_skill_scores (deep per-skill scores, not the quick rating fields
   // on player_baselines itself), grouped by baseline assessment date.
-  async function fetchPillarHistory(playerId: string): Promise<Array<{ date: string; TECHNIQUE: number | null; TACTICAL: number | null; PHYSICAL: number | null; MENTAL: number | null }>> {
+  async function fetchPillarHistory(playerId: string): Promise<{ date: string; TECHNIQUE: number | null; TACTICAL: number | null; PHYSICAL: number | null; MENTAL: number | null }[]> {
     try {
       const rows = await db.execute(sql`
         SELECT
@@ -2458,7 +2459,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         ORDER BY pb.created_at ASC
       `);
       const byBaseline: Record<string, { date: string; scores: Record<string, number> }> = {};
-      for (const row of rows.rows as Array<{ baseline_id: string; date: Date; pillar: string; avg_rating: number }>) {
+      for (const row of rows.rows as { baseline_id: string; date: Date; pillar: string; avg_rating: number }[]) {
         const key = row.baseline_id;
         if (!byBaseline[key]) {
           byBaseline[key] = { date: new Date(row.date).toISOString(), scores: {} };
@@ -2978,7 +2979,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         // 6. Update deep_assessment_pillar_summaries from AI pillar scores (best-effort)
         try {
-          const pillarFields: Array<{ key: keyof typeof structured; pillar: string }> = [
+          const pillarFields: { key: keyof typeof structured; pillar: string }[] = [
             { key: "techniquePillar", pillar: "TECHNIQUE" },
             { key: "tacticalPillar",  pillar: "TACTICAL"  },
             { key: "physicalPillar",  pillar: "PHYSICAL"  },
@@ -3271,13 +3272,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         // Enforce group/semi_private only
-        const [sessionRow] = await db.select({ sessionType: sessions.sessionType }).from(sessions).where(eq(sessions.id, sessionId));
+        const [sessionRow] = await db.select({ sessionType: sessions.sessionType, duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId));
         if (!sessionRow || !["group", "semi_private"].includes(sessionRow.sessionType)) {
           return res.status(422).json({ error: "AI session planning is only available for group and semi-private sessions" });
         }
 
         // If save=true and a plan payload was provided, skip AI generation and just persist
         let plan: { theme: string; rationale: string; playerBreakdown: { name: string; focus: string; flag?: string }[]; drills: { title: string; description: string }[]; flags: string[] } | null = null;
+        // Task #1313 — `ctx` was previously declared inside the else branch, but
+        // referenced again below for `ctx.durationMinutes`. Hoist to the outer
+        // scope so the persistence path can reuse the duration that the AI
+        // context resolved. When save=true and a plan was provided, fall back
+        // to the session row's own duration field.
+        let planDurationMinutes = sessionRow.duration ?? 60;
 
         if (save && providedPlan) {
           plan = providedPlan;
@@ -3287,6 +3294,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           if (!ctx) {
             return res.status(422).json({ error: "Session must have at least 2 registered players to generate a plan" });
           }
+          planDurationMinutes = ctx.durationMinutes ?? planDurationMinutes;
 
           plan = await generateGroupSessionPlan(ctx);
           if (!plan) {
@@ -3326,7 +3334,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               id: `AI_BLOCK_${i + 1}`,
               name: d.title,
               blockType: "drill",
-              durationMinutes: Math.floor((ctx.durationMinutes - 10) / plan.drills.length),
+              durationMinutes: Math.floor((planDurationMinutes - 10) / plan.drills.length),
               orderIndex: i,
               skillIds: [],
               status: "pending",
@@ -4073,15 +4081,25 @@ router.post(
         };
 
         try {
-          const { generateObject } = await import("ai");
-          const { openai } = await import("@ai-sdk/openai");
-          const { z } = await import("zod");
+          // Task #1313 — Refactored from `ai` + `@ai-sdk/openai` (not installed)
+          // to the `openai` SDK already used elsewhere in this file.
+          const OpenAI = (await import("openai")).default;
+          const openai = new OpenAI({
+            apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+            baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+          });
 
-          const result = await generateObject({
-            model: openai("gpt-4o-mini"),
-            schema: z.object({ summary: z.string() }),
-            prompt: `You are summarizing a tennis player's monthly self-assessment for their coach.
-Player answers:
+          const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content:
+                  'You summarize a tennis player\'s monthly self-assessment for their coach. Respond ONLY with strict JSON of shape {"summary": string} — no prose, no markdown.',
+              },
+              {
+                role: "user",
+                content: `Player answers:
 - What's going well: "${answersForAI.strengths || "not answered"}"
 - Biggest challenge: "${answersForAI.challenges || "not answered"}"
 - How they feel about progress: "${answersForAI.progressFeel || "not answered"}"
@@ -4090,10 +4108,28 @@ Player answers:
 ${answersForAI.pillars ? `- Pillar self-ratings (1–10): ${JSON.stringify(answersForAI.pillars)}` : ""}
 
 Write a 2–3 sentence neutral summary that captures the player's self-perception and key focus area. Use third-person ("The player..."). Be concise and factual.`,
+              },
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.4,
+            max_tokens: 250,
           });
 
-          aiSummary = result.object.summary;
-          updates.aiSummary = aiSummary;
+          const raw = completion.choices?.[0]?.message?.content?.trim() || "";
+          let parsedSummary: string | null = null;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed.summary === "string") {
+              parsedSummary = parsed.summary;
+            }
+          } catch {
+            // Fall through — leave parsedSummary null
+          }
+
+          if (parsedSummary) {
+            aiSummary = parsedSummary;
+            updates.aiSummary = aiSummary;
+          }
         } catch (aiErr) {
           console.error("[MonthlyAssessment] AI summary generation failed (non-critical):", aiErr);
         }

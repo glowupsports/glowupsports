@@ -272,7 +272,7 @@ export function GlowAssessmentFlow({
             </Text>
             <Text style={styles.dataDrivenHint}>
               Glow levels 5-1 are determined by match history, win rates, and consistency over time.
-              Coach assessments supplement but don't replace match data at these levels.
+              Coach assessments supplement but don&apos;t replace match data at these levels.
             </Text>
           </View>
         </View>

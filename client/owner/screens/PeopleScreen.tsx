@@ -837,7 +837,7 @@ export default function PeopleScreen() {
                     <View style={styles.warningBox}>
                       <Ionicons name="alert-circle" size={24} color={Colors.dark.error} />
                       <Text style={[styles.warningText, { color: Colors.dark.error }]}>
-                        Unable to check coach's sessions. Please try again.
+                        Unable to check coach&apos;s sessions. Please try again.
                       </Text>
                     </View>
 

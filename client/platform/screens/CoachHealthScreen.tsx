@@ -125,7 +125,7 @@ function PendingOwnerProfileRow({ profile, onApprove, onReject, isLoading }: Pen
         {profile.publicMessage ? (
           <View style={styles.quoteBox}>
             <Ionicons name="megaphone" size={14} color={Colors.dark.textMuted} />
-            <Text style={styles.quoteText}>"{profile.publicMessage}"</Text>
+            <Text style={styles.quoteText}>&quot;{profile.publicMessage}&quot;</Text>
           </View>
         ) : null}
       </View>
@@ -213,7 +213,7 @@ function PendingBioRow({ bio, onApprove, onReject, isLoading }: PendingBioRowPro
         {bio.publicQuote ? (
           <View style={styles.quoteBox}>
             <Ionicons name="chatbubble-ellipses" size={14} color={Colors.dark.textMuted} />
-            <Text style={styles.quoteText}>"{bio.publicQuote}"</Text>
+            <Text style={styles.quoteText}>&quot;{bio.publicQuote}&quot;</Text>
           </View>
         ) : null}
       </View>

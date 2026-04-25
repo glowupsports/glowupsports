@@ -30,7 +30,7 @@ import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
-const DNA_CARDS: Array<{ id: string; title: string; subtitle: string; icon: IoniconName }> = [
+const DNA_CARDS: { id: string; title: string; subtitle: string; icon: IoniconName }[] = [
   { id: "hand",  title: "Dominant Hand",   subtitle: "Which hand do you play with?",             icon: "hand-left-outline" },
   { id: "body",  title: "Your Stats",       subtitle: "Help us get the right sizes for you",       icon: "body-outline" },
   { id: "style", title: "Play Style",       subtitle: "How would you describe your game?",         icon: "tennisball-outline" },
@@ -41,7 +41,7 @@ const DNA_CARDS: Array<{ id: string; title: string; subtitle: string; icon: Ioni
   { id: "photo", title: "Profile Photo",    subtitle: "Let coaches recognize you on court",        icon: "camera-outline" },
 ];
 
-const PLAY_STYLES: Array<{ id: string; label: string; desc: string; icon: IoniconName }> = [
+const PLAY_STYLES: { id: string; label: string; desc: string; icon: IoniconName }[] = [
   { id: "baseline_warrior",     label: "Baseline Warrior",      desc: "Strong & consistent from the back",    icon: "shield-outline" },
   { id: "net_ninja",            label: "Net Ninja",             desc: "Quick and deadly at the net",          icon: "flash-outline" },
   { id: "serve_machine",        label: "Serve Machine",         desc: "Big serve is your greatest weapon",    icon: "arrow-up-circle-outline" },
@@ -50,12 +50,12 @@ const PLAY_STYLES: Array<{ id: string; label: string; desc: string; icon: Ionico
   { id: "tactical_mastermind",  label: "Tactical Mastermind",   desc: "Smart placement wins you points",      icon: "analytics-outline" },
 ];
 
-const HAND_OPTIONS: Array<{ id: string; label: string; icon: IoniconName }> = [
+const HAND_OPTIONS: { id: string; label: string; icon: IoniconName }[] = [
   { id: "right", label: "Right Hand", icon: "hand-right-outline" },
   { id: "left",  label: "Left Hand",  icon: "hand-left-outline" },
 ];
 
-const BACKHAND_OPTIONS: Array<{ id: string; label: string; icon: IoniconName }> = [
+const BACKHAND_OPTIONS: { id: string; label: string; icon: IoniconName }[] = [
   { id: "single", label: "One-Handed", icon: "hand-right-outline" },
   { id: "double", label: "Two-Handed", icon: "people-outline" },
 ];

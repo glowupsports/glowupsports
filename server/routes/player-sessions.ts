@@ -20,6 +20,7 @@ import { getPlayerCountryLadderRank, resolvePlayerSports } from "./tournaments-l
     validatePackageOwnership,
     validateNotificationOwnership,
     generateRefreshToken,
+    generateToken,
     type AuthenticatedRequest,
   } from "../auth";
   import { z } from "zod";
@@ -2091,7 +2092,7 @@ import fs from "fs";
           countryLadders: await (async () => {
             try {
               const sports = await resolvePlayerSports(playerId);
-              const out: Array<{ sport: string; countryCode: string; position: number; ladderId: string; playerCount: number }> = [];
+              const out: { sport: string; countryCode: string; position: number; ladderId: string; playerCount: number }[] = [];
               for (const sport of sports) {
                 const r = await getPlayerCountryLadderRank(playerId, sport);
                 if (r) out.push(r);
@@ -2405,7 +2406,7 @@ import fs from "fs";
           return res.json({ achievements: [] });
         }
 
-        const achievements: Array<{
+        const achievements: {
           id: string;
           type: string;
           title: string;
@@ -2414,7 +2415,7 @@ import fs from "fs";
           icon: string;
           color: string;
           value?: string;
-        }> = [];
+        }[] = [];
 
         // 1. Get earned badges from playerBadges
         const earnedBadgesResult = await db.execute(sql`
@@ -3199,7 +3200,7 @@ import fs from "fs";
         const memberUserIds = new Set(currentMembers.map((m) => m.userId));
 
         // Friends section is only meaningful for player callers
-        let friendUsers: Array<{ userId: string; name: string; avatarUrl: string | null }> = [];
+        let friendUsers: { userId: string; name: string; avatarUrl: string | null }[] = [];
         if (callerPlayerId) {
           const friendConns = await db
             .select({
@@ -3264,7 +3265,7 @@ import fs from "fs";
         const parentUserIds = Array.from(
           new Set(parentRows.map((r) => r.parentUserId).filter((id) => id !== userId)),
         );
-        const parents: Array<{ userId: string; name: string; avatarUrl: string | null }> = [];
+        const parents: { userId: string; name: string; avatarUrl: string | null }[] = [];
         if (parentUserIds.length > 0) {
           const parentUsers = await db
             .select({ id: users.id, username: users.username, email: users.email })

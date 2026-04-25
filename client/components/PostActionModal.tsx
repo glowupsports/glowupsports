@@ -163,7 +163,7 @@ export function PostActionModal({
 
           {/* What's Next Section */}
           <View style={styles.whatsNextSection}>
-            <Text style={styles.whatsNextLabel}>What's Next?</Text>
+            <Text style={styles.whatsNextLabel}>What&apos;s Next?</Text>
           </View>
 
           {/* Actions */}

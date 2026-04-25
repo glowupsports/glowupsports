@@ -59,8 +59,6 @@ export function GlowMarketSpotlight() {
 
   const featuredProducts = shopData?.featuredProducts?.slice(0, 6) || [];
 
-  if (shopData !== undefined && featuredProducts.length === 0) return null;
-
   const getDiscountPercent = (product: ShopProduct): number | null => {
     if (!product.compareAtPrice || !product.price) return null;
     const compare = Number(product.compareAtPrice);
@@ -131,6 +129,10 @@ export function GlowMarketSpotlight() {
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
     };
   }, [productSignature]);
+
+  // Task #1313 — Hooks must run unconditionally. Early-return guard moved
+  // below all hook calls.
+  if (shopData !== undefined && featuredProducts.length === 0) return null;
 
   return (
     <Animated.View entering={FadeIn.duration(400)} style={styles.container}>

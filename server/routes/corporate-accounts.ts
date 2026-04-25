@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
 import { db } from "../db";
-import { corporateStorage } from "../storage";
+import { corporateStorage , storage } from "../storage";
 import { eq, and, desc } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -21,7 +21,6 @@ import {
   corporateAccounts,
 } from "@shared/schema";
 import { sendCorporateEmployeeInviteEmail, sendCorporateMonthlyReportEmail } from "../emailService";
-import { storage } from "../storage";
 
 const router = Router();
 

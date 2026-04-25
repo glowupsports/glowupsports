@@ -845,7 +845,7 @@ function AdultGlowLevelModal({
             <View style={modalStyles.howToLevel}>
               <Text style={modalStyles.sectionTitle}>How It Works</Text>
               <Text style={modalStyles.descriptionText}>
-                Glow ranks go from 9 (beginner) to 1 (elite). Your coach tracks your progress across all 6 pillars. As you improve, you'll climb the ranks!
+                Glow ranks go from 9 (beginner) to 1 (elite). Your coach tracks your progress across all 6 pillars. As you improve, you&apos;ll climb the ranks!
               </Text>
             </View>
 
@@ -1695,7 +1695,7 @@ export default function PlayerProgressScreen() {
 
   if (isGuest) {
     type GuestIconName = React.ComponentProps<typeof Ionicons>["name"];
-    const guestFeatures: Array<{ icon: GuestIconName; text: string }> = [
+    const guestFeatures: { icon: GuestIconName; text: string }[] = [
       { icon: "radio-button-on-outline", text: "See your Skill Radar across all domains" },
       { icon: "flash-outline", text: "Track your XP level & Glow Rank" },
       { icon: "tennisball-outline", text: "View your ball level progression" },
@@ -2111,7 +2111,7 @@ export default function PlayerProgressScreen() {
                     <View style={styles.aiCoachFocusIconWrap}>
                       <Ionicons name="flag" size={12} color="#A78BFA" />
                     </View>
-                    <Text style={styles.aiCoachFocusLabel}>This week's focus</Text>
+                    <Text style={styles.aiCoachFocusLabel}>This week&apos;s focus</Text>
                   </View>
                   <Text style={styles.aiCoachFocusText} numberOfLines={2}>
                     {weeklyDigest!.data!.focusArea}
@@ -2248,7 +2248,7 @@ export default function PlayerProgressScreen() {
                 <Ionicons name="flash" size={18} color={Colors.dark.buttonText} />
               </View>
               <View style={styles.glowPlanHeaderContent}>
-                <Text style={styles.glowPlanTitle}>This Week's Focus</Text>
+                <Text style={styles.glowPlanTitle}>This Week&apos;s Focus</Text>
                 <Text style={styles.glowPlanSubtitle}>
                   {weeklyPlanData.planJson.focusAreas.length} focus area{weeklyPlanData.planJson.focusAreas.length !== 1 ? "s" : ""} from your coach
                   {weeklyPlanData.status === "active" ? " — approved" : ""}
@@ -2651,7 +2651,7 @@ export default function PlayerProgressScreen() {
                 <Text style={styles.videoCardTitle}>
                   {videoCount} video clip{videoCount !== 1 ? "s" : ""} available
                 </Text>
-                <Text style={styles.videoCardSubtitle}>Tap to watch your coach's technique feedback</Text>
+                <Text style={styles.videoCardSubtitle}>Tap to watch your coach&apos;s technique feedback</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
             </Pressable>

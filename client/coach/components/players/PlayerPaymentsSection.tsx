@@ -624,7 +624,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                       { key: "cash", label: "Cash" },
                       { key: "bank_transfer", label: "Bank transfer" },
                       { key: "card", label: "Card" },
-                    ] as Array<{ key: CoachPaymentMethod; label: string }>).map((m) => {
+                    ] as { key: CoachPaymentMethod; label: string }[]).map((m) => {
                       const active = markPaidMethod === m.key;
                       return (
                         <Pressable
@@ -762,7 +762,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                   { key: "cash", label: "Cash" },
                   { key: "bank_transfer", label: "Bank transfer" },
                   { key: "card", label: "Card" },
-                ] as Array<{ key: CoachPaymentMethod; label: string }>).map((m) => {
+                ] as { key: CoachPaymentMethod; label: string }[]).map((m) => {
                   const active = editMethod === m.key;
                   return (
                     <Pressable

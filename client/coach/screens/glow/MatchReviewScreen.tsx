@@ -232,7 +232,7 @@ export default function MatchReviewScreen() {
 
         {match.plan && (match.plan.primaryTactic || match.plan.mentalCue) && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Player's Game Plan</Text>
+            <Text style={styles.sectionTitle}>Player&apos;s Game Plan</Text>
             <View style={styles.planCard}>
               {match.plan.primaryTactic && (
                 <Text style={styles.planText}>{match.plan.primaryTactic}</Text>
@@ -246,7 +246,7 @@ export default function MatchReviewScreen() {
 
         {match.reflection && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Player's Reflection</Text>
+            <Text style={styles.sectionTitle}>Player&apos;s Reflection</Text>
             <View style={styles.reflectionCard}>
               {match.reflection.whatWorked && match.reflection.whatWorked.length > 0 && (
                 <View style={styles.reflectionRow}>
@@ -277,7 +277,7 @@ export default function MatchReviewScreen() {
               )}
               {match.reflection.keyTakeaway && (
                 <View style={styles.takeawayRow}>
-                  <Text style={styles.takeawayText}>"{match.reflection.keyTakeaway}"</Text>
+                  <Text style={styles.takeawayText}>&quot;{match.reflection.keyTakeaway}&quot;</Text>
                 </View>
               )}
             </View>

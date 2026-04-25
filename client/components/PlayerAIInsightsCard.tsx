@@ -101,7 +101,7 @@ function SkillProgressionChart({ pillarHistory }: { pillarHistory: PillarSnapsho
   const pillars = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL"] as const;
 
   const buildPath = (pillar: typeof pillars[number]) => {
-    const points: Array<{ x: number; y: number }> = [];
+    const points: { x: number; y: number }[] = [];
     pillarHistory.forEach((snap, i) => {
       const val = snap[pillar];
       if (val !== null) {

@@ -328,7 +328,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
             {coach?.publicQuote ? (
               <View style={styles.quoteSection}>
                 <Ionicons name="chatbubble-outline" size={14} color={Colors.dark.textMuted} />
-                <Text style={styles.quoteText}>"{coach.publicQuote}"</Text>
+                <Text style={styles.quoteText}>&quot;{coach.publicQuote}&quot;</Text>
               </View>
             ) : null}
             
@@ -336,7 +336,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
               <View style={styles.lastFeedbackSection}>
                 <Text style={styles.lastFeedbackLabel}>Latest Feedback</Text>
                 <Text style={styles.lastFeedbackText} numberOfLines={3}>
-                  "{lastFeedback.message}"
+                  &quot;{lastFeedback.message}&quot;
                 </Text>
                 <Text style={styles.lastFeedbackDate}>
                   {new Date(lastFeedback.date).toLocaleDateString()}

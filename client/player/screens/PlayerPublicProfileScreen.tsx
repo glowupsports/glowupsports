@@ -204,7 +204,7 @@ export default function PlayerPublicProfileScreen() {
   });
 
   // Live match polling for this player (followers/coaches can see if someone they follow is playing live)
-  const { data: publicActiveLiveMatch } = useQuery<{ matches?: Array<{ id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }> }>({
+  const { data: publicActiveLiveMatch } = useQuery<{ matches?: { id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }[] }>({
     queryKey: [`/api/live-scoring/player/${playerId}/active`],
     enabled: !!playerId,
     refetchInterval: 10000,
@@ -892,7 +892,7 @@ export default function PlayerPublicProfileScreen() {
           {profile.connections.total > 0 ? (
             <View style={styles.connectionsCard}>
               <Text style={styles.connectionsSubtitle}>
-                You've played matches with {profile.connections.total} players
+                You&apos;ve played matches with {profile.connections.total} players
               </Text>
               
               <View style={styles.connectionAvatars}>

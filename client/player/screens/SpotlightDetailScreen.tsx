@@ -44,7 +44,7 @@ function PodiumSection({ nominees }: { nominees: any[] }) {
 
   return (
     <Animated.View entering={FadeInUp.delay(200).duration(600)} style={podiumStyles.container}>
-      <Text style={podiumStyles.title}>THIS WEEK'S TOP NOMINEES</Text>
+      <Text style={podiumStyles.title}>THIS WEEK&apos;S TOP NOMINEES</Text>
       <View style={podiumStyles.podium}>
         {second ? (
           <View style={podiumStyles.podiumSlot}>
@@ -124,7 +124,7 @@ function NomineeList({ nominees }: { nominees: any[] }) {
             <PlayerAvatar photoUrl={n.profilePhotoUrl} size={40} borderColor="rgba(255,255,255,0.15)" />
             <View style={listStyles.info}>
               <Text style={listStyles.name} numberOfLines={1}>{n.playerName}</Text>
-              {n.reasons?.[0] ? <Text style={listStyles.reason} numberOfLines={1}>"{n.reasons[0]}"</Text> : null}
+              {n.reasons?.[0] ? <Text style={listStyles.reason} numberOfLines={1}>&quot;{n.reasons[0]}&quot;</Text> : null}
             </View>
             <View style={listStyles.voteBadge}>
               <Ionicons name="star" size={12} color="#FFD700" />
@@ -307,7 +307,7 @@ export default function SpotlightDetailScreen() {
               {winner.topReason ? (
                 <View style={styles.winnerReasonBox}>
                   <Ionicons name="chatbubble" size={14} color="#FFD700" />
-                  <Text style={styles.winnerReason}>"{winner.topReason}"</Text>
+                  <Text style={styles.winnerReason}>&quot;{winner.topReason}&quot;</Text>
                 </View>
               ) : null}
               <View style={styles.winnerStatsRow}>

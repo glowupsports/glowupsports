@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -29,12 +29,11 @@ import Animated, {
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient , useQuery } from "@tanstack/react-query";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
@@ -84,7 +83,7 @@ interface Session {
   paymentStatus?: string | null;
   status: string | null;
   skipReason?: string | null;
-  players?: Array<{ name: string }>;
+  players?: { name: string }[];
   title?: string | null;
 }
 
@@ -153,7 +152,7 @@ export default function CalendarScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [showFilterOverlay, setShowFilterOverlay] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedCells, setSelectedCells] = useState<Array<{ courtId: string; courtName: string; hour: number }>>([]);
+  const [selectedCells, setSelectedCells] = useState<{ courtId: string; courtName: string; hour: number }[]>([]);
   const [selectionStart, setSelectionStart] = useState<{ courtIndex: number; hour: number } | null>(null);
   const [showBlockActionModal, setShowBlockActionModal] = useState(false);
   const [blockReason, setBlockReason] = useState<string>("training");
@@ -255,12 +254,12 @@ export default function CalendarScreen() {
   }, [calendarData?.ownSessions, allCourts, allLocations, selectedDate]);
 
   // Fetch travel times for this coach
-  const { data: travelTimes = [] } = useQuery<Array<{
+  const { data: travelTimes = [] } = useQuery<{
     id: string;
     fromLocationId: string;
     toLocationId: string;
     travelTimeMinutes: number;
-  }>>({
+  }[]>({
     queryKey: ["/api/coach/travel-times"],
   });
   
@@ -533,14 +532,14 @@ export default function CalendarScreen() {
   const crossLocationBusyBlocks = useMemo(() => {
     if (ownSessions.length === 0 || courts.length === 0) return [];
     
-    const blocks: Array<{
+    const blocks: {
       id: string;
       courtId: string;
       startTime: string;
       endTime: string;
       busyAtLocation: string;
       sessionType: string;
-    }> = [];
+    }[] = [];
     
     // For each session, create "busy elsewhere" blocks on the CURRENTLY VISIBLE courts
     // This shows blocking even when filtering to a single court/location
@@ -579,14 +578,14 @@ export default function CalendarScreen() {
       new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     );
     
-    const blocks: Array<{
+    const blocks: {
       id: string;
       startTime: string;
       endTime: string;
       fromLocation: string;
       toLocation: string;
       minutes: number;
-    }> = [];
+    }[] = [];
     
     for (let i = 0; i < sortedSessions.length - 1; i++) {
       const currentSession = sortedSessions[i];
@@ -746,7 +745,7 @@ export default function CalendarScreen() {
     const maxCourtIdx = Math.max(selectionStart.courtIndex, courtIndex);
     const minHour = Math.min(selectionStart.hour, hour);
     const maxHour = Math.max(selectionStart.hour, hour);
-    const newCells: Array<{ courtId: string; courtName: string; hour: number }> = [];
+    const newCells: { courtId: string; courtName: string; hour: number }[] = [];
     for (let ci = minCourtIdx; ci <= maxCourtIdx; ci++) {
       if (ci >= 0 && ci < courts.length) {
         for (let h = minHour; h <= maxHour; h++) {
@@ -781,7 +780,7 @@ export default function CalendarScreen() {
   };
 
   const blockCourtMutation = useMutation({
-    mutationFn: async (cells: Array<{ courtId: string; hour: number }>) => {
+    mutationFn: async (cells: { courtId: string; hour: number }[]) => {
       const dateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
       const promises = cells.map(cell => {
         const startTime = `${cell.hour.toString().padStart(2, "0")}:00`;

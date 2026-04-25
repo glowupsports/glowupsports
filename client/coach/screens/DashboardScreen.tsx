@@ -11,7 +11,7 @@ import {
   Linking,
   RefreshControl,
   Image as RNImage,
-} from "react-native";
+ Modal, TextInput, KeyboardAvoidingView } from "react-native";
 import * as Location from "expo-location";
 import { Image } from "expo-image";
 import Animated, {
@@ -68,7 +68,6 @@ import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useTranslation } from "react-i18next";
-import { Modal, TextInput, KeyboardAvoidingView } from "react-native";
 
 interface Player {
   id: string;
@@ -108,14 +107,14 @@ interface PendingAttendanceSession {
   endTime: string | Date;
   sessionType: string;
   seriesTitle: string;
-  players: Array<{ id: string; name: string }>;
+  players: { id: string; name: string }[];
 }
 
 interface PendingFeedbackSession {
   sessionId: string;
   startTime: string;
   sessionType: string;
-  players: Array<{ id: string; name: string; attendanceStatus?: string }>;
+  players: { id: string; name: string; attendanceStatus?: string }[];
   playerCount: number;
   needsGroupDynamics: boolean;
   cardType: "private" | "semi_private" | "group";
@@ -801,8 +800,8 @@ interface AvailableSlot {
   available: boolean;
 }
 
-function buildDayChips(count: number): Array<{ label: string; dateStr: string }> {
-  const chips: Array<{ label: string; dateStr: string }> = [];
+function buildDayChips(count: number): { label: string; dateStr: string }[] {
+  const chips: { label: string; dateStr: string }[] = [];
   const today = new Date();
   for (let i = 0; i < count; i++) {
     const d = new Date(today);
@@ -2436,12 +2435,12 @@ export default function DashboardScreen() {
 
   // Generate smart insights for coach
   const coachInsights = useMemo(() => {
-    const insights: Array<{
+    const insights: {
       id: string;
       type: "level_up" | "attendance" | "streak" | "earnings" | "alert";
       title: string;
       description: string;
-    }> = [];
+    }[] = [];
     
     // Sessions insight
     if (todaysSessions.length > 5) {
@@ -3148,7 +3147,7 @@ export default function DashboardScreen() {
               {(coachReviewsData?.reviews ?? []).slice(0, 1).map((r: any) => (
                 r.whatDoesWell ? (
                   <Text key={r.id} style={dashReviewStyles.reviewsExcerpt} numberOfLines={1}>
-                    "{r.whatDoesWell}"
+                    &quot;{r.whatDoesWell}&quot;
                   </Text>
                 ) : null
               ))}

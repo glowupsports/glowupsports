@@ -152,7 +152,7 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
 
         {todaysSeries.length > 0 ? (
           <View style={styles.todaySection}>
-            <Text style={styles.todayLabel}>Today's Classes</Text>
+            <Text style={styles.todayLabel}>Today&apos;s Classes</Text>
             {todaysSeries.slice(0, 2).map((series, index) => (
               <Pressable 
                 key={series.id} 

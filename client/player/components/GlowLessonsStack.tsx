@@ -202,7 +202,7 @@ function LessonCard({
           {session.isEnrolled ? (
             <View style={[styles.youInBadge, { backgroundColor: brandAccent + "20", borderColor: brandAccent + "55" }]}>
               <Ionicons name="checkmark-circle" size={11} color={brandAccent} />
-              <Text style={[styles.youInText, { color: brandAccent }]}>You're in</Text>
+              <Text style={[styles.youInText, { color: brandAccent }]}>You&apos;re in</Text>
             </View>
           ) : null}
         </View>

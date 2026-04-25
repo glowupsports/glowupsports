@@ -939,7 +939,7 @@ function FocusStep({ data, setData, onNext }: StepProps) {
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>What do you want to work on?</Text>
         <Text style={styles.stepSubtitle}>
-          Select areas you'd like to improve
+          Select areas you&apos;d like to improve
         </Text>
       </Animated.View>
 

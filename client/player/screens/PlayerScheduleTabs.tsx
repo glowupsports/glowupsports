@@ -19,10 +19,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
 import { Image as ExpoImage } from "expo-image";
-import { buildPhotoUrl } from "@/lib/query-client";
+import { buildPhotoUrl , getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useTranslation } from "react-i18next";
-
-type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 import {
   Backgrounds,
   Spacing,
@@ -35,9 +33,10 @@ import {
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { ComingSoonPaymentRow } from "@/components/ComingSoonPaymentRow";
-import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { appendImageToFormData } from "@/lib/uploads";
 import { formatTimeInTimezone } from "@/lib/dateUtils";
+
+type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
 // =============================================================================
 // Types
@@ -116,7 +115,7 @@ export function ScheduleTabBar({
   onChange: (t: ScheduleTab) => void;
   paymentsBadge?: number;
 }) {
-  const tabs: Array<{ key: ScheduleTab; label: string; icon: FeatherIconName }> = [
+  const tabs: { key: ScheduleTab; label: string; icon: FeatherIconName }[] = [
     { key: "sessions", label: "Sessions", icon: "calendar" },
     { key: "payments", label: "Payments", icon: "credit-card" },
     { key: "history", label: "History", icon: "clock" },
@@ -615,7 +614,7 @@ export function HistoryTab({
     });
   }, [items, filter]);
 
-  const chips: Array<{ key: HistoryFilter; label: string }> = [
+  const chips: { key: HistoryFilter; label: string }[] = [
     { key: "all", label: "All" },
     { key: "sessions", label: "Sessions" },
     { key: "payments", label: "Payments" },
@@ -831,7 +830,7 @@ export function LogPaymentSheet({
   const pricingChips = React.useMemo(() => {
     const pricing = paymentInfo?.pricing;
     if (!pricing) return [];
-    const order: Array<{ key: string; label: string }> = [
+    const order: { key: string; label: string }[] = [
       { key: "private", label: "Private" },
       { key: "semi_private", label: "Semi-private" },
       { key: "group", label: "Group" },

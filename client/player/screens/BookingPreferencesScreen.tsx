@@ -411,7 +411,7 @@ export default function BookingPreferencesScreen() {
             <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Open to matches</Text>
-                <Text style={styles.settingDescription}>Show you're available to join games</Text>
+                <Text style={styles.settingDescription}>Show you&apos;re available to join games</Text>
               </View>
               <Switch
                 value={openToMatches}

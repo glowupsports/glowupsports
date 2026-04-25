@@ -311,7 +311,7 @@ function WelcomeStep({ onNext }: StepProps) {
       </Animated.Text>
 
       <Animated.Text entering={FadeInDown.delay(600).duration(600)} style={styles.welcomeSubtitle}>
-        Your tennis journey starts here. Let's set up your profile and find the perfect training path for you.
+        Your tennis journey starts here. Let&apos;s set up your profile and find the perfect training path for you.
       </Animated.Text>
 
       <Animated.View entering={FadeInUp.delay(800).duration(600)} style={styles.welcomeCTA}>
@@ -322,7 +322,7 @@ function WelcomeStep({ onNext }: StepProps) {
             onNext();
           }}
         >
-          <Text style={styles.primaryButtonText}>Let's Go!</Text>
+          <Text style={styles.primaryButtonText}>Let&apos;s Go!</Text>
           <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </Animated.View>
@@ -369,7 +369,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
 
   const formatDate = (s: string) => new Date(s).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
-  const genderOptions: Array<{ id: string; label: string; icon: IoniconName }> = [
+  const genderOptions: { id: string; label: string; icon: IoniconName }[] = [
     { id: "male", label: "Male", icon: "male-outline" },
     { id: "female", label: "Female", icon: "female-outline" },
     { id: "prefer_not_to_say", label: "Prefer not to say", icon: "person-outline" },
@@ -448,7 +448,7 @@ function AboutYouStep({ data, setData, playerName }: StepProps) {
 
       {isMinor ? (
         <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.sectionContainer}>
-          <Text style={styles.sectionLabel}>Parent's Email</Text>
+          <Text style={styles.sectionLabel}>Parent&apos;s Email</Text>
           <TextInput
             style={styles.textInput}
             value={parentEmail}
@@ -647,7 +647,7 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
         <Text style={styles.stepTitle}>
           {playerName ? `Hey ${playerName}!` : "Hey there!"}
         </Text>
-        <Text style={styles.stepSubtitle}>When's your birthday? This helps us personalize your experience.</Text>
+        <Text style={styles.stepSubtitle}>When&apos;s your birthday? This helps us personalize your experience.</Text>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(300).duration(500)}>
@@ -831,7 +831,7 @@ function PhotoUploadStep({ data, setData, onNext, playerName }: StepProps) {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>
-          Let's see who we're working with{playerName ? `, ${playerName}` : ""}!
+          Let&apos;s see who we&apos;re working with{playerName ? `, ${playerName}` : ""}!
         </Text>
         <Text style={styles.stepSubtitle}>Add a profile photo so coaches can recognize you.</Text>
       </Animated.View>
@@ -876,7 +876,7 @@ function PhotoUploadStep({ data, setData, onNext, playerName }: StepProps) {
 }
 
 function GenderStep({ data, setData, onNext, playerName }: StepProps) {
-  const genderOptions: Array<{ id: string; label: string; icon: IoniconName }> = [
+  const genderOptions: { id: string; label: string; icon: IoniconName }[] = [
     { id: "male", label: "Male", icon: "male-outline" },
     { id: "female", label: "Female", icon: "female-outline" },
     { id: "prefer_not_to_say", label: "Prefer not to say", icon: "person-outline" },
@@ -987,7 +987,7 @@ function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: 
               }}
             >
               <Ionicons name="help-circle-outline" size={16} color={Colors.dark.textMuted} />
-              <Text style={styles.adjustLinkText}>This doesn't seem right?</Text>
+              <Text style={styles.adjustLinkText}>This doesn&apos;t seem right?</Text>
             </Pressable>
           ) : null}
         </Animated.View>
@@ -1119,7 +1119,7 @@ function PlatformWelcomeVideoStep({ onNext }: StepProps) {
             onNext();
           }}
         >
-          <Text style={styles.primaryButtonText}>Let's Go!</Text>
+          <Text style={styles.primaryButtonText}>Let&apos;s Go!</Text>
           <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
         </Pressable>
       </Animated.View>
@@ -1182,7 +1182,7 @@ function AcademyWelcomeVideoStep({ data, onNext }: StepProps) {
       </Animated.View>
 
       <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.academyHighlights}>
-        <Text style={styles.academyHighlightsTitle}>What's Next</Text>
+        <Text style={styles.academyHighlightsTitle}>What&apos;s Next</Text>
         <View style={styles.nextStepItem}>
           <View style={styles.nextStepNumber}><Text style={styles.nextStepNumberText}>1</Text></View>
           <Text style={styles.nextStepText}>Book your first session</Text>
@@ -1214,7 +1214,7 @@ function AcademyWelcomeVideoStep({ data, onNext }: StepProps) {
 }
 
 function WhyTennisStep({ data, setData, onNext, ageGroup }: StepProps) {
-  const options: Record<string, Array<{ id: string; label: string; icon: IoniconName }>> = {
+  const options: Record<string, { id: string; label: string; icon: IoniconName }[]> = {
     kid: [
       { id: "fun", label: "Tennis is fun!", icon: "happy-outline" },
       { id: "friends", label: "My friends do it too", icon: "people-outline" },
@@ -1375,7 +1375,7 @@ function AboutYourselfStep({ data, setData, onNext, ageGroup }: StepProps) {
     ? childTshirtSizes.map((size) => ({ id: size, label: size }))
     : adultTshirtSizes.map((size) => ({ id: size, label: size }));
 
-  const handOptions: Array<{ id: string; label: string; icon: IoniconName }> = [
+  const handOptions: { id: string; label: string; icon: IoniconName }[] = [
     { id: "right", label: "Right", icon: "hand-right-outline" },
     { id: "left", label: "Left", icon: "hand-left-outline" },
   ];
@@ -1483,14 +1483,14 @@ function AboutYourselfStep({ data, setData, onNext, ageGroup }: StepProps) {
   );
 }
 
-const PLAY_STYLE_ARCHETYPES: Array<{
+const PLAY_STYLE_ARCHETYPES: {
   key: PlayStyleKey;
   name: string;
   tagline: string;
   icon: IoniconName;
   color: string;
   bgColor: string;
-}> = [
+}[] = [
   {
     key: "baseline_warrior",
     name: "Baseline Warrior",
@@ -1653,7 +1653,7 @@ function TennisIdolStep({ data, setData, onNext, ageGroup }: StepProps) {
     <KeyboardAwareScrollViewCompat style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>Tennis Idol</Text>
-        <Text style={styles.stepSubtitle}>Who's your favorite tennis player?</Text>
+        <Text style={styles.stepSubtitle}>Who&apos;s your favorite tennis player?</Text>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.idolGrid}>
@@ -1704,7 +1704,7 @@ function TennisIdolStep({ data, setData, onNext, ageGroup }: StepProps) {
 }
 
 function EnjoymentStep({ data, setData, onNext }: StepProps) {
-  const options: Array<{ id: string; label: string; icon: IoniconName }> = [
+  const options: { id: string; label: string; icon: IoniconName }[] = [
     { id: "rallies", label: "Rallying", icon: "repeat-outline" },
     { id: "winning", label: "Winning points", icon: "star-outline" },
     { id: "technique", label: "Learning technique", icon: "school-outline" },
@@ -1760,7 +1760,7 @@ function EnjoymentStep({ data, setData, onNext }: StepProps) {
 }
 
 function FocusGoalsStep({ data, setData, onNext }: StepProps) {
-  const options: Array<{ id: string; label: string; icon: IoniconName }> = [
+  const options: { id: string; label: string; icon: IoniconName }[] = [
     { id: "technique", label: "Technique", icon: "construct-outline" },
     { id: "confidence", label: "Confidence", icon: "shield-checkmark-outline" },
     { id: "fitness", label: "Fitness", icon: "barbell-outline" },
@@ -1784,7 +1784,7 @@ function FocusGoalsStep({ data, setData, onNext }: StepProps) {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>What to work on?</Text>
-        <Text style={styles.stepSubtitle}>Select areas you'd like to improve.</Text>
+        <Text style={styles.stepSubtitle}>Select areas you&apos;d like to improve.</Text>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.enjoymentGrid}>
@@ -1807,7 +1807,7 @@ function FocusGoalsStep({ data, setData, onNext }: StepProps) {
 }
 
 function AvailabilityStep({ data, setData, onNext }: StepProps) {
-  const options: Array<{ id: string; label: string; icon: IoniconName }> = [
+  const options: { id: string; label: string; icon: IoniconName }[] = [
     { id: "morning", label: "Morning", icon: "sunny-outline" },
     { id: "afternoon", label: "Afternoon", icon: "partly-sunny-outline" },
     { id: "evening", label: "Evening", icon: "moon-outline" },
@@ -2147,7 +2147,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
           onNext();
         }}
       >
-        <Text style={styles.skipLinkText}>I'm still looking / Continue without academy</Text>
+        <Text style={styles.skipLinkText}>I&apos;m still looking / Continue without academy</Text>
       </Pressable>
 
       <Modal
@@ -2328,11 +2328,11 @@ function ParentConnectStep({ data, setData, onNext }: StepProps) {
     <KeyboardAwareScrollViewCompat style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>Connect Your Parent</Text>
-        <Text style={styles.stepSubtitle}>Let's keep your parent in the loop!</Text>
+        <Text style={styles.stepSubtitle}>Let&apos;s keep your parent in the loop!</Text>
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.sectionContainer}>
-        <Text style={styles.sectionLabel}>Parent's Email</Text>
+        <Text style={styles.sectionLabel}>Parent&apos;s Email</Text>
         <TextInput
           style={styles.textInput}
           value={email}
@@ -2345,7 +2345,7 @@ function ParentConnectStep({ data, setData, onNext }: StepProps) {
           keyboardType="email-address"
           autoCapitalize="none"
         />
-        <Text style={styles.hintText}>We'll send them updates about your progress</Text>
+        <Text style={styles.hintText}>We&apos;ll send them updates about your progress</Text>
       </Animated.View>
 
       <Pressable
@@ -2555,7 +2555,7 @@ function CompletionStep({ data, playerName, onComplete, isSaving }: StepProps & 
       </Animated.View>
 
       <Animated.Text entering={FadeInDown.delay(400).duration(600)} style={styles.completionTitle}>
-        You're all set{playerName ? `, ${playerName}` : ""}!
+        You&apos;re all set{playerName ? `, ${playerName}` : ""}!
       </Animated.Text>
 
       <Animated.Text entering={FadeInDown.delay(600).duration(600)} style={styles.completionSubtitle}>

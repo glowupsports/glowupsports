@@ -187,7 +187,7 @@ interface VacationData {
   active: boolean;
   activeVacation?: { id: string; startDate: string; endDate: string };
   upcomingVacation?: { id: string; startDate: string; endDate: string };
-  holidays: Array<{ id: string; startDate: string; endDate: string }>;
+  holidays: { id: string; startDate: string; endDate: string }[];
 }
 
 interface ScheduledItem {
@@ -432,7 +432,7 @@ export default function PlayerScheduleScreen() {
 
   // Player notifications — used to surface payment confirm/reject activity in History.
   const { data: notificationsData } = useQuery<
-    Array<{
+    {
       id: string;
       title: string | null;
       body: string | null;
@@ -440,7 +440,7 @@ export default function PlayerScheduleScreen() {
       data: Record<string, unknown> | null;
       createdAt: string;
       read: boolean;
-    }>
+    }[]
   >({
     queryKey: ["/api/player/me/notifications"],
     enabled: !!playerId,
@@ -479,7 +479,7 @@ export default function PlayerScheduleScreen() {
       return new Date(s.session.startTime) > new Date();
     });
     const seen = new Set<string>();
-    const locDests: Array<{ id: string; lat: number; lng: number }> = [];
+    const locDests: { id: string; lat: number; lng: number }[] = [];
     for (const s of upcoming) {
       const lat = s.session?.locationLat;
       const lng = s.session?.locationLng;
@@ -1845,7 +1845,7 @@ function WeekStripe({
         const vac = isVacation(d);
 
         // Up to 3 type-bars (lesson/court/match).
-        const types: Array<"lesson" | "court" | "match"> = [];
+        const types: ("lesson" | "court" | "match")[] = [];
         let hasLesson = false,
           hasCourt = false,
           hasMatch = false;
@@ -2186,7 +2186,7 @@ function MonthGrid({
   const last = new Date(year, month + 1, 0);
   const startPad = (first.getDay() + 6) % 7; // shift so Mon=0
 
-  const days: Array<{ date: Date; current: boolean }> = [];
+  const days: { date: Date; current: boolean }[] = [];
   for (let i = startPad - 1; i >= 0; i--) {
     days.push({ date: new Date(year, month, -i), current: false });
   }

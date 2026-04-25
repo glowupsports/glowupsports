@@ -1044,7 +1044,7 @@ router.get("/api/leaderboards/:scope/:metric", authMiddleware, requireAuth, asyn
     let windowStart: Date;
     let windowEnd: Date = now;
 
-    let aggregated: Array<{ playerId: string; value: number }> = [];
+    let aggregated: { playerId: string; value: number }[] = [];
 
     if (metric === "xp_weekly") {
       windowStart = new Date(mondayOf(now) + "T00:00:00.000Z");

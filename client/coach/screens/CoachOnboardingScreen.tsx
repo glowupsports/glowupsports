@@ -260,7 +260,7 @@ function Step1Welcome({ onNext }: StepProps) {
         
         <Text style={styles.welcomeTitle}>WELCOME, COACH</Text>
         <Text style={styles.welcomeSubtitle}>
-          You're not just training players — you're shaping their journey.
+          You&apos;re not just training players — you&apos;re shaping their journey.
         </Text>
         
         <View style={styles.roleList}>
@@ -348,9 +348,9 @@ function Step2HowGlowWorks({ data, setData, onNext }: StepProps) {
                 <Ionicons name="eye-off-outline" size={24} color={Colors.dark.textSecondary} />
               </View>
               <View style={styles.infoTextContainer}>
-                <Text style={styles.infoTitle}>Players don't see numbers</Text>
+                <Text style={styles.infoTitle}>Players don&apos;t see numbers</Text>
                 <Text style={styles.infoDescription}>
-                  Players see progress indicators, not raw scores. You don't need to rate everything.
+                  Players see progress indicators, not raw scores. You don&apos;t need to rate everything.
                 </Text>
               </View>
             </View>
@@ -420,11 +420,11 @@ function Step3FeedbackExpectations({ data, setData, onNext }: StepProps) {
           <Text style={styles.exampleLabel}>GOOD EXAMPLES:</Text>
           <View style={styles.exampleCard}>
             <Ionicons name="checkmark-circle" size={20} color={Colors.dark.successNeon} />
-            <Text style={styles.exampleText}>"Footwork improved"</Text>
+            <Text style={styles.exampleText}>&quot;Footwork improved&quot;</Text>
           </View>
           <View style={styles.exampleCard}>
             <Ionicons name="alert-circle" size={20} color={Colors.dark.gold} />
-            <Text style={styles.exampleText}>"Focus needs work"</Text>
+            <Text style={styles.exampleText}>&quot;Focus needs work&quot;</Text>
           </View>
           
           <View style={styles.confirmSection}>
@@ -512,10 +512,10 @@ function Step4AttendanceFairness({ data, setData, onNext }: StepProps) {
             />
             <Text style={styles.scenarioTitle}>SCENARIO:</Text>
             <Text style={styles.scenarioText}>
-              "A player is late 12 minutes — what do you do?"
+              &quot;A player is late 12 minutes — what do you do?&quot;
             </Text>
             <Text style={styles.scenarioAnswer}>
-              Mark as "Late" not "Absent". Holiday mode exists for planned absences.
+              Mark as &quot;Late&quot; not &quot;Absent&quot;. Holiday mode exists for planned absences.
             </Text>
           </View>
           

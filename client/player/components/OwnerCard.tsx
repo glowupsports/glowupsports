@@ -103,7 +103,7 @@ export function OwnerCard({
           <View style={styles.messageQuote}>
             <Ionicons name="chatbubble-ellipses" size={14} color={Colors.dark.textMuted} />
           </View>
-          <Text style={styles.messageText}>"{publicMessage}"</Text>
+          <Text style={styles.messageText}>&quot;{publicMessage}&quot;</Text>
         </View>
       ) : null}
 

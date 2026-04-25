@@ -439,7 +439,7 @@ export default function CourtBookingScreen() {
             showsHorizontalScrollIndicator={false} 
             contentContainerStyle={styles.filterScroll}
           >
-            {(Object.keys(SURFACE_CONFIG) as Array<keyof typeof SURFACE_CONFIG>).map((surface) => {
+            {(Object.keys(SURFACE_CONFIG) as (keyof typeof SURFACE_CONFIG)[]).map((surface) => {
               const config = SURFACE_CONFIG[surface];
               const isSelected = selectedSurface === surface;
               return (

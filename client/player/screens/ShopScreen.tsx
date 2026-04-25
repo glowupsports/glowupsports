@@ -432,7 +432,7 @@ export default function ShopScreen() {
     queryKey: ["/api/player/shop/xp-discount"],
   });
 
-  const { data: servicesData } = useQuery<{ categories: Array<{ id: string; name: string; services: ShopService[] }>; uncategorized: ShopService[] }>({
+  const { data: servicesData } = useQuery<{ categories: { id: string; name: string; services: ShopService[] }[]; uncategorized: ShopService[] }>({
     queryKey: ["/api/player/shop/services"],
   });
 
@@ -610,7 +610,7 @@ export default function ShopScreen() {
                       {searchResults.products.length === 0 && searchResults.services.length === 0 ? (
                         <View style={styles.centerPad}>
                           <Ionicons name="search-outline" size={40} color="#333" />
-                          <Text style={styles.emptyText}>No results for "{searchQuery}"</Text>
+                          <Text style={styles.emptyText}>No results for &quot;{searchQuery}&quot;</Text>
                         </View>
                       ) : (
                         <>

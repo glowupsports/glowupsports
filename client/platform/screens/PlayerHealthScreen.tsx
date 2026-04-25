@@ -1078,7 +1078,7 @@ export default function PlayerHealthScreen() {
             <View style={styles.ghostBanner}>
               <Feather name="alert-triangle" size={14} color={Colors.dark.error} />
               <Text style={styles.ghostBannerText}>
-                {ghostCount} anonymized "Deleted User" {ghostCount === 1 ? "row" : "rows"} found
+                {ghostCount} anonymized &quot;Deleted User&quot; {ghostCount === 1 ? "row" : "rows"} found
               </Text>
               <Pressable
                 style={[styles.ghostBannerButton, cleaningGhosts ? { opacity: 0.6 } : {}]}

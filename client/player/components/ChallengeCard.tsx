@@ -158,7 +158,7 @@ function IncomingChallengeCard({
 
       {challenge.message ? (
         <View style={styles.messageBox}>
-          <Text style={styles.messageText}>"{challenge.message}"</Text>
+          <Text style={styles.messageText}>&quot;{challenge.message}&quot;</Text>
         </View>
       ) : null}
 

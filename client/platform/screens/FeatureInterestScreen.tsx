@@ -248,7 +248,7 @@ export default function FeatureInterestScreen() {
             />
             <Text style={styles.emptyText}>No interest recorded yet</Text>
             <Text style={styles.emptySubText}>
-              Players who tap "Notify me" on a coming-soon feature will show up
+              Players who tap &quot;Notify me&quot; on a coming-soon feature will show up
               here.
             </Text>
           </View>

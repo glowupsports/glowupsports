@@ -132,7 +132,7 @@ function SessionCard({ session, onPress }: { session: TrainingSession; onPress: 
             </View>
           </View>
           {session.feedback.message ? (
-            <Text style={styles.feedbackMessage}>"{session.feedback.message}"</Text>
+            <Text style={styles.feedbackMessage}>&quot;{session.feedback.message}&quot;</Text>
           ) : null}
         </View>
       ) : null}

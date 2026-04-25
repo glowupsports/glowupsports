@@ -66,13 +66,13 @@ interface Message {
   messageType: string | null;
   createdAt: string;
   mentions?: MessageMention[];
-  reactions: Array<{
+  reactions: {
     id: string;
     emoji: string;
     reactorType: string;
     reactorCoachId: string | null;
     reactorPlayerId: string | null;
-  }>;
+  }[];
 }
 
 interface Conversation {
@@ -127,12 +127,12 @@ interface RoomMessage {
   senderCountry?: string | null;
   senderFlag?: string | null;
   academyName?: string;
-  reactions?: Array<{
+  reactions?: {
     id: string;
     emoji: string;
     reactorPlayerId: string | null;
     reactorCoachId: string | null;
-  }>;
+  }[];
   isPinned?: boolean;
   mentions?: MessageMention[];
 }
@@ -420,7 +420,7 @@ export function PlayerChatFooter() {
   });
 
   const isPlayerDm = selectedConversation?.type === "player_player";
-  const { data: friendsData } = useQuery<{ friends?: Array<{ id: string; name: string }> }>({
+  const { data: friendsData } = useQuery<{ friends?: { id: string; name: string }[] }>({
     queryKey: ["/api/player/me/friends"],
     staleTime: 60_000,
     enabled: !!selectedRoom?.id || isPlayerDm,
@@ -435,7 +435,7 @@ export function PlayerChatFooter() {
         map.set(handle, { name: f.name, source: "friend" });
       }
     }
-    const recentSource: Array<{ senderName?: string | null }> = selectedRoom
+    const recentSource: { senderName?: string | null }[] = selectedRoom
       ? roomMessages
       : messages;
     for (let i = recentSource.length - 1; i >= 0 && map.size < 24; i--) {

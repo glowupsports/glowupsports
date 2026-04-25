@@ -89,7 +89,7 @@ export function PinRecoveryModal({
           ) : (
             <>
               <Text style={styles.subtitle}>
-                Enter the email on the account. We'll send a one-time link to set a new PIN.
+                Enter the email on the account. We&apos;ll send a one-time link to set a new PIN.
               </Text>
               <TextInput
                 value={email}

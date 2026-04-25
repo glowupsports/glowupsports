@@ -12,8 +12,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing } from "@/constants/theme";
-import { GlowColors } from "@/constants/theme";
+import { Colors, Spacing , GlowColors } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
 import type { Player, SessionInstance, SeriesDetail, CoachOption } from "./types";
 
@@ -277,7 +276,7 @@ export function SeriesAttendanceModal({
               <View style={styles.transferInfoCard}>
                 <Ionicons name="information-circle" size={18} color={Colors.dark.accentCyan} />
                 <Text style={styles.transferInfoText}>
-                  The session will be removed from your calendar and added to the selected coach's calendar.
+                  The session will be removed from your calendar and added to the selected coach&apos;s calendar.
                 </Text>
               </View>
 

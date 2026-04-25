@@ -406,13 +406,13 @@ export default function PlayerBookingWizard({
     return `/api/player/available-courts?${params}`;
   }, [selectedSlot, isJoining]);
 
-  const { data: availableCourts = [] } = useQuery<Array<{
+  const { data: availableCourts = [] } = useQuery<{
     id: string;
     name: string;
     locationId: string | null;
     surface: string | null;
     requiresExternalBooking?: boolean;
-  }>>({
+  }[]>({
     queryKey: [availableCourtsUrl],
     enabled: !!availableCourtsUrl && visible,
   });
@@ -1356,7 +1356,7 @@ export default function PlayerBookingWizard({
             <Ionicons name="tennisball-outline" size={56} color={Colors.dark.textMuted} />
             <Text style={[styles.emptyCoachesText, { fontWeight: "600", marginTop: Spacing.sm }]}>No courts available</Text>
             <Text style={[styles.emptyCoachesText, { fontSize: 13, textAlign: "center", paddingHorizontal: Spacing.xl }]}>
-              Your academy hasn't added any courts yet. Try Browse by Time or Choose Coach instead.
+              Your academy hasn&apos;t added any courts yet. Try Browse by Time or Choose Coach instead.
             </Text>
           </View>
         ) : (
@@ -2775,29 +2775,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   locationScroll: {
     flexGrow: 0,
     marginBottom: Spacing.sm,
-  },
-  locationChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    marginRight: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  locationChipSelected: {
-    borderColor: Colors.dark.primary,
-    backgroundColor: Colors.dark.primary + "20",
-  },
-  locationChipText: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-  },
-  locationChipTextSelected: {
-    color: Colors.dark.primary,
   },
   dateScroll: {
     flexGrow: 0,

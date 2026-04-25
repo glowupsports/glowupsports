@@ -251,7 +251,7 @@ export default function ClassDetailScreen() {
           {session.isEnrolled ? (
             <View style={styles.youInBadge}>
               <Ionicons name="checkmark-circle" size={14} color={ACCENT} />
-              <Text style={styles.youInText}>You're in</Text>
+              <Text style={styles.youInText}>You&apos;re in</Text>
             </View>
           ) : null}
         </View>

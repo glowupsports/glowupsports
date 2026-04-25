@@ -1531,7 +1531,7 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
                 })
                 .from(coachingSeries)
                 .where(inArray(coachingSeries.id, seriesIds))
-            : Promise.resolve([] as Array<{ id: string; title: string; dayOfWeek: number; startTime: string; sessionType: string }>),
+            : Promise.resolve([] as { id: string; title: string; dayOfWeek: number; startTime: string; sessionType: string }[]),
         ]);
 
         // Create lookup maps
@@ -1762,7 +1762,7 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
 
         // Handle sample conversations with sample messages
         if (id.startsWith("sample-")) {
-          const sampleMessages = getSampleMessages(id);
+          const sampleMessages = getSampleMessages(id, req);
           return res.json(sampleMessages);
         }
 
@@ -1813,7 +1813,7 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
   );
 
   // Helper function for sample messages
-  function getSampleMessages(conversationId: string) {
+  function getSampleMessages(conversationId: string, req: AuthenticatedRequest) {
     const dateParam = req.query.date as string | undefined;
     const now = dateParam ? new Date(dateParam) : new Date();
     const DUBAI_OFFSET = 4;

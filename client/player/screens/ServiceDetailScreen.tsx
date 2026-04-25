@@ -194,7 +194,7 @@ export default function ServiceDetailScreen() {
     mutationFn: async (payload: {
       scheduledAt: string;
       notes?: string;
-      items: Array<{ serviceId: string; quantity: number }>;
+      items: { serviceId: string; quantity: number }[];
       serviceDetails?: Record<string, string>;
       preferredProviderId?: string;
     }) => {
@@ -519,7 +519,7 @@ export default function ServiceDetailScreen() {
                 <View style={styles.dayOffBanner}>
                   <Ionicons name="calendar-clear-outline" size={16} color={Colors.dark.textSecondary} />
                   <Text style={styles.dayOffText}>
-                    This provider is not available on the selected day. Try a different date or choose "Any Available".
+                    This provider is not available on the selected day. Try a different date or choose &quot;Any Available&quot;.
                   </Text>
                 </View>
               ) : showFreePicker ? (
@@ -643,7 +643,7 @@ export default function ServiceDetailScreen() {
             <View style={styles.approvalNote}>
               <Ionicons name="information-circle" size={18} color={Colors.dark.gold} />
               <Text style={styles.approvalNoteText}>
-                This service requires approval. We'll confirm your booking within 24 hours.
+                This service requires approval. We&apos;ll confirm your booking within 24 hours.
               </Text>
             </View>
           ) : null}

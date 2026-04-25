@@ -16,14 +16,12 @@ import {
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-
-const TAB_BAR_HEIGHT = 80;
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Linking from "expo-linking";
 import Animated, { 
   useAnimatedStyle, 
@@ -58,6 +56,11 @@ import { ActionSheet } from "@/components/ActionSheet";
 import type { AssessmentResult as JuniorAssessmentResult } from "@/coach/components/JuniorAssessmentFlow";
 import { PlayerPaymentsSection } from "./PlayerPaymentsSection";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
+
+import * as Clipboard from "expo-clipboard";
+import { styles } from "./playersStyles";
+
+const TAB_BAR_HEIGHT = 80;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -139,9 +142,6 @@ const getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelR
     xpNeeded,
   };
 };
-
-import * as Clipboard from "expo-clipboard";
-import { styles } from "./playersStyles";
 
 interface PlayerQuestItem {
   id: string;
@@ -384,12 +384,12 @@ export function PlayerDetailView({
   insets: { top: number; bottom: number };
   onAssessmentComplete?: (result: JuniorAssessmentResult) => void;
   impactedSessionIds?: string[];
-  impactedSessions?: Array<{
+  impactedSessions?: {
     id: string;
     startTime: string;
     sessionType?: string | null;
     title?: string | null;
-  }>;
+  }[];
 }) {
   const { coach, academy } = useCoach();
   const { navigateToTab } = useTabNavigation();
@@ -831,14 +831,14 @@ export function PlayerDetailView({
 
   // Fetch pillar progress for Glow Leveling OS
   interface PillarProgressData {
-    pillars: Array<{
+    pillars: {
       name: string;
       score: number;
       trend: string;
       skillsTotal: number;
       skillsMeetsOrAbove: number;
       lastUpdated: string | null;
-    }>;
+    }[];
     overallReadiness: number;
     trialGateReady: boolean;
     recentFeedbackCount: number;

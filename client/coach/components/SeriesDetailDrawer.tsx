@@ -96,7 +96,7 @@ export default function SeriesDetailDrawer({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showFeedbackDrawer, setShowFeedbackDrawer] = useState(false);
   const [feedbackSessionId, setFeedbackSessionId] = useState<string | null>(null);
-  const [feedbackPlayers, setFeedbackPlayers] = useState<Array<{id: string; name: string}>>([]);
+  const [feedbackPlayers, setFeedbackPlayers] = useState<{id: string; name: string}[]>([]);
   const [showDeepAssessment, setShowDeepAssessment] = useState(false);
   const [assessmentPlayer, setAssessmentPlayer] = useState<{id: string; name: string; ballLevel?: string | null} | null>(null);
   const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
@@ -332,7 +332,7 @@ export default function SeriesDetailDrawer({
   });
 
   const { data: mergeSuggestions, isLoading: loadingSuggestions } = useQuery<{
-    suggestions: Array<{
+    suggestions: {
       playerId: string;
       name: string;
       ballLevel: string | null;
@@ -342,7 +342,7 @@ export default function SeriesDetailDrawer({
       pauseFrom: string | null;
       pauseUntil: string | null;
       pauseReason: string | null;
-    }>;
+    }[];
     openSlots: number;
   }>({
     queryKey: [`/api/coach/series/${seriesId}/merge-suggestions`],
@@ -955,7 +955,7 @@ export default function SeriesDetailDrawer({
     setLoadingAttendance(true);
     apiRequest("GET", `/api/coach/sessions/${session.id}/players?t=${Date.now()}`)
       .then(response => response.json())
-      .then((sessionPlayers: Array<{ playerId: string; attendanceStatus: string }>) => {
+      .then((sessionPlayers: { playerId: string; attendanceStatus: string }[]) => {
         if (Array.isArray(sessionPlayers)) {
           const updatedAttendance: Record<string, "present" | "absent" | "vacation"> = {};
           activePlayers.forEach(p => {
@@ -1349,7 +1349,7 @@ export default function SeriesDetailDrawer({
   const dateStr = `${extraLessonDate.getFullYear()}-${String(extraLessonDate.getMonth() + 1).padStart(2, '0')}-${String(extraLessonDate.getDate()).padStart(2, '0')}`;
   const { data: courtAvailabilityData, isLoading: loadingAvailability } = useQuery<{
     courts: any[];
-    slots: Array<{ courtId: string; courtName: string; time: string; available: boolean }>;
+    slots: { courtId: string; courtName: string; time: string; available: boolean }[];
   }>({
     queryKey: [`/api/courts/availability?date=${dateStr}`],
     enabled: showExtraLessonModal && extraLessonStep === 3 && !!selectedCourtId,
@@ -2089,7 +2089,7 @@ export default function SeriesDetailDrawer({
           <View style={confirmStyles.card}>
             <Text style={confirmStyles.title}>Restore Player Identity</Text>
             <Text style={confirmStyles.body}>
-              Enter the player's real name and optional contact details to restore their profile.
+              Enter the player&apos;s real name and optional contact details to restore their profile.
             </Text>
             <View style={{ gap: 12, marginBottom: 24 }}>
               <View>

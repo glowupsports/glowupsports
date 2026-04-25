@@ -284,6 +284,7 @@ function MatchReadinessCard({
 }
 
 function DrawBracket({ matches }: { matches: DrawMatch[][] }) {
+  const insets = useSafeAreaInsets();
   return (
     <ScrollView 
       horizontal 
@@ -972,7 +973,7 @@ export default function TournamentDetailScreen() {
               <View style={detailRegStyles.paymentNote}>
                 <Ionicons name="information-circle-outline" size={16} color="#FBBF24" />
                 <Text style={detailRegStyles.paymentNoteText}>
-                  Entry fee of AED {Number(tournament.entryFee)} will be collected by the hosting academy. Your spot will be held as "pending payment."
+                  Entry fee of AED {Number(tournament.entryFee)} will be collected by the hosting academy. Your spot will be held as &quot;pending payment.&quot;
                 </Text>
               </View>
             ) : null}
@@ -999,7 +1000,7 @@ export default function TournamentDetailScreen() {
 
             {(tournament.type === "doubles" || tournament.type === "mixed_doubles") ? (
               <>
-                <Text style={detailRegStyles.fieldLabel}>Partner's name *</Text>
+                <Text style={detailRegStyles.fieldLabel}>Partner&apos;s name *</Text>
                 <TextInput
                   style={detailRegStyles.field}
                   value={regPartner}

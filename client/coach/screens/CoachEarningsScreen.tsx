@@ -43,17 +43,17 @@ interface HistoryItem {
 }
 
 interface Analytics {
-  weekdayBreakdown: Array<{ day: string; dayFull: string; earnings: number; sessions: number; hours: number }>;
-  sessionTypeBreakdown: Array<{ type: string; label: string; earnings: number; sessions: number; percentage: number }>;
+  weekdayBreakdown: { day: string; dayFull: string; earnings: number; sessions: number; hours: number }[];
+  sessionTypeBreakdown: { type: string; label: string; earnings: number; sessions: number; percentage: number }[];
   peakHours: { morning: { earnings: number; sessions: number; label: string }; afternoon: { earnings: number; sessions: number; label: string }; evening: { earnings: number; sessions: number; label: string } };
-  topPlayers: Array<{ playerId: string; playerName: string; earnings: number; sessions: number }>;
-  weeklyBreakdown: Array<{ week: number; label: string; startDate: string; endDate: string; earnings: number; sessions: number }>;
+  topPlayers: { playerId: string; playerName: string; earnings: number; sessions: number }[];
+  weeklyBreakdown: { week: number; label: string; startDate: string; endDate: string; earnings: number; sessions: number }[];
   monthComparison: { currentMonth: { earnings: number; sessions: number }; previousMonth: { earnings: number; sessions: number }; changePercent: number; trend: string };
   yearlyTotal: { earnings: number; sessions: number; monthsTracked: number };
   cancellationImpact: { cancelledSessions: number; estimatedLoss: number; cancellationRate: number };
   workPatterns: { totalHoursWorked: number; avgHoursPerDay: number; activeDays: number; restDays: number; busiestDay: string; avgPerHour: number };
   streaks: { currentStreak: number; bestStreak: number; consecutiveMonthsAboveAvg: number };
-  milestones: Array<{ id: string; title: string; description: string; achieved: boolean; progress?: number; icon: string }>;
+  milestones: { id: string; title: string; description: string; achieved: boolean; progress?: number; icon: string }[];
   personalRecords: { bestMonth: { month: string; year: number; earnings: number }; bestDay: { date: string; earnings: number }; bestWeek: { weekStart: string; earnings: number }; isCurrentMonthRecord: boolean };
   currency: string;
   period: { month: number; year: number };
@@ -89,7 +89,7 @@ function StatRow({ label, value, valueColor }: { label: string; value: string; v
   );
 }
 
-function BarChart({ data, maxValue, color }: { data: Array<{ label: string; value: number; subLabel?: string }>; maxValue: number; color: string }) {
+function BarChart({ data, maxValue, color }: { data: { label: string; value: number; subLabel?: string }[]; maxValue: number; color: string }) {
   return (
     <View style={styles.barChartContainer}>
       {data.map((item, i) => {

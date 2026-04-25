@@ -431,7 +431,7 @@ router.get("/head-to-head/:opponentId", async (req: Request, res: Response) => {
       [playerId, opponentId]
     );
 
-    const allResults: Array<{ date: string; result: string }> = [];
+    const allResults: { date: string; result: string }[] = [];
     let wins = 0;
     let losses = 0;
     let lastPlayed: string | null = null;

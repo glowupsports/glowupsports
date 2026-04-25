@@ -263,7 +263,7 @@ export default function GlowLeaderboardScreen() {
     isRefetching: rollingRefetching,
     isError: rollingError,
   } = useQuery<{
-    rows: Array<{ rank: number; playerId: string; name: string; photoUrl: string | null; value: number }>;
+    rows: { rank: number; playerId: string; name: string; photoUrl: string | null; value: number }[];
   }>({
     queryKey: ["/api/leaderboards", scope, category],
     enabled: isRollingMetric,

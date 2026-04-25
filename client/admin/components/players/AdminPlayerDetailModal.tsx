@@ -54,7 +54,7 @@ interface AdminPlayerDetailModalProps {
   setProgressExpanded: (v: boolean) => void;
   selectedSeriesFilter: string | null;
   setSelectedSeriesFilter: (v: string | null) => void;
-  uniqueSeries: Array<{ id: string; name: string }>;
+  uniqueSeries: { id: string; name: string }[];
   filteredSessions: AdminPlayerSessionItem[];
   handleCopyInviteCode: () => void;
   handleRegenerateInviteCode?: () => void;

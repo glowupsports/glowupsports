@@ -360,7 +360,7 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
               </LinearGradient>
 
               <Text style={styles.confirmNote}>
-                By activating, you'll create your own freelance academy. You can still work with other academies - your calendar stays unified.
+                By activating, you&apos;ll create your own freelance academy. You can still work with other academies - your calendar stays unified.
               </Text>
             </View>
           </Animated.View>

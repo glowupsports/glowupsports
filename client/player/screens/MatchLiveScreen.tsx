@@ -44,10 +44,10 @@ type MatchLiveParams = {
 };
 
 interface ScoreState {
-  sets: Array<{ creator: number; opponent: number }>;
+  sets: { creator: number; opponent: number }[];
   currentGame: { creator: number; opponent: number; server?: "creator" | "opponent" };
   setsWon: { creator: number; opponent: number };
-  pointHistory: Array<{ point: number; winner: "creator" | "opponent"; timestamp: string }>;
+  pointHistory: { point: number; winner: "creator" | "opponent"; timestamp: string }[];
 }
 
 interface MatchData {

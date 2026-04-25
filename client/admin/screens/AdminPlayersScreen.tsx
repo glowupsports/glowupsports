@@ -1809,7 +1809,7 @@ function AdminInvitePopover({
             <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.dark.text }}>Awaiting Signup</Text>
           </View>
           <Text style={{ fontSize: 12, color: Colors.dark.textMuted, textAlign: "center", lineHeight: 16, marginBottom: Spacing.md }}>
-            {player?.name} hasn't joined the app yet. Share this code with them:
+            {player?.name} hasn&apos;t joined the app yet. Share this code with them:
           </Text>
           {isLoading ? (
             <ActivityIndicator size="small" color={Colors.dark.orange} style={{ marginVertical: 16 }} />

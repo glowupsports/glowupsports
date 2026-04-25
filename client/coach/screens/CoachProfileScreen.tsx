@@ -545,7 +545,7 @@ export default function CoachProfileScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.hintTitle}>Complete your public profile</Text>
                   <Text style={styles.hintBody}>
-                    You're opted-in, but players won't see you in the public coach rail until you add a photo, a public quote, or a specialty.
+                    You&apos;re opted-in, but players won&apos;t see you in the public coach rail until you add a photo, a public quote, or a specialty.
                   </Text>
                 </View>
               </View>

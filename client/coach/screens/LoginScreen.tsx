@@ -447,7 +447,7 @@ function DOBField({ value, onChange, readOnly = false, accentColor = Colors.dark
         </Text>
       ) : null}
       {isMinor ? (
-        <Text style={dobFieldStyles.minorHint}>You can add a parent's email later in settings.</Text>
+        <Text style={dobFieldStyles.minorHint}>You can add a parent&apos;s email later in settings.</Text>
       ) : null}
 
       <Modal visible={showPicker} transparent animationType="fade" onRequestClose={() => setShowPicker(false)}>
@@ -1937,7 +1937,7 @@ export default function LoginScreen() {
             </View>
             <Text style={[styles.infoTitle, { color: Colors.dark.successNeon }]}>Application Submitted!</Text>
             <Text style={styles.infoText}>
-              Thank you for your interest. We'll review your application and get back to you via email within 48 hours.
+              Thank you for your interest. We&apos;ll review your application and get back to you via email within 48 hours.
             </Text>
           </View>
 

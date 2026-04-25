@@ -195,7 +195,7 @@ export interface PlayersNearYouRowProps {
   /** When false, do not filter by ball level (free-player home shows all). Default true. */
   filterByLevel?: boolean;
   /** Override the nearby players list (free-player home fetches scope=all). */
-  players?: Array<{
+  players?: {
     id: string;
     name: string;
     level: string;
@@ -205,7 +205,7 @@ export interface PlayersNearYouRowProps {
     skillLevel?: number | string;
     distanceKm?: number;
     driveTimeText?: string;
-  }>;
+  }[];
   /** Hide the row entirely when there are no players (default true). */
   hideWhenEmpty?: boolean;
   /** Override the section title (defaults to "Players near you"). */
@@ -420,7 +420,7 @@ export function GroupLessonsRow() {
 
   useEffect(() => {
     if (playerLat == null || playerLng == null || groupLessons.length === 0) return;
-    const dests: Array<{ id: string; lat: number; lng: number }> = [];
+    const dests: { id: string; lat: number; lng: number }[] = [];
     const seen = new Set<string>();
     for (const s of groupLessons) {
       const lat = (s as any).locationLat;

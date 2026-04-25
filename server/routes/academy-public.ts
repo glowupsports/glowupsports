@@ -45,6 +45,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     badges as badgesTable, playerBadges as playerBadgesTable,
     titles as titlesTable, playerTitles as playerTitlesTable,
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
+    coachNotifications,
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
@@ -1206,7 +1207,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         // Create notification for coaches
         for (const coach of academyCoaches) {
-          await db.insert(notifications).values({
+          await db.insert(coachNotifications).values({
             id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             userId: coach.userId,
             type: "lesson_request",

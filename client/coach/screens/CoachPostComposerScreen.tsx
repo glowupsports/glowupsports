@@ -12,8 +12,7 @@ import {
   Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useHeaderHeight } from "@react-navigation/elements";
-import { HeaderButton } from "@react-navigation/elements";
+import { useHeaderHeight , HeaderButton } from "@react-navigation/elements";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -308,7 +307,7 @@ export default function CoachPostComposerScreen({ route }: { route?: { params?: 
       </ScrollView>
       <Text style={styles.hint}>{meta.hint}</Text>
 
-      <ThemedText style={styles.sectionLabel}>What's the message?</ThemedText>
+      <ThemedText style={styles.sectionLabel}>What&apos;s the message?</ThemedText>
       <View style={[styles.captionWrap, { borderColor: meta.accent + "55" }]}>
         <TextInput
           value={caption}
@@ -455,7 +454,7 @@ export default function CoachPostComposerScreen({ route }: { route?: { params?: 
           {audience === "group" ? (
             <View style={styles.groupList}>
               {coachGroupOptions.length === 0 ? (
-                <Text style={styles.hint}>You're not in any coaching groups yet.</Text>
+                <Text style={styles.hint}>You&apos;re not in any coaching groups yet.</Text>
               ) : (
                 coachGroupOptions.map((g) => {
                   const active = g.id === groupId;

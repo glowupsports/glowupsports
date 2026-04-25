@@ -30,10 +30,10 @@ router.use(authMiddleware);
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 interface ScoreState {
-  sets: Array<{ creator: number; opponent: number }>;
+  sets: { creator: number; opponent: number }[];
   currentGame: { creator: number; opponent: number; server?: "creator" | "opponent" };
   setsWon: { creator: number; opponent: number };
-  pointHistory: Array<{ point: number; winner: "creator" | "opponent"; timestamp: string }>;
+  pointHistory: { point: number; winner: "creator" | "opponent"; timestamp: string }[];
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -284,7 +284,7 @@ function applyPoint(
  * Used for server-authoritative undo.
  */
 function replayPointHistory(
-  history: Array<{ winner: "creator" | "opponent" }>,
+  history: { winner: "creator" | "opponent" }[],
   sport: string,
   matchFormat: string,
   scoringMode: string,

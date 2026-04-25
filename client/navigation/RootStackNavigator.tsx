@@ -85,7 +85,7 @@ function useNavigationEffect(
     prevBootRef.current = bootComplete;
     prevModeRef.current = mode;
 
-    const PUBLIC_ROUTES: Array<keyof RootStackParamList> = ["ProviderJoin", "Login", "ResetPassword"];
+    const PUBLIC_ROUTES: (keyof RootStackParamList)[] = ["ProviderJoin", "Login", "ResetPassword"];
     const navState = navigationRef.getState?.();
     const currentRoute = navState?.routes?.[navState.index]?.name as keyof RootStackParamList | undefined;
     if (!isAuthenticated && currentRoute && PUBLIC_ROUTES.includes(currentRoute) && currentRoute !== "Login") {

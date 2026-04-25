@@ -1299,7 +1299,7 @@ export async function sendOnboardingDay7Email(params: {
 }): Promise<{ success: boolean; error?: string }> {
   const { to, userName, role, academyName, sessionsCount = 0, xpEarned = 0 } = params;
 
-  const roleHighlights: Record<string, { features: Array<{ icon: string; title: string; desc: string }> }> = {
+  const roleHighlights: Record<string, { features: { icon: string; title: string; desc: string }[] }> = {
     coach: {
       features: [
         { icon: "calendar", title: "Session Series", desc: "Create recurring training blocks that auto-generate sessions weekly" },

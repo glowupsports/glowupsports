@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pkg from "pg";
-const { Pool } = pkg;
 import * as schema from "@shared/schema";
+const { Pool } = pkg;
 
 // Always use Supabase database for both development and production
 const databaseUrl = process.env.SUPABASE_DATABASE_URL || "";

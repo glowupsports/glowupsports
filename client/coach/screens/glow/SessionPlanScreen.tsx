@@ -169,7 +169,7 @@ export default function SessionPlanScreen() {
             <View style={styles.templateInfo}>
               <ThemedText style={styles.templateName}>Auto-Generate</ThemedText>
               <ThemedText style={styles.templateDesc}>
-                Based on player's current level and progress
+                Based on player&apos;s current level and progress
               </ThemedText>
             </View>
             {!selectedTemplate ? (

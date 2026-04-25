@@ -127,7 +127,7 @@ export function WhatsNewFeed({ visible, onClose, items }: WhatsNewFeedProps) {
           <Animated.View entering={FadeIn.duration(300)} style={styles.sheetHeader}>
             <View style={styles.headerLeft}>
               <Ionicons name="sparkles" size={24} color={GlowColors.primary} />
-              <Text style={styles.sheetTitle}>What's New</Text>
+              <Text style={styles.sheetTitle}>What&apos;s New</Text>
             </View>
             <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={8}>
               <Ionicons name="close" size={22} color={TextColors.secondary} />

@@ -128,7 +128,7 @@ interface ChatMessage {
   senderPlayerId: string | null;
   body: string;
   createdAt: string;
-  reactions: Array<{ id: string; emoji: string; reactorPlayerId: string | null }>;
+  reactions: { id: string; emoji: string; reactorPlayerId: string | null }[];
 }
 
 type Tab = "feed" | "events" | "chat" | "members";
@@ -1692,7 +1692,7 @@ function EventDetailSheet({
                 )}
                 {attendees.notGoing.length > 0 && (
                   <>
-                    <Text style={[detailStyles.sectionLabel, { color: "#FF6B6B", marginTop: 12 }]}>Can't make it ({attendees.notGoing.length})</Text>
+                    <Text style={[detailStyles.sectionLabel, { color: "#FF6B6B", marginTop: 12 }]}>Can&apos;t make it ({attendees.notGoing.length})</Text>
                     {attendees.notGoing.map((a, i) => renderAttendeeRow(a, i))}
                   </>
                 )}
@@ -2132,7 +2132,7 @@ function GroupChatTab({
       if (conversationId) {
         apiRequest("GET", `/api/player/me/conversations/${conversationId}/read-state`)
           .then(res => res.json())
-          .then((readState: Array<{ playerId: string | null; lastReadAt: string | Date | null }>) => {
+          .then((readState: { playerId: string | null; lastReadAt: string | Date | null }[]) => {
             if (Array.isArray(readState) && readState.length > 0) {
               const latest = readState.reduce<Date | null>((max, p) => {
                 if (!p.lastReadAt) return max;
@@ -2188,7 +2188,7 @@ function GroupChatTab({
         <View style={[styles.emptyIcon, { backgroundColor: typeColor + "20" }]}>
           <Ionicons name="chatbubbles-outline" size={36} color={typeColor} />
         </View>
-        <Text style={styles.emptyTitle}>Couldn't load chat</Text>
+        <Text style={styles.emptyTitle}>Couldn&apos;t load chat</Text>
         <Text style={styles.emptySubtitle}>Check your connection and try again</Text>
         <Pressable onPress={initConversation} style={{ marginTop: 20, alignSelf: "center", borderRadius: 24, overflow: "hidden" }}>
           <LinearGradient colors={[typeColor, typeColor + "BB"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 24, paddingHorizontal: 28, paddingVertical: 13 }}>
@@ -2501,7 +2501,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   const handleMenu = () => {
     const isAdmin = data?.myRole === "admin";
     const isMember = data?.isMember;
-    const options: Array<{ text: string; style?: "destructive" | "cancel"; onPress?: () => void }> = [];
+    const options: { text: string; style?: "destructive" | "cancel"; onPress?: () => void }[] = [];
     if (isMember) options.push({ text: "Invite to Group", onPress: handleInvite });
     if (isMember && !isAdmin) options.push({ text: "Leave Group", style: "destructive", onPress: handleLeave });
     if (isMember && isAdmin) options.push({ text: "Delete Group", style: "destructive", onPress: handleDelete });

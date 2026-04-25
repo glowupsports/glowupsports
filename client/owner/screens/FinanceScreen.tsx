@@ -108,14 +108,14 @@ interface FinanceData {
   estimated: {
     monthlyForecast: number;
     activeSubscriptions: number;
-    breakdown: Array<{
+    breakdown: {
       planName: string;
       count: number;
       monthlyTotal: number;
-    }>;
+    }[];
     tooltip: string;
   };
-  recentPayments: Array<{
+  recentPayments: {
     id: string;
     playerName: string;
     package: string;
@@ -123,7 +123,7 @@ interface FinanceData {
     status: string;
     paymentMethod?: string;
     date?: string;
-  }>;
+  }[];
 }
 
 interface FinanceSectionCardProps {

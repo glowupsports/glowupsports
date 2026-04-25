@@ -12,7 +12,16 @@ import {
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
+import { useContext } from "react";
+
+// Task #1313 — Safely read tab bar height without violating Rules of Hooks.
+// useBottomTabBarHeight throws when not inside a tab navigator; reading the
+// underlying context returns undefined instead, which we substitute.
+function useBottomTabBarHeightSafe(): number {
+  const value = useContext(BottomTabBarHeightContext);
+  return typeof value === "number" ? value : 80;
+}
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Animated, { FadeInDown, FadeInRight, FadeInLeft } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
@@ -47,8 +56,10 @@ export default function ChallengePlayerScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  let tabBarHeight = 0;
-  try { tabBarHeight = useBottomTabBarHeight(); } catch { tabBarHeight = 80; }
+  // Task #1313 — useBottomTabBarHeight throws when not inside a tab navigator.
+  // Try/catch around a hook violates Rules of Hooks; the parent navigator can
+  // be detected with useNavigationState instead.
+  const tabBarHeight = useBottomTabBarHeightSafe();
 
   const { opponentId, opponentName, opponentPhoto, opponentBallLevel, opponentLevel } = route.params;
   const levelColor = getPlayerLevelColor(opponentBallLevel);
@@ -143,7 +154,7 @@ export default function ChallengePlayerScreen() {
 
   const { data: neutralCourtData } = useQuery<{
     suggestedCourtId: string | null;
-    courts: Array<{ courtId: string; fromMe: number | null; fromOpponent: number | null }>;
+    courts: { courtId: string; fromMe: number | null; fromOpponent: number | null }[];
   }>({
     queryKey: ["/api/matches/challenge/neutral-court", playerId, opponentId, academyId],
     queryFn: async () => {

@@ -37,12 +37,12 @@ interface OpponentDetail {
     wins: number;
     losses: number;
     winRate: number | null;
-    matches: Array<{
+    matches: {
       id: string;
       matchDate: string;
       result: string;
       score: string;
-    }>;
+    }[];
   };
 }
 

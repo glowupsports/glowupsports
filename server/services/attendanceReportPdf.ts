@@ -145,7 +145,7 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
   const realSeriesCount = Array.from(seriesGroupsRaw.keys()).filter(k => k !== '__no_series__').length;
   const isMultiSeries = realSeriesCount > 1;
 
-  let sortedSeriesGroups: Array<{ seriesId: string; info: SeriesInfo | null; records: typeof lessonRecords }>;
+  let sortedSeriesGroups: { seriesId: string; info: SeriesInfo | null; records: typeof lessonRecords }[];
 
   if (isMultiSeries) {
     sortedSeriesGroups = Array.from(seriesGroupsRaw.values()).sort((a, b) => {

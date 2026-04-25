@@ -64,13 +64,13 @@ interface Message {
   body: string;
   messageType: string | null;
   createdAt: string;
-  reactions: Array<{
+  reactions: {
     id: string;
     emoji: string;
     reactorType: string;
     reactorCoachId: string | null;
     reactorPlayerId: string | null;
-  }>;
+  }[];
   _optimistic?: true;
   _failed?: true;
   isDeleted?: boolean | null;
@@ -176,13 +176,13 @@ interface WorldMessage {
   senderName: string;
   academyName: string;
   senderPhotoUrl: string | null;
-  reactions: Array<{
+  reactions: {
     id: string;
     emoji: string;
     reactorType: string;
     reactorCoachId: string | null;
     reactorPlayerId: string | null;
-  }>;
+  }[];
 }
 
 interface SenderProfile {
@@ -1486,7 +1486,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   };
 
   const DEFAULT_QUICK_PHRASES = isPlayerMode ? DEFAULT_QUICK_PHRASES_PLAYER : DEFAULT_QUICK_PHRASES_COACH;
-  const quickPhraseList: Array<{ id?: string; body: string; isCustom: boolean }> = [
+  const quickPhraseList: { id?: string; body: string; isCustom: boolean }[] = [
     ...DEFAULT_QUICK_PHRASES.map(p => ({ body: p, isCustom: false })),
     ...customQuickReplies.map(q => ({ id: q.id, body: q.body, isCustom: true })),
   ].slice(0, MAX_QUICK_REPLIES);
@@ -1879,7 +1879,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       .join("")
       .toUpperCase();
 
-    const reactions = (item as any).reactions as Array<{ emoji: string; reactorCoachId: string | null; reactorPlayerId: string | null }> | undefined;
+    const reactions = (item as any).reactions as { emoji: string; reactorCoachId: string | null; reactorPlayerId: string | null }[] | undefined;
     const groupedReactions: Record<string, { count: number; reactedByMe: boolean }> = {};
     if (Array.isArray(reactions)) {
       for (const r of reactions) {
@@ -3208,11 +3208,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   );
 }
 
-const CHAT_ONBOARDING_STEPS: Array<{
+const CHAT_ONBOARDING_STEPS: {
   icon: React.ComponentProps<typeof Ionicons>["name"];
   title: string;
   body: string;
-}> = [
+}[] = [
   {
     icon: "chatbubbles-outline",
     title: "Welcome to Glow Chat",

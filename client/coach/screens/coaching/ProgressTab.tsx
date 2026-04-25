@@ -8,14 +8,16 @@ import {
   ActivityIndicator,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
+import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ObservationTrendChart } from "@/components/ObservationTrendChart";
 import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
 import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
-import type { TabProps, PlayerSkillState, PlayerXpData, ObservationTrend, SkillDomain } from "./types";
+import type { TabProps, PlayerSkillState, PlayerXpData, ObservationTrend, SkillDomain, PlayerWithProgress, AssessmentStatus } from "./types";
 import { styles } from "./coachingStyles";
 import { getDomainIcon, getTrendIcon, getTrendColor, getMomentumColor, getProgressColor, getAssessmentBadge, getLevelColor, formatSessionTime, formatSessionDate, getSessionTypeLabel } from "./progressUtils";
 import { useCoachingScroll } from "./CoachingScrollContext";

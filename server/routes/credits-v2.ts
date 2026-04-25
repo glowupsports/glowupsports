@@ -758,21 +758,21 @@ router.post(
           expiringSoon: 0,
         };
       }
-      for (const row of balRes.rows as Array<{
+      for (const row of balRes.rows as {
         player_id: string;
         type: string;
         credits: string | number;
-      }>) {
+      }[]) {
         const w = wallets[row.player_id];
         if (w && (row.type === "group" || row.type === "semi_private" || row.type === "private")) {
           w.balance[row.type] = Number(row.credits);
         }
       }
-      for (const row of lotRes.rows as Array<{
+      for (const row of lotRes.rows as {
         player_id: string;
         next_expiry: string | null;
         expiring_soon: number;
-      }>) {
+      }[]) {
         const w = wallets[row.player_id];
         if (w) {
           w.nextExpiry = row.next_expiry;

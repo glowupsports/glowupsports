@@ -104,7 +104,7 @@ export default function ParentDashboardScreen() {
     >
       <View style={styles.header}>
         <ThemedText style={styles.greeting}>Parent Dashboard</ThemedText>
-        <ThemedText style={styles.subtitle}>Track your child's tennis journey</ThemedText>
+        <ThemedText style={styles.subtitle}>Track your child&apos;s tennis journey</ThemedText>
       </View>
 
       <ThemedText style={styles.sectionTitle}>Your Children</ThemedText>

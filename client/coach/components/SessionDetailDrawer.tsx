@@ -16,22 +16,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-const SESSION_DETAILS_INTRO_KEY = "skipSessionDetailsIntro";
-
-const BALL_LEVELS = ["Blue", "Red", "Orange", "Green", "Yellow", "Glow"];
-
-const CANCELLATION_REASONS = [
-  { label: "Select a reason...", value: "" },
-  { label: "Personal emergency", value: "Personal emergency" },
-  { label: "Weather conditions", value: "Weather conditions" },
-  { label: "Court unavailable", value: "Court unavailable" },
-  { label: "Player requested cancellation", value: "Player requested cancellation" },
-  { label: "Illness / Health issue", value: "Illness / Health issue" },
-  { label: "Schedule conflict", value: "Schedule conflict" },
-  { label: "Equipment issues", value: "Equipment issues" },
-  { label: "Other", value: "Other" },
-];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { getBallLevelColor } from "./series-detail/utils";
@@ -52,6 +36,22 @@ import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 import { useAIModal } from "@/coach/context/AIModalContext";
 import { AISessionPlanModal } from "./AISessionPlanModal";
 import SendGroupReminderModal from "./SendGroupReminderModal";
+
+const SESSION_DETAILS_INTRO_KEY = "skipSessionDetailsIntro";
+
+const BALL_LEVELS = ["Blue", "Red", "Orange", "Green", "Yellow", "Glow"];
+
+const CANCELLATION_REASONS = [
+  { label: "Select a reason...", value: "" },
+  { label: "Personal emergency", value: "Personal emergency" },
+  { label: "Weather conditions", value: "Weather conditions" },
+  { label: "Court unavailable", value: "Court unavailable" },
+  { label: "Player requested cancellation", value: "Player requested cancellation" },
+  { label: "Illness / Health issue", value: "Illness / Health issue" },
+  { label: "Schedule conflict", value: "Schedule conflict" },
+  { label: "Equipment issues", value: "Equipment issues" },
+  { label: "Other", value: "Other" },
+];
 
 interface Player {
   id: string;
@@ -128,7 +128,7 @@ export default function SessionDetailDrawer({
 
   const reminderSeriesQuery = useQuery<{
     title?: string;
-    players?: Array<{ status?: string | null }>;
+    players?: { status?: string | null }[];
   }>({
     queryKey: ["/api/coach/series", liveSession?.seriesId],
     enabled: !!liveSession?.seriesId && showReminderModal,
@@ -1076,7 +1076,7 @@ export default function SessionDetailDrawer({
             </Pressable>
           </View>
           <Pressable onPress={handleDismissIntro} style={styles.introCardDismiss}>
-            <Text style={styles.introCardDismissText}>Don't show again</Text>
+            <Text style={styles.introCardDismissText}>Don&apos;t show again</Text>
           </Pressable>
         </View>
       ) : null}
@@ -2221,7 +2221,7 @@ export default function SessionDetailDrawer({
               </Pressable>
             ))}
             {filteredPlayers.length === 0 && availablePlayers.length > 0 && (
-              <Text style={styles.noPlayersText}>No players match "{playerSearch}"</Text>
+              <Text style={styles.noPlayersText}>No players match &quot;{playerSearch}&quot;</Text>
             )}
             {availablePlayers.length === 0 && (
               <Text style={styles.noPlayersText}>All players are already in this session</Text>

@@ -253,7 +253,7 @@ router.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthReques
     
     const realizedByCurrency: Record<string, { amount: number; sessions: number }> = {};
     const projectedByCurrency: Record<string, { amount: number; sessions: number }> = {};
-    const errors: Array<{ sessionId: string; code: string; message: string }> = [];
+    const errors: { sessionId: string; code: string; message: string }[] = [];
     
     const cachedData = { sessionPlayersMap, seriesPlayersMap, getPricing: getAcademyPricingCached };
     

@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, type AppStateStatus } from "react-native";
-import type {
+import { AppState, type AppStateStatus ,
   FlatList,
   LayoutChangeEvent,
   NativeScrollEvent,

@@ -32,11 +32,11 @@ interface ApiMessage {
   body: string;
   messageType: string | null;
   createdAt: string;
-  reactions: Array<{
+  reactions: {
     id: string;
     emoji: string;
     reactorType: string;
-  }>;
+  }[];
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);

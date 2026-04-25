@@ -559,7 +559,7 @@ export default function GroupsScreen({ navigation, route }: Props) {
             <Ionicons name="calendar-outline" size={64} color={Colors.dark.textMuted} />
             <Text style={styles.emptyTitle}>No Classes Yet</Text>
             <Text style={styles.emptySubtitle}>
-              When you join a recurring class, it'll show up here automatically.
+              When you join a recurring class, it&apos;ll show up here automatically.
             </Text>
           </View>
         );

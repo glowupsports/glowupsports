@@ -8,10 +8,9 @@ import {
   coachNotifications,
   coaches,
   payments,
-} from '../shared/schema';
+ familyGroups } from '../shared/schema';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { sendPushNotification, getCoachPushTokens } from './pushNotifications';
-import { familyGroups } from '../shared/schema';
 
 interface DropInLessonMetadata {
   type: 'drop_in_lesson';

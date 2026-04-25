@@ -786,7 +786,7 @@ async function generatePillarScores(matchId: string, playerId: string, reflectio
 }
 
 async function generateTrainingSuggestions(matchId: string, playerId: string, reflection: any) {
-  const suggestions: Array<{ focusArea: string; pillar: string; priority: number }> = [];
+  const suggestions: { focusArea: string; pillar: string; priority: number }[] = [];
 
   if (reflection?.whatDidntWork?.includes("backhand")) {
     suggestions.push({ focusArea: "backhand_consistency", pillar: "technique", priority: 1 });

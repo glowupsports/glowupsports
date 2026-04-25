@@ -717,7 +717,7 @@ export default function TrainingDetailScreen() {
             <Text style={styles.sectionTitle}>Coach Feedback</Text>
           </View>
           <Text style={styles.feedbackText}>
-            "{data.feedback.message || "No written feedback for this session."}"
+            &quot;{data.feedback.message || "No written feedback for this session."}&quot;
           </Text>
           <View style={styles.metricsRow}>
             <View style={styles.metricItem}>

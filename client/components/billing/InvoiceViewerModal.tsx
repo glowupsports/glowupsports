@@ -228,7 +228,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid, onDelete
               }}
             >
               {(() => {
-                const rows: Array<{ label: string; value: string; color?: string }> = [
+                const rows: { label: string; value: string; color?: string }[] = [
                   { label: "Issued", value: fmtDate(merged.createdAt) },
                   { label: "Due", value: fmtDate(merged.dueDate) },
                 ];

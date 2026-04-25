@@ -397,7 +397,7 @@ export function generateReportHtml(report: {
   monthYear: string;
   sessionsAttended: number;
   sessionsTotal: number;
-  pillarHighlights?: Array<{ pillar: string; score: number; trend: string }>;
+  pillarHighlights?: { pillar: string; score: number; trend: string }[];
   aiProgressSummary?: string | null;
   nextMilestone?: string | null;
   coachNote?: string | null;
@@ -533,7 +533,7 @@ interface ReportData {
   monthYear: string;
   sessionsAttended: number;
   sessionsTotal: number;
-  pillarHighlights?: Array<{ pillar: string; score: number; trend: string }>;
+  pillarHighlights?: { pillar: string; score: number; trend: string }[];
   aiProgressSummary?: string | null;
   nextMilestone?: string | null;
   coachNote?: string | null;

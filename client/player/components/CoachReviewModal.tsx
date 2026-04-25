@@ -250,7 +250,7 @@ export function CoachReviewModal({ visible, onClose, coach, onSuccess }: CoachRe
               >
                 <View style={styles.inputGroup}>
                   <ThemedText style={styles.inputLabel}>What does this coach do well?</ThemedText>
-                  <ThemedText style={styles.inputHint}>Help other players understand this coach's strengths</ThemedText>
+                  <ThemedText style={styles.inputHint}>Help other players understand this coach&apos;s strengths</ThemedText>
                   <TextInput
                     style={styles.textInput}
                     value={whatDoesWell}

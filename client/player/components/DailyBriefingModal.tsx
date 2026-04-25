@@ -508,7 +508,7 @@ function LevelUpContent({
         <Text style={[lu.levelNum, { color }]}>{level}</Text>
       </Animated.View>
       <Text style={[lu.levelUpBadge, { color }]}>LEVEL UP</Text>
-      <Text style={lu.titleText}>You're now a {title}</Text>
+      <Text style={lu.titleText}>You&apos;re now a {title}</Text>
       {prevLevel !== null ? (
         <Text style={lu.subText}>
           {prevLevel} → {level}
@@ -732,12 +732,12 @@ function TodaysOpportunitiesContent({
     >
       {isEmpty ? (
         <View style={s3.quietWrap}>
-          <Text style={s3.quietText}>Court's quiet today</Text>
+          <Text style={s3.quietText}>Court&apos;s quiet today</Text>
         </View>
       ) : (
         <>
           <Text style={s3.eyebrow}>TODAY</Text>
-          <Text style={s3.headline}>What's on</Text>
+          <Text style={s3.headline}>What&apos;s on</Text>
 
           {/* Open Sessions — render after load */}
           {!sessionsLoading && openSessions.length > 0 ? (
@@ -829,7 +829,7 @@ function TodaysOpportunitiesContent({
       )}
 
       <Pressable style={s3.letsGoBtn} onPress={onLetsGo}>
-        <Text style={s3.letsGoBtnText}>LET'S GO</Text>
+        <Text style={s3.letsGoBtnText}>LET&apos;S GO</Text>
         <Ionicons name="arrow-forward" size={18} color="#0D1117" />
       </Pressable>
     </ScrollView>

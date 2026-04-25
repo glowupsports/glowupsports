@@ -124,7 +124,7 @@ function ReviewCard({ review }: { review: ReviewSnippet }) {
       </View>
       
       {review.whatDoesWell ? (
-        <ThemedText style={styles.reviewText}>"{review.whatDoesWell}"</ThemedText>
+        <ThemedText style={styles.reviewText}>&quot;{review.whatDoesWell}&quot;</ThemedText>
       ) : null}
       
       {review.bestForPlayerType ? (

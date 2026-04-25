@@ -4,11 +4,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn, FadeInDown, FadeInUp, SlideInDown } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest , getStaticAssetsUrl } from "@/lib/query-client";
 import { Spacing, Backgrounds, GlowColors, Colors, BorderRadius, TextColors } from "@/constants/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
-import { getStaticAssetsUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -309,7 +308,7 @@ export default function SpotlightNominationModal({ visible, onClose }: Spotlight
                 </Text>
                 <View style={styles.successReasonCard}>
                   <Ionicons name="chatbubble" size={14} color="#FFD700" />
-                  <Text style={styles.successReason}>"{reason}"</Text>
+                  <Text style={styles.successReason}>&quot;{reason}&quot;</Text>
                 </View>
                 <Pressable onPress={handleClose} style={styles.doneBtn}>
                   <Text style={styles.doneText}>Done</Text>

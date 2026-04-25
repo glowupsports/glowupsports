@@ -59,11 +59,11 @@ interface OpenMatch {
     level?: number;
     ballLevel?: string;
   };
-  players?: Array<{
+  players?: {
     id: string;
     name: string;
     photoUrl?: string;
-  }>;
+  }[];
 }
 
 interface Friend {

@@ -394,7 +394,7 @@ export default function CoachingScreen() {
       {hasPendingActions ? (
         <View style={localStyles.pendingBanner}>
           <View style={localStyles.pendingBannerContent}>
-            <Text style={localStyles.pendingBannerTitle}>Today's Actions</Text>
+            <Text style={localStyles.pendingBannerTitle}>Today&apos;s Actions</Text>
             <View style={localStyles.pendingBannerItems}>
               {(pendingActions?.pendingRatings ?? 0) > 0 ? (
                 <Pressable

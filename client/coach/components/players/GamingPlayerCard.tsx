@@ -16,8 +16,6 @@ import {
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-
-const TAB_BAR_HEIGHT = 80;
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -47,6 +45,10 @@ import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
 import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useTabNavigation } from "@/components/TabNavigationContext";
+
+import { styles } from "./playersStyles";
+
+const TAB_BAR_HEIGHT = 80;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -146,8 +148,6 @@ const NOTE_CATEGORIES = [
   { value: "next-lesson", label: "Next Lesson", icon: "arrow-forward-outline" as const },
   { value: "general", label: "General", icon: "document-text-outline" as const },
 ];
-
-import { styles } from "./playersStyles";
 export function GamingPlayerCard({ 
   player, 
   onPress, 
@@ -538,7 +538,7 @@ export function GamingPlayerCard({
             <Text style={styles.pendingInvitePopoverTitle}>Awaiting Signup</Text>
           </View>
           <Text style={styles.pendingInvitePopoverInstruction}>
-            {player.name} hasn't joined the app yet. Share this code with them:
+            {player.name} hasn&apos;t joined the app yet. Share this code with them:
           </Text>
           {inviteData?.inviteCode ? (
             <>

@@ -87,25 +87,25 @@ async function main() {
     ...Object.values(YELLOW_STAGE_SKILLS_BY_LEVEL),
   ];
 
-  const glowSkillRows: Array<{
+  const glowSkillRows: {
     id: string;
     pillar: string;
     name: string;
     stage: string;
     description: string;
-  }> = [];
-  const levelSkillRows: Array<{
+  }[] = [];
+  const levelSkillRows: {
     levelId: string;
     skillId: string;
     targetScore: number;
     weight: string;
     isRequired: boolean;
-  }> = [];
-  const skillRubricRows: Array<{
+  }[] = [];
+  const skillRubricRows: {
     skillId: string;
     score: number;
     observable: string;
-  }> = [];
+  }[] = [];
 
   for (const levelConfig of allLevelConfigs) {
     const stage = levelConfig.levelId.split("_")[0]; // "RED", "ORANGE", etc.

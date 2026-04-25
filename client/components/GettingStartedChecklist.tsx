@@ -268,10 +268,10 @@ export function GettingStartedChecklist({
                 <Ionicons name="sparkles" size={32} color={Colors.dark.xpCyan} />
               </View>
               <Text style={styles.celebrationTitle}>
-                You're all set!
+                You&apos;re all set!
               </Text>
               <Text style={styles.celebrationDescription}>
-                You've completed all the getting started steps. You're ready to make the most of Glow Up!
+                You&apos;ve completed all the getting started steps. You&apos;re ready to make the most of Glow Up!
               </Text>
               <Pressable onPress={handleDismiss} style={styles.celebrationDismissButton}>
                 <Text style={styles.celebrationDismissText}>Dismiss</Text>

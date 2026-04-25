@@ -2019,7 +2019,6 @@ router.post(
             locationId,
             startTime: flexStart,
             endTime: flexEnd,
-            duration,
             sessionType,
             ballLevel: primaryBallLevel,
             ballLevels: ballLevelsArr ?? undefined,
@@ -2197,7 +2196,6 @@ router.post(
           locationId,
           startTime: weekStart,
           endTime: weekEnd,
-          duration,
           sessionType,
           ballLevel: primaryBallLevel,
           ballLevels: ballLevelsArr ?? undefined,
@@ -2375,7 +2373,38 @@ router.post(
         // discovery; defaults true unless coach explicitly opts to "My academy only".
         isPublic,
         publicDropInPrice,
+        // Task #1313 — Bulk handler also needs these so `...courtBookingPayload`
+        // spreads below resolve. Previously only the single-session handler
+        // defined them, so bulk-created flex sessions hit a no-undef.
+        courtBookingStatus,
+        courtBookingNote,
+        courtBookingUrl,
       } = req.body;
+
+      const VALID_COURT_BOOKING_STATUSES = new Set([
+        "academy_court",
+        "external_booked",
+        "external_pending",
+      ]);
+      const courtBookingPayload: {
+        courtBookingStatus: string | null;
+        courtBookingNote: string | null;
+        courtBookingUrl: string | null;
+      } = {
+        courtBookingStatus:
+          typeof courtBookingStatus === "string" &&
+          VALID_COURT_BOOKING_STATUSES.has(courtBookingStatus)
+            ? courtBookingStatus
+            : null,
+        courtBookingNote:
+          typeof courtBookingNote === "string" && courtBookingNote.trim()
+            ? courtBookingNote.trim().slice(0, 500)
+            : null,
+        courtBookingUrl:
+          typeof courtBookingUrl === "string" && courtBookingUrl.trim()
+            ? courtBookingUrl.trim().slice(0, 500)
+            : null,
+      };
 
       const ballLevelsArr: string[] | null =
         Array.isArray(rawBallLevels) && rawBallLevels.length > 0
@@ -2556,7 +2585,6 @@ router.post(
           academyId: academyId || undefined,
           startTime: start,
           endTime: end,
-          duration,
           sessionType,
           status: "scheduled",
           name: notes || null,
@@ -3987,7 +4015,7 @@ router.post(
                          AND ppr.parent_user_id IS NOT NULL
                     `);
                     const recipientIds = (
-                      recipientRows.rows as Array<{ user_id: string | null }>
+                      recipientRows.rows as { user_id: string | null }[]
                     )
                       .map((r) => r.user_id)
                       .filter((x): x is string => typeof x === "string" && x.length > 0);

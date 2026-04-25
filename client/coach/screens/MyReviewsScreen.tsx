@@ -207,7 +207,7 @@ function ReviewCard({ review, onRespond }: { review: Review; onRespond: (id: str
       {review.whatDoesWell ? (
         <View style={styles.feedbackSection}>
           <ThemedText style={styles.feedbackLabel}>WHAT YOU DO WELL</ThemedText>
-          <ThemedText style={styles.feedbackText}>"{review.whatDoesWell}"</ThemedText>
+          <ThemedText style={styles.feedbackText}>&quot;{review.whatDoesWell}&quot;</ThemedText>
         </View>
       ) : null}
 

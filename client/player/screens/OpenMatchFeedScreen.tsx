@@ -76,11 +76,11 @@ interface OpenMatch {
     skillLevel?: number;
     winRate?: number;
   };
-  players?: Array<{
+  players?: {
     id: string;
     name: string;
     photoUrl?: string;
-  }>;
+  }[];
 }
 
 type FilterType = "all" | "singles" | "doubles";
@@ -165,7 +165,7 @@ function CountdownTimer({ scheduledTime }: { scheduledTime?: string }) {
   );
 }
 
-function PlayerSlots({ current, max, players }: { current: number; max: number; players?: Array<{ id: string; name: string; photoUrl?: string }> }) {
+function PlayerSlots({ current, max, players }: { current: number; max: number; players?: { id: string; name: string; photoUrl?: string }[] }) {
   const slots = Array.from({ length: max }, (_, i) => i);
   
   return (

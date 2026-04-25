@@ -125,7 +125,7 @@ export default function ParentInvoicesScreen() {
     setSelectedInvoice(null);
   };
 
-  const parseLineItems = (lineItems: any): Array<{ description: string; quantity: number; unitPrice: number; total: number }> => {
+  const parseLineItems = (lineItems: any): { description: string; quantity: number; unitPrice: number; total: number }[] => {
     if (!lineItems) return [];
     try {
       const parsed = typeof lineItems === "string" ? JSON.parse(lineItems) : lineItems;

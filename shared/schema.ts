@@ -4777,7 +4777,7 @@ export const highlightReels = pgTable("highlight_reels", {
   playerId: varchar("player_id").references(() => players.id).notNull(),
   matchLogId: varchar("match_log_id").references(() => matchLogs.id, { onDelete: "cascade" }).notNull(),
   // Frames: each frame has { setIndex, playerScore, opponentScore, label, durationMs, kind }.
-  frames: jsonb("frames").$type<Array<Record<string, unknown>>>().notNull().default([]),
+  frames: jsonb("frames").$type<Record<string, unknown>[]>().notNull().default([]),
   caption: text("caption"),
   durationMs: integer("duration_ms").notNull().default(12000),
   feedItemId: varchar("feed_item_id").references(() => feedItems.id),
@@ -7439,10 +7439,10 @@ export const liveMatches = pgTable("live_matches", {
 
   // Live score state (JSONB for flexibility)
   currentScore: jsonb("current_score").$type<{
-    sets: Array<{ creator: number; opponent: number }>;
+    sets: { creator: number; opponent: number }[];
     currentGame: { creator: number; opponent: number; server?: "creator" | "opponent" };
     setsWon: { creator: number; opponent: number };
-    pointHistory: Array<{ point: number; winner: "creator" | "opponent"; timestamp: string }>;
+    pointHistory: { point: number; winner: "creator" | "opponent"; timestamp: string }[];
   }>().default(sql`'{"sets":[{"creator":0,"opponent":0}],"currentGame":{"creator":0,"opponent":0},"setsWon":{"creator":0,"opponent":0},"pointHistory":[]}'::jsonb`),
 
   // Match result
@@ -8415,12 +8415,12 @@ export const releaseNotesCache = pgTable("release_notes_cache", {
   role: text("role").notNull(), // player | parent | coach | owner
   locale: text("locale").notNull(), // en | nl | id | ar
   fromVersion: text("from_version"), // previous version we diffed against
-  slides: jsonb("slides").$type<Array<{
+  slides: jsonb("slides").$type<{
     id: string;
     icon: string;
     title: string;
     body: string;
-  }>>().notNull(),
+  }[]>().notNull(),
   commitSha: text("commit_sha"), // HEAD sha at generation time
   generatedAt: timestamp("generated_at").notNull().defaultNow(),
 }, (table) => [

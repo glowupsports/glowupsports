@@ -339,12 +339,12 @@ export default function NotificationsScreen() {
                 const meta = (notification.metadata ?? {}) as {
                   playerId?: string;
                   impactedSessionIds?: string[];
-                  impactedSessions?: Array<{
+                  impactedSessions?: {
                     id: string;
                     startTime: string;
                     sessionType?: string | null;
                     title?: string | null;
-                  }>;
+                  }[];
                 };
                 if (meta.playerId) {
                   // Close the notifications screen so the deep-link target

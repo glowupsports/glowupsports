@@ -10,8 +10,7 @@ import Animated, {
   withSequence,
   interpolate,
 } from "react-native-reanimated";
-import { ProTennisColors, BorderRadius, Colors, _getActiveSchemeInternal } from "@/constants/theme";
-import { getPlayerLevelColor } from "@/constants/theme";
+import { ProTennisColors, BorderRadius, Colors, _getActiveSchemeInternal , getPlayerLevelColor } from "@/constants/theme";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl" | "hero";
@@ -224,11 +223,11 @@ export function GlowAvatar({
 }
 
 interface AvatarStackProps {
-  avatars: Array<{
+  avatars: {
     source?: string | null;
     name?: string;
     ballLevel?: string | null;
-  }>;
+  }[];
   size?: AvatarSize;
   maxVisible?: number;
   overlap?: number;

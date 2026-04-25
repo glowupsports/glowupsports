@@ -23,7 +23,7 @@ interface RatingHistoryData {
     highestDssRating: string;
     lowestDssRating: string;
   };
-  history: Array<{
+  history: {
     matchNumber: number;
     matchId: string;
     mmrBefore: number;
@@ -34,7 +34,7 @@ interface RatingHistoryData {
     didWin: boolean;
     matchType: string;
     matchDate: string;
-  }>;
+  }[];
 }
 
 function formatDssForDisplay(dss: string): string {

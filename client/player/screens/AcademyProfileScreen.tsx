@@ -92,7 +92,7 @@ function CoachCard({ coach }: { coach: CoachInfo }) {
           <Text style={styles.coachSpecialty}>{coach.specialty}</Text>
         ) : null}
         {coach.publicQuote ? (
-          <Text style={styles.coachQuote}>"{coach.publicQuote}"</Text>
+          <Text style={styles.coachQuote}>&quot;{coach.publicQuote}&quot;</Text>
         ) : null}
       </View>
       {coach.level ? (

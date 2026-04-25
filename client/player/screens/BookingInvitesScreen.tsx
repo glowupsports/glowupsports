@@ -129,7 +129,7 @@ function InviteCard({
         {isAccepted && (
           <View style={styles.confirmedBanner}>
             <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
-            <Text style={styles.confirmedText}>You're in! See you on the court.</Text>
+            <Text style={styles.confirmedText}>You&apos;re in! See you on the court.</Text>
           </View>
         )}
       </Card>
@@ -250,7 +250,7 @@ function ChallengeInviteCard({
 
         {challenge.message ? (
           <View style={styles.challengeMessage}>
-            <Text style={styles.challengeMessageText}>"{challenge.message}"</Text>
+            <Text style={styles.challengeMessageText}>&quot;{challenge.message}&quot;</Text>
           </View>
         ) : null}
 
@@ -472,7 +472,7 @@ export default function BookingInvitesScreen() {
           </LinearGradient>
           <Text style={styles.emptyTitle}>Inbox Clear</Text>
           <Text style={styles.emptyText}>
-            When players invite you to matches or court bookings, they'll appear here
+            When players invite you to matches or court bookings, they&apos;ll appear here
           </Text>
           <View style={styles.emptyHint}>
             <Ionicons name="sparkles" size={14} color={Colors.dark.gold} />

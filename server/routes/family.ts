@@ -18,7 +18,7 @@
 import { Router, Response } from "express";
 import bcrypt from "bcrypt";
 import { db } from "../db";
-import { storage } from "../storage";
+import { storage , syncFamilyChatGroup } from "../storage";
 import {
   players,
   users,
@@ -40,7 +40,6 @@ import {
 import { eq, and, inArray, isNull, gte, lte, ne, sql } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { resolveOrCreateFamilyForCaller, addPlayerToFamily } from "../lib/family-groups";
-import { syncFamilyChatGroup } from "../storage";
 import { playerHasPin, verifyElevationToken, verifyAccountPin } from "./account-pin";
 import {
   daysUntilEighteen,

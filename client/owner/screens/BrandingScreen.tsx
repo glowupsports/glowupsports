@@ -9,7 +9,7 @@ import {
   StyleSheet,
   TextInput,
   View,
-} from "react-native";
+ Text as RNText } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -37,11 +37,12 @@ import {
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 
-const COLOR_FIELDS: Array<{
+
+const COLOR_FIELDS: {
   key: keyof AcademyThemeColors;
   label: string;
   hint: string;
-}> = [
+}[] = [
   { key: "primary", label: "Primary", hint: "Buttons, focus, highlights" },
   { key: "secondary", label: "Secondary", hint: "Hover, soft accents" },
   { key: "accent", label: "Accent", hint: "Badges, info pills" },
@@ -589,7 +590,7 @@ function Preview({ resolved }: { resolved: ReturnType<typeof resolveTheme> }) {
           ]}
         />
         <RNText style={[styles.previewTitle, { color: resolved.text }]}>
-          Tonight's session
+          Tonight&apos;s session
         </RNText>
       </View>
       {/* Card */}
@@ -652,8 +653,6 @@ function Preview({ resolved }: { resolved: ReturnType<typeof resolveTheme> }) {
     </View>
   );
 }
-
-import { Text as RNText } from "react-native";
 
 // ---------- Styles ----------
 

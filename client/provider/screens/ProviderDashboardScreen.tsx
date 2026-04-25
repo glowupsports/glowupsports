@@ -40,11 +40,11 @@ interface Booking {
   status: string;
   scheduledAt: string | null;
   totalAmount: string;
-  items: Array<{
+  items: {
     id: string;
     name: string;
     service?: { id: string; name: string; iconName: string; durationMinutes: number | null };
-  }>;
+  }[];
   player?: {
     id: string;
     name: string;
@@ -355,7 +355,7 @@ export default function ProviderDashboardScreen() {
     queryKey: ["/api/provider/me/bookings"],
   });
 
-  const { data: clientList = [] } = useQuery<Array<{ player: { id: string }; notesCount: number; preferences: Record<string, unknown> }>>({
+  const { data: clientList = [] } = useQuery<{ player: { id: string }; notesCount: number; preferences: Record<string, unknown> }[]>({
     queryKey: ["/api/provider/clients"],
   });
 
@@ -376,6 +376,58 @@ export default function ProviderDashboardScreen() {
   const is403Error = hasApiError && [profileError, todayError, allBookingsError].some(
     (e) => (e as Error)?.message?.startsWith("403")
   );
+
+  // Task #1313 — Hooks must run unconditionally; hoist all derived hooks above
+  // the error early-return below.
+  const pendingBookings = useMemo(() => allBookings.filter((b) => b.status === "pending"), [allBookings]);
+  const weekTotal = useMemo(() => allBookings.filter((b) => isThisWeek(b.scheduledAt)).length, [allBookings]);
+
+  const greeting = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
+  const sortedToday = useMemo(
+    () =>
+      [...todayBookings].sort((a, b) => {
+        if (!a.scheduledAt) return 1;
+        if (!b.scheduledAt) return -1;
+        return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+      }),
+    [todayBookings]
+  );
+
+  useEffect(() => {
+    if (pendingBookings.length > 0) {
+      pendingPulse.value = withRepeat(
+        withSequence(
+          withTiming(0.45, { duration: 600 }),
+          withTiming(1, { duration: 600 })
+        ),
+        -1,
+        false
+      );
+    } else {
+      pendingPulse.value = withTiming(1, { duration: 200 });
+    }
+  }, [pendingBookings.length, pendingPulse]);
+
+  useEffect(() => {
+    if ((stats?.streakCurrent ?? 0) > 7) {
+      streakFlame.value = withRepeat(
+        withSequence(
+          withTiming(1.25, { duration: 500 }),
+          withTiming(1, { duration: 500 })
+        ),
+        -1,
+        false
+      );
+    } else {
+      streakFlame.value = withTiming(1, { duration: 200 });
+    }
+  }, [stats?.streakCurrent, streakFlame]);
 
   if (hasApiError && !profile) {
     return (
@@ -412,19 +464,10 @@ export default function ProviderDashboardScreen() {
     );
   }
 
-  const pendingBookings = useMemo(() => allBookings.filter((b) => b.status === "pending"), [allBookings]);
-  const weekTotal = useMemo(() => allBookings.filter((b) => isThisWeek(b.scheduledAt)).length, [allBookings]);
   const rating = Number(profile?.rating ?? 0);
 
   const primary = getPrimarySpecialization(profile?.specializations ?? []);
   const extraSpecs = (profile?.specializations ?? []).length - 1;
-
-  const greeting = useMemo(() => {
-    const h = new Date().getHours();
-    if (h < 12) return "Good morning";
-    if (h < 17) return "Good afternoon";
-    return "Good evening";
-  }, []);
 
   const firstName = profile?.displayName?.split(" ")[0] ?? user?.name?.split(" ")[0] ?? "Provider";
 
@@ -489,46 +532,6 @@ export default function ProviderDashboardScreen() {
       ]
     );
   };
-
-  const sortedToday = useMemo(
-    () =>
-      [...todayBookings].sort((a, b) => {
-        if (!a.scheduledAt) return 1;
-        if (!b.scheduledAt) return -1;
-        return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
-      }),
-    [todayBookings]
-  );
-
-  useEffect(() => {
-    if (pendingBookings.length > 0) {
-      pendingPulse.value = withRepeat(
-        withSequence(
-          withTiming(0.45, { duration: 600 }),
-          withTiming(1, { duration: 600 })
-        ),
-        -1,
-        false
-      );
-    } else {
-      pendingPulse.value = withTiming(1, { duration: 200 });
-    }
-  }, [pendingBookings.length]);
-
-  useEffect(() => {
-    if ((stats?.streakCurrent ?? 0) > 7) {
-      streakFlame.value = withRepeat(
-        withSequence(
-          withTiming(1.25, { duration: 500 }),
-          withTiming(1, { duration: 500 })
-        ),
-        -1,
-        false
-      );
-    } else {
-      streakFlame.value = withTiming(1, { duration: 200 });
-    }
-  }, [stats?.streakCurrent]);
 
   const profilePhotoUri = buildPhotoUrl(profile?.profilePhotoUrl) || null;
 
@@ -683,7 +686,7 @@ export default function ProviderDashboardScreen() {
         <Animated.View entering={FadeInUp.delay(200).duration(300)}>
           <View style={styles.sectionHeader}>
             <Ionicons name="today-outline" size={14} color={Colors.dark.primary} />
-            <Text style={styles.sectionTitle}>TODAY'S SCHEDULE</Text>
+            <Text style={styles.sectionTitle}>TODAY&apos;S SCHEDULE</Text>
           </View>
 
           {sortedToday.length === 0 ? (

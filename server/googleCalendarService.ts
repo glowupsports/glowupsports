@@ -153,7 +153,7 @@ export async function deleteCalendarEvent(eventId: string): Promise<{ success: b
   }
 }
 
-export async function listCalendars(): Promise<{ success: boolean; calendars?: Array<{ id: string; name: string }>; error?: string }> {
+export async function listCalendars(): Promise<{ success: boolean; calendars?: { id: string; name: string }[]; error?: string }> {
   try {
     const calendar = await getCalendarClient();
     

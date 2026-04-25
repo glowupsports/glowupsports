@@ -203,7 +203,7 @@ function Step1Welcome({ onNext, onLogout }: StepProps & { onLogout?: () => void 
         
         <Text style={styles.welcomeTitle}>Welcome to Glow Up Sports</Text>
         <Text style={styles.welcomeSubtitle}>
-          You're about to set up your academy dashboard.{"\n"}
+          You&apos;re about to set up your academy dashboard.{"\n"}
           Everything is editable later. Nothing here can break your app.
         </Text>
         
@@ -648,7 +648,7 @@ function Step5Walkthrough({ data, setData, onNext, onBack }: StepProps) {
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.View entering={FadeInDown.delay(200).duration(500)}>
           <Text style={styles.stepTitle}>Dashboard Walkthrough</Text>
-          <Text style={styles.stepSubtitle}>Here's what you'll find in your dashboard</Text>
+          <Text style={styles.stepSubtitle}>Here&apos;s what you&apos;ll find in your dashboard</Text>
           
           <View style={styles.walkthroughContainer}>
             {WALKTHROUGH_STEPS.map((step, index) => (

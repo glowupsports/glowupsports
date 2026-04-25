@@ -22,6 +22,34 @@ import { I18nextProvider, useTranslation } from "react-i18next";
 import i18n, { initializeI18n, isRTL } from "@/i18n";
 import { initializeRevenueCat, SubscriptionProvider } from "@/lib/revenuecat";
 
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/query-client";
+import { getEnv } from "@/lib/env";
+
+import RootStackNavigator from "@/navigation/RootStackNavigator";
+import { AutoLockOverlay } from "@/components/AutoLockOverlay";
+import { setActiveRouteName, getDeepestRouteName } from "@/lib/activeRoute";
+import { useAuth , AuthProvider } from "@/coach/context/AuthContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { UpdateController } from "@/components/UpdateController";
+import { AnimatedSplashScreen } from "@/components/AnimatedSplashScreen";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
+import { WhatsNewGate } from "@/components/WhatsNewModal";
+
+import { PlayerProvider } from "@/context/PlayerContext";
+import { AppModeProvider } from "@/context/AppModeContext";
+import { NetworkProvider } from "@/context/NetworkContext";
+import { CoachProvider } from "@/coach/context/CoachContext";
+import { UIInteractionProvider } from "@/contexts/UIInteractionContext";
+import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
+import { CoachMarksProvider } from "@/components/CoachMarks";
+import { CelebrationProvider } from "@/contexts/CelebrationContext";
+import { AcademyThemeProvider } from "@/contexts/AcademyThemeContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { WebContainer } from "@/components/WebContainer";
+import { WebAlertProvider } from "@/components/WebAlertProvider";
+import { ChatStateProvider } from "@/coach/context/ChatStateContext";
+
 try {
   initializeRevenueCat();
 } catch (err: unknown) {
@@ -159,35 +187,6 @@ if (SENTRY_DSN) {
     // never let telemetry crash the app
   }
 }
-
-import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/lib/query-client";
-import { getEnv } from "@/lib/env";
-
-import RootStackNavigator from "@/navigation/RootStackNavigator";
-import { AutoLockOverlay } from "@/components/AutoLockOverlay";
-import { setActiveRouteName, getDeepestRouteName } from "@/lib/activeRoute";
-import { useAuth } from "@/coach/context/AuthContext";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { UpdateController } from "@/components/UpdateController";
-import { AnimatedSplashScreen } from "@/components/AnimatedSplashScreen";
-import { ImpersonationBanner } from "@/components/ImpersonationBanner";
-import { WhatsNewGate } from "@/components/WhatsNewModal";
-
-import { PlayerProvider } from "@/context/PlayerContext";
-import { AppModeProvider } from "@/context/AppModeContext";
-import { NetworkProvider } from "@/context/NetworkContext";
-import { CoachProvider } from "@/coach/context/CoachContext";
-import { AuthProvider } from "@/coach/context/AuthContext";
-import { UIInteractionProvider } from "@/contexts/UIInteractionContext";
-import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
-import { CoachMarksProvider } from "@/components/CoachMarks";
-import { CelebrationProvider } from "@/contexts/CelebrationContext";
-import { AcademyThemeProvider } from "@/contexts/AcademyThemeContext";
-import { ThemeProvider } from "@/contexts/ThemeContext";
-import { WebContainer } from "@/components/WebContainer";
-import { WebAlertProvider } from "@/components/WebAlertProvider";
-import { ChatStateProvider } from "@/coach/context/ChatStateContext";
 
 // react-native-keyboard-controller uses NativeEventEmitter which is unavailable
 // on web. Load KeyboardProvider only on native (iOS/Android) to prevent crashes.

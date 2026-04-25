@@ -29,7 +29,7 @@ const TIER_COLORS: Record<string, string> = {
   elite: Colors.dark.gold,
 };
 
-const ALL_FEATURES: Array<{ key: string; label: string; description: string }> = [
+const ALL_FEATURES: { key: string; label: string; description: string }[] = [
   { key: "ai_coach_basic", label: "AI Coach (Basis)", description: "Beperkte AI coaching suggesties" },
   { key: "ai_coach_unlimited", label: "AI Coach (Onbeperkt)", description: "Onbeperkte AI coaching" },
   { key: "video_feedback", label: "Video Feedback", description: "Upload en annoteer video feedback" },
@@ -569,12 +569,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tierStatLabel: { ...Typography.caption, color: Colors.dark.textSecondary },
-  editHint: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginTop: Spacing.xs,
-  },
   editHintText: { ...Typography.caption, color: Colors.dark.textMuted },
   loadingContainer: {
     alignItems: "center",

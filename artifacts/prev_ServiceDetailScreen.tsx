@@ -138,7 +138,7 @@ export default function ServiceDetailScreen() {
     mutationFn: async (payload: {
       scheduledAt: string;
       notes?: string;
-      items: Array<{ serviceId: string; quantity: number }>;
+      items: { serviceId: string; quantity: number }[];
       serviceDetails?: Record<string, string>;
       preferredProviderId?: string;
     }) => {

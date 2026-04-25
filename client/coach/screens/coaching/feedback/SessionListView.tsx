@@ -25,6 +25,7 @@ export function SessionListView(props: FeedbackTabState) {
     detailSession, setDetailSession,
     showDetailDrawer, setShowDetailDrawer,
     periodStatusCounts,
+    periodSessions,
     sortedDays,
     groupedByDay,
     tabBarHeight,

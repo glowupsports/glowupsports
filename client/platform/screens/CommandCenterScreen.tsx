@@ -126,7 +126,7 @@ function FeatureUsageCard({ academies }: { academies: AcademyOption[] }) {
     { label: "30d", value: 30 },
   ];
 
-  const CATEGORY_CONFIG: Array<{ prefix: string[]; label: string; color: string }> = [
+  const CATEGORY_CONFIG: { prefix: string[]; label: string; color: string }[] = [
     { prefix: ["tab:"], label: "Navigation", color: PLATFORM_PURPLE },
     { prefix: ["action:"], label: "Quick Actions", color: "#3498DB" },
     { prefix: ["screen:"], label: "Screens", color: "#1ABC9C" },
@@ -291,11 +291,11 @@ interface MarketplaceStats {
   publicSeriesCount: number;
   dropInBookingsThisMonth: number;
   dropInRevenueThisMonth: number;
-  topAcademiesByDropIn: Array<{
+  topAcademiesByDropIn: {
     academyId: string | null;
     academyName: string;
     dropInCount: number;
-  }>;
+  }[];
 }
 
 interface PlatformDashboardData {
@@ -320,7 +320,7 @@ interface PlatformDashboardData {
     churnedThisMonth: number;
     conversionRate: number;
   };
-  academies: Array<{
+  academies: {
     id: string;
     name: string;
     players: number;
@@ -328,23 +328,23 @@ interface PlatformDashboardData {
     mrr: number;
     healthScore: number;
     status: "healthy" | "warning" | "critical" | "trial" | "paused";
-  }>;
-  weekActivity: Array<{
+  }[];
+  weekActivity: {
     day: string;
     intensity: number;
-  }>;
-  insights: Array<{
+  }[];
+  insights: {
     id: string;
     type: string;
     title: string;
     description: string;
     change?: number;
-  }>;
-  alerts: Array<{
+  }[];
+  alerts: {
     type: "warning" | "error" | "info";
     title: string;
     description: string;
-  }>;
+  }[];
   marketplace?: MarketplaceStats;
 }
 

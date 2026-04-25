@@ -183,7 +183,7 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
 
           {isPro && resetDate ? (
             <Text style={styles.subtitle}>
-              You've used all {limit} messages this month — resets on {resetDate}
+              You&apos;ve used all {limit} messages this month — resets on {resetDate}
             </Text>
           ) : callCount > 0 ? (
             <Text style={styles.subtitle}>

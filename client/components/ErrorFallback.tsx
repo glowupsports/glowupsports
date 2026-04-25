@@ -178,7 +178,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             <View style={styles.failureRow}>
               <Ionicons name="alert-circle" size={18} color={Colors.dark.orange} />
               <ThemedText type="caption" style={styles.failureText}>
-                Couldn't send: {sendError}. We saved it and will retry next launch.
+                Couldn&apos;t send: {sendError}. We saved it and will retry next launch.
               </ThemedText>
             </View>
             <Pressable

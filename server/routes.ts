@@ -23,26 +23,7 @@ import {
   spotlightNominations,
   spotlightWeeklyWinners,
   spotlightMonthlyWinners,
-} from "@shared/schema";
-import {
-  eq,
-  sql,
-  desc,
-  and,
-  ne,
-  gt,
-  gte,
-  asc,
-  inArray,
-  notInArray,
-  isNull,
-  isNotNull,
-  or,
-  count,
-  ilike,
-  lte,
-} from "drizzle-orm";
-import {
+
   invoices,
   payments,
   sessionPlayers,
@@ -106,7 +87,37 @@ import {
   platformConfig,
   providerInvites,
   serviceProviders,
-} from "@shared/schema";
+  loginSchema,
+  registerSchema,
+  playerRegisterSchema,
+  coachInviteRegisterSchema,
+  academyApplicationInputSchema,
+  insertSessionSchema,
+  insertPlayerSchema,
+  updatePlayerSchema,
+  insertPackageSchema,
+  insertPlayerNoteSchema,
+  insertMessageSchema,
+  insertMessageReactionSchema,
+  submitReviewSchema} from "@shared/schema";
+import {
+  eq,
+  sql,
+  desc,
+  and,
+  ne,
+  gt,
+  gte,
+  asc,
+  inArray,
+  notInArray,
+  isNull,
+  isNotNull,
+  or,
+  count,
+  ilike,
+  lte,
+} from "drizzle-orm";
 import {
   setupWebSocket,
   broadcastNewMessage,
@@ -134,21 +145,6 @@ import {
   JWT_SECRET,
   type AuthenticatedRequest,
 } from "./auth";
-import {
-  loginSchema,
-  registerSchema,
-  playerRegisterSchema,
-  coachInviteRegisterSchema,
-  academyApplicationInputSchema,
-  insertSessionSchema,
-  insertPlayerSchema,
-  updatePlayerSchema,
-  insertPackageSchema,
-  insertPlayerNoteSchema,
-  insertMessageSchema,
-  insertMessageReactionSchema,
-  submitReviewSchema,
-} from "@shared/schema";
 import crypto from "crypto";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
@@ -1383,7 +1379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ error: "Maps service not configured" });
       }
       const origin = `${originLat},${originLng}`;
-      let destArray: Array<{ lat: number; lng: number; id?: string }> = [];
+      let destArray: { lat: number; lng: number; id?: string }[] = [];
       try {
         destArray = JSON.parse(destinations as string);
       } catch {
@@ -1540,7 +1536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!response.ok) {
         return res.status(502).json({ error: "Upstream maps error" });
       }
-      const data = await response.json() as { predictions: Array<{ place_id: string; description: string; structured_formatting: { main_text: string; secondary_text: string } }> };
+      const data = await response.json() as { predictions: { place_id: string; description: string; structured_formatting: { main_text: string; secondary_text: string } }[] };
       const predictions = (data.predictions || []).map((p) => ({
         placeId: p.place_id,
         description: p.description,
@@ -1675,7 +1671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!response.ok) {
         return res.status(502).json({ error: "Upstream geocode error" });
       }
-      const data = await response.json() as { results: Array<{ geometry: { location: { lat: number; lng: number } }; formatted_address: string }> };
+      const data = await response.json() as { results: { geometry: { location: { lat: number; lng: number } }; formatted_address: string }[] };
       if (!data.results || data.results.length === 0) {
         return res.status(404).json({ error: "Location not found" });
       }
@@ -1730,7 +1726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         result?: {
           rating?: number;
           user_ratings_total?: number;
-          photos?: Array<{ photo_reference: string }>;
+          photos?: { photo_reference: string }[];
         };
       };
       const result = data.result || {};
@@ -1870,10 +1866,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(502).json({ error: "Upstream geocode error" });
       }
       const data = await response.json() as {
-        results: Array<{
-          address_components: Array<{ long_name: string; types: string[] }>;
+        results: {
+          address_components: { long_name: string; types: string[] }[];
           formatted_address: string;
-        }>;
+        }[];
       };
       if (!data.results || data.results.length === 0) {
         return res.status(404).json({ error: "Location not found" });

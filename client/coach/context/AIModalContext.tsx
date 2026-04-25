@@ -5,7 +5,7 @@ export interface AIModalState {
   playerId: string;
   playerName: string;
   sessionType: string;
-  remainingPlayers: Array<{ id: string; name: string }>;
+  remainingPlayers: { id: string; name: string }[];
 }
 
 interface AIModalContextValue {

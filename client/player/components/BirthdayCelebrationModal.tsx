@@ -189,7 +189,7 @@ export function BirthdayCelebrationModal({
                 end={{ x: 1, y: 0 }}
                 style={styles.buttonGradient}
               >
-                <Text style={styles.buttonText}>Let's Play!</Text>
+                <Text style={styles.buttonText}>Let&apos;s Play!</Text>
               </LinearGradient>
             </Pressable>
           </View>

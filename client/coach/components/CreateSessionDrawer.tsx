@@ -418,7 +418,6 @@ export default function CreateSessionDrawer({
     // Reset player filters
     setFilterBallLevel(null);
     setFilterSkillLevel(null);
-    setShowAllPlayers(false);
     setPlayerSearch("");
   };
 
@@ -1169,7 +1168,7 @@ export default function CreateSessionDrawer({
                 );
               })}
               {filteredPlayers.length === 0 && playerSearch.length > 0 && (
-                <Text style={styles.noPlayersText}>No players match "{playerSearch}"</Text>
+                <Text style={styles.noPlayersText}>No players match &quot;{playerSearch}&quot;</Text>
               )}
               {players.length === 0 && (
                 <Text style={styles.noPlayersText}>No players available</Text>
@@ -1568,12 +1567,6 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     fontStyle: "italic",
-  },
-  filterLabel: {
-    ...Typography.small,
-    color: Colors.dark.tabIconDefault,
-    marginBottom: Spacing.xs,
-    marginTop: Spacing.sm,
   },
   seeAllButton: {
     flexDirection: "row",

@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { glowLevelsStyles } from "./glowLevelsStyles";
 import type { TabProps, BallLevel, LevelSkill } from "./types";
@@ -41,7 +42,7 @@ const PILLAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   MATCH: "trophy-outline",
 };
 
-export function GlowLevelsTab({ insets: _insets, tabBarHeight }: TabProps) {
+export function GlowLevelsTab({ insets, tabBarHeight }: TabProps) {
   const onScroll = useCoachingScroll();
   const [selectedStage, setSelectedStage] = useState<typeof STAGES[number]>("RED");
   const [expandedLevel, setExpandedLevel] = useState<string | null>(null);

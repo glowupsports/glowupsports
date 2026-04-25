@@ -572,7 +572,7 @@ export default function AcademySettingsScreen() {
             placeholderTextColor={Colors.dark.textMuted}
           />
           <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginTop: 4 }}>
-            If empty, invoices will show "Supplier is not VAT registered"
+            If empty, invoices will show &quot;Supplier is not VAT registered&quot;
           </Text>
         </View>
 

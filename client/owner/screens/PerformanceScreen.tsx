@@ -114,20 +114,20 @@ function PlayerHealthRow({ name, level, risk, indicator, reason }: PlayerHealthR
 }
 
 interface PeopleData {
-  coaches: Array<{
+  coaches: {
     id: string;
     name: string;
     role: string;
     status: string;
-    stats: Array<{ label: string; value: string }>;
-  }>;
-  players: Array<{
+    stats: { label: string; value: string }[];
+  }[];
+  players: {
     id: string;
     name: string;
     role: string;
     status: string;
-    stats: Array<{ label: string; value: string }>;
-  }>;
+    stats: { label: string; value: string }[];
+  }[];
 }
 
 export default function PerformanceScreen() {

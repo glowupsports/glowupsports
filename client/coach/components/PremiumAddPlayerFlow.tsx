@@ -284,7 +284,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
         </View>
         <Text style={styles.introTitle}>Welcome!</Text>
         <Text style={styles.introDescription}>
-          Add a new player to your academy in just a few simple steps. We'll guide you through setting up their profile and level.
+          Add a new player to your academy in just a few simple steps. We&apos;ll guide you through setting up their profile and level.
         </Text>
         <View style={styles.introFeatures}>
           <View style={styles.introFeature}>
@@ -526,7 +526,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
       >
         <View style={styles.sublevelContent}>
           <Text style={styles.levelQuestion}>
-            Select {name || "player"}'s level within {selectedBallLevel?.toUpperCase()} ball:
+            Select {name || "player"}&apos;s level within {selectedBallLevel?.toUpperCase()} ball:
           </Text>
           
           <View style={styles.sublevelGrid}>
@@ -587,7 +587,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
       glowColor={Colors.dark.gold}
     >
       <ScrollView style={styles.cardScroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.levelQuestion}>Select {name || "player"}'s Glow level:</Text>
+        <Text style={styles.levelQuestion}>Select {name || "player"}&apos;s Glow level:</Text>
         
         <View style={styles.glowLevelList}>
           {GLOW_LEVELS.map((level) => (

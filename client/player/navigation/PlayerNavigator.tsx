@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import { useNavigation } from "@react-navigation/native";
 import { HeaderButton } from "@react-navigation/elements";
 import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle, Pressable, Text, AppState } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets , SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
@@ -128,7 +128,6 @@ import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { Colors, Spacing, FontSizes, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
-import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { FamilyProvider } from "@/player/context/FamilyContext";
 import { apiFetch, getApiUrl } from "@/lib/query-client";

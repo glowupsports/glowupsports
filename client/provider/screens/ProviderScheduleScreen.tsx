@@ -24,11 +24,11 @@ interface Booking {
   scheduledAt: string | null;
   totalAmount: string;
   total: string;
-  items: Array<{
+  items: {
     id: string;
     name: string;
     service?: { id: string; name: string; iconName: string };
-  }>;
+  }[];
   player?: {
     id: string;
     name: string;

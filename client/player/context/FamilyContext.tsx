@@ -247,7 +247,7 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
     
     let retryCount = 0;
     const maxRetries = 5;
-    let timeoutId: NodeJS.Timeout | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     
     const attemptFetch = async () => {
       const success = await refreshFamily();

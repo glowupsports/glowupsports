@@ -102,13 +102,13 @@ interface MatchDetail {
     matchScore?: number;
     source?: string;
   } | null;
-  trainingSuggestions?: Array<{
+  trainingSuggestions?: {
     focusArea: string;
     pillar: string;
     priority: number;
     suggestedWeeks: number;
-  }>;
-  pressureMoments?: Array<{
+  }[];
+  pressureMoments?: {
     id: string;
     momentType: string;
     outcome: string;
@@ -116,7 +116,7 @@ interface MatchDetail {
     errorIncrease?: boolean;
     gameScore?: string;
     setNumber?: number;
-  }>;
+  }[];
   coachReview?: {
     technicalFeedback?: string;
     tacticalFeedback?: string;
@@ -385,7 +385,7 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
             </View>
           ) : null}
           {reflection.keyTakeaway ? (
-            <Text style={mirrorStyles.takeaway}>"{reflection.keyTakeaway}"</Text>
+            <Text style={mirrorStyles.takeaway}>&quot;{reflection.keyTakeaway}&quot;</Text>
           ) : null}
         </View>
       </View>
@@ -459,7 +459,7 @@ function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDat
         color={Colors.success || "#22C55E"}
       />
 
-      <Text style={[mirrorStyles.fieldLabel, { marginTop: Spacing.md }]}>What didn't work?</Text>
+      <Text style={[mirrorStyles.fieldLabel, { marginTop: Spacing.md }]}>What didn&apos;t work?</Text>
       <ChipSelector
         options={WHAT_WORKED_OPTIONS}
         selected={whatDidntWork}
@@ -806,7 +806,7 @@ function GoalOutcomeCheck({ matchId, playerId, preMatchGoal }: {
 
       <View style={deepStyles.goalBox}>
         <Text style={deepStyles.goalLabel}>Your goal was:</Text>
-        <Text style={deepStyles.goalText}>"{preMatchGoal}"</Text>
+        <Text style={deepStyles.goalText}>&quot;{preMatchGoal}&quot;</Text>
       </View>
 
       <Text style={deepStyles.fieldLabel}>Did you achieve your goal?</Text>
@@ -1061,7 +1061,7 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
   matchId: string;
   preMatchGoal?: string;
   result: string;
-  trainingSuggestions?: Array<{ focusArea: string; pillar: string; priority: number; suggestedWeeks: number }>;
+  trainingSuggestions?: { focusArea: string; pillar: string; priority: number; suggestedWeeks: number }[];
 }) {
   const [retryCount, setRetryCount] = useState(0);
   const { data: freshMatch } = useQuery<MatchDetail>({
@@ -1102,7 +1102,7 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
         <View style={debriefStyles.insightBox}>
           <Ionicons name="flag" size={14} color={Colors.dark.accentText} />
           <Text style={debriefStyles.insightText}>
-            Goal: "{preMatchGoal}" — you {result === "win" ? "won" : "lost"} this match.
+            Goal: &quot;{preMatchGoal}&quot; — you {result === "win" ? "won" : "lost"} this match.
             {result === "win"
               ? " Great execution. Review what worked and build on it."
               : " Use this as data. Your training priorities below will help."}
@@ -1678,7 +1678,7 @@ export default function MatchDetailScreen() {
               {match.coachReview.comment ? (
                 <View style={styles.coachSection}>
                   <Text style={styles.coachLabel}>Coach Notes</Text>
-                  <Text style={styles.coachComment}>"{match.coachReview.comment}"</Text>
+                  <Text style={styles.coachComment}>&quot;{match.coachReview.comment}&quot;</Text>
                 </View>
               ) : null}
             </View>

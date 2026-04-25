@@ -1365,9 +1365,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const thirtyDaysAgo = new Date(now);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        let players: Array<any> = [];
-        let coaches: Array<any> = [];
-        let sessions: Array<any> = [];
+        let players: any[] = [];
+        let coaches: any[] = [];
+        let sessions: any[] = [];
         let academy = null;
 
         if (academyId) {

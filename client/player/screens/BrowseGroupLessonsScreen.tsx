@@ -535,7 +535,7 @@ export default function BrowseGroupLessonsScreen() {
                   {selectedSession.isEnrolled ? (
                     <View style={styles.alreadyEnrolledBadge}>
                       <Feather name="check-circle" size={20} color={ProTennisColors.success} />
-                      <Text style={styles.alreadyEnrolledText}>You're enrolled in this session</Text>
+                      <Text style={styles.alreadyEnrolledText}>You&apos;re enrolled in this session</Text>
                     </View>
                   ) : selectedSession.spotsLeft <= 0 ? (
                     <View style={styles.sessionFullBadge}>

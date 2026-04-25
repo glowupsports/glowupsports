@@ -366,7 +366,7 @@ export function PlayerMonthlyReportsSection({ playerId, playerName }: Props) {
               </Pressable>
             </View>
             <Text style={noteStyles.sheetSubtitle}>
-              Add a short personal message to {playerName}'s monthly report for their parent.
+              Add a short personal message to {playerName}&apos;s monthly report for their parent.
             </Text>
             <TextInput
               style={noteStyles.textInput}

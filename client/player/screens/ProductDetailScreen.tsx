@@ -58,22 +58,8 @@ export default function ProductDetailScreen() {
 
   const productId = route.params?.productId;
 
-  if (!productId) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
-          </Pressable>
-          <View style={{ width: 44 }} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Product not found</Text>
-        </View>
-      </View>
-    );
-  }
-
+  // Task #1313 — All hooks must run unconditionally; the missing-product
+  // early return is moved below this hook block.
   const { data: product, isLoading } = useQuery<Product>({
     queryKey: [`/api/player/shop/products/${productId}`],
     enabled: !!productId,
@@ -153,6 +139,23 @@ export default function ProductDetailScreen() {
         return { icon: "person", color: Colors.dark.textSecondary, label: "Community" };
     }
   };
+
+  // Task #1313 — Missing-product guard hoisted from above the hooks block.
+  if (!productId) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <View style={{ width: 44 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Product not found</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (isLoading || !product) {
     return (

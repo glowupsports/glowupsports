@@ -46,6 +46,88 @@ const ACTION_ITEM_GAP = Spacing.sm;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// Task #1313 — Extracted from a `.map()` body so each per-row useAnimatedStyle
+// hook lives at the top level of its own component (Rules of Hooks).
+function ActionRow({
+  action,
+  index,
+  progress,
+  primaryColor,
+  isOpen,
+  onPress,
+}: {
+  action: QuickAction;
+  index: number;
+  progress: Animated.SharedValue<number>;
+  primaryColor: string;
+  isOpen: boolean;
+  onPress: () => void;
+}) {
+  const actionStyle = useAnimatedStyle(() => {
+    const delay = index * 0.07;
+    const adjustedProgress = Math.max(
+      0,
+      Math.min(1, (progress.value - delay) / (1 - delay)),
+    );
+    return {
+      opacity: interpolate(adjustedProgress, [0, 1], [0, 1]),
+      transform: [
+        {
+          scale: interpolate(
+            adjustedProgress,
+            [0, 1],
+            [0.7, 1],
+            Extrapolation.CLAMP,
+          ),
+        },
+        {
+          translateY: interpolate(
+            adjustedProgress,
+            [0, 1],
+            [10, 0],
+            Extrapolation.CLAMP,
+          ),
+        },
+      ],
+    };
+  });
+
+  const actionColor = action.color || primaryColor;
+  const bottomPos =
+    FAB_SIZE + Spacing.md + index * (ACTION_ITEM_SIZE + ACTION_ITEM_GAP);
+
+  return (
+    <AnimatedPressable
+      style={[styles.actionRow, actionStyle, { bottom: bottomPos }]}
+      onPress={onPress}
+      pointerEvents={isOpen ? "auto" : "none"}
+    >
+      <Text style={styles.actionLabel} numberOfLines={1}>
+        {action.label}
+      </Text>
+      <View
+        style={[
+          styles.actionIconContainer,
+          { borderColor: actionColor + "50" },
+        ]}
+      >
+        <LinearGradient
+          colors={[actionColor + "40", actionColor + "15"]}
+          style={styles.actionIconGradient}
+        >
+          <Ionicons name={action.icon} size={22} color={actionColor} />
+        </LinearGradient>
+        <View
+          style={[
+            styles.actionGlow,
+            { backgroundColor: actionColor, shadowColor: actionColor },
+          ]}
+        />
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 export function QuickActionsFAB({
   actions,
   primaryColor = Colors.dark.xpCyan,
@@ -91,21 +173,6 @@ export function QuickActionsFAB({
     };
   });
 
-  const getActionStyle = (index: number) => {
-    return useAnimatedStyle(() => {
-      const delay = index * 0.07;
-      const adjustedProgress = Math.max(0, Math.min(1, (progress.value - delay) / (1 - delay)));
-
-      return {
-        opacity: interpolate(adjustedProgress, [0, 1], [0, 1]),
-        transform: [
-          { scale: interpolate(adjustedProgress, [0, 1], [0.7, 1], Extrapolation.CLAMP) },
-          { translateY: interpolate(adjustedProgress, [0, 1], [10, 0], Extrapolation.CLAMP) },
-        ],
-      };
-    });
-  };
-
   return (
     <>
       {isOpen ? (
@@ -119,37 +186,17 @@ export function QuickActionsFAB({
         style={[styles.fabContainer, { bottom: fabBottom }]}
         pointerEvents="box-none"
       >
-        {actions.map((action, index) => {
-          const actionStyle = getActionStyle(index);
-          const actionColor = action.color || primaryColor;
-          const bottomPos = FAB_SIZE + Spacing.md + index * (ACTION_ITEM_SIZE + ACTION_ITEM_GAP);
-
-          return (
-            <AnimatedPressable
-              key={action.id}
-              style={[
-                styles.actionRow,
-                actionStyle,
-                { bottom: bottomPos },
-              ]}
-              onPress={() => handleActionPress(action)}
-              pointerEvents={isOpen ? "auto" : "none"}
-            >
-              <Text style={styles.actionLabel} numberOfLines={1}>
-                {action.label}
-              </Text>
-              <View style={[styles.actionIconContainer, { borderColor: actionColor + "50" }]}>
-                <LinearGradient
-                  colors={[actionColor + "40", actionColor + "15"]}
-                  style={styles.actionIconGradient}
-                >
-                  <Ionicons name={action.icon} size={22} color={actionColor} />
-                </LinearGradient>
-                <View style={[styles.actionGlow, { backgroundColor: actionColor, shadowColor: actionColor }]} />
-              </View>
-            </AnimatedPressable>
-          );
-        })}
+        {actions.map((action, index) => (
+          <ActionRow
+            key={action.id}
+            action={action}
+            index={index}
+            progress={progress}
+            primaryColor={primaryColor}
+            isOpen={isOpen}
+            onPress={() => handleActionPress(action)}
+          />
+        ))}
 
         <Pressable
           onPress={isOpen ? handleClose : handleOpen}

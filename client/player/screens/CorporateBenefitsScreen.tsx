@@ -6,7 +6,7 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
-} from "react-native";
+ TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +14,6 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
-import { TextInput } from "react-native";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface CorporateAccount {

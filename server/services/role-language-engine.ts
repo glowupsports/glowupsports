@@ -10,7 +10,7 @@
 
 import { db } from "../db";
 import { roleMessageTemplates } from "../../shared/schema";
-import { eq, and, isNull, or } from "drizzle-orm";
+import { eq, and, isNull, or, sql } from "drizzle-orm";
 
 export type RoleType = "coach" | "player" | "parent";
 

@@ -48,6 +48,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     badges as badgesTable, playerBadges as playerBadgesTable,
     titles as titlesTable, playerTitles as playerTitlesTable,
     sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
+    playerSkillScores,
     loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
     academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
@@ -771,7 +772,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                   ),
                 )
                 .groupBy(seriesPlayers.playerId, seriesPlayers.status)
-            : Promise.resolve([] as Array<{ playerId: string | null; status: string | null; cnt: number }>),
+            : Promise.resolve([] as { playerId: string | null; status: string | null; cnt: number }[]),
         ]);
 
         const activeGroupMap = new Map<string, number>();

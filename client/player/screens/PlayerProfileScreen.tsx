@@ -70,18 +70,18 @@ interface ProfileData {
   };
   social: {
     matchesPlayed: number;
-    recentPartners: Array<{ id: string; name: string; lastPlayedAt: string }>;
+    recentPartners: { id: string; name: string; lastPlayedAt: string }[];
     connectionsCount: number;
   };
   // Task #1039 — Cross-Country Ladders. Optional list of country-ladder ranks
   // for sports the player participates in.
-  countryLadders?: Array<{
+  countryLadders?: {
     sport: string;
     countryCode: string;
     position: number;
     ladderId: string;
     playerCount: number;
-  }>;
+  }[];
 }
 
 function getLevelTitle(level: number): string {
@@ -466,7 +466,7 @@ export default function PlayerProfileScreen() {
   interface V2WalletData {
     v2Enabled: boolean;
     balance: { group: number; semi_private: number; private: number };
-    activeLots: Array<{ id: string; type: string; qty_remaining: number; expires_at: string | null }>;
+    activeLots: { id: string; type: string; qty_remaining: number; expires_at: string | null }[];
     recentLedger?: V2LedgerEntry[];
   }
   const { data: v2Wallet } = useQuery<V2WalletData>({
@@ -488,7 +488,7 @@ export default function PlayerProfileScreen() {
     ? (v2Wallet?.recentLedger ?? []).slice(0, 5)
     : [];
 
-  const { data: activeLiveMatch } = useQuery<{ matches?: Array<{ id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }> }>({
+  const { data: activeLiveMatch } = useQuery<{ matches?: { id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }[] }>({
     queryKey: ["/api/live-scoring/player/me/active"],
     enabled: !!data?.player,
     refetchInterval: 10000,
@@ -506,7 +506,7 @@ export default function PlayerProfileScreen() {
   });
 
   const { data: powData } = useQuery<{
-    awards: Array<{ scope: string; scopeId: string; weekStart: string; xp: number }>;
+    awards: { scope: string; scopeId: string; weekStart: string; xp: number }[];
   }>({
     queryKey: [`/api/leaderboards/player-of-week/by-player/${data?.player?.id}`],
     enabled: !!data?.player?.id,
@@ -733,7 +733,7 @@ export default function PlayerProfileScreen() {
 
   if (isGuest) {
     type GuestIconName = React.ComponentProps<typeof Ionicons>["name"];
-    const guestFeatures: Array<{ icon: GuestIconName; text: string }> = [
+    const guestFeatures: { icon: GuestIconName; text: string }[] = [
       { icon: "trending-up", text: "Track your XP, levels & skill progress" },
       { icon: "calendar", text: "Book sessions & manage your schedule" },
       { icon: "people", text: "Join groups, make friends & play matches" },

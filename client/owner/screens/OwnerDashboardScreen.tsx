@@ -60,7 +60,7 @@ interface OwnerBusinessDashboardData {
     churnRate: number;
     activeGrowth: number;
   };
-  staffPerformance: Array<{
+  staffPerformance: {
     id: string;
     name: string;
     sessionsThisMonth: number;
@@ -68,32 +68,32 @@ interface OwnerBusinessDashboardData {
     earnings: number;
     rating: number;
     trend: "up" | "down" | "stable";
-  }>;
+  }[];
   kpis: {
     totalPlayers: number;
     activePlayers: number;
     totalCoaches: number;
     attendanceRate: number;
   };
-  topPerformers: Array<{
+  topPerformers: {
     id: string;
     name: string;
     level: number;
     glowScore: number;
     ballLevel: string;
-  }>;
-  insights: Array<{
+  }[];
+  insights: {
     id: string;
     type: string;
     title: string;
     description: string;
     change?: number;
-  }>;
-  alerts: Array<{
+  }[];
+  alerts: {
     id: string;
     type: "error" | "warning" | "info";
     title: string;
-  }>;
+  }[];
 }
 
 interface TopPerformerRowProps {

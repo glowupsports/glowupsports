@@ -193,10 +193,10 @@ export function PlatformUsageProgress({
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Platform Usage</Text>
           <Text style={styles.headerSubtitle}>
-            You're using {usedCount} of {totalCount} features
+            You&apos;re using {usedCount} of {totalCount} features
           </Text>
           {percentage === 100 ? (
-            <Text style={styles.completeText}>You're a power user!</Text>
+            <Text style={styles.completeText}>You&apos;re a power user!</Text>
           ) : null}
         </View>
         <Pressable style={styles.dismissButton} onPress={handleDismiss} hitSlop={8}>

@@ -162,3 +162,15 @@ export interface LevelSkill {
   isRequired: boolean;
   rubric?: { score: number; observable: string }[];
 }
+
+export interface SessionTemplate {
+  id: string;
+  name: string;
+  sessionType: string;
+  duration: number;
+  ballLevel: string | null;
+  skillLevel: number | null;
+  notes: string | null;
+}
+
+export type AssessmentStatus = "not_yet" | "developing" | "meets" | "above";

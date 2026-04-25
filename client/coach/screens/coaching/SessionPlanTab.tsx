@@ -41,7 +41,7 @@ export function SessionPlanTab({ insets: _insets, tabBarHeight }: TabProps) {
           </View>
           <View style={sessionPlanStyles.step}>
             <Text style={sessionPlanStyles.stepNumber}>3</Text>
-            <Text style={sessionPlanStyles.stepText}>Tap "Session Plan" to generate or view</Text>
+            <Text style={sessionPlanStyles.stepText}>Tap &quot;Session Plan&quot; to generate or view</Text>
           </View>
         </View>
         <Pressable

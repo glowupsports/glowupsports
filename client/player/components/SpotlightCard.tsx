@@ -234,7 +234,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
                 </View>
                 <PlayerAvatar photoUrl={lastWeekWinner.profilePhotoUrl} size={52} borderColor="#FFD700" />
                 <View style={styles.winnerInfo}>
-                  <Text style={styles.winnerLabel}>LAST WEEK'S WINNER</Text>
+                  <Text style={styles.winnerLabel}>LAST WEEK&apos;S WINNER</Text>
                   <Text style={styles.winnerName} numberOfLines={1}>{lastWeekWinner.playerName}</Text>
                   <View style={styles.winnerStats}>
                     <View style={styles.voteBadge}>
@@ -253,7 +253,7 @@ export function SpotlightCard({ onNominate, onViewDetails, onShareWinner, mode =
             {lastWeekWinner.topReason ? (
               <View style={styles.reasonContainer}>
                 <Ionicons name="chatbubble-outline" size={12} color={TextColors.muted} />
-                <Text style={styles.reasonText} numberOfLines={2}>"{lastWeekWinner.topReason}"</Text>
+                <Text style={styles.reasonText} numberOfLines={2}>&quot;{lastWeekWinner.topReason}&quot;</Text>
               </View>
             ) : null}
           </Pressable>

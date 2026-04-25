@@ -176,7 +176,7 @@ export default function ProviderInviteRegistrationScreen({
           <View style={styles.iconWrapper}>
             <Ionicons name="construct" size={32} color={Colors.dark.primary} />
           </View>
-          <Text style={styles.welcomeText}>You've been invited to join</Text>
+          <Text style={styles.welcomeText}>You&apos;ve been invited to join</Text>
           <Text style={styles.platformName}>Glow Up Sports</Text>
           <Text style={styles.roleLabel}>as a Service Provider</Text>
           <View style={styles.expiryBadge}>

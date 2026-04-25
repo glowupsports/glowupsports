@@ -55,7 +55,7 @@ export default function ProviderOnboardingScreen() {
         <View style={styles.iconCircle}>
           <Ionicons name="construct" size={32} color={Colors.dark.primary} />
         </View>
-        <Text style={styles.title}>What's your craft?</Text>
+        <Text style={styles.title}>What&apos;s your craft?</Text>
         <Text style={styles.subtitle}>
           Select everything that applies. You can always add more later.
         </Text>
@@ -131,7 +131,7 @@ export default function ProviderOnboardingScreen() {
           {saving ? (
             <ActivityIndicator color={Colors.dark.buttonText} size="small" />
           ) : (
-            <Text style={styles.ctaText}>Let's Go</Text>
+            <Text style={styles.ctaText}>Let&apos;s Go</Text>
           )}
         </Pressable>
       </View>

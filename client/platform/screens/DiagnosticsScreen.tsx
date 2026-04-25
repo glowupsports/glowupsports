@@ -235,7 +235,7 @@ export default function DiagnosticsScreen() {
                 ) : null}
                 {report.userComment ? (
                   <Text style={styles.userComment} numberOfLines={1}>
-                    User: "{report.userComment}"
+                    User: &quot;{report.userComment}&quot;
                   </Text>
                 ) : null}
               </Pressable>
@@ -246,7 +246,7 @@ export default function DiagnosticsScreen() {
             <View style={styles.emptyState}>
               <Ionicons name="bug-outline" size={48} color={Colors.dark.textMuted} />
               <Text style={styles.emptyText}>No error reports found</Text>
-              <Text style={styles.emptySubtext}>That's a good thing!</Text>
+              <Text style={styles.emptySubtext}>That&apos;s a good thing!</Text>
             </View>
           ) : null}
         </ScrollView>

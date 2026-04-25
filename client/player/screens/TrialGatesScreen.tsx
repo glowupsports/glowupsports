@@ -215,7 +215,7 @@ export default function TrialGatesScreen() {
           <View style={styles.infoContent}>
             <Text style={styles.infoTitle}>What are Trial Gates?</Text>
             <Text style={styles.infoText}>
-              Trial gates are challenges set by your coach to test if you're ready to move to the next ball level. 
+              Trial gates are challenges set by your coach to test if you&apos;re ready to move to the next ball level. 
               Complete all gates within the time limit to advance!
             </Text>
           </View>
@@ -235,7 +235,7 @@ export default function TrialGatesScreen() {
                 <Ionicons name="flag-outline" size={48} color={Colors.dark.textMuted} />
                 <Text style={styles.emptyText}>No Active Trials</Text>
                 <Text style={styles.emptySubtext}>
-                  Your coach will start a trial gate when you're ready to level up!
+                  Your coach will start a trial gate when you&apos;re ready to level up!
                 </Text>
               </View>
             )}

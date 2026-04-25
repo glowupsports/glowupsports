@@ -634,7 +634,7 @@ export default function FamilyLobbyScreen() {
   // Family F — fetch active locks for the family. Polled every 30s so a lock
   // applied from another device shows up quickly (the auth middleware enforces
   // it on every request anyway).
-  const locksQuery = useQuery<{ locks: Array<{ playerId: string; lockedUntil: string; lockedByPlayerId: string | null; reason: string | null }> }>({
+  const locksQuery = useQuery<{ locks: { playerId: string; lockedUntil: string; lockedByPlayerId: string | null; reason: string | null }[] }>({
     queryKey: ["/api/family/locks"],
     refetchInterval: 30_000,
   });
@@ -1079,7 +1079,7 @@ export default function FamilyLobbyScreen() {
   const handleMemberLongPress = (member: FamilyMember) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const isLocked = locksByPlayerId.has(member.id);
-    const buttons: Array<{ text: string; onPress?: () => void; style?: "default" | "cancel" | "destructive" }> = [
+    const buttons: { text: string; onPress?: () => void; style?: "default" | "cancel" | "destructive" }[] = [
       {
         text: "View activity log",
         onPress: () => {
@@ -1925,24 +1925,24 @@ interface WalletResponse {
   familyGroupId: string;
   paymentMethod: { brand: string | null; last4: string | null } | null;
   categories: { key: WalletCategory; label: string }[];
-  members: Array<{
+  members: {
     playerId: string;
     name: string;
     avatarUrl: string | null;
     limits: Record<WalletCategory, number | null>;
-  }>;
+  }[];
 }
 
 interface StatementResponse {
   familyGroupId: string;
   month: string;
   currency: string;
-  members: Array<{
+  members: {
     playerId: string;
     playerName: string;
     byCategory: Record<WalletCategory, number>;
     total: number;
-  }>;
+  }[];
   totals: {
     court_bookings: number;
     glow_market: number;

@@ -735,7 +735,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       try {
         const userId = req.user!.userId;
         const { sendPushNotification, getUserPushTokens } = await import(
-          "./pushNotifications"
+          "../pushNotifications"
         );
 
         const tokens = await getUserPushTokens(userId);
@@ -791,7 +791,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         if (tokenType === "fcm") {
           const { isFirebaseInitialized, sendFCMNotification } = await import(
-            "./fcm"
+            "../fcm"
           );
           if (!isFirebaseInitialized()) {
             return res
@@ -1139,7 +1139,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const userId = req.user!.userId;
         const { sendPushNotification, getUserPushTokens } = await import(
-          "./pushNotifications"
+          "../pushNotifications"
         );
 
         const tokens = await getUserPushTokens(userId);
@@ -1188,7 +1188,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       try {
         const userId = req.user!.userId;
         const { sendPushNotification, getUserPushTokens } = await import(
-          "./pushNotifications"
+          "../pushNotifications"
         );
 
         const tokens = await getUserPushTokens(userId);
@@ -1249,7 +1249,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const userId = req.user!.userId;
         const { sendPushNotification, getUserPushTokens } = await import(
-          "./pushNotifications"
+          "../pushNotifications"
         );
 
         const tokens = await getUserPushTokens(userId);
@@ -1309,7 +1309,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const userId = req.user!.userId;
         const { sendPushNotification, getUserPushTokens } = await import(
-          "./pushNotifications"
+          "../pushNotifications"
         );
 
         const tokens = await getUserPushTokens(userId);
@@ -1431,7 +1431,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const pricing = await storage.getAcademyPricing(academyId);
 
         // Build auto-priced packages
-        const packages: Array<{
+        const packages: {
           creditType: string;
           credits: number;
           pricePerCredit: string;
@@ -1439,7 +1439,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           currency: string;
           label: string;
           hasPricing: boolean;
-        }> = [];
+        }[] = [];
 
         for (const creditType of CREDIT_TYPES) {
           const sessionPricing = pricing.find(

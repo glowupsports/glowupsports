@@ -399,7 +399,7 @@ router.get("/api/chat-rooms/:roomId/messages", authMiddleware, async (req: Authe
 
     const messageIds = ordered.map((m) => m.id);
     const reactionsByMsg = new Map<string, any[]>();
-    const mentionsByMsg = new Map<string, Array<{ handle: string; playerId: string; name: string }>>();
+    const mentionsByMsg = new Map<string, { handle: string; playerId: string; name: string }[]>();
     if (messageIds.length > 0) {
       const rrows = await db.select().from(messageReactions).where(inArray(messageReactions.messageId, messageIds));
       for (const r of rrows) {
@@ -495,7 +495,7 @@ const postSchema = z.object({
 // visibility. Returns at most 20 unique resolved mentions.
 async function resolveCoachMentionHandles(
   rawHandles: string[],
-): Promise<Array<{ handle: string; coachId: string; name: string }>> {
+): Promise<{ handle: string; coachId: string; name: string }[]> {
   const handles = Array.from(
     new Set(
       rawHandles
@@ -517,7 +517,7 @@ async function resolveCoachMentionHandles(
       matched.set(handleKey, { coachId: c.id, name: c.name });
     }
   }
-  const out: Array<{ handle: string; coachId: string; name: string }> = [];
+  const out: { handle: string; coachId: string; name: string }[] = [];
   for (const original of handles) {
     const m = matched.get(original.toLowerCase());
     if (m) out.push({ handle: original, coachId: m.coachId, name: m.name });
@@ -531,7 +531,7 @@ async function resolveCoachMentionHandles(
 async function resolveMentionHandles(
   rawHandles: string[],
   room: { scope: string; countryCode: string | null },
-): Promise<Array<{ handle: string; playerId: string; name: string }>> {
+): Promise<{ handle: string; playerId: string; name: string }[]> {
   const handles = Array.from(
     new Set(
       rawHandles
@@ -561,7 +561,7 @@ async function resolveMentionHandles(
       matchedByHandle.set(handleKey, { playerId: p.id, name: p.name });
     }
   }
-  const out: Array<{ handle: string; playerId: string; name: string }> = [];
+  const out: { handle: string; playerId: string; name: string }[] = [];
   for (const original of handles) {
     const m = matchedByHandle.get(original.toLowerCase());
     if (m) out.push({ handle: original, playerId: m.playerId, name: m.name });
@@ -724,7 +724,7 @@ router.post("/api/chat-rooms/:roomId/messages", authMiddleware, async (req: Auth
     const requestedMentions = parsed.data.mentions && parsed.data.mentions.length > 0
       ? parsed.data.mentions
       : Array.from(body.matchAll(/@([\w][\w._-]{1,30})/g)).map((m) => m[1]);
-    let resolvedMentions: Array<{ handle: string; playerId: string; name: string }> = [];
+    let resolvedMentions: { handle: string; playerId: string; name: string }[] = [];
     if (requestedMentions.length > 0) {
       try {
         resolvedMentions = await resolveMentionHandles(requestedMentions, room);

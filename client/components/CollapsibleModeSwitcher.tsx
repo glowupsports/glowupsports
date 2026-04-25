@@ -31,6 +31,12 @@ export default function CollapsibleModeSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
   const slideX = useSharedValue(-PANEL_WIDTH);
 
+  // Task #1313 — Hooks must run unconditionally; hoist useAnimatedStyle above
+  // the early return below.
+  const panelStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: slideX.value }],
+  }));
+
   if (availableModes.length <= 1) {
     return null;
   }
@@ -75,10 +81,6 @@ export default function CollapsibleModeSwitcher() {
       runOnJS(setShowBackdrop)(false);
     });
   };
-
-  const panelStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: slideX.value }],
-  }));
 
   const currentConfig = modeConfig[mode];
 

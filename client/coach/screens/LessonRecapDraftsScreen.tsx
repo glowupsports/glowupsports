@@ -80,7 +80,7 @@ export default function LessonRecapDraftsScreen() {
         <View style={{ flex: 1 }}>
           <ThemedText style={styles.toggleTitle}>Auto-create recap drafts</ThemedText>
           <Text style={styles.toggleHint}>
-            After every completed lesson, we'll create a private draft per present
+            After every completed lesson, we&apos;ll create a private draft per present
             player. You can edit and send each one — or skip it.
           </Text>
         </View>

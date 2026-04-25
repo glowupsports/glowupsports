@@ -81,7 +81,7 @@ router.get(
         WHERE player_id = ${freshUser.playerId}
       `);
 
-      const featureKeys = (rows.rows as Array<{ feature_key: string }>).map(
+      const featureKeys = (rows.rows as { feature_key: string }[]).map(
         (r) => r.feature_key,
       );
       return res.json({ featureKeys });
@@ -202,7 +202,7 @@ router.get(
       `);
 
       const counts: Record<string, number> = {};
-      for (const r of rows.rows as Array<{ feature_key: string; count: number }>) {
+      for (const r of rows.rows as { feature_key: string; count: number }[]) {
         counts[r.feature_key] = Number(r.count) || 0;
       }
       return res.json({ counts });

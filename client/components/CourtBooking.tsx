@@ -69,7 +69,7 @@ export function CourtBookingPicker({
     color: Colors.dark.gold,
   };
 
-  const options: Array<{ key: CourtBookingStatus; icon: any; label: string; desc: string; color: string }> = treatAsAcademyCourt
+  const options: { key: CourtBookingStatus; icon: any; label: string; desc: string; color: string }[] = treatAsAcademyCourt
     ? [academyOption]
     : externalOnly
       ? [externalBookedOption, externalPendingOption]

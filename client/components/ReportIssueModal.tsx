@@ -154,7 +154,7 @@ export function ReportIssueModal({ visible, onClose, currentScreen }: ReportIssu
               <View style={styles.lastActionInfo}>
                 <Text style={styles.lastActionLabel}>Last Action</Text>
                 <Text style={styles.lastActionValue}>
-                  Tapped "{lastInteraction.elementLabel}" on {lastInteraction.screenName}
+                  Tapped &quot;{lastInteraction.elementLabel}&quot; on {lastInteraction.screenName}
                 </Text>
               </View>
             </View>

@@ -69,6 +69,9 @@ const DEFAULT_RETENTION_DAYS = 90;
 const DEFAULT_BATCH_SIZE = 5000;
 
 function envInt(name: string, fallback: number, min = 1): number {
+  // Task #1313 — Standalone CLI/cron script; dynamic env reads here are
+  // intentional helpers, not user-facing client code.
+  // eslint-disable-next-line expo/no-dynamic-env-var
   const raw = process.env[name];
   if (!raw) return fallback;
   const n = parseInt(raw, 10);

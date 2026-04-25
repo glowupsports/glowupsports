@@ -531,7 +531,7 @@ export default function AvailabilityScreen() {
           </Pressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>AVAILABILITY</Text>
-            <Text style={styles.headerSubtitle}>Manage when you're available</Text>
+            <Text style={styles.headerSubtitle}>Manage when you&apos;re available</Text>
           </View>
           <View style={styles.pauseToggle}>
             <View style={[styles.statusBadge, isPaused ? styles.statusBadgePaused : styles.statusBadgeActive]}>

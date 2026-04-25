@@ -212,7 +212,7 @@ export function NotificationGuideModal({
               <View>
                 <Text style={styles.sheetTitle}>Notification Guide</Text>
                 <Text style={styles.sheetSubtitle}>
-                  As a {roleLabel}, you'll receive these notifications
+                  As a {roleLabel}, you&apos;ll receive these notifications
                 </Text>
               </View>
             </View>

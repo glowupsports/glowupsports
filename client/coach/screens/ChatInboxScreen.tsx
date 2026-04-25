@@ -37,11 +37,11 @@ interface Message {
   body: string;
   messageType: string | null;
   createdAt: string;
-  reactions: Array<{
+  reactions: {
     id: string;
     emoji: string;
     reactorType: string;
-  }>;
+  }[];
 }
 
 interface Conversation {

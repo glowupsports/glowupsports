@@ -135,7 +135,7 @@ function SentInvitationCard({
       {invitation.message ? (
         <View style={styles.messageBox}>
           <Text style={styles.messageLabel}>Message:</Text>
-          <Text style={styles.messageText}>"{invitation.message}"</Text>
+          <Text style={styles.messageText}>&quot;{invitation.message}&quot;</Text>
         </View>
       ) : null}
 
@@ -188,7 +188,7 @@ function ReceivedInvitationCard({
       {invitation.message ? (
         <View style={styles.messageBox}>
           <Text style={styles.messageLabel}>Message from academy:</Text>
-          <Text style={styles.messageText}>"{invitation.message}"</Text>
+          <Text style={styles.messageText}>&quot;{invitation.message}&quot;</Text>
         </View>
       ) : null}
 

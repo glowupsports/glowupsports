@@ -73,7 +73,7 @@ export default function SkillEvidenceScreen() {
   const [recordingTime, setRecordingTime] = useState(0);
   const [facing, setFacing] = useState<CameraType>("back");
   const cameraRef = useRef<CameraView>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [selectedVideo, setSelectedVideo] = useState<Evidence | null>(null);
 

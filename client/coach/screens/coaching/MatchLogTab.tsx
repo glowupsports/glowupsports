@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -52,7 +53,7 @@ export function MatchLogTab({ insets: _insets, tabBarHeight }: TabProps) {
           </View>
           <View style={matchLogStyles.step}>
             <Text style={matchLogStyles.stepNumber}>3</Text>
-            <Text style={matchLogStyles.stepText}>Tap "Log Match" to record results</Text>
+            <Text style={matchLogStyles.stepText}>Tap &quot;Log Match&quot; to record results</Text>
           </View>
         </View>
         <Pressable

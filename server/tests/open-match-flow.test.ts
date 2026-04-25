@@ -339,10 +339,10 @@ describe("Open match flow — Task #1270 regression", () => {
       HOST_ID,
     );
     expect(listRes.status).toBe(200);
-    const list = (await listRes.json()) as Array<{
+    const list = (await listRes.json()) as {
       id: string;
       status: string;
-    }>;
+    }[];
     expect(list.find((m) => m.id === created.id)).toBeTruthy();
 
     // 3. A second player joins via the canonical /join endpoint.  This

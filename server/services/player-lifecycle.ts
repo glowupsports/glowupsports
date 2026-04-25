@@ -13,7 +13,7 @@ export type DeletePlayerWithUserWipeResult = {
  * they should be hard-deleted alongside the user. NO ACTION FKs here would
  * otherwise block the final `DELETE FROM users`.
  */
-const USER_OWNED_DELETE: Array<{ table: string; col: string }> = [
+const USER_OWNED_DELETE: { table: string; col: string }[] = [
   { table: "push_device_tokens", col: "user_id" },
   { table: "parent_settings", col: "user_id" },
   { table: "user_social_profiles", col: "user_id" },
@@ -32,7 +32,7 @@ const USER_OWNED_DELETE: Array<{ table: string; col: string }> = [
  * verified_by, cancelled_by, etc). Nullable columns → SET NULL so the
  * historical record is preserved.
  */
-const USER_AUDIT_SET_NULL: Array<{ table: string; col: string }> = [
+const USER_AUDIT_SET_NULL: { table: string; col: string }[] = [
   { table: "community_groups", col: "created_by" },
   { table: "corporate_members", col: "invited_by" },
   { table: "court_availability", col: "blocked_by" },

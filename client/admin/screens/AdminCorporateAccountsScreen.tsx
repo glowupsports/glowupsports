@@ -19,7 +19,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
 interface CorporateAccount {

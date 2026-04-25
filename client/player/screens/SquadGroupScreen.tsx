@@ -11,7 +11,7 @@ import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 type SquadGroupRoute = RouteProp<{ SquadGroup: { squadId: string; squadName?: string } }, "SquadGroup">;
 
 interface SquadInfo {
-  squads: Array<{ id: string; name: string; academyId: string | null }>;
+  squads: { id: string; name: string; academyId: string | null }[];
 }
 
 export default function SquadGroupScreen() {

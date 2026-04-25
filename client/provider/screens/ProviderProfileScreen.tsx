@@ -53,13 +53,13 @@ interface ProviderStats {
   rating: number;
 }
 
-const CLIENT_BADGES: Array<{
+const CLIENT_BADGES: {
   id: string;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   description: string;
   color: string;
-}> = [
+}[] = [
   { id: "first_job", label: "First Job", icon: "ribbon-outline", description: "Complete your very first booking", color: Colors.dark.primary },
   { id: "ten_bookings", label: "Getting Started", icon: "star-outline", description: "Complete 10 bookings", color: "#4A90E2" },
   { id: "century", label: "Century Club", icon: "trophy-outline", description: "Complete 100 bookings", color: "#FFD700" },
@@ -537,7 +537,7 @@ function ServiceMenuSection() {
     ]);
   };
 
-  const SERVICE_ICONS: Array<keyof typeof Ionicons.glyphMap> = [
+  const SERVICE_ICONS: (keyof typeof Ionicons.glyphMap)[] = [
     "body-outline", "fitness-outline", "medkit-outline", "heart-outline",
     "ribbon-outline", "star-outline", "flash-outline", "barbell-outline",
     "bicycle-outline", "walk-outline", "build-outline", "settings-outline",

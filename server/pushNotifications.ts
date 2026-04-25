@@ -3474,7 +3474,7 @@ async function processCreditExpiryReminders(timezone: string): Promise<void> {
       if (!playerId) continue;
 
       const expiryDate = new Date(pkg.expiry_date);
-      const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+      const daysUntilExpiry = Math.ceil((expiryDate.getTime() - localNow.getTime()) / (24 * 60 * 60 * 1000));
       const creditType = pkg.credit_type || "group";
       const remaining = pkg.remaining_credits;
 

@@ -67,12 +67,12 @@ interface CourtDetails {
   };
   bookingEnabled?: boolean;
   canBook: boolean;
-  availability: Array<{
+  availability: {
     id: string;
     startTime: string;
     endTime: string;
     status: string;
-  }>;
+  }[];
 }
 
 interface PlaceDetails {

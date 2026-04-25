@@ -2306,12 +2306,12 @@ router.post("/api/coach/sessions/:sessionId/intake", authMiddleware, requireAcad
       trainedSkills: string[];
       intensity: string;
       groupDynamics?: Record<string, string>;
-      playerData: Array<{
+      playerData: {
         playerId: string;
         playerTags?: string[];
         pillarRatings?: Record<string, string>;
         highlight?: string;
-      }>;
+      }[];
       saveOnly?: boolean;
     };
 

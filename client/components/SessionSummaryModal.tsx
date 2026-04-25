@@ -202,7 +202,7 @@ export function SessionSummaryModal({
               </View>
               <Text style={styles.nextFocusSkill}>{sessionData.nextFocus.skill}</Text>
               <Text style={styles.nextFocusRec}>
-                "{sessionData.nextFocus.recommendation}"
+                &quot;{sessionData.nextFocus.recommendation}&quot;
               </Text>
             </View>
           )}
@@ -216,7 +216,7 @@ export function SessionSummaryModal({
             </Pressable>
             {onContinue && (
               <Pressable style={styles.doneButton} onPress={handleClose}>
-                <Text style={styles.doneText}>I'm Done</Text>
+                <Text style={styles.doneText}>I&apos;m Done</Text>
               </Pressable>
             )}
           </View>

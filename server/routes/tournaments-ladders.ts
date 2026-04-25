@@ -898,7 +898,7 @@ router.get("/api/player/ladders/country-rank", authMiddleware, async (req: AuthR
     const playerId = req.user!.playerId;
     if (!playerId) return res.status(400).json({ error: "Player context required" });
     const sports = await resolvePlayerSports(playerId);
-    const ranks = [] as Array<NonNullable<Awaited<ReturnType<typeof getPlayerCountryLadderRank>>>>;
+    const ranks = [] as NonNullable<Awaited<ReturnType<typeof getPlayerCountryLadderRank>>>[];
     for (const sport of sports) {
       const rank = await getPlayerCountryLadderRank(playerId, sport);
       if (rank) ranks.push(rank);

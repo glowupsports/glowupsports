@@ -25,29 +25,6 @@ import {
   Modal,
   Linking,
 } from "react-native";
-// react-native-maps is a native module. On builds where the native side
-// isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
-// build, a missing/expired Google Maps key, or a future SDK upgrade) the
-// require can throw at module-eval time and produce a white screen on
-// navigate. We require it lazily inside a try/catch so the screen can
-// fall back to a list view instead of crashing. Mirrors the pattern in
-// client/player/screens/DiscoveryMapScreen.tsx.
-let MapViewLib: any = null;
-let MarkerLib: any = null;
-let CalloutLib: any = null;
-let PROVIDER_DEFAULT_VAL: any = undefined;
-let MAPS_LOAD_ERROR: Error | null = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const maps = require("react-native-maps");
-  MapViewLib = maps.default ?? maps.MapView;
-  MarkerLib = maps.Marker;
-  CalloutLib = maps.Callout;
-  PROVIDER_DEFAULT_VAL = maps.PROVIDER_DEFAULT;
-} catch (e: any) {
-  MAPS_LOAD_ERROR = e instanceof Error ? e : new Error(String(e));
-  console.warn("[PlayScreen] react-native-maps failed to load:", MAPS_LOAD_ERROR.message);
-}
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -104,6 +81,29 @@ import {
   useThemeReactivity,
 } from "@/hooks/useThemedStyles";
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
+// react-native-maps is a native module. On builds where the native side
+// isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
+// build, a missing/expired Google Maps key, or a future SDK upgrade) the
+// require can throw at module-eval time and produce a white screen on
+// navigate. We require it lazily inside a try/catch so the screen can
+// fall back to a list view instead of crashing. Mirrors the pattern in
+// client/player/screens/DiscoveryMapScreen.tsx.
+let MapViewLib: any = null;
+let MarkerLib: any = null;
+let CalloutLib: any = null;
+let PROVIDER_DEFAULT_VAL: any = undefined;
+let MAPS_LOAD_ERROR: Error | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const maps = require("react-native-maps");
+  MapViewLib = maps.default ?? maps.MapView;
+  MarkerLib = maps.Marker;
+  CalloutLib = maps.Callout;
+  PROVIDER_DEFAULT_VAL = maps.PROVIDER_DEFAULT;
+} catch (e: any) {
+  MAPS_LOAD_ERROR = e instanceof Error ? e : new Error(String(e));
+  console.warn("[PlayScreen] react-native-maps failed to load:", MAPS_LOAD_ERROR.message);
+}
 const courtBackground = require("@/assets/images/courts/court-night-default.png");
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -4362,7 +4362,7 @@ export default function PlayScreen() {
                       </Text>
                     ) : friendRequestPushDelivered === false ? (
                       <Text style={styles.friendModalDeliveryHint}>
-                        We'll show it to {friendRequestPlayer.name} the next
+                        We&apos;ll show it to {friendRequestPlayer.name} the next
                         time they open the app.
                       </Text>
                     ) : null}
@@ -4416,7 +4416,7 @@ export default function PlayScreen() {
                       color={Colors.dark.primary}
                     />
                     <Text style={styles.friendModalSentText}>
-                      You're already friends with {friendRequestPlayer.name}.
+                      You&apos;re already friends with {friendRequestPlayer.name}.
                     </Text>
                     <Pressable
                       style={styles.friendModalDoneBtn}

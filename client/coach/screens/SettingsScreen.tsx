@@ -20,8 +20,6 @@ import {
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-
-const TAB_BAR_HEIGHT = 80;
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
@@ -45,6 +43,8 @@ import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import { useTranslation } from "react-i18next";
 import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18n";
+
+const TAB_BAR_HEIGHT = 80;
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 

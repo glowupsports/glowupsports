@@ -27,7 +27,7 @@ interface VacationData {
   active: boolean;
   currentVacation?: { id: string; startDate: string; endDate: string } | null;
   upcomingVacation?: { id: string; startDate: string; endDate: string } | null;
-  holidays: Array<{ id: string; startDate: string; endDate: string }>;
+  holidays: { id: string; startDate: string; endDate: string }[];
 }
 
 const VACATION_BLUE = "#4DA3FF";

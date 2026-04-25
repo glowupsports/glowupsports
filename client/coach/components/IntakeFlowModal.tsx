@@ -12,12 +12,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps } from "react";
-type IoniconsName = ComponentProps<typeof Ionicons>["name"];
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+type IoniconsName = ComponentProps<typeof Ionicons>["name"];
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,12 +30,12 @@ export interface IntakeResult {
   trainedSkills: string[];
   intensity: string;
   groupDynamics?: Record<string, string>;
-  playerData: Array<{
+  playerData: {
     playerId: string;
     playerTags?: string[];
     pillarRatings?: Record<string, string>;
     highlight?: string;
-  }>;
+  }[];
 }
 
 interface Props {

@@ -60,28 +60,28 @@ interface AdminOperationsData {
     inProgressSessions: number;
     upcomingSessions: number;
   };
-  sessionQueue: Array<{
+  sessionQueue: {
     id: string;
     title: string;
     time: string;
     coachName: string;
     playerCount: number;
     status: "upcoming" | "in_progress" | "completed";
-  }>;
-  checkIns: Array<{
+  }[];
+  checkIns: {
     id: string;
     playerName: string;
     sessionTitle: string;
     time: string;
     status: "pending" | "confirmed" | "late";
-  }>;
-  taskAlerts: Array<{
+  }[];
+  taskAlerts: {
     id: string;
     type: "no_show" | "late" | "payment" | "session" | "urgent";
     title: string;
     description: string;
     actionLabel?: string;
-  }>;
+  }[];
   quickStats: {
     todayPlayers: number;
     todayCoaches: number;

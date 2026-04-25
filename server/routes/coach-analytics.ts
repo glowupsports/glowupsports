@@ -190,13 +190,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const forecast: Array<{
+        const forecast: {
           date: string;
           scheduledMinutes: number;
           scheduledSessions: number;
           predictedLoad: "light" | "moderate" | "heavy" | "overload";
           burnoutRisk: number;
-        }> = [];
+        }[] = [];
 
         // Get sessions for forecast period
         const endDate = new Date(today);

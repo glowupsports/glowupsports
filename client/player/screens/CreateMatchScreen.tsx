@@ -13,13 +13,6 @@ import {
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-type CreateMatchRouteParams = {
-  CreateMatch: {
-    opponentId?: string;
-    opponentName?: string;
-  };
-};
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Animated, {
   FadeIn,
@@ -48,6 +41,13 @@ import Slider from "@react-native-community/slider";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { CourtBookingPicker, CourtBookingValue } from "@/components/CourtBooking";
+
+type CreateMatchRouteParams = {
+  CreateMatch: {
+    opponentId?: string;
+    opponentName?: string;
+  };
+};
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type MatchType = "singles" | "doubles";

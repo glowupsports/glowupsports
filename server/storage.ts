@@ -5,30 +5,6 @@ import { randomUUID } from "node:crypto";
 import { localHHMMToUtc, buildCommunityGroupTextForSeries } from "./utils/timezone";
 import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull, isNotNull, type SQL } from "drizzle-orm";
 import { sanitizeName } from "../shared/textSanitize";
-
-// Strip invisible/zero-width Unicode and trim whitespace from player name
-// fields before they are persisted.
-//   - `name` is required: sanitised value is always written. If sanitisation
-//     leaves it empty we throw so callers can return a 400 instead of silently
-//     persisting junk (or silently keeping the unsanitised original).
-//   - `displayName` is optional/nullable: an empty sanitised value collapses
-//     to null (treated as "no display name") rather than persisting "".
-function sanitizePlayerNameFields<T extends Record<string, any>>(data: T): T {
-  if (!data || typeof data !== "object") return data;
-  const out: Record<string, any> = { ...data };
-  if (typeof out.name === "string") {
-    const cleaned = sanitizeName(out.name);
-    if (!cleaned) {
-      throw new Error("Player name cannot be empty after stripping invisible characters");
-    }
-    out.name = cleaned;
-  }
-  if (typeof out.displayName === "string") {
-    const cleaned = sanitizeName(out.displayName);
-    out.displayName = cleaned || null;
-  }
-  return out as T;
-}
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import { desc, asc } from "drizzle-orm";
 import {
@@ -411,6 +387,33 @@ import {
   playerNotifications,
 } from "@shared/schema";
 
+// ==================== VIDEO FEEDBACK ====================
+import { videoFeedback, type VideoFeedback, type InsertVideoFeedback } from "@shared/schema";
+
+// Strip invisible/zero-width Unicode and trim whitespace from player name
+// fields before they are persisted.
+//   - `name` is required: sanitised value is always written. If sanitisation
+//     leaves it empty we throw so callers can return a 400 instead of silently
+//     persisting junk (or silently keeping the unsanitised original).
+//   - `displayName` is optional/nullable: an empty sanitised value collapses
+//     to null (treated as "no display name") rather than persisting "".
+function sanitizePlayerNameFields<T extends Record<string, any>>(data: T): T {
+  if (!data || typeof data !== "object") return data;
+  const out: Record<string, any> = { ...data };
+  if (typeof out.name === "string") {
+    const cleaned = sanitizeName(out.name);
+    if (!cleaned) {
+      throw new Error("Player name cannot be empty after stripping invisible characters");
+    }
+    out.name = cleaned;
+  }
+  if (typeof out.displayName === "string") {
+    const cleaned = sanitizeName(out.displayName);
+    out.displayName = cleaned || null;
+  }
+  return out as T;
+}
+
 // ============================================================================
 // Task #681 Phase 3 — V2 credit read helpers
 //
@@ -679,7 +682,7 @@ export async function syncCommunityGroupForSeries(seriesId: string): Promise<voi
       currentMembers.filter((m) => m.addedManually).map((m) => m.userId),
     );
 
-    const toInsert: Array<{ groupId: string; userId: string; role: string; source: string }> = [];
+    const toInsert: { groupId: string; userId: string; role: string; source: string }[] = [];
     const toDelete: string[] = [];
 
     for (const [uid, role] of desired) {
@@ -898,7 +901,7 @@ export async function syncFamilyChatGroup(familyGroupId: string): Promise<void> 
     const currentMap = new Map<string, (typeof currentMembers)[number]>();
     for (const m of currentMembers) currentMap.set(m.userId, m);
 
-    const toInsert: Array<{ groupId: string; userId: string; role: string }> = [];
+    const toInsert: { groupId: string; userId: string; role: string }[] = [];
     const toDelete: string[] = [];
     for (const [uid, role] of desired) {
       const existing = currentMap.get(uid);
@@ -968,7 +971,7 @@ export async function syncFamilyChatGroup(familyGroupId: string): Promise<void> 
 
     const desiredPlayerIds = new Set<string>(desiredPlayerByUser.values());
 
-    const partsToInsert: Array<typeof conversationParticipants.$inferInsert> = [];
+    const partsToInsert: typeof conversationParticipants.$inferInsert[] = [];
     for (const pid of desiredPlayerIds) {
       if (!currentPartByPlayer.has(pid)) {
         partsToInsert.push({
@@ -2786,7 +2789,7 @@ export const storage = {
     total: number;
     counts: Record<string, number>;
   }> {
-    const tables: Array<{ key: string; table: PgTable; col: AnyPgColumn }> = [
+    const tables: { key: string; table: PgTable; col: AnyPgColumn }[] = [
       { key: "sessions", table: sessions, col: sessions.courtId },
       { key: "court_bookings", table: courtBookings, col: courtBookings.courtId },
       { key: "court_availability", table: courtAvailability, col: courtAvailability.courtId },
@@ -3666,7 +3669,7 @@ export const storage = {
     `);
 
     return { success: true, creditsUsed };
-    /* eslint-disable */
+     
     /* LEGACY V1 BODY (unreachable; retained as commented reference) -- removed in Task #682
     // Use transaction to cascade delete all dependent records
     // Dependency chain: packages → invoices → payments → refunds, also series_players.linked_package_id
@@ -3857,7 +3860,7 @@ export const storage = {
     
     return { success: true };
     */
-    /* eslint-enable */
+     
   },
 
   async usePackageCredit(packageId: string, academyId?: string, creditCost: number = 1): Promise<Package | undefined> {
@@ -4799,7 +4802,7 @@ export const storage = {
     return result[0] || null;
   },
 
-  async getSessionPlayersWithPlayerInfo(sessionId: string): Promise<Array<SessionPlayer & { player: { id: string; name: string; ballLevel: string | null } | null }>> {
+  async getSessionPlayersWithPlayerInfo(sessionId: string): Promise<(SessionPlayer & { player: { id: string; name: string; ballLevel: string | null } | null })[]> {
     const result = await db
       .select({
         sessionPlayer: sessionPlayers,
@@ -4891,7 +4894,7 @@ export const storage = {
     return lastSessionMap;
   },
 
-  async getSessionPlayersWithDetails(sessionId: string, academyId?: string): Promise<Array<{
+  async getSessionPlayersWithDetails(sessionId: string, academyId?: string): Promise<{
     id: string;
     name: string;
     level: string | null;
@@ -4900,7 +4903,7 @@ export const storage = {
     status: string | null;
     lateMinutes: number | null;
     absentReason: string | null;
-  }>> {
+  }[]> {
     const conditions = [eq(sessionPlayers.sessionId, sessionId)];
     if (academyId) {
       conditions.push(eq(players.academyId, academyId));
@@ -4928,7 +4931,7 @@ export const storage = {
 
   // UNIFIED SESSION ROSTER - Single source of truth for session players
   // Combines series players (members) with session-specific overrides (attendance, guests)
-  async getSessionRoster(sessionId: string, seriesId: string | null, academyId?: string): Promise<Array<{
+  async getSessionRoster(sessionId: string, seriesId: string | null, academyId?: string): Promise<{
     id: string;
     name: string;
     level: string | null;
@@ -4939,7 +4942,7 @@ export const storage = {
     absentReason: string | null;
     isGuest: boolean;
     fromSeries: boolean;
-  }>> {
+  }[]> {
     // Step 1: Get session-specific player records (attendance overrides, guests)
     const sessionPlayerRecords = await db
       .select({
@@ -4971,7 +4974,7 @@ export const storage = {
       }
     }
 
-    const roster: Array<{
+    const roster: {
       id: string;
       name: string;
       level: string | null;
@@ -4982,7 +4985,7 @@ export const storage = {
       absentReason: string | null;
       isGuest: boolean;
       fromSeries: boolean;
-    }> = [];
+    }[] = [];
 
     // Step 2: If session has a series, get series players as the base roster
     if (seriesId) {
@@ -5627,13 +5630,13 @@ export const storage = {
     return db.select().from(seriesPlayers).where(inArray(seriesPlayers.seriesId, seriesIds));
   },
 
-  async getSeriesPlayersWithDetails(seriesId: string): Promise<Array<{
+  async getSeriesPlayersWithDetails(seriesId: string): Promise<{
     playerId: string;
     playerName: string | null;
     playerBallLevel: string | null;
     status: string | null;
     joinedAt: Date | null;
-  }>> {
+  }[]> {
     const result = await db
       .select({
         playerId: seriesPlayers.playerId,
@@ -8752,7 +8755,7 @@ export const storage = {
     // adds positive credits that bring the balance back up. Settlement is
     // therefore implicit and this function is a no-op.
     return { settledCount: 0, totalDeducted: 0 };
-    /* eslint-disable */
+     
     /* LEGACY V1 BODY removed in Task #682
     // Task #676 Phase 2 — V1 write gate. Settlement walks legacy debt rows
     // that V2 doesn't produce. Skip entirely for V2 academies.
@@ -8868,7 +8871,7 @@ export const storage = {
       return { settledCount, totalDeducted };
     });
     */
-    /* eslint-enable */
+     
   },
 
   // Settle unpaid sessions (creditDeductedAt = null) when a new package is created
@@ -8879,7 +8882,7 @@ export const storage = {
   }> {
     // Task #682 — V1 retired. See settlePlayerDebts comment.
     return { settledCount: 0, totalDeducted: 0, sessionIds: [] };
-    /* eslint-disable */
+     
     /* LEGACY V1 BODY removed in Task #682
     // Task #676 Phase 2 — V1 write gate. Same reasoning as settlePlayerDebts.
     {
@@ -9015,12 +9018,12 @@ export const storage = {
     
     return { settledCount: settledSessionIds.length, totalDeducted, sessionIds: settledSessionIds };
     */
-    /* eslint-enable */
+     
   },
 
   // Get player pillar progress summary for Glow Leveling OS display
   async getPlayerPillarProgressSummary(playerId: string): Promise<{
-    pillars: Array<{
+    pillars: {
       name: string;
       score: number; // 0-2 EMA scale
       trend: string; // improving, stable, declining
@@ -9029,7 +9032,7 @@ export const storage = {
       masteryPct: number; // curriculum mastery % (achievedSkills / totalSkills * 100)
       lastUpdated: string | null;
       lastChangeSource: "coach_assessment" | "match" | "coach_verified_match" | null;
-    }>;
+    }[];
     overallReadiness: number; // 0-100%
     trialGateReady: boolean;
     recentFeedbackCount: number;
@@ -10731,13 +10734,13 @@ export const storage = {
     endDate: Date;
     duration: number;
     requestingPlayerId?: string;
-  }): Promise<Array<{
+  }): Promise<{
     coachId: string;
     locationId: string | null;
     courtId: string | null;
     startTime: Date;
     endTime: Date;
-  }>> {
+  }[]> {
     // Fetch the academy's timezone so availability windows are interpreted in local time
     const academyRow = await db.select({ timezone: academies.timezone }).from(academies).where(eq(academies.id, params.academyId)).limit(1);
     const academyTimezone = academyRow[0]?.timezone ?? 'Asia/Dubai';
@@ -10811,7 +10814,7 @@ export const storage = {
     // IMPORTANT: Drizzle's node-postgres adapter overrides pg type parsers so that
     // TIMESTAMP/TIMESTAMPTZ columns are returned as raw strings, NOT Date objects.
     // We must explicitly wrap them in new Date() so that JS comparisons work correctly.
-    const existingSessions = (sessionResult.rows as Array<{
+    const existingSessions = (sessionResult.rows as {
       id: string;
       coachId: string;
       academyId: string;
@@ -10819,7 +10822,7 @@ export const storage = {
       courtId: string | null;
       startTime: string;
       endTime: string;
-    }>).map(row => ({
+    }[]).map(row => ({
       ...row,
       startTime: new Date(row.startTime),
       endTime: new Date(row.endTime),
@@ -10862,7 +10865,7 @@ export const storage = {
 
     const pendingResult = await db.execute(pendingQuery);
     // Same Drizzle string-return issue — must wrap timestamps explicitly.
-    const pendingRequests = (pendingResult.rows as Array<{
+    const pendingRequests = (pendingResult.rows as {
       id: string;
       coachId: string;
       academyId: string;
@@ -10870,7 +10873,7 @@ export const storage = {
       courtId: string | null;
       requestedStart: string;
       requestedEnd: string;
-    }>).map(row => ({
+    }[]).map(row => ({
       ...row,
       requestedStart: new Date(row.requestedStart),
       requestedEnd: new Date(row.requestedEnd),
@@ -10940,23 +10943,23 @@ export const storage = {
         AND expires_at > NOW()
         ${params.requestingPlayerId ? sql`AND player_id != ${params.requestingPlayerId}` : sql``}
     `);
-    const activeReservations = (activeReservationsResult.rows as Array<{
+    const activeReservations = (activeReservationsResult.rows as {
       coachId: string;
       startTime: string;
       endTime: string;
-    }>).map(row => ({
+    }[]).map(row => ({
       coachId: row.coachId,
       startTime: new Date(row.startTime),
       endTime: new Date(row.endTime),
     }));
 
-    const availableSlots: Array<{
+    const availableSlots: {
       coachId: string;
       locationId: string | null;
       courtId: string | null;
       startTime: Date;
       endTime: Date;
-    }> = [];
+    }[] = [];
     
     // Use UTC-epoch-aligned midnight for iteration so weekday/date math is
     // always in UTC regardless of the server's local timezone.
@@ -11112,12 +11115,12 @@ export const storage = {
   // ==================== PARENT PORTAL ====================
 
   // Get children linked to a parent user
-  async getParentChildren(parentUserId: string): Promise<Array<{
+  async getParentChildren(parentUserId: string): Promise<{
     id: string;
     name: string;
     academyId: string | null;
     relationship: string;
-  }>> {
+  }[]> {
     const relations = await db.select({
       playerId: parentPlayerRelations.playerId,
       relationship: parentPlayerRelations.relationship,
@@ -11609,7 +11612,7 @@ export const storage = {
   },
 
   // Get visible reviews for a coach (public display)
-  async getVisibleCoachReviews(coachId: string, limit: number = 10): Promise<Array<CoachReview & { response?: ReviewResponse }>> {
+  async getVisibleCoachReviews(coachId: string, limit: number = 10): Promise<(CoachReview & { response?: ReviewResponse })[]> {
     const reviews = await db.select()
       .from(coachReviews)
       .where(and(
@@ -11639,7 +11642,7 @@ export const storage = {
   },
 
   // Get all reviews for a coach (coach's own view)
-  async getCoachReviewsForCoach(coachId: string): Promise<Array<CoachReview & { response?: ReviewResponse }>> {
+  async getCoachReviewsForCoach(coachId: string): Promise<(CoachReview & { response?: ReviewResponse })[]> {
     const reviews = await db.select()
       .from(coachReviews)
       .where(eq(coachReviews.coachId, coachId))
@@ -11708,7 +11711,7 @@ export const storage = {
   },
 
   // Get review flags for moderation
-  async getReviewFlags(status: string = "pending"): Promise<Array<ReviewFlag & { review: CoachReview }>> {
+  async getReviewFlags(status: string = "pending"): Promise<(ReviewFlag & { review: CoachReview })[]> {
     const flags = await db.select()
       .from(reviewFlags)
       .where(eq(reviewFlags.status, status))
@@ -11805,7 +11808,7 @@ export const storage = {
     location?: string;
     limit: number;
     offset: number;
-  }): Promise<Array<Court & { academy?: Academy; location?: Location }>> {
+  }): Promise<(Court & { academy?: Academy; location?: Location })[]> {
     const conditions = [eq(courts.isActive, true)];
 
     // Visibility filter: public courts OR user's academy courts
@@ -11952,8 +11955,8 @@ export const storage = {
   },
 
   // Get all blocked time slots for a court on a specific date (includes sessions, bookings, and availability blocks)
-  async getCourtBlockedSlots(courtId: string, date: string): Promise<Array<{ startTime: string; endTime: string; status: string; reason?: string }>> {
-    const blockedSlots: Array<{ startTime: string; endTime: string; status: string; reason?: string }> = [];
+  async getCourtBlockedSlots(courtId: string, date: string): Promise<{ startTime: string; endTime: string; status: string; reason?: string }[]> {
+    const blockedSlots: { startTime: string; endTime: string; status: string; reason?: string }[] = [];
     
     // Get court_availability blocks
     const availabilityBlocks = await db.select()
@@ -12044,7 +12047,7 @@ export const storage = {
     status?: string;
     startDate?: string;
     endDate?: string;
-  }): Promise<Array<CourtBooking & { court: Court }>> {
+  }): Promise<(CourtBooking & { court: Court })[]> {
     const conditions = [eq(courtBookings.userId, userId)];
 
     if (filters.status) {
@@ -12128,7 +12131,7 @@ export const storage = {
     startDate?: string;
     endDate?: string;
     courtId?: string;
-  }): Promise<Array<CourtBooking & { court: Court; user?: User }>> {
+  }): Promise<(CourtBooking & { court: Court; user?: User })[]> {
     const conditions = [eq(courtBookings.academyId, academyId)];
 
     if (filters.status) {
@@ -15208,9 +15211,6 @@ async function fullCreditRebuildForAcademy(academyId: string): Promise<{
 }
 
 export { getSessionTypeByPlayerCount, updateSeriesSessionType, recalculateSeriesCredits, ensureCreditProcessed, repairAllPlayerCredits, auditAllPlayerCredits, repairGroupSessionTypes, cleanupGhostSessions, reconcilePackageCredits, repairOrphanedSessionPlayers, fullCreditRebuildForAcademy };
-
-// ==================== VIDEO FEEDBACK ====================
-import { videoFeedback, type VideoFeedback, type InsertVideoFeedback } from "@shared/schema";
 
 export async function createVideoFeedback(data: InsertVideoFeedback): Promise<VideoFeedback> {
   const result = await db.insert(videoFeedback).values(data).returning();

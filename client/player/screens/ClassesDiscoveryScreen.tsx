@@ -369,7 +369,7 @@ export default function ClassesDiscoveryScreen() {
 
   useEffect(() => {
     if (playerLat == null || playerLng == null || allSessions.length === 0) return;
-    const locDests: Array<{ id: string; lat: number; lng: number }> = [];
+    const locDests: { id: string; lat: number; lng: number }[] = [];
     const seen = new Set<string>();
     for (const s of allSessions) {
       if (s.locationLat != null && s.locationLng != null) {
@@ -485,7 +485,7 @@ export default function ClassesDiscoveryScreen() {
   const dateGroups = useMemo(() => groupSessionsByDate(filteredSessions), [filteredSessions]);
 
   const listData = useMemo(() => {
-    const items: Array<{ type: "header"; label: string } | { type: "session"; session: ClassSession }> = [];
+    const items: ({ type: "header"; label: string } | { type: "session"; session: ClassSession })[] = [];
     for (const group of dateGroups) {
       items.push({ type: "header", label: group.dateLabel });
       for (const s of group.sessions) {

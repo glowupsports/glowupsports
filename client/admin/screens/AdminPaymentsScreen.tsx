@@ -16,12 +16,12 @@ import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
 interface Payment {
   id: string;

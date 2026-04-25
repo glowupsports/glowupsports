@@ -4,8 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, GlowColors, Spacing, BorderRadius } from "@/constants/theme";
-import { styles } from "./playersStyles";
-import { strokeTimelineStyles } from "./playersStyles";
+import { styles , strokeTimelineStyles } from "./playersStyles";
 
 interface StrokeFeedbackEntry {
   id: string;

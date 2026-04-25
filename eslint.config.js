@@ -31,6 +31,24 @@ module.exports = defineConfig([
       "node_modules/**",
       "server_dist/**",
       "scripts/fixtures/**",
+      // Task #1313 — `static-build/` holds the generated Hermes bundles
+      // produced by `expo:static:build`. Linting auto-generated minified
+      // bundle.js was producing 2 hard parse errors with no actionable
+      // signal, so skip the whole tree.
+      "static-build/**",
+      // Task #1313 — `.local/` is agent/skills metadata (skill scaffolds,
+      // backups, task notes). It is not shipped with the app and contains
+      // sample TS files that pull in packages we don't install
+      // (`@mastra/core`, `inngest`, ...), producing ~388 spurious
+      // import/no-unresolved errors that drown out real signal.
+      ".local/**",
+      // Task #1313 — `artifacts/` is the standalone mockup sandbox
+      // (Vite + shadcn) and one-off prev_*.tsx snapshots. It has its own
+      // tsconfig and dependency tree (`@/components/ui/...` aliases) that
+      // our root ESLint resolver can't follow, producing another
+      // ~100 import/no-unresolved errors. Lint the sandbox separately if
+      // it ever ships, not from the app's main lint pass.
+      "artifacts/**",
     ],
   },
   // Task #1016 — Catch missing-import crashes before they ship.
@@ -67,11 +85,33 @@ module.exports = defineConfig([
         Express: "readonly",
         // RN-specific
         __DEV__: "readonly",
+        // Task #1313 — TS DOM/Node ambient types not in the `globals` npm
+        // package. Without these, real code that types `RequestInit`,
+        // `BodyInit`, or `NodeJS.Timeout` flags as no-undef and drowns out
+        // genuine missing-import bugs.
+        RequestInit: "readonly",
+        RequestInfo: "readonly",
+        BodyInit: "readonly",
+        HeadersInit: "readonly",
+        ResponseInit: "readonly",
+        NodeJS: "readonly",
       },
     },
     rules: {
       "react/jsx-no-undef": ["error", { allowGlobals: false }],
       "no-undef": "error",
+    },
+  },
+  // Task #1313 — `.cjs` helper scripts are CommonJS modules and legitimately
+  // use `__dirname`, `module`, `require`. Declare those globals so lint
+  // doesn't flag them as undefined.
+  {
+    files: ["**/*.cjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        ...globals.node,
+      },
     },
   },
 ]);

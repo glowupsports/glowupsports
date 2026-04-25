@@ -41,7 +41,7 @@ interface HistoryMatch {
   isCreator: boolean;
   didWin: boolean;
   creator: { id: string; name: string } | null;
-  opponents: Array<{ id: string; name: string }>;
+  opponents: { id: string; name: string }[];
 }
 
 function MatchCard({ match, myId }: { match: HistoryMatch; myId?: string }) {

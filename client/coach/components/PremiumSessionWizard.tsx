@@ -812,7 +812,7 @@ export function PremiumSessionWizard({
         </View>
         <Text style={styles.introTitle}>Schedule a Session</Text>
         <Text style={styles.introDescription}>
-          Create a new training session in just a few simple steps. We'll guide you through the setup.
+          Create a new training session in just a few simple steps. We&apos;ll guide you through the setup.
         </Text>
         <View style={styles.introFeatures}>
           <View style={styles.introFeature}>
@@ -836,7 +836,7 @@ export function PremiumSessionWizard({
           <View style={[styles.skipCheckbox, dontShowAgain && styles.skipCheckboxChecked]}>
             {dontShowAgain ? <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} /> : null}
           </View>
-          <Text style={styles.skipIntroText}>Don't show this intro again</Text>
+          <Text style={styles.skipIntroText}>Don&apos;t show this intro again</Text>
         </Pressable>
       </View>
     </BaselineFlowCard>

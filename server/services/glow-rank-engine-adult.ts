@@ -366,11 +366,11 @@ export function getRankInfo(rank: number): {
 /**
  * Get all ranks with their info
  */
-export function getAllRanks(): Array<{
+export function getAllRanks(): {
   rank: number;
   name: string;
   mmrRange: { min: number; max: number };
-}> {
+}[] {
   return ADULT_GLOW_RANKS.map(r => ({
     rank: r.rank,
     name: r.name,

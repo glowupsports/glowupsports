@@ -973,7 +973,7 @@ export function SessionHeroCard({
 
           {c.message && challengeLifecycle !== "post_match" && challengeLifecycle !== "match_live" ? (
             <View style={{ backgroundColor: Colors.dark.chipBackground, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderLeftWidth: 2, borderLeftColor: accentColor + "40" }}>
-              <Text style={{ fontSize: 12, color: ProTennisColors.textSecondary, fontStyle: "italic", lineHeight: 18 }}>"{c.message}"</Text>
+              <Text style={{ fontSize: 12, color: ProTennisColors.textSecondary, fontStyle: "italic", lineHeight: 18 }}>&quot;{c.message}&quot;</Text>
             </View>
           ) : null}
 
@@ -1232,7 +1232,7 @@ export function SessionHeroCard({
                 >
                   <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>Running Late</Text>
-                    <Text style={styles.modalSubtitle}>Let {opponentDisplayName} know you'll be late</Text>
+                    <Text style={styles.modalSubtitle}>Let {opponentDisplayName} know you&apos;ll be late</Text>
                   </View>
                   <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, marginTop: Spacing.md, marginBottom: Spacing.sm }}>How many minutes late?</Text>
                   <View style={{ flexDirection: "row", gap: Spacing.sm, flexWrap: "wrap" }}>

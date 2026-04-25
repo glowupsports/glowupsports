@@ -28,7 +28,7 @@ const HEX6_RE = /^#[0-9a-fA-F]{6}$/;
 
 type Mode = "light" | "dark";
 
-const FIELDS: ReadonlyArray<{ key: keyof AcademyThemeColors; label: string }> = [
+const FIELDS: readonly { key: keyof AcademyThemeColors; label: string }[] = [
   { key: "primary", label: "Primary" },
   { key: "secondary", label: "Secondary" },
   { key: "accent", label: "Accent" },
@@ -209,7 +209,7 @@ export default function MyThemeEditor({
     <View style={{ gap: Spacing.md }}>
       <Text style={styles.help}>
         Pick a preset or fully customise every colour. This only affects your
-        account on this device — your academy's branding stays as-is for everyone
+        account on this device — your academy&apos;s branding stays as-is for everyone
         else.
       </Text>
 

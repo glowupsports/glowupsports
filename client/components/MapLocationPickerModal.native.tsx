@@ -9,6 +9,12 @@ import {
   Platform,
   Alert,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { apiFetch } from "@/lib/query-client";
+import * as Location from "expo-location";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 // react-native-maps is a native module. On builds where the native side
 // isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
 // build, a missing/expired Google Maps key, or a future SDK upgrade) the
@@ -43,12 +49,6 @@ type MapPressEvent = {
 type MarkerDragStartEndEvent = {
   nativeEvent: { coordinate: { latitude: number; longitude: number } };
 };
-import { Ionicons } from "@expo/vector-icons";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { apiFetch } from "@/lib/query-client";
-import * as Location from "expo-location";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 export interface MapLocationResult {
   address: string;

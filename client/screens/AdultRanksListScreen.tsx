@@ -20,14 +20,14 @@ interface RankDetailResponse {
   name: string;
   abilitySnapshot: string;
   mmrRange: { min: number; max: number };
-  skillGates: Array<{
+  skillGates: {
     id: string;
     metric: string;
     min?: number;
     outOf?: number;
     required?: boolean;
     description: string;
-  }>;
+  }[];
   matchRequirements?: {
     minMatches8Weeks?: number;
     format?: string;

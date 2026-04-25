@@ -224,7 +224,7 @@ export function LockAccountModal({
               </Pressable>
             </View>
             <Text style={styles.subtitle}>
-              While locked, this account can't open the app or join sessions. You'll need
+              While locked, this account can&apos;t open the app or join sessions. You&apos;ll need
               {Platform.OS === "ios" ? " their" : " its"} 4-digit PIN to confirm.
             </Text>
             <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>

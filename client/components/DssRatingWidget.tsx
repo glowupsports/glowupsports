@@ -37,11 +37,11 @@ interface DssRatingData {
     mmrNeeded: number;
     confidence: "low" | "medium" | "high";
   };
-  recentHistory: Array<{
+  recentHistory: {
     mmr: number;
     dssRating: string;
     date: string;
-  }>;
+  }[];
 }
 
 const BRACKET_COLORS: Record<number, { primary: string; secondary: string; name: string }> = {

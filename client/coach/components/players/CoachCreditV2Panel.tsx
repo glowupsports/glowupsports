@@ -235,7 +235,7 @@ export function CoachCreditV2Panel({ playerId }: Props) {
 
   // Pull academy pricing to prefill price-per-credit. Coach app already has
   // this endpoint mounted at /api/owner/academy/pricing.
-  const pricingQuery = useQuery<Array<{ sessionType: string; pricePerSession: string; currency: string }>>({
+  const pricingQuery = useQuery<{ sessionType: string; pricePerSession: string; currency: string }[]>({
     queryKey: ["/api/owner/academy/pricing"],
     enabled: showAddModal,
   });

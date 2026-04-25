@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Clipboard from "expo-clipboard";
 import { Colors, Spacing } from "@/constants/theme";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";

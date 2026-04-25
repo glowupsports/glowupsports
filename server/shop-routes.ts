@@ -2046,7 +2046,7 @@ router.get("/provider/me/bookings", authMiddleware, requireServiceProvider, asyn
     }
 
     const playerMap = new Map(allPlayers.map(p => [p.id, p]));
-    const itemsMap = new Map<string, Array<typeof allItems[number] & { service?: { id: string; name: string; iconName: string; durationMinutes: number | null } }>>();
+    const itemsMap = new Map<string, (typeof allItems[number] & { service?: { id: string; name: string; iconName: string; durationMinutes: number | null } })[]>();
     for (const item of allItems) {
       if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
       const svcDetail = item.serviceId ? serviceDetailsMap.get(item.serviceId) : undefined;
@@ -2873,7 +2873,7 @@ router.put("/provider/availability", authMiddleware, requireServiceProvider, asy
     if (!provider) return res.status(404).json({ error: "Provider not found" });
 
     const { windows } = req.body as {
-      windows: Array<{ dayOfWeek: number; startTime: string; endTime: string; isActive?: boolean }>;
+      windows: { dayOfWeek: number; startTime: string; endTime: string; isActive?: boolean }[];
     };
 
     if (!Array.isArray(windows)) {

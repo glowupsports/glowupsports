@@ -311,7 +311,7 @@ function SupportSection({
     >
       <Text style={styles.supportHeading}>Get in Touch</Text>
       <Text style={styles.supportSubtext}>
-        We're here to help. Reach out through any of the channels below.
+        We&apos;re here to help. Reach out through any of the channels below.
       </Text>
 
       <Pressable style={styles.supportCard} onPress={handleEmail}>

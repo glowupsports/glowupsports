@@ -157,10 +157,10 @@ router.get("/api/discovery/map", authMiddleware, async (req: AuthRequest, res: R
         ORDER BY a.id, l.created_at ASC
         LIMIT ${limit}
       `);
-      const academyRows = (rows as { rows?: Array<{
+      const academyRows = (rows as { rows?: {
         id: string; name: string; city: string | null; country: string | null;
         rating: string | number | null; lat: number | string | null; lng: number | string | null;
-      }> }).rows ?? [];
+      }[] }).rows ?? [];
       for (const r of academyRows) {
         const lat = Number(r.lat);
         const lng = Number(r.lng);

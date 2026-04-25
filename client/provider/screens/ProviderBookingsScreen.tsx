@@ -22,7 +22,7 @@ interface Booking {
   scheduledAt: string | null;
   notes: string | null;
   totalAmount: string;
-  items: Array<{
+  items: {
     id: string;
     quantity: number;
     unitPrice: string;
@@ -32,7 +32,7 @@ interface Booking {
       iconName: string;
       durationMinutes: number | null;
     };
-  }>;
+  }[];
   player?: {
     id: string;
     name: string;

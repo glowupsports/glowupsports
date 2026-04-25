@@ -57,13 +57,13 @@ interface DomainBadge {
 interface RecognitionData {
   achievements: Achievement[];
   domainBadges: DomainBadge[];
-  validations: Array<{
+  validations: {
     id: string;
     type: string;
     domain: string;
     status: string;
     validatedAt: string;
-  }>;
+  }[];
   summary: {
     totalAchievements: number;
     earnedAchievements: number;
@@ -80,12 +80,12 @@ interface JourneyData {
   badgeMessage?: string;
   totalMilestones: number;
   totalBadges: number;
-  xpHistory: Array<{
+  xpHistory: {
     id: string;
     amount: number;
     reason: string;
     date: string;
-  }>;
+  }[];
 }
 
 function MilestoneCard({ milestone, isFirst, isExpanded, onToggle }: { 
@@ -374,7 +374,7 @@ function SkillDetailModal({
   if (!badge) return null;
 
   const getSkillBreakdown = () => {
-    const breakdowns: Record<string, { skills: Array<{ name: string; level: number }> }> = {
+    const breakdowns: Record<string, { skills: { name: string; level: number }[] }> = {
       "technical": { skills: [
         { name: "Forehand", level: 75 }, { name: "Backhand", level: 60 }, 
         { name: "Serve", level: 50 }, { name: "Volley", level: 40 }

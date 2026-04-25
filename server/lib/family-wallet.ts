@@ -545,12 +545,12 @@ export async function buildFamilyStatement(
   windowStart: Date,
   windowEnd: Date,
 ): Promise<{
-  members: Array<{
+  members: {
     playerId: string;
     playerName: string | null;
     byCategory: Record<SpendCategory, number>; // cents
     totalCents: number;
-  }>;
+  }[];
   totalCents: number;
   byCategory: Record<SpendCategory, number>;
 }> {

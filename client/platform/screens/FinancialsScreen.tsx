@@ -75,13 +75,13 @@ interface FinancialsData {
     avgRevenuePerAcademy: number;
     churnValue: number;
   };
-  revenueData: Array<{ month: string; amount: number }>;
-  transactions: Array<{
+  revenueData: { month: string; amount: number }[];
+  transactions: {
     academy: string;
     amount: number;
     type: "payment" | "refund" | "pending";
     date: string;
-  }>;
+  }[];
 }
 
 export default function FinancialsScreen() {

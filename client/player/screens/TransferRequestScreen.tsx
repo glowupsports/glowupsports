@@ -136,13 +136,13 @@ function TransferRequestCard({ request }: { request: TransferRequest }) {
           {request.fromAcademyNote ? (
             <View style={styles.noteBox}>
               <Text style={styles.noteLabel}>From current academy:</Text>
-              <Text style={styles.noteText}>"{request.fromAcademyNote}"</Text>
+              <Text style={styles.noteText}>&quot;{request.fromAcademyNote}&quot;</Text>
             </View>
           ) : null}
           {request.toAcademyNote ? (
             <View style={styles.noteBox}>
               <Text style={styles.noteLabel}>From new academy:</Text>
-              <Text style={styles.noteText}>"{request.toAcademyNote}"</Text>
+              <Text style={styles.noteText}>&quot;{request.toAcademyNote}&quot;</Text>
             </View>
           ) : null}
         </View>

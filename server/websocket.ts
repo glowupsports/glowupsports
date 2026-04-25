@@ -414,7 +414,7 @@ export function broadcastMessageDeleted(
 export function broadcastReactionUpdated(
   academyId: string,
   participantUserIds: string[],
-  payload: { conversationId: string; messageId: string; reactions: Array<{ id: string; emoji: string; reactorType: string; reactorCoachId: string | null; reactorPlayerId: string | null }> },
+  payload: { conversationId: string; messageId: string; reactions: { id: string; emoji: string; reactorType: string; reactorCoachId: string | null; reactorPlayerId: string | null }[] },
 ) {
   broadcastToUserIds(academyId, participantUserIds, {
     type: "reaction_updated",

@@ -1,5 +1,4 @@
-import { useTheme } from "@/contexts/ThemeContext";
-import { _getThemeRevisionInternal } from "@/contexts/ThemeContext";
+import { useTheme , _getThemeRevisionInternal } from "@/contexts/ThemeContext";
 
 /**
  * Subscribes the calling component to the active theme so it re-renders

@@ -18,7 +18,12 @@ import { BlurView } from "expo-blur";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest ,
+  getApiUrl,
+  getAuthHeaders,
+  getEffectivePlayerId,
+  buildPhotoUrl,
+} from "@/lib/query-client";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -48,12 +53,6 @@ import {
 } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
 import { useAuth } from "@/coach/context/AuthContext";
-import {
-  getApiUrl,
-  getAuthHeaders,
-  getEffectivePlayerId,
-  buildPhotoUrl,
-} from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

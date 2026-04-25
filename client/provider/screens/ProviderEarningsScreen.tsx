@@ -21,7 +21,7 @@ interface Booking {
   scheduledAt: string | null;
   completedAt: string | null;
   totalAmount: string;
-  items: Array<{ id: string; name: string; service?: { name: string } }>;
+  items: { id: string; name: string; service?: { name: string } }[];
   player?: { id: string; name: string; profilePhotoUrl: string | null } | null;
 }
 
@@ -35,7 +35,7 @@ function getMonthKey(date: Date): string {
   return `${date.getFullYear()}-${date.getMonth()}`;
 }
 
-function getLast6Months(): Array<{ label: string; key: string }> {
+function getLast6Months(): { label: string; key: string }[] {
   const now = new Date();
   return Array.from({ length: 6 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);

@@ -1090,7 +1090,6 @@ router.post(
             locationId: locationId || null,
             startTime: sessionDate,
             endTime: sessionEndTime,
-            duration,
             sessionType,
             ballLevel,
             skillLevel,
@@ -1399,7 +1398,6 @@ router.post(
           locationId: locationId || null,
           startTime: sessionDate,
           endTime: sessionEndTime,
-          duration,
           sessionType,
           ballLevel,
           skillLevel,
@@ -2648,14 +2646,13 @@ router.post(
                       } catch {}
 
                       const session = await storage.createSession({
-                        duration: duration || 60,
+                        duration: series.duration ?? 60,
                         academyId,
                         coachId,
                         courtId: series.courtId || null,
                         locationId: series.locationId || null,
                         startTime: sessionDate,
                         endTime: sessionEndTime,
-                        duration: series.duration,
                         sessionType: series.sessionType,
                         ballLevel: series.ballLevel,
                         skillLevel: series.skillLevel,
@@ -3963,8 +3960,8 @@ router.get(
         );
         const sessionDateUTC = new Date(session.startTime);
         const sessionDateDubai = toDubaiTime(sessionDateUTC);
-        const isToday = sessionDate.toDateString() === now.toDateString();
-        const isPast = sessionDate < now;
+        const isToday = sessionDateUTC.toDateString() === now.toDateString();
+        const isPast = sessionDateUTC < now;
         const hasFeedback = feedbackMap[session.id] || false;
 
         let status:
@@ -4115,12 +4112,12 @@ router.post(
         for (const session of groupSessions) {
           const sessionDateUTC = new Date(session.startTime);
           const sessionDateDubai = toDubaiTime(sessionDateUTC);
-          sessionDate.setUTCHours(0, 0, 0, 0);
+          sessionDateUTC.setUTCHours(0, 0, 0, 0);
 
           // Calculate weeks elapsed since first session
           const msPerWeek = 7 * 24 * 60 * 60 * 1000;
           const weeksElapsed = Math.round(
-            (sessionDate.getTime() - firstWeekStart.getTime()) / msPerWeek,
+            (sessionDateUTC.getTime() - firstWeekStart.getTime()) / msPerWeek,
           );
           const weekNumber = weeksElapsed + 1; // Week 1 is the first week
 
