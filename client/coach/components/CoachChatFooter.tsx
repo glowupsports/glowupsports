@@ -327,17 +327,6 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     AsyncStorage.setItem("@glow_world_hype", JSON.stringify(m)).catch(() => {});
   }, []);
 
-  // Task #1318 — combine local AsyncStorage cache with the server's
-  // authoritative `muteUntil` so the icon shows immediately on a
-  // fresh install before the optimistic update lands.
-  const isConvMuted = useCallback((convId: string) => {
-    const until = mutedConvMap[convId];
-    if (until && until > Date.now()) return true;
-    const conv = conversations.find(c => c.id === convId);
-    const serverUntil = conv?.muteUntil ? new Date(conv.muteUntil).getTime() : 0;
-    return serverUntil > Date.now();
-  }, [mutedConvMap, conversations]);
-
   const height = useSharedValue(FOOTER_COLLAPSED);
   const tickerOffset = useSharedValue(0);
   const leftPillWidthSV = useSharedValue(0);
@@ -673,6 +662,17 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     refetchInterval: isConnected ? false : 30000,
   });
   const conversations = Array.isArray(rawConversations) ? rawConversations : [];
+
+  // Task #1318 — combine local AsyncStorage cache with the server's
+  // authoritative `muteUntil` so the icon shows immediately on a
+  // fresh install before the optimistic update lands.
+  const isConvMuted = useCallback((convId: string) => {
+    const until = mutedConvMap[convId];
+    if (until && until > Date.now()) return true;
+    const conv = conversations.find(c => c.id === convId);
+    const serverUntil = conv?.muteUntil ? new Date(conv.muteUntil).getTime() : 0;
+    return serverUntil > Date.now();
+  }, [mutedConvMap, conversations]);
 
   const messagesQueryKey = isPlayerMode
     ? ["/api/player/me/conversations", selectedConversation?.id, "messages"]
