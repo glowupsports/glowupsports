@@ -108,6 +108,28 @@ router.get("/", async (req: Request, res: Response) => {
       [playerId]
     );
 
+    const toCalendarDate = (value: any): string | null => {
+      if (value == null) return null;
+      if (typeof value === "string") {
+        // If already a YYYY-MM-DD string, keep it; if ISO, take the date portion
+        // by parsing as a Date and rebuilding from local components below.
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return value;
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+      if (value instanceof Date) {
+        const y = value.getFullYear();
+        const m = String(value.getMonth() + 1).padStart(2, "0");
+        const day = String(value.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+      return String(value);
+    };
+
     const challenges = result.rows.map((row: any) => ({
       id: row.id,
       challengerId: row.challenger_id,
@@ -115,7 +137,7 @@ router.get("/", async (req: Request, res: Response) => {
       academyId: row.academy_id,
       matchType: row.match_type,
       matchFormat: row.match_format,
-      scheduledDate: row.match_date,
+      scheduledDate: toCalendarDate(row.match_date),
       scheduledTime: row.match_time,
       courtId: row.court_id,
       courtName: row.court_name_resolved || row.court_name,

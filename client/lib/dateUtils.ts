@@ -1,3 +1,37 @@
+/**
+ * Parse a calendar-date value (either "YYYY-MM-DD" or an ISO timestamp like
+ * "2026-04-26T00:00:00.000Z") into local-calendar { year, month, day } parts.
+ *
+ * Use this when consuming a date that represents a specific calendar day
+ * (e.g. a match date), not a UTC timestamp. Returns null on unparseable input.
+ */
+export function parseCalendarDateParts(
+  value: string | null | undefined
+): { year: number; month: number; day: number } | null {
+  if (!value) return null;
+  // Strict YYYY-MM-DD only — anything longer (e.g. an ISO timestamp) falls
+  // through to the Date-based path so we don't silently strip the timezone.
+  const ymdMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (ymdMatch) {
+    const year = Number(ymdMatch[1]);
+    const month = Number(ymdMatch[2]);
+    const day = Number(ymdMatch[3]);
+    if ([year, month, day].some((n) => Number.isNaN(n))) return null;
+    return { year, month, day };
+  }
+  // For ISO timestamps (or any other parseable date string) convert to the
+  // viewer's local calendar date — this matches what `toLocaleDateString`
+  // would render on the same Date and avoids off-by-one shifts that would
+  // otherwise occur if we only looked at the YYYY-MM-DD prefix.
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return {
+    year: d.getFullYear(),
+    month: d.getMonth() + 1,
+    day: d.getDate(),
+  };
+}
+
 export function formatCredits(value: number | string | undefined | null): string {
   if (value === undefined || value === null) return "0";
   const num = typeof value === "string" ? parseFloat(value) : value;

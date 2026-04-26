@@ -24,6 +24,7 @@ import { apiRequest ,
   getEffectivePlayerId,
   buildPhotoUrl,
 } from "@/lib/query-client";
+import { parseCalendarDateParts } from "@/lib/dateUtils";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -164,7 +165,10 @@ interface TournamentsPayload {
 
 function formatShortDate(dateStr: string): string {
   try {
-    return new Date(dateStr).toLocaleDateString(undefined, {
+    const parts = parseCalendarDateParts(dateStr);
+    if (!parts) return dateStr;
+    const d = new Date(parts.year, parts.month - 1, parts.day, 0, 0, 0);
+    return d.toLocaleDateString(undefined, {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -200,10 +204,11 @@ function formatTimeLeft(target: Date): string {
 }
 
 function challengeToDate(c: { scheduledDate: string; scheduledTime: string }): Date | null {
-  const [y, mo, d] = c.scheduledDate.split("-").map(Number);
+  const parts = parseCalendarDateParts(c.scheduledDate);
+  if (!parts) return null;
   const [h, mi] = c.scheduledTime.split(":").map(Number);
-  if ([y, mo, d, h, mi].some((n) => Number.isNaN(n))) return null;
-  return new Date(y, mo - 1, d, h, mi);
+  if ([h, mi].some((n) => Number.isNaN(n))) return null;
+  return new Date(parts.year, parts.month - 1, parts.day, h, mi);
 }
 
 function isDoubles(matchType?: string): boolean {
@@ -387,10 +392,11 @@ function CompeteCard() {
 
   const isFutureChallenge = (c: ChallengeData) => {
     if (!c.scheduledDate || !c.scheduledTime) return false;
-    const [y, mo, d] = c.scheduledDate.split("-").map(Number);
+    const parts = parseCalendarDateParts(c.scheduledDate);
+    if (!parts) return false;
     const [h, mi] = c.scheduledTime.split(":").map(Number);
-    if ([y, mo, d, h, mi].some((n) => Number.isNaN(n))) return false;
-    return new Date(y, mo - 1, d, h, mi).getTime() > Date.now();
+    if ([h, mi].some((n) => Number.isNaN(n))) return false;
+    return new Date(parts.year, parts.month - 1, parts.day, h, mi).getTime() > Date.now();
   };
 
   const acceptedChallenge = challenges

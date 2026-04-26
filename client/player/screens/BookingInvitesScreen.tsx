@@ -20,6 +20,7 @@ import { Colors, Spacing, FontSizes, BorderRadius, GlowColors } from "@/constant
 import { Card } from "@/components/Card";
 import { CourtBookingPanel } from "@/components/CourtBooking";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
+import { parseCalendarDateParts } from "@/lib/dateUtils";
 import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -176,7 +177,9 @@ function ChallengeInviteCard({
   const opponentName = isChallenger ? challenge.opponentName : challenge.challengerName;
 
   const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
+    const parts = parseCalendarDateParts(dateStr);
+    if (!parts) return "";
+    const d = new Date(parts.year, parts.month - 1, parts.day, 0, 0, 0);
     return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
   };
   const formatTime = (timeStr: string) => {

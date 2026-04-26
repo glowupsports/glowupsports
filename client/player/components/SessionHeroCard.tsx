@@ -25,6 +25,7 @@ import { CourtBookingPanel } from "./CourtBookingPicker";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors, CardElevation, TextColors } from "@/constants/theme";
 import { usePlayerState } from "../context/PlayerStateContext";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
+import { parseCalendarDateParts } from "@/lib/dateUtils";
 import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
@@ -288,9 +289,11 @@ export function SessionHeroCard({
 
   const isChallengeExpired = (c: ChallengeData) => {
     if (!c.scheduledDate || !c.scheduledTime) return false;
-    const [year, month, day] = c.scheduledDate.split("-").map(Number);
+    const parts = parseCalendarDateParts(c.scheduledDate);
+    if (!parts) return false;
     const [h, m] = c.scheduledTime.split(":").map(Number);
-    const scheduledMs = new Date(year, month - 1, day, h, m, 0).getTime();
+    if (Number.isNaN(h) || Number.isNaN(m)) return false;
+    const scheduledMs = new Date(parts.year, parts.month - 1, parts.day, h, m, 0).getTime();
     return Date.now() > scheduledMs;
   };
 
@@ -651,11 +654,12 @@ export function SessionHeroCard({
 
   const getChallengeStartTime = (c: typeof primaryChallenge) => {
     if (!c) return 0;
-    const dateStr = c.scheduledDate;
+    const parts = parseCalendarDateParts(c.scheduledDate);
+    if (!parts) return 0;
     const timeStr = c.scheduledTime || "00:00";
-    const [year, month, day] = dateStr.split("-").map(Number);
     const [h, m] = timeStr.split(":").map(Number);
-    return new Date(year, month - 1, day, h, m, 0).getTime();
+    if (Number.isNaN(h) || Number.isNaN(m)) return 0;
+    return new Date(parts.year, parts.month - 1, parts.day, h, m, 0).getTime();
   };
 
   type ChallengeLifecycle = "incoming" | "confirmed" | "sent" | "match_live" | "post_match";
@@ -847,7 +851,9 @@ export function SessionHeroCard({
       return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
     };
     const formatChallengeDate = (dateStr: string) => {
-      const d = new Date(dateStr + "T00:00:00");
+      const parts = parseCalendarDateParts(dateStr);
+      if (!parts) return "";
+      const d = new Date(parts.year, parts.month - 1, parts.day, 0, 0, 0);
       return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
     };
 

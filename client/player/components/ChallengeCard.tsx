@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
+import { parseCalendarDateParts } from "@/lib/dateUtils";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 import { CourtBookingPanel } from "@/components/CourtBooking";
@@ -39,11 +40,14 @@ function getInitial(name?: string): string {
 }
 
 function getCountdown(dateStr: string, timeStr: string) {
-  const now = new Date();
+  const parts = parseCalendarDateParts(dateStr);
+  if (!parts) return { days: 0, hours: 0, minutes: 0 };
   const [hours, minutes] = (timeStr || "00:00").split(":").map(Number);
-  const target = new Date(dateStr);
-  target.setHours(hours, minutes, 0, 0);
-  const diff = target.getTime() - now.getTime();
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return { days: 0, hours: 0, minutes: 0 };
+  }
+  const target = new Date(parts.year, parts.month - 1, parts.day, hours, minutes, 0, 0);
+  const diff = target.getTime() - Date.now();
   if (diff <= 0) return { days: 0, hours: 0, minutes: 0 };
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -52,7 +56,9 @@ function getCountdown(dateStr: string, timeStr: string) {
 }
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
+  const parts = parseCalendarDateParts(dateStr);
+  if (!parts) return "";
+  const d = new Date(parts.year, parts.month - 1, parts.day, 0, 0, 0);
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
