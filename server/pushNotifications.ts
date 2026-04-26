@@ -5,6 +5,7 @@ import { buildMatchReadinessScore } from "./services/ai-progress-engine";
 import { storage, ensureCreditProcessed as _ensureCreditProcessed, normalizeSessionTypeToCreditType } from "./storage";
 import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
+import { isAPNsToken, isAPNsConfigured, sendAPNsNotification } from "./apns";
 import * as Sentry from "@sentry/node";
 import { computeLedgerIntegrityReport } from "./routes/admin-credit-integrity";
 
@@ -206,12 +207,26 @@ export async function sendPushNotification(
 ): Promise<ExpoPushTicket[]> {
   if (tokens.length === 0) return [];
 
-  // Separate tokens by type
+  // Separate tokens by type. Order matters: APNs check is the strictest
+  // (pure-hex shape) so we test it before falling back to "anything else
+  // is Expo". This fixes the historical bug where raw 64-hex APNs device
+  // tokens were misclassified as Expo tokens and silently dropped by
+  // Expo's push service with DeviceNotRegistered. (Task #1359 / #1360.)
   const expoTokens: string[] = [];
   const fcmTokens: string[] = [];
+  const apnsTokens: string[] = [];
 
   for (const token of tokens) {
-    if (isFCMToken(token)) {
+    // APNs check is stricter (pure hex, no colon, no Exponent prefix)
+    // so we run it FIRST. This ensures any future longer APNs token
+    // shape (Apple has hinted at up to 200 hex chars) cannot be
+    // misclassified as FCM by `isFCMToken`'s length-only heuristic.
+    // Only route to APNs if credentials are configured; otherwise fall
+    // through to FCM/Expo so behavior is identical to the pre-APNs
+    // world when the .p8 secret is missing.
+    if (isAPNsToken(token) && isAPNsConfigured()) {
+      apnsTokens.push(token);
+    } else if (isFCMToken(token)) {
       fcmTokens.push(token);
     } else {
       expoTokens.push(token);
@@ -242,6 +257,18 @@ export async function sendPushNotification(
   } else if (fcmTokens.length > 0) {
     // FCM tokens but Firebase not initialized - log warning
     console.warn(`[Push] ${fcmTokens.length} FCM tokens but Firebase not initialized`);
+  }
+
+  // Send directly to Apple via APNs HTTP/2 for raw iOS device tokens.
+  if (apnsTokens.length > 0) {
+    const apnsResults = await sendAPNsNotification(apnsTokens, title, body, data);
+    for (const r of apnsResults) {
+      results.push({
+        status: r.success ? "ok" : "error",
+        id: r.apnsId,
+        message: r.success ? undefined : `apns ${r.status ?? "?"}: ${r.reason ?? "unknown"}`,
+      });
+    }
   }
 
   // Store notification in playerNotifications table
