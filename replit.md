@@ -9,6 +9,7 @@ Preferred communication style: Simple, everyday language.
 ### CRITICAL: Database Queries — Supabase ONLY. The local SQL tool LIES.
 **The only real database is Supabase. The `executeSql` / `code_execution` SQL tool points at a LOCAL sandbox DB. Using it for real data will silently give you the WRONG answer.**
 Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATABASE_URL"`.
+**`shared/schema.ts` is the intention, Supabase is the truth.** Never draw conclusions from `schema.ts` alone — verify first against `information_schema.columns` in Supabase. Example drift (Task #1349): `users.name` does not exist in real Supabase, even though code paths assumed it did. The CI test `server/tests/schema-vs-supabase-sync.test.ts` enforces this; see `DATABASE.md` ("Schema file vs. real DB").
 
 ### CRITICAL: App Store Version Rule
 **`expo.version` and `expo.{ios,android}.runtimeVersion` are independent. Do NOT bump them together.**

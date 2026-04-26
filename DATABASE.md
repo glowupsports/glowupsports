@@ -111,6 +111,67 @@ will exit with a clear error explaining what to set.
 
 ---
 
+## Schema file vs. real DB
+
+**`shared/schema.ts` is the *intention*. Supabase is the *truth*.**
+
+The Drizzle schema file declares what the database *should* look like. The
+real production database lives in Supabase and may have drifted from that
+declaration: columns can be missing, columns can exist that aren't declared,
+defaults can differ, types can differ. Reading `schema.ts` and concluding
+"column X exists" is a class of mistake that has caused production bugs more
+than once.
+
+### Real example — Task #1349
+
+While fixing player code, an agent (me) read `shared/schema.ts`, noticed
+`users.name` was being joined to in some query helpers, and assumed that the
+fix was to keep using `users.name` for the parent's display name. After
+checking Supabase directly:
+
+```bash
+bash scripts/db-query.sh -c \
+  "select column_name from information_schema.columns \
+   where table_schema='public' and table_name='users' order by column_name"
+```
+
+…it turned out `public.users` in Supabase has **no `name` column and no
+`phone` column**. The codebase happened to refer to those columns in places
+that either never executed or quietly returned NULL. Trusting `schema.ts` as
+truth would have shipped a fix that joined to a column that doesn't exist —
+exactly the kind of silent 500 the column-reference audit (Task #1347)
+already exists to catch, but coming from a different angle (the schema file
+disagrees with prod, not just the code).
+
+### Rule
+
+1. **Never claim a column exists, is nullable, or has a particular type
+   based on `schema.ts` alone.** Verify against
+   `information_schema.columns` in Supabase first.
+2. The verification command is the same one as the rest of this file:
+   ```bash
+   bash scripts/db-query.sh -c \
+     "select column_name, data_type, is_nullable \
+      from information_schema.columns \
+      where table_schema='public' and table_name='YOUR_TABLE' \
+      order by column_name"
+   ```
+3. The CI test `server/tests/schema-vs-supabase-sync.test.ts` walks every
+   Drizzle table in `shared/schema.ts` and compares it column-by-column with
+   `information_schema.columns` in Supabase. It fails with a readable diff
+   the moment the two diverge. The test is *skipped* (not failed) when
+   `SUPABASE_DATABASE_URL` is not set, so it stays green in environments
+   without the secret.
+4. The banner at the top of `shared/schema.ts` says the same thing, on the
+   file you'd otherwise be tempted to trust.
+
+If the sync test fails, fix the drift — either by syncing the schema to
+Supabase (`bash scripts/sync-to-supabase.sh`, after reviewing what would
+change) or by updating `shared/schema.ts` to match reality. Never paper over
+a sync failure by skipping the test.
+
+---
+
 ## Migrations and one-off fixes — same rule
 
 Migrations and one-off data fixes are NOT exceptions. They must hit Supabase

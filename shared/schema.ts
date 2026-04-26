@@ -1,3 +1,30 @@
+// ============================================================================
+// !!  STOP — READ THIS BEFORE TRUSTING ANYTHING IN THIS FILE  !!
+// ============================================================================
+// THIS FILE IS THE INTENTION. SUPABASE IS THE TRUTH.
+//
+// `shared/schema.ts` is the Drizzle *intention* of what the database should
+// look like. The real production database lives in Supabase and may have
+// drifted: columns may be missing, columns may exist that aren't declared
+// here, and types may differ. NEVER conclude "column X exists / does not
+// exist" by reading this file alone.
+//
+// Before you claim a column exists (or fix code that uses one), VERIFY
+// against Supabase:
+//
+//   bash scripts/db-query.sh -c \
+//     "select column_name, data_type from information_schema.columns \
+//      where table_schema='public' and table_name='users' order by column_name"
+//
+// Real-world example (Task #1349): an agent assumed `users.name` existed
+// because the codebase joined to it; in actual Supabase, `public.users` has
+// NO `name` column and NO `phone` column. That mismatch is exactly the kind
+// of drift this banner exists to prevent.
+//
+// See `DATABASE.md` ("Schema file vs. real DB") and `replit.md` for the rule.
+// The CI test `server/tests/schema-vs-supabase-sync.test.ts` is the safety net.
+// ============================================================================
+
 import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, uniqueIndex, unique, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
