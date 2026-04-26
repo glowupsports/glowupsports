@@ -101,7 +101,7 @@ router.get(
 );
 
 // POST /api/admin/equipment - create equipment item
-const createEquipmentSchema = z.object({
+const equipmentBaseSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   type: z.enum(["rental", "sale"]),
@@ -111,7 +111,8 @@ const createEquipmentSchema = z.object({
   quantity: z.number().int().min(1).default(1),
   photoUrl: z.string().optional().nullable(),
   isActive: z.boolean().default(true),
-}).refine(
+});
+const createEquipmentSchema = equipmentBaseSchema.refine(
   (d) => d.priceCredits != null || d.priceCash != null,
   { message: "At least one payment method (credits or cash price) must be set" }
 );
@@ -173,7 +174,7 @@ router.patch(
         .limit(1);
       if (!existing[0]) return res.status(404).json({ error: "Not found" });
 
-      const updateSchema = createEquipmentSchema.partial().refine(
+      const updateSchema = equipmentBaseSchema.partial().refine(
         (d) => {
           if (d.priceCredits === undefined && d.priceCash === undefined) return true;
           const credits = d.priceCredits !== undefined ? d.priceCredits : existing[0].priceCredits;

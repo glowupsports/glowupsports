@@ -94,7 +94,7 @@ export async function hasActiveEntitlement(
     }
 
     const items: CustomerEntitlement[] = data?.items ?? [];
-    return items.some((e) => e.lookup_key === entitlementIdentifier);
+    return items.some((e) => e.entitlement_id === entitlementIdentifier);
   } catch (err) {
     console.error('[RevenueCat] hasActiveEntitlement failed:', err);
     return null;

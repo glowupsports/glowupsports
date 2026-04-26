@@ -374,7 +374,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                 name: p.playerName || "Unknown",
                 ballLevel: p.playerBallLevel || null,
                 profilePhotoUrl: p.profilePhotoUrl || null,
-                status: p.attendanceStatus || "active",
+                status: p.status || "active",
                 attendanceStatus: null,
                 isGuest: false,
                 joinType: "member" as const,
@@ -696,13 +696,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             return {
               id: session.id,
               playerId: firstPlayer?.id || null,
-              playerName: firstPlayer
-                ? `${firstPlayer.firstName} ${firstPlayer.lastName}`
-                : "No Player",
+              playerName: firstPlayer ? firstPlayer.name : "No Player",
               playerLevel: firstPlayer?.ballLevel || "RED_3",
               startTime: session.startTime,
               endTime: session.endTime,
-              type: session.type || "private",
+              type: session.sessionType || "private",
               status:
                 session.status === "completed"
                   ? "completed"
@@ -854,8 +852,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Send push notification to player about new feedback
         try {
           const coachUser = await storage.getUserById(coachUserId);
-          const coachName = coachUser?.fullName || "Your coach";
-          const sessionName = session.name || "Training session";
+          const coachName = coachUser?.username || "Your coach";
+          const sessionName = session.title || "Training session";
           await sendFeedbackNotification(playerId, coachName, sessionName);
 
           if (xpAwarded > 0) {
@@ -948,7 +946,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             communityEnabled: player.communityEnabled ?? null,
             lastLatitude: player.lastLatitude ?? null,
             lastLongitude: player.lastLongitude ?? null,
-            attendanceStreak: (player as any).attendanceStreak ?? null,
+            attendanceStreak: player.streak ?? null,
           },
           coach,
           academy,

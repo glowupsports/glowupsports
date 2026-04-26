@@ -43,6 +43,7 @@ import {
   academies,
   coachReviewStats,
   locations,
+  parentPlayerRelations,
   type Coach,
   type InsertInvoice,
   type InsertPayment,
@@ -3099,13 +3100,12 @@ router.post(
       let makeUpRefunded = false;
 
       // Early cancel: refund the correct credit type
-      // Only refund if we found a valid join transaction (prevents double refunds and errors)
+      // Only refund if we found a valid join transaction (prevents double refunds and errors).
+      // The source of truth for player credit balances is the credit_transactions
+      // ledger (aggregated into player_credit_balance) — there is no
+      // players.credits / players.make_up_credits column to bump.
       if (!isLateCancel && playerJoinTx) {
         if (usedMakeUpCredit) {
-          // Refund make-up credit
-          await storage.updatePlayer(playerId, {
-            makeUpCredits: (player.makeUpCredits || 0) + 1,
-          });
           makeUpRefunded = true;
 
           await storage.createCreditTransaction({
@@ -3124,9 +3124,6 @@ router.post(
         } else {
           // Refund regular credit - use the amount from the original transaction
           const originalAmount = Math.abs(playerJoinTx.amount || 1);
-          await storage.updatePlayer(playerId, {
-            credits: (player.credits || 0) + originalAmount,
-          });
           creditRefunded = true;
 
           await storage.createCreditTransaction({
@@ -3193,15 +3190,41 @@ router.post(
       // Only notify make-up credit holders if no waitlist promotion happened (spot is still open)
       const academyId = session.academyId || player.academyId;
       if (academyId && !waitlistPromoted) {
-        const playersWithMakeUp = await db.query.players.findMany({
-          where: (p, { and: pAnd, eq: pEq, gt: pGt }) =>
-            pAnd(pEq(p.academyId, academyId), pGt(p.makeUpCredits, 0)),
-        });
+        // There is no players.make_up_credits column; the source of truth is
+        // the credit_transactions ledger where `make_up_granted` adds credits
+        // and `make_up_lesson_used` consumes them. Aggregate per player and
+        // keep those with a positive net balance.
+        const makeUpAggregates = await db
+          .select({
+            playerId: creditTransactions.playerId,
+            granted: sql<number>`COALESCE(SUM(CASE WHEN ${creditTransactions.reason} = 'make_up_granted' THEN 1 ELSE 0 END), 0)`,
+            used: sql<number>`COALESCE(SUM(CASE WHEN ${creditTransactions.reason} = 'make_up_lesson_used' THEN 1 ELSE 0 END), 0)`,
+          })
+          .from(creditTransactions)
+          .where(
+            and(
+              eq(creditTransactions.academyId, academyId),
+              inArray(creditTransactions.reason, [
+                "make_up_granted",
+                "make_up_lesson_used",
+              ]),
+            ),
+          )
+          .groupBy(creditTransactions.playerId);
 
-        // Filter out the player who left and limit notifications
-        const eligiblePlayers = playersWithMakeUp
-          .filter((p) => p.id !== playerId && p.userId)
-          .slice(0, 5);
+        const makeUpEligibleIds = makeUpAggregates
+          .filter((row) => Number(row.granted) - Number(row.used) > 0)
+          .map((row) => row.playerId)
+          .filter((id): id is string => Boolean(id) && id !== playerId);
+
+        const eligiblePlayers = makeUpEligibleIds.length
+          ? (
+              await db
+                .select()
+                .from(players)
+                .where(inArray(players.id, makeUpEligibleIds))
+            ).slice(0, 5)
+          : [];
 
         for (const makeUpPlayer of eligiblePlayers) {
           // In-app notification for make-up opportunity
@@ -3214,7 +3237,6 @@ router.post(
               sessionId,
               sessionType: session.sessionType,
               startTime: session.startTime,
-              locationName: session.locationName,
             },
           });
           // Also push if tokens available
@@ -3584,6 +3606,11 @@ router.get(
       const enrichedWaitlist = await Promise.all(
         waitlistEntries.map(async (entry, index) => {
           const player = await storage.getPlayer(entry.playerId);
+          // The players table has no `credits` column — credit balance lives
+          // in player_credit_balance and is summed by storage.getPlayerCredits.
+          const creditTotals = player
+            ? await storage.getPlayerCredits(player.id)
+            : null;
           return {
             id: entry.id,
             position: index + 1,
@@ -3598,7 +3625,7 @@ router.get(
                   level: player.level || 1,
                   ballLevel: player.ballLevel,
                   avatarUrl: player.profilePhotoUrl,
-                  credits: player.credits || 0,
+                  credits: creditTotals?.total ?? 0,
                 }
               : null,
           };
@@ -5620,7 +5647,7 @@ router.get(
           amount: parseFloat(inv.amount || "0"),
           dueDate: inv.dueDate,
           status: inv.status,
-          description: inv.description,
+          description: inv.notes,
         })),
         sessionBilling: {
           unpaidCount: sessionBilling.unpaidCount,
@@ -5758,8 +5785,8 @@ router.get(
         dueDate: invoice.dueDate || new Date().toISOString(),
         academy: {
           name: academy?.name || "Academy",
-          email: settings?.contactEmail || undefined,
-          phone: settings?.contactPhone || undefined,
+          email: academy?.email || undefined,
+          phone: academy?.phone || undefined,
           logo: (academy as any)?.logoUrl || undefined,
           vatRegistrationNumber:
             (settings as any)?.vatRegistrationNumber || undefined,
@@ -6142,9 +6169,12 @@ router.post(
         }
         templateData = {
           name: template.name,
-          creditType: template.creditType,
+          creditType: template.sessionType,
           credits: template.credits,
-          pricePerCredit: template.pricePerCredit,
+          pricePerCredit:
+            template.credits > 0
+              ? Number(template.price) / template.credits
+              : Number(template.price),
           currency: template.currency,
           validityDays: template.validityDays,
         };
@@ -6282,7 +6312,7 @@ router.post(
         invoiceId: invoice.id,
         sourcePackageId: pkg.id,
         purchasedAt: pkg.purchasedAt ?? new Date(),
-        expiresAt: pkg.expiresAt ?? null,
+        expiresAt: pkg.expiryDate ? new Date(pkg.expiryDate) : null,
         actorRole: "system",
       });
       res.json({ success: true, lotId: result.lotId });
@@ -6559,8 +6589,26 @@ router.get(
         return res.status(404).json({ error: "Player not found" });
       }
 
-      if (!coachId && player.parentUserId !== userId) {
-        return res.status(403).json({ error: "Access denied" });
+      if (!coachId) {
+        // Resolve parent identity via the canonical parent_player_relations
+        // join, NOT via users.email — emails in this codebase are explicitly
+        // not unique (a family can share one inbox), so an email lookup
+        // could authorize the wrong account. Requiring (parent_user_id,
+        // player_id) means only an explicitly linked parent can access
+        // this player's credit summary.
+        const [relation] = await db
+          .select({ parentUserId: parentPlayerRelations.parentUserId })
+          .from(parentPlayerRelations)
+          .where(
+            and(
+              eq(parentPlayerRelations.playerId, playerId),
+              eq(parentPlayerRelations.parentUserId, userId),
+            ),
+          )
+          .limit(1);
+        if (!relation) {
+          return res.status(403).json({ error: "Access denied" });
+        }
       }
 
       // Task #958 — V2-only credit read. Source of truth is
@@ -7240,7 +7288,7 @@ router.get(
           date as string,
         );
         const bookedTimes = new Set(
-          availability.filter((a) => !a.available).map((a) => a.time),
+          availability.filter((a) => a.status !== "available").map((a) => a.startTime),
         );
         const sessionBookedSlots =
           dateSessionsMap.get(court.id) || new Set<string>();

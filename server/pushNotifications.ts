@@ -725,7 +725,7 @@ async function getSessionPlayersForReminder(session: any) {
       playerId: sp.playerId,
       status: 'enrolled' as const,
       bookingSource: 'series' as const,
-      createdAt: sp.enrolledAt,
+      createdAt: sp.joinedAt,
     }));
   }
   return sessionPlayersList;

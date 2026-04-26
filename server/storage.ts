@@ -1947,7 +1947,41 @@ export const storage = {
     try {
       // Get all coaches for this academy using full select to avoid field issues
       const academyCoaches = await db.select().from(coaches).where(eq(coaches.academyId, academyId));
-      
+
+      // The coaches table has no `ball_levels` column. We derive each coach's
+      // serviceable ball levels from the distinct levels they have actually
+      // taught — i.e. the union of `sessions.ball_level` and the multi-level
+      // `sessions.ball_levels` jsonb across this coach's session history.
+      // This keeps the directory chips driven by real activity instead of a
+      // hardcoded empty array.
+      const ballLevelsByCoach = new Map<string, string[]>();
+      if (academyCoaches.length > 0) {
+        const coachIds = academyCoaches.map((c) => c.id);
+        const ballLevelRows = await db.execute(sql`
+          SELECT
+            coach_id AS "coachId",
+            ARRAY(
+              SELECT DISTINCT lvl
+              FROM (
+                SELECT ball_level AS lvl
+                FROM sessions
+                WHERE coach_id = s.coach_id AND ball_level IS NOT NULL
+                UNION ALL
+                SELECT jsonb_array_elements_text(ball_levels) AS lvl
+                FROM sessions
+                WHERE coach_id = s.coach_id AND ball_levels IS NOT NULL
+              ) levels
+              WHERE lvl IS NOT NULL AND lvl <> ''
+            ) AS "levels"
+          FROM sessions s
+          WHERE coach_id = ANY(${coachIds})
+          GROUP BY coach_id
+        `);
+        for (const row of ballLevelRows.rows as Array<{ coachId: string; levels: string[] | null }>) {
+          ballLevelsByCoach.set(row.coachId, row.levels || []);
+        }
+      }
+
       // Get session counts and calculate ratings for each coach
       const enrichedCoaches = await Promise.all(academyCoaches.map(async (coach) => {
         try {
@@ -1982,7 +2016,7 @@ export const storage = {
             specialty: coach.specialty,
             yearsExperience: coach.yearsExperience,
             specializations: coach.specializations,
-            ballLevels: coach.ballLevels,
+            ballLevels: ballLevelsByCoach.get(coach.id) || [],
             bio: coach.publicQuote,
             certifications: coach.certifications,
             languages: coach.languages,
@@ -2002,7 +2036,7 @@ export const storage = {
             specialty: coach.specialty,
             yearsExperience: coach.yearsExperience,
             specializations: coach.specializations,
-            ballLevels: coach.ballLevels,
+            ballLevels: [] as string[],
             bio: coach.publicQuote,
             certifications: coach.certifications,
             languages: coach.languages,

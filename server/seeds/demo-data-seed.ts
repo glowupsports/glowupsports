@@ -49,7 +49,12 @@ export async function seedDemoDataForTheLaw() {
 
     const playerId = theLawPlayer[0].id;
     const academyId = theLawPlayer[0].academyId;
-    const userId = theLawPlayer[0].userId;
+    const [theLawUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.playerId, playerId))
+      .limit(1);
+    const userId = theLawUser?.id ?? null;
     console.log("[DemoSeed] Found TheLaw player:", playerId, "academy:", academyId);
 
     // Find a coach for assessments
@@ -272,20 +277,26 @@ export async function seedDemoDataForTheLaw() {
 
     // Add other players to group
     for (const otherPlayer of otherPlayers.slice(0, 3)) {
-      if (otherPlayer.userId) {
+      const [otherUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.playerId, otherPlayer.id))
+        .limit(1);
+      const otherUserId = otherUser?.id;
+      if (otherUserId) {
         const existingOtherMember = await db.select()
           .from(groupMembers)
           .where(and(
             eq(groupMembers.groupId, groupId),
-            eq(groupMembers.userId, otherPlayer.userId)
+            eq(groupMembers.userId, otherUserId)
           ))
           .limit(1);
 
         if (existingOtherMember.length === 0) {
           await db.insert(groupMembers).values({
-            id: `member-${groupId}-${otherPlayer.userId}`,
+            id: `member-${groupId}-${otherUserId}`,
             groupId,
-            userId: otherPlayer.userId,
+            userId: otherUserId,
             role: "member",
             notificationsEnabled: true,
             joinedAt: new Date(),

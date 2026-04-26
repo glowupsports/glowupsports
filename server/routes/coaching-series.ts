@@ -480,7 +480,11 @@ router.get(
             maxPlayers: firstSession.maxPlayers || 1,
             ballLevel: firstSession.ballLevel,
             weekCount: sessionsGroup.length,
-            xpPerSession: firstSession.xpPerSession || 25,
+            // Sessions store their per-attendance reward in `xp_reward` —
+            // surface that as the virtual series' xpPerSession instead of
+            // hardcoding a value. Fall back to the schema default (20) when
+            // the column is null.
+            xpPerSession: firstSession.xpReward ?? 20,
             createdAt: firstSession.createdAt,
             isTransferred: true, // Mark as transferred sessions
             originalSeriesId: seriesKey !== "standalone" ? seriesKey : null,
@@ -2935,7 +2939,7 @@ router.post(
                   const { ensureCreditProcessed } = await import("../storage");
                   await ensureCreditProcessed(attendanceResult.record.id);
                   if (attendanceResult.isNewAttendance && session) {
-                    const xpAmount = session.xpValue || 20;
+                    const xpAmount = session.xpReward || 20;
                     await storage.addPlayerXP(
                       playerId,
                       xpAmount,
@@ -3055,7 +3059,7 @@ router.post(
               const { ensureCreditProcessed } = await import("../storage");
               await ensureCreditProcessed(attendanceResult.record.id);
               if (session) {
-                const xpAmount = session.xpValue || 20;
+                const xpAmount = session.xpReward || 20;
                 await storage.addPlayerXP(
                   playerId,
                   xpAmount,

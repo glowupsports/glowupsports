@@ -943,6 +943,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // Marketplace stats
         const marketplaceData = await (async () => {
           try {
+            const { academies: academiesTable } = await import("../../shared/schema");
             const now2 = new Date();
             const startOfMonth = new Date(now2.getFullYear(), now2.getMonth(), 1);
             const [publicSeriesResult, dropInResult] = await Promise.all([
@@ -955,20 +956,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               db
                 .select({
                   academyId: coachingSeries.academyId,
-                  academyName: academies.name,
+                  academyName: academiesTable.name,
                   dropInCount: sql<number>`count(${sessionPlayers.id})::int`,
                 })
                 .from(sessionPlayers)
                 .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
                 .innerJoin(coachingSeries, eq(sessions.seriesId, coachingSeries.id))
-                .innerJoin(academies, eq(coachingSeries.academyId, academies.id))
+                .innerJoin(academiesTable, eq(coachingSeries.academyId, academiesTable.id))
                 .where(
                   and(
                     eq(sessionPlayers.joinType, "drop_in"),
                     gte(sessionPlayers.creditDeductedAt, startOfMonth),
                   ),
                 )
-                .groupBy(coachingSeries.academyId, academies.name)
+                .groupBy(coachingSeries.academyId, academiesTable.name)
                 .orderBy(desc(sql`count(${sessionPlayers.id})`))
                 .limit(5),
               db
@@ -1589,24 +1590,25 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             const dropInBookingsThisMonth = dropInResult[0]?.count || 0;
 
             // Top academies by drop-in booking count + revenue
+            const { academies: academiesTable2 } = await import("../../shared/schema");
             const [topAcademiesResult, ownerDropInRevenueResult] = await Promise.all([
               db
                 .select({
                   academyId: coachingSeries.academyId,
-                  academyName: academies.name,
+                  academyName: academiesTable2.name,
                   dropInCount: sql<number>`count(${sessionPlayers.id})::int`,
                 })
                 .from(sessionPlayers)
                 .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
                 .innerJoin(coachingSeries, eq(sessions.seriesId, coachingSeries.id))
-                .innerJoin(academies, eq(coachingSeries.academyId, academies.id))
+                .innerJoin(academiesTable2, eq(coachingSeries.academyId, academiesTable2.id))
                 .where(
                   and(
                     eq(sessionPlayers.joinType, "drop_in"),
                     gte(sessionPlayers.creditDeductedAt, startOfMonth),
                   ),
                 )
-                .groupBy(coachingSeries.academyId, academies.name)
+                .groupBy(coachingSeries.academyId, academiesTable2.name)
                 .orderBy(desc(sql`count(${sessionPlayers.id})`))
                 .limit(5),
               db
@@ -2517,8 +2519,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         > = {};
 
         for (const academy of academies) {
-          if (academy.isActive === false) continue;
-
+          // The academies table has no `is_active` column — every row is
+          // considered an active tenant, so iterate without an extra filter.
           const subscriptions = await storage.getActivePlayerSubscriptions(
             academy.id,
           );
@@ -2573,7 +2575,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             }),
           ),
           totalActiveSubscriptions,
-          academiesCount: academies.filter((a) => a.isActive !== false).length,
+          academiesCount: academies.length,
           generatedAt: new Date().toISOString(),
         });
       } catch (error) {
@@ -3163,10 +3165,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           },
         ];
 
-        const settings = await storage.getAcademySettings(academyId);
-        const customRoles = settings?.roles || defaultRoles;
-
-        res.json({ roles: customRoles });
+        // The academy_settings table has no `roles` column and there is no
+        // separate per-academy role-config table yet, so the public response
+        // is always the system default role catalogue.
+        res.json({ roles: defaultRoles });
       } catch (error) {
         console.error("Get roles error:", error);
         res.status(500).json({ error: "Failed to fetch roles" });

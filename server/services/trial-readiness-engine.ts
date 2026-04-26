@@ -90,11 +90,11 @@ export async function calculateTrialReadiness(playerId: string): Promise<TrialRe
   const currentLevel = currentPlayerLevel?.level;
   if (!currentLevel) {
     const [defaultLevel] = await db.select().from(ballLevels).where(eq(ballLevels.id, "RED_3"));
-    return createEmptyReadinessResult(playerId, "RED_3", defaultLevel?.promotionTo || null);
+    return createEmptyReadinessResult(playerId, "RED_3", defaultLevel?.promotionToLevelId || null);
   }
 
   const promotionRequirements = currentLevel.promotionRequirements as any;
-  if (!promotionRequirements || !currentLevel.promotionTo) {
+  if (!promotionRequirements || !currentLevel.promotionToLevelId) {
     return createEmptyReadinessResult(playerId, currentLevel.id, null);
   }
 
@@ -186,7 +186,7 @@ export async function calculateTrialReadiness(playerId: string): Promise<TrialRe
   return {
     playerId,
     currentLevelId: currentLevel.id,
-    targetLevelId: currentLevel.promotionTo,
+    targetLevelId: currentLevel.promotionToLevelId,
     isReady,
     readinessPercentage,
     requirements: {
@@ -258,7 +258,7 @@ async function getPillarProgress(playerId: string): Promise<Record<string, numbe
 
   const result: Record<string, number> = {};
   for (const p of progress) {
-    result[p.pillar] = p.skillsAchieved || 0;
+    result[p.pillar] = Number(p.currentScore ?? 0);
   }
   return result;
 }

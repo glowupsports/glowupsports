@@ -8,6 +8,7 @@ import {
   playerBallLevels,
   ballLevels,
   players,
+  sessionPlayers,
 } from "../../shared/schema";
 import { eq, and, sql, inArray, desc, isNull, or } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, validateSessionOwnership } from "../auth";
@@ -346,11 +347,23 @@ async function autoGeneratePlan(sessionId: string, academyId: string): Promise<a
     .from(sessions)
     .where(eq(sessions.id, sessionId));
   
-  if (!session || !session.playerIds || session.playerIds.length === 0) {
+  if (!session) {
+    return getDefaultPlan("RED_3");
+  }
+
+  const sessionPlayerRows = await db
+    .select({ playerId: sessionPlayers.playerId })
+    .from(sessionPlayers)
+    .where(eq(sessionPlayers.sessionId, sessionId));
+  const sessionPlayerIds = sessionPlayerRows
+    .map((r) => r.playerId)
+    .filter(Boolean) as string[];
+
+  if (sessionPlayerIds.length === 0) {
     // Default beginner plan
     return getDefaultPlan("RED_3");
   }
-  
+
   // Get players' levels
   const playerLevels = await db
     .select({
@@ -358,7 +371,7 @@ async function autoGeneratePlan(sessionId: string, academyId: string): Promise<a
     })
     .from(playerBallLevels)
     .where(and(
-      inArray(playerBallLevels.playerId, session.playerIds as string[]),
+      inArray(playerBallLevels.playerId, sessionPlayerIds),
       sql`${playerBallLevels.status} IN ('active', 'trial')`
     ));
   
@@ -404,7 +417,7 @@ async function getPlanFromTemplateOrDefault(levelId: string): Promise<any[]> {
         coachInstructions: block.coachInstructions || "",
         playerInstructions: block.playerInstructions || "",
         successCriteria: block.successCriteria || "",
-        equipment: block.equipment || [],
+        equipment: block.equipmentNeeded || [],
       }));
     }
   }

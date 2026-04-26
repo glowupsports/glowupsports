@@ -40,6 +40,7 @@ import {
   users,
   bookingRequests,
   messageReactions,
+  parentPlayerRelations,
 } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -1752,19 +1753,30 @@ router.post(
             } = {};
             if (matchingSeries.price) {
               sessionPricing = { academyPrice: matchingSeries.price };
-            } else {
-              const academyPricing = await storage.getAcademyPricing(
-                academyId!,
-              );
-              const pricingForType = academyPricing?.find(
-                (p: any) => p.sessionType === sessionType,
-              );
-              if (pricingForType) {
+            } else if (academyId && coachId) {
+              // Use the canonical pricing calculator so coachPayout/
+              // academyMargin reflect the academy + coach split, instead
+              // of forcing the academy to keep 100% of the revenue.
+              try {
+                const pricing = await storage.calculateSessionPricing(
+                  academyId,
+                  coachId,
+                  sessionType,
+                  duration,
+                );
                 sessionPricing = {
-                  academyPrice: pricingForType.price,
-                  coachPayout: pricingForType.coachPayout,
-                  academyMargin: pricingForType.academyMargin,
+                  academyPrice: String(pricing.academyPrice),
+                  coachPayout: String(pricing.coachPayout),
+                  academyMargin: String(pricing.academyMargin),
                 };
+              } catch (err) {
+                return res.status(422).json({
+                  error: "Pricing error",
+                  message:
+                    err instanceof Error
+                      ? err.message
+                      : "Could not calculate session pricing",
+                });
               }
             }
 
@@ -2296,7 +2308,7 @@ router.post(
         for (const session of createdSessions) {
           broadcastNewSession(academyId, {
             sessionId: session.id,
-            sessionName: session.name || `${sessionType} Session`,
+            sessionName: session.title || `${sessionType} Session`,
             coachId: coachId!,
             startTime: session.startTime?.toISOString() || "",
           });
@@ -3348,9 +3360,28 @@ router.post(
             }),
           });
 
-          if (player?.parentUserId) {
+          // Notify EVERY parent user explicitly linked to this player via
+          // parent_player_relations. Email-based lookup would be wrong:
+          // users.email is not unique in this codebase (a family can share
+          // an inbox), so a `where(users.email = parentEmail)` could match
+          // an unrelated account, leak the player's name, and miss the
+          // legitimate parent(s).
+          const linkedParents = await db
+            .select({ parentUserId: parentPlayerRelations.parentUserId })
+            .from(parentPlayerRelations)
+            .where(
+              and(
+                eq(parentPlayerRelations.playerId, playerId),
+                eq(
+                  parentPlayerRelations.canReceiveNotifications,
+                  true,
+                ),
+              ),
+            );
+
+          for (const { parentUserId: parentUserIdResolved } of linkedParents) {
             await storage.createNotification({
-              userId: player.parentUserId,
+              userId: parentUserIdResolved,
               type: "credits_needed",
               title: "Credits Required",
               message: `${player.name} has been added to a ${creditTypeLabel} lesson but needs ${creditTypeLabel} credits.`,

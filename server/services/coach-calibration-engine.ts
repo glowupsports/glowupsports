@@ -135,71 +135,75 @@ export async function updateCoachCalibration(
     .from(coachCalibration)
     .where(eq(coachCalibration.coachId, coachId));
 
+  // Per shared/schema.ts coach_calibration:
+  //   biasScore        numeric(4,2)  documented "-1 to +1"
+  //   consistencyScore numeric(4,2)  documented "0-1 (1 = consistent)"
+  // Both columns therefore CANNOT physically store 100.00 (max is 99.99)
+  // and storing on a 0-100 scale would corrupt downstream interpretation.
+  // We persist on the schema-native 0-1 scale and convert to the legacy
+  // 0-100 API surface in `getCoachCalibrationStats` below.
+  //
+  // Skill scores are integers in 0..2 (see playerSkillScores.score), so
+  // raw `deviation = score - peerAvg` is bounded to roughly ±2. We map
+  // it to the schema-native scales by dividing by 2 and clamp defensively.
+  const clamp = (n: number, lo: number, hi: number) =>
+    Math.min(hi, Math.max(lo, n));
+
   if (existing) {
-    const currentStats = existing.calibrationStats as {
-      totalObservations: number;
-      anomalyCount: number;
-      totalDeviation: number;
-      deviationHistory: number[];
-    } || {
-      totalObservations: 0,
-      anomalyCount: 0,
-      totalDeviation: 0,
-      deviationHistory: [],
-    };
+    // biasScore must preserve sign so the downstream lenient/strict
+    // classification (>0.3 = lenient, <-0.3 = strict) actually fires in
+    // both directions. Average the SIGNED deviation. consistencyScore on
+    // the other hand is a magnitude-only measure of spread, so it uses
+    // the absolute deviation.
+    const prevCount = existing.calibrationCount ?? 0;
+    const prevAvgSigned01 = Number(existing.biasScore ?? 0); // 0-1 scale
+    const prevAvgSignedRaw = prevAvgSigned01 * 2; // back to raw deviation units
+    const newCount = prevCount + 1;
+    const totalSignedDeviation = prevAvgSignedRaw * prevCount + deviation;
+    const avgSignedDeviation =
+      newCount > 0 ? totalSignedDeviation / newCount : deviation;
 
-    const newStats = {
-      totalObservations: currentStats.totalObservations + 1,
-      anomalyCount: currentStats.anomalyCount + (isAnomaly ? 1 : 0),
-      totalDeviation: currentStats.totalDeviation + Math.abs(deviation),
-      deviationHistory: [...(currentStats.deviationHistory || []).slice(-49), deviation],
-    };
+    // consistencyScore on disk is 0-1; reverse the (1 - |dev|/2) mapping
+    // to recover the previous average-absolute-deviation in raw units.
+    const prevConsistency01 = Number(existing.consistencyScore ?? 1);
+    const prevAvgAbs = Math.max(0, (1 - prevConsistency01) * 2);
+    const totalAbsDeviation = prevAvgAbs * prevCount + Math.abs(deviation);
+    const avgAbsDeviation =
+      newCount > 0 ? totalAbsDeviation / newCount : Math.abs(deviation);
+    const consistency01 = clamp(1 - avgAbsDeviation / 2, 0, 1);
+    const bias01 = clamp(avgSignedDeviation / 2, -1, 1);
 
-    const avgDeviation = newStats.totalDeviation / newStats.totalObservations;
-    
-    let bias: string;
-    if (avgDeviation > 0.3) {
-      bias = "lenient";
-    } else if (avgDeviation < -0.3) {
-      bias = "strict";
-    } else {
-      bias = "neutral";
-    }
-
-    const calibrationScore = Math.max(0, 100 - (newStats.anomalyCount / newStats.totalObservations) * 100 - Math.abs(avgDeviation) * 20);
+    // bulkRatingFlag is the only anomaly signal the schema persists (no
+    // dedicated anomalyCount column exists). Keep it sticky: once a coach
+    // has produced an anomalous rating it stays flagged for downstream
+    // review queues. Clearing it would silently mask prior anomalies on
+    // the very next ordinary rating.
+    const nextBulkRatingFlag = (existing.bulkRatingFlag ?? false) || isAnomaly;
 
     await db
       .update(coachCalibration)
       .set({
-        calibrationScore: calibrationScore.toFixed(2),
-        averageDeviation: avgDeviation.toFixed(3),
-        bias,
-        anomalyCount: newStats.anomalyCount,
-        totalObservations: newStats.totalObservations,
-        calibrationStats: JSON.stringify(newStats),
-        lastCalibratedAt: new Date(),
+        consistencyScore: consistency01.toFixed(2),
+        biasScore: bias01.toFixed(2),
+        calibrationCount: newCount,
+        bulkRatingFlag: nextBulkRatingFlag,
+        lastCalibrationAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(coachCalibration.id, existing.id));
   } else {
-    const initialStats = {
-      totalObservations: 1,
-      anomalyCount: isAnomaly ? 1 : 0,
-      totalDeviation: Math.abs(deviation),
-      deviationHistory: [deviation],
-    };
-
-    const calibrationScore = isAnomaly ? 90 : 100;
+    const consistency01 = clamp(1 - Math.abs(deviation) / 2, 0, 1);
+    const bias01 = clamp(deviation / 2, -1, 1);
 
     await db.insert(coachCalibration).values({
       coachId,
-      calibrationScore: calibrationScore.toFixed(2),
-      averageDeviation: deviation.toFixed(3),
-      bias: "neutral",
-      anomalyCount: isAnomaly ? 1 : 0,
-      totalObservations: 1,
-      calibrationStats: JSON.stringify(initialStats),
-      lastCalibratedAt: new Date(),
+      consistencyScore: consistency01.toFixed(2),
+      // Store the SIGNED deviation so the lenient/strict classifier in
+      // getCoachCalibrationStats can resolve in both directions.
+      biasScore: bias01.toFixed(2),
+      calibrationCount: 1,
+      bulkRatingFlag: isAnomaly,
+      lastCalibrationAt: new Date(),
     });
   }
 }
@@ -214,36 +218,40 @@ export async function getCoachCalibrationStats(coachId: string): Promise<CoachCa
     return null;
   }
 
-  const stats = calibration.calibrationStats as {
-    totalObservations: number;
-    anomalyCount: number;
-    totalDeviation: number;
-    deviationHistory: number[];
-  } | null;
+  const recentTrend: "improving" | "stable" | "declining" = "stable";
 
-  let recentTrend: "improving" | "stable" | "declining" = "stable";
-  if (stats && stats.deviationHistory && stats.deviationHistory.length >= 10) {
-    const recent = stats.deviationHistory.slice(-5);
-    const older = stats.deviationHistory.slice(-10, -5);
-    const recentAvg = recent.reduce((sum, d) => sum + Math.abs(d), 0) / recent.length;
-    const olderAvg = older.reduce((sum, d) => sum + Math.abs(d), 0) / older.length;
-    
-    if (recentAvg < olderAvg - 0.1) {
-      recentTrend = "improving";
-    } else if (recentAvg > olderAvg + 0.1) {
-      recentTrend = "declining";
-    }
+  // biasScore on disk is 0-1 (signed, ±1 = max bias). The legacy
+  // lenient/strict threshold of |raw deviation| > 0.3 corresponds to
+  // |0-1 bias| > 0.15 once the raw deviation has been divided by 2 in
+  // updateCoachCalibration. Recover raw average deviation for the
+  // CoachCalibrationStats.averageDeviation contract (consumers expect
+  // raw skill-score units, not the schema's 0-1 storage form).
+  const bias01 = Number(calibration.biasScore ?? 0);
+  const avgDeviation = bias01 * 2;
+  let bias: "lenient" | "neutral" | "strict" = "neutral";
+  if (avgDeviation > 0.3) {
+    bias = "lenient";
+  } else if (avgDeviation < -0.3) {
+    bias = "strict";
   }
+
+  // consistencyScore on disk is 0-1 (1 = perfectly consistent). The
+  // CoachCalibrationStats / academy-report consumers expect a 0-100
+  // calibrationScore (e.g. `c.calibrationScore < 70` flags a coach), so
+  // convert at the API boundary rather than corrupting storage.
+  const consistency01 = Number(calibration.consistencyScore);
+  const calibrationScore =
+    Number.isFinite(consistency01) ? consistency01 * 100 : 100;
 
   return {
     coachId,
-    calibrationScore: Number(calibration.calibrationScore) || 100,
-    totalObservations: calibration.totalObservations || 0,
-    averageDeviation: Number(calibration.averageDeviation) || 0,
-    bias: (calibration.bias as "lenient" | "neutral" | "strict") || "neutral",
-    anomalyCount: calibration.anomalyCount || 0,
+    calibrationScore,
+    totalObservations: calibration.calibrationCount || 0,
+    averageDeviation: avgDeviation,
+    bias,
+    anomalyCount: calibration.bulkRatingFlag ? 1 : 0,
     recentTrend,
-    lastUpdated: calibration.lastCalibratedAt || new Date(),
+    lastUpdated: calibration.lastCalibrationAt || new Date(),
     skillBreakdown: [],
   };
 }

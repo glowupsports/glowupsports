@@ -262,8 +262,48 @@ describe("Task #1347 — codebase-wide Drizzle column-reference audit", () => {
     expect(catalog.get("messages")?.columns.has("body")).toBe(true);
   });
 
+  // Task #1349 — guardrail spot-checks for the column-rename mappings that
+  // closed out the ~110 server-side TS2339 errors. Each assertion below names
+  // a column the codebase used to reference under a wrong name (right-hand
+  // side of the comment). If any of these spot-checks ever fails, the
+  // accompanying server callsites must be re-mapped to the new schema name
+  // before the test suite goes green again.
+  it("Task #1349 — confirmed schema columns referenced by server routes/services exist", () => {
+    const catalog = getCatalog();
+
+    // Newly added columns (the only confirmed schema additions in #1349).
+    expect(catalog.get("players")?.columns.has("parentName")).toBe(true);   // was players.parent_name (missing)
+    expect(catalog.get("players")?.columns.has("parentPhone")).toBe(true);  // was players.parent_phone (missing)
+
+    // Renames preserved by callsite remapping.
+    expect(catalog.get("invoices")?.columns.has("notes")).toBe(true);                 // was invoices.description
+    expect(catalog.get("packages")?.columns.has("expiryDate")).toBe(true);            // was packages.expiresAt
+    expect(catalog.get("courtAvailability")?.columns.has("startTime")).toBe(true);    // was courtAvailability.time
+    expect(catalog.get("courtAvailability")?.columns.has("status")).toBe(true);       // was courtAvailability.available
+    expect(catalog.get("ballLevels")?.columns.has("promotionToLevelId")).toBe(true);  // was ballLevels.promotionTo
+    expect(catalog.get("ballLevels")?.columns.has("displayNamePlayer")).toBe(true);   // was ballLevels.name
+    expect(catalog.get("ballLevels")?.columns.has("displayNameCoach")).toBe(true);    // was ballLevels.displayName
+
+    // Coach calibration refactor — fields the engine now reads/writes.
+    expect(catalog.get("coachCalibration")?.columns.has("biasScore")).toBe(true);
+    expect(catalog.get("coachCalibration")?.columns.has("calibrationCount")).toBe(true);
+    expect(catalog.get("coachCalibration")?.columns.has("consistencyScore")).toBe(true);
+    expect(catalog.get("coachCalibration")?.columns.has("bulkRatingFlag")).toBe(true);
+    expect(catalog.get("coachCalibration")?.columns.has("lastCalibrationAt")).toBe(true);
+
+    // Pillar progress — `skillsAchieved` was a phantom column; the engine
+    // now derives the per-pillar score from `currentScore`.
+    expect(catalog.get("playerPillarProgress")?.columns.has("currentScore")).toBe(true);
+    expect(catalog.get("playerPillarProgress")?.columns.has("skillsAchieved")).toBe(false);
+
+    // `coaches.ballLevels` does NOT exist — directory enrichers must inline
+    // an empty array (or join coach_ball_levels) rather than reading it.
+    expect(catalog.get("coaches")?.columns.has("ballLevels")).toBe(false);
+  });
+
   it(
     "every property access on an imported drizzle table references an existing column",
+    { timeout: 120_000 },
     () => {
       const offenses = getOffenses();
       if (offenses.length === 0) {

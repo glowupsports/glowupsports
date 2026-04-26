@@ -38,7 +38,7 @@ import { getPlayerCountryLadderRank, resolvePlayerSports } from "./tournaments-l
     courtAvailability, courtAvailabilitySnapshots,
     bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
     playerBookingPreferences,
-    courtBookings, matchLogs, playerBallLevels,
+    courtBookings, matchLogs, playerBallLevels, courts, locations,
     playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
     levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
     spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
@@ -663,12 +663,13 @@ import fs from "fs";
         // Award XP for early check-in
         let xpAwarded = 25;
         try {
-          await storage.addXP(
+          const xpResult = await awardXP(
             playerId,
-            xpAwarded,
             "early_check_in",
-            "Early check-in for session",
+            "session",
+            session.id,
           );
+          xpAwarded = xpResult.xpAwarded ?? xpAwarded;
         } catch (xpErr) {
           console.error("Error awarding check-in XP:", xpErr);
           xpAwarded = 0;
@@ -1884,7 +1885,7 @@ import fs from "fs";
         );
         const totalSessions = playerSessions.length;
         const sessionsAttended = playerSessions.filter(
-          (s) => s.attended === "present",
+          (s) => s.attendanceStatus === "present",
         ).length;
 
         // Task #671 — Profile stat alignment. Recompute "charged vs uncharged"
@@ -4411,7 +4412,7 @@ import fs from "fs";
         );
 
         const attendedSessions = sessions.filter(
-          (s) => s.attended === "present",
+          (s) => s.attendanceStatus === "present",
         ).length;
 
         // Calculate achievements
@@ -4968,9 +4969,29 @@ import fs from "fs";
         // Get sessions for the period
         const allSessions = await storage.getAllSessions(academyId);
         const periodSessions = allSessions.filter((session) => {
-          const sessionDate = new Date(session.date);
+          const sessionDate = new Date(session.startTime);
           return sessionDate >= startDate && sessionDate <= endDate;
         });
+
+        // Resolve coach names so the schedule rows show who is on court,
+        // not a hardcoded "Unassigned". We batch-load every coach referenced
+        // in the period's sessions in one pass.
+        const coachIdSet = new Set<string>();
+        for (const s of periodSessions) {
+          if (s.coachId) coachIdSet.add(s.coachId);
+        }
+        const coachNamesById: Record<string, string> = {};
+        if (coachIdSet.size > 0) {
+          const coachRows = await db
+            .select({ id: coaches.id, name: coaches.name })
+            .from(coaches)
+            .where(inArray(coaches.id, [...coachIdSet]));
+          for (const c of coachRows) coachNamesById[c.id] = c.name;
+        }
+        const coachLabel = (s: { coachId: string | null }): string =>
+          s.coachId
+            ? coachNamesById[s.coachId] || "Unknown coach"
+            : "Unassigned";
 
         // Group sessions by court
         const courtSessionsMap: Record<string, any[]> = {};
@@ -4983,16 +5004,18 @@ import fs from "fs";
         }
 
         // Build court schedule
+        const formatTime = (d: Date) =>
+          `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
         const courtSchedule = dbCourts.map((court) => {
           const sessions = courtSessionsMap[court.id] || [];
           return {
             name: court.name,
             sessions: sessions.map((s) => ({
-              time: s.time || "TBD",
-              coach: s.coachName || "Unassigned",
+              time: s.startTime ? formatTime(new Date(s.startTime)) : "TBD",
+              coach: coachLabel(s),
               status:
                 s.status === "cancelled" ? "conflict" : ("booked" as const),
-              date: s.date,
+              date: s.startTime ? new Date(s.startTime).toISOString() : null,
             })),
           };
         });
@@ -5002,10 +5025,10 @@ import fs from "fs";
           courtSchedule.push({
             name: "No Court Assigned",
             sessions: courtSessionsMap["unassigned"].map((s) => ({
-              time: s.time || "TBD",
-              coach: s.coachName || "Unassigned",
+              time: s.startTime ? formatTime(new Date(s.startTime)) : "TBD",
+              coach: coachLabel(s),
               status: "conflict" as const,
-              date: s.date,
+              date: s.startTime ? new Date(s.startTime).toISOString() : null,
             })),
           });
         }
@@ -5019,8 +5042,8 @@ import fs from "fs";
         // Find peak hours
         const hourCounts: Record<number, number> = {};
         for (const session of periodSessions) {
-          if (session.time) {
-            const hour = parseInt(session.time.split(":")[0]) || 0;
+          if (session.startTime) {
+            const hour = new Date(session.startTime).getHours();
             hourCounts[hour] = (hourCounts[hour] || 0) + 1;
           }
         }
@@ -5523,7 +5546,7 @@ import fs from "fs";
         const csvRows = players
           .map(
             (p) =>
-              `"${p.name || ""}","${p.email || ""}","${p.phone || ""}","${p.ballLevel || ""}","${p.isActive ? "Active" : "Inactive"}","${p.createdAt || ""}"`,
+              `"${p.name || ""}","${p.email || ""}","${p.phone || ""}","${p.ballLevel || ""}","${p.status === "active" ? "Active" : "Inactive"}","${p.createdAt || ""}"`,
           )
           .join("\n");
 
@@ -5555,7 +5578,7 @@ import fs from "fs";
         const csvRows = sessions
           .map(
             (s) =>
-              `"${s.date || ""}","${s.time || ""}","${s.coachName || ""}","${s.sessionType || ""}","${s.status || ""}","${s.playerName || ""}","${s.duration || 60} min"`,
+              `"${s.startTime ? new Date(s.startTime).toISOString().slice(0, 10) : ""}","${s.startTime ? new Date(s.startTime).toISOString().slice(11, 16) : ""}","${s.coachId || ""}","${s.sessionType || ""}","${s.status || ""}","","${s.duration || 60} min"`,
           )
           .join("\n");
 
@@ -6079,7 +6102,7 @@ import fs from "fs";
 
         const sessions = await storage.getSessionsByCoach(coachId, academyId);
         const weekSessions = sessions.filter((s) => {
-          const sessionDate = new Date(s.date);
+          const sessionDate = new Date(s.startTime);
           return sessionDate >= weekStart && sessionDate < weekEnd;
         });
 
@@ -8817,6 +8840,31 @@ router.get(
         }
       }
 
+      // Resolve a human-readable LOCATION for the calendar event by looking
+      // up each session's court (and joining the court's location for the
+      // street/city) — sessions has no denormalized court_name column.
+      const courtIds = [...new Set(rows.map((r) => r.courtId).filter(Boolean))] as string[];
+      const courtLocationMap = new Map<string, string>();
+      if (courtIds.length > 0) {
+        const courtRows = await db
+          .select({
+            courtId: courts.id,
+            courtName: courts.name,
+            locationName: locations.name,
+            locationAddress: locations.address,
+          })
+          .from(courts)
+          .leftJoin(locations, eq(locations.id, courts.locationId))
+          .where(inArray(courts.id, courtIds));
+        for (const c of courtRows) {
+          const parts: string[] = [];
+          if (c.courtName) parts.push(c.courtName);
+          if (c.locationName) parts.push(c.locationName);
+          if (c.locationAddress) parts.push(c.locationAddress);
+          if (parts.length > 0) courtLocationMap.set(c.courtId, parts.join(", "));
+        }
+      }
+
       const lines: string[] = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
@@ -8832,7 +8880,7 @@ router.get(
         const end = row.endTime ? new Date(row.endTime) : new Date(start.getTime() + 60 * 60 * 1000);
         const coachName = row.coachId ? coachMap.get(row.coachId) : null;
         const description = coachName ? `Coach: ${coachName}` : "";
-        const location = row.courtName || "";
+        const location = row.courtId ? courtLocationMap.get(row.courtId) || "" : "";
         const title = row.title || row.sessionType || "Session";
 
         lines.push("BEGIN:VEVENT");

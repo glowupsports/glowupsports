@@ -1904,8 +1904,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           dueDate: invoice.dueDate || new Date().toISOString(),
           academy: {
             name: academy?.name || "Academy",
-            email: settings?.contactEmail || undefined,
-            phone: settings?.contactPhone || undefined,
+            email: academy?.email || undefined,
+            phone: academy?.phone || undefined,
             logo: (academy as any)?.logoUrl || undefined,
             vatRegistrationNumber: (settings as any)?.vatRegistrationNumber || undefined,
           },

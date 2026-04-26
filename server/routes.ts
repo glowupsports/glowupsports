@@ -747,11 +747,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Player not found" });
         }
 
-        // Get user email
+        // Get user email (player linked via users.playerId)
         const [user] = await db
           .select()
           .from(users)
-          .where(eq(users.id, player.userId));
+          .where(eq(users.playerId, playerId));
         if (!user?.email) {
           return res.status(400).json({ error: "Player has no email address" });
         }

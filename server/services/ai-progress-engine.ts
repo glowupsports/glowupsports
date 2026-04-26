@@ -270,7 +270,7 @@ export async function generateSessionDigest(
     const playerNote = skillFeedback?.playerNote || skillFeedback?.note || "";
 
     const prompt = `Player: ${player.name}, age ${player.age ?? "unknown"}, level ${ballLevel}
-Session type: ${session.sessionType}, date: ${session.date}
+Session type: ${session.sessionType}, date: ${session.startTime ? new Date(session.startTime).toISOString() : ""}
 Attendance: ${attendanceStatus}
 Coach feedback notes: ${feedbackList}
 ${ratingsSummary ? `Skill ratings: ${ratingsSummary}` : ""}
@@ -2189,7 +2189,7 @@ export async function generateParentProgressLetter(
       .orderBy(desc(playerBallLevels.assignedAt))
       .limit(1);
 
-    const ballLevel = playerLevel?.levelId || (player as any).ballLevel || "unknown";
+    const ballLevel = playerLevel?.levelId || player.ballLevel || "unknown";
     const firstName = player.name.split(" ")[0];
     const age = player.age ? Number(player.age) : null;
 

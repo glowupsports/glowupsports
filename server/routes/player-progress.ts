@@ -137,9 +137,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(404).json({ error: "Player not found" });
         }
 
-        const { generateProgressReportHtml, ProgressReportData } = await import(
+        const { generateProgressReportHtml } = await import(
           "../services/progressReportPdf"
         );
+        type ProgressReportData = import("../services/progressReportPdf").ProgressReportData;
 
         const player = await storage.getPlayer(id);
         const academy = academyId ? await storage.getAcademy(academyId) : null;
@@ -242,7 +243,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           });
         });
 
-        const reportData: typeof ProgressReportData = {
+        const reportData: ProgressReportData = {
           reportDate: now.toISOString(),
           period: {
             from: threeMonthsAgo.toISOString(),
@@ -314,8 +315,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         if (!isFromSameAcademy && !isAssignedCoach && !isPlatformOwner) {
           return res.status(404).json({ error: "Player not found" });
         }
-        const { generateAttendanceReportHtml, AttendanceReportData } =
+        const { generateAttendanceReportHtml } =
           await import("../services/attendanceReportPdf");
+        type AttendanceReportData = import("../services/attendanceReportPdf").AttendanceReportData;
 
         const academy = academyId ? await storage.getAcademy(academyId) : null;
 
@@ -1430,7 +1432,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         if (result.success) {
           console.log(
-            `[CreditRepair] Coach repaired credits for ${player?.name || playerId}: consumed=${result.consumed}, debts=${result.debts}`,
+            `[CreditRepair] Coach repaired credits for ${player?.name || playerId}: packagesRepaired=${result.packagesRepaired}, debtsMarkedSettled=${result.debtsMarkedSettled}`,
           );
           res.json({
             message: `Repaired credits for ${player?.name || playerId}`,

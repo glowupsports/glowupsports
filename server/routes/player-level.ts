@@ -250,7 +250,7 @@ router.post("/award-xp", async (req: AuthenticatedRequest, res: Response) => {
       .where(eq(players.id, playerId));
 
     // Send XP gain notification
-    sendXPGainNotification(playerId, xpToAward, rule.displayName || actionSource).catch(err =>
+    sendXPGainNotification(playerId, xpToAward, rule.description || actionSource).catch(err =>
       console.error("Failed to send XP gain notification:", err)
     );
 

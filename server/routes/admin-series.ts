@@ -27,6 +27,7 @@ import {
   coachFollows,
   xpTransactions,
   coachXpTransactions,
+  playerPillarProgress,
 } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
 import {
@@ -1023,7 +1024,6 @@ router.post(
       } else {
         await storage.addPlayerToSeries({
           seriesId: id,
-          courtId: existingPlayer?.courtId || undefined,
           playerId,
           status: "active",
           linkedPackageId: packageId || null,
@@ -1341,10 +1341,10 @@ router.get(
       const sessionPlayers = await storage.getSessionPlayersWithPlayerInfo(id);
       const attendance = sessionPlayers.map((sp) => ({
         playerId: sp.playerId,
-        playerName: sp.playerName || "Unknown",
+        playerName: sp.player?.name || "Unknown",
         status: sp.attendanceStatus,
         lateMinutes: sp.lateMinutes,
-        absentReason: sp.absentReason,
+        absentReason: sp.absenceReason,
       }));
 
       res.json(attendance);
@@ -2654,7 +2654,7 @@ router.get(
 
       const monthlyPaymentHistory = monthlyHours.map((mh) => {
         const payoutRecord = payoutRecords.find(
-          (p: any) => p.month === mh.month && p.year === mh.year,
+          (p) => p.month === mh.month && p.year === mh.year,
         );
         const rate = Number(payoutRecord?.hourlyRate || hourlyRate);
         const grossAmount = payoutRecord
@@ -2676,6 +2676,13 @@ router.get(
           payoutId: payoutRecord?.id || null,
         };
       });
+
+      const amountPaid = payoutRecords
+        .filter((p) => p.status === "paid")
+        .reduce(
+          (sum, p) => sum + Number(p.grossAmount || 0),
+          0,
+        );
 
       res.json({
         coach: {
@@ -2699,7 +2706,7 @@ router.get(
           hourlyRate,
           totalHours: Math.round(totalHours * 10) / 10,
           amountOwed: Math.round(totalHours * hourlyRate),
-          amountPaid: coach.amountPaid || 0,
+          amountPaid,
           monthlyHistory: monthlyPaymentHistory,
         },
       });
@@ -2923,7 +2930,7 @@ router.get(
         address: academy.address,
         email: academy.email,
         phone: academy.phone,
-        logo: academy.logo,
+        logo: academy.logoUrl,
         bankName: academy.bankName,
         bankAccountNumber: academy.bankAccountNumber,
         bankIban: academy.bankIban,
@@ -2969,6 +2976,24 @@ router.get(
         : null;
       const xpData = await storage.getPlayerXpTotal(playerId);
       const milestones = await storage.getPlayerMilestones(playerId);
+      const pillarRows = await db
+        .select({
+          pillar: playerPillarProgress.pillar,
+          currentScore: playerPillarProgress.currentScore,
+        })
+        .from(playerPillarProgress)
+        .where(eq(playerPillarProgress.playerId, playerId));
+      // current_score is a 0-2 EMA; the dashboard skill gauge expects 0-100.
+      // Multiply by 50 to map 0→0, 1→50, 2→100. A pillar with no rows yet
+      // has no signal — surface 0 so it visibly reads as "no data" rather
+      // than masquerading as the midpoint.
+      const pillarScore = (pillar: string): number => {
+        const row = pillarRows.find(
+          (p) => (p.pillar || "").toUpperCase() === pillar,
+        );
+        if (!row) return 0;
+        return Math.round(Number(row.currentScore ?? 0) * 50);
+      };
 
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
@@ -3164,6 +3189,23 @@ router.get(
         }
       }
 
+      // Most-recent payment date across paid invoices and coach-recorded
+      // payments — used by the player payments KPI strip.
+      const lastInvoicePaidAt = paidInvoices
+        .map((inv) => inv.paidAt)
+        .filter((d: Date | null | undefined): d is Date => !!d)
+        .sort((a: Date, b: Date) => +new Date(b) - +new Date(a))[0] || null;
+      const lastCoachRecordedPaymentAt = coachRecordedPayments
+        .map((p) => p.paymentDate || p.createdAt)
+        .filter((d: Date | null | undefined): d is Date => !!d)
+        .sort((a: Date, b: Date) => +new Date(b) - +new Date(a))[0] || null;
+      const lastPaymentDate =
+        lastInvoicePaidAt && lastCoachRecordedPaymentAt
+          ? new Date(lastInvoicePaidAt) > new Date(lastCoachRecordedPaymentAt)
+            ? lastInvoicePaidAt
+            : lastCoachRecordedPaymentAt
+          : lastInvoicePaidAt || lastCoachRecordedPaymentAt || null;
+
       res.json({
         player: {
           id: player.id,
@@ -3186,18 +3228,18 @@ router.get(
           attended: attendedSessionsAll.length,
           missed: recentSessions.length - attendedSessions.length,
           rate: attendanceRate,
-          streak: player.currentStreak || 0,
+          streak: player.streak || 0,
         },
         progress: {
           level: currentLevel,
           xp: xpProgress,
           xpToNextLevel: xpToNext,
           skills: {
-            technical: player.technicalScore || 50,
-            tactical: player.tacticalScore || 50,
-            physical: player.physicalScore || 50,
-            mental: player.mentalScore || 50,
-            social: player.socialScore || 50,
+            technical: pillarScore("TECHNIQUE"),
+            tactical: pillarScore("TACTICAL"),
+            physical: pillarScore("PHYSICAL"),
+            mental: pillarScore("MENTAL"),
+            social: pillarScore("SOCIAL"),
           },
           recentMilestones: milestones
             .slice(0, 5)
@@ -3206,10 +3248,10 @@ router.get(
         payments: {
           totalOwed,
           totalPaid,
-          lastPaymentDate: player.lastPaymentDate,
+          lastPaymentDate,
           status: paymentStatus,
           currency: "AED",
-          invoices: playerInvoices.map((inv: any) => ({
+          invoices: playerInvoices.map((inv) => ({
             id: inv.id,
             invoiceNumber: inv.invoiceNumber,
             amount: Number(inv.amount) || 0,
@@ -5403,7 +5445,7 @@ router.get(
             : null;
           const time = new Date(session.startTime);
           const maxPlayers = session.maxPlayers || 6;
-          const currentPlayers = session.currentPlayers || 0;
+          const currentPlayers = (_spBySession.get(session.id) || []).length;
 
           // Get participants from session_players table (not from session object)
           let participants: {
@@ -5667,7 +5709,7 @@ router.get(
               ? `${diffHours}h ago`
               : `${Math.floor(diffHours / 24)}d ago`;
 
-          const content = post.content || "";
+          const content = post.caption || "";
           communityEvents.push({
             id: post.id,
             type: "new_group",
@@ -6334,7 +6376,7 @@ router.get(
       res.json({
         id: coach.id,
         name: coach.name,
-        email: coach.user?.email || null,
+        email: coach.email || null,
         phone: coach.phone || null,
         bio: coach.bio || null,
         yearsExperience: coach.yearsExperience || 0,
@@ -6417,8 +6459,7 @@ router.get(
       for (const coachId of coachIds) {
         const coach = await storage.getCoach(coachId);
         if (coach) {
-          const coachUser = await storage.getUserById(coach.userId);
-          coachMap[coachId] = coachUser?.name || coach.name || "Coach";
+          coachMap[coachId] = coach.name || "Coach";
         }
       }
 

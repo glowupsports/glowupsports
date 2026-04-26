@@ -2210,7 +2210,7 @@ function socialPostUploadHandler(
           id: post.author?.id,
           username: post.author?.username,
           name: post.player?.name || post.author?.username,
-          photoUrl: post.player?.photoUrl,
+          photoUrl: post.player?.profilePhotoUrl,
           ballLevel: post.player?.ballLevel,
         },
         reactions: reactions.reduce((acc, r) => ({ ...acc, [r.type]: Number(r.count) }), {}),
@@ -2728,7 +2728,7 @@ function socialPostUploadHandler(
               const [player] = await db.select().from(players).where(eq(players.id, user.playerId)).limit(1);
               if (player) {
                 authorData.name = player.name;
-                authorData.photoUrl = (player as any).profilePhotoUrl || player.photoUrl;
+                authorData.photoUrl = player.profilePhotoUrl || null;
               }
             }
           }
@@ -3469,7 +3469,7 @@ function socialPostUploadHandler(
               const [player] = await db.select().from(players).where(eq(players.id, user.playerId)).limit(1);
               if (player) {
                 authorData.name = player.name;
-                authorData.photoUrl = (player as any).profilePhotoUrl || player.photoUrl;
+                authorData.photoUrl = player.profilePhotoUrl || null;
               }
             }
           }
@@ -3731,7 +3731,7 @@ function socialPostUploadHandler(
           id: op.user?.id,
           username: op.user?.username,
           name: op.player?.name || op.user?.username,
-          photoUrl: op.player?.photoUrl,
+          photoUrl: op.player?.profilePhotoUrl,
           ballLevel: op.player?.ballLevel,
         },
       })));

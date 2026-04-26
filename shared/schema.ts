@@ -1108,6 +1108,8 @@ export const players = pgTable("players", {
   
   // Family Lobby - Link multiple players to same parent account
   parentEmail: text("parent_email"), // Parent's email for family account linking
+  parentName: text("parent_name"), // Parent's display name (for invoices, comms)
+  parentPhone: text("parent_phone"), // Parent's phone (for invoices, comms)
   parentReporting: boolean("parent_reporting").default(false), // Monthly AI progress letter to parent
 
   // Family PIN — used to gate sensitive family actions (e.g. minting/revoking

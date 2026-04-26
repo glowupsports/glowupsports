@@ -1209,17 +1209,16 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         for (const coach of academyCoaches) {
           await db.insert(coachNotifications).values({
             id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            userId: coach.userId,
+            coachId: coach.id,
             type: "lesson_request",
             title: "New Lesson Request",
             message: `${playerName} has requested a ${sessionType || "group"} lesson at ${ballLevel || "their"} level.`,
-            data: JSON.stringify({
+            metadata: {
               playerId,
               ballLevel,
               sessionType,
               invitedFriendIds,
-            }),
-            createdAt: new Date(),
+            },
           });
         }
 

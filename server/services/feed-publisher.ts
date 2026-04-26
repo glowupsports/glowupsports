@@ -210,15 +210,15 @@ export async function publishLevelUp(levelUpEventId: string): Promise<void> {
           .select()
           .from(ballLevels)
           .where(eq(ballLevels.id, event.toLevelId));
-        toLevelName = to?.name ?? null;
-        toLevelDisplay = to?.displayName ?? null;
+        toLevelName = to?.displayNamePlayer ?? null;
+        toLevelDisplay = to?.displayNameCoach ?? null;
       }
       if (event.fromLevelId) {
         const [from] = await db
           .select()
           .from(ballLevels)
           .where(eq(ballLevels.id, event.fromLevelId));
-        fromLevelName = from?.name ?? null;
+        fromLevelName = from?.displayNamePlayer ?? null;
       }
     } catch {
       /* best-effort enrichment */
