@@ -1,6 +1,29 @@
 # EAS Update Audit — Closed Testing
 
-_Last reviewed: 2026-04-24_
+_Last reviewed: 2026-04-26 (Task #1374 — cross-runtime safety filter added)_
+
+## ⚠ Cross-runtime publishing rule (Task #1374)
+
+**An OTA bundle may only be published to the runtime it was built against.**
+The runtime is whatever `app.json.expo.{ios,android}.runtimeVersion` says
+when `expo export` runs. Fan-out of one bundle to multiple runtimes —
+the pattern Task #1372 introduced — is what made the iOS player home
+unusable on 2026-04-26: a 1.3.6-built bundle was served to 1.3.4 / 1.3.5
+binaries, where mismatched native module shapes manifest as runaway JS
+work and a barely-loadable home screen.
+
+`scripts/ota-push.sh` now enforces this rule: runtimes listed in
+`scripts/live-runtimes.json` that don't match `app.json.runtimeVersion`
+are skipped with a warning. The emergency override
+`OTA_ALLOW_CROSS_RUNTIME=1` restores the old fan-out behavior with a
+loud DANGER banner — only use it if you have manually verified the
+bundle imports nothing whose native API shape differs between runtimes,
+or you are knowingly accepting the risk for a hotfix.
+
+The supported way to ship one OTA to multiple live runtimes is a
+per-runtime rebuild from the matching source tag. That workflow is
+not yet wired into `ota-push.sh`; until it is, plan multi-runtime
+pushes as multiple separate releases.
 
 ## Summary
 

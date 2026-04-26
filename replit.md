@@ -22,10 +22,12 @@ Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATA
 
 ### CRITICAL: Split iOS / Android runtime versions
 **iOS and Android run on different runtimes.** These are configured **per-platform** under `expo.ios.runtimeVersion` and `expo.android.runtimeVersion` in `app.json`. Each platform's OTA push targets only the runtime declared for that platform.
-**Every OTA push targets every live runtime in `scripts/live-runtimes.json` by default.** The "OTA Push" workflow runs `scripts/ota-push.sh`, which bundles once and then uploads the same bundle to every (platform, runtime) pair listed in `scripts/live-runtimes.json`. It verifies every published combination landed on the production branch before exiting green.
+
+### CRITICAL: One bundle, one runtime — no cross-runtime fan-out (Task #1374)
+**An OTA bundle may only be published to the runtime it was built against.** That runtime is whatever `app.json.expo.{ios,android}.runtimeVersion` says when `expo export` runs. Fan-out to other live runtimes is what broke the iOS player home on 2026-04-26: the bundle was built against 1.3.6's native API surface and then served to 1.3.4 / 1.3.5 binaries, where mismatched native module shapes made the home screen barely loadable. `scripts/ota-push.sh` now refuses cross-runtime publishes by default — runtimes in `live-runtimes.json` that don't match `app.json.runtimeVersion` are skipped with a warning. The emergency override `OTA_ALLOW_CROSS_RUNTIME=1` exists but should not be used; the right answer for a true multi-runtime push is a per-runtime rebuild from the matching git tag.
 
 ### CRITICAL: Welke runtimes leven op echte toestellen — `scripts/live-runtimes.json`
-**`app.json.expo.{ios,android}.runtimeVersion` is wat de VOLGENDE store-binary zal claimen. `scripts/live-runtimes.json` is wat er NU echt op telefoons in productie draait.** Die twee zijn niet hetzelfde en mogen niet door elkaar gehaald worden — dat was precies de bug van Task #1372.
+**`app.json.expo.{ios,android}.runtimeVersion` is wat de VOLGENDE store-binary zal claimen. `scripts/live-runtimes.json` is wat er NU echt op telefoons in productie draait.** Die twee zijn niet hetzelfde en mogen niet door elkaar gehaald worden — dat was precies de bug van Task #1372. Sinds #1374 is de rol van `live-runtimes.json` documentair en als safety check tegen de #1302 silent-drop: het OTA-script publiceert alleen naar de runtime in deze lijst die overeenkomt met `app.json.runtimeVersion` en slaat de rest expliciet over.
 
 | Platform | Live runtimes (April 2026)        | Volgende store-binary (`app.json`) |
 | -------- | ---------------------------------- | ---------------------------------- |

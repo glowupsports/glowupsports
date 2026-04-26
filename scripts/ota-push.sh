@@ -147,6 +147,140 @@ echo "    iOS     = ${IOS_RUNTIMES[*]}"
 echo "    Android = ${ANDROID_RUNTIMES[*]}"
 
 # ---------------------------------------------------------------------------
+# Cross-runtime safety filter (Task #1374)
+#
+# WHY: Task #1372 introduced fan-out — the same JS bundle was published to
+# every runtime listed in live-runtimes.json by mutating app.json between
+# uploads. That shipped a bundle compiled against the 1.3.6 native API
+# surface to 1.3.4 / 1.3.5 iOS binaries on 2026-04-26 and made the player
+# home effectively unusable on those installs (#1374). JS bundles are not
+# runtime-agnostic: they import from native modules whose method shapes
+# can differ between runtimes, and a mismatch can manifest as runaway JS
+# work, blocked bridges, or reload loops.
+#
+# RULE: An OTA bundle may only be published to the runtime declared in
+#       app.json at bundle time — i.e. the runtime the bundle was actually
+#       built against. Fan-out to additional runtimes requires either
+#       (a) a per-runtime rebuild from a matching git tag (not yet wired
+#       up — see follow-up), or (b) an explicit emergency override
+#       (OTA_ALLOW_CROSS_RUNTIME=1) which restores the dangerous old
+#       behavior with a giant warning.
+#
+# This filter rewrites IOS_RUNTIMES / ANDROID_RUNTIMES in place so the
+# rest of the script (publish loop + verification) needs no other change.
+# ---------------------------------------------------------------------------
+APP_IOS_RT="$(node -e "
+const cfg = require('./app.json');
+const v = cfg.expo && cfg.expo.ios && cfg.expo.ios.runtimeVersion;
+if (!v) { console.error('app.json missing expo.ios.runtimeVersion'); process.exit(1); }
+console.log(v);
+")"
+APP_ANDROID_RT="$(node -e "
+const cfg = require('./app.json');
+const v = cfg.expo && cfg.expo.android && cfg.expo.android.runtimeVersion;
+if (!v) { console.error('app.json missing expo.android.runtimeVersion'); process.exit(1); }
+console.log(v);
+")"
+
+ALLOW_CROSS_RUNTIME="${OTA_ALLOW_CROSS_RUNTIME:-0}"
+
+echo ""
+echo "  Bundle source-of-truth runtime (from app.json):"
+echo "    iOS     = $APP_IOS_RT"
+echo "    Android = $APP_ANDROID_RT"
+
+# filter_runtimes — emits kept runtimes on stdout (one per line); warnings
+# on stderr. Refuses to emit cross-runtime targets unless the operator
+# explicitly set OTA_ALLOW_CROSS_RUNTIME=1.
+filter_runtimes() {
+  local platform="$1"
+  local source_rt="$2"
+  shift 2
+  local kept=()
+  local skipped=()
+  local rt
+  for rt in "$@"; do
+    if [[ "$rt" == "$source_rt" ]]; then
+      kept+=("$rt")
+    else
+      skipped+=("$rt")
+    fi
+  done
+
+  if [[ ${#skipped[@]} -gt 0 && "$ALLOW_CROSS_RUNTIME" == "1" ]]; then
+    {
+      echo ""
+      echo "  ################################################################"
+      echo "  #  ⚠  DANGER — OTA_ALLOW_CROSS_RUNTIME=1"
+      echo "  ################################################################"
+      echo "  Publishing this $platform bundle (built against $source_rt) to"
+      echo "  cross-runtime targets: ${skipped[*]}"
+      echo ""
+      echo "  This is exactly the configuration that broke the player home on"
+      echo "  iOS 1.3.4 / 1.3.5 on 2026-04-26 (Task #1374). Only proceed if"
+      echo "  you have manually verified the bundle imports nothing whose"
+      echo "  native API shape differs between runtimes, or you have already"
+      echo "  notified users."
+      echo "  ################################################################"
+    } >&2
+    printf '%s\n' "$@"
+    return 0
+  fi
+
+  if [[ ${#skipped[@]} -gt 0 ]]; then
+    {
+      echo ""
+      echo "  ⚠ Cross-runtime safety: skipping $platform runtime(s) that don't match"
+      echo "    app.json's $platform.runtimeVersion ($source_rt):"
+      for rt in "${skipped[@]}"; do
+        echo "      - $rt   (would receive a bundle built against $source_rt)"
+      done
+      echo "    To publish to these runtimes safely, build a per-runtime bundle from"
+      echo "    the matching source tag and re-run. Emergency override:"
+      echo "      OTA_ALLOW_CROSS_RUNTIME=1 bash scripts/ota-push.sh \"...\""
+      echo "    See Task #1374 / docs/eas-update-audit.md for context."
+    } >&2
+  fi
+
+  if [[ ${#kept[@]} -eq 0 ]]; then
+    {
+      echo ""
+      echo "  ✘ ERROR: no $platform runtime in $LIVE_RUNTIMES_FILE matches" >&2
+      echo "    app.json's $platform.runtimeVersion ($source_rt). The publish" >&2
+      echo "    would silently reach 0 devices." >&2
+      echo "" >&2
+      echo "    Fix one of:" >&2
+      echo "      - Add \"$source_rt\" to live-runtimes.json's $platform array" >&2
+      echo "        (only if a binary at that runtime is actually live in store)." >&2
+      echo "      - Roll app.json's $platform.runtimeVersion back to a runtime" >&2
+      echo "        that IS already live." >&2
+      echo "      - Skip $platform on this push: --platform <other>" >&2
+    } >&2
+    return 1
+  fi
+
+  printf '%s\n' "${kept[@]}"
+}
+
+if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
+  if ! IOS_FILTERED_RAW="$(filter_runtimes "ios" "$APP_IOS_RT" "${IOS_RUNTIMES[@]}")"; then
+    exit 6
+  fi
+  mapfile -t IOS_RUNTIMES <<< "$IOS_FILTERED_RAW"
+fi
+if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
+  if ! ANDROID_FILTERED_RAW="$(filter_runtimes "android" "$APP_ANDROID_RT" "${ANDROID_RUNTIMES[@]}")"; then
+    exit 6
+  fi
+  mapfile -t ANDROID_RUNTIMES <<< "$ANDROID_FILTERED_RAW"
+fi
+
+echo ""
+echo "  After cross-runtime safety filter:"
+echo "    iOS     → ${IOS_RUNTIMES[*]:-<none>}"
+echo "    Android → ${ANDROID_RUNTIMES[*]:-<none>}"
+
+# ---------------------------------------------------------------------------
 # Pre-flight — Lint guardrail (Task #1082)
 #
 # Why this exists: Task #1082 (missing MATCH_CARD_WIDTH) and Task #1015
