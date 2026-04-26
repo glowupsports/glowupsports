@@ -227,6 +227,11 @@ export async function sendAPNsNotification(
           providerJwt,
         );
         const success = outcome.status === 200;
+        if (!success) {
+          console.error(
+            `[APNs] send failed token=${token.substring(0, 12)}... status=${outcome.status} reason=${outcome.reason ?? "?"}`,
+          );
+        }
         results.push({
           token,
           success,
@@ -236,6 +241,9 @@ export async function sendAPNsNotification(
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
+        console.error(
+          `[APNs] send threw token=${token.substring(0, 12)}... error=${message}`,
+        );
         results.push({
           token,
           success: false,

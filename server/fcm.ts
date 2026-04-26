@@ -36,11 +36,19 @@ export function isFirebaseInitialized(): boolean {
   return firebaseApp !== null;
 }
 
-// Check if a token is an FCM token (not Expo Push token)
+// Check if a token is an FCM token (not Expo Push token, not raw APNs hex).
+//
+// FCM registration tokens are long alphanumeric strings (typically 150+ chars)
+// that contain a colon delimiter (e.g. "fxxx:APA91b..."). Raw APNs device
+// tokens are pure hex (no ":") and must NEVER be routed to FCM — Firebase
+// rejects them with "registration-token-not-registered" which would then
+// deactivate a perfectly valid iOS token.
 export function isFCMToken(token: string): boolean {
-  // Expo tokens start with "ExponentPushToken[" 
-  // FCM tokens are long alphanumeric strings (typically 150+ characters)
-  return !token.startsWith("ExponentPushToken[") && token.length > 100;
+  if (token.startsWith("ExponentPushToken[")) return false;
+  if (token.length <= 100) return false;
+  // Pure hex of any length is an APNs token, not FCM.
+  if (/^[0-9a-fA-F]+$/.test(token)) return false;
+  return true;
 }
 
 interface FCMMessage {

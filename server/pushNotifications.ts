@@ -167,6 +167,42 @@ async function deactivateStaleToken(token: string): Promise<void> {
   }
 }
 
+// Apple's APNs returns 410 with reason "Unregistered" when the device token is
+// no longer valid — the user uninstalled the app or revoked notification
+// permission. That is the only failure shape we treat as "definitely the
+// token's fault" and auto-deactivate.
+//
+// Deliberately NOT auto-deactivating on 400-level reasons like BadDeviceToken,
+// DeviceTokenNotForTopic, or TopicDisallowed — those can be triggered by a
+// transient server-side misconfiguration (wrong bundle id, prod vs sandbox
+// mixup) that would otherwise mass-kill thousands of perfectly valid tokens.
+// We just log loudly so an operator notices.
+async function deactivateAPNsTokenIfDead(
+  token: string,
+  status: number | undefined,
+  reason: string | undefined,
+): Promise<void> {
+  if (status === 400) {
+    console.warn(
+      `[APNs] Token rejected with 400 (${reason ?? "?"}) — NOT auto-deactivating, this can be a server-side bundle/env misconfig. Token prefix=${token.substring(0, 12)}...`,
+    );
+    return;
+  }
+  const isDead = status === 410 && reason === "Unregistered";
+  if (!isDead) return;
+  try {
+    await db
+      .update(pushDeviceTokens)
+      .set({ isActive: false })
+      .where(eq(pushDeviceTokens.token, token));
+    console.log(
+      `[APNs] Deactivated unregistered token ${token.substring(0, 12)}... (status=${status}, reason=${reason ?? "?"})`,
+    );
+  } catch (error) {
+    console.error("[APNs] Failed to deactivate dead token:", error);
+  }
+}
+
 async function checkExpoReceipts(ticketIds: string[], tokens: string[]): Promise<void> {
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/getReceipts", {
@@ -208,20 +244,35 @@ export async function sendPushNotification(
   if (tokens.length === 0) return [];
 
   // Split by token shape. APNs check first (strictest — pure hex), then FCM,
-  // then everything else falls to Expo. APNs branch is gated by
-  // isAPNsConfigured so missing creds = pre-APNs behavior.
+  // then everything else falls to Expo. CRITICAL: APNs-shaped tokens (raw
+  // 64-char hex from getDevicePushTokenAsync on iOS) MUST NOT fall through
+  // to Expo or FCM when APNs is not configured — both providers will reject
+  // them as DeviceNotRegistered, and our deactivateStaleToken handler would
+  // then permanently kill perfectly valid iOS tokens. We collect them
+  // separately and report the misconfiguration loudly.
   const expoTokens: string[] = [];
   const fcmTokens: string[] = [];
   const apnsTokens: string[] = [];
+  const unroutableAPNsTokens: string[] = [];
 
   for (const token of tokens) {
-    if (isAPNsToken(token) && isAPNsConfigured()) {
-      apnsTokens.push(token);
+    if (isAPNsToken(token)) {
+      if (isAPNsConfigured()) {
+        apnsTokens.push(token);
+      } else {
+        unroutableAPNsTokens.push(token);
+      }
     } else if (isFCMToken(token)) {
       fcmTokens.push(token);
     } else {
       expoTokens.push(token);
     }
+  }
+
+  if (unroutableAPNsTokens.length > 0) {
+    console.error(
+      `[Push] ${unroutableAPNsTokens.length} APNs token(s) are unroutable — APNS_AUTH_KEY_P8 / APNS_KEY_ID not set. iOS push delivery is broken until these secrets are configured.`,
+    );
   }
 
   const results: ExpoPushTicket[] = [];
@@ -253,13 +304,34 @@ export async function sendPushNotification(
   // Send directly to Apple via APNs HTTP/2 for raw iOS device tokens.
   if (apnsTokens.length > 0) {
     const apnsResults = await sendAPNsNotification(apnsTokens, title, body, data);
+    let apnsOk = 0;
+    let apnsFail = 0;
     for (const r of apnsResults) {
+      if (r.success) {
+        apnsOk++;
+      } else {
+        apnsFail++;
+        // Fire-and-forget: deactivate the token if Apple says it's dead so
+        // we don't keep trying it on every future push.
+        void deactivateAPNsTokenIfDead(r.token, r.status, r.reason);
+      }
       results.push({
         status: r.success ? "ok" : "error",
         id: r.apnsId,
         message: r.success ? undefined : `apns ${r.status ?? "?"}: ${r.reason ?? "unknown"}`,
       });
     }
+    console.log(`[APNs] Sent ${apnsTokens.length} push(es): ok=${apnsOk} fail=${apnsFail}`);
+  }
+
+  // Surface the unroutable APNs tokens as failed tickets so callers (e.g.
+  // scripts/push-update-prompt.ts) report a real failure instead of silently
+  // believing every push went through.
+  for (const _t of unroutableAPNsTokens) {
+    results.push({
+      status: "error",
+      message: "apns not configured (APNS_AUTH_KEY_P8/APNS_KEY_ID missing)",
+    });
   }
 
   // Store notification in playerNotifications table
