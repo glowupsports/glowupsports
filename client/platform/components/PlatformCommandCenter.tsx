@@ -70,13 +70,30 @@ export function PlatformCommandCenter({
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[PLATFORM_PURPLE + "35", PLATFORM_VIOLET + "15", "transparent"]}
+        colors={[
+          "#FF000035",
+          "#FF7F0030",
+          "#FFFF0028",
+          "#00FF0022",
+          "#0000FF1C",
+          "#4B008218",
+          "#9400D310",
+          "transparent",
+        ]}
         style={styles.gradientBg}
       />
       
       <View style={styles.borderContainer}>
         <LinearGradient
-          colors={[PLATFORM_PURPLE, PLATFORM_VIOLET, PLATFORM_PURPLE]}
+          colors={[
+            "#FF0000",
+            "#FF7F00",
+            "#FFFF00",
+            "#00FF00",
+            "#0000FF",
+            "#4B0082",
+            "#9400D3",
+          ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.gradientBorder}
