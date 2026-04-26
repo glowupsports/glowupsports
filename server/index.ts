@@ -946,12 +946,24 @@ function setupErrorHandler(app: express.Application) {
   setupRequestLogging(app);
 
   // Global API rate limiter — 300 requests per 15 minutes per IP
+  // Task #1383 — skip for loopback origins so the player Progress/Play
+  // god-endpoints (server/routes/player-progress-data.ts,
+  // server/routes/player-play-data.ts) can fan-out via internal HTTP to
+  // /api/player/me/progress, /api/play/sessions, etc. without burning the
+  // public per-IP budget. trust proxy=1 (line 69) ensures req.ip carries the
+  // real edge IP for external traffic, so a spoofed X-Forwarded-For: 127.0.0.1
+  // from outside is overridden — only same-host calls actually appear as
+  // loopback.
   const globalApiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 300,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many requests, please try again later" },
+    skip: (req) => {
+      const ip = req.ip || "";
+      return ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+    },
   });
   app.use("/api", globalApiLimiter);
 

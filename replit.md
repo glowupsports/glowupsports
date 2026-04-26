@@ -1,7 +1,7 @@
 # Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-Glow Up Sports is a comprehensive multi-academy SaaS platform for Tennis Coaches and Players. It aims to optimize academy administration, monitor player advancement, and enhance both coaching and playing experiences through gamification, progress tracking, and resource management. The platform offers specialized applications for Platform Owners, Academy Owners, Coaches, and Players, with the vision of transforming tennis academy operations and fostering player engagement.
+Glow Up Sports is a comprehensive multi-academy SaaS platform designed for Tennis Coaches and Players. Its primary purpose is to streamline academy administration, monitor player progress, and elevate both coaching and playing experiences. Key capabilities include gamification, detailed progress tracking, and efficient resource management. The platform features specialized applications tailored for Platform Owners, Academy Owners, Coaches, and Players, aiming to revolutionize tennis academy operations and significantly boost player engagement.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -61,20 +61,17 @@ For mixed changes (server + client): Republish first, then OTA push.
 2. **Second**: Modify existing endpoint logic if needed.
 3. **Third**: Only if nothing exists, ASK permission before creating a new endpoint.
 
-### Player Home god-query (Task #1379)
-The Player Home screen used to fan out at mount with five+ parallel `useQuery` calls (`/dashboard`, `/profile`, `/notifications/unread-count`, plus `weekly-digest` + `ai-coach/context` from subcomponents on the same render pass). On iOS the JS↔native bridge serialises that fanout strictly, which made the screen feel loodzwaar compared to Coach Home (1 query). The fix mirrors `coach-home.ts`: a single endpoint `/api/player/me/home-data` returns every above-the-fold blob in one round trip with a 30s in-memory cache (`server/routes/player-home.ts`). The legacy per-resource endpoints stay alive and unchanged so child components, deep links, and other screens keep working; the screen primes their query keys via `queryClient.setQueryData` after the god-query resolves so they hit cache instead of network. Sub-fetches use `Promise.allSettled` so a slow/broken AI-context branch can no longer black-out the home. Only `/api/player/me/home-data` was added in this round — the analogous god-queries for the Progress and Play tabs are tracked as a follow-up task.
-
 ## System Architecture
 
 ### UI/UX Decisions
-The platform features a dark-themed premium sports aesthetic with Neon Green, White, and Yellow, utilizing card-based elements, drawer navigation, custom headers, and animated empty states. Theming is token-based, with dedicated UI themes and navigation tailored for each user role (Coach, Player, Platform Owner, Service Provider).
+The platform features a dark-themed premium sports aesthetic with Neon Green, White, and Yellow accents. It utilizes card-based elements, drawer navigation, custom headers, and animated empty states. Theming is token-based, with dedicated UI themes and navigation tailored for each user role (Coach, Player, Platform Owner, Service Provider).
 
 ### Technical Implementations
 - **Frontend**: React Native with Expo SDK 54, React Navigation, React Context for state, `AsyncStorage`, and `React Native Reanimated`.
 - **Backend**: Express.js server with TypeScript, providing RESTful API endpoints.
-- **Data Storage**: `AsyncStorage` client-side; Drizzle ORM with Supabase PostgreSQL server-side.
+- **Data Storage**: Client-side `AsyncStorage`; Drizzle ORM with Supabase PostgreSQL server-side.
 - **Build System**: Concurrent Expo and Express servers; static Expo web build served by Express; Drizzle Kit for PostgreSQL migrations.
-- **API Caching**: In-memory caching with TTLs and pattern-based invalidation.
+- **API Caching**: In-memory caching with TTLs and pattern-based invalidation, including god-endpoints for player home, progress, and play data to optimize initial load times.
 - **Authentication**: Automatic client-side token refresh via `refreshAuthMiddleware`.
 - **Internationalization**: `i18next` and `react-i18next` for English, Arabic (RTL), Indonesian.
 - **Timezone Handling**: Academy-specific IANA timezones managed client-side and server-side using `AT TIME ZONE` in PostgreSQL.

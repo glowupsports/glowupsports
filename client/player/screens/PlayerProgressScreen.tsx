@@ -4,7 +4,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
@@ -1460,113 +1460,16 @@ export default function PlayerProgressScreen() {
   const [journalExpanded, setJournalExpanded] = useState(false);
   const [layerInfoKey, setLayerInfoKey] = useState<"sessionCheckins" | "monthlyVoice" | "perceptionGaps" | null>(null);
 
-  const { data: weeklyPlanData } = useQuery<{
-    id: string;
-    playerId: string;
-    weekStartDate: string;
-    planJson: {
-      focusAreas: {
-        title: string;
-        description: string;
-        drillSuggestion: string;
-        timeTarget: string;
-        pillar: string;
-        rationale: string;
-      }[];
-      overallRationale: string;
-    } | null;
-    status: string;
-    coachNotes: string | null;
-  } | null>({
-    queryKey: ["/api/player/me/weekly-plan"],
-    enabled: !isGuest,
-    queryFn: async () => {
-      const url = new URL("/api/player/me/weekly-plan", getApiUrl());
-      const r = await fetch(url.toString(), { headers: getAuthHeaders() });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-  });
-
-  const { data: monthlyAssessmentData } = useQuery<{
-    assessment: any;
-    monthYear: string;
-    available: boolean;
-  }>({
-    queryKey: ["/api/player/me/monthly-assessment/current"],
-    enabled: !isGuest,
-    queryFn: async () => {
-      const url = new URL("/api/player/me/monthly-assessment/current", getApiUrl());
-      const r = await fetch(url.toString(), { headers: getAuthHeaders() });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-  });
-
-  const { data: aiCoachContext } = useQuery<{
-    dataMaturity: { sessionCount: number; maturityLevel: string; nextMilestone: string };
-    glowMirrorLayers?: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
-    hasHistory: boolean;
-  }>({
-    queryKey: ["/api/player/me/ai-coach/context"],
-    enabled: !isGuest,
-    staleTime: 60 * 1000,
-  });
-
-  const { data: weeklyDigest } = useQuery<{
-    id: string;
-    data: { focusArea?: string; keepDoing?: string; improve?: string; drillTip?: string; motivation?: string } | null;
-  } | null>({
-    queryKey: ["/api/player/me/weekly-digest"],
-    enabled: !isGuest,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const makeSportUrl = (path: string) => {
-    const url = new URL(path, getApiUrl());
-    url.searchParams.set("sport", activeSport);
-    return url.toString();
-  };
-
-  const { data, isLoading, error } = useQuery<ProgressData>({
-    queryKey: ["/api/player/me/progress", activeSport],
-    enabled: !isGuest,
-    queryFn: async () => {
-      const r = await fetch(makeSportUrl("/api/player/me/progress"), { headers: getAuthHeaders() });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-  });
-
-  const { data: attendanceData } = useQuery<AttendanceData>({
-    queryKey: ["/api/player/me/attendance", activeSport],
-    enabled: !isGuest,
-    queryFn: async () => {
-      const r = await fetch(makeSportUrl("/api/player/me/attendance"), { headers: getAuthHeaders() });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-  });
-
-  const { data: coachFeedback } = useQuery<CoachFeedbackItem[]>({
-    queryKey: ["/api/player/me/feedback", activeSport],
-    enabled: !isGuest,
-    queryFn: async () => {
-      const r = await fetch(makeSportUrl("/api/player/me/feedback"), { headers: getAuthHeaders() });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-  });
-
-  const { data: strokeFeedbackData } = useQuery<StrokeFeedbackRow[]>({
-    queryKey: ["/api/player/me/stroke-feedback", activeSport],
-    enabled: !isGuest,
-    queryFn: async () => {
-      const r = await fetch(makeSportUrl("/api/player/me/stroke-feedback"), { headers: getAuthHeaders() });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-  });
+  // Task #1383 — Single god-query replaces the 13 parallel mount queries that
+  // used to ship in this screen (weekly-plan, monthly-assessment,
+  // ai-coach/context, weekly-digest, progress, attendance, feedback,
+  // stroke-feedback, pillar-progress, session-feedback, glow-ratings,
+  // video-feedback, profile). Same iOS bridge serialisation fix as the
+  // Player Home god-query (Task #1379). The legacy per-resource endpoints
+  // stay alive for child components / deep links / the rest of the app —
+  // we prime their queryKeys via setQueryData below so they hit cache
+  // instead of network.
+  const queryClient = useQueryClient();
 
   interface PillarProgressEntry {
     name: string;
@@ -1585,22 +1488,6 @@ export default function PlayerProgressScreen() {
     recentFeedbackCount: number;
     glowScore: number;
   }
-  const { data: pillarProgressData } = useQuery<PillarProgressSummary>({
-    queryKey: ["/api/player/me/pillar-progress"],
-    enabled: !isGuest,
-    queryFn: async () => {
-      const url = new URL("/api/player/me/pillar-progress", getApiUrl());
-      const r = await fetch(url.toString(), { headers: getAuthHeaders() });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    },
-  });
-
-  const { data: sessionFeedbacks } = useQuery<SessionFeedbackItem[]>({
-    queryKey: ["/api/player/me/session-feedback"],
-    enabled: !isGuest,
-  });
-
   interface GlowRatingItem {
     id: string;
     sessionId: string;
@@ -1620,20 +1507,115 @@ export default function PlayerProgressScreen() {
     matchPillar: number | null;
     aiNote: string | null;
   }
-  const { data: glowRatings = [] } = useQuery<GlowRatingItem[]>({
-    queryKey: ["/api/player/me/glow-ratings"],
+  interface ProgressGodResponse {
+    progress: ProgressData | null;
+    attendance: AttendanceData | null;
+    weeklyPlan: {
+      id: string;
+      playerId: string;
+      weekStartDate: string;
+      planJson: {
+        focusAreas: {
+          title: string;
+          description: string;
+          drillSuggestion: string;
+          timeTarget: string;
+          pillar: string;
+          rationale: string;
+        }[];
+        overallRationale: string;
+      } | null;
+      status: string;
+      coachNotes: string | null;
+    } | null;
+    monthlyAssessment: {
+      assessment: any;
+      monthYear: string;
+      available: boolean;
+    } | null;
+    aiCoachContext: {
+      dataMaturity: { sessionCount: number; maturityLevel: string; nextMilestone: string };
+      glowMirrorLayers?: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
+      hasHistory: boolean;
+    } | null;
+    weeklyDigest: {
+      id: string;
+      data: { focusArea?: string; keepDoing?: string; improve?: string; drillTip?: string; motivation?: string } | null;
+    } | null;
+    feedback: CoachFeedbackItem[] | null;
+    sessionFeedback: SessionFeedbackItem[] | null;
+    strokeFeedback: StrokeFeedbackRow[] | null;
+    glowRatings: GlowRatingItem[] | null;
+    videoFeedback: VideoFeedbackItem[] | null;
+    pillarProgress: PillarProgressSummary | null;
+    profile: PlayerProfileData | null;
+    _errors?: Record<string, number | null>;
+  }
+
+  const {
+    data: progressGodData,
+    isLoading: progressGodLoading,
+    error: progressGodError,
+    refetch: refetchProgressGod,
+  } = useQuery<ProgressGodResponse>({
+    queryKey: ["/api/player/me/progress-data", activeSport],
     enabled: !isGuest,
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const url = new URL("/api/player/me/progress-data", getApiUrl());
+      url.searchParams.set("sport", activeSport);
+      const r = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return r.json();
+    },
   });
 
-  const { data: videoFeedbacks } = useQuery<VideoFeedbackItem[]>({
-    queryKey: ["/api/player/me/video-feedback"],
-    enabled: !isGuest,
-  });
+  // Prime each legacy queryKey from the god-query response so child
+  // components and any other screen that re-uses these keys hit cache
+  // instead of triggering a fresh request. Only prime keys whose branch
+  // succeeded (data !== null) — leaving a failed branch unprimed lets
+  // the legacy hook retry on its own if a child mounts.
+  useEffect(() => {
+    if (!progressGodData) return;
+    const setIfPresent = <T,>(key: unknown[], value: T | null | undefined) => {
+      if (value !== null && value !== undefined) {
+        queryClient.setQueryData(key, value);
+      }
+    };
+    setIfPresent(["/api/player/me/progress", activeSport], progressGodData.progress);
+    setIfPresent(["/api/player/me/attendance", activeSport], progressGodData.attendance);
+    setIfPresent(["/api/player/me/weekly-plan"], progressGodData.weeklyPlan);
+    setIfPresent(["/api/player/me/monthly-assessment/current"], progressGodData.monthlyAssessment);
+    setIfPresent(["/api/player/me/ai-coach/context"], progressGodData.aiCoachContext);
+    setIfPresent(["/api/player/me/weekly-digest"], progressGodData.weeklyDigest);
+    setIfPresent(["/api/player/me/feedback", activeSport], progressGodData.feedback);
+    setIfPresent(["/api/player/me/stroke-feedback", activeSport], progressGodData.strokeFeedback);
+    setIfPresent(["/api/player/me/pillar-progress"], progressGodData.pillarProgress);
+    setIfPresent(["/api/player/me/session-feedback"], progressGodData.sessionFeedback);
+    setIfPresent(["/api/player/me/glow-ratings"], progressGodData.glowRatings);
+    setIfPresent(["/api/player/me/video-feedback"], progressGodData.videoFeedback);
+    setIfPresent(["/api/player/me/profile"], progressGodData.profile);
+  }, [progressGodData, activeSport, queryClient]);
 
-  const { data: playerProfile } = useQuery<PlayerProfileData>({
-    queryKey: ["/api/player/me/profile"],
-    enabled: !isGuest,
-  });
+  // Local aliases — keep the original variable names so the rest of the
+  // ~3000-line render body needs zero changes.
+  const data = progressGodData?.progress ?? null;
+  const isLoading = progressGodLoading;
+  const error = progressGodError;
+  // attendanceData / coachFeedback intentionally not aliased here —
+  // their consumers (FeedbackCenter screen, attendance widget) read them
+  // straight from the legacy queryKeys we prime above. Adding them as
+  // locals just produces lint warnings for "unused" symbols.
+  const weeklyPlanData = progressGodData?.weeklyPlan ?? null;
+  const monthlyAssessmentData = progressGodData?.monthlyAssessment ?? null;
+  const aiCoachContext = progressGodData?.aiCoachContext ?? null;
+  const weeklyDigest = progressGodData?.weeklyDigest ?? null;
+  const strokeFeedbackData = progressGodData?.strokeFeedback ?? null;
+  const pillarProgressData = progressGodData?.pillarProgress ?? null;
+  const sessionFeedbacks = progressGodData?.sessionFeedback ?? null;
+  const glowRatings: GlowRatingItem[] = progressGodData?.glowRatings ?? [];
+  const videoFeedbacks = progressGodData?.videoFeedback ?? null;
+  const playerProfile = progressGodData?.profile ?? null;
 
   const recentNotes = useMemo(() => {
     if (!sessionFeedbacks || sessionFeedbacks.length === 0) return [];
@@ -1744,12 +1726,32 @@ export default function PlayerProgressScreen() {
     );
   }
 
+  // Task #1383 — God-query resolved but the critical `progress` branch
+  // failed (server returns `progress: null` in that case so other branches
+  // can still hydrate). Show a recoverable error card with a retry button —
+  // mirrors the ProPlayerHomeScreen pattern from #1379.
   if (error || !data || !Array.isArray(data.skillRadar)) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
         <Text style={styles.errorText}>Unable to load progress</Text>
-        <Text style={styles.errorSubtext}>Please try again later</Text>
+        <Text style={styles.errorSubtext}>Please try again</Text>
+        <Pressable
+          onPress={() => refetchProgressGod()}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading progress"
+          style={{
+            marginTop: Spacing.lg,
+            paddingHorizontal: Spacing.xl,
+            paddingVertical: Spacing.md,
+            backgroundColor: Colors.dark.primary,
+            borderRadius: BorderRadius.md,
+          }}
+        >
+          <Text style={{ color: Colors.dark.buttonText, fontWeight: "600" }}>
+            Retry
+          </Text>
+        </Pressable>
       </View>
     );
   }

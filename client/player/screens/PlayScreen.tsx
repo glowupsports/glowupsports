@@ -508,14 +508,103 @@ export default function PlayScreen() {
       insetsTop + Math.max(headerHeightSV.value + headerTranslation.value, 0),
   }));
 
-  const { data: profileData } = useQuery<{
-    player: { ballLevel?: string; city?: string; country?: string };
-    academy?: { id: string; name: string } | null;
-  }>({
-    queryKey: ["/api/player/me/profile"],
-  });
+  // Task #1383 — Single god-query collapses the 6 parallel mount queries on
+  // this screen (profile, booking-invites, open-matches, corporate/my-account,
+  // play/sessions, play/nearby-players). Same iOS bridge serialisation fix
+  // as Player Home (#1379) and Progress (#1383). The legacy per-resource
+  // endpoints stay alive for child components / other screens — we prime
+  // their queryKeys via setQueryData below.
+  //
+  // The chip selections (level, scope, filter) are forwarded to the server,
+  // which resolves the `__my_level__` sentinel using the player's ballLevel
+  // and applies the free-player "scope=mine → country" fallback so the
+  // legacy endpoints get byte-equivalent input.
+  interface PlayGodResponse {
+    profile: {
+      player: { ballLevel?: string; city?: string; country?: string };
+      academy?: { id: string; name: string } | null;
+    } | null;
+    bookingInvites: { booking_invite_guests: { status: string } }[];
+    openMatches: { id: string }[];
+    corporate: {
+      corporateAccount: { companyName: string; creditBalance: number } | null;
+      member: { inviteStatus: string } | null;
+    };
+    sessions: PlaySession[];
+    nearbyPlayers: NearbyPlayer[];
+    _keys?: {
+      sessions: string;
+      nearbyPlayers: string;
+      openMatches: unknown[];
+    };
+    _errors?: Record<string, number | null>;
+  }
 
   const apiUrl = getApiUrl();
+
+  // Compute the level param to pass to the API. Mirrored on the server too —
+  // the server resolves `__my_level__` against the player's ballLevel — but
+  // we still keep the client-side memo so the legacy queryKeys we prime
+  // below match what the rest of the screen would build.
+  const sessionsLevelParam = useMemo(() => {
+    if (!showOtherLevels || selectedBallLevel === "my_level") {
+      return "__my_level__";
+    }
+    return selectedBallLevel; // "all" or specific level
+  }, [showOtherLevels, selectedBallLevel]);
+
+  const {
+    data: playGodData,
+    isError: playGodIsError,
+    refetch: refetchPlayGod,
+  } = useQuery<PlayGodResponse>({
+    queryKey: [
+      "/api/player/me/play-data",
+      activeSport,
+      sessionsLevelParam,
+      scope,
+      discoverFilter,
+    ],
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const url = new URL("/api/player/me/play-data", apiUrl);
+      url.searchParams.set("sport", activeSport);
+      url.searchParams.set("level", sessionsLevelParam);
+      url.searchParams.set("scope", scope);
+      url.searchParams.set("filter", discoverFilter);
+      url.searchParams.set("travelTime", "true");
+      const r = await apiRequest("GET", url.toString());
+      return r.json();
+    },
+  });
+
+  // Local aliases — keep the original variable names so the rest of the
+  // ~5800-line render body needs zero changes. profileData is derived here
+  // because the geocode useEffects below reference it.
+  const profileData = playGodData?.profile ?? undefined;
+  const invitesData = playGodData?.bookingInvites;
+  const openMatchesList = playGodData?.openMatches;
+  const corporateData = playGodData?.corporate;
+  const sessions = playGodData?.sessions;
+  const nearbyPlayers = playGodData?.nearbyPlayers;
+  const sessionsLoading = !playGodData;
+  const playersLoading = !playGodData;
+
+  // Prime each legacy queryKey from the god-query response so child
+  // components and any other screen that re-uses these keys hit cache
+  // instead of triggering a fresh request.
+  useEffect(() => {
+    if (!playGodData) return;
+    const qc = queryClient;
+    qc.setQueryData(["/api/player/me/profile"], playGodData.profile);
+    qc.setQueryData(["/api/player/booking-invites"], playGodData.bookingInvites);
+    qc.setQueryData(["/api/corporate/my-account"], playGodData.corporate);
+    if (playGodData._keys) {
+      qc.setQueryData([playGodData._keys.sessions], playGodData.sessions);
+      qc.setQueryData([playGodData._keys.nearbyPlayers], playGodData.nearbyPlayers);
+      qc.setQueryData(playGodData._keys.openMatches, playGodData.openMatches);
+    }
+  }, [playGodData, queryClient]);
 
   // Reverse geocode location when permission is granted
   const reverseGeocodeMutation = useMutation({
@@ -612,48 +701,14 @@ export default function PlayScreen() {
       });
   }, [locationPermission?.granted, profileData]); // profileData dep so it retries once profile loads
 
-  const { data: invitesData } = useQuery<
-    { booking_invite_guests: { status: string } }[]
-  >({
-    queryKey: ["/api/player/booking-invites"],
-  });
+  // Task #1383 — invitesData / openMatchesList / corporateData / sessions /
+  // nearbyPlayers used to be 5 individual mount queries here. They are now
+  // sourced from the single god-query above; the derived counts stay
+  // identical so the rest of the screen body needs no changes.
   const pendingInvitesCount =
     invitesData?.filter((i) => i.booking_invite_guests?.status === "pending")
       ?.length || 0;
-
-  // Lightweight count of joinable open matches across all levels — surfaced as
-  // a tiny badge on the "Open Matches" hero card (Variant 1 Cleanup).
-  const { data: openMatchesList } = useQuery<{ id: string }[]>({
-    queryKey: [
-      "/api/open-matches",
-      {
-        includeAllLevels: true,
-        includeMine: false,
-        sport: activeSport,
-        // Task #1033 — open-matches uses the same effectiveScope policy:
-        // free players (no academy) can never query "mine".
-        scope,
-      },
-    ],
-    queryFn: async () => {
-      // Server safely falls back when "mine" is sent without an academy,
-      // but we normalize here too so the cache key matches what users see.
-      const url = new URL(
-        `/api/open-matches?includeAllLevels=true&sport=${activeSport}&scope=${scope}`,
-        getApiUrl(),
-      ).toString();
-      const r = await apiRequest("GET", url);
-      return r.json();
-    },
-  });
   const openMatchesCount = openMatchesList?.length ?? 0;
-
-  const { data: corporateData } = useQuery<{
-    corporateAccount: { companyName: string; creditBalance: number } | null;
-    member: { inviteStatus: string } | null;
-  }>({
-    queryKey: ["/api/corporate/my-account"],
-  });
   const hasCorporateCredits = !!(
     corporateData?.corporateAccount &&
     corporateData?.member?.inviteStatus === "accepted" &&
@@ -726,33 +781,16 @@ export default function PlayScreen() {
     return { text: `${seconds}s left`, urgent: true, expired: false };
   };
 
-  // Compute the level param to pass to the API:
-  // "my_level" selected (and not browsing) -> pass player's ball level
-  // "all" (browsing with no chip) -> pass "all"
-  // specific level chip selected -> pass that level
-  const sessionsLevelParam = useMemo(() => {
-    if (!showOtherLevels || selectedBallLevel === "my_level") {
-      return playerBallLevel;
-    }
-    return selectedBallLevel; // "all" or specific level
-  }, [showOtherLevels, selectedBallLevel, playerBallLevel]);
-
   // Task #1033 — free players (no academy) cannot use "mine" but can still
   // pick country vs worldwide. Default them to "country" to keep discovery
-  // local-first.
+  // local-first. Server applies the same fallback for the god-query, but
+  // the rest of the screen still reads `effectiveScope` for downstream UI
+  // (the place picker, tournaments row, etc.).
   const effectiveScope: "mine" | "country" | "all" = playerAcademyId
     ? scope
     : scope === "mine"
       ? "country"
       : scope;
-
-  const sessionsQueryKey = `/api/play/sessions?level=${sessionsLevelParam}&sport=${activeSport}&scope=${effectiveScope}`;
-
-  const { data: sessions, isLoading: sessionsLoading } = useQuery<
-    PlaySession[]
-  >({
-    queryKey: [sessionsQueryKey],
-  });
 
   // Count of group lessons available in the current ISO week — surfaced on
   // the highlighted "Take a lesson" hero card (Variant 1 Cleanup).
@@ -774,15 +812,13 @@ export default function PlayScreen() {
     }).length;
   }, [sessions]);
 
+  // Task #1383 — kept as a string for `queryClient.invalidateQueries` calls
+  // elsewhere in this screen (the swipe-away action invalidates this key).
+  // The data itself comes from the god-query above.
   const nearbyPlayersQueryKey =
     discoverFilter !== "all"
       ? `/api/play/nearby-players?filter=${discoverFilter}&sport=${activeSport}&travelTime=true&scope=${effectiveScope}`
       : `/api/play/nearby-players?sport=${activeSport}&travelTime=true&scope=${effectiveScope}`;
-  const { data: nearbyPlayers, isLoading: playersLoading } = useQuery<
-    NearbyPlayer[]
-  >({
-    queryKey: [nearbyPlayersQueryKey],
-  });
 
   const leaderboardQueryKey = `/api/player/leaderboard?scope=global&sport=${encodeURIComponent(leaderboardSport)}&city=${encodeURIComponent(leaderboardCity)}&limit=100`;
   const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery<{
@@ -2644,6 +2680,42 @@ export default function PlayScreen() {
       </Pressable>
     );
   };
+
+  // Task #1383 — God-query failed (network error / 404 / 500). Without this
+  // gate the screen would sit on `sessionsLoading=!playGodData=true` forever
+  // and the user would see an indefinite spinner with no recovery affordance.
+  // Mirrors the PlayerProgressScreen / ProPlayerHomeScreen recoverable-error
+  // pattern. Critical during the "OTA shipped before backend Republish" gap
+  // where /api/player/me/play-data 404s on production.
+  if (playGodIsError) {
+    return (
+      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
+        <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+        <Text style={[styles.errorText ?? {}, { marginTop: Spacing.md, color: Colors.dark.text, fontSize: 16, fontWeight: "600" }]}>
+          Unable to load Play
+        </Text>
+        <Text style={{ marginTop: Spacing.xs, color: Colors.dark.textMuted, fontSize: 13 }}>
+          Please try again
+        </Text>
+        <Pressable
+          onPress={() => refetchPlayGod()}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading Play tab"
+          style={{
+            marginTop: Spacing.lg,
+            paddingHorizontal: Spacing.xl,
+            paddingVertical: Spacing.md,
+            backgroundColor: Colors.dark.primary,
+            borderRadius: BorderRadius.md,
+          }}
+        >
+          <Text style={{ color: Colors.dark.buttonText, fontWeight: "600" }}>
+            Retry
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
