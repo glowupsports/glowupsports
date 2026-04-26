@@ -481,13 +481,10 @@ export default function PlayerProfileScreen() {
       upcomingVacation?: { id: string; startDate: string; endDate: string };
     } | null;
     _keys: { v2Wallet: string; playerOfWeek: string };
-    // Per-branch sub-fetch failures. The route returns 200 with empty
-    // fallbacks for the failed branches and notes the HTTP status here.
-    // The retry-card guard below uses `_errors.profile` so that a
-    // silent server-side profile failure surfaces as a retryable load
-    // error instead of the misleading "Profile not set up" empty state
-    // (which happens to render the same way for genuinely-onboarding
-    // users — we must not conflate them).
+    // Per-branch sub-fetch failures (key presence = failure; value is
+    // HTTP status or null for thrown errors). Used by the retry-card
+    // guard to distinguish a silent profile-branch failure from a
+    // genuinely-onboarding user.
     _errors?: Record<string, number | null>;
   }
 
@@ -511,18 +508,13 @@ export default function PlayerProfileScreen() {
   // already uses so the change set stays minimal.
   const data = profileGodData?.profile ?? undefined;
   const isLoading = profileGodIsLoading;
-  // Task #1387 — surface critical-branch sub-fetch failures as a
-  // retryable error, not as the misleading "Profile not set up"
-  // empty state. The route returns 200 + profile=null in TWO very
-  // different scenarios:
-  //   (1) genuinely pre-onboarding user (no player row yet) →
-  //       `_errors.profile` is undefined; "Profile not set up" is the
-  //       correct UI.
-  //   (2) profile sub-fetch failed server-side (DB hiccup, 500, ...)
-  //       → `_errors.profile` is set to the HTTP status; without this
-  //       check the user would see "Profile not set up" with only a
-  //       sign-out button — no way to recover from a transient blip.
-  const profileBranchFailed = !!profileGodData?._errors?.profile;
+  // Surface a silent profile-branch failure as retryable error
+  // instead of the misleading "Profile not set up" empty state. We
+  // check key PRESENCE on `_errors`, not truthiness, because a
+  // thrown sub-fetch records `httpStatus: null` (falsy).
+  const profileBranchFailed = !!(
+    profileGodData?._errors && "profile" in profileGodData._errors
+  );
   const error =
     profileGodIsError || profileBranchFailed
       ? new Error("profile-data failed")
@@ -547,15 +539,9 @@ export default function PlayerProfileScreen() {
     ? (v2Wallet?.recentLedger ?? []).slice(0, 5)
     : [];
 
-  // Live-match polling lives outside the god-query because it needs a
-  // 10s cadence (the in-progress match scoreboard chip). Task #1387:
-  // Profile must be a TRUE single-request tab on cold start. We
-  // therefore seed `initialData` from the god-payload so the FIRST
-  // mount issues zero extra network calls — the polling refetch only
-  // kicks in 10s later. If god-data hasn't landed yet, the hook stays
-  // disabled (no fallback fetch) and only enables once profileGodData
-  // is available, at which point initialData is non-empty so still no
-  // initial fetch is issued.
+  // 10s scoreboard polling. Seeded from god-payload via initialData
+  // so cold-start fires zero extra network calls; refetchInterval
+  // takes over after staleTime.
   const liveMatchSeed = profileGodData?.activeLiveMatch ?? { matches: [] };
   const { data: activeLiveMatch } = useQuery<{ matches?: { id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }[] }>({
     queryKey: ["/api/live-scoring/player/me/active"],

@@ -1169,33 +1169,15 @@ export default function PlayerScheduleScreen() {
     return <GuestState onSignIn={logout} />;
   }
 
-  // Task #1387 — recoverable retry card.
-  //   * `sessionsError` covers HTTP/network failure (useQuery isError).
-  //   * `criticalBranchMissing` covers the case where the god-route
-  //     returned 200 but the *critical* `sessions` branch silently
-  //     failed server-side (the per-branch try/catch swallows it and
-  //     puts the queryKey into `_errors`). Without this guard the
-  //     screen would render an empty-success state with no way to
-  //     recover. Mirrors the PlayerProgressScreen pattern from #1383.
-  //
-  //     We check BOTH conditions:
-  //       (a) `_errors.sessions` is set → the server tried to fetch
-  //           sessions but the sub-fetch failed; the route still
-  //           returns 200 with `sessions: []`, so without this check
-  //           an empty array would silently look like "no upcoming
-  //           sessions" and hide the actual fetch failure.
-  //       (b) `sessions` is missing/non-array → defensive guard for
-  //           a malformed response body.
+  // Critical-branch failure → retry card. We check key PRESENCE on
+  // `_errors`, not truthiness, because a thrown sub-fetch records
+  // `httpStatus: null` which is falsy.
   const criticalBranchMissing = !!(
     scheduleGodData &&
-    (scheduleGodData._errors?.sessions ||
+    ((scheduleGodData._errors && "sessions" in scheduleGodData._errors) ||
       !Array.isArray(scheduleGodData.sessions))
   );
   if (sessionsError || criticalBranchMissing) {
-    // Without the retry button a failed god-query (network blip,
-    // server 500, OTA-shipped-before-backend-republish gap, or a
-    // critical-branch DB hiccup) would leave the screen in a dead
-    // state forever.
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <Feather name="alert-circle" size={48} color={ProTennisColors.error} />

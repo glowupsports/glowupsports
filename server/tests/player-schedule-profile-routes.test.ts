@@ -139,6 +139,16 @@ describe("PlayerScheduleScreen — Task #1387 god-query refactor", () => {
     expect(src).toMatch(/refetchScheduleGod/);
     expect(src).toMatch(/sessionsError[\s\S]{0,800}refetchScheduleGod\(\)/);
   });
+
+  it("detects a critical-branch failure via key PRESENCE on `_errors.sessions`, not truthiness (subFetch records `httpStatus: null` on thrown errors which is falsy and would silently bypass the retry-card)", () => {
+    const src = readRepoFile("client/player/screens/PlayerScheduleScreen.tsx");
+    expect(src).toMatch(
+      /["']sessions["']\s+in\s+scheduleGodData\._errors/,
+    );
+    expect(src).not.toMatch(
+      /scheduleGodData\._errors\?\.sessions(?!\s*\?\?)/,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -230,6 +240,16 @@ describe("PlayerProfileScreen — Task #1387 god-query refactor", () => {
     const matches = src.match(/queryKey:\s*\[["']\/api\/player\/me\/profile-data["']\s*\]/g);
     expect(matches).not.toBeNull();
     expect((matches ?? []).length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("detects a critical-branch failure via key PRESENCE on `_errors.profile`, not truthiness (subFetch records `httpStatus: null` on thrown errors which is falsy and would silently degrade to the misleading `Profile not set up` empty state)", () => {
+    const src = readRepoFile("client/player/screens/PlayerProfileScreen.tsx");
+    expect(src).toMatch(
+      /["']profile["']\s+in\s+profileGodData\._errors/,
+    );
+    expect(src).not.toMatch(
+      /!!profileGodData\?\._errors\?\.profile(?!\s*\?\?)/,
+    );
   });
 
   it("the live-match useQuery is seeded from the god-payload via initialData so cold-start fires ZERO extra network requests (Task #1387 single-request criterion)", () => {

@@ -1,61 +1,15 @@
-// Task #1387 — Persisted query cache for the Player dashboard.
-//
-// Why: Even after Tasks #1379 / #1383 collapsed Home / Progress / Play
-// to one god-call each, every cold start still pays the round-trip
-// latency before the first pixel renders. Playtomic feels "instant"
-// because they keep the last successful payload on disk and re-render
-// it BEFORE the network. This module gives us the same trick.
-//
-// Scope: We only persist the five Player-tab god-keys (Home, Progress,
-// Play, Schedule, Profile). Everything else stays in-memory only —
-// persisting the entire cache would balloon AsyncStorage and risk
-// surfacing stale tenant-scoped data on account switch.
-//
-// Lifecycle:
-//   1. App.tsx, after AuthContext resolves a real `user.playerId`,
-//      calls `hydrateGodCache(queryClient, user.playerId)` BEFORE
-//      navigation mounts. Each persisted entry is `setQueryData`'d
-//      and then `invalidateQueries({refetchType: "none"})` so the
-//      next mount returns it immediately AND schedules a background
-//      refetch. Stale-while-revalidate, the Playtomic way.
-//   2. While the app runs, a single subscription on the QueryCache
-//      debounces (2s) and writes the current snapshot of all
-//      tracked god-keys to AsyncStorage under one key per player.
-//   3. AuthContext.logout() calls `clearGodCache()` to nuke the disk
-//      copy so player A never sees a single frame of player B.
-//
-// Storage shape:
-//   AsyncStorage["@glow:godCache:v1:<playerId>"] = JSON.stringify({
-//     savedAt: 1714123456789,
-//     entries: [
-//       { queryKey: ["/api/player/me/home-data"], data: { ... } },
-//       { queryKey: ["/api/player/me/play-data", "tennis", "...", ...], data: {...} },
-//       ...
-//     ],
-//   })
-//
-// Versioning: bumped via the `v1` segment in the storage key. Any
-// future shape change rolls forward by bumping to `v2`; the old key
-// becomes orphaned and is GC'd by `clearOrphanedVersions()`.
+// Persisted query cache for the Player dashboard god-keys + Quests.
+// Stale-while-revalidate via AsyncStorage so cold start renders the
+// last good payload before the network round-trip.
+// Storage key: `@glow:godCache:v1:<playerId>`. Bump the v1 segment
+// for any shape change; orphans are GC'd by clearOrphanedVersions().
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import logger from "@/lib/logger";
 
-// ---------------------------------------------------------------------------
-// Tracked persisted-cache prefixes — keep in sync with the player tabs.
-// ---------------------------------------------------------------------------
-//
-// Five god-routes (one per Player tab) plus the two Quests queries.
-//
-// Quests are intentionally *not* part of any god-route fan-out — they
-// have a different cache TTL and lifecycle (mission control, daily
-// chain, claim flow). But for cold-start instant-paint they belong in
-// the same persisted bucket: Task #1387 spec is "geen extra fanout op
-// koude start (cache)" → meaning Quests should still be visible from
-// the cache on first paint, even though it doesn't merge into a god-
-// route. Adding the two query keys here gives us that without
-// refactoring useQuests.
+// Five Player-tab god-routes plus Quests (own lifecycle, but persisted
+// here so cold start paints them too).
 const TRACKED_GOD_KEY_PREFIXES = [
   "/api/player/me/home-data",
   "/api/player/me/progress-data",
@@ -69,14 +23,7 @@ const TRACKED_GOD_KEY_PREFIXES = [
 const STORAGE_VERSION = "v1";
 const STORAGE_KEY_PREFIX = `@glow:godCache:${STORAGE_VERSION}:`;
 const KNOWN_VERSION_PREFIXES = ["@glow:godCache:v1:"] as const;
-// Spec target: ~80KB per player. The five god-payloads come in at
-// ~50KB total in practice (the bulk of any single tab is a list of
-// recent sessions / matches; everything else is small structured
-// data). The two quest payloads add another ~5-10KB. 80KB gives us
-// healthy headroom without bloating AsyncStorage on devices that have
-// dozens of cache buckets across all the apps installed. If a future
-// payload pushes us over, the eviction loop in writeSnapshotNow drops
-// the alphabetically-earliest entries until we fit.
+// Per-player cap. Overflow → writeSnapshotNow evicts entries until fit.
 const MAX_BYTES = 80 * 1024;
 const WRITE_DEBOUNCE_MS = 2000;
 

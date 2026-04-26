@@ -1,20 +1,8 @@
-// Task #1387 — Persisted query cache helper unit tests.
-//
-// We mock both AsyncStorage and the project logger so this suite runs
-// under the same node-only vitest environment the rest of the repo
-// uses. The goal isn't end-to-end coverage of every edge — it's a
-// guard for the invariants that, if broken, would silently corrupt
-// the on-disk snapshot or leak one player's data into another's
-// hydration on next launch.
+// Persisted query cache helper unit tests. Mocks AsyncStorage and
+// logger so vitest-node can run the suite without RN globals.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// ---------------------------------------------------------------------------
-// In-memory AsyncStorage fake. The real module is a singleton with the
-// same surface (`getItem`, `setItem`, `removeItem`, `multiRemove`,
-// `getAllKeys`). We swap it for a Map-backed implementation so each
-// test starts from a clean slate.
-// ---------------------------------------------------------------------------
 const storage = new Map<string, string>();
 
 vi.mock("@react-native-async-storage/async-storage", () => ({
