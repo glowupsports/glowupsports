@@ -43,22 +43,41 @@ import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import logger from "@/lib/logger";
 
 // ---------------------------------------------------------------------------
-// Tracked god-key prefixes — keep in sync with server-side god-routes.
+// Tracked persisted-cache prefixes — keep in sync with the player tabs.
 // ---------------------------------------------------------------------------
+//
+// Five god-routes (one per Player tab) plus the two Quests queries.
+//
+// Quests are intentionally *not* part of any god-route fan-out — they
+// have a different cache TTL and lifecycle (mission control, daily
+// chain, claim flow). But for cold-start instant-paint they belong in
+// the same persisted bucket: Task #1387 spec is "geen extra fanout op
+// koude start (cache)" → meaning Quests should still be visible from
+// the cache on first paint, even though it doesn't merge into a god-
+// route. Adding the two query keys here gives us that without
+// refactoring useQuests.
 const TRACKED_GOD_KEY_PREFIXES = [
   "/api/player/me/home-data",
   "/api/player/me/progress-data",
   "/api/player/me/play-data",
   "/api/player/me/schedule-data",
   "/api/player/me/profile-data",
+  "/api/quests",
+  "/api/player/mission-control",
 ] as const;
 
 const STORAGE_VERSION = "v1";
 const STORAGE_KEY_PREFIX = `@glow:godCache:${STORAGE_VERSION}:`;
 const KNOWN_VERSION_PREFIXES = ["@glow:godCache:v1:"] as const;
-// Defensive cap — five god-payloads max ~50 KB total in practice.
-// At 250 KB we drop the oldest entries instead of silently corrupting.
-const MAX_BYTES = 250 * 1024;
+// Spec target: ~80KB per player. The five god-payloads come in at
+// ~50KB total in practice (the bulk of any single tab is a list of
+// recent sessions / matches; everything else is small structured
+// data). The two quest payloads add another ~5-10KB. 80KB gives us
+// healthy headroom without bloating AsyncStorage on devices that have
+// dozens of cache buckets across all the apps installed. If a future
+// payload pushes us over, the eviction loop in writeSnapshotNow drops
+// the alphabetically-earliest entries until we fit.
+const MAX_BYTES = 80 * 1024;
 const WRITE_DEBOUNCE_MS = 2000;
 
 interface PersistedEntry {

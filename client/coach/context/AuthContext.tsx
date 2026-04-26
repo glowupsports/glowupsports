@@ -317,11 +317,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithToken = async (token: string, user: AuthUser, refreshToken?: string): Promise<void> => {
-    // Task #1387 — clear persisted god-cache for the previous account.
+  const loginWithToken = async (token: string, incomingUser: AuthUser, refreshToken?: string): Promise<void> => {
+    // Task #1387 — clear persisted god-cache for the previous (state)
+    // account. The parameter is named `incomingUser` deliberately so it
+    // does NOT shadow the closure's state `user`. The earlier name
+    // `user` caused us to clear the *incoming* account's cache while
+    // leaving the outgoing player's blob on disk — meaning the next
+    // cold start could re-hydrate the wrong player. Caught in #1387
+    // code review on 2026-04-26.
     await clearGodCache(user?.playerId ?? undefined);
     queryClient.clear();
-    await saveAuthState(token, user, refreshToken);
+    await saveAuthState(token, incomingUser, refreshToken);
     setAuthToken(token);
     await fetchUserData(token, true);
     setIsAuthenticated(true);

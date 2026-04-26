@@ -106,13 +106,15 @@ afterEach(() => {
 // Pure helpers
 // ---------------------------------------------------------------------------
 describe("queryCachePersist — pure helpers", () => {
-  it("isTrackedGodKey accepts the five Player tab god-keys and rejects everything else", async () => {
+  it("isTrackedGodKey accepts the five Player tab god-keys plus the two Quests keys and rejects everything else", async () => {
     const { __test__ } = await import("@/lib/queryCachePersist");
     expect(__test__.isTrackedGodKey(["/api/player/me/home-data"])).toBe(true);
     expect(__test__.isTrackedGodKey(["/api/player/me/progress-data"])).toBe(true);
     expect(__test__.isTrackedGodKey(["/api/player/me/play-data", "tennis"])).toBe(true);
     expect(__test__.isTrackedGodKey(["/api/player/me/schedule-data"])).toBe(true);
     expect(__test__.isTrackedGodKey(["/api/player/me/profile-data"])).toBe(true);
+    expect(__test__.isTrackedGodKey(["/api/quests"])).toBe(true);
+    expect(__test__.isTrackedGodKey(["/api/player/mission-control"])).toBe(true);
 
     expect(__test__.isTrackedGodKey(["/api/player/me/sessions"])).toBe(false);
     expect(__test__.isTrackedGodKey(["/api/player/badges"])).toBe(false);
