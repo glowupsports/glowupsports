@@ -1531,10 +1531,42 @@ function PlayerHomeContent() {
     return { activeQuest: sorted[0].quest, activeQuestType: sorted[0].type };
   }, [questsData]);
 
-  if (!isGuest && (isLoading || !effectiveData)) {
+  // Spinner only while we're still waiting for the very first response.
+  if (!isGuest && isLoading && !homeData) {
     return (
       <View style={[styles.container, styles.loadingContainer, { backgroundColor: Colors.dark.backgroundRoot }]}>
         <ActivityIndicator size="large" color={Colors.dark.accentText} />
+      </View>
+    );
+  }
+
+  // God-query resolved but the critical dashboard branch failed (server
+  // returns `dashboard: null` with HTTP 200 in that case so the AI/digest
+  // branches can still hydrate). Show a recoverable error card with a
+  // retry button instead of locking the user behind a perpetual spinner —
+  // code review flagged the old behaviour as a UX gap on transient
+  // network hiccups.
+  if (!isGuest && homeData && !effectiveData) {
+    return (
+      <View style={[styles.container, styles.loadingContainer, { backgroundColor: Colors.dark.backgroundRoot }]}>
+        <Text style={{ color: Colors.dark.text, fontSize: 16, marginBottom: Spacing.md, textAlign: "center", paddingHorizontal: Spacing.xl }}>
+          {t("player.home.loadFailed", "We konden je dashboard even niet laden.")}
+        </Text>
+        <Pressable
+          onPress={() => refetch()}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading dashboard"
+          style={{
+            paddingHorizontal: Spacing.xl,
+            paddingVertical: Spacing.md,
+            backgroundColor: GlowColors.primary,
+            borderRadius: BorderRadius.md,
+          }}
+        >
+          <Text style={{ color: Colors.dark.backgroundRoot, fontWeight: "600" }}>
+            {t("player.home.retry", "Opnieuw proberen")}
+          </Text>
+        </Pressable>
       </View>
     );
   }
