@@ -31,9 +31,9 @@ export interface PlatformVersionConfig {
 export const APP_VERSION_CONFIG: Record<AppPlatform, PlatformVersionConfig> = {
   ios: {
     latestVersion: "1.3.6",
-    // Soft-only on iOS until Apple approval lands. Bump to "1.3.6" once
-    // the iOS 1.3.6 binary is approved + live in the App Store.
-    minSupportedVersion: "0.0.0",
+    // iOS 1.3.6 is live in the App Store — every iOS install below
+    // 1.3.6 sees the blocking force-update gate immediately.
+    minSupportedVersion: "1.3.6",
     storeUrl: "https://apps.apple.com/us/app/glow-up-sports/id6759315860",
   },
   android: {
