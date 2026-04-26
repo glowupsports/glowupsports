@@ -931,7 +931,8 @@ export default function PlayScreen() {
       queryClient.invalidateQueries({
         predicate: (q) =>
           typeof q.queryKey[0] === "string" &&
-          q.queryKey[0].startsWith("/api/play/sessions"),
+          (q.queryKey[0].startsWith("/api/play/sessions") ||
+            q.queryKey[0] === "/api/player/me/play-data"),
       });
     },
     onError: (error: Error) => {
@@ -966,7 +967,8 @@ export default function PlayScreen() {
       queryClient.invalidateQueries({
         predicate: (q) =>
           typeof q.queryKey[0] === "string" &&
-          q.queryKey[0].startsWith("/api/play/sessions"),
+          (q.queryKey[0].startsWith("/api/play/sessions") ||
+            q.queryKey[0] === "/api/player/me/play-data"),
       });
     },
     onError: (error: Error) => {
@@ -994,7 +996,8 @@ export default function PlayScreen() {
       queryClient.invalidateQueries({
         predicate: (q) =>
           typeof q.queryKey[0] === "string" &&
-          q.queryKey[0].startsWith("/api/play/sessions"),
+          (q.queryKey[0].startsWith("/api/play/sessions") ||
+            q.queryKey[0] === "/api/player/me/play-data"),
       });
     },
     onError: (error: Error) => {
@@ -1025,7 +1028,8 @@ export default function PlayScreen() {
       queryClient.invalidateQueries({
         predicate: (q) =>
           typeof q.queryKey[0] === "string" &&
-          q.queryKey[0].startsWith("/api/play/sessions"),
+          (q.queryKey[0].startsWith("/api/play/sessions") ||
+            q.queryKey[0] === "/api/player/me/play-data"),
       });
     },
     onError: (error: Error) => {
@@ -1056,7 +1060,8 @@ export default function PlayScreen() {
       queryClient.invalidateQueries({
         predicate: (q) =>
           typeof q.queryKey[0] === "string" &&
-          q.queryKey[0].startsWith("/api/play/sessions"),
+          (q.queryKey[0].startsWith("/api/play/sessions") ||
+            q.queryKey[0] === "/api/player/me/play-data"),
       });
     },
     onError: (error: Error) => {
@@ -1091,7 +1096,8 @@ export default function PlayScreen() {
         queryClient.invalidateQueries({
           predicate: (q) =>
             typeof q.queryKey[0] === "string" &&
-            q.queryKey[0].startsWith("/api/play/sessions"),
+            (q.queryKey[0].startsWith("/api/play/sessions") ||
+            q.queryKey[0] === "/api/player/me/play-data"),
         });
         Alert.alert(
           "Booked! See you there.",
