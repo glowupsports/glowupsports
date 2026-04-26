@@ -202,7 +202,7 @@ export function useWhatsNew(): {
   const { data, isLoading } = useQuery<ReleaseNotesResponse>({
     queryKey: ["/api/release-notes", currentVersion, role, locale, lastSeen ?? ""],
     queryFn: async () => {
-      const res = await fetch(queryUrl);
+      const res = await fetchWithTimeout(queryUrl, 10000);
       if (!res.ok) throw new Error(`release-notes ${res.status}`);
       return (await res.json()) as ReleaseNotesResponse;
     },
@@ -261,10 +261,22 @@ export function useWhatsNewOnDemand(): {
     // empty "View latest updates" pane — different from the boot gate which
     // silently dismisses on empty.
     url.searchParams.set("fallback", "1");
-    const res = await fetch(url.toString());
+    const res = await fetchWithTimeout(url.toString(), 10000);
     if (!res.ok) throw new Error(`release-notes ${res.status}`);
     const data = (await res.json()) as ReleaseNotesResponse;
     return { version: currentVersion, slides: data.slides || [] };
   }, [user?.role, mode, i18n.language]);
   return { fetch: fetchOnce };
+}
+
+// Hard-bound fetch so a hung network or proxy can't leave the modal spinning
+// forever. AbortController is supported in RN 0.60+ and modern browsers.
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }

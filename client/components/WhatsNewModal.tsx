@@ -152,10 +152,15 @@ export function WhatsNewModalView({
           </Pressable>
         </View>
 
-        {isLoading || slides.length === 0 ? (
+        {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={GlowColors.primary} />
             <Text style={styles.loadingText}>{t("whatsNew.loading")}</Text>
+          </View>
+        ) : slides.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <Feather name="check-circle" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.loadingText}>{t("whatsNew.empty")}</Text>
           </View>
         ) : (
           <ScrollView
@@ -346,6 +351,14 @@ export function WhatsNewLatestLauncher({
     if (!visible) return;
     let cancelled = false;
     setIsLoading(true);
+    // Hard safety net: under no circumstance should the spinner outlast this
+    // timer, even if the underlying fetch+Promise chain misbehaves (re-render
+    // loops, hung network, JSON parse hangs, etc.). The fetch itself already
+    // has a 10s AbortController in useWhatsNewOnDemand; this is an outer
+    // backstop so the modal always becomes interactive.
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) setIsLoading(false);
+    }, 12000);
     fetch()
       .then((r) => {
         if (cancelled) return;
@@ -360,6 +373,7 @@ export function WhatsNewLatestLauncher({
       });
     return () => {
       cancelled = true;
+      clearTimeout(safetyTimer);
     };
   }, [visible, fetch]);
 

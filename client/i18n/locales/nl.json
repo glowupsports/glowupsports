@@ -1852,6 +1852,7 @@
     "letsGo": "Aan de slag",
     "dontShowAgain": "Niet meer tonen bij updates",
     "loading": "Even kijken wat er nieuw is…",
+    "empty": "Je bent helemaal bij — er zijn geen nieuwe updates om te tonen.",
     "settings": {
       "sectionTitle": "Wat is nieuw",
       "autoShowLabel": "'Wat is nieuw' tonen bij updates",

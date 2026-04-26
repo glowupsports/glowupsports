@@ -1888,6 +1888,7 @@
     "letsGo": "Let's go",
     "dontShowAgain": "Don't show this at future updates",
     "loading": "Looking up what's new…",
+    "empty": "You're all caught up — no new updates to show.",
     "settings": {
       "sectionTitle": "What's new",
       "autoShowLabel": "Show 'What's New' on updates",
