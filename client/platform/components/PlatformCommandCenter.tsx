@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Updates from "expo-updates";
 import Animated, {
@@ -12,6 +12,10 @@ import Animated, {
 } from "react-native-reanimated";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import {
+  useUpdateController,
+  type OtaCheckResult,
+} from "@/components/UpdateController";
 
 const PLATFORM_PURPLE = "#9B59B6";
 const PLATFORM_VIOLET = "#8E44AD";
@@ -80,6 +84,28 @@ export function PlatformCommandCenter({
   const otaUpdateShort =
     otaUpdateId.length > 8 ? otaUpdateId.slice(0, 8) : otaUpdateId;
   const otaDebugLine = `runtime ${otaRuntime} • channel ${otaChannel} • update ${otaUpdateShort}`;
+
+  // Task #1373 — On-demand OTA check. Pulls the controller from context,
+  // which is null on web AND on any binary built before the Provider was
+  // added. Both cases simply hide the button — no broken affordance, no
+  // crash on old installs.
+  const updateController = useUpdateController();
+  const showOtaTestButton =
+    Platform.OS !== "web" && updateController !== null;
+  const otaCheckLabel = updateController?.isChecking
+    ? "Checking…"
+    : "Check for update now";
+  const otaStatusLine = updateController
+    ? formatOtaStatus(updateController.lastCheckResult)
+    : null;
+
+  const handleTriggerCheck = async () => {
+    if (!updateController || updateController.isChecking) return;
+    await updateController.triggerCheckNow();
+    // No further UI work needed: the controller's own state drives the
+    // status line below the button, and an "update_ready" result mounts
+    // the existing UpdateSheet automatically.
+  };
 
   return (
     <View style={styles.container}>
@@ -170,10 +196,64 @@ export function PlatformCommandCenter({
           <Text style={styles.otaDebugLine} numberOfLines={1}>
             {otaDebugLine}
           </Text>
+
+          {showOtaTestButton ? (
+            <View style={styles.otaTestBlock}>
+              <Pressable
+                onPress={handleTriggerCheck}
+                disabled={updateController?.isChecking}
+                style={({ pressed }) => [
+                  styles.otaTestButton,
+                  pressed ? styles.otaTestButtonPressed : null,
+                  updateController?.isChecking
+                    ? styles.otaTestButtonDisabled
+                    : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Check for OTA update now"
+                accessibilityState={{
+                  disabled: !!updateController?.isChecking,
+                }}
+              >
+                <Ionicons
+                  name="cloud-download-outline"
+                  size={14}
+                  color={PLATFORM_PURPLE}
+                />
+                <Text style={styles.otaTestButtonText}>{otaCheckLabel}</Text>
+              </Pressable>
+              {otaStatusLine ? (
+                <Text style={styles.otaTestStatus} numberOfLines={2}>
+                  {otaStatusLine}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
   );
+}
+
+function formatOtaStatus(result: OtaCheckResult): string | null {
+  switch (result.status) {
+    case "idle":
+      return null;
+    case "checking":
+      return "Checking for update…";
+    case "no_update":
+      return "Up to date";
+    case "update_ready":
+      return "Update ready — see banner";
+    case "kill_switch":
+      return "OTA disabled by server";
+    case "disabled":
+      return "OTA not available on this build";
+    case "error":
+      return `Check failed (${result.code ?? "unknown"})`;
+    default:
+      return null;
+  }
 }
 
 const styles = StyleSheet.create({
@@ -332,5 +412,40 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     textAlign: "center",
     opacity: 0.6,
+  },
+  otaTestBlock: {
+    marginTop: Spacing.sm,
+    alignItems: "center",
+  },
+  otaTestButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.md,
+    backgroundColor: PLATFORM_PURPLE + "15",
+    borderWidth: 1,
+    borderColor: PLATFORM_PURPLE + "40",
+  },
+  otaTestButtonPressed: {
+    opacity: 0.7,
+  },
+  otaTestButtonDisabled: {
+    opacity: 0.5,
+  },
+  otaTestButtonText: {
+    ...Typography.small,
+    color: PLATFORM_PURPLE,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  otaTestStatus: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: "center",
+    opacity: 0.7,
   },
 });
