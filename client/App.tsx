@@ -51,11 +51,13 @@ import { WebContainer } from "@/components/WebContainer";
 import { WebAlertProvider } from "@/components/WebAlertProvider";
 import { ChatStateProvider } from "@/coach/context/ChatStateContext";
 
-try {
-  initializeRevenueCat();
-} catch (err: unknown) {
-  if (__DEV__) console.warn("[RevenueCat] Init skipped:", err instanceof Error ? err.message : String(err));
-}
+// Task #1379 — RevenueCat init moved out of module-eval to a useEffect
+// inside <App />. The native RNPurchases.configure() call blocks the JS
+// thread for ~150-300ms on cold start (iOS, new arch / Fabric), and doing
+// it before React mounts pushes first paint past the bridge-saturation
+// window where PlayerProgress / Play / Community fire 11-15 parallel
+// queries each. Defer it until after first paint — login/purchase paths
+// don't need it before then.
 
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN || "";
 
@@ -63,7 +65,13 @@ if (SENTRY_DSN) {
   Sentry.init({
     dsn: SENTRY_DSN,
     sendDefaultPii: true,
-    tracesSampleRate: 0.2,
+    // Task #1379 — dropped from 0.2 → 0.05. At 20% sampling Sentry's
+    // performance tracer was hooking ~1 in 5 React renders + every fetch
+    // on iOS Fabric, which on cold-start coincided with the 47-query
+    // burst across PlayerProgress (15) + Play (11) + ProPlayerHome (21)
+    // and saturated the bridge. 5% keeps enough signal for prod
+    // performance dashboards without paying that tax on every session.
+    tracesSampleRate: 0.05,
     environment: __DEV__ ? "development" : "production",
     beforeSend(event) {
       if (__DEV__) return null;
@@ -409,6 +417,30 @@ export default function App() {
       .catch((err) => {
         if (__DEV__) console.warn("[Diagnostics] drain skipped:", err);
       });
+  }, []);
+
+  useEffect(() => {
+    // Task #1379 — lazy RevenueCat init. Was previously a synchronous
+    // module-eval call (see header comment near the Sentry block) which
+    // blocked first paint by ~150-300ms on iOS Fabric. Deferring to after
+    // mount via setTimeout(0) lets React commit the splash/initial frame
+    // first; the paywall and subscription queries don't read from
+    // Purchases until the user navigates to a gated surface, well after
+    // this resolves. Wrapped in try/catch so a missing native SDK can't
+    // crash the app on web/dev.
+    const handle = setTimeout(() => {
+      try {
+        initializeRevenueCat();
+      } catch (err: unknown) {
+        if (__DEV__) {
+          console.warn(
+            "[RevenueCat] Init skipped:",
+            err instanceof Error ? err.message : String(err),
+          );
+        }
+      }
+    }, 0);
+    return () => clearTimeout(handle);
   }, []);
 
   const appIsReady = isReady && (fontsLoaded || fontError != null);
