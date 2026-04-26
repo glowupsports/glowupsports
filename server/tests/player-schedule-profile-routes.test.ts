@@ -65,6 +65,19 @@ describe("player-schedule-data god-endpoint route — Task #1387 regression guar
     const src = readRepoFile("server/routes/player-schedule-data.ts");
     expect(src).toMatch(/_keys:\s*\{/);
   });
+
+  it("populates `_errors` on per-branch sub-fetch failure so the client retry-card can fire on a silent critical-branch failure (Task #1387 architect concern)", () => {
+    // Locks the contract that PlayerScheduleScreen.criticalBranchMissing
+    // depends on: when sessions sub-fetch fails, the route still
+    // returns 200 (other tabs work) but flags `_errors.sessions` so
+    // the client knows to surface a retry instead of "no upcoming
+    // sessions" empty state.
+    const src = readRepoFile("server/routes/player-schedule-data.ts");
+    expect(src).toMatch(/_errors:\s*errors/);
+    expect(src).toMatch(
+      /errors\[k\]\s*=\s*r\.httpStatus[\s\S]{0,80}note\(\s*["']sessions["']/,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

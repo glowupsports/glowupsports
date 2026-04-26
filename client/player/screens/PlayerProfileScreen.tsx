@@ -481,6 +481,14 @@ export default function PlayerProfileScreen() {
       upcomingVacation?: { id: string; startDate: string; endDate: string };
     } | null;
     _keys: { v2Wallet: string; playerOfWeek: string };
+    // Per-branch sub-fetch failures. The route returns 200 with empty
+    // fallbacks for the failed branches and notes the HTTP status here.
+    // The retry-card guard below uses `_errors.profile` so that a
+    // silent server-side profile failure surfaces as a retryable load
+    // error instead of the misleading "Profile not set up" empty state
+    // (which happens to render the same way for genuinely-onboarding
+    // users — we must not conflate them).
+    _errors?: Record<string, number | null>;
   }
 
   const {
@@ -503,7 +511,22 @@ export default function PlayerProfileScreen() {
   // already uses so the change set stays minimal.
   const data = profileGodData?.profile ?? undefined;
   const isLoading = profileGodIsLoading;
-  const error = profileGodIsError ? new Error("profile-data failed") : null;
+  // Task #1387 — surface critical-branch sub-fetch failures as a
+  // retryable error, not as the misleading "Profile not set up"
+  // empty state. The route returns 200 + profile=null in TWO very
+  // different scenarios:
+  //   (1) genuinely pre-onboarding user (no player row yet) →
+  //       `_errors.profile` is undefined; "Profile not set up" is the
+  //       correct UI.
+  //   (2) profile sub-fetch failed server-side (DB hiccup, 500, ...)
+  //       → `_errors.profile` is set to the HTTP status; without this
+  //       check the user would see "Profile not set up" with only a
+  //       sign-out button — no way to recover from a transient blip.
+  const profileBranchFailed = !!profileGodData?._errors?.profile;
+  const error =
+    profileGodIsError || profileBranchFailed
+      ? new Error("profile-data failed")
+      : null;
   const refetch = refetchProfileGod;
   const groupsData = profileGodData?.groups ?? undefined;
   const connectionsData = profileGodData?.connections ?? undefined;

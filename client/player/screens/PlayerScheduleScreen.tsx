@@ -424,6 +424,12 @@ export default function PlayerScheduleScreen() {
       payments: string;
       academyPaymentInfo: string;
     };
+    // Per-branch sub-fetch failures. The route returns 200 with empty
+    // fallbacks for the failed branches and notes the HTTP status here.
+    // The retry-card guard below uses `_errors.sessions` so that a
+    // silent server-side sessions failure surfaces as a retryable load
+    // error instead of a misleading "no upcoming sessions" empty state.
+    _errors?: Record<string, number | null>;
   }
 
   const {
@@ -1171,8 +1177,19 @@ export default function PlayerScheduleScreen() {
   //     puts the queryKey into `_errors`). Without this guard the
   //     screen would render an empty-success state with no way to
   //     recover. Mirrors the PlayerProgressScreen pattern from #1383.
+  //
+  //     We check BOTH conditions:
+  //       (a) `_errors.sessions` is set → the server tried to fetch
+  //           sessions but the sub-fetch failed; the route still
+  //           returns 200 with `sessions: []`, so without this check
+  //           an empty array would silently look like "no upcoming
+  //           sessions" and hide the actual fetch failure.
+  //       (b) `sessions` is missing/non-array → defensive guard for
+  //           a malformed response body.
   const criticalBranchMissing = !!(
-    scheduleGodData && !Array.isArray(scheduleGodData.sessions)
+    scheduleGodData &&
+    (scheduleGodData._errors?.sessions ||
+      !Array.isArray(scheduleGodData.sessions))
   );
   if (sessionsError || criticalBranchMissing) {
     // Without the retry button a failed god-query (network blip,

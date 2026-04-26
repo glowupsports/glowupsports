@@ -2,7 +2,11 @@ import logger from "@/lib/logger";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl, getAuthHeaders, setActivePlayerOverride } from "@/lib/query-client";
-import { clearGodCache } from "@/lib/queryCachePersist";
+import {
+  clearGodCache,
+  hydrateGodCache,
+  startGodCachePersistence,
+} from "@/lib/queryCachePersist";
 
 export interface FamilyMember {
   id: string;
@@ -112,6 +116,17 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
     // guarantees no in-flight hydrate can race past this clear.
     void clearGodCache(outgoingPlayerId ?? undefined);
     queryClient.clear();
+
+    // Task #1387 — and now restart persistence for the NEW active
+    // member. `clearGodCache` calls `stopGodCachePersistence()`
+    // internally, so without this restart we'd silently lose write-
+    // through for every god-query the rest of the session and the
+    // next cold start of THIS child would have nothing to hydrate
+    // from. Hydrate is best-effort: if there's a snapshot from a
+    // prior session we paint it instantly; if not, the next round-
+    // trip fills it in and write-through takes over from there.
+    hydrateGodCache(queryClient, newPlayerId).catch(() => {});
+    startGodCachePersistence(queryClient, newPlayerId);
   }, [queryClient, playerId, activePlayerId]);
 
   const refreshFamily = useCallback(async (): Promise<boolean> => {
