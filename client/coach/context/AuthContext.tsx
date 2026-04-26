@@ -4,6 +4,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { loginRevenueCat, logoutRevenueCat } from "@/lib/revenuecat";
+import {
+  hydrateGodCache,
+  startGodCachePersistence,
+  clearGodCache,
+} from "@/lib/queryCachePersist";
 import { 
   loadAuthState, 
   saveAuthState, 
@@ -133,7 +138,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(data.user);
         setCoach(data.coach);
         setAcademy(data.academy);
-        
+
+        // Task #1387 — As soon as we know the active player, hydrate the
+        // persisted god-cache from disk and start write-through. This is
+        // the "instant first paint" knob: by the time the player nav
+        // mounts, Schedule / Profile / Home / Progress / Play already
+        // have their last-known payload primed into react-query.
+        if (data.user?.playerId) {
+          hydrateGodCache(queryClient, data.user.playerId).catch(() => {});
+          startGodCachePersistence(queryClient, data.user.playerId);
+        }
+
         if (data.user?.id) {
           loginRevenueCat(data.user.id).catch(() => {});
         }
@@ -165,6 +180,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     logger.log("[AuthContext] Handling unauthorized - clearing auth state and forcing re-login");
+    // Task #1387 — flush persisted god-cache for the previously-active
+    // player BEFORE clearing react-query, otherwise the next account
+    // could see a single frame of the old player's data on cold start.
+    const prevPlayerId = user?.playerId ?? undefined;
+    await clearGodCache(prevPlayerId);
     queryClient.clear();
     await clearAuthState();
     setAuthToken(null);
@@ -172,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setCoach(null);
     setAcademy(null);
-  }, [queryClient, isGuest]);
+  }, [queryClient, isGuest, user?.playerId]);
 
   useEffect(() => {
     setOnUnauthorizedCallback(handleUnauthorized);
@@ -200,6 +220,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (authState.token && authState.user && isMounted) {
           setAuthToken(authState.token);
+          // Task #1387 — pre-hydrate the god-cache from disk BEFORE the
+          // /api/me round-trip. The cached `authState.user` already
+          // carries `playerId` from the previous session, so we can
+          // start filling react-query while the auth refresh is still
+          // in-flight. This is the bulk of the cold-start latency win:
+          // by the time NavigationContainer mounts the player tabs,
+          // their useQuery calls return the persisted snapshot
+          // synchronously and the screen renders with content.
+          const cachedPlayerId =
+            (authState.user as { playerId?: string | null } | null)?.playerId;
+          if (cachedPlayerId) {
+            hydrateGodCache(queryClient, cachedPlayerId).catch(() => {});
+            startGodCachePersistence(queryClient, cachedPlayerId);
+          }
           logger.log("[AuthContext] Fetching user data...");
           const success = await fetchUserData(authState.token);
           logger.log("[AuthContext] Fetch user data result:", success);
@@ -488,6 +522,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     logger.log("[AuthContext] Logout called");
     try {
+      // Task #1387 — flush persisted god-cache for the current player
+      // BEFORE wiping react-query, so a subsequent login by a different
+      // account never hydrates from the previous account's snapshot.
+      const prevPlayerId = user?.playerId ?? undefined;
+      await clearGodCache(prevPlayerId);
       queryClient.clear();
       await clearAuthState();
       await clearGuestMode();
