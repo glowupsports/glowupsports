@@ -207,23 +207,14 @@ export async function sendPushNotification(
 ): Promise<ExpoPushTicket[]> {
   if (tokens.length === 0) return [];
 
-  // Separate tokens by type. Order matters: APNs check is the strictest
-  // (pure-hex shape) so we test it before falling back to "anything else
-  // is Expo". This fixes the historical bug where raw 64-hex APNs device
-  // tokens were misclassified as Expo tokens and silently dropped by
-  // Expo's push service with DeviceNotRegistered. (Task #1359 / #1360.)
+  // Split by token shape. APNs check first (strictest — pure hex), then FCM,
+  // then everything else falls to Expo. APNs branch is gated by
+  // isAPNsConfigured so missing creds = pre-APNs behavior.
   const expoTokens: string[] = [];
   const fcmTokens: string[] = [];
   const apnsTokens: string[] = [];
 
   for (const token of tokens) {
-    // APNs check is stricter (pure hex, no colon, no Exponent prefix)
-    // so we run it FIRST. This ensures any future longer APNs token
-    // shape (Apple has hinted at up to 200 hex chars) cannot be
-    // misclassified as FCM by `isFCMToken`'s length-only heuristic.
-    // Only route to APNs if credentials are configured; otherwise fall
-    // through to FCM/Expo so behavior is identical to the pre-APNs
-    // world when the .p8 secret is missing.
     if (isAPNsToken(token) && isAPNsConfigured()) {
       apnsTokens.push(token);
     } else if (isFCMToken(token)) {

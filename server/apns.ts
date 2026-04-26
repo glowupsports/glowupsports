@@ -1,26 +1,10 @@
 /**
- * server/apns.ts
+ * Direct APNs HTTP/2 sender. Used for raw 64-char hex device tokens
+ * returned by Notifications.getDevicePushTokenAsync() on iOS, which
+ * Expo Push and FCM cannot deliver to.
  *
- * Direct APNs HTTP/2 sender for iOS push notifications.
- *
- * Why this exists: the iOS native build of Glow Up Sports calls
- * Notifications.getDevicePushTokenAsync(), which on a non-Expo-Go iOS
- * build returns the raw 64-char hex APNs device token. Expo Push API
- * cannot deliver to those tokens unless an APNs auth key is uploaded
- * to the EAS account (which is not currently the case), and Firebase
- * Admin SDK only accepts FCM registration tokens. So we talk to Apple
- * directly using a token-based JWT (.p8) auth flow.
- *
- * Required env:
- *   APNS_AUTH_KEY_P8  — full contents of the .p8 file (incl. headers)
- *   APNS_KEY_ID       — 10-char Key ID from Apple Developer
- *   APNS_TEAM_ID      — Apple Team ID (defaults to known team)
- *   APNS_BUNDLE_ID    — iOS bundle id (defaults to com.glowupsports.app)
- *   APNS_USE_SANDBOX  — "true" to target sandbox host (TestFlight/dev)
- *
- * Apple docs:
- *   https://developer.apple.com/documentation/usernotifications/
- *   sending_notification_requests_to_apns
+ * Env: APNS_AUTH_KEY_P8, APNS_KEY_ID (required); APNS_TEAM_ID,
+ * APNS_BUNDLE_ID, APNS_USE_SANDBOX (optional).
  */
 
 import http2 from "node:http2";
@@ -67,20 +51,8 @@ export function isAPNsToken(token: string): boolean {
   return /^[0-9a-fA-F]{64,200}$/.test(token);
 }
 
-/**
- * Re-format a possibly-flattened PEM string back into the strict PEM
- * shape that Node's crypto layer requires:
- *
- *     -----BEGIN PRIVATE KEY-----\n
- *     <base64 in 64-char lines>\n
- *     -----END PRIVATE KEY-----\n
- *
- * Replit secrets (and many other secret stores) tend to strip newlines
- * when a multi-line value is pasted into a single-line input, which
- * leaves the BEGIN/END markers glued onto the base64 body with spaces.
- * jsonwebtoken / Node will then reject the value with the unhelpful
- * "secretOrPrivateKey must be an asymmetric key" error.
- */
+// Reflow a single-line PEM (Replit secrets strip newlines) back to the
+// shape Node's crypto layer needs: header, body in 64-char lines, footer.
 function normalizePemPrivateKey(raw: string): string {
   const beginMarker = "-----BEGIN PRIVATE KEY-----";
   const endMarker = "-----END PRIVATE KEY-----";
@@ -262,11 +234,12 @@ export async function sendAPNsNotification(
           reason: outcome.reason,
           status: outcome.status,
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
         results.push({
           token,
           success: false,
-          reason: `send_error: ${err?.message || String(err)}`,
+          reason: `send_error: ${message}`,
         });
       }
     }

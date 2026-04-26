@@ -102,9 +102,14 @@ async function main(): Promise<void> {
   console.log(
     `[push-update-prompt] (skipping ${skippedAndroidResult.rows[0]?.count ?? 0} Android tokens — Android force-gate already covers them)`,
   );
-  console.log(
-    `[push-update-prompt] sample iOS token prefixes: ${samplePrefixes.join(", ") || "(none)"}`,
-  );
+  // Dry-run only: surface a few token prefixes so an operator can sanity-check
+  // which devices are about to be hit. In a real --send run we keep the log
+  // surface minimal and only emit prefixes for failures (handled below).
+  if (!wantsSend) {
+    console.log(
+      `[push-update-prompt] sample iOS token prefixes: ${samplePrefixes.join(", ") || "(none)"}`,
+    );
+  }
   console.log(`[push-update-prompt] notification title: "${TITLE}"`);
   console.log(`[push-update-prompt] notification body:  "${BODY}"`);
   console.log(
