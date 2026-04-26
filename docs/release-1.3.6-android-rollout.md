@@ -93,3 +93,16 @@ Commit, en de eerstvolgende OTA push gaat alleen nog naar 1.3.6.
 - `replit.md` — sectie "Welke runtimes leven op echte toestellen"
 - `.local/tasks/rebuild-1.3.6-with-safe-ota.md` — context over waarom build #85 buggy is
 - `.local/tasks/prepare-android-closed-testing-build.md` — eerdere closed-testing setup
+
+## Addendum (Task #1377) — volgorde-waarschuwing voor force-update floor
+
+Sinds Task #1377 (april 2026) staat `server/config/appVersion.ts` voor zowel iOS als Android op `minSupportedVersion = "1.3.6"`. Concreet betekent dat: zodra de bijbehorende Replit Republish live staat, krijgen alle Play Store-productie-installs op 1.3.5 (volgens dit document op dit moment de meerderheid) bij hun eerstvolgende koud-start de blokkerende ForceUpdateGate (#1321) en worden ze naar de Play Store gestuurd.
+
+Dat werkt alleen als de 1.3.6 .aab daadwerkelijk in **Play Store Production** staat. Niet alleen in Closed Testing / Alpha.
+
+**Promote de 1.3.6 .aab daarom EERST naar Play Store Production voordat je de Task #1377 wijzigingen laat mergen of de Replit-app republished.** Anders zien Android-gebruikers op 1.3.5 de force-update modal terwijl er nog geen 1.3.6 update beschikbaar is in hun Play Store, en zitten ze vast tot je alsnog promote.
+
+Volgorde:
+1. Volg stappen 1–5 hierboven (build identificeren, downloaden, Closed Testing, eigen test, Promote naar Production met staged rollout).
+2. Wacht tot de Production-rollout 100% is. Een staged rollout (10%, 50%, …) maakt 1.3.6 namelijk maar zichtbaar voor díé willekeurige cohort van gebruikers — alle anderen zien op dat moment nog steeds 1.3.5 in hun Play Store. Bumpen we `minSupportedVersion` naar 1.3.6 terwijl de rollout nog op 10% staat, dan zien de overige 90% de force-update modal zonder een 1.3.6 update beschikbaar in hun store en zitten ze vast.
+3. Pas wanneer Production-rollout op 100% staat: laat Task #1377 mergen en doe de Replit Republish die `minSupportedVersion = "1.3.6"` server-side activeert.

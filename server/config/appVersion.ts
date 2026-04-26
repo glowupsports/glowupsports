@@ -17,6 +17,17 @@
  * keep iOS `minSupportedVersion` at "0.0.0" so iOS users only see the
  * soft prompt; once iOS is also live we bump iOS `minSupportedVersion`
  * to match `latestVersion` to harden the floor.
+ *
+ * State per Task #1377 (April 2026): both platforms have the floor
+ * hardened to "1.3.6". This is intentional and coupled to the
+ * shrunken OTA targets in `scripts/live-runtimes.json` — every install
+ * below 1.3.6 is sent to the store via the blocking ForceUpdateGate
+ * instead of receiving more OTA bundles, so the only live runtime per
+ * platform that an OTA can reach is 1.3.6. Pre-condition for Android:
+ * the 1.3.6 .aab must be in Play Store Production before this floor
+ * goes live, otherwise Android users on 1.3.5 see the modal without
+ * an update being available — see
+ * `docs/release-1.3.6-android-rollout.md`.
  */
 
 export type AppPlatform = "ios" | "android";

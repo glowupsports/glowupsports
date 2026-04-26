@@ -27,18 +27,23 @@ Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATA
 **An OTA bundle may only be published to the runtime it was built against.** That runtime is whatever `app.json.expo.{ios,android}.runtimeVersion` says when `expo export` runs. Fan-out to other live runtimes is what broke the iOS player home on 2026-04-26: the bundle was built against 1.3.6's native API surface and then served to 1.3.4 / 1.3.5 binaries, where mismatched native module shapes made the home screen barely loadable. `scripts/ota-push.sh` now refuses cross-runtime publishes by default — runtimes in `live-runtimes.json` that don't match `app.json.runtimeVersion` are skipped with a warning. The emergency override `OTA_ALLOW_CROSS_RUNTIME=1` exists but should not be used; the right answer for a true multi-runtime push is a per-runtime rebuild from the matching git tag.
 
 ### CRITICAL: Welke runtimes leven op echte toestellen — `scripts/live-runtimes.json`
-**`app.json.expo.{ios,android}.runtimeVersion` is wat de VOLGENDE store-binary zal claimen. `scripts/live-runtimes.json` is wat er NU echt op telefoons in productie draait.** Die twee zijn niet hetzelfde en mogen niet door elkaar gehaald worden — dat was precies de bug van Task #1372. Sinds #1374 is de rol van `live-runtimes.json` documentair en als safety check tegen de #1302 silent-drop: het OTA-script publiceert alleen naar de runtime in deze lijst die overeenkomt met `app.json.runtimeVersion` en slaat de rest expliciet over.
+**`app.json.expo.{ios,android}.runtimeVersion` is wat de VOLGENDE store-binary zal claimen. `scripts/live-runtimes.json` is welke runtimes een OTA-push überhaupt mag raken.** Die twee zijn niet hetzelfde en mogen niet door elkaar gehaald worden — dat was precies de bug van Task #1372. Sinds #1374 is de rol van `live-runtimes.json` ook een safety check tegen de #1302 silent-drop: het OTA-script publiceert alleen naar de runtime in deze lijst die overeenkomt met `app.json.runtimeVersion` en slaat de rest expliciet over.
 
-| Platform | Live runtimes (April 2026)        | Volgende store-binary (`app.json`) |
+Sinds Task #1377 (April 2026) is de lijst per platform ingekrompen tot exact één runtime — de actuele:
+
+| Platform | OTA-targets (`live-runtimes.json`) | Volgende store-binary (`app.json`) |
 | -------- | ---------------------------------- | ---------------------------------- |
-| iOS      | `1.3.4`, `1.3.5`, `1.3.6`         | `1.3.6`                            |
-| Android  | `1.3.5`, `1.3.6`                  | `1.3.6`                            |
+| iOS      | `1.3.6`                            | `1.3.6`                            |
+| Android  | `1.3.6`                            | `1.3.6`                            |
 
-Regels voor `live-runtimes.json`:
-- Een runtime hoort hier ALLEEN in als er een binary met die runtime daadwerkelijk in een store live staat (App Store / Play Store / TestFlight intern).
-- Verwijder een runtime PAS wanneer <5% van je installs hem nog draait (zie Play Console / App Store Connect → version statistics).
-- Bumping `app.json.runtimeVersion` voor een nieuwe build wijzigt dit bestand NIET. Voeg de nieuwe runtime hier pas toe wanneer je de matching binary in productie staged-rollout zet.
-- Kijk in `docs/release-1.3.6-android-rollout.md` voor het draaiboek wanneer 1.3.5 weg mag uit de Android-array.
+Per platform leeft er dus nog maar één runtime die door OTA geraakt kan worden. Toestellen die nog op 1.3.4 of 1.3.5 zitten krijgen géén OTA's meer; in plaats daarvan zien ze bij de eerstvolgende koud-start de blokkerende ForceUpdateGate (#1321) en moeten ze via de App Store / Play Store updaten naar 1.3.6 (`server/config/appVersion.ts` → `minSupportedVersion = "1.3.6"` voor beide platforms).
+
+**Bewuste afwijking van de "<5%-regel".** De gebruikelijke huisregel — verwijder een runtime PAS wanneer <5% van je installs hem nog draait — is hier expliciet overruled door Task #1377. Op iOS 1.3.4/1.3.5 en Android 1.3.5 zit op dit moment nog een meerderheid van de installs. We wachten niet op natuurlijke uitsterving; in plaats daarvan dwingt de hardgezette `minSupportedVersion` die installs via de force-gate naar de store. Een toekomstige agent die deze regel terug wil draaien moet dat begrijpen — dit is geen vergetelheid maar een gekozen "harde" variant.
+
+Regels voor `live-runtimes.json` (in deze nieuwe modus):
+- Een runtime hoort hier alleen in als er een binary met die runtime daadwerkelijk in een store live staat (App Store / Play Store) ÉN als die runtime ≥ `minSupportedVersion` uit `server/config/appVersion.ts` is. Lagere runtimes kunnen sowieso niet meer draaien zonder de force-gate te triggeren.
+- Bumping `app.json.runtimeVersion` voor een nieuwe build wijzigt dit bestand niet automatisch. Voeg de nieuwe runtime hier pas toe wanneer de matching binary in productie staged-rollout zit, en vervang dan de oude runtime in dezelfde commit waarin je `minSupportedVersion` meebumpt.
+- Kijk in `docs/release-1.3.6-android-rollout.md` voor het draaiboek rond Play Store Production en waarom de 1.3.6 .aab eerst Production moet halen voordat de force-gate gemerged wordt.
 
 ### CRITICAL: Every task plan MUST include a "Deployment" line
 **Every `.local/tasks/*.md` plan file MUST have one of these lines:**
