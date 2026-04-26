@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Updates from "expo-updates";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -66,6 +67,19 @@ export function PlatformCommandCenter({
     if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K`;
     return amount.toLocaleString();
   };
+
+  // Task #1372 — Temporary OTA diagnostics line. Visible only on the
+  // Platform Center card (platform owners only). Reads what the running
+  // binary actually thinks it is — runtime, channel, and currently
+  // installed update id — so we can confirm the dual-runtime OTA fix
+  // is actually reaching this device. Remove once 1.3.6 binary is the
+  // dominant Android install (tracked in Task #1370).
+  const otaRuntime = String(Updates.runtimeVersion ?? "unknown");
+  const otaChannel = String(Updates.channel ?? "unknown");
+  const otaUpdateId = String(Updates.updateId ?? "embedded");
+  const otaUpdateShort =
+    otaUpdateId.length > 8 ? otaUpdateId.slice(0, 8) : otaUpdateId;
+  const otaDebugLine = `runtime ${otaRuntime} • channel ${otaChannel} • update ${otaUpdateShort}`;
 
   return (
     <View style={styles.container}>
@@ -152,6 +166,10 @@ export function PlatformCommandCenter({
               <Text style={styles.statLabel}>Total Players</Text>
             </View>
           </View>
+
+          <Text style={styles.otaDebugLine} numberOfLines={1}>
+            {otaDebugLine}
+          </Text>
         </View>
       </View>
     </View>
@@ -305,5 +323,14 @@ const styles = StyleSheet.create({
     width: 1,
     height: 50,
     backgroundColor: Colors.dark.border,
+  },
+  otaDebugLine: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+    fontFamily: "Courier",
+    marginTop: Spacing.md,
+    textAlign: "center",
+    opacity: 0.6,
   },
 });

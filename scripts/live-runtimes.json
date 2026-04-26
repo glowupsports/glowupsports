@@ -1,0 +1,5 @@
+{
+  "$comment": "Welke runtimes leven op echte toestellen? Het OTA Push script (scripts/ota-push.sh) leest dit bestand en publiceert elke OTA naar elke runtime in de bijbehorende array. Dit voorkomt het 'silent drop' scenario uit replit.md waarbij een OTA gericht op een runtime die niemand draait stilletjes wordt weggegooid. Voeg hier ALLEEN runtimes toe waarvan je zeker weet dat ze als binary in een store live staan (App Store / Play Store / TestFlight intern). Verwijder een runtime hieruit pas wanneer <5% van je installs hem nog draait. app.json.runtimeVersion is alleen voor de VOLGENDE store-build en hoort hier niet 1-op-1 mee samen te vallen.",
+  "ios": ["1.3.4", "1.3.5", "1.3.6"],
+  "android": ["1.3.5", "1.3.6"]
+}

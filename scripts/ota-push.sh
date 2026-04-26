@@ -3,20 +3,27 @@
 # OTA Push Script — scripts/ota-push.sh
 # =============================================================================
 # Bundles JS once with `expo export --platform all`, then uploads the prebuilt
-# bundle to EAS Update for iOS and Android. Verifies both platforms actually
-# landed at the runtimeVersion configured in app.json before exiting.
+# bundle to EAS Update for each (platform, runtimeVersion) pair declared in
+# `scripts/live-runtimes.json`. Verifies every requested combination actually
+# landed before exiting.
 #
 # IMPORTANT for agents:
 #   Do NOT run `eas update` directly in a bash command — it can exceed the
 #   2-minute bash timeout. Trigger the "OTA Push" Replit workflow instead and
 #   read its logs.
 #
-# OTA targeting rule (see replit.md):
-#   `expo.version` and `expo.{ios,android}.runtimeVersion` are independent.
-#   Bump `version` whenever you cut a new store build, but only bump
-#   `runtimeVersion` when a binary at that version is actually live in the
-#   store. Pushing an OTA at a runtime no installed binary uses = silently
-#   dropped by every device.
+# DUAL-RUNTIME RULE (Task #1372):
+#   `eas update` only publishes to the runtimeVersion currently declared in
+#   app.json. Pushing an OTA at a runtime no installed binary uses = silently
+#   dropped by every device. This script reads `scripts/live-runtimes.json`
+#   to know every runtime that actually lives on real devices, and publishes
+#   the same bundle to ALL of them by temporarily mutating app.json's
+#   runtimeVersion between uploads. The original app.json is restored on exit.
+#
+# Why app.json mutation: `eas update` does NOT accept a `--runtime-version`
+# flag (verified Apr 2026, EAS CLI 16.x). The runtime is read from app.json
+# at publish time. Mutating + restoring is the supported pattern for cross-
+# runtime publishing of the same bundle.
 #
 # Usage:
 #   bash scripts/ota-push.sh "Your update message here"
@@ -102,6 +109,42 @@ if [[ "$PLATFORM" != "ios" && "$PLATFORM" != "android" && "$PLATFORM" != "all" ]
   echo "ERROR: --platform (or OTA_PLATFORM) must be 'ios', 'android', or 'all' (default)." >&2
   exit 1
 fi
+
+# ---------------------------------------------------------------------------
+# Pre-flight — Load live-runtimes config
+# ---------------------------------------------------------------------------
+LIVE_RUNTIMES_FILE="scripts/live-runtimes.json"
+if [[ ! -f "$LIVE_RUNTIMES_FILE" ]]; then
+  echo "ERROR: $LIVE_RUNTIMES_FILE not found. Cannot determine target runtimes." >&2
+  exit 1
+fi
+
+# Read iOS + Android runtime arrays. Each is a JSON array of strings.
+IOS_RUNTIMES_JSON="$(node -e "
+const cfg = require('./$LIVE_RUNTIMES_FILE');
+if (!Array.isArray(cfg.ios) || cfg.ios.length === 0) {
+  console.error('live-runtimes.json: ios must be a non-empty array');
+  process.exit(1);
+}
+console.log(JSON.stringify(cfg.ios));
+")"
+ANDROID_RUNTIMES_JSON="$(node -e "
+const cfg = require('./$LIVE_RUNTIMES_FILE');
+if (!Array.isArray(cfg.android) || cfg.android.length === 0) {
+  console.error('live-runtimes.json: android must be a non-empty array');
+  process.exit(1);
+}
+console.log(JSON.stringify(cfg.android));
+")"
+
+# Convert JSON arrays to bash arrays (one runtime per line, no quotes).
+mapfile -t IOS_RUNTIMES < <(node -e "console.log(JSON.parse(process.argv[1]).join('\n'))" "$IOS_RUNTIMES_JSON")
+mapfile -t ANDROID_RUNTIMES < <(node -e "console.log(JSON.parse(process.argv[1]).join('\n'))" "$ANDROID_RUNTIMES_JSON")
+
+echo ""
+echo "  Live runtimes (from $LIVE_RUNTIMES_FILE):"
+echo "    iOS     = ${IOS_RUNTIMES[*]}"
+echo "    Android = ${ANDROID_RUNTIMES[*]}"
 
 # ---------------------------------------------------------------------------
 # Pre-flight — Lint guardrail (Task #1082)
@@ -244,6 +287,23 @@ echo "    EXPO_PUBLIC_COMMIT_SHA     = $EXPO_PUBLIC_COMMIT_SHA"
 echo "    NODE_OPTIONS               = $NODE_OPTIONS"
 
 # ---------------------------------------------------------------------------
+# Snapshot app.json so we can restore it after mutating runtimeVersion
+# between per-runtime publishes. Trap EXIT so we ALWAYS restore — including
+# if eas fails halfway, the user Ctrl-Cs, or anything else goes wrong.
+# ---------------------------------------------------------------------------
+APP_JSON_BACKUP="$(mktemp -t app.json.backup.XXXXXX)"
+cp app.json "$APP_JSON_BACKUP"
+
+restore_app_json() {
+  if [[ -f "$APP_JSON_BACKUP" ]]; then
+    cp "$APP_JSON_BACKUP" app.json
+    rm -f "$APP_JSON_BACKUP"
+    echo "  ✔ restored original app.json"
+  fi
+}
+trap restore_app_json EXIT
+
+# ---------------------------------------------------------------------------
 # Pause "Start App" Metro on :8081 so the bundler isn't fighting it for
 # memory during the push. We don't auto-restart it — the user (or the
 # agent) can re-launch the "Start App" workflow when needed; in practice
@@ -268,7 +328,9 @@ fi
 # ---------------------------------------------------------------------------
 # Step 1 — Bundle once with `expo export --platform all` (or single platform).
 # This is the expensive step. Doing it ONCE for both platforms in the same
-# Metro process is materially faster than two cold-start runs.
+# Metro process is materially faster than two cold-start runs. The bundle
+# itself is runtime-agnostic — runtimeVersion is set by `eas update` at
+# publish time from whatever app.json says at that moment.
 # ---------------------------------------------------------------------------
 echo ""
 echo "################################################################"
@@ -301,23 +363,49 @@ ls dist/_expo/static/js/ 2>/dev/null || true
 echo ""
 
 # ---------------------------------------------------------------------------
-# Step 2 — Upload to EAS for each requested platform, using the prebuilt
-# bundle. `--skip-bundler --input-dir dist` makes this an upload-only step.
+# Helper — set runtimeVersion in app.json for ONE platform to a target value.
+# Uses node so we round-trip valid JSON instead of regex-mauling it.
 # ---------------------------------------------------------------------------
-upload_platform() {
+set_app_json_runtime() {
+  local platform="$1"   # "ios" | "android"
+  local target_rt="$2"  # e.g. "1.3.5"
+  node -e "
+const fs = require('fs');
+const path = './app.json';
+const cfg = JSON.parse(fs.readFileSync(path, 'utf8'));
+if (!cfg.expo) throw new Error('app.json has no expo block');
+if (!cfg.expo['$platform']) cfg.expo['$platform'] = {};
+cfg.expo['$platform'].runtimeVersion = '$target_rt';
+fs.writeFileSync(path, JSON.stringify(cfg, null, 2) + '\n');
+"
+}
+
+# ---------------------------------------------------------------------------
+# Step 2 — For each (platform, runtime) pair, mutate app.json's runtimeVersion
+# and publish. This is the dual-runtime publish loop introduced in #1372.
+#
+# Why per-runtime: see DUAL-RUNTIME RULE comment at top. eas update reads the
+# runtime from app.json at publish time and offers no override flag, so we
+# briefly mutate the file. The EXIT trap restores the original.
+# ---------------------------------------------------------------------------
+PUBLISHED_KEYS=()  # tracks "<platform>-<runtime>" strings we successfully published
+
+upload_platform_runtime() {
   local platform="$1"
+  local target_rt="$2"
+
   echo ""
   echo "============================================================"
-  echo "  Step 2/3 — Uploading $platform from ./dist"
+  echo "  Step 2/3 — Uploading $platform @ runtime $target_rt"
   echo "  Channel : production"
   echo "  Time    : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
   echo "============================================================"
 
-  # Two output streams:
-  #   - /tmp/ota-push-<platform>.json  : pure JSON from --json (for parsing)
-  #   - /tmp/ota-push-<platform>.log   : human-readable mirror with stderr
-  # `eas update --json` writes JSON to stdout and progress messages to stderr,
-  # so we split them. Pipe stderr through tee for live workflow visibility.
+  set_app_json_runtime "$platform" "$target_rt"
+
+  local json_file="/tmp/ota-push-${platform}-${target_rt}.json"
+  local log_file="/tmp/ota-push-${platform}-${target_rt}.log"
+
   set +e
   npx eas update \
     --channel production \
@@ -328,41 +416,47 @@ upload_platform() {
     --skip-bundler \
     --non-interactive \
     --json \
-    > /tmp/ota-push-"$platform".json \
-    2> >(tee /tmp/ota-push-"$platform".log >&2)
+    > "$json_file" \
+    2> >(tee "$log_file" >&2)
   local rc=$?
   set -e
 
   if [[ $rc -ne 0 ]]; then
     echo ""
-    echo "ERROR: eas update failed for $platform (exit $rc). See" \
-      "/tmp/ota-push-$platform.log for details." >&2
+    echo "ERROR: eas update failed for $platform @ $target_rt (exit $rc)." >&2
+    echo "       See $log_file for details." >&2
     return $rc
   fi
 
-  # Echo the JSON into the workflow log so it stays visible alongside stderr.
   echo ""
-  echo "--- eas update JSON ($platform) ---"
-  cat /tmp/ota-push-"$platform".json
+  echo "--- eas update JSON ($platform @ $target_rt) ---"
+  cat "$json_file"
   echo ""
-  echo ">>> $platform OTA upload complete <<<"
+  echo ">>> $platform @ $target_rt OTA upload complete <<<"
+
+  PUBLISHED_KEYS+=("${platform}-${target_rt}")
 }
 
-if [[ "$PLATFORM" == "ios" ]]; then
-  upload_platform "ios"
-elif [[ "$PLATFORM" == "android" ]]; then
-  upload_platform "android"
-else
-  upload_platform "ios"
-  upload_platform "android"
+if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
+  for rt in "${IOS_RUNTIMES[@]}"; do
+    upload_platform_runtime "ios" "$rt"
+  done
+fi
+if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
+  for rt in "${ANDROID_RUNTIMES[@]}"; do
+    upload_platform_runtime "android" "$rt"
+  done
 fi
 
+# Restore app.json now that all per-runtime publishes are done. The EXIT
+# trap will also restore on any failure — this is the success-path restore.
+restore_app_json
+trap - EXIT
+
 # ---------------------------------------------------------------------------
-# Step 3 — Verify each requested platform actually published, by parsing the
-# JSON `eas update --json` already returned. This is deterministic — we know
-# the exact id+runtime+platform that EAS just confirmed, so we don't have to
-# fuzzy-match against `eas update:list` (which uses different field names
-# and decorates message strings).
+# Step 3 — Verify each requested (platform, runtime) actually published, by
+# parsing the JSON `eas update --json` already returned. This is determin-
+# istic — we know the exact id+runtime+platform that EAS just confirmed.
 # ---------------------------------------------------------------------------
 echo ""
 echo "============================================================"
@@ -370,30 +464,20 @@ echo "  Step 3/3 — Verifying published updates"
 echo "  Time : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "============================================================"
 
-EXPECTED_IOS_RT="$(node -e "console.log(require('./app.json').expo.ios.runtimeVersion)")"
-EXPECTED_ANDROID_RT="$(node -e "console.log(require('./app.json').expo.android.runtimeVersion)")"
-echo "  Expected runtimes from app.json:"
-echo "    iOS     = $EXPECTED_IOS_RT"
-echo "    Android = $EXPECTED_ANDROID_RT"
-echo ""
-
 VERIFY_OK=1
 PUBLISHED_SUMMARY=""
 
-verify_platform() {
+verify_platform_runtime() {
   local platform="$1"
   local expected_rt="$2"
-  local json_file="/tmp/ota-push-$platform.json"
+  local json_file="/tmp/ota-push-${platform}-${expected_rt}.json"
 
   if [[ ! -s "$json_file" ]]; then
-    echo "  ✘ $platform: no JSON output captured at $json_file" >&2
+    echo "  ✘ $platform @ $expected_rt: no JSON output captured at $json_file" >&2
     VERIFY_OK=0
     return
   fi
 
-  # `eas update --json` returns an array of {id, platform, runtimeVersion,
-  # group, branch, message, manifestPermalink, ...}. We pick out the entry
-  # for this platform and confirm runtimeVersion matches what app.json says.
   local result
   result="$(node -e "
 const fs = require('fs');
@@ -412,19 +496,23 @@ console.log('OK id=' + entry.id + ' rt=' + rt + ' group=' + entry.group);
 ")"
 
   if [[ "$result" == OK* ]]; then
-    echo "  ✔ $platform: $result"
+    echo "  ✔ $platform @ $expected_rt: $result"
     PUBLISHED_SUMMARY+="${PUBLISHED_SUMMARY:+, }$platform rt $expected_rt"
   else
-    echo "  ✘ $platform (expected rt $expected_rt): $result" >&2
+    echo "  ✘ $platform @ $expected_rt: $result" >&2
     VERIFY_OK=0
   fi
 }
 
 if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
-  verify_platform "ios" "$EXPECTED_IOS_RT"
+  for rt in "${IOS_RUNTIMES[@]}"; do
+    verify_platform_runtime "ios" "$rt"
+  done
 fi
 if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
-  verify_platform "android" "$EXPECTED_ANDROID_RT"
+  for rt in "${ANDROID_RUNTIMES[@]}"; do
+    verify_platform_runtime "android" "$rt"
+  done
 fi
 
 echo ""
@@ -436,27 +524,32 @@ fi
 
 if [[ "$VERIFY_OK" != "1" ]]; then
   echo "################################################################"
-  echo "#  OTA Push FAILED verification — one or more platforms missing."
-  echo "#  Check /tmp/ota-push-*.log and /tmp/ota-push-*.json for details,"
-  echo "#  and the Expo dashboard. Re-run the workflow to retry."
+  echo "#  OTA Push FAILED verification — one or more (platform,runtime)"
+  echo "#  pairs missing. Check /tmp/ota-push-*.log and /tmp/ota-push-*.json"
+  echo "#  for details, and the Expo dashboard. Re-run the workflow to retry."
   echo "################################################################"
   exit 2
 fi
 
 # ---------------------------------------------------------------------------
 # Secondary check — ask EAS for the most recent updates on the production
-# branch and confirm our message + runtime show up there too. The primary
-# check above is authoritative (we read the JSON EAS just confirmed at
-# publish time), but a server-side roundtrip catches the rare case where
-# a publish "succeeded" locally but didn't actually land on the branch
-# (caching, eventual consistency, dashboard hiccups). Failures here are
-# treated as HARD — exit non-zero so the workflow goes red.
+# branch and confirm our message + every requested runtime show up there too.
+# The primary check above is authoritative (we read the JSON EAS just
+# confirmed at publish time), but a server-side roundtrip catches the rare
+# case where a publish "succeeded" locally but didn't actually land on the
+# branch (caching, eventual consistency, dashboard hiccups). Failures here
+# are treated as HARD — exit non-zero so the workflow goes red.
+#
+# We bump --limit to cover N publishes worth of recent rows so list_check
+# can find every (platform, runtime) we just pushed.
 # ---------------------------------------------------------------------------
 echo ""
-echo "  Cross-checking with eas update:list (branch=production, limit=5)..."
+TOTAL_PUSHES=${#PUBLISHED_KEYS[@]}
+LIST_LIMIT=$(( TOTAL_PUSHES * 2 + 5 ))
+echo "  Cross-checking with eas update:list (branch=production, limit=$LIST_LIMIT)..."
 LIST_JSON_FILE="/tmp/ota-push-list.json"
 set +e
-npx eas update:list --branch production --json --non-interactive --limit 5 \
+npx eas update:list --branch production --json --non-interactive --limit "$LIST_LIMIT" \
   > "$LIST_JSON_FILE" 2>/tmp/ota-push-list.err
 LIST_RC=$?
 set -e
@@ -471,11 +564,6 @@ LIST_OK=1
 list_check() {
   local platform="$1"
   local expected_rt="$2"
-  # Delegate to scripts/ota-list-parser.js which understands the real
-  # `eas update:list --json` shape ({ currentPage: [...] }, `platforms`
-  # as a singular string, and messages wrapped in quotes + decorated
-  # with " (N <unit> ago by ...)"). Keeping the parser in its own file
-  # lets us unit-test it via scripts/test-ota-list-parser.sh.
   local result
   local stderr_file
   stderr_file="$(mktemp)"
@@ -485,9 +573,9 @@ list_check() {
   local rc=$?
   set -e
   if [[ $rc -eq 0 && "$result" == OK* ]]; then
-    echo "    ✔ list check $platform (rt $expected_rt): $result"
+    echo "    ✔ list check $platform @ $expected_rt: $result"
   else
-    echo "    ✘ list check $platform (rt $expected_rt): $result" >&2
+    echo "    ✘ list check $platform @ $expected_rt: $result" >&2
     if [[ -s "$stderr_file" ]]; then
       sed 's/^/      /' "$stderr_file" >&2
     fi
@@ -497,16 +585,20 @@ list_check() {
 }
 
 if [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]]; then
-  list_check "ios" "$EXPECTED_IOS_RT"
+  for rt in "${IOS_RUNTIMES[@]}"; do
+    list_check "ios" "$rt"
+  done
 fi
 if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
-  list_check "android" "$EXPECTED_ANDROID_RT"
+  for rt in "${ANDROID_RUNTIMES[@]}"; do
+    list_check "android" "$rt"
+  done
 fi
 
 if [[ "$LIST_OK" != "1" ]]; then
   echo "################################################################"
   echo "#  OTA Push CROSS-CHECK FAILED — eas update:list does not show"
-  echo "#  the expected runtime+message on production. Inspect" >&2
+  echo "#  every expected (platform,runtime) on production. Inspect" >&2
   echo "#  $LIST_JSON_FILE and the Expo dashboard before re-publishing."
   echo "################################################################"
   exit 4

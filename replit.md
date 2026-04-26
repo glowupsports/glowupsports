@@ -22,7 +22,21 @@ Always query the real DB via `bash scripts/db-query.sh` or `psql "$SUPABASE_DATA
 
 ### CRITICAL: Split iOS / Android runtime versions
 **iOS and Android run on different runtimes.** These are configured **per-platform** under `expo.ios.runtimeVersion` and `expo.android.runtimeVersion` in `app.json`. Each platform's OTA push targets only the runtime declared for that platform.
-**Every OTA push targets both runtimes by default.** The "OTA Push" workflow runs `scripts/ota-push.sh`, which bundles once and uploads to both platforms, then verifies both landed at the runtimes declared in `app.json`.
+**Every OTA push targets every live runtime in `scripts/live-runtimes.json` by default.** The "OTA Push" workflow runs `scripts/ota-push.sh`, which bundles once and then uploads the same bundle to every (platform, runtime) pair listed in `scripts/live-runtimes.json`. It verifies every published combination landed on the production branch before exiting green.
+
+### CRITICAL: Welke runtimes leven op echte toestellen — `scripts/live-runtimes.json`
+**`app.json.expo.{ios,android}.runtimeVersion` is wat de VOLGENDE store-binary zal claimen. `scripts/live-runtimes.json` is wat er NU echt op telefoons in productie draait.** Die twee zijn niet hetzelfde en mogen niet door elkaar gehaald worden — dat was precies de bug van Task #1372.
+
+| Platform | Live runtimes (April 2026)        | Volgende store-binary (`app.json`) |
+| -------- | ---------------------------------- | ---------------------------------- |
+| iOS      | `1.3.4`, `1.3.5`, `1.3.6`         | `1.3.6`                            |
+| Android  | `1.3.5`, `1.3.6`                  | `1.3.6`                            |
+
+Regels voor `live-runtimes.json`:
+- Een runtime hoort hier ALLEEN in als er een binary met die runtime daadwerkelijk in een store live staat (App Store / Play Store / TestFlight intern).
+- Verwijder een runtime PAS wanneer <5% van je installs hem nog draait (zie Play Console / App Store Connect → version statistics).
+- Bumping `app.json.runtimeVersion` voor een nieuwe build wijzigt dit bestand NIET. Voeg de nieuwe runtime hier pas toe wanneer je de matching binary in productie staged-rollout zet.
+- Kijk in `docs/release-1.3.6-android-rollout.md` voor het draaiboek wanneer 1.3.5 weg mag uit de Android-array.
 
 ### CRITICAL: Every task plan MUST include a "Deployment" line
 **Every `.local/tasks/*.md` plan file MUST have one of these lines:**
