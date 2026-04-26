@@ -231,4 +231,27 @@ describe("PlayerProfileScreen — Task #1387 god-query refactor", () => {
     expect(matches).not.toBeNull();
     expect((matches ?? []).length).toBeGreaterThanOrEqual(4);
   });
+
+  it("the live-match useQuery is seeded from the god-payload via initialData so cold-start fires ZERO extra network requests (Task #1387 single-request criterion)", () => {
+    const src = readRepoFile("client/player/screens/PlayerProfileScreen.tsx");
+    // The live-match polling hook is the only legitimate non-god useQuery
+    // on this screen (10s scoreboard cadence). For Profile to satisfy the
+    // "one network request on cold start" acceptance criterion, that hook
+    // MUST seed initialData from profileGodData.activeLiveMatch and mark
+    // it fresh via initialDataUpdatedAt so the first mount does not issue
+    // a fetch. The polling refetchInterval still runs after staleTime.
+    const liveMatchBlock = src.match(
+      /useQuery<[^>]*>\(\{[\s\S]{0,600}["']\/api\/live-scoring\/player\/me\/active["'][\s\S]{0,600}\}\)/,
+    );
+    expect(liveMatchBlock, "live-match useQuery block not found").not.toBeNull();
+    const block = liveMatchBlock![0];
+    expect(block).toMatch(/initialData:\s*liveMatchSeed/);
+    expect(block).toMatch(/initialDataUpdatedAt:/);
+    expect(block).toMatch(/refetchInterval:\s*10000/);
+    // The seed itself must derive from the god-payload, not from a fresh
+    // network call or a hard-coded constant.
+    expect(src).toMatch(
+      /const\s+liveMatchSeed\s*=\s*profileGodData\?\.activeLiveMatch/,
+    );
+  });
 });

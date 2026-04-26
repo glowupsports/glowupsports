@@ -548,13 +548,20 @@ export default function PlayerProfileScreen() {
     : [];
 
   // Live-match polling lives outside the god-query because it needs a
-  // 10s cadence (the in-progress match scoreboard chip). We seed it
-  // from the god-payload via the priming useEffect below so cold-start
-  // shows a value immediately, then this useQuery takes over the
-  // periodic refresh.
+  // 10s cadence (the in-progress match scoreboard chip). Task #1387:
+  // Profile must be a TRUE single-request tab on cold start. We
+  // therefore seed `initialData` from the god-payload so the FIRST
+  // mount issues zero extra network calls — the polling refetch only
+  // kicks in 10s later. If god-data hasn't landed yet, the hook stays
+  // disabled (no fallback fetch) and only enables once profileGodData
+  // is available, at which point initialData is non-empty so still no
+  // initial fetch is issued.
+  const liveMatchSeed = profileGodData?.activeLiveMatch ?? { matches: [] };
   const { data: activeLiveMatch } = useQuery<{ matches?: { id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }[] }>({
     queryKey: ["/api/live-scoring/player/me/active"],
-    enabled: !!data?.player,
+    enabled: !!profileGodData,
+    initialData: liveMatchSeed,
+    initialDataUpdatedAt: () => Date.now(),
     refetchInterval: 10000,
     staleTime: 8000,
   });
