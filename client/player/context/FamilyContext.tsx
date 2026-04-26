@@ -2,6 +2,7 @@ import logger from "@/lib/logger";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl, getAuthHeaders, setActivePlayerOverride } from "@/lib/query-client";
+import { clearGodCache } from "@/lib/queryCachePersist";
 
 export interface FamilyMember {
   id: string;
@@ -97,14 +98,21 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
   const isFamily = familyData !== null && (familyData.members.length > 1 || isParent);
 
   const setActivePlayer = useCallback((newPlayerId: string) => {
+    const outgoingPlayerId = activePlayerId;
     setActivePlayerId(newPlayerId);
     if (newPlayerId !== playerId) {
       setActivePlayerOverride(newPlayerId);
     } else {
       setActivePlayerOverride(null);
     }
+    // Task #1387 — wipe persisted god-cache for the OUTGOING family
+    // member before the new one mounts, otherwise the next cold start
+    // could hydrate the wrong child's data into the active session.
+    // Fire-and-forget: cancellation token in queryCachePersist already
+    // guarantees no in-flight hydrate can race past this clear.
+    void clearGodCache(outgoingPlayerId ?? undefined);
     queryClient.clear();
-  }, [queryClient, playerId]);
+  }, [queryClient, playerId, activePlayerId]);
 
   const refreshFamily = useCallback(async (): Promise<boolean> => {
     try {

@@ -266,6 +266,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginAsGuest = async () => {
     logger.log("[AuthContext] Guest login");
+    // Task #1387 — flush persisted god-cache for whoever was logged
+    // in before so the guest never sees one frame of their data.
+    await clearGodCache(user?.playerId ?? undefined);
     queryClient.clear();
     setUser(GUEST_USER);
     setIsGuest(true);
@@ -280,6 +283,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string; user?: AuthUser }> => {
     try {
+      // Task #1387 — clear persisted god-cache for the previous account
+      // before swapping into the new one. See handleUnauthorized.
+      await clearGodCache(user?.playerId ?? undefined);
       queryClient.clear();
       
       const apiUrl = getApiUrl();
@@ -312,6 +318,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginWithToken = async (token: string, user: AuthUser, refreshToken?: string): Promise<void> => {
+    // Task #1387 — clear persisted god-cache for the previous account.
+    await clearGodCache(user?.playerId ?? undefined);
     queryClient.clear();
     await saveAuthState(token, user, refreshToken);
     setAuthToken(token);
@@ -325,6 +333,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email?: string | null,
   ): Promise<{ success: boolean; error?: string; code?: string; user?: AuthUser; linkedToExisting?: boolean }> => {
     try {
+      // Task #1387 — clear persisted god-cache for the previous account.
+      await clearGodCache(user?.playerId ?? undefined);
       queryClient.clear();
 
       const apiUrl = getApiUrl();
@@ -361,6 +371,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     dateOfBirth: string;
   }): Promise<{ success: boolean; error?: string; user?: AuthUser }> => {
     try {
+      // Task #1387 — clear persisted god-cache for the previous account.
+      await clearGodCache(user?.playerId ?? undefined);
       queryClient.clear();
 
       const apiUrl = getApiUrl();
@@ -583,6 +595,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       setAuthToken(data.token);
+      // Task #1387 — clear persisted god-cache for the impersonator's
+      // own player profile before swapping into the academy owner's view.
+      await clearGodCache(user?.playerId ?? undefined);
       queryClient.clear();
       setIsImpersonating(true);
       setImpersonatedAcademyName(academyName);
@@ -619,6 +634,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const originalUser = JSON.parse(originalUserStr);
         await saveAuthState(originalToken, originalUser);
         setAuthToken(originalToken);
+        // Task #1387 — clear god-cache for the impersonated user
+        // before swapping back to the impersonator's own session.
+        await clearGodCache(user?.playerId ?? undefined);
         queryClient.clear();
         setIsImpersonating(false);
         setImpersonatedAcademyName(null);

@@ -19,6 +19,7 @@ import {
   AuthUser,
 } from "./auth";
 import { clearElevationToken } from "./pinElevation";
+import { clearGodCache } from "./queryCachePersist";
 
 let lastSwitchAt = 0;
 export function getLastSwitchAt(): number {
@@ -139,6 +140,13 @@ export async function applySwitchResult(
   // one. We do NOT call AuthContext.logout — that flashes the LoginScreen.
   await clearAuthState();
   clearElevationToken();
+  // Task #1387 — also flush any persisted god-cache from the outgoing
+  // account. We don't have the outgoing playerId at this layer (auth
+  // state is already cleared), so call without an arg → nukes every
+  // player bucket. Safe: the new account hydrates from a fresh disk
+  // read, and the cancellation token in queryCachePersist guarantees
+  // any in-flight hydrate from the previous boot is aborted.
+  await clearGodCache();
   if (queryClient) queryClient.clear();
   await saveAuthState(result.token, result.user, result.refreshToken);
   setAuthToken(result.token);

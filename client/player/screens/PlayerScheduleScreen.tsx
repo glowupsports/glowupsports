@@ -358,19 +358,18 @@ export default function PlayerScheduleScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["/api/player/me/sessions"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/player/me/court-bookings"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/player/me/matches"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/player/me/vacation"] }),
-        playerId
-          ? queryClient.invalidateQueries({ queryKey: [`/api/parent/payments/${playerId}`] })
-          : Promise.resolve(),
-      ]);
+      // Task #1387 — pull-to-refresh now invalidates the single
+      // god-key, which the screen's god-query then re-fetches and
+      // re-primes all 10 legacy keys. Invalidating the legacy keys
+      // here would cause them to refetch via their own queryFn
+      // (which we no longer use), wasting bandwidth.
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/player/me/schedule-data"],
+      });
     } finally {
       setRefreshing(false);
     }
-  }, [queryClient, playerId]);
+  }, [queryClient]);
 
   // Selected day (default = today). Week pager position.
   const today = useMemo(() => {
@@ -385,76 +384,124 @@ export default function PlayerScheduleScreen() {
   const pagerRef = useRef<PagerView | null>(null);
 
   // ---------------------------------------------------------------------------
-  // Data queries
+  // Data queries — god-endpoint pattern (Task #1387)
+  //
+  // Cold start used to fan 12 parallel React Query calls into the iOS
+  // bridge (sessions, court-bookings, matches, vacation, profile, V2
+  // wallet, parent payments, notifications, academy-payment-info,
+  // calendar token, plus payment polling). On 1.3.6 binaries that
+  // saturated the bridge and pushed first-pixel past 1500ms.
+  //
+  // Now: ONE call to `/api/player/me/schedule-data` which fans out
+  // serverside. Every legacy queryKey is then primed via setQueryData
+  // so child components and any cross-screen consumer hits cache.
+  // The downstream mutations on this screen still invalidate their
+  // legacy keys AND the god-key (see handleRefresh / mutation paths).
   // ---------------------------------------------------------------------------
-  const { data: rawSessions, isLoading: sessionsLoading, error: sessionsError } =
-    useQuery<SessionData[]>({
-      queryKey: ["/api/player/me/sessions"],
-      enabled: !isGuest,
-    });
+  interface ScheduleGodResponse {
+    sessions: SessionData[] | null;
+    courtBookings: CourtBookingData[] | null;
+    matches: MatchData[] | null;
+    vacation: VacationData | null;
+    profile: ProfileMeData | null;
+    v2Wallet: V2WalletData | null;
+    payments: { payments: PlayerPayment[] } | null;
+    notifications:
+      | {
+          id: string;
+          title: string | null;
+          body: string | null;
+          type: string;
+          data: Record<string, unknown> | null;
+          createdAt: string;
+          read: boolean;
+        }[]
+      | null;
+    academyPaymentInfo: AcademyPaymentInfo | null;
+    calendarToken: { token: string } | null;
+    _keys: {
+      v2Wallet: string;
+      payments: string;
+      academyPaymentInfo: string;
+    };
+  }
 
-  const { data: courtBookings } = useQuery<CourtBookingData[]>({
-    queryKey: ["/api/player/me/court-bookings"],
-  });
-
-  const { data: matches } = useQuery<MatchData[]>({
-    queryKey: ["/api/player/me/matches"],
-  });
-
-  const { data: vacationData } = useQuery<VacationData>({
-    queryKey: ["/api/player/me/vacation"],
-  });
-
-  const { data: profileData } = useQuery<ProfileMeData>({
-    queryKey: ["/api/player/me"],
-  });
-
-  // V2 wallet for the balance chip — single canonical source so this stat
-  // matches the Credit Store total exactly. Do NOT fall back to the legacy
-  // /credits-summary endpoint here: it reads credit_lots (active lots only),
-  // which silently disagrees with the V2 ledger when lots are depleted,
-  // expired, non-'active', or when there is debt.
-  const { data: v2Wallet } = useQuery<V2WalletData>({
-    queryKey: [`/api/v2/credits/wallet/${playerId ?? ""}`],
-    enabled: !!playerId,
-  });
-
-  // Player payments (used by Payments + History tabs and pending badge).
-  const { data: paymentsData } = useQuery<{ payments: PlayerPayment[] }>({
-    queryKey: [`/api/parent/payments/${playerId ?? ""}`],
-    enabled: !!playerId,
-    refetchInterval: (query) => {
-      const list = query.state.data?.payments || [];
-      return list.some((p) => p.status === "pending") ? 15_000 : false;
+  const {
+    data: scheduleGodData,
+    isError: scheduleGodIsError,
+    refetch: refetchScheduleGod,
+  } = useQuery<ScheduleGodResponse>({
+    queryKey: ["/api/player/me/schedule-data"],
+    enabled: !isGuest,
+    // Short staleTime — payments + notifications need to surface fresh
+    // pending-payment confirmations promptly. Background refetch on
+    // remount keeps the UI close to live without polling.
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const url = new URL("/api/player/me/schedule-data", getApiUrl());
+      const r = await apiRequest("GET", url.toString());
+      return r.json();
     },
   });
+
+  // Derived aliases — keep the original names so the rest of the
+  // ~3000-line render body needs zero changes.
+  const rawSessions = scheduleGodData?.sessions ?? undefined;
+  const sessionsLoading = !scheduleGodData && !scheduleGodIsError;
+  const sessionsError = scheduleGodIsError ? new Error("schedule-data failed") : null;
+  const courtBookings = scheduleGodData?.courtBookings ?? undefined;
+  const matches = scheduleGodData?.matches ?? undefined;
+  const vacationData = scheduleGodData?.vacation ?? undefined;
+  const profileData = scheduleGodData?.profile ?? undefined;
+  const v2Wallet = scheduleGodData?.v2Wallet ?? undefined;
+  const paymentsData = scheduleGodData?.payments ?? undefined;
   const playerPayments = paymentsData?.payments || [];
+  const notificationsData = scheduleGodData?.notifications ?? undefined;
+  const academyPaymentInfo = scheduleGodData?.academyPaymentInfo ?? undefined;
 
-  // Player notifications — used to surface payment confirm/reject activity in History.
-  const { data: notificationsData } = useQuery<
-    {
-      id: string;
-      title: string | null;
-      body: string | null;
-      type: string;
-      data: Record<string, unknown> | null;
-      createdAt: string;
-      read: boolean;
-    }[]
-  >({
-    queryKey: ["/api/player/me/notifications"],
-    enabled: !!playerId,
-    refetchInterval: () => {
-      const list = paymentsData?.payments || [];
-      return list.some((p) => p.status === "pending") ? 15_000 : false;
-    },
-  });
+  // Prime each legacy queryKey so downstream components and any
+  // cross-screen consumer hits cache instead of triggering a fresh
+  // request. Mirrors PlayScreen's pattern.
+  useEffect(() => {
+    if (!scheduleGodData) return;
+    const setIfPresent = <T,>(key: unknown[], value: T | null | undefined) => {
+      if (value !== undefined && value !== null) {
+        queryClient.setQueryData(key, value);
+      }
+    };
+    setIfPresent(["/api/player/me/sessions"], scheduleGodData.sessions);
+    setIfPresent(["/api/player/me/court-bookings"], scheduleGodData.courtBookings);
+    setIfPresent(["/api/player/me/matches"], scheduleGodData.matches);
+    setIfPresent(["/api/player/me/vacation"], scheduleGodData.vacation);
+    setIfPresent(["/api/player/me"], scheduleGodData.profile);
+    setIfPresent(["/api/player/me/notifications"], scheduleGodData.notifications);
+    setIfPresent(["/api/player/me/calendar-token"], scheduleGodData.calendarToken);
+    if (scheduleGodData._keys?.v2Wallet) {
+      setIfPresent([scheduleGodData._keys.v2Wallet], scheduleGodData.v2Wallet);
+    }
+    if (scheduleGodData._keys?.payments) {
+      setIfPresent([scheduleGodData._keys.payments], scheduleGodData.payments);
+    }
+    if (scheduleGodData._keys?.academyPaymentInfo) {
+      setIfPresent(
+        [scheduleGodData._keys.academyPaymentInfo],
+        scheduleGodData.academyPaymentInfo,
+      );
+    }
+  }, [scheduleGodData, queryClient]);
 
-  // Academy payment info (bank details + accepted methods) — drives Log payment sheet.
-  const { data: academyPaymentInfo } = useQuery<AcademyPaymentInfo>({
-    queryKey: [`/api/parent/academy-payment-info/${playerId ?? ""}`],
-    enabled: !!playerId,
-  });
+  // Pending-payment polling. Used to live as a `refetchInterval` on the
+  // payments useQuery; collapsed into a setInterval that re-fetches the
+  // god-data so payments AND notifications refresh together (they were
+  // polling on the same cadence anyway). Disabled when no pending row.
+  useEffect(() => {
+    const hasPending = playerPayments.some((p) => p.status === "pending");
+    if (!hasPending || isGuest) return;
+    const handle = setInterval(() => {
+      refetchScheduleGod();
+    }, 15_000);
+    return () => clearInterval(handle);
+  }, [playerPayments, isGuest, refetchScheduleGod]);
 
   const lessonBalance: number = (() => {
     const b = v2Wallet?.balance;
@@ -1028,12 +1075,12 @@ export default function PlayerScheduleScreen() {
   };
 
   // ---------------------------------------------------------------------------
-  // Calendar subscribe
+  // Calendar subscribe — token now arrives via the schedule god-payload
+  // (Task #1387). The legacy queryKey is also primed, so any other
+  // surface that reads `["/api/player/me/calendar-token"]` still hits
+  // cache without fan-out.
   // ---------------------------------------------------------------------------
-  const { data: icsTokenData } = useQuery<{ token: string }>({
-    queryKey: ["/api/player/me/calendar-token"],
-    enabled: !!playerId,
-  });
+  const icsTokenData = scheduleGodData?.calendarToken ?? undefined;
   const getIcsUrl = (): string | null => {
     if (!playerId || !icsTokenData?.token) return null;
     const base = getApiUrl();
@@ -1116,11 +1163,42 @@ export default function PlayerScheduleScreen() {
     return <GuestState onSignIn={logout} />;
   }
 
-  if (sessionsError) {
+  // Task #1387 — recoverable retry card.
+  //   * `sessionsError` covers HTTP/network failure (useQuery isError).
+  //   * `criticalBranchMissing` covers the case where the god-route
+  //     returned 200 but the *critical* `sessions` branch silently
+  //     failed server-side (the per-branch try/catch swallows it and
+  //     puts the queryKey into `_errors`). Without this guard the
+  //     screen would render an empty-success state with no way to
+  //     recover. Mirrors the PlayerProgressScreen pattern from #1383.
+  const criticalBranchMissing = !!(
+    scheduleGodData && !Array.isArray(scheduleGodData.sessions)
+  );
+  if (sessionsError || criticalBranchMissing) {
+    // Without the retry button a failed god-query (network blip,
+    // server 500, OTA-shipped-before-backend-republish gap, or a
+    // critical-branch DB hiccup) would leave the screen in a dead
+    // state forever.
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <Feather name="alert-circle" size={48} color={ProTennisColors.error} />
         <Text style={styles.errorText}>{t("player.schedule.unableToLoadSchedule")}</Text>
+        <Pressable
+          onPress={() => refetchScheduleGod()}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.retry") as string}
+          style={{
+            marginTop: Spacing.lg,
+            paddingHorizontal: Spacing.xl,
+            paddingVertical: Spacing.md,
+            backgroundColor: GlowColors.primary,
+            borderRadius: BorderRadius.md,
+          }}
+        >
+          <Text style={{ color: Colors.dark.buttonText, fontWeight: "600" }}>
+            {t("common.retry")}
+          </Text>
+        </Pressable>
       </View>
     );
   }

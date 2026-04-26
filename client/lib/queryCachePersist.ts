@@ -85,13 +85,29 @@ function isTrackedGodKey(queryKey: QueryKey): boolean {
 // ---------------------------------------------------------------------------
 // Hydration — run once during boot, before the navigator mounts.
 // ---------------------------------------------------------------------------
+//
+// Cancellation: AuthContext fires `hydrateGodCache(...).catch(...)` without
+// awaiting it (we want navigation to mount in parallel with disk I/O).
+// That means a fast logout (handleUnauthorized → clearGodCache → next
+// login) could land between hydrate's `await getItem` and its first
+// `setQueryData`, and the in-flight hydrate would happily seed the
+// fresh queryClient with the previous player's payload — re-introducing
+// the cache-bleed we just cleared. To kill that race we keep an
+// `activeHydrationToken`: every `clearGodCache()` (and every new
+// `hydrateGodCache` call) bumps it, and the hydrate loop checks the
+// token before EACH `setQueryData` call. If it changed, we abort.
+let activeHydrationToken = 0;
+
 export async function hydrateGodCache(
   queryClient: QueryClient,
   playerId: string,
 ): Promise<number> {
   if (!playerId) return 0;
+  activeHydrationToken += 1;
+  const myToken = activeHydrationToken;
   try {
     const raw = await AsyncStorage.getItem(storageKeyForPlayer(playerId));
+    if (myToken !== activeHydrationToken) return 0;
     if (!raw) return 0;
     let snapshot: PersistedSnapshot;
     try {
@@ -106,6 +122,15 @@ export async function hydrateGodCache(
     }
     let count = 0;
     for (const entry of snapshot.entries) {
+      // Bail immediately if a clear/logout/switch happened mid-loop.
+      if (myToken !== activeHydrationToken) {
+        if (__DEV__) {
+          console.log(
+            "[queryCachePersist] Hydration cancelled — auth changed mid-flight",
+          );
+        }
+        return count;
+      }
       if (!entry || !Array.isArray(entry.queryKey)) continue;
       if (!isTrackedGodKey(entry.queryKey)) continue;
       // Seed the cache with the persisted payload.
@@ -252,6 +277,11 @@ export function stopGodCachePersistence(): void {
 // Cleanup — logout, account switch, version bump.
 // ---------------------------------------------------------------------------
 export async function clearGodCache(playerId?: string): Promise<void> {
+  // Cancel any in-flight `hydrateGodCache(...)` so it cannot finish
+  // its loop and re-seed react-query with the previous player's
+  // payload after we've nuked the disk copy. See the long comment
+  // above `hydrateGodCache` for the race this defends against.
+  activeHydrationToken += 1;
   // Always flush any pending write for the previously-tracked player
   // before we tear down — otherwise a debounced write could land in
   // disk AFTER we delete its key and resurrect a stale snapshot.

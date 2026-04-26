@@ -47,6 +47,7 @@ export default defineConfig({
     include: [
       'server/tests/**/*.test.ts',
       'client/components/__tests__/**/*.test.tsx',
+      'client/lib/__tests__/**/*.test.ts',
     ],
     testTimeout: 30000,
   },

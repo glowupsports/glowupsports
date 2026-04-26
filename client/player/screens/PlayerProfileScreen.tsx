@@ -428,32 +428,19 @@ export default function PlayerProfileScreen() {
   const [showPlayStyleModal, setShowPlayStyleModal] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error, refetch } = useQuery<ProfileData>({
-    queryKey: ["/api/player/me/profile"],
-    enabled: !isGuest,
-  });
-
-  const { data: groupsData } = useQuery<{ myGroups: GroupData[]; discover: GroupData[] }>({
-    queryKey: ["/api/player/groups"],
-    enabled: !!data?.player,
-  });
-
-  const { data: connectionsData } = useQuery<ConnectionsResponse>({
-    queryKey: ["/api/player/connections"],
-    enabled: !!data?.player,
-  });
-
+  // ---------------------------------------------------------------------------
+  // Data queries — god-endpoint pattern (Task #1387)
+  //
+  // The Profile tab used to fan ELEVEN parallel queries on mount.
+  // We collapse to ONE call and derive every legacy variable name
+  // from the response so the rest of this 2700-line file is unchanged.
+  // ---------------------------------------------------------------------------
   interface DashboardCredits {
     total: number;
     group: number;
     private: number;
     semi_private: number;
   }
-  const { data: dashboardData } = useQuery<{ credits?: DashboardCredits }>({
-    queryKey: ["/api/player/me/dashboard"],
-    enabled: !!data?.player,
-  });
-
   interface V2LedgerEntry {
     id: string;
     type: string;
@@ -469,10 +456,59 @@ export default function PlayerProfileScreen() {
     activeLots: { id: string; type: string; qty_remaining: number; expires_at: string | null }[];
     recentLedger?: V2LedgerEntry[];
   }
-  const { data: v2Wallet } = useQuery<V2WalletData>({
-    queryKey: [`/api/v2/credits/wallet/${data?.player?.id ?? ""}`],
-    enabled: !!data?.player?.id,
+  interface ProfileGodResponse {
+    profile: ProfileData | null;
+    groups: { myGroups: GroupData[]; discover: GroupData[] } | null;
+    connections: ConnectionsResponse | null;
+    dashboard: { credits?: DashboardCredits } | null;
+    v2Wallet: V2WalletData | null;
+    activeLiveMatch: {
+      matches?: {
+        id: string;
+        sport: string;
+        status: string;
+        creatorId: string;
+        opponentIds: string[];
+      }[];
+    } | null;
+    badges: BadgeData[] | null;
+    titles: TitleData[] | null;
+    playerOfWeek: {
+      awards: { scope: string; scopeId: string; weekStart: string; xp: number }[];
+    } | null;
+    vacation: {
+      activeVacation?: { id: string; startDate: string; endDate: string };
+      upcomingVacation?: { id: string; startDate: string; endDate: string };
+    } | null;
+    _keys: { v2Wallet: string; playerOfWeek: string };
+  }
+
+  const {
+    data: profileGodData,
+    isLoading: profileGodIsLoading,
+    isError: profileGodIsError,
+    refetch: refetchProfileGod,
+  } = useQuery<ProfileGodResponse>({
+    queryKey: ["/api/player/me/profile-data"],
+    enabled: !isGuest,
+    staleTime: 60 * 1000,
+    queryFn: async () => {
+      const url = new URL("/api/player/me/profile-data", getApiUrl());
+      const r = await apiRequest("GET", url.toString());
+      return r.json();
+    },
   });
+
+  // Derived aliases — preserve every variable name the render body
+  // already uses so the change set stays minimal.
+  const data = profileGodData?.profile ?? undefined;
+  const isLoading = profileGodIsLoading;
+  const error = profileGodIsError ? new Error("profile-data failed") : null;
+  const refetch = refetchProfileGod;
+  const groupsData = profileGodData?.groups ?? undefined;
+  const connectionsData = profileGodData?.connections ?? undefined;
+  const dashboardData = profileGodData?.dashboard ?? undefined;
+  const v2Wallet = profileGodData?.v2Wallet ?? undefined;
   const v2Enabled = v2Wallet?.v2Enabled === true;
   const v2Total = v2Enabled
     ? (v2Wallet!.balance.group || 0) +
@@ -488,6 +524,11 @@ export default function PlayerProfileScreen() {
     ? (v2Wallet?.recentLedger ?? []).slice(0, 5)
     : [];
 
+  // Live-match polling lives outside the god-query because it needs a
+  // 10s cadence (the in-progress match scoreboard chip). We seed it
+  // from the god-payload via the priming useEffect below so cold-start
+  // shows a value immediately, then this useQuery takes over the
+  // periodic refresh.
   const { data: activeLiveMatch } = useQuery<{ matches?: { id: string; sport: string; status: string; creatorId: string; opponentIds: string[] }[] }>({
     queryKey: ["/api/live-scoring/player/me/active"],
     enabled: !!data?.player,
@@ -495,36 +536,49 @@ export default function PlayerProfileScreen() {
     staleTime: 8000,
   });
 
-  const { data: badgesData } = useQuery<BadgeData[]>({
-    queryKey: ["/api/player/badges"],
-    enabled: !!data?.player,
-  });
-
-  const { data: titlesData } = useQuery<TitleData[]>({
-    queryKey: ["/api/player/titles"],
-    enabled: !!data?.player,
-  });
-
-  const { data: powData } = useQuery<{
-    awards: { scope: string; scopeId: string; weekStart: string; xp: number }[];
-  }>({
-    queryKey: [`/api/leaderboards/player-of-week/by-player/${data?.player?.id}`],
-    enabled: !!data?.player?.id,
-    staleTime: 5 * 60_000,
-  });
+  const badgesData = profileGodData?.badges ?? undefined;
+  const titlesData = profileGodData?.titles ?? undefined;
+  const powData = profileGodData?.playerOfWeek ?? undefined;
   const latestPowAward = powData?.awards?.[0] ?? null;
 
   const equippedTitle = titlesData?.find(t => t.isEquipped);
   const earnedBadges = badgesData || [];
   const unlockedTitles = titlesData || [];
 
-  const { data: vacationData } = useQuery<{
-    activeVacation?: { id: string; startDate: string; endDate: string };
-    upcomingVacation?: { id: string; startDate: string; endDate: string };
-  }>({
-    queryKey: ["/api/player/me/vacation"],
-    enabled: !isGuest,
-  });
+  const vacationData = profileGodData?.vacation ?? undefined;
+
+  // Prime each legacy queryKey so downstream consumers (PlayerOfWeekChip,
+  // BadgeStrip, TitleStrip, holiday banners, child Family screens) hit
+  // cache instead of issuing their own request. The activeLiveMatch
+  // useQuery is also seeded so its first render shows live data.
+  useEffect(() => {
+    if (!profileGodData) return;
+    const setIfPresent = <T,>(key: unknown[], value: T | null | undefined) => {
+      if (value !== undefined && value !== null) {
+        queryClient.setQueryData(key, value);
+      }
+    };
+    setIfPresent(["/api/player/me/profile"], profileGodData.profile);
+    setIfPresent(["/api/player/groups"], profileGodData.groups);
+    setIfPresent(["/api/player/connections"], profileGodData.connections);
+    setIfPresent(["/api/player/me/dashboard"], profileGodData.dashboard);
+    setIfPresent(["/api/player/badges"], profileGodData.badges);
+    setIfPresent(["/api/player/titles"], profileGodData.titles);
+    setIfPresent(["/api/player/me/vacation"], profileGodData.vacation);
+    setIfPresent(
+      ["/api/live-scoring/player/me/active"],
+      profileGodData.activeLiveMatch,
+    );
+    if (profileGodData._keys?.v2Wallet) {
+      setIfPresent([profileGodData._keys.v2Wallet], profileGodData.v2Wallet);
+    }
+    if (profileGodData._keys?.playerOfWeek) {
+      setIfPresent(
+        [profileGodData._keys.playerOfWeek],
+        profileGodData.playerOfWeek,
+      );
+    }
+  }, [profileGodData, queryClient]);
 
   const holidaysSubtitle = useMemo(() => {
     const fmt = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -540,6 +594,10 @@ export default function PlayerProfileScreen() {
     return t("player.profile.holidays.subtitleNone");
   }, [vacationData, t]);
 
+  // Task #1387 — every Profile mutation must invalidate the god-key
+  // alongside the legacy keys. Otherwise an in-screen edit (open-to-play
+  // toggle, play-style change, title equip) would leave the screen
+  // showing the pre-edit god-payload until the next remount.
   const equipTitle = useMutation({
     mutationFn: async (titleId: string) => {
       return apiRequest("POST", `/api/player/titles/${titleId}/equip`);
@@ -547,6 +605,7 @@ export default function PlayerProfileScreen() {
     onSuccess: () => {
       track("collection:equip_title");
       queryClient.invalidateQueries({ queryKey: ["/api/player/titles"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile-data"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowTitlesModal(false);
     },
@@ -558,6 +617,7 @@ export default function PlayerProfileScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile-data"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
@@ -568,6 +628,7 @@ export default function PlayerProfileScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile-data"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowPlayStyleModal(false);
     },
@@ -582,6 +643,7 @@ export default function PlayerProfileScreen() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile-data"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: () => {
@@ -659,6 +721,9 @@ export default function PlayerProfileScreen() {
 
       await queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      // Task #1387 — also bust the god-key so the new avatar shows up
+      // immediately in the same render cycle.
+      await queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile-data"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Success", "Profile photo updated!");
     } catch (error: unknown) {

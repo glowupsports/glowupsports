@@ -941,6 +941,13 @@ export function LogPaymentSheet({
       await queryClient.invalidateQueries({
         queryKey: [`/api/parent/payments/${playerId}`],
       });
+      // Task #1387 — also invalidate the Schedule god-key, otherwise
+      // the parent screen (PlayerScheduleScreen) keeps rendering its
+      // stale fan-out result and the new "pending payment" pill
+      // doesn't appear until next remount.
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/player/me/schedule-data"],
+      });
       reset();
       onClose();
       Alert.alert(

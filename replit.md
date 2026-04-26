@@ -1,7 +1,7 @@
 # Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-Glow Up Sports is a comprehensive multi-academy SaaS platform designed for Tennis Coaches and Players. Its primary purpose is to streamline academy administration, monitor player progress, and elevate both coaching and playing experiences. Key capabilities include gamification, detailed progress tracking, and efficient resource management. The platform features specialized applications tailored for Platform Owners, Academy Owners, Coaches, and Players, aiming to revolutionize tennis academy operations and significantly boost player engagement.
+Glow Up Sports is a multi-academy SaaS platform for Tennis Coaches and Players, designed to streamline academy administration, monitor player progress, and enhance coaching and playing experiences. The platform aims to revolutionize tennis academy operations and significantly boost player engagement through gamification, detailed progress tracking, and efficient resource management. It features specialized applications tailored for Platform Owners, Academy Owners, Coaches, and Players.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -71,15 +71,16 @@ The platform features a dark-themed premium sports aesthetic with Neon Green, Wh
 - **Backend**: Express.js server with TypeScript, providing RESTful API endpoints.
 - **Data Storage**: Client-side `AsyncStorage`; Drizzle ORM with Supabase PostgreSQL server-side.
 - **Build System**: Concurrent Expo and Express servers; static Expo web build served by Express; Drizzle Kit for PostgreSQL migrations.
-- **API Caching**: In-memory caching with TTLs and pattern-based invalidation, including god-endpoints for player home, progress, and play data to optimize initial load times.
+- **API Caching**: In-memory caching with TTLs and pattern-based invalidation, including god-endpoints for player home, progress, play, schedule, and profile data.
+- **Persisted Query Cache**: The five Player-tab god-keys are persisted to `AsyncStorage` for stale-while-revalidate behavior on cold starts.
 - **Authentication**: Automatic client-side token refresh via `refreshAuthMiddleware`.
 - **Internationalization**: `i18next` and `react-i18next` for English, Arabic (RTL), Indonesian.
 - **Timezone Handling**: Academy-specific IANA timezones managed client-side and server-side using `AT TIME ZONE` in PostgreSQL.
-- **Credit System**: Manages proportional credit charging, notifications, and absent players, with a V2 ledger for integrity.
+- **Credit System**: Manages proportional credit charging, notifications, and absent players, with a V2 ledger.
 - **Gamification & Rating Systems**: "Glow Leveling OS" (12 skill certification levels), "Adult Glow DSS Rating System" (ELO-based MMR), and a 50-level XP Engine.
 - **Player Assessment**: "Start Baseline System" and "Skill Evidence Capture" via 10-second video recordings.
 - **Session & Match Management**: Lesson templates, session planning, match logging, and "Match Challenge System."
-- **Session Player Integrity**: Three-layer protection (`processAutoAttendance`, `repairMissingSessionPlayers`, Series Auto-Heal) for `session_player` records.
+- **Session Player Integrity**: Three-layer protection for `session_player` records.
 - **Player Onboarding**: A 17-step process adaptable to age, skill, goals, and academy selection.
 - **User Onboarding & Guidance**: Checklists, welcome modals, help centers, quick tips, and dashboard progress tracking.
 - **Role-Specific Applications**: Dedicated apps for Coaches, Players, Platform Owners, and Service Providers.
