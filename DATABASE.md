@@ -161,7 +161,15 @@ disagrees with prod, not just the code).
    `information_schema.columns` in Supabase. It fails with a readable diff
    the moment the two diverge. The test is *skipped* (not failed) when
    `SUPABASE_DATABASE_URL` is not set, so it stays green in environments
-   without the secret.
+   without the secret. The same file also runs a sibling **type & nullability
+   drift** check (Task #1352) that compares each Drizzle column's SQL type
+   and `.notNull()` flag against `information_schema.data_type` /
+   `is_nullable`. New type or nullability drift fails CI; pre-existing drift
+   captured at the time the guard was introduced is documented in a
+   `KNOWN_TYPE_DRIFT` allowlist inside the test file. Do not extend that
+   allowlist for new drift — fix the underlying mismatch instead. The
+   allowlist is itself self-policing: a sibling assertion fails if any
+   listed entry is no longer drifting, so stale exemptions get removed.
 4. The banner at the top of `shared/schema.ts` says the same thing, on the
    file you'd otherwise be tempted to trust.
 
