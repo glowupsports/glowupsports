@@ -46,6 +46,10 @@ type CreateMatchRouteParams = {
   CreateMatch: {
     opponentId?: string;
     opponentName?: string;
+    // Task #1362 — Play sheet's "Post an open match" shortcut deep-links here
+    // with the partner option pre-selected so the user doesn't have to
+    // re-answer "Leave open or invite a friend?".
+    presetPartnerOption?: "find" | "select";
   };
 };
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -84,6 +88,11 @@ export default function CreateMatchScreen() {
     name: route.params.opponentName || "Opponent",
   } : null;
 
+  // Task #1362 — Play sheet's "Post an open match" shortcut deep-links here
+  // with `presetPartnerOption: "find"`. We honour it on first render so the
+  // partner step is preselected to "Leave open for anyone".
+  const presetPartnerOption = route.params?.presetPartnerOption ?? null;
+
   // Wizard state - start at "type" normally, or skip to singles if opponent pre-selected
   const [currentStep, setCurrentStep] = useState<Step>(preSelectedOpponent ? "type" : "type");
   const [matchType, setMatchType] = useState<MatchType | null>(preSelectedOpponent ? "singles" : null);
@@ -100,7 +109,9 @@ export default function CreateMatchScreen() {
   // partnerOption controls how the open match is filled:
   //   "find"   → leave the remaining slots open for any matching player
   //   "select" → invite one specific friend (creates a pending_invite open match)
-  const [partnerOption, setPartnerOption] = useState<"find" | "select" | null>(preSelectedOpponent ? "select" : null);
+  const [partnerOption, setPartnerOption] = useState<"find" | "select" | null>(
+    preSelectedOpponent ? "select" : presetPartnerOption,
+  );
   const [createdMatchId, setCreatedMatchId] = useState<string | null>(null);
   const [courtBooking, setCourtBooking] = useState<CourtBookingValue>({ status: null, note: "", url: "" });
 

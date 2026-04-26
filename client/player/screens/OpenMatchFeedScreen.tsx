@@ -40,6 +40,7 @@ import { getSportLabel, getSportIcon, getSportColor } from "@/player/context/Spo
 import { MatchSummaryCard, COMPETE_ACCENT } from "@/player/components/MatchSummaryCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useTranslation } from "react-i18next";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OpenMatch {
@@ -81,6 +82,10 @@ interface OpenMatch {
     name: string;
     photoUrl?: string;
   }[];
+  invitedPlayerId?: string | null;
+  invitedPlayerName?: string | null;
+  linkedChallengeId?: string | null;
+  priorityUntil?: string | null;
 }
 
 type FilterType = "all" | "singles" | "doubles";
@@ -479,6 +484,7 @@ function EmptyState({ onCreateMatch }: { onCreateMatch: () => void }) {
 
 export default function OpenMatchFeedScreen() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -548,6 +554,50 @@ export default function OpenMatchFeedScreen() {
     navigation.navigate("CreateMatch");
   };
 
+  // Task #1362 — when an open match is the public twin of a direct
+  // challenge, the invited opponent has a priority window (24h or until
+  // the match starts, whichever is first). Other players can still claim
+  // the slot, but we surface a confirm dialog so they understand they're
+  // overriding the host's preferred opponent.
+  const handleJoinWithPriorityCheck = (item: OpenMatch) => {
+    const myPlayerId = user?.playerId;
+    const invitedId = item.invitedPlayerId;
+    const priorityUntilRaw = item.priorityUntil;
+    const invitedName = item.invitedPlayerName;
+
+    const withinPriorityWindow = (() => {
+      if (!priorityUntilRaw) return false;
+      const t = new Date(priorityUntilRaw).getTime();
+      if (Number.isNaN(t)) return false;
+      return t > Date.now();
+    })();
+
+    const shouldConfirm =
+      withinPriorityWindow &&
+      !!invitedId &&
+      myPlayerId !== invitedId;
+
+    if (!shouldConfirm) {
+      joinMutation.mutate(item.id);
+      return;
+    }
+
+    Alert.alert(
+      t("player.play.priorityTitle"),
+      invitedName
+        ? t("player.play.priorityMessage", { name: invitedName })
+        : t("player.play.priorityMessageGeneric"),
+      [
+        { text: t("player.play.priorityCancel"), style: "cancel" },
+        {
+          text: t("player.play.claimAnyway"),
+          style: "destructive",
+          onPress: () => joinMutation.mutate(item.id),
+        },
+      ],
+    );
+  };
+
   const renderMatch = ({ item, index }: { item: OpenMatch; index: number }) => {
     const isHost = user?.playerId === item.hostPlayerId;
     return (
@@ -569,7 +619,9 @@ export default function OpenMatchFeedScreen() {
           xpBonus={item.xpBonus}
           isHost={isHost}
           joining={joiningMatchId === item.id}
-          onJoin={() => joinMutation.mutate(item.id)}
+          invitedPlayerName={item.invitedPlayerName ?? undefined}
+          priorityUntil={item.priorityUntil ?? undefined}
+          onJoin={() => handleJoinWithPriorityCheck(item)}
           onManage={() => navigation.navigate("ManageMatch", { matchId: item.id })}
           onPress={() => {
             if (isHost) {

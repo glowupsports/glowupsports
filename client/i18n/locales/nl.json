@@ -272,7 +272,22 @@
       "tourManageBookings": "Manage Bookings",
       "tourManageBookingsDesc": "Check your invites and set your play preferences here.",
       "tourBrowseOptions": "Browse Options",
-      "tourBrowseOptionsDesc": "Switch between group lessons and discovering players near you."
+      "tourBrowseOptionsDesc": "Switch between group lessons and discovering players near you.",
+      "challengePlayer": "Daag een speler uit",
+      "challengePlayerDesc": "Stuur een directe wedstrijduitnodiging naar een speler die jij kiest.",
+      "postOpenMatch": "Plaats een open wedstrijd",
+      "postOpenMatchDesc": "Plaats een plek die iedereen in de buurt kan claimen.",
+      "findGame": "Vind een wedstrijd",
+      "findGameDesc": "Bekijk open wedstrijden die nog een speler nodig hebben.",
+      "alsoListPublicly": "Ook plaatsen als open wedstrijd",
+      "alsoListPubliclyHint": "Als je vriend(in) niet op tijd accepteert, kunnen anderen de plek claimen.",
+      "invitedChip": "Uitgenodigd: {{name}}",
+      "inviteExpired": "Uitnodiging verlopen — open voor iedereen",
+      "priorityTitle": "Uitgenodigde speler heeft voorrang",
+      "priorityMessage": "{{name}} is uitgedaagd door de host en heeft de komende uren voorrang op deze plek. Toch claimen?",
+      "priorityMessageGeneric": "Een uitgenodigde speler is uitgedaagd door de host en heeft de komende uren voorrang op deze plek. Toch claimen?",
+      "priorityCancel": "Annuleren",
+      "claimAnyway": "Plek claimen"
     },
     "home": {
       "welcomeBack": "Welcome back",

@@ -26,7 +26,7 @@
 // ============================================================================
 
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, uniqueIndex, unique, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, numeric, boolean, date, jsonb, json, index, uniqueIndex, unique, doublePrecision, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -915,6 +915,18 @@ export const openMatches = pgTable("open_matches", {
 
   // Direct invite (when host targets one specific friend)
   invitedPlayerId: varchar("invited_player_id").references(() => players.id),
+
+  // Task #1362 — when this open match was published as the public twin of a
+  // direct challenge (ChallengeComposer "Also list as an open match" toggle),
+  // this column links back to the originating match_challenges row so the
+  // two records can be cross-cancelled (challenge accepted → close open
+  // match; open slot claimed → withdraw challenge as
+  // `withdrawn_open_filled`). Null for plain open matches that have no
+  // direct challenge counterpart.
+  linkedChallengeId: varchar("linked_challenge_id").references(
+    (): AnyPgColumn => matchChallenges.id,
+    { onDelete: "set null" },
+  ),
 
   // Visibility
   visibility: text("visibility").default("academy"), // public | academy | friends_only

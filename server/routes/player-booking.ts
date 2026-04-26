@@ -8399,6 +8399,9 @@ router.get(
 
       // Query from open_matches table (single source of truth — same table
       // /join, /leave, /invite, /kick write to).
+      // Task #1362 — also surface invitedPlayerId + linkedChallengeId so
+      // the feed can render the "Invited: <Name>" chip and apply the
+      // priority-window confirm dialog before someone bumps the invitee.
       const rows = await db
         .select({
           id: openMatches.id,
@@ -8417,6 +8420,8 @@ router.get(
           currentPlayers: openMatches.currentPlayers,
           status: openMatches.status,
           createdAt: openMatches.createdAt,
+          invitedPlayerId: openMatches.invitedPlayerId,
+          linkedChallengeId: openMatches.linkedChallengeId,
           playerName: players.name,
           hostBallLevel: players.ballLevel,
           playerAvatar: players.profilePhotoUrl,
@@ -8586,6 +8591,27 @@ router.get(
         ...adjacentMatches.map((m) => ({ m, levelMatch: "adjacent" as const })),
       ];
 
+      // Task #1362 — bulk-fetch invitee display names so the feed can render
+      // an "Invited: <Name>" chip on linked-challenge open matches without
+      // an extra round-trip per row.
+      const invitedIds = Array.from(
+        new Set(
+          ordered
+            .map((o) => o.m.invitedPlayerId)
+            .filter((v): v is string => Boolean(v)),
+        ),
+      );
+      const invitedNameById = new Map<string, string>();
+      if (invitedIds.length > 0) {
+        const inviteeRows = await db
+          .select({ id: players.id, name: players.name })
+          .from(players)
+          .where(inArray(players.id, invitedIds));
+        for (const r of inviteeRows) {
+          invitedNameById.set(r.id, r.name || "");
+        }
+      }
+
       // Transform to format expected by frontend
       const transformedMatches = ordered.map(({ m, levelMatch }) => {
         let scheduledTime: string | null = null;
@@ -8655,6 +8681,28 @@ router.get(
               photoUrl: m.playerAvatar,
             },
           ],
+          // Task #1362 — invited-player metadata + computed priority window.
+          // The window expires whichever comes first: 24h after creation, or
+          // the start of the match itself. Clients use this to decide
+          // whether to show the "Invited has priority" confirm dialog
+          // before another user claims the slot.
+          invitedPlayerId: m.invitedPlayerId,
+          invitedPlayerName: m.invitedPlayerId
+            ? invitedNameById.get(m.invitedPlayerId) || null
+            : null,
+          linkedChallengeId: m.linkedChallengeId,
+          priorityUntil: (() => {
+            if (!m.invitedPlayerId) return null;
+            const created = m.createdAt ? new Date(m.createdAt).getTime() : Date.now();
+            const priorityWindowMs = 24 * 60 * 60 * 1000;
+            const priorityEnd = created + priorityWindowMs;
+            const startMs = scheduledTime
+              ? new Date(scheduledTime).getTime()
+              : null;
+            const effective =
+              startMs && startMs < priorityEnd ? startMs : priorityEnd;
+            return new Date(effective).toISOString();
+          })(),
         };
       });
 
@@ -9030,15 +9078,25 @@ router.post(
     let hostAcademyId: string | null = null;
     let newCount = 0;
     let newStatus = "open";
+    // Task #1362 — track the linked challenge (if any) so the post-commit
+    // side-effects can notify the original invited player + challenger that
+    // the slot was claimed by someone else.
+    let withdrawnChallengeId: string | null = null;
+    let withdrawnChallengeChallengerId: string | null = null;
+    let withdrawnChallengeInvitedId: string | null = null;
 
     try {
       await client.query("BEGIN");
 
       // Lock the openMatches row for the duration of the transaction so
       // capacity checks and the slot insert see a consistent view.
+      // Task #1362 — also pull invited_player_id + linked_challenge_id so we
+      // can cross-cancel the originating direct challenge when a non-invited
+      // player claims the slot.
       const matchRes = await client.query(
         `SELECT id, host_player_id, academy_id, status,
-                current_players, max_players
+                current_players, max_players,
+                invited_player_id, linked_challenge_id
            FROM open_matches
           WHERE id = $1
           FOR UPDATE`,
@@ -9111,6 +9169,63 @@ router.post(
         [newCount, newStatus, matchId],
       );
 
+      // Task #1362 — Cross-cancel: if this open match was the public twin
+      // of a direct challenge AND the joining player is NOT the originally
+      // invited opponent, withdraw the direct challenge with status
+      // `withdrawn_open_filled` so the invited player isn't blocked by a
+      // pending challenge to a slot that's now full. Skip if the invited
+      // player themself joined (which shouldn't normally happen — they
+      // should accept the challenge instead — but is harmless).
+      if (
+        match.linked_challenge_id &&
+        match.invited_player_id &&
+        String(match.invited_player_id) !== String(playerId)
+      ) {
+        // Task #1362 — Acquire an explicit row lock on the linked
+        // challenge so a concurrent /respond accept either commits
+        // before us (we then see status='accepted' and abort) or blocks
+        // until we commit (it then sees the open_match cancelled by us
+        // and aborts itself). This is the symmetric counterpart to the
+        // open_match FOR UPDATE done by /respond — together they
+        // guarantee at most one of {accept, claim} ever finalizes.
+        const lockRes = await client.query(
+          `SELECT id, challenger_id, opponent_id, status
+             FROM match_challenges
+            WHERE id = $1
+            FOR UPDATE`,
+          [match.linked_challenge_id],
+        );
+        if (lockRes.rowCount && lockRes.rowCount > 0) {
+          const linkedChallenge = lockRes.rows[0];
+          if (linkedChallenge.status === "accepted") {
+            // Race lost: invited player already accepted. Abort the
+            // join so we never finalize both flows for the same slot.
+            await client.query("ROLLBACK");
+            client.release();
+            return res.status(409).json({
+              error:
+                "The invited player accepted the direct challenge first — this slot is no longer available.",
+            });
+          }
+          if (linkedChallenge.status === "pending") {
+            const updRes = await client.query(
+              `UPDATE match_challenges
+                  SET status = 'withdrawn_open_filled',
+                      updated_at = NOW()
+                WHERE id = $1
+                  AND status = 'pending'
+                RETURNING id, challenger_id, opponent_id`,
+              [match.linked_challenge_id],
+            );
+            if (updRes.rowCount && updRes.rowCount > 0) {
+              withdrawnChallengeId = updRes.rows[0].id;
+              withdrawnChallengeChallengerId = updRes.rows[0].challenger_id;
+              withdrawnChallengeInvitedId = updRes.rows[0].opponent_id;
+            }
+          }
+        }
+      }
+
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK").catch(() => {});
@@ -9135,6 +9250,52 @@ router.post(
         });
       }
       await emitOpenMatchUpdate(matchId, [], "join");
+
+      // Task #1362 — notify the original invited player + the challenger
+      // that the slot was claimed by someone else and the challenge was
+      // auto-withdrawn.
+      if (
+        withdrawnChallengeId &&
+        withdrawnChallengeInvitedId &&
+        withdrawnChallengeChallengerId
+      ) {
+        try {
+          await db.insert(playerNotifications).values({
+            playerId: withdrawnChallengeInvitedId,
+            title: "Slot was claimed",
+            body: "Someone else claimed the open match slot before you accepted the challenge.",
+            type: "match_challenge_withdrawn",
+            data: {
+              challengeId: withdrawnChallengeId,
+              reason: "withdrawn_open_filled",
+              matchId,
+            },
+          });
+        } catch (notifErr) {
+          console.error(
+            "[OpenMatch] failed to notify invited player about withdrawn challenge:",
+            notifErr,
+          );
+        }
+        try {
+          await db.insert(playerNotifications).values({
+            playerId: withdrawnChallengeChallengerId,
+            title: "Open match slot filled",
+            body: "Your open match was claimed by another player; the direct challenge was withdrawn.",
+            type: "match_challenge_withdrawn",
+            data: {
+              challengeId: withdrawnChallengeId,
+              reason: "withdrawn_open_filled",
+              matchId,
+            },
+          });
+        } catch (notifErr) {
+          console.error(
+            "[OpenMatch] failed to notify challenger about withdrawn challenge:",
+            notifErr,
+          );
+        }
+      }
     } catch (notifyErr) {
       console.error("[OpenMatch] post-join side-effect failed:", notifyErr);
     }

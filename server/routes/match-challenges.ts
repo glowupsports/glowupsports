@@ -1,6 +1,13 @@
 import { Router, Request, Response } from "express";
 import { db, pool } from "../db";
-import { matchChallenges, players, courts, playerNotifications } from "../../shared/schema";
+import {
+  matchChallenges,
+  players,
+  courts,
+  playerNotifications,
+  openMatches,
+  openMatchSlots,
+} from "../../shared/schema";
 import { eq, and, or, desc, sql } from "drizzle-orm";
 import { getPlayerPushTokens, sendPushNotification } from "../pushNotifications";
 
@@ -13,7 +20,26 @@ router.post("/", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "playerId is required" });
     }
 
-    const { opponentId, matchType, matchFormat, matchDate, matchTime, courtId, courtName, customLocation, message, courtBookingStatus, courtBookingNote, courtBookingUrl } = req.body;
+    const {
+      opponentId,
+      matchType,
+      matchFormat,
+      matchDate,
+      matchTime,
+      courtId,
+      courtName,
+      customLocation,
+      message,
+      courtBookingStatus,
+      courtBookingNote,
+      courtBookingUrl,
+      // Task #1362 — when true, also publish a linked open_match (with
+      // invitedPlayerId=opponentId) so the slot is discoverable by anyone
+      // in the same level. The opponent keeps priority for 24h or until
+      // match start; if the opponent accepts, the open match is closed; if
+      // someone else claims first, this challenge is auto-withdrawn.
+      alsoListPublicly,
+    } = req.body;
 
     if (!opponentId || !matchDate || !matchTime) {
       return res.status(400).json({ error: "opponentId, matchDate, and matchTime are required" });
@@ -32,28 +58,80 @@ router.post("/", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Challenger player not found" });
     }
 
-    const [challenge] = await db
-      .insert(matchChallenges)
-      .values({
-        challengerId,
-        opponentId,
-        academyId: challenger.academyId,
-        matchType: matchType || "singles",
-        matchFormat: matchFormat || "friendly",
-        matchDate,
-        matchTime,
-        courtId: courtId || null,
-        courtName: courtName || null,
-        customLocation: customLocation || null,
-        message: message || null,
-        status: "pending",
-        courtBookingStatus: courtBookingStatus || null,
-        courtBookingNote: courtBookingNote || null,
-        courtBookingUrl: courtBookingUrl || null,
-      })
-      .returning();
-
+    // Task #1362 — When `alsoListPublicly` is true the challenge AND its
+    // linked open_match (with host seat) MUST be created together — the
+    // whole point of the toggle is that an unanswered challenge falls back
+    // to a public slot. We wrap all three writes in a single transaction
+    // so a failed open-match insert rolls back the challenge too instead
+    // of leaving the user in a half-published state.
     const challengerName = challenger.name || "Someone";
+    let challenge: typeof matchChallenges.$inferSelect;
+    let linkedOpenMatchId: string | null = null;
+    try {
+      const result = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(matchChallenges)
+          .values({
+            challengerId,
+            opponentId,
+            academyId: challenger.academyId,
+            matchType: matchType || "singles",
+            matchFormat: matchFormat || "friendly",
+            matchDate,
+            matchTime,
+            courtId: courtId || null,
+            courtName: courtName || null,
+            customLocation: customLocation || null,
+            message: message || null,
+            status: "pending",
+            courtBookingStatus: courtBookingStatus || null,
+            courtBookingNote: courtBookingNote || null,
+            courtBookingUrl: courtBookingUrl || null,
+          })
+          .returning();
+
+        let openMatchId: string | null = null;
+        if (alsoListPublicly) {
+          const [opm] = await tx
+            .insert(openMatches)
+            .values({
+              hostPlayerId: challengerId,
+              academyId: challenger.academyId,
+              matchType: matchType || "singles",
+              matchIntent: matchFormat || "friendly",
+              title: `Challenge — looking to play ${matchType || "singles"} ${matchFormat || "friendly"}`,
+              description: message || null,
+              preferredDate: matchDate,
+              preferredTime: matchTime,
+              maxPlayers: (matchType || "singles") === "doubles" ? 4 : 2,
+              currentPlayers: 1,
+              status: "open",
+              invitedPlayerId: opponentId,
+              linkedChallengeId: created.id,
+              visibility: "academy",
+              courtBookingStatus: courtBookingStatus || null,
+              courtBookingNote: courtBookingNote || null,
+              courtBookingUrl: courtBookingUrl || null,
+            })
+            .returning();
+          openMatchId = opm.id;
+          await tx.insert(openMatchSlots).values({
+            matchId: opm.id,
+            playerId: challengerId,
+            role: "host",
+            status: "confirmed",
+          });
+        }
+        return { created, openMatchId };
+      });
+      challenge = result.created;
+      linkedOpenMatchId = result.openMatchId;
+    } catch (txErr) {
+      console.error("[MatchChallenge] Atomic challenge create failed:", txErr);
+      return res
+        .status(500)
+        .json({ error: "Failed to create challenge" });
+    }
 
     try {
       const tokens = await getPlayerPushTokens(opponentId);
@@ -78,7 +156,7 @@ router.post("/", async (req: Request, res: Response) => {
       console.error("Error sending challenge push notification:", pushErr);
     }
 
-    res.status(201).json(challenge);
+    res.status(201).json({ ...challenge, linkedOpenMatchId });
   } catch (error) {
     console.error("Error creating challenge:", error);
     res.status(500).json({ error: "Failed to create challenge" });
@@ -167,138 +245,266 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 router.post("/:id/respond", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { response } = req.body;
+
+  if (!response || !["accepted", "declined"].includes(response)) {
+    return res
+      .status(400)
+      .json({ error: "response must be 'accepted' or 'declined'" });
+  }
+
+  // Task #1362 — Cross-cancel safety: when accepting, the linked open
+  // match (and its row) must be locked in the same transaction so a
+  // concurrent /open-matches/:id/join can't finalize and end up with
+  // both flows committing. We use a raw client + SELECT ... FOR UPDATE
+  // on both the challenge and the linked open match.
+  type ChallengeLockRow = {
+    id: string;
+    challenger_id: string;
+    opponent_id: string;
+    status: string;
+  };
+  type LinkedOpenMatchRow = { id: string; status: string };
+  type MatchChallengeRow = typeof matchChallenges.$inferSelect;
+
+  const client = await pool.connect();
+  let challenge: ChallengeLockRow | null = null;
+  let updated: MatchChallengeRow | null = null;
   try {
-    const { id } = req.params;
-    const { response } = req.body;
+    await client.query("BEGIN");
 
-    if (!response || !["accepted", "declined"].includes(response)) {
-      return res.status(400).json({ error: "response must be 'accepted' or 'declined'" });
-    }
-
-    const [challenge] = await db
-      .select()
-      .from(matchChallenges)
-      .where(eq(matchChallenges.id, id));
-
-    if (!challenge) {
+    const challengeRes = await client.query<ChallengeLockRow>(
+      `SELECT id, challenger_id, opponent_id, status
+         FROM match_challenges
+        WHERE id = $1
+        FOR UPDATE`,
+      [id],
+    );
+    if (challengeRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      client.release();
       return res.status(404).json({ error: "Challenge not found" });
     }
+    challenge = challengeRes.rows[0];
 
-    const [updated] = await db
-      .update(matchChallenges)
-      .set({
-        status: response,
-        respondedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(matchChallenges.id, id))
-      .returning();
-
-    try {
-      const [opponent] = await db
-        .select()
-        .from(players)
-        .where(eq(players.id, challenge.opponentId));
-
-      const opponentName = opponent?.name || "Your opponent";
-      const title = response === "accepted" ? "Challenge Accepted!" : "Challenge Declined";
-      const body = response === "accepted"
-        ? `${opponentName} accepted your challenge! Game on!`
-        : `${opponentName} declined your challenge`;
-      const tokens = await getPlayerPushTokens(challenge.challengerId);
-      if (tokens.length > 0) {
-        await sendPushNotification(
-          tokens,
-          title,
-          body,
-          { type: "match_challenge_response", challengeId: id, response },
-          challenge.challengerId
-        );
-      } else {
-        await db.insert(playerNotifications).values({
-          playerId: challenge.challengerId,
-          title,
-          body,
-          type: "match_challenge_response",
-          data: { challengeId: id, response, opponentName },
-        });
-      }
-    } catch (pushErr) {
-      console.error("Error sending challenge response push notification:", pushErr);
+    if (challenge.status !== "pending") {
+      // Idempotent: surface a friendly conflict so the client can
+      // refetch and show the current state.
+      await client.query("ROLLBACK");
+      client.release();
+      return res
+        .status(409)
+        .json({ error: "Challenge is no longer pending", status: challenge.status });
     }
 
-    res.json(updated);
-  } catch (error) {
-    console.error("Error responding to challenge:", error);
-    res.status(500).json({ error: "Failed to respond to challenge" });
+    if (response === "accepted") {
+      // Lock the linked open_match row(s) too. If the slot was already
+      // claimed by another player (status != 'open'), refuse the accept
+      // so we never finalize both flows for the same slot.
+      const linkedRes = await client.query<LinkedOpenMatchRow>(
+        `SELECT id, status
+           FROM open_matches
+          WHERE linked_challenge_id = $1
+          FOR UPDATE`,
+        [id],
+      );
+      const blocking = linkedRes.rows.find(
+        (r) => r.status !== "open" && r.status !== "cancelled",
+      );
+      if (blocking) {
+        await client.query("ROLLBACK");
+        client.release();
+        return res.status(409).json({
+          error: "The linked open match was already claimed by another player",
+          openMatchStatus: blocking.status,
+        });
+      }
+      // Cancel any still-open linked twins.
+      if (linkedRes.rowCount && linkedRes.rowCount > 0) {
+        await client.query(
+          `UPDATE open_matches
+              SET status = 'cancelled', updated_at = NOW()
+            WHERE linked_challenge_id = $1
+              AND status = 'open'`,
+          [id],
+        );
+      }
+    }
+
+    const updateRes = await client.query(
+      `UPDATE match_challenges
+          SET status = $1,
+              responded_at = NOW(),
+              updated_at = NOW()
+        WHERE id = $2
+        RETURNING *`,
+      [response, id],
+    );
+    updated = updateRes.rows[0];
+
+    await client.query("COMMIT");
+  } catch (txErr) {
+    await client.query("ROLLBACK").catch(() => {});
+    client.release();
+    console.error("Error responding to challenge:", txErr);
+    return res.status(500).json({ error: "Failed to respond to challenge" });
   }
+  client.release();
+
+  try {
+    const [opponent] = await db
+      .select()
+      .from(players)
+      .where(eq(players.id, challenge.opponent_id));
+
+    const opponentName = opponent?.name || "Your opponent";
+    const title = response === "accepted" ? "Challenge Accepted!" : "Challenge Declined";
+    const body = response === "accepted"
+      ? `${opponentName} accepted your challenge! Game on!`
+      : `${opponentName} declined your challenge`;
+    const tokens = await getPlayerPushTokens(challenge.challenger_id);
+    if (tokens.length > 0) {
+      await sendPushNotification(
+        tokens,
+        title,
+        body,
+        { type: "match_challenge_response", challengeId: id, response },
+        challenge.challenger_id
+      );
+    } else {
+      await db.insert(playerNotifications).values({
+        playerId: challenge.challenger_id,
+        title,
+        body,
+        type: "match_challenge_response",
+        data: { challengeId: id, response, opponentName },
+      });
+    }
+  } catch (pushErr) {
+    console.error("Error sending challenge response push notification:", pushErr);
+  }
+
+  return res.json(updated);
 });
 
 router.post("/:id/cancel", async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const playerId = req.query.playerId as string;
+
+  if (!playerId) {
+    return res.status(400).json({ error: "playerId is required" });
+  }
+
+  // Task #1362 — Cross-cancel safety: lock both the challenge and the
+  // linked open_match in a single transaction so the cancel of the
+  // public twin can't race against a concurrent /join trying to claim
+  // the same slot.
+  type CancelChallengeRow = {
+    id: string;
+    challenger_id: string;
+    opponent_id: string;
+    status: string;
+  };
+  type CancelMatchChallengeRow = typeof matchChallenges.$inferSelect;
+
+  const client = await pool.connect();
+  let challenge: CancelChallengeRow | null = null;
+  let updated: CancelMatchChallengeRow | null = null;
   try {
-    const { id } = req.params;
-    const playerId = req.query.playerId as string;
+    await client.query("BEGIN");
 
-    if (!playerId) {
-      return res.status(400).json({ error: "playerId is required" });
-    }
-
-    const [challenge] = await db
-      .select()
-      .from(matchChallenges)
-      .where(eq(matchChallenges.id, id));
-
-    if (!challenge) {
+    const challengeRes = await client.query<CancelChallengeRow>(
+      `SELECT id, challenger_id, opponent_id, status
+         FROM match_challenges
+        WHERE id = $1
+        FOR UPDATE`,
+      [id],
+    );
+    if (challengeRes.rowCount === 0) {
+      await client.query("ROLLBACK");
+      client.release();
       return res.status(404).json({ error: "Challenge not found" });
     }
+    challenge = challengeRes.rows[0];
 
-    if (String(challenge.challengerId) !== String(playerId) && String(challenge.opponentId) !== String(playerId)) {
-      return res.status(403).json({ error: "Not authorized to cancel this challenge" });
+    if (
+      String(challenge.challenger_id) !== String(playerId) &&
+      String(challenge.opponent_id) !== String(playerId)
+    ) {
+      await client.query("ROLLBACK");
+      client.release();
+      return res
+        .status(403)
+        .json({ error: "Not authorized to cancel this challenge" });
     }
 
-    const [updated] = await db
-      .update(matchChallenges)
-      .set({
-        status: "cancelled",
-        updatedAt: new Date(),
-      })
-      .where(eq(matchChallenges.id, id))
-      .returning();
+    // Lock and cancel any linked open_match twins. If one is already
+    // 'full' (someone won the race) we still cancel the challenge but
+    // the public match stays as-is.
+    await client.query<{ id: string }>(
+      `SELECT id FROM open_matches
+        WHERE linked_challenge_id = $1
+        FOR UPDATE`,
+      [id],
+    );
+    await client.query(
+      `UPDATE open_matches
+          SET status = 'cancelled', updated_at = NOW()
+        WHERE linked_challenge_id = $1
+          AND status = 'open'`,
+      [id],
+    );
 
-    const otherPlayerId = String(challenge.challengerId) === String(playerId)
-      ? challenge.opponentId
-      : challenge.challengerId;
+    const updateRes = await client.query<CancelMatchChallengeRow>(
+      `UPDATE match_challenges
+          SET status = 'cancelled', updated_at = NOW()
+        WHERE id = $1
+        RETURNING *`,
+      [id],
+    );
+    updated = updateRes.rows[0];
 
-    try {
-      const [canceller] = await db.select().from(players).where(eq(players.id, playerId));
-      const cancellerName = canceller?.name || "Your opponent";
-      const tokens = await getPlayerPushTokens(otherPlayerId);
-      if (tokens.length > 0) {
-        await sendPushNotification(
-          tokens,
-          "Match Cancelled",
-          `${cancellerName} cancelled the match`,
-          { type: "match_challenge_cancelled", challengeId: id },
-          otherPlayerId
-        );
-      } else {
-        await db.insert(playerNotifications).values({
-          playerId: otherPlayerId,
-          title: "Match Cancelled",
-          body: `${cancellerName} cancelled the match`,
-          type: "match_challenge_cancelled",
-          data: { challengeId: id, cancelledBy: playerId },
-        });
-      }
-    } catch (notifErr) {
-      console.error("Error sending cancel notification:", notifErr);
-    }
-
-    res.json(updated);
-  } catch (error) {
-    console.error("Error cancelling challenge:", error);
-    res.status(500).json({ error: "Failed to cancel challenge" });
+    await client.query("COMMIT");
+  } catch (txErr) {
+    await client.query("ROLLBACK").catch(() => {});
+    client.release();
+    console.error("Error cancelling challenge:", txErr);
+    return res.status(500).json({ error: "Failed to cancel challenge" });
   }
+  client.release();
+
+  const otherPlayerId =
+    String(challenge.challenger_id) === String(playerId)
+      ? challenge.opponent_id
+      : challenge.challenger_id;
+
+  try {
+    const [canceller] = await db.select().from(players).where(eq(players.id, playerId));
+    const cancellerName = canceller?.name || "Your opponent";
+    const tokens = await getPlayerPushTokens(otherPlayerId);
+    if (tokens.length > 0) {
+      await sendPushNotification(
+        tokens,
+        "Match Cancelled",
+        `${cancellerName} cancelled the match`,
+        { type: "match_challenge_cancelled", challengeId: id },
+        otherPlayerId
+      );
+    } else {
+      await db.insert(playerNotifications).values({
+        playerId: otherPlayerId,
+        title: "Match Cancelled",
+        body: `${cancellerName} cancelled the match`,
+        type: "match_challenge_cancelled",
+        data: { challengeId: id, cancelledBy: playerId },
+      });
+    }
+  } catch (notifErr) {
+    console.error("Error sending cancel notification:", notifErr);
+  }
+
+  return res.json(updated);
 });
 
 router.post("/:id/complete", async (req: Request, res: Response) => {

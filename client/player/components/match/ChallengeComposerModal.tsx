@@ -25,11 +25,14 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Switch,
 } from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTranslation } from "react-i18next";
 import {
   Colors,
   Spacing,
@@ -108,8 +111,15 @@ export function ChallengeComposerModal({
   );
   const [court, setCourt] = useState("");
   const [message, setMessage] = useState("");
+  // Task #1362 — "Also list as an open match" toggle. Defaults to ON so a
+  // direct challenge automatically gets a public twin in the open-match feed
+  // (with `invitedPlayerId` set to the challenged opponent so they keep
+  // priority for 24h or until match start). The user's last preference is
+  // remembered across opens via AsyncStorage.
+  const [alsoListPublicly, setAlsoListPublicly] = useState(true);
   const days = useMemo(() => nextDays(7), []);
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (visible) {
@@ -119,6 +129,9 @@ export function ChallengeComposerModal({
       setFormat(defaultFormat);
       setCourt("");
       setMessage("");
+      AsyncStorage.getItem("challenge.alsoListPublicly")
+        .then((v) => setAlsoListPublicly(v === null ? true : v === "1"))
+        .catch(() => setAlsoListPublicly(true));
     }
   }, [visible, days, defaultFormat]);
 
@@ -140,6 +153,10 @@ export function ChallengeComposerModal({
           customLocation: court.trim() || null,
           message: message.trim() || null,
           courtBookingStatus: court.trim() ? "external_pending" : null,
+          // Task #1362 — when ON, server publishes a linked open_match with
+          // invitedPlayerId=opponent so other players can also claim the
+          // slot during the priority window.
+          alsoListPublicly,
         },
       );
       return (await res.json()) as { id: string };
@@ -147,6 +164,14 @@ export function ChallengeComposerModal({
     onSuccess: (data) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/matches/challenges"] });
+      // Task #1362 — also refresh the open-match feed since a linked
+      // open_match may have just been created.
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      // Persist toggle preference for next time the composer opens.
+      AsyncStorage.setItem(
+        "challenge.alsoListPublicly",
+        alsoListPublicly ? "1" : "0",
+      ).catch(() => {});
       onSent?.(data.id);
       if (Platform.OS === "web") {
         // Web alert is fine here — production handler is OS native modal.
@@ -300,6 +325,36 @@ export function ChallengeComposerModal({
                     );
                   })}
                 </View>
+
+                {/* Task #1362 — Also list as an open match. Default ON. */}
+                <Pressable
+                  style={styles.alsoRow}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setAlsoListPublicly((v) => !v);
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.alsoTitle}>
+                      {t("player.play.alsoListPublicly")}
+                    </Text>
+                    <Text style={styles.alsoSubtitle}>
+                      {t("player.play.alsoListPubliclyHint")}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={alsoListPublicly}
+                    onValueChange={(v) => {
+                      Haptics.selectionAsync();
+                      setAlsoListPublicly(v);
+                    }}
+                    trackColor={{
+                      false: Colors.dark.borderSubtle,
+                      true: Colors.dark.primary,
+                    }}
+                    thumbColor="#0B0D10"
+                  />
+                </Pressable>
               </>
             ) : (
               <>
@@ -581,5 +636,28 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
+  },
+  alsoRow: {
+    marginTop: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+  },
+  alsoTitle: {
+    color: Colors.dark.text,
+    fontSize: FontSizes.sm,
+    fontWeight: "700",
+  },
+  alsoSubtitle: {
+    color: Colors.dark.textMuted,
+    fontSize: FontSizes.xs,
+    marginTop: 2,
+    lineHeight: 16,
   },
 });

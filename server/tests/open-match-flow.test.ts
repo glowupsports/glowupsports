@@ -220,8 +220,28 @@ beforeAll(async () => {
       court_booking_status text,
       court_booking_note text,
       court_booking_url text,
+      linked_challenge_id varchar,
       created_at timestamp DEFAULT NOW(),
       updated_at timestamp DEFAULT NOW()
+    );
+
+    CREATE TABLE match_challenges (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      challenger_id varchar NOT NULL,
+      opponent_id varchar NOT NULL,
+      status text DEFAULT 'pending',
+      created_at timestamp DEFAULT NOW(),
+      updated_at timestamp DEFAULT NOW()
+    );
+
+    CREATE TABLE player_notifications (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      player_id varchar NOT NULL,
+      title text,
+      body text,
+      type text,
+      data jsonb,
+      created_at timestamp DEFAULT NOW()
     );
 
     CREATE TABLE open_match_slots (

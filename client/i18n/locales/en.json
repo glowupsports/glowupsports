@@ -272,7 +272,22 @@
       "tourManageBookings": "Manage Bookings",
       "tourManageBookingsDesc": "Check your invites and set your play preferences here.",
       "tourBrowseOptions": "Browse Options",
-      "tourBrowseOptionsDesc": "Switch between group lessons and discovering players near you."
+      "tourBrowseOptionsDesc": "Switch between group lessons and discovering players near you.",
+      "challengePlayer": "Challenge a player",
+      "challengePlayerDesc": "Send a direct match invite to a player you choose.",
+      "postOpenMatch": "Post an open match",
+      "postOpenMatchDesc": "Publish a slot for anyone in your area to claim.",
+      "findGame": "Find a game",
+      "findGameDesc": "Browse open matches that already need a player.",
+      "alsoListPublicly": "Also list as an open match",
+      "alsoListPubliclyHint": "If your friend doesn't accept in time, others can claim the slot.",
+      "invitedChip": "Invited: {{name}}",
+      "inviteExpired": "Invite expired — open to all",
+      "priorityTitle": "Invited player has priority",
+      "priorityMessage": "{{name}} was challenged by the host and has priority on this slot for the next few hours. Claim it anyway?",
+      "priorityMessageGeneric": "An invited player was challenged by the host and has priority on this slot for the next few hours. Claim it anyway?",
+      "priorityCancel": "Cancel",
+      "claimAnyway": "Claim slot"
     },
     "home": {
       "welcomeBack": "Welcome back",

@@ -1,11 +1,14 @@
 // Task #1271 — Match Finder home (players-first replacement of the old wizard).
 //
 // Layout:
-//   - Sticky filter bar (level / time / distance) along the top.
+//   - Top CTA card: "Post an open match" — Task #1362 promotes this from a
+//     buried footer link to a first-class header pivot so a player who
+//     landed here looking for opponents can also broadcast a slot.
+//   - Sticky filter bar (level / scope) below the CTA.
 //   - Vertical scroll of large player cards from
 //     /api/social/discovery/players?intent=match.
-//   - Footer: secondary buttons for "Invite a friend" (outsider invite) and
-//     "Post an open invite" (legacy wizard, still useful for advertised slots).
+//   - Footer: secondary "Invite a friend" outsider-invite button only; the
+//     legacy "Post an open invite" link has moved into the header card.
 
 import React, { useMemo, useState, useCallback } from "react";
 import {
@@ -22,6 +25,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useTranslation } from "react-i18next";
 import {
   Colors,
   Spacing,
@@ -57,6 +61,7 @@ export default function MatchFinderHomeScreen() {
   const navigation = useNavigation<any>();
   const headerHeight = useHeaderHeight();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const myPlayerId = user?.playerId || null;
 
   const [levelFilter, setLevelFilter] = useState<typeof LEVEL_FILTERS[number]["id"]>("all");
@@ -113,6 +118,31 @@ export default function MatchFinderHomeScreen() {
 
   const ListHeader = (
     <View style={styles.filtersWrap}>
+      {/* Task #1362 — Promote "Post an open match" to a top-of-screen CTA so
+          players who landed in the Match Finder can pivot to broadcasting an
+          open slot without hunting for the old footer link. */}
+      <Pressable
+        style={styles.headerCta}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          navigation.navigate("CreateMatch", { presetPartnerOption: "find" });
+        }}
+      >
+        <View style={styles.headerCtaIcon}>
+          <Ionicons name="megaphone" size={20} color="#0B0D10" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerCtaTitle}>{t("player.play.postOpenMatch")}</Text>
+          <Text style={styles.headerCtaSubtitle}>
+            {t("player.play.postOpenMatchDesc")}
+          </Text>
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={Colors.dark.textSecondary}
+        />
+      </Pressable>
       <View style={styles.filterRow}>
         {SCOPE_FILTERS.map((f) => {
           const active = f.id === scope;
@@ -188,20 +218,6 @@ export default function MatchFinderHomeScreen() {
         <Text style={[styles.footerBtnText, styles.footerBtnTextPrimary]}>
           Invite a friend
         </Text>
-      </Pressable>
-      <Pressable
-        style={styles.linkBtn}
-        onPress={() => {
-          Haptics.selectionAsync();
-          navigation.navigate("CreateMatch");
-        }}
-      >
-        <Text style={styles.linkBtnText}>Post an open invite instead</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={14}
-          color={Colors.dark.textSecondary}
-        />
       </Pressable>
     </View>
   );
@@ -331,16 +347,34 @@ const styles = StyleSheet.create({
   footerBtnTextPrimary: {
     color: "#0B0D10",
   },
-  linkBtn: {
+  headerCta: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingVertical: Spacing.sm,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
   },
-  linkBtnText: {
+  headerCtaIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerCtaTitle: {
+    color: Colors.dark.text,
+    fontSize: FontSizes.md,
+    fontWeight: "700",
+  },
+  headerCtaSubtitle: {
     color: Colors.dark.textSecondary,
-    fontSize: FontSizes.sm,
-    fontWeight: "600",
+    fontSize: FontSizes.xs,
+    marginTop: 2,
   },
   loadingOverlay: {
     position: "absolute",

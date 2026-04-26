@@ -157,7 +157,10 @@ export type PlayerTabParamList = {
 export type PlayStackParamList = {
   Play: { initialTab?: "Group Lessons" | "Players" | "Leaderboard" } | undefined;
   OpenMatches: undefined;
-  CreateMatch: undefined;
+  // Task #1362 — when launched from the Play sheet's "Post an open match"
+  // shortcut, deep-link the wizard with the partner step pre-selected to
+  // "Leave open for anyone" so the user skips re-answering that question.
+  CreateMatch: { presetPartnerOption?: "find" | "select" } | undefined;
   MatchFinderHome: undefined;
   InviteClaim: { token?: string };
   ChallengePlayer: {

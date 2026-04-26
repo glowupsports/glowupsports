@@ -27,6 +27,7 @@ import {
 } from "@/player/context/SportContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useTranslation } from "react-i18next";
 export const COMPETE_ACCENT = FunctionColors.info;
 
 export interface MatchSummaryHost {
@@ -69,6 +70,15 @@ export interface MatchSummaryCardProps {
   // so we skip the outer card chrome and just render the body.
   embedded?: boolean;
   accent?: string;
+
+  // Task #1362 — when this open match is the public twin of a direct
+  // challenge, surface the invited opponent's name so the rest of the
+  // feed knows the host has someone in mind first.
+  invitedPlayerName?: string | null;
+  // Task #1362 — ISO timestamp marking the end of the invited player's
+  // priority window (24h or match start). When in the past, the chip
+  // switches to "Invite expired — open to all".
+  priorityUntil?: string | null;
 }
 
 function getBallLevelColor(level?: string | null): string {
@@ -179,7 +189,16 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
     onPress,
     embedded = false,
     accent = COMPETE_ACCENT,
+    invitedPlayerName,
+    priorityUntil,
   } = props;
+  const { t } = useTranslation();
+  const inviteExpired = (() => {
+    if (!priorityUntil) return false;
+    const ms = new Date(priorityUntil).getTime();
+    if (Number.isNaN(ms)) return false;
+    return ms <= Date.now();
+  })();
 
   const target = scheduledTime ? new Date(scheduledTime) : null;
   const validTarget = target && !Number.isNaN(target.getTime()) ? target : null;
@@ -254,6 +273,21 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
           />
         ) : null}
         {xpBonus > 0 ? <Chip color={accent} icon="flash" text={`+${xpBonus} XP`} /> : null}
+        {invitedPlayerName ? (
+          inviteExpired ? (
+            <Chip
+              color={Colors.dark.textSecondary}
+              icon="time-outline"
+              text={t("player.play.inviteExpired")}
+            />
+          ) : (
+            <Chip
+              color={GlowColors.primary}
+              icon="person-circle-outline"
+              text={t("player.play.invitedChip", { name: invitedPlayerName })}
+            />
+          )
+        ) : null}
         {(() => {
           const cost = costPerPlayer ? parseFloat(costPerPlayer) : 0;
           if (!cost || cost <= 0) {

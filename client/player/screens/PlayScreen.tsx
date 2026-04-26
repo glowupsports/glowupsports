@@ -2908,10 +2908,54 @@ export default function PlayScreen() {
                           />
                           <View style={styles.playModalOptionText}>
                             <Text style={styles.playModalOptionTitle}>
-                              Find a Match
+                              {t("player.play.challengePlayer")}
                             </Text>
                             <Text style={styles.playModalOptionDesc}>
-                              Challenge a player to a 1v1 match
+                              {t("player.play.challengePlayerDesc")}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={18}
+                            color={Colors.dark.buttonText}
+                          />
+                        </LinearGradient>
+                      </Pressable>
+                      {/* Task #1362 — "Post an open match" is now a first-class
+                          option alongside "Challenge a player" and "Find a
+                          game". Deep-links into CreateMatch with the partner
+                          step pre-set to "Leave open for anyone". */}
+                      <Pressable
+                        style={styles.playModalOption}
+                        onPress={() => {
+                          setShowPlayModal(false);
+                          setPlayModalStep(isMultiSport ? "sport" : "type");
+                          Haptics.impactAsync(
+                            Haptics.ImpactFeedbackStyle.Medium,
+                          );
+                          navigation.navigate(
+                            "CreateMatch" as never,
+                            { presetPartnerOption: "find" } as never,
+                          );
+                        }}
+                      >
+                        <LinearGradient
+                          colors={["#22C55E", "#15803D"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.playModalOptionGradient}
+                        >
+                          <Ionicons
+                            name="megaphone"
+                            size={22}
+                            color={Colors.dark.buttonText}
+                          />
+                          <View style={styles.playModalOptionText}>
+                            <Text style={styles.playModalOptionTitle}>
+                              {t("player.play.postOpenMatch")}
+                            </Text>
+                            <Text style={styles.playModalOptionDesc}>
+                              {t("player.play.postOpenMatchDesc")}
                             </Text>
                           </View>
                           <Ionicons
