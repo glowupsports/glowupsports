@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
+import * as Sentry from "@sentry/react-native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, InteractionManager } from "react-native";
@@ -1204,12 +1205,86 @@ function PlayerHomeContent() {
   const { state: playerState } = usePlayerState();
   // Shares cache key with PlayScreen so the home tile counts can mirror the
   // exact scope (mine vs. all) used by the live player feed.
-  const { data: homeProfileData } = useQuery<{ academy?: { id: string; name: string } | null }>({
-    queryKey: ["/api/player/me/profile"],
-    enabled: !!user?.playerId,
-    staleTime: 5 * 60 * 1000,
+  // Task #1379 — Player home god-query.
+  //
+  // The home screen used to fan out at mount: `/api/player/me/dashboard`,
+  // `/api/player/me/profile`, `/api/player/me/notifications/unread-count`
+  // (and, via subcomponents on the same render pass, weekly-digest +
+  // ai-coach/context). On iOS the JS<->native bridge serialises those
+  // requests harder than Android, so the player home felt loodzwaar
+  // compared to the coach home — which fans into a single god-query.
+  //
+  // We now mirror coach-home: one HTTP call returns every blob we need
+  // above the fold. The legacy per-resource endpoints stay alive and
+  // unchanged for child components / deep links / other screens. We
+  // also prime the React Query cache for those legacy keys (see effect
+  // below) so any subcomponent that still calls `useQuery(["/api/player/me/profile"])`
+  // resolves instantly from cache instead of triggering its own fetch.
+  const { data: homeData, isLoading, refetch, isRefetching } = useQuery<{
+    dashboard: DashboardData | null;
+    profile: { academy?: { id: string; name: string } | null } | null;
+    unreadCount: { count: number };
+    weeklyDigest: any;
+    aiCoachContext: any;
+  }>({
+    queryKey: ["/api/player/me/home-data"],
+    enabled: !!user?.playerId && !isGuest,
+    // Match the server-side 30s in-memory cache. Above that and we'd be
+    // reading data the backend already considers stale; below and we'd
+    // miss the cache hit entirely on rapid re-mounts.
+    staleTime: 30 * 1000,
+    // Old `/notifications/unread-count` query polled every 2 minutes.
+    // Keep that cadence on the god-query so the bell badge can update
+    // without the user leaving and re-entering the tab — code review
+    // caught this as a regression vs. the old per-query setup.
+    refetchInterval: 120 * 1000,
   });
-  const homePlayerAcademyId = homeProfileData?.academy?.id ?? null;
+
+  // Derived views — same shape as the old per-query results so the rest
+  // of the screen reads identically.
+  const dashboardData = homeData?.dashboard ?? undefined;
+  const unreadCount = homeData?.unreadCount?.count ?? 0;
+
+  // Prime the legacy query keys so subcomponents (TennisIQMiniTile,
+  // RecentFeedbackCard, etc.) that still useQuery the old endpoints get
+  // a cache hit instead of firing their own request.
+  //
+  // We deliberately do NOT prime `["/api/player/me/profile"]`. The
+  // legacy `/profile` endpoint returns a much wider object (stats,
+  // social, countryLadders, dominantHand, backhandType, tshirtSize,
+  // tennisIdol, …) than this screen needs above the fold. Priming with
+  // our reduced payload would make `PlayerDNABanner` (which reads those
+  // extra fields) report incorrect completion. Letting it fall through
+  // to its own network call costs one extra request but keeps the DNA
+  // banner correct.
+  useEffect(() => {
+    if (!homeData) return;
+    Sentry.addBreadcrumb({
+      category: "player_home",
+      message: "home-data resolved, priming legacy query cache",
+      level: "info",
+      data: {
+        hasDashboard: !!homeData.dashboard,
+        unread: homeData.unreadCount?.count ?? 0,
+      },
+    });
+    if (homeData.dashboard) {
+      queryClient.setQueryData(["/api/player/me/dashboard"], homeData.dashboard);
+    }
+    queryClient.setQueryData(
+      ["/api/player/me/notifications/unread-count"],
+      homeData.unreadCount ?? { count: 0 },
+    );
+    queryClient.setQueryData(
+      ["/api/player/me/weekly-digest"],
+      homeData.weeklyDigest ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/player/me/ai-coach/context"],
+      homeData.aiCoachContext ?? null,
+    );
+  }, [homeData, queryClient]);
+
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [bookingWizardSport, setBookingWizardSport] = useState<string | undefined>(undefined);
   const [showBookingSportPicker, setShowBookingSportPicker] = useState(false);
@@ -1250,12 +1325,6 @@ function PlayerHomeContent() {
     isFreePlayer: true,
   }), []);
 
-  const { data: dashboardData, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
-    queryKey: ["/api/player/me/dashboard"],
-    enabled: !!user?.playerId && !isGuest,
-    staleTime: 10 * 60 * 1000,
-  });
-
   // Quests/social/shop only feed deferred below-the-fold sections, so gate
   // their network + JSON work on `secondaryReady` to keep the first frame
   // light (Sentry REACT-NATIVE-1A — 2s app hang).
@@ -1281,17 +1350,13 @@ function PlayerHomeContent() {
 
   const effectiveData = isGuest ? guestDashboard : dashboardData;
 
-  const { data: unreadData } = useQuery<{ count: number }>({
-    queryKey: ["/api/player/me/notifications/unread-count"],
-    enabled: !!user?.playerId && !isGuest,
-    refetchInterval: 120000,
-  });
-  const unreadCount = unreadData?.count || 0;
-
   useFocusEffect(
     useCallback(() => {
       if (user?.playerId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+        // Bust the god-query so the dashboard tile, unread bell and AI
+        // context all refresh together on tab focus, exactly like the
+        // old per-resource invalidate did for the dashboard alone.
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
       }
     }, [user?.playerId, queryClient])
   );
@@ -1505,6 +1570,12 @@ function PlayerHomeContent() {
 
   const handleBookingSuccess = () => {
     setShowBookingWizard(false);
+    // Bust both the new god-query and the legacy dashboard key so any
+    // consumer (this screen + any subscreen still reading the legacy
+    // key directly) refreshes after a booking. Without invalidating
+    // home-data the hero/next-session tile would stay stale until tab
+    // focus or manual refresh.
+    queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
     queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
   };

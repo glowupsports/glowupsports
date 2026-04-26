@@ -61,6 +61,9 @@ For mixed changes (server + client): Republish first, then OTA push.
 2. **Second**: Modify existing endpoint logic if needed.
 3. **Third**: Only if nothing exists, ASK permission before creating a new endpoint.
 
+### Player Home god-query (Task #1379)
+The Player Home screen used to fan out at mount with five+ parallel `useQuery` calls (`/dashboard`, `/profile`, `/notifications/unread-count`, plus `weekly-digest` + `ai-coach/context` from subcomponents on the same render pass). On iOS the JS↔native bridge serialises that fanout strictly, which made the screen feel loodzwaar compared to Coach Home (1 query). The fix mirrors `coach-home.ts`: a single endpoint `/api/player/me/home-data` returns every above-the-fold blob in one round trip with a 30s in-memory cache (`server/routes/player-home.ts`). The legacy per-resource endpoints stay alive and unchanged so child components, deep links, and other screens keep working; the screen primes their query keys via `queryClient.setQueryData` after the god-query resolves so they hit cache instead of network. Sub-fetches use `Promise.allSettled` so a slow/broken AI-context branch can no longer black-out the home. Only `/api/player/me/home-data` was added in this round — the analogous god-queries for the Progress and Play tabs are tracked as a follow-up task.
+
 ## System Architecture
 
 ### UI/UX Decisions
