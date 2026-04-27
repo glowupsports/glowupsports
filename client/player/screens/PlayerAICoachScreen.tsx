@@ -611,13 +611,13 @@ function MyMirrorTab({
   glowMirrorLayers,
   monthlyAssessmentData,
   onOpenMonthlyModal,
-  // Task #1419 — defaults to true so any caller that hasn't been
-  // updated keeps the legacy fetching behaviour. The PlayerAICoachScreen
-  // parent passes `aiCoachDataReady` which only flips true after the
-  // god-route response has primed the cache, so the useQuery below
-  // gets a synchronous cache hit instead of triggering a network
-  // request during cold start.
-  tabDataReady = true,
+  // Task #1426 — training-history is fetched once by the parent screen
+  // via `/api/player/me/ai-coach-data` and passed in here. The legacy
+  // useQuery in this tab is gone, so the combined endpoint is the only
+  // fetch path on AI Coach mount. The parent still seeds the legacy
+  // ["/api/player/training-history"] cache key via setQueryData so other
+  // screens (PlayerTrainingScreen) keep getting a warm cache.
+  trainingHistory,
 }: {
   glowMirrorLayers: GlowMirrorLayers | null;
   // Task #1419 — accept null in addition to undefined. The god-route
@@ -628,20 +628,14 @@ function MyMirrorTab({
   // guards (`monthlyAssessmentData ?`), so accepting null is safe.
   monthlyAssessmentData: MonthlyAssessmentResponse | null | undefined;
   onOpenMonthlyModal: () => void;
-  tabDataReady?: boolean;
+  trainingHistory: TrainingSession[] | null | undefined;
 }) {
   const navigation = useNavigation();
   const connectedCount = glowMirrorLayers
     ? [glowMirrorLayers.sessionCheckins, glowMirrorLayers.monthlyVoice, glowMirrorLayers.perceptionGaps].filter(Boolean).length
     : 0;
 
-  const { data: sessions } = useQuery<TrainingSession[]>({
-    queryKey: ["/api/player/training-history"],
-    enabled: tabDataReady,
-    staleTime: 30 * 1000,
-  });
-
-  const recentSessions = (sessions || []).slice(0, 5);
+  const recentSessions = (trainingHistory || []).slice(0, 5);
 
   const handleSessionPress = (sessionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1077,31 +1071,24 @@ interface PlayerSession {
 
 function GlowPlanTab({
   digest,
-  // Task #1419 — see MyMirrorTab note. Default to true for backwards
-  // compat; PlayerAICoachScreen passes aiCoachDataReady so the two
-  // useQuery calls below get cache hits instead of firing network
-  // requests during cold start.
-  tabDataReady = true,
+  // Task #1426 — weekly-plan and sessions are fetched once by the parent
+  // screen via `/api/player/me/ai-coach-data` and passed in here. The
+  // legacy useQuery calls in this tab are gone, so the combined endpoint
+  // is the only fetch path on AI Coach mount. The parent still seeds the
+  // legacy ["/api/player/me/weekly-plan"] and ["/api/player/me/sessions"]
+  // cache keys via setQueryData so other screens (PlayerProgressScreen,
+  // PlayerScheduleScreen) keep getting a warm cache.
+  weeklyPlan,
+  allSessions,
 }: {
   digest: WeeklyDigest | null;
-  tabDataReady?: boolean;
+  weeklyPlan: WeeklyPlan | null | undefined;
+  allSessions: PlayerSession[] | null | undefined;
 }) {
   const hasFocus = digest && digest.data?.focusArea;
   const focusArea = digest?.data?.focusArea;
   const keepDoing = digest?.data?.keepDoing || digest?.data?.drillTip;
   const improve = digest?.data?.improve || digest?.data?.motivation;
-
-  const { data: weeklyPlan, isLoading: planLoading } = useQuery<WeeklyPlan | null>({
-    queryKey: ["/api/player/me/weekly-plan"],
-    enabled: tabDataReady,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: allSessions } = useQuery<PlayerSession[]>({
-    queryKey: ["/api/player/me/sessions"],
-    enabled: tabDataReady,
-    staleTime: 5 * 60 * 1000,
-  });
 
   const now = new Date();
   const nextSession = (allSessions || [])
@@ -1288,9 +1275,7 @@ function GlowPlanTab({
               )}
             </View>
           </View>
-          {planLoading ? (
-            <ActivityIndicator size="small" color="#E040FB" style={{ marginTop: 8 }} />
-          ) : hasPlan ? (
+          {hasPlan ? (
             <View style={planTabStyles.bulletList}>
               {weeklyPlan?.planJson?.overallRationale ? (
                 <View style={planTabStyles.bulletRow}>
@@ -1486,7 +1471,7 @@ export default function PlayerAICoachScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   // ===========================================================================
-  // Task #1419 — single god-query for the AI Coach tab.
+  // Task #1419 + #1426 — single god-query for the AI Coach tab.
   //
   // BEFORE: PlayerAICoachScreen fanned out SEVEN parallel React Query
   // calls on mount (4 here in the parent + 3 inside MyMirrorTab /
@@ -1496,14 +1481,19 @@ export default function PlayerAICoachScreen() {
   //
   // AFTER: ONE call to /api/player/me/ai-coach-data which the server
   // resolves via in-process dispatch (server/routes/player-ai-coach-data.ts).
-  // The seed effect below primes every legacy queryKey via
-  // queryClient.setQueryData so:
-  //   * the 4 derived reads in this component (contextData, aiStatus,
-  //     monthlyAssessmentData, digest) come straight from god-data,
-  //   * the 3 useQuery calls inside the subcomponents
-  //     (training-history, weekly-plan, sessions) get cache hits
-  //     instead of firing — the `tabDataReady` prop gates them so
-  //     they don't even attempt to fetch before the seed lands.
+  // The 4 derived reads in this component (contextData, aiStatus,
+  // monthlyAssessmentData, digest) come straight from god-data, and the
+  // training-history / weekly-plan / sessions slices are passed down to
+  // MyMirrorTab and GlowPlanTab as props (the per-tile useQuery calls
+  // were removed in Task #1426).
+  //
+  // The seed effect below STILL primes legacy queryKeys via
+  // queryClient.setQueryData — not for the subcomponents, but for OTHER
+  // screens that consume those keys (PlayerProgressScreen reads
+  // weekly-plan, PlayerScheduleScreen reads sessions, PlayerTrainingScreen
+  // reads training-history, PlayerDNABanner reads ai-coach/context). The
+  // seed lets those screens render warm when the user navigates to them
+  // after the AI Coach tab.
   // ===========================================================================
   type AiCoachData = {
     weeklyPlan: WeeklyPlan | null;
@@ -1530,13 +1520,12 @@ export default function PlayerAICoachScreen() {
     staleTime: 30 * 1000,
   });
 
-  // Seed legacy keys so MyMirrorTab + GlowPlanTab subcomponents (whose
-  // useQuery calls remain for backwards compatibility) read from cache
-  // instead of issuing network requests on mount. We seed only when
-  // the corresponding god-route branch resolved non-null — preserves
-  // legacy behaviour where a transient backend hiccup leaves the key
-  // empty rather than locked into a stale-null for 30s.
-  const aiCoachDataReady = !!aiCoachData;
+  // Seed legacy queryKeys for OTHER screens (PlayerProgressScreen,
+  // PlayerScheduleScreen, PlayerTrainingScreen, PlayerDNABanner) that
+  // still consume the per-feature endpoints. We seed only when the
+  // corresponding god-route branch resolved non-null — preserves legacy
+  // behaviour where a transient backend hiccup leaves the key empty
+  // rather than locked into a stale-null for 30s.
   useEffect(() => {
     if (!aiCoachData) return;
     if (aiCoachData.aiCoachContext) {
@@ -1991,10 +1980,14 @@ export default function PlayerAICoachScreen() {
           glowMirrorLayers={glowMirrorLayers}
           monthlyAssessmentData={monthlyAssessmentData}
           onOpenMonthlyModal={() => setShowMonthlyModal(true)}
-          tabDataReady={aiCoachDataReady}
+          trainingHistory={aiCoachData?.trainingHistory ?? null}
         />
       ) : (
-        <GlowPlanTab digest={digest ?? null} tabDataReady={aiCoachDataReady} />
+        <GlowPlanTab
+          digest={digest ?? null}
+          weeklyPlan={aiCoachData?.weeklyPlan ?? null}
+          allSessions={aiCoachData?.sessions ?? null}
+        />
       )}
 
       <AiProUpgradeModal

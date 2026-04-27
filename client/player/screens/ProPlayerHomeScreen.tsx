@@ -287,140 +287,6 @@ function SpotlightTileAvatar({ photoUrl, borderColor = Colors.dark.gold }: { pho
   );
 }
 
-// DEPRECATED — superseded by the spotlight rendering inside
-// `UnifiedImproveCard` (search "Spotlight" in this file). Kept around
-// only because removing it conflicts with parallel work in flight on
-// the home screen; do NOT add new call sites. If you reintroduce this
-// component, copy the `homeDataReady` gating pattern from
-// UnifiedImproveCard or you will reopen the cold-start fanout that
-// Task #1418 just closed. The two `useQuery` calls below intentionally
-// stay un-gated because the function has zero call sites today (verified
-// by `rg "<SpotlightMiniTile"`); leaving them gateless makes the dead-
-// code intent obvious to the next reader.
-function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => void; onViewDetails: () => void }) {
-  const { user } = useAuth();
-
-  const { data: currentWeek } = useQuery<SpotlightCurrentWeekMini>({
-    queryKey: ["/api/player/spotlight/current-week"],
-    enabled: !!user?.playerId,
-  });
-  const { data: weeklyWinner } = useQuery<{ winner: SpotlightWeeklyWinnerMini | null }>({
-    queryKey: ["/api/player/spotlight/weekly-winner"],
-    enabled: !!user?.playerId,
-  });
-
-  const hasVoted = !!currentWeek?.myNomination;
-  const topNominee = currentWeek?.nominations?.[0] ?? null;
-  const lastWinner = weeklyWinner?.winner ?? null;
-  const daysRemaining = currentWeek?.daysRemaining;
-  const chipText = daysRemaining === undefined ? null : daysRemaining <= 0 ? "Ends today!" : `${daysRemaining}d left`;
-
-  // State A: voting open + has top nominee + I haven't voted -> show nominee + Vote pill
-  // State B: I have voted -> show top nominee (if any) + "You voted" footer; tap opens details
-  // State C: no nominees this week -> show last winner OR fully empty "be the first" CTA
-  const stateA = !!topNominee && !hasVoted;
-  const stateB = hasVoted;
-  const stateC = !stateA && !stateB;
-
-  const handleTilePress = () => {
-    // Empty-no-winner state: tile tap nominates directly (only meaningful action).
-    // All other states: tile tap routes to spotlight details; the Vote/Nominate
-    // pill is the explicit one-tap nominate entry point.
-    if (stateC && !lastWinner) {
-      onNominate();
-    } else {
-      onViewDetails();
-    }
-  };
-
-  const headerRight = chipText ? (
-    <View style={miniTileStyles.urgencyChip}>
-      <Text style={miniTileStyles.urgencyChipText} numberOfLines={1}>{chipText}</Text>
-    </View>
-  ) : null;
-
-  let footer: React.ReactNode = null;
-  if (stateA || (stateC && !lastWinner)) {
-    footer = (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={stateA ? "Vote for spotlight nominee" : "Nominate spotlight player"}
-        onPress={(e) => {
-          e.stopPropagation?.();
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          onNominate();
-        }}
-        style={miniTileStyles.votePill}
-      >
-        <Ionicons name="star" size={10} color={Colors.dark.buttonText} />
-        <Text style={miniTileStyles.votePillText}>{stateA ? "Vote" : "Nominate"}</Text>
-      </Pressable>
-    );
-  } else if (stateB) {
-    footer = (
-      <View style={miniTileStyles.votedRow}>
-        <Ionicons name="checkmark-circle" size={12} color={Colors.dark.accentText} />
-        <Text style={miniTileStyles.votedFooterText} numberOfLines={1}>You voted</Text>
-      </View>
-    );
-  } else if (stateC && lastWinner) {
-    footer = (
-      <View style={miniTileStyles.footerRow}>
-        <Ionicons name="ribbon" size={10} color={Colors.dark.gold} />
-        <Text style={miniTileStyles.footerText} numberOfLines={1}>Winner</Text>
-      </View>
-    );
-  }
-
-  let body: React.ReactNode = null;
-  if ((stateA || stateB) && topNominee) {
-    body = (
-      <>
-        <SpotlightTileAvatar photoUrl={topNominee.profilePhotoUrl} />
-        <Text style={miniTileStyles.spotName} numberOfLines={1}>
-          {/* first-name only is intentional here for chip density */}
-          {topNominee.playerName.split(" ")[0]}
-        </Text>
-        <View style={miniTileStyles.starRow}>
-          <Ionicons name="star" size={10} color={Colors.dark.gold} />
-          <Text style={miniTileStyles.starCountText}>{topNominee.totalVotes}</Text>
-        </View>
-      </>
-    );
-  } else if (stateB && !topNominee) {
-    // Edge: voted but no nominee data; just show muted text
-    body = <Text style={miniTileStyles.questEmptyText} numberOfLines={2}>Vote recorded</Text>;
-  } else if (stateC && lastWinner) {
-    body = (
-      <>
-        <SpotlightTileAvatar photoUrl={lastWinner.profilePhotoUrl} />
-        <Text style={miniTileStyles.spotName} numberOfLines={1}>
-          {/* first-name only is intentional here for chip density */}
-          {lastWinner.playerName.split(" ")[0]}
-        </Text>
-      </>
-    );
-  } else {
-    body = <Text style={miniTileStyles.questEmptyText} numberOfLines={2}>Be the first to nominate</Text>;
-  }
-
-  return (
-    <MiniTile
-      label="SPOTLIGHT"
-      icon="trophy"
-      iconColor={Colors.dark.gold}
-      accentBg="rgba(255,215,0,0.08)"
-      accentBorder="rgba(255,215,0,0.25)"
-      accessibilityLabel="Player spotlight"
-      onPress={handleTilePress}
-      headerRight={headerRight}
-      footer={footer}
-    >
-      {body}
-    </MiniTile>
-  );
-}
-
 interface MiniTileProps {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
@@ -619,18 +485,34 @@ function UnifiedImproveCard({
   onQuestPress,
   onSpotlightNominate,
   onSpotlightDetails,
-  homeDataReady,
+  // Task #1426 — every below-the-fold piece of data this card needs is
+  // already returned by the home god-route (`/api/player/me/home-data`)
+  // and passed in via these props. The card no longer holds its own
+  // `useQuery` calls for that data, so the combined endpoint is the
+  // only fetch path. The two exceptions are:
+  //   * the quests list — its own dedicated hook (`useQuests`) which
+  //     intentionally loads when this card scrolls into view, NOT on
+  //     home mount. Moving it would re-introduce the cold-start fanout.
+  //   * the tennis-IQ quiz QUESTIONS payload — fetched lazily by
+  //     `IQQuizModal` only when the user actually opens the quiz.
+  aiStatus,
+  aiCoachContext,
+  weeklyDigest,
+  spotlightCurrentWeek,
+  spotlightWeeklyWinner,
+  serverQuizScore,
 }: {
   onQuestPress: () => void;
   onSpotlightNominate: () => void;
   onSpotlightDetails: () => void;
-  // Task #1418 — gate the spotlight useQuery calls on the home god-query
-  // having resolved. The god-query primes the spotlight cache via
-  // setQueryData, so by the time `enabled` flips true the data is
-  // already fresh and react-query will return it without a network
-  // round-trip. This is what eliminates the cold-start spinner on the
-  // Player tab: those two requests no longer stack on the JS bridge.
-  homeDataReady: boolean;
+  aiStatus: { isPro: boolean; isCoach: boolean; callCount: number; limit: number } | null;
+  aiCoachContext: {
+    glowMirrorLayers?: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
+  } | null;
+  weeklyDigest: { data: { focusArea?: string } | null } | null;
+  spotlightCurrentWeek: SpotlightCurrentWeekMini | null;
+  spotlightWeeklyWinner: { winner: SpotlightWeeklyWinnerMini | null };
+  serverQuizScore: number | null;
 }) {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
@@ -657,27 +539,7 @@ function UnifiedImproveCard({
     return { quest: sorted[0].quest as Quest | null, questType: sorted[0].type as "daily" | "weekly" | null };
   }, [questsData]);
 
-  // ── AI Coach data
-  const { data: aiStatus } = useQuery<{
-    isPro: boolean;
-    isCoach: boolean;
-    callCount: number;
-    limit: number;
-  }>({
-    queryKey: ["/api/ai-pro/status"],
-    staleTime: 60 * 1000,
-    retry: false,
-  });
-  const { data: aiCoachContext } = useQuery<{
-    glowMirrorLayers?: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
-  }>({
-    queryKey: ["/api/player/me/ai-coach/context"],
-    staleTime: 60 * 1000,
-  });
-  const { data: weeklyDigest } = useQuery<{ data: { focusArea?: string } | null } | null>({
-    queryKey: ["/api/player/me/weekly-digest"],
-    staleTime: 5 * 60 * 1000,
-  });
+  // ── AI Coach derived view (data comes from the home god-route).
   const layers = aiCoachContext?.glowMirrorLayers;
   const activeCount = layers
     ? [layers.sessionCheckins, layers.monthlyVoice, layers.perceptionGaps].filter(Boolean).length
@@ -689,45 +551,28 @@ function UnifiedImproveCard({
   const [iqScore, setIqScore] = useState<number | null>(null);
   const [iqLoaded, setIqLoaded] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
-  const { data: profileData } = useQuery<{ player: { quizScore?: number | null } | null }>({
-    queryKey: ["/api/player/me/profile"],
-    staleTime: 5 * 60 * 1000,
-  });
-  const { data: quizData } = useQuery<{ questions: IQQuestionInline[] }>({
-    queryKey: ["/api/quiz/tennis-iq"],
-    staleTime: 24 * 60 * 60 * 1000,
-  });
-  const totalIQ = quizData?.questions?.length || 5;
+  // The actual quiz QUESTIONS payload is fetched by IQQuizModal only
+  // when the user opens the quiz. Until then we just need the question
+  // count for the dot row, which has always been 5 (the only quiz the
+  // server returns); the previous useQuery here only existed for that
+  // count and its `|| 5` fallback was the long-standing default.
+  const totalIQ = 5;
 
   useEffect(() => {
     AsyncStorage.getItem(TENNIS_IQ_SCORE_KEY_INLINE).then((val) => {
-      const serverScore = profileData?.player?.quizScore ?? null;
-      if (serverScore !== null && serverScore !== undefined) {
-        setIqScore(serverScore);
-        AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY_INLINE, String(serverScore));
+      if (serverQuizScore !== null && serverQuizScore !== undefined) {
+        setIqScore(serverQuizScore);
+        AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY_INLINE, String(serverQuizScore));
       } else if (val !== null) {
         setIqScore(parseInt(val, 10));
       }
       setIqLoaded(true);
     });
-  }, [profileData]);
+  }, [serverQuizScore]);
 
-  // ── Spotlight
-  // Task #1418 — `enabled` is gated on `homeDataReady` so we don't fire
-  // these two requests during cold start. Once the home god-query has
-  // resolved (and seeded the spotlight cache via setQueryData in the
-  // parent), `enabled` flips true and react-query returns the cached
-  // data immediately. Default staleTime (5min) prevents a refetch on
-  // that flip; subsequent invalidations from SpotlightNominationModal
-  // still trigger a refresh as before.
-  const { data: currentWeek } = useQuery<SpotlightCurrentWeekMini>({
-    queryKey: ["/api/player/spotlight/current-week"],
-    enabled: !!user?.playerId && homeDataReady,
-  });
-  const { data: weeklyWinner } = useQuery<{ winner: SpotlightWeeklyWinnerMini | null }>({
-    queryKey: ["/api/player/spotlight/weekly-winner"],
-    enabled: !!user?.playerId && homeDataReady,
-  });
+  // ── Spotlight (data from the home god-route, passed in as props).
+  const currentWeek = spotlightCurrentWeek;
+  const weeklyWinner = spotlightWeeklyWinner;
   const hasVoted = !!currentWeek?.myNomination;
   const topNominee = currentWeek?.nominations?.[0] ?? null;
   const lastWinner = weeklyWinner?.winner ?? null;
@@ -1283,9 +1128,11 @@ function PlayerHomeContent() {
     // during cold start.
     spotlightCurrentWeek: SpotlightCurrentWeekMini | null;
     spotlightWeeklyWinner: { winner: SpotlightWeeklyWinnerMini | null };
-    // Task #1419 — added to god-route. Eliminates the two standalone
-    // useQuery calls TennisIQMiniTile and UnifiedImproveCard used to
-    // fire on mount.
+    // Task #1419 — added to god-route. The legacy useQuery for tennis IQ
+    // is gone (Task #1426 removed the dead TennisIQMiniTile component
+    // and switched UnifiedImproveCard to read quizScore via props off
+    // homeData.profile), but we still seed the legacy key below for any
+    // consumer that hasn't been migrated.
     tennisIq: { score: number | null; lastQuizAt: string | null } | null;
     // Task #1419 — folded /api/ai-pro/status here too. The home
     // screen's `isNearLimit` banner used to fire its own useQuery for
@@ -1310,24 +1157,21 @@ function PlayerHomeContent() {
   const dashboardData = homeData?.dashboard ?? undefined;
   const unreadCount = homeData?.unreadCount?.count ?? 0;
 
-  // Prime the legacy query keys so subcomponents (TennisIQMiniTile,
-  // RecentFeedbackCard, PlayerDNABanner, etc.) that still useQuery the
-  // old endpoints get a cache hit instead of firing their own request.
+  // Prime the legacy query keys so OTHER screens that still useQuery
+  // the old endpoints (PlayerDNABanner, PlayerProgressScreen,
+  // PlayerScheduleScreen, PlayerTrainingScreen, RecentFeedbackCard) get
+  // a cache hit instead of firing their own request. UnifiedImproveCard
+  // and the IMPROVE block subcomponents themselves no longer hold any
+  // useQuery for these keys (Task #1426); they read everything off the
+  // homeData object via props.
   //
-  // Task #1419 — the home god-route now returns the FULL `profile.player`
+  // Task #1419 — the home god-route returns the FULL `profile.player`
   // object including the 10 DNA fields PlayerDNABanner reads
   // (dominantHand, backhandType, height, tshirtSize, playStyle,
   // tennisIdol, enjoymentTags, shortTermGoal, longTermDream,
-  // typicalPlayTimes) plus profilePhotoUrl. We can finally seed
-  // `["/api/player/me/profile"]` from the god-route response without
-  // breaking the banner's completion math, killing the standalone
-  // useQuery the banner used to fire on mount.
-  //
-  // Also seed tennisIq and aiProStatus, both newly returned by the home
-  // god-route under Task #1419. These were previously standalone
-  // useQuery calls in TennisIQMiniTile and UnifiedImproveCard. Seeding
-  // here gives byte-equivalent data to any downstream component and
-  // kills the "double-refresh" cold-start bug.
+  // typicalPlayTimes) plus profilePhotoUrl, so seeding
+  // `["/api/player/me/profile"]` doesn't break the banner's completion
+  // math.
   useEffect(() => {
     if (!homeData) return;
     Sentry.addBreadcrumb({
@@ -1359,11 +1203,11 @@ function PlayerHomeContent() {
       ["/api/player/me/ai-coach/context"],
       homeData.aiCoachContext ?? null,
     );
-    // Task #1418 — seed the spotlight queries so the two SpotlightMiniTile
-    // useQuery calls (one in this screen body, one in the standalone
-    // mini-tile component) hit the cache instead of firing parallel
-    // network requests during cold start. The home god-route returns
-    // these in the same payload, so we never need a separate request.
+    // Task #1418 — seed the spotlight queries so any future consumer
+    // (or the SpotlightDetail screen on navigation) hits the cache. The
+    // home god-route returns these in the same payload, so we never
+    // need a separate request. Task #1426 removed the in-tile useQuery
+    // calls in UnifiedImproveCard; this seed is now purely cross-screen.
     queryClient.setQueryData(
       ["/api/player/spotlight/current-week"],
       homeData.spotlightCurrentWeek ?? null,
@@ -1886,7 +1730,14 @@ function PlayerHomeContent() {
               }}
               onSpotlightNominate={() => setShowSpotlightNomination(true)}
               onSpotlightDetails={() => navigation.navigate("SpotlightDetail" as never)}
-              homeDataReady={!!homeData}
+              aiStatus={homeData?.aiProStatus ?? null}
+              aiCoachContext={homeData?.aiCoachContext ?? null}
+              weeklyDigest={homeData?.weeklyDigest ?? null}
+              spotlightCurrentWeek={homeData?.spotlightCurrentWeek ?? null}
+              spotlightWeeklyWinner={homeData?.spotlightWeeklyWinner ?? { winner: null }}
+              serverQuizScore={
+                ((homeData?.profile as { player?: { quizScore?: number | null } } | null)?.player?.quizScore) ?? null
+              }
             />
 
             {/* RecentFeedback & UpcomingAppointment are academy-only — hide for free players */}
@@ -2032,189 +1883,6 @@ function PlayerHomeContent() {
         isGuest={isGuest}
       />
     </View>
-  );
-}
-
-const TENNIS_IQ_SCORE_KEY = "@glow_tennis_iq_score";
-
-interface IQQuestion {
-  q: string;
-  opts: string[];
-  correct: string;
-  explanation: string;
-}
-
-function TennisIQMiniTile() {
-  const [score, setScore] = useState<number | null>(null);
-  const [scoreLoaded, setScoreLoaded] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-
-  const { data: profileData } = useQuery<{ player: { quizScore?: number | null } | null }>({
-    queryKey: ["/api/player/me/profile"],
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: quizData, isLoading: quizLoading } = useQuery<{ questions: IQQuestion[] }>({
-    queryKey: ["/api/quiz/tennis-iq"],
-    staleTime: 24 * 60 * 60 * 1000,
-  });
-
-  const questions: IQQuestion[] = quizData?.questions ?? [];
-
-  useEffect(() => {
-    AsyncStorage.getItem(TENNIS_IQ_SCORE_KEY).then(val => {
-      const serverScore = profileData?.player?.quizScore ?? null;
-      if (serverScore !== null && serverScore !== undefined) {
-        setScore(serverScore);
-        AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY, String(serverScore));
-      } else if (val !== null) {
-        setScore(parseInt(val, 10));
-      }
-      setScoreLoaded(true);
-    });
-  }, [profileData]);
-
-  const handleSelectAnswer = (answer: string) => {
-    if (selectedAnswer !== null) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedAnswer(answer);
-  };
-
-  const handleNext = () => {
-    if (selectedAnswer === null || questions.length === 0) return;
-    const newAnswers = [...answers, selectedAnswer];
-    setAnswers(newAnswers);
-    setSelectedAnswer(null);
-    if (currentQ < questions.length - 1) {
-      setCurrentQ(prev => prev + 1);
-    } else {
-      const finalScore = newAnswers.filter((a, i) => a === questions[i].correct).length;
-      setScore(finalScore);
-      AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY, String(finalScore));
-      apiRequest("PATCH", "/api/player/me/info", { quizScore: finalScore }).catch(() => {});
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-  };
-
-  const handleRetake = () => {
-    setCurrentQ(0);
-    setAnswers([]);
-    setSelectedAnswer(null);
-    setShowModal(true);
-  };
-
-  const quizComplete = questions.length > 0 && answers.length === questions.length;
-  const liveScore = answers.filter((a, i) => a === questions[i]?.correct).length;
-  const totalQ = questions.length || 5;
-
-  if (!scoreLoaded) return null;
-
-  const currentQuestion = questions[currentQ];
-
-  return (
-    <>
-      <MiniTile
-        label="TENNIS IQ"
-        icon="bulb-outline"
-        iconColor={Colors.dark.gold}
-        accentBg="rgba(255,215,0,0.06)"
-        accentBorder="rgba(255,215,0,0.2)"
-        accessibilityLabel="Test your tennis IQ"
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          if (score !== null) {
-            handleRetake();
-          } else {
-            setShowModal(true);
-          }
-        }}
-        footer={
-          <Text style={miniTileStyles.footerText} numberOfLines={1}>
-            {score !== null ? "Tap to retake" : "Take quiz"}
-          </Text>
-        }
-      >
-        <Text style={miniTileStyles.bigScore}>
-          {score !== null ? `${score}/${totalQ}` : "—"}
-        </Text>
-        <View style={miniTileStyles.dotsRow}>
-          {Array.from({ length: totalQ }).map((_, i) => (
-            <View
-              key={i}
-              style={[
-                miniTileStyles.dot,
-                score !== null && i < score
-                  ? { backgroundColor: Colors.dark.gold }
-                  : { backgroundColor: Colors.dark.chipBackgroundStrong },
-              ]}
-            />
-          ))}
-        </View>
-      </MiniTile>
-
-      <Modal visible={showModal} animationType="slide" transparent onRequestClose={() => setShowModal(false)}>
-        <View style={iqCardStyles.modalOverlay}>
-          <View style={iqCardStyles.modalSheet}>
-            <View style={iqCardStyles.modalHandle} />
-            <Text style={iqCardStyles.modalTitle}>Tennis IQ Quiz</Text>
-
-            {quizLoading ? (
-              <View style={iqCardStyles.loadingWrap}>
-                <ActivityIndicator color={Colors.dark.gold} size="small" />
-                <Text style={iqCardStyles.loadingText}>Loading questions...</Text>
-              </View>
-            ) : quizComplete ? (
-              <View style={iqCardStyles.resultWrap}>
-                <View style={iqCardStyles.resultCircle}>
-                  <Text style={iqCardStyles.resultScore}>{liveScore}/{questions.length}</Text>
-                </View>
-                <Text style={iqCardStyles.resultLabel}>
-                  {liveScore === questions.length ? "Perfect score!" : liveScore >= questions.length * 0.6 ? "Well done!" : "Keep learning!"}
-                </Text>
-                <Pressable
-                  style={iqCardStyles.doneBtn}
-                  onPress={() => { setShowModal(false); setCurrentQ(0); setAnswers([]); setSelectedAnswer(null); }}
-                >
-                  <Text style={iqCardStyles.doneBtnText}>Done</Text>
-                </Pressable>
-              </View>
-            ) : currentQuestion ? (
-              <View style={iqCardStyles.quizBody}>
-                <Text style={iqCardStyles.questionNum}>Question {currentQ + 1} of {questions.length}</Text>
-                <Text style={iqCardStyles.question}>{currentQuestion.q}</Text>
-                {currentQuestion.opts.map(opt => {
-                  const isSelected = selectedAnswer === opt;
-                  const revealed = selectedAnswer !== null;
-                  const isCorrect = opt === currentQuestion.correct;
-                  let optStyle = iqCardStyles.optionBtn;
-                  if (revealed && isCorrect) optStyle = iqCardStyles.optionCorrect;
-                  else if (revealed && isSelected && !isCorrect) optStyle = iqCardStyles.optionWrong;
-                  else if (revealed) optStyle = iqCardStyles.optionLocked;
-                  return (
-                    <Pressable key={opt} style={optStyle} onPress={() => handleSelectAnswer(opt)}>
-                      <Text style={[iqCardStyles.optionText, revealed && isCorrect && { color: "#22c55e", fontWeight: "700" }, revealed && isSelected && !isCorrect && { color: "#f87171" }]}>{opt}</Text>
-                    </Pressable>
-                  );
-                })}
-                {selectedAnswer !== null ? (
-                  <>
-                    <Text style={iqCardStyles.explanation}>{currentQuestion.explanation}</Text>
-                    <Pressable style={iqCardStyles.nextBtn} onPress={handleNext}>
-                      <Text style={iqCardStyles.nextBtnText}>
-                        {currentQ < questions.length - 1 ? "Next Question" : "See Results"}
-                      </Text>
-                    </Pressable>
-                  </>
-                ) : null}
-              </View>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
-    </>
   );
 }
 

@@ -1,7 +1,7 @@
 # Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-Glow Up Sports is a multi-academy SaaS platform revolutionizing tennis academy administration, coaching, and player engagement. It offers specialized applications for Platform Owners, Academy Owners, Coaches, and Players. Key features include gamification, detailed progress tracking, and efficient resource management. The platform aims to modernize operations, enhance player retention, and improve the overall experience in tennis academies.
+Glow Up Sports is a multi-academy SaaS platform revolutionizing tennis academy administration, coaching, and player engagement. It offers specialized applications for Platform Owners, Academy Owners, Coaches, and Players. Its core purpose is to modernize tennis academy operations, monitor player progress, and elevate coaching and playing experiences through gamification, detailed progress tracking, and efficient resource management. The platform aims to enhance player retention and improve the overall experience in tennis academies.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
