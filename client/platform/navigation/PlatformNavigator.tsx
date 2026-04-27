@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Platform } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import CommandCenterScreen from "@/platform/screens/CommandCenterScreen";
 import AcademiesScreen from "@/platform/screens/AcademiesScreen";
@@ -83,7 +83,17 @@ function PlatformTabs() {
 
 function PlatformStackNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Task #1417 — Mirror the player stacks: don't freeze inactive
+        // screens on iOS Fabric. Freezing contributes to the cold-start
+        // commit-stall the paint-tick (client/lib/iosPaintTick.tsx) is
+        // already working to defeat. Android keeps the default freeze
+        // behaviour to save CPU.
+        freezeOnBlur: Platform.OS !== "ios",
+      }}
+    >
       <Stack.Screen name="PlatformTabs" component={PlatformTabs} />
       <Stack.Screen name="AcademyDetail" component={AcademyDetailScreen} />
       <Stack.Screen name="XPMultipliers" component={XPMultipliersScreen} />

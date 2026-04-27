@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { StyleSheet, View, ActivityIndicator } from "react-native";
+import { StyleSheet, View, ActivityIndicator, Platform } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { setCurrentAcademyId } from "@/lib/auth";
@@ -88,7 +88,15 @@ function OwnerStackNavigator({ onboardingCompleted }: { onboardingCompleted: boo
   return (
     <Stack.Navigator 
       key={onboardingCompleted ? "owner-main" : "owner-onboarding"}
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        // Task #1417 — Mirror the player stacks: don't freeze inactive
+        // screens on iOS Fabric. Freezing contributes to the cold-start
+        // commit-stall the paint-tick (client/lib/iosPaintTick.tsx) is
+        // already working to defeat. Android keeps the default freeze
+        // behaviour to save CPU.
+        freezeOnBlur: Platform.OS !== "ios",
+      }}
       initialRouteName={onboardingCompleted ? "OwnerTabs" : "AcademyOnboarding"}
     >
       <Stack.Screen name="OwnerTabs" component={OwnerTabs} />

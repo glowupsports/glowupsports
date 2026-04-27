@@ -3,13 +3,28 @@ import { StyleSheet, View, Platform, Pressable, useWindowDimensions, Text } from
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import PagerView from "react-native-pager-view";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate, SharedValue } from "react-native-reanimated";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  interpolate,
+  runOnJS,
+  SharedValue,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 import { useTabNavigation } from "./TabNavigationContext";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+
+// Task #1417 — Imperative handle exposed to TabNavigationContext so external
+// callers (e.g. deep links via `navigateToTab`) can still drive the pager
+// programmatically. The shape mirrors the subset of `PagerView` we used
+// previously (`setPage`), so no callsite outside this file needs to change.
+export interface SwipeablePagerHandle {
+  setPage: (index: number) => void;
+}
 
 export interface TabConfig {
   key: string;
@@ -218,18 +233,21 @@ export function SwipeableTabBar({
   const { width: windowWidth } = useWindowDimensions();
   const [currentIndex, setCurrentIndex] = useState(initialPage);
   const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([initialPage]));
-  const pagerRef = useRef<PagerView>(null);
+  // Task #1417 — Replaces the PagerView ref. Same imperative `setPage`
+  // contract so TabNavigationContext can still drive the pager from
+  // outside without code changes.
+  const pagerRef = useRef<SwipeablePagerHandle | null>(null);
   const scrollOffset = useSharedValue(initialPage);
-  const lastScrollOffset = useRef(initialPage);
-  const edgeSwipeTriggered = useRef(false);
+  // Snapshot of the page-fraction at gesture start. Lives on the UI
+  // thread because the pan handlers run there.
+  const startOffset = useSharedValue(initialPage);
+  // Worklet-side flag that prevents the edge-swipe-left callback from
+  // firing more than once per gesture.
+  const edgeSwipeTriggeredSV = useSharedValue(false);
   const { registerPager, registerWebTabSetter, scrollEnabled, notifyActiveTab } = useTabNavigation();
 
   const isWeb = Platform.OS === "web";
   const containerWidth = isWeb ? Math.min(windowWidth, 480) : windowWidth;
-
-  useEffect(() => {
-    registerPager(pagerRef, tabs);
-  }, [registerPager, tabs]);
 
   const webSetTab = useCallback((index: number) => {
     setCurrentIndex(index);
@@ -252,11 +270,41 @@ export function SwipeableTabBar({
     }
   }, [isWeb, registerWebTabSetter, webSetTab]);
 
-  const handlePageSelected = useCallback((e: any) => {
-    const newIndex = e.nativeEvent.position;
+  // Task #1417 — Programmatic page change. Replaces PagerView's native
+  // `setPage`. Animates `scrollOffset` with the same spring used for
+  // gesture snaps so the indicator and tab-item scaling animate too.
+  const setPage = useCallback((index: number) => {
+    if (index < 0 || index >= tabs.length) return;
+    scrollOffset.value = withSpring(index, { damping: 22, stiffness: 200 });
+    startOffset.value = index;
+    setCurrentIndex(index);
+    setVisitedTabs(prev => {
+      if (prev.has(index)) return prev;
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+    if (onPageChange && tabs[index]) {
+      onPageChange(index, tabs[index].key);
+    }
+    notifyActiveTab(index, tabs[index]?.key ?? "");
+  }, [scrollOffset, startOffset, tabs, onPageChange, notifyActiveTab]);
+
+  // Expose the imperative handle to TabNavigationContext. We assign in
+  // an effect so consumers always see the latest closure of `setPage`.
+  useEffect(() => {
+    pagerRef.current = { setPage };
+  }, [setPage]);
+
+  useEffect(() => {
+    registerPager(pagerRef, tabs);
+  }, [registerPager, tabs]);
+
+  // Worklet-friendly callback fired when a swipe lands on a new page.
+  // Mirrors the previous PagerView `onPageSelected` behaviour: tracks
+  // visited tabs, fires the Light haptic, and invokes `onPageChange`.
+  const handleSwipeSettled = useCallback((newIndex: number) => {
     setCurrentIndex(newIndex);
-    scrollOffset.value = newIndex;
-    edgeSwipeTriggered.current = false;
     setVisitedTabs(prev => {
       if (prev.has(newIndex)) return prev;
       const next = new Set(prev);
@@ -266,51 +314,133 @@ export function SwipeableTabBar({
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    if (onPageChange) {
+    if (onPageChange && tabs[newIndex]) {
       onPageChange(newIndex, tabs[newIndex].key);
     }
-  }, [scrollOffset, onPageChange, tabs]);
+    notifyActiveTab(newIndex, tabs[newIndex]?.key ?? "");
+  }, [onPageChange, tabs, notifyActiveTab]);
 
-  const handlePageScroll = useCallback((e: any) => {
-    const { position, offset } = e.nativeEvent;
-    const currentOffset = position + offset;
-    scrollOffset.value = currentOffset;
-    
-    if (onEdgeSwipeLeft && position === 0 && offset < 0 && !edgeSwipeTriggered.current) {
-      if (lastScrollOffset.current >= 0 && currentOffset < -0.1) {
-        edgeSwipeTriggered.current = true;
-        if (Platform.OS !== "web") {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        }
-        onEdgeSwipeLeft();
-      }
+  const triggerEdgeSwipeLeft = useCallback(() => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    
-    lastScrollOffset.current = currentOffset;
-  }, [scrollOffset, onEdgeSwipeLeft]);
+    onEdgeSwipeLeft?.();
+  }, [onEdgeSwipeLeft]);
+
+  // Task #1417 — JS-controlled horizontal pager. Replaces PagerView on
+  // native to remove the iOS Fabric cold-start commit-stall (PagerView
+  // is a native-controlled component that defers its first paint until
+  // an interaction even when its children are already mounted).
+  const panGesture = useMemo(() => {
+    const tabsLength = tabs.length;
+    const hasEdgeSwipe = !!onEdgeSwipeLeft;
+    return Gesture.Pan()
+      .enabled(scrollEnabled && !isWeb)
+      // Require some horizontal motion before activating so vertical
+      // scrolls inside tab content still work.
+      .activeOffsetX([-12, 12])
+      .failOffsetY([-15, 15])
+      .onStart(() => {
+        "worklet";
+        startOffset.value = scrollOffset.value;
+        edgeSwipeTriggeredSV.value = false;
+      })
+      .onUpdate((e) => {
+        "worklet";
+        const offsetDelta = -e.translationX / containerWidth;
+        let next = startOffset.value + offsetDelta;
+        const minOffset = 0;
+        const maxOffset = tabsLength - 1;
+        // Rubber-band overscroll so the user gets tactile feedback at
+        // the edges (matches PagerView's `overdrag` behaviour).
+        if (next < minOffset) {
+          next = minOffset + (next - minOffset) * 0.4;
+        } else if (next > maxOffset) {
+          next = maxOffset + (next - maxOffset) * 0.4;
+        }
+        scrollOffset.value = next;
+
+        // Edge-swipe-left: user is on tab 0 and pulling rightward
+        // (translation > 0), which moves `scrollOffset` below 0. Fire
+        // the callback once per gesture, matching the old threshold.
+        if (
+          hasEdgeSwipe &&
+          startOffset.value === 0 &&
+          next < -0.1 &&
+          !edgeSwipeTriggeredSV.value
+        ) {
+          edgeSwipeTriggeredSV.value = true;
+          runOnJS(triggerEdgeSwipeLeft)();
+        }
+      })
+      .onFinalize((e, success) => {
+        "worklet";
+        // Snap to the nearest page, optionally projecting velocity to
+        // bias toward the next/previous page on a fast flick.
+        const projected = scrollOffset.value + (-e.velocityX / containerWidth) * 0.15;
+        let target = success ? Math.round(projected) : Math.round(scrollOffset.value);
+        if (target < 0) target = 0;
+        if (target > tabsLength - 1) target = tabsLength - 1;
+        scrollOffset.value = withSpring(target, {
+          damping: 22,
+          stiffness: 200,
+          mass: 0.6,
+          overshootClamping: true,
+        });
+        if (target !== startOffset.value) {
+          runOnJS(handleSwipeSettled)(target);
+        }
+        edgeSwipeTriggeredSV.value = false;
+      });
+  }, [
+    scrollEnabled,
+    isWeb,
+    containerWidth,
+    tabs.length,
+    onEdgeSwipeLeft,
+    scrollOffset,
+    startOffset,
+    edgeSwipeTriggeredSV,
+    handleSwipeSettled,
+    triggerEdgeSwipeLeft,
+  ]);
 
   const navigateToPage = useCallback((index: number) => {
     if (isWeb) {
       webSetTab(index);
     } else {
-      pagerRef.current?.setPage(index);
+      setPage(index);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  }, [isWeb, webSetTab]);
+  }, [isWeb, webSetTab, setPage]);
 
   const currentTabKey = tabs[currentIndex].key;
 
+  // Render only the active tab. Keeps the heavy tab children unmounted
+  // when off-screen — same contract as the previous PagerView impl.
+  // Each cell still occupies `containerWidth` so the row-translate
+  // animation has something to slide.
   const screens = useMemo(() => 
     tabs.map((tab, index) => {
       const TabComponent = tab.component;
       const shouldRender = index === currentIndex;
       return (
-        <View key={tab.key} style={styles.pageContainer}>
-          {shouldRender ? <TabComponent /> : <View style={styles.pageContainer} />}
+        <View key={tab.key} style={[styles.pageItem, { width: containerWidth }]}>
+          {shouldRender ? <TabComponent /> : null}
         </View>
       );
-    }), [tabs, currentIndex]
+    }), [tabs, currentIndex, containerWidth]
   );
+
+  const animatedRowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -scrollOffset.value * containerWidth }],
+  }));
+
+  const pagerRowStyle = useMemo(() => ({
+    flexDirection: "row" as const,
+    width: containerWidth * tabs.length,
+    height: "100%" as const,
+  }), [containerWidth, tabs.length]);
 
   const centerPagerIndex = centerButtonConfig?.pagerIndex;
 
@@ -387,18 +517,13 @@ export function SwipeableTabBar({
           {screens[currentIndex]}
         </View>
       ) : (
-        <PagerView
-          ref={pagerRef}
-          style={styles.pagerView}
-          initialPage={initialPage}
-          onPageSelected={handlePageSelected}
-          onPageScroll={handlePageScroll}
-          overdrag={true}
-          overScrollMode="never"
-          scrollEnabled={scrollEnabled}
-        >
-          {screens}
-        </PagerView>
+        <View style={styles.pagerView}>
+          <GestureDetector gesture={panGesture}>
+            <Animated.View style={[pagerRowStyle, animatedRowStyle]}>
+              {screens}
+            </Animated.View>
+          </GestureDetector>
+        </View>
       )}
 
       {!hideTabBar && (
@@ -443,9 +568,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   pagerView: {
     flex: 1,
+    overflow: "hidden",
   },
   pageContainer: {
     flex: 1,
+  },
+  pageItem: {
+    height: "100%",
   },
   swipeTabBar: {
     position: "absolute",

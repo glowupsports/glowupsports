@@ -251,7 +251,17 @@ function CoachTabs() {
 function CoachStackNavigator() {
   const { t } = useTranslation();
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Task #1417 — Mirror the player stacks: don't freeze inactive
+        // screens on iOS Fabric. Freezing contributes to the cold-start
+        // commit-stall the paint-tick (client/lib/iosPaintTick.tsx) is
+        // already working to defeat. Android keeps the default freeze
+        // behaviour to save CPU.
+        freezeOnBlur: Platform.OS !== "ios",
+      }}
+    >
       <Stack.Screen name="CoachTabs" component={CoachTabs} />
       <Stack.Screen 
         name="History" 

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Platform } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
@@ -129,7 +129,17 @@ function ProviderTabsWrapper() {
 
 export default function ProviderNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Task #1417 — Mirror the player stacks: don't freeze inactive
+        // screens on iOS Fabric. Freezing contributes to the cold-start
+        // commit-stall the paint-tick (client/lib/iosPaintTick.tsx) is
+        // already working to defeat. Android keeps the default freeze
+        // behaviour to save CPU.
+        freezeOnBlur: Platform.OS !== "ios",
+      }}
+    >
       <Stack.Screen name="ProviderTabs" component={ProviderTabsWrapper} />
       <Stack.Screen
         name="ProviderBookingDetail"

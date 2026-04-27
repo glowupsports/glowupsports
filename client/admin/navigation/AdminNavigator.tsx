@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Platform } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import AdminDashboardScreen from "@/admin/screens/AdminDashboardScreen";
 import AdminCoachesScreen from "@/admin/screens/AdminCoachesScreen";
@@ -187,7 +187,17 @@ function AdminTabs() {
 
 function AdminStackNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Task #1417 — Mirror the player stacks: don't freeze inactive
+        // screens on iOS Fabric. Freezing contributes to the cold-start
+        // commit-stall the paint-tick (client/lib/iosPaintTick.tsx) is
+        // already working to defeat. Android keeps the default freeze
+        // behaviour to save CPU.
+        freezeOnBlur: Platform.OS !== "ios",
+      }}
+    >
       <Stack.Screen name="AdminTabs" component={AdminTabs} />
       <Stack.Screen name="AdminPayments" component={AdminPaymentsScreen} />
       <Stack.Screen name="AdminCourts" component={AdminCourtsScreen} />
