@@ -29,7 +29,7 @@ Discover can aggregate them as percentiles and split them by tag.
 | `cold-start` | `godCache hydrate start`           | `src` (`interaction` \| `timeout`), `waited_ms`, `player_id`  | `deferredHydrateAndPersist`                 |
 | `cold-start` | `godCache hydrate end`             | `entries`, `dur_ms`, `player_id`                              | `deferredHydrateAndPersist`                 |
 | `cold-start` | `godCache hydrate aborted (stale)` | `src`, `waited_ms`, `reason: "token-moved"`                   | `deferredHydrateAndPersist` token guard     |
-| `cold-start` | `ios-paint-tick`                   | `src` (`t300` \| `t1000` \| `appstate`), `ms_since_first_paint` | iOS paint-tick `useEffect` in `App.tsx`     |
+| `cold-start` | `ios-paint-tick`                   | `src` (`t300` \| `t1000` \| `appstate`), `ms_since_first_paint` | `useIosPaintTick` in `client/lib/iosPaintTick.tsx` |
 | `boot`       | `App.tsx evaluated · …`            | `platform`, `appVersion`, `runtimeVersion`, `channel`, `commitSha`, … | App.tsx module-eval beacon          |
 
 ### Measurements (queryable by Discover via `measurements.<name>`)
@@ -296,7 +296,9 @@ The fix is two-layered:
   (`client/navigation/RootStackNavigator.tsx` plus the four player
   stacks in `client/player/navigation/PlayerNavigator.tsx`) so
   inactive screens stay mounted and paint when their parent does.
-- **Schedule a paint-tick after splash dismiss** in `client/App.tsx`:
+- **Schedule a paint-tick after splash dismiss** via the
+  `useIosPaintTick(splashComplete)` hook + `<IosPaintFlush>` wrapper
+  in `client/lib/iosPaintTick.tsx` (called from `client/App.tsx`):
   on iOS only, after `splashComplete` flips, bump a tiny opacity
   delta (1.000 ↔ 0.999) on the View wrapping `<NavigationContainerWithRef />`
   at +300 ms, +1000 ms, and on every AppState `active` event. The
@@ -327,6 +329,10 @@ verifying iOS cold-start in production first.**
   breadcrumbs, measurements, and tags consumed by this dashboard.
 - `client/App.tsx` — emits the `boot` beacon and calls
   `markColdStartFirstPaint()` from the splash-complete callback.
+- `client/lib/iosPaintTick.tsx` — `useIosPaintTick` hook +
+  `<IosPaintFlush>` wrapper that emit the `ios-paint-tick`
+  breadcrumb and the `ios.paint_tick_ms` measurement (Task #1409
+  extracted these from `App.tsx`).
 - `client/lib/__tests__/queryCachePersist.test.ts` — Sentry mock
   exposes the same surface (`addBreadcrumb`, `setMeasurement`,
   `setTag`); update it whenever a new Sentry method is called from
