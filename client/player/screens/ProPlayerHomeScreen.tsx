@@ -1483,7 +1483,35 @@ function PlayerHomeContent() {
   // gives the user the layout instantly instead of a yellow spinner. Sections
   // with their own queries (PlayerDNABanner, MiniFeed, etc.) hydrate
   // independently as their data arrives.
-  if (!isGuest && isLoading && !homeData) {
+  //
+  // Task #1433 — guard widened from `isLoading && !homeData` to just
+  // `!homeData`. The old guard required `isLoading === true`, but during the
+  // ~600ms PLAYER_ME_DEFER_MS cold-start window the home god-query is
+  // DISABLED (`enabled: !!user?.playerId && !isGuest` — playerId hasn't
+  // arrived yet from the deferred AuthContext hydrate). TanStack Query
+  // reports `isLoading === false` for disabled queries, so the old guard
+  // missed this window, the second guard at L1528 also missed (needs
+  // `homeData` truthy), and execution fell through to the
+  // `effectiveData!.player` destructure → TypeError → blue cold-start
+  // screen reproduced in Sentry issue REACT-NATIVE-45 on release 1.3.6.
+  // Bonus: this also covers the isError path (errored query reports
+  // isLoading=false + homeData=undefined) — proper isError handling with
+  // a retry card is a separate task if it ever surfaces in telemetry.
+  if (!isGuest && !homeData) {
+    try {
+      Sentry.addBreadcrumb({
+        category: "player_home",
+        level: "info",
+        message: "rendering skeleton — homeData not ready",
+        data: {
+          isLoading,
+          hasUserPlayerId: !!user?.playerId,
+          queryEnabled: !!user?.playerId && !isGuest,
+        },
+      });
+    } catch {
+      // Sentry never throws past the render path.
+    }
     return (
       <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
         <ScrollView
