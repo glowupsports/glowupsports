@@ -9,25 +9,25 @@
 // other tabs — the AI Coach tab was the slowest cold-start on the
 // player side because it had no god-route at all.
 //
-// Fix: collapse to ONE round trip via \`/api/player/me/ai-coach-data\`.
-// The screen primes every legacy queryKey via \`queryClient.setQueryData\`
+// Fix: collapse to ONE round trip via `/api/player/me/ai-coach-data`.
+// The screen primes every legacy queryKey via `queryClient.setQueryData`
 // so any standalone useQuery(["/api/player/me/weekly-plan"]) etc. that
 // remains anywhere downstream hits cache instead of network.
 //
-// Internal fan-out: \`dispatchInProcess\` (server/lib/in-process-dispatch.ts)
+// Internal fan-out: `dispatchInProcess` (server/lib/in-process-dispatch.ts)
 // — same pattern as community-data.ts. Each child request reuses the
-// parent's already-resolved \`req.user\` so we pay zero auth + family-link
+// parent's already-resolved `req.user` so we pay zero auth + family-link
 // + account-lock DB round trips per sub-fetch. Shape parity is
 // byte-equivalent because we dispatch the legacy routes themselves.
 //
-// Cache: 30s in-memory per \`playerId:academyId\` — matches the other player god-routes.
+// Cache: 30s in-memory per `playerId:academyId` — matches the other player god-routes.
 // AI digest + monthly assessment turnover is far slower than 30s, but
 // the other branches (weekly-plan, sessions) do change with mutations
 // elsewhere in the app, so we keep the conservative TTL and rely on
-// targeted invalidation (\`invalidatePlayerAiCoachDataCache\`) at the
+// targeted invalidation (`invalidatePlayerAiCoachDataCache`) at the
 // mutation boundaries that need it.
 //
-// The \`aiCoachContext\` branch is the critical must-have for the maturity 
+// The `aiCoachContext` branch is the critical must-have for the maturity 
 // banner / mirror layer counts; cache is only set when that branch succeeds, 
 // mirroring the player-home.ts policy.
 

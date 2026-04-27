@@ -132,6 +132,88 @@ describe("player home screen — Task #1379 client invariants", () => {
     expect(src).toMatch(/["']\/api\/ai-pro\/status["']/);
   });
 
+  // Task #1427 — explicit shape coverage for the two newest folded-in
+  // branches. They were added in #1419 but only had indirect coverage
+  // via the client-side queryCachePersist test. Locking the route's
+  // own response shape here means a future refactor that drops
+  // either field will fail server-side, before the client even
+  // ships.
+  it("(Task #1419 / #1427) the route exposes fan-out + result keys for tennisIq AND aiProStatus", () => {
+    const src = readRepoFile("server/routes/player-home.ts");
+
+    // Both branches must be wired into the parallel fan-out.
+    expect(src).toMatch(/fetchTennisIq\s*\(\s*playerId\s*\)/);
+    expect(src).toMatch(/fetchAiProStatus\s*\(\s*req\s*\)/);
+
+    // Both branches must show up as named keys on the response object
+    // the route returns. The client cache-prime step keys off these
+    // exact names; renaming either silently breaks PlayerDNABanner /
+    // TennisIQTile / the AI-pro near-limit banner.
+    expect(src).toMatch(/tennisIq:\s*tennisIqResult\.status\s*===\s*["']fulfilled["']/);
+    expect(src).toMatch(/aiProStatus:\s*aiProStatusResult\.status\s*===\s*["']fulfilled["']/);
+
+    // The empty-shell early return (when the user has no playerId
+    // yet — pre-onboarding) MUST also include both keys, otherwise
+    // the screen crashes destructuring `homeData.tennisIq` on a
+    // brand-new account.
+    expect(src).toMatch(/tennisIq:\s*null\b/);
+    expect(src).toMatch(/aiProStatus:\s*\{\s*isPro:\s*false/);
+  });
+
+  it("(Task #1427) empty-shell payload (no playerId) includes the new tennisIq + aiProStatus fields end-to-end", async () => {
+    // Integration check — we boot the real router with a synthetic
+    // user that has no `playerId` (mirrors a brand-new account or a
+    // platform_owner / admin without a player profile). The response
+    // MUST include the new fields with safe defaults so the screen
+    // can render without crashing.
+    const express = (await import("express")).default;
+    const http = await import("node:http");
+    const playerHomeMod = await import("../routes/player-home");
+    const router = playerHomeMod.default;
+
+    const app = express();
+    app.use((req, _res, next) => {
+      // Use the in-process auth short-circuit (Task #1398) so we can
+      // skip JWT verification in this in-process integration test.
+      (req as unknown as Record<string, unknown>).__inProcessDispatch = true;
+      (req as unknown as Record<string, unknown>).__inProcessUser = {
+        userId: "u1",
+        email: "t@example.com",
+        role: "platform_owner",
+        academyId: null,
+        coachId: null,
+        playerId: null, // <- no player profile, hits the empty-shell branch
+      };
+      next();
+    });
+    app.use(router);
+
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const addr = server.address() as { port: number };
+      const res = await fetch(`http://127.0.0.1:${addr.port}/api/player/me/home-data`);
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as Record<string, unknown>;
+      // Existing keys still present (regression guard for Task #1379).
+      expect(body).toHaveProperty("dashboard");
+      expect(body).toHaveProperty("profile");
+      expect(body).toHaveProperty("unreadCount");
+      // The two new keys this test exists to lock in.
+      expect(body).toHaveProperty("tennisIq");
+      expect(body.tennisIq).toBeNull();
+      expect(body).toHaveProperty("aiProStatus");
+      expect(body.aiProStatus).toEqual({
+        isPro: false,
+        isCoach: false,
+        callCount: 0,
+        limit: 5,
+      });
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it("invalidates the god-query (not just the legacy dashboard key) when a booking succeeds", () => {
     const src = readRepoFile("client/player/screens/ProPlayerHomeScreen.tsx");
     // The handleBookingSuccess block must invalidate /home-data, not
