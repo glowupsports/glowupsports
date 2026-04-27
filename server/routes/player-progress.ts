@@ -3166,6 +3166,34 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
         await incrementAiCallCount(userId);
 
+        // Task #1419 — the AI quota counter just changed, so the
+        // bundled god-route caches that mirror /api/ai-pro/status
+        // must be evicted. Otherwise the home banner and AI Coach
+        // tab keep reporting the previous callCount until the 30s
+        // TTL expires, which makes the "near-limit" / "over-limit"
+        // upgrade prompts feel laggy and wrong. Both /home-data and
+        // /ai-coach-data fold ai-pro/status into their payloads, so
+        // invalidate both.
+        try {
+          const { invalidatePlayerHomeDataCache } = await import(
+            "./player-home"
+          );
+          const { invalidatePlayerAiCoachDataCache } = await import(
+            "./player-ai-coach-data"
+          );
+          invalidatePlayerHomeDataCache(playerId);
+          invalidatePlayerAiCoachDataCache(playerId);
+        } catch (cacheErr) {
+          // Cache eviction is best-effort. A failure here would only
+          // cause a 30s lag in the upgrade prompt, never a data
+          // correctness bug, so we log + continue rather than fail
+          // the chat call.
+          console.warn(
+            "[ai-chat] failed to invalidate god-route caches after quota increment:",
+            cacheErr,
+          );
+        }
+
         const { messages } = req.body as { messages: AiChatMessage[] };
         const safeMessages: AiChatMessage[] = (messages || []).filter(
           (m) => m.role === "user" || m.role === "assistant"

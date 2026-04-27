@@ -16,11 +16,17 @@
 //      is still blocked).
 //   4. The legacy per-resource endpoints (`/api/player/me/dashboard`,
 //      `/profile`, `/notifications/unread-count`, `/weekly-digest`,
-//      `/ai-coach/context`) MUST stay registered. Subcomponents like
-//      PlayerDNABanner still call the legacy `/profile` endpoint
-//      directly because the home god-query intentionally returns a
-//      reduced profile payload. Removing them would silently break the
-//      cards that read those keys.
+//      `/ai-coach/context`, `/ai-pro/status`) MUST stay registered.
+//      Other surfaces (coach views, deep links, modals opened in
+//      isolation) still call them directly. The home god-query now
+//      returns the FULL `/profile` shape (Task #1419) and seeds the
+//      legacy queryKey on the client, but the underlying endpoints
+//      remain the source of truth.
+//   5. (Task #1419) The home god-route folds in the FULL profile shape
+//      and the AI-pro status by dispatching in-process to the canonical
+//      routes. The client seeds the legacy queryKeys so PlayerDNABanner
+//      / TennisIQTile / TennisIQQuizModal / the near-limit banner all
+//      hit cache instead of firing extra requests on cold start.
 //
 // We deliberately do NOT spin up the full express app or a real DB —
 // the goal is a fast, dependency-free invariant check, not an
@@ -90,24 +96,40 @@ describe("player-home god-endpoint route — Task #1379 regression guard", () =>
 });
 
 describe("player home screen — Task #1379 client invariants", () => {
-  it("only fires one mount query for the home god-data and does NOT prime the legacy /profile cache", () => {
+  it("fires one mount query for the home god-data and seeds the legacy /profile + /ai-pro/status caches", () => {
     const src = readRepoFile("client/player/screens/ProPlayerHomeScreen.tsx");
 
     // Exactly one useQuery on the god-query key.
     const godKeyMatches = src.match(/queryKey:\s*\[\s*["']\/api\/player\/me\/home-data["']\s*\]/g) ?? [];
     expect(godKeyMatches.length).toBeGreaterThanOrEqual(1);
 
-    // The screen must NOT call `queryClient.setQueryData(["/api/player/me/profile"], …)`.
-    // Priming it with our reduced payload would make PlayerDNABanner
-    // (which reads dominantHand / backhandType / tennisIdol etc.)
-    // under-report DNA completion.
-    expect(src).not.toMatch(/setQueryData\(\s*\[\s*["']\/api\/player\/me\/profile["']\s*\]/);
+    // (Task #1419) The screen MUST seed the legacy /profile and
+    // /ai-pro/status caches from the god-route response so
+    // PlayerDNABanner / TennisIQTile / TennisIQQuizModal / the
+    // AI-pro near-limit banner all hit cache instead of firing extra
+    // requests on cold start. Removing either seed re-introduces the
+    // "two refresh needed" bug we fixed.
+    expect(src).toMatch(/setQueryData\(\s*\[\s*["']\/api\/player\/me\/profile["']\s*\]/);
+    expect(src).toMatch(/setQueryData\(\s*\[\s*["']\/api\/ai-pro\/status["']\s*\]/);
 
     // The old standalone dashboard / unread useQuery blocks must be
     // gone. If they come back, we re-introduce the iOS bridge fanout
     // that this whole task fixed.
     expect(src).not.toMatch(/useQuery<DashboardData>\(\{\s*queryKey:\s*\[\s*["']\/api\/player\/me\/dashboard["']/);
     expect(src).not.toMatch(/useQuery<\{\s*count:\s*number[^}]*\}>\(\{\s*queryKey:\s*\[\s*["']\/api\/player\/me\/notifications\/unread-count["']/);
+  });
+
+  it("(Task #1419) the server home-route folds in the FULL profile shape and ai-pro/status via dispatchInProcess", () => {
+    const src = readRepoFile("server/routes/player-home.ts");
+    // Must dispatch into the canonical /profile and /ai-pro/status
+    // routes — we MUST NOT inline a reduced shape here (that's the
+    // exact regression Task #1419 fixed).
+    expect(src).toMatch(/dispatchInProcess/);
+    expect(src).toMatch(/fetchProfileFull/);
+    expect(src).toMatch(/fetchAiProStatus/);
+    // Sanity: the full-profile fetch dispatches to the canonical path.
+    expect(src).toMatch(/["']\/api\/player\/me\/profile["']/);
+    expect(src).toMatch(/["']\/api\/ai-pro\/status["']/);
   });
 
   it("invalidates the god-query (not just the legacy dashboard key) when a booking succeeds", () => {

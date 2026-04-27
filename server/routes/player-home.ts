@@ -38,6 +38,7 @@ import {
   authMiddlewareWithFreshData as authMiddleware,
 } from "../auth";
 import type { AuthenticatedRequest } from "../auth";
+import { dispatchInProcess } from "../lib/in-process-dispatch";
 
 const router = Router();
 
@@ -158,14 +159,16 @@ router.get(
         aiCoachContextResult,
         spotlightCurrentWeekResult,
         spotlightWeeklyWinnerResult,
+        aiProStatusResult,
       ] = await Promise.allSettled([
         fetchDashboard(playerId),
-        fetchProfile(playerId),
+        fetchProfileFull(req),
         fetchUnreadCount(playerId),
         fetchWeeklyDigest(playerId),
         fetchAiCoachContext(playerId),
         fetchSpotlightCurrentWeek(playerId),
         fetchSpotlightWeeklyWinner(playerId),
+        fetchAiProStatus(req),
       ]);
 
       const result: Record<string, unknown> = {
@@ -193,6 +196,14 @@ router.get(
           spotlightWeeklyWinnerResult.status === "fulfilled"
             ? spotlightWeeklyWinnerResult.value
             : { winner: null },
+        // Task #1419 — folded ai-pro/status into the home god-route. The
+        // home screen renders an "X messages left this month" warning
+        // tile that previously fired its own /api/ai-pro/status useQuery
+        // on mount.
+        aiProStatus:
+          aiProStatusResult.status === "fulfilled"
+            ? aiProStatusResult.value
+            : null,
       };
 
       // Log any rejected branch so we can see in production logs which
@@ -206,6 +217,7 @@ router.get(
         ["aiCoachContext", aiCoachContextResult],
         ["spotlightCurrentWeek", spotlightCurrentWeekResult],
         ["spotlightWeeklyWinner", spotlightWeeklyWinnerResult],
+        ["aiProStatus", aiProStatusResult],
       ] as const) {
         if (r.status === "rejected") {
           console.error(
@@ -555,60 +567,48 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
   };
 }
 
-// Mirror of `/api/player/me/profile` (server/routes/player-sessions.ts).
-// ProPlayerHome only consumes `academy.{id,name}` from this response, but
-// the screen also passes the full profile blob to a couple of subscreens
-// via cache, so we keep the same top-level shape. We stop short of the
-// expensive 90-day attendance/credit-engine computation that the original
-// handler does for the profile-page-only "stats" object — that block is
-// not needed by the home screen and was a measurable contributor to the
-// original mount cost.
-async function fetchProfile(
-  playerId: string,
-): Promise<Record<string, unknown>> {
-  const player = await storage.getPlayer(playerId);
-  if (!player) {
-    return {
-      player: null,
-      coach: null,
-      academy: null,
-      stats: { sessionsAttended: 0, sessionsTotal: 0, attendanceRate: 0 },
-    };
-  }
-  const [coach, academy, xpData] = await Promise.all([
-    player.coachId ? storage.getCoach(player.coachId) : Promise.resolve(null),
-    player.academyId
-      ? storage.getAcademy(player.academyId)
-      : Promise.resolve(null),
-    storage
-      .getPlayerXpTotal(playerId)
-      .catch(() => ({ totalXp: 0, level: 1, xpToNextLevel: 500 })),
-  ]);
+// Task #1419 — full mirror of `/api/player/me/profile` via in-process
+// dispatch. Earlier (Task #1379) we hand-rolled a *reduced* fetchProfile
+// that only included `academy.{id,name}` + a minimal player blob, with
+// an explicit comment saying the screen would not seed this key because
+// the legacy endpoint returned more fields than the reduced version did.
+//
+// That trade-off is the source of the "double-refresh" cold-start bug:
+// `PlayerDNABanner` and the two TennisIQ subcomponents on Home each
+// fire their own `["/api/player/me/profile"]` useQuery on mount because
+// the reduced shape was missing `dominantHand`, `backhandType`,
+// `tshirtSize`, `tennisIdol`, social.matchesPlayed, etc. Three extra
+// network requests on the cold-start critical path = visible spinner.
+//
+// Fix: dispatch the legacy /profile route in-process so we get a
+// byte-equivalent shape with zero duplication. The auth middleware
+// short-circuits because dispatchInProcess attaches `__inProcessUser`
+// + `__inProcessDispatch` from the parent request — see
+// server/lib/in-process-dispatch.ts. Cost: one extra ~1ms in-process
+// hop, but it's inside `Promise.allSettled` alongside dashboard so it
+// runs in parallel and doesn't extend the home-data critical path.
+async function fetchProfileFull(
+  req: AuthenticatedRequest,
+): Promise<Record<string, unknown> | null> {
+  const result = await dispatchInProcess<Record<string, unknown>>(
+    req,
+    "/api/player/me/profile",
+  );
+  return result.status === "ok" ? result.data : null;
+}
 
-  return {
-    player: {
-      id: player.id,
-      name: player.name,
-      level: xpData.level || player.level || 1,
-      xp: xpData.totalXp || player.totalXp || 0,
-      ballLevel: player.ballLevel,
-      academyId: player.academyId,
-      coachId: player.coachId,
-      profilePhotoUrl: (player as any).profilePhotoUrl || null,
-      quizScore: (player as any).quizScore ?? null,
-    },
-    coach: coach
-      ? { id: coach.id, name: coach.name, photoUrl: coach.photoUrl || null }
-      : null,
-    academy: academy
-      ? {
-          id: academy.id,
-          name: academy.name,
-          timezone: academy.timezone || null,
-        }
-      : null,
-    // Stats omitted on purpose — see comment above.
-  };
+// Task #1419 — mirror of `/api/ai-pro/status` (server/routes/ai-pro.ts).
+// Same rationale as fetchProfileFull: the home screen's `isNearLimit`
+// banner used to fire its own useQuery for this on cold start. Now it
+// rides home-data so the banner can paint without an extra round trip.
+async function fetchAiProStatus(
+  req: AuthenticatedRequest,
+): Promise<Record<string, unknown> | null> {
+  const result = await dispatchInProcess<Record<string, unknown>>(
+    req,
+    "/api/ai-pro/status",
+  );
+  return result.status === "ok" ? result.data : null;
 }
 
 // Mirror of `/api/player/me/notifications/unread-count` (coach-calendar.ts).

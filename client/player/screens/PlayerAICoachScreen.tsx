@@ -611,10 +611,24 @@ function MyMirrorTab({
   glowMirrorLayers,
   monthlyAssessmentData,
   onOpenMonthlyModal,
+  // Task #1419 — defaults to true so any caller that hasn't been
+  // updated keeps the legacy fetching behaviour. The PlayerAICoachScreen
+  // parent passes `aiCoachDataReady` which only flips true after the
+  // god-route response has primed the cache, so the useQuery below
+  // gets a synchronous cache hit instead of triggering a network
+  // request during cold start.
+  tabDataReady = true,
 }: {
   glowMirrorLayers: GlowMirrorLayers | null;
-  monthlyAssessmentData: MonthlyAssessmentResponse | undefined;
+  // Task #1419 — accept null in addition to undefined. The god-route
+  // returns null when monthly-assessment is genuinely empty for the
+  // player, and the parent's derived `aiCoachData?.monthlyAssessment ??
+  // undefined` therefore has the type `MonthlyAssessmentResponse | null
+  // | undefined`. All consumers below already null-check via truthy
+  // guards (`monthlyAssessmentData ?`), so accepting null is safe.
+  monthlyAssessmentData: MonthlyAssessmentResponse | null | undefined;
   onOpenMonthlyModal: () => void;
+  tabDataReady?: boolean;
 }) {
   const navigation = useNavigation();
   const connectedCount = glowMirrorLayers
@@ -623,6 +637,8 @@ function MyMirrorTab({
 
   const { data: sessions } = useQuery<TrainingSession[]>({
     queryKey: ["/api/player/training-history"],
+    enabled: tabDataReady,
+    staleTime: 30 * 1000,
   });
 
   const recentSessions = (sessions || []).slice(0, 5);
@@ -1059,7 +1075,17 @@ interface PlayerSession {
   };
 }
 
-function GlowPlanTab({ digest }: { digest: WeeklyDigest | null }) {
+function GlowPlanTab({
+  digest,
+  // Task #1419 — see MyMirrorTab note. Default to true for backwards
+  // compat; PlayerAICoachScreen passes aiCoachDataReady so the two
+  // useQuery calls below get cache hits instead of firing network
+  // requests during cold start.
+  tabDataReady = true,
+}: {
+  digest: WeeklyDigest | null;
+  tabDataReady?: boolean;
+}) {
   const hasFocus = digest && digest.data?.focusArea;
   const focusArea = digest?.data?.focusArea;
   const keepDoing = digest?.data?.keepDoing || digest?.data?.drillTip;
@@ -1067,11 +1093,13 @@ function GlowPlanTab({ digest }: { digest: WeeklyDigest | null }) {
 
   const { data: weeklyPlan, isLoading: planLoading } = useQuery<WeeklyPlan | null>({
     queryKey: ["/api/player/me/weekly-plan"],
+    enabled: tabDataReady,
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: allSessions } = useQuery<PlayerSession[]>({
     queryKey: ["/api/player/me/sessions"],
+    enabled: tabDataReady,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -1457,31 +1485,100 @@ export default function PlayerAICoachScreen() {
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const { data: contextData } = useQuery<{ dataMaturity: DataMaturity; glowMirrorLayers?: GlowMirrorLayers; hasHistory: boolean }>({
-    queryKey: ["/api/player/me/ai-coach/context"],
-    staleTime: 60 * 1000,
+  // ===========================================================================
+  // Task #1419 — single god-query for the AI Coach tab.
+  //
+  // BEFORE: PlayerAICoachScreen fanned out SEVEN parallel React Query
+  // calls on mount (4 here in the parent + 3 inside MyMirrorTab /
+  // GlowPlanTab). On iOS that fanout serialised on the JS<->native
+  // bridge after the splash hand-off and made the tab feel "stuck"
+  // until the user nudged the screen.
+  //
+  // AFTER: ONE call to /api/player/me/ai-coach-data which the server
+  // resolves via in-process dispatch (server/routes/player-ai-coach-data.ts).
+  // The seed effect below primes every legacy queryKey via
+  // queryClient.setQueryData so:
+  //   * the 4 derived reads in this component (contextData, aiStatus,
+  //     monthlyAssessmentData, digest) come straight from god-data,
+  //   * the 3 useQuery calls inside the subcomponents
+  //     (training-history, weekly-plan, sessions) get cache hits
+  //     instead of firing — the `tabDataReady` prop gates them so
+  //     they don't even attempt to fetch before the seed lands.
+  // ===========================================================================
+  type AiCoachData = {
+    weeklyPlan: WeeklyPlan | null;
+    sessions: PlayerSession[];
+    trainingHistory: TrainingSession[];
+    aiCoachContext: {
+      dataMaturity: DataMaturity;
+      glowMirrorLayers?: GlowMirrorLayers;
+      hasHistory: boolean;
+    } | null;
+    aiProStatus: {
+      isPro: boolean;
+      isCoach: boolean;
+      callCount: number;
+      limit: number;
+    } | null;
+    monthlyAssessment: MonthlyAssessmentResponse | null;
+    weeklyDigest: WeeklyDigest | null;
+  };
+  const { data: aiCoachData } = useQuery<AiCoachData>({
+    queryKey: ["/api/player/me/ai-coach-data"],
+    // Match the server-side 30s in-memory cache. Mirrors the home /
+    // progress / play / community god-routes.
+    staleTime: 30 * 1000,
   });
 
-  const { data: aiStatus } = useQuery<{
-    isPro: boolean;
-    isCoach: boolean;
-    callCount: number;
-    limit: number;
-  }>({
-    queryKey: ["/api/ai-pro/status"],
-    staleTime: 60 * 1000,
-    retry: false,
-  });
+  // Seed legacy keys so MyMirrorTab + GlowPlanTab subcomponents (whose
+  // useQuery calls remain for backwards compatibility) read from cache
+  // instead of issuing network requests on mount. We seed only when
+  // the corresponding god-route branch resolved non-null — preserves
+  // legacy behaviour where a transient backend hiccup leaves the key
+  // empty rather than locked into a stale-null for 30s.
+  const aiCoachDataReady = !!aiCoachData;
+  useEffect(() => {
+    if (!aiCoachData) return;
+    if (aiCoachData.aiCoachContext) {
+      queryClient.setQueryData(
+        ["/api/player/me/ai-coach/context"],
+        aiCoachData.aiCoachContext,
+      );
+    }
+    if (aiCoachData.aiProStatus) {
+      queryClient.setQueryData(
+        ["/api/ai-pro/status"],
+        aiCoachData.aiProStatus,
+      );
+    }
+    queryClient.setQueryData(
+      ["/api/player/me/monthly-assessment/current"],
+      aiCoachData.monthlyAssessment ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/player/me/weekly-digest"],
+      aiCoachData.weeklyDigest ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/player/me/weekly-plan"],
+      aiCoachData.weeklyPlan ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/player/me/sessions"],
+      aiCoachData.sessions ?? [],
+    );
+    queryClient.setQueryData(
+      ["/api/player/training-history"],
+      aiCoachData.trainingHistory ?? [],
+    );
+  }, [aiCoachData, queryClient]);
 
-  const { data: monthlyAssessmentData } = useQuery<MonthlyAssessmentResponse | null>({
-    queryKey: ["/api/player/me/monthly-assessment/current"],
-    staleTime: 60 * 1000,
-  });
-
-  const { data: digest } = useQuery<WeeklyDigest | null>({
-    queryKey: ["/api/player/me/weekly-digest"],
-    staleTime: 5 * 60 * 1000,
-  });
+  // Derived reads — same shape as the old standalone useQueries so the
+  // rest of the screen reads identically.
+  const contextData = aiCoachData?.aiCoachContext ?? undefined;
+  const aiStatus = aiCoachData?.aiProStatus ?? undefined;
+  const monthlyAssessmentData = aiCoachData?.monthlyAssessment ?? undefined;
+  const digest = aiCoachData?.weeklyDigest ?? undefined;
 
   const dataMaturity = contextData?.dataMaturity;
   const hasHistory = contextData?.hasHistory ?? false;
@@ -1561,7 +1658,17 @@ export default function PlayerAICoachScreen() {
       scrollToBottom();
 
       if (!isGreeting) {
+        // Task #1419 — invalidate the legacy key AND both god-routes
+        // that fold ai-pro/status (home-data + ai-coach-data). Only
+        // invalidating the legacy key would leave the home banner
+        // and the AI Coach derived `aiStatus` reading stale callCount
+        // until the 30s server-side TTL expires. Server already
+        // evicts its own caches on the same chat call (see
+        // server/routes/player-progress.ts), so refetch will see
+        // the fresh count.
         queryClient.invalidateQueries({ queryKey: ["/api/ai-pro/status"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/ai-coach-data"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
       }
     } catch (err) {
       console.error("[PlayerAICoach] Chat error:", err);
@@ -1884,9 +1991,10 @@ export default function PlayerAICoachScreen() {
           glowMirrorLayers={glowMirrorLayers}
           monthlyAssessmentData={monthlyAssessmentData}
           onOpenMonthlyModal={() => setShowMonthlyModal(true)}
+          tabDataReady={aiCoachDataReady}
         />
       ) : (
-        <GlowPlanTab digest={digest ?? null} />
+        <GlowPlanTab digest={digest ?? null} tabDataReady={aiCoachDataReady} />
       )}
 
       <AiProUpgradeModal
@@ -1896,7 +2004,15 @@ export default function PlayerAICoachScreen() {
         limit={upgradeModalData.limit}
         isPro={upgradeModalData.isPro}
         resetDate={upgradeModalData.resetDate}
-        onSubscribed={() => queryClient.invalidateQueries({ queryKey: ["/api/ai-pro/status"] })}
+        onSubscribed={() => {
+          // Task #1419 — subscription change flips isPro / limit, so
+          // also evict the home-data + ai-coach-data caches that
+          // bundle ai-pro/status. Otherwise the upgrade modal closes
+          // but the banner keeps saying "5/5 used" for 30s.
+          queryClient.invalidateQueries({ queryKey: ["/api/ai-pro/status"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/player/me/ai-coach-data"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
+        }}
       />
 
       <FeatureIntroModal

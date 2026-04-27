@@ -37,6 +37,47 @@ For mixed changes (server + client): Republish first, then OTA push.
 
 The cold-start breadcrumbs emitted by that wrapper (`category: "cold-start"` — `godCache hydrate start/end/aborted`, `first-paint`, `first-god-fetch-settled`) are the source for the Sentry dashboard documented in `docs/sentry-cold-start-dashboard.md` (Task #1397). If a future change renames or removes any of those breadcrumbs, the dashboard runbook must be updated in the same change.
 
+### CRITICAL: AI Coach + Home god-route fan-in (Task #1419)
+The AI Coach tab and the Home tab both used to fire many parallel
+`useQuery` calls on cold start. The fix folds them into per-tab
+god-routes via in-process dispatch:
+
+- **Home god-route** (`/api/player/me/home-data`,
+  `server/routes/player-home.ts`) now ALSO returns the full
+  `/api/player/me/profile` shape (via `fetchProfileFull` →
+  `dispatchInProcess`) and `/api/ai-pro/status` (via
+  `fetchAiProStatus`). `ProPlayerHomeScreen` seeds both legacy keys
+  (`["/api/player/me/profile"]` and `["/api/ai-pro/status"]`) via
+  `setQueryData` in the same effect that already seeds dashboard /
+  weekly-digest / spotlight, so `PlayerDNABanner`, `TennisIQTile`,
+  `TennisIQQuizModal`, and the AI-pro near-limit banner all hit
+  cache instead of firing extra requests during cold start.
+- **AI Coach god-route** (`/api/player/me/ai-coach-data`,
+  `server/routes/player-ai-coach-data.ts`) bundles seven endpoints:
+  `weekly-plan`, `sessions`, `training-history`, `ai-coach/context`,
+  `ai-pro/status`, `monthly-assessment/current`, `weekly-digest`.
+  All seven branches dispatch in parallel via `dispatchInProcess`
+  with `Promise.allSettled`. 30s in-memory cache, only persisted
+  when `aiCoachContext` succeeds.
+- **`PlayerAICoachScreen`** consumes the god-route, derives the four
+  parent-level reads (`contextData`, `aiStatus`,
+  `monthlyAssessmentData`, `digest`) from `aiCoachData`, and seeds
+  all seven legacy queryKeys via `setQueryData`. The two
+  subcomponents (`MyMirrorTab`, `GlowPlanTab`) take a `tabDataReady`
+  prop (default `true` for backwards compat) that gates their
+  internal `useQuery` calls so they don't fire before the seed
+  lands. Removing or "cleaning up" the `tabDataReady` plumbing
+  brings back the cold-start fan-out.
+- **Persist whitelist** in `client/lib/queryCachePersist.ts` includes
+  `/api/player/me/ai-coach-data` so the AI Coach tab paints from
+  AsyncStorage before the network round-trip on cold start.
+
+If you ship a new player-screen `useQuery` that runs above the fold,
+either fold it into the relevant god-route or gate `enabled` on the
+same deferred-ready signal — otherwise the cold-start regression
+returns and you re-introduce the "two-refresh-needed" bug this task
+fixed.
+
 ### CRITICAL: Player tab cold-start deferrals (Tasks #1394, #1418)
 The Player tabs used to show a spinner on iOS cold-start until the user
 swiped, because too many `useQuery` calls fired synchronously during the

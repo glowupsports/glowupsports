@@ -1267,7 +1267,14 @@ function PlayerHomeContent() {
   // resolves instantly from cache instead of triggering its own fetch.
   const { data: homeData, isLoading, refetch, isRefetching } = useQuery<{
     dashboard: DashboardData | null;
-    profile: { academy?: { id: string; name: string } | null } | null;
+    // Task #1419 — `profile` is now the FULL `/api/player/me/profile`
+    // shape (player+coach+academy+stats+social+countryLadders) so we
+    // can seed the legacy `["/api/player/me/profile"]` queryKey and
+    // give PlayerDNABanner / TennisIQTile / TennisIQQuizModal cache
+    // hits instead of letting them fan out 3 extra requests on cold
+    // start. The screen itself only reads `profile.academy`, so we
+    // type the consumed slice loosely as a Record passthrough.
+    profile: Record<string, unknown> | null;
     unreadCount: { count: number };
     weeklyDigest: any;
     aiCoachContext: any;
@@ -1276,6 +1283,10 @@ function PlayerHomeContent() {
     // during cold start.
     spotlightCurrentWeek: SpotlightCurrentWeekMini | null;
     spotlightWeeklyWinner: { winner: SpotlightWeeklyWinnerMini | null };
+    // Task #1419 — folded /api/ai-pro/status here too. The home
+    // screen's `isNearLimit` banner used to fire its own useQuery for
+    // this, contributing to the cold-start fanout.
+    aiProStatus: { isPro: boolean; isCoach: boolean; callCount: number; limit: number } | null;
   }>({
     queryKey: ["/api/player/me/home-data"],
     enabled: !!user?.playerId && !isGuest,
@@ -1296,17 +1307,19 @@ function PlayerHomeContent() {
   const unreadCount = homeData?.unreadCount?.count ?? 0;
 
   // Prime the legacy query keys so subcomponents (TennisIQMiniTile,
-  // RecentFeedbackCard, etc.) that still useQuery the old endpoints get
-  // a cache hit instead of firing their own request.
+  // RecentFeedbackCard, PlayerDNABanner, etc.) that still useQuery the
+  // old endpoints get a cache hit instead of firing their own request.
   //
-  // We deliberately do NOT prime `["/api/player/me/profile"]`. The
-  // legacy `/profile` endpoint returns a much wider object (stats,
-  // social, countryLadders, dominantHand, backhandType, tshirtSize,
-  // tennisIdol, …) than this screen needs above the fold. Priming with
-  // our reduced payload would make `PlayerDNABanner` (which reads those
-  // extra fields) report incorrect completion. Letting it fall through
-  // to its own network call costs one extra request but keeps the DNA
-  // banner correct.
+  // Task #1419 — we now ALSO prime `["/api/player/me/profile"]` and
+  // `["/api/ai-pro/status"]`. The home god-route fetches the full
+  // /profile + /ai-pro/status shape via in-process dispatch (see
+  // server/routes/player-home.ts → fetchProfileFull / fetchAiProStatus),
+  // so seeding here gives byte-equivalent data to any downstream
+  // component. This kills the "double-refresh" cold-start bug where
+  // the DNA banner + 2 TennisIQ queries + 1 ai-pro/status query would
+  // each fire on mount, stacking on top of home-data's own request and
+  // saturating the iOS JS<->native bridge for 1-2s before the screen
+  // looked ready.
   useEffect(() => {
     if (!homeData) return;
     Sentry.addBreadcrumb({
@@ -1315,6 +1328,8 @@ function PlayerHomeContent() {
       level: "info",
       data: {
         hasDashboard: !!homeData.dashboard,
+        hasProfile: !!homeData.profile,
+        hasAiProStatus: !!homeData.aiProStatus,
         unread: homeData.unreadCount?.count ?? 0,
       },
     });
@@ -1346,6 +1361,21 @@ function PlayerHomeContent() {
       ["/api/player/spotlight/weekly-winner"],
       homeData.spotlightWeeklyWinner ?? { winner: null },
     );
+    // Task #1419 — seed full profile + ai-pro/status. Only seed when the
+    // server branch resolved (non-null) so a transient backend hiccup
+    // doesn't lock subcomponents into a null state for 30s.
+    if (homeData.profile) {
+      queryClient.setQueryData(
+        ["/api/player/me/profile"],
+        homeData.profile,
+      );
+    }
+    if (homeData.aiProStatus) {
+      queryClient.setQueryData(
+        ["/api/ai-pro/status"],
+        homeData.aiProStatus,
+      );
+    }
   }, [homeData, queryClient]);
 
   const [showBookingWizard, setShowBookingWizard] = useState(false);

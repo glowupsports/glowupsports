@@ -9,14 +9,22 @@ import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { InteractionManager, Platform } from "react-native";
 import logger from "@/lib/logger";
 
-// Five Player-tab god-routes plus Quests (own lifecycle, but persisted
+// Player-tab god-routes plus Quests (own lifecycle, but persisted
 // here so cold start paints them too).
+//
+// Task #1419 — added `/api/player/me/ai-coach-data`. The AI Coach tab
+// god-route bundles seven legacy endpoints (weekly-plan, sessions,
+// training-history, ai-coach/context, ai-pro/status,
+// monthly-assessment/current, weekly-digest) and is consumed by
+// `PlayerAICoachScreen`. Persisting it gives the AI Coach tab the
+// same instant-paint cold-start as the other player tabs.
 const TRACKED_GOD_KEY_PREFIXES = [
   "/api/player/me/home-data",
   "/api/player/me/progress-data",
   "/api/player/me/play-data",
   "/api/player/me/schedule-data",
   "/api/player/me/profile-data",
+  "/api/player/me/ai-coach-data",
   "/api/quests",
   "/api/player/mission-control",
 ] as const;
