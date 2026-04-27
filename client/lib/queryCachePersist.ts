@@ -202,6 +202,35 @@ function schedulePersist(queryClient: QueryClient, playerId: string): void {
   }, WRITE_DEBOUNCE_MS);
 }
 
+// Module-level cold-start markers (Task #1394 observability). Captured at
+// module-eval time so ANY caller — including the very first synchronous
+// render of the app — sees the same epoch. `firstGodFetchEmitted` is a
+// one-shot flip so the breadcrumb never fires twice in one session even
+// across account switches.
+const coldStartT0 = Date.now();
+let firstGodFetchEmitted = false;
+
+export function markColdStartFirstPaint(): void {
+  // Called from App.tsx's splash-complete callback — the first frame
+  // the user actually sees. Pair this with `first-god-fetch-settled`
+  // and the existing `godCache hydrate start/end` breadcrumbs to get
+  // a complete cold-start timing picture in Sentry without needing
+  // another OTA push.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Sentry = require("@sentry/react-native");
+    Sentry.addBreadcrumb?.({
+      category: "cold-start",
+      level: "info",
+      type: "info",
+      message: "first-paint",
+      data: { ms_since_module_eval: Date.now() - coldStartT0 },
+    });
+  } catch {
+    // Sentry not available — fine.
+  }
+}
+
 export function startGodCachePersistence(
   queryClient: QueryClient,
   playerId: string,
@@ -219,6 +248,30 @@ export function startGodCachePersistence(
     // unrelated query change (chats, lists, etc).
     if (!event || !event.query || !isTrackedGodKey(event.query.queryKey)) {
       return;
+    }
+    // One-shot cold-start marker: emit a Sentry breadcrumb the very
+    // first time ANY tracked god-key settles after app launch. This
+    // lets ops see how long the gap between "splash dismissed" and
+    // "Player tabs actually have data" is, in the wild, without
+    // needing another OTA push. Cheap (boolean check) and bounded.
+    if (!firstGodFetchEmitted) {
+      firstGodFetchEmitted = true;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const Sentry = require("@sentry/react-native");
+        Sentry.addBreadcrumb?.({
+          category: "cold-start",
+          level: "info",
+          type: "info",
+          message: "first-god-fetch-settled",
+          data: {
+            ms_since_module_eval: Date.now() - coldStartT0,
+            query_key: String(event.query.queryKey?.[0] ?? "unknown"),
+          },
+        });
+      } catch {
+        // ignore
+      }
     }
     schedulePersist(queryClient, playerId);
   });
@@ -307,9 +360,11 @@ export function deferredHydrateAndPersist(
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const Sentry = require("@sentry/react-native");
         Sentry.addBreadcrumb?.({
-          category: "boot",
+          category: "cold-start",
           level: "info",
-          message: `godCache hydrate aborted · stale (token moved) · src=${source} waited=${waited}ms`,
+          type: "info",
+          message: "godCache hydrate aborted (stale)",
+          data: { src: source, waited_ms: waited, reason: "token-moved" },
         });
       } catch {
         // ignore
@@ -323,9 +378,11 @@ export function deferredHydrateAndPersist(
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const Sentry = require("@sentry/react-native");
       Sentry.addBreadcrumb?.({
-        category: "boot",
+        category: "cold-start",
         level: "info",
-        message: `godCache hydrate start · src=${source} waited=${waited}ms`,
+        type: "info",
+        message: "godCache hydrate start",
+        data: { src: source, waited_ms: waited, player_id: playerId },
       });
     } catch {
       // Sentry not available in this environment — fine.
@@ -338,9 +395,11 @@ export function deferredHydrateAndPersist(
           // eslint-disable-next-line @typescript-eslint/no-var-requires
           const Sentry = require("@sentry/react-native");
           Sentry.addBreadcrumb?.({
-            category: "boot",
+            category: "cold-start",
             level: "info",
-            message: `godCache hydrate end · entries=${count} dur=${dur}ms`,
+            type: "info",
+            message: "godCache hydrate end",
+            data: { entries: count, dur_ms: dur, player_id: playerId },
           });
         } catch {
           // ignore

@@ -447,6 +447,16 @@ export default function App() {
 
   const handleSplashComplete = useCallback(() => {
     setSplashComplete(true);
+    // Task #1394 observability: emit a Sentry breadcrumb the moment
+    // the splash dismisses (i.e. first frame the user actually sees).
+    // Pairs with `godCache hydrate start/end` and `first-god-fetch-settled`
+    // breadcrumbs from queryCachePersist to give ops a complete picture
+    // of cold-start timing without needing another OTA push.
+    import("@/lib/queryCachePersist")
+      .then(({ markColdStartFirstPaint }) => markColdStartFirstPaint())
+      .catch(() => {
+        // never throw past the splash-complete callback
+      });
   }, []);
 
   return (
