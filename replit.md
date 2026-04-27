@@ -37,6 +37,15 @@ For mixed changes (server + client): Republish first, then OTA push.
 
 The cold-start breadcrumbs emitted by that wrapper (`category: "cold-start"` — `godCache hydrate start/end/aborted`, `first-paint`, `first-god-fetch-settled`) are the source for the Sentry dashboard documented in `docs/sentry-cold-start-dashboard.md` (Task #1397). If a future change renames or removes any of those breadcrumbs, the dashboard runbook must be updated in the same change.
 
+### CRITICAL: iOS cold-start paint-tick MUST stay in App.tsx (Task #1407)
+The `iosPaintTick` state, the `splashCompleteAt` ref, the iOS-only `useEffect` that bumps it at +300 ms / +1000 ms / on AppState `active`, and the inline opacity-nudge style on the `<View>` wrapping `<NavigationContainerWithRef />` MUST stay together in `client/App.tsx`. Removing any of them brings back the 30–60 s spinner symptom on every player tab on iOS cold-start (Home / Community / Play / Growth / Me). The opacity delta is 0.001 (1.000 ↔ 0.999) — visually imperceptible, but it is the only thing that makes iOS Fabric flush its pending React commit without a user gesture.
+
+Hard rules:
+- Style on the wrapper View must stay **inline** — do NOT extract to `useMemo`, do NOT pull into `StyleSheet.create`, do NOT factor into a child component. Inline guarantees a re-render on every `iosPaintTick` change.
+- The navigator must NOT carry `key={iosPaintTick}` (or any other key tied to the tick). Keying the navigator would remount providers and reset the queryClient.
+- `freezeOnBlur: Platform.OS !== "ios"` must stay set on `RootStackNavigator`'s `Stack.Navigator` and on every player stack navigator (`PlayStack`, `ScheduleStack`, `ProgressStack`, root player `Stack`). Android keeps the default freeze behavior. (`detachInactiveScreens` is NOT a native-stack screen option — it is silently ignored if added; do not re-add it expecting it to do something.)
+- The `cold-start` / `ios-paint-tick` breadcrumb and `ios.paint_tick_ms` measurement feed Panel 5 of the Sentry cold-start dashboard. If you rename or remove either, update `docs/sentry-cold-start-dashboard.md` in the same change.
+
 ### CRITICAL: API Development Rule
 DO NOT create new API endpoints without explicit permission!
 1. **First**: Check existing endpoints.

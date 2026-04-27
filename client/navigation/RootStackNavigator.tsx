@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { ActivityIndicator, View, StyleSheet } from "react-native";
+import { ActivityIndicator, View, StyleSheet, Platform } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { CommonActions, useNavigationContainerRef } from "@react-navigation/native";
 import * as Linking from "expo-linking";
@@ -246,7 +246,19 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
 
   return (
     <Stack.Navigator 
-      screenOptions={screenOptions}
+      screenOptions={{
+        ...screenOptions,
+        // Task #1407 — iOS cold-start: keep inactive screens unfrozen.
+        // react-native-screens defaults freeze inactive screens on iOS Fabric,
+        // which contributes to the player tabs sitting on a spinner until a
+        // gesture or AppState event flushes the pending React commit. Disable
+        // on iOS only; Android keeps the default freeze behavior to save CPU.
+        // (Note: `detachInactiveScreens` is NOT a native-stack screen option
+        // and is silently ignored if added here. The companion fix that
+        // actually flushes the pending iOS commit lives in App.tsx — search
+        // for `iosPaintTick`.)
+        freezeOnBlur: Platform.OS !== "ios",
+      }}
       initialRouteName={getInitialRoute()}
     >
       <Stack.Screen

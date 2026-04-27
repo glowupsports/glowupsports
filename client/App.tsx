@@ -1,6 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { StyleSheet, View, Platform, Alert } from "react-native";
+import { StyleSheet, View, Platform, Alert, AppState } from "react-native";
 import { useFonts } from "expo-font";
 import {
   Ionicons,
@@ -366,6 +366,14 @@ function RTLDirectionWrapper({ children }: { children: React.ReactNode }) {
 export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [splashComplete, setSplashComplete] = useState(false);
+  // Task #1407 — iOS cold-start paint-tick. After splash dismisses, iOS Fabric
+  // sometimes holds a pending React commit until a gesture or AppState change
+  // flushes it (visible as the player tabs sitting on a spinner for 30-60s
+  // until the user swipes or opens the app-switcher). We force the flush by
+  // bumping a tiny opacity nudge on the navigator wrapper at +300ms, +1000ms,
+  // and on every AppState 'active' event after splash. Android is unaffected.
+  const [iosPaintTick, setIosPaintTick] = useState(0);
+  const splashCompleteAt = useRef<number>(0);
 
   // On native (Expo Go / production), preload TTF files via the Metro asset system.
   // On web, preload via our Express-served /fonts/*.ttf so the browser downloads them
@@ -446,6 +454,9 @@ export default function App() {
   const appIsReady = isReady && (fontsLoaded || fontError != null);
 
   const handleSplashComplete = useCallback(() => {
+    // Task #1407 — capture splash-dismiss timestamp so the iOS paint-tick
+    // useEffect below can report ms_since_first_paint on each bump.
+    splashCompleteAt.current = Date.now();
     setSplashComplete(true);
     // Task #1394 observability: emit a Sentry breadcrumb the moment
     // the splash dismisses (i.e. first frame the user actually sees).
@@ -458,6 +469,57 @@ export default function App() {
         // never throw past the splash-complete callback
       });
   }, []);
+
+  // Task #1407 — iOS-only paint-tick. See comment near `iosPaintTick` state
+  // declaration for full rationale. The bump triggers a re-render of the
+  // opacity-nudged View wrapping the navigator (~0.001 alpha delta, visually
+  // imperceptible) which forces iOS Fabric to flush its pending React commit.
+  // Sentry breadcrumb + measurement are emitted INLINE here (not extracted to
+  // queryCachePersist) — the helper extract is a follow-up after we verify the
+  // fix actually removes the symptom in production.
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    if (!splashComplete) return;
+    let firstTickEmitted = false;
+    const bump = (src: "t300" | "t1000" | "appstate") => {
+      requestAnimationFrame(() => {
+        setIosPaintTick((t) => t + 1);
+        try {
+          const elapsedMs = splashCompleteAt.current
+            ? Date.now() - splashCompleteAt.current
+            : 0;
+          Sentry.addBreadcrumb?.({
+            category: "cold-start",
+            level: "info",
+            message: "ios-paint-tick",
+            data: { src, ms_since_first_paint: elapsedMs },
+          });
+          if (!firstTickEmitted) {
+            firstTickEmitted = true;
+            // Cold-start dashboard panel "iOS paint-tick wait time p50/p95"
+            // (see docs/sentry-cold-start-dashboard.md).
+            Sentry.setMeasurement?.(
+              "ios.paint_tick_ms",
+              elapsedMs,
+              "millisecond",
+            );
+          }
+        } catch {
+          // never throw past the paint-tick scheduler
+        }
+      });
+    };
+    const t1 = setTimeout(() => bump("t300"), 300);
+    const t2 = setTimeout(() => bump("t1000"), 1000);
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") bump("appstate");
+    });
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      sub.remove();
+    };
+  }, [splashComplete]);
 
   return (
     <ErrorBoundary>
@@ -485,7 +547,28 @@ export default function App() {
                                           <RTLDirectionWrapper>
                                             <ImpersonationBanner />
                                             <ChatStateProvider>
-                                              <NavigationContainerWithRef />
+                                              {/*
+                                                Task #1407 — iOS paint-tick wrapper.
+                                                The opacity micro-nudge (1.000 ↔ 0.999) is visually
+                                                imperceptible but forces iOS Fabric to re-commit the
+                                                view tree on every `iosPaintTick` bump, flushing the
+                                                pending React commit that otherwise waits for a user
+                                                gesture. Style is INLINE (not useMemo'd) so the
+                                                wrapper is guaranteed to re-render on every tick.
+                                                NO `key=` on the navigator — that would remount
+                                                providers and reset the queryClient.
+                                              */}
+                                              <View
+                                                style={{
+                                                  flex: 1,
+                                                  opacity:
+                                                    Platform.OS === "ios"
+                                                      ? 1 - (iosPaintTick % 2) * 0.001
+                                                      : 1,
+                                                }}
+                                              >
+                                                <NavigationContainerWithRef />
+                                              </View>
                                             </ChatStateProvider>
                                             <WhatsNewGate />
                                             <ForceUpdateGate />

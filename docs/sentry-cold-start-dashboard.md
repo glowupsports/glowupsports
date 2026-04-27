@@ -29,6 +29,7 @@ Discover can aggregate them as percentiles and split them by tag.
 | `cold-start` | `godCache hydrate start`           | `src` (`interaction` \| `timeout`), `waited_ms`, `player_id`  | `deferredHydrateAndPersist`                 |
 | `cold-start` | `godCache hydrate end`             | `entries`, `dur_ms`, `player_id`                              | `deferredHydrateAndPersist`                 |
 | `cold-start` | `godCache hydrate aborted (stale)` | `src`, `waited_ms`, `reason: "token-moved"`                   | `deferredHydrateAndPersist` token guard     |
+| `cold-start` | `ios-paint-tick`                   | `src` (`t300` \| `t1000` \| `appstate`), `ms_since_first_paint` | iOS paint-tick `useEffect` in `App.tsx`     |
 | `boot`       | `App.tsx evaluated · …`            | `platform`, `appVersion`, `runtimeVersion`, `channel`, `commitSha`, … | App.tsx module-eval beacon          |
 
 ### Measurements (queryable by Discover via `measurements.<name>`)
@@ -44,6 +45,7 @@ percentiles.
 | `godcache.first_god_fetch_ms`     | millisecond  | First tracked god-key settle in cache subscriber    | (auxiliary) tracks gap from module-eval to first data on a Player tab |
 | `godcache.waited_ms`              | millisecond  | `godCache hydrate start` and `aborted (stale)`     | **Panel 1** — hydration wait p50/p95 |
 | `godcache.dur_ms`                 | millisecond  | `godCache hydrate end` (after `hydrateGodCache`)   | **Panel 2** — hydration duration p50/p95 |
+| `ios.paint_tick_ms`               | millisecond  | First iOS paint-tick after splash dismiss (Task #1407) | **Panel 5** — iOS paint-tick wait p50/p95 |
 
 ### Scope tags (queryable by Discover via `tags[<name>]` and `tag:<name>`)
 
@@ -141,6 +143,31 @@ add the four widgets below in this order.
   - Display as percentage. Include a 7-day sparkline.
   - Threshold colours: green `<5%`, yellow `5–15%`, red `>15%`.
 
+### Panel 5 — iOS paint-tick wait time (P50 / P95)
+
+- **Goal.** Track how long the first iOS paint-tick takes to fire after
+  splash dismisses. The paint-tick is a deliberate opacity micro-nudge
+  scheduled at +300 ms / +1000 ms / on AppState `active` (Task #1407)
+  that forces iOS Fabric to flush a pending React commit which would
+  otherwise sit until the user makes a gesture. A healthy P50 is
+  `~300 ms` (the `t300` timer wins on most cold starts); a sustained
+  shift toward `~1000 ms` or higher means the `t300` callback is being
+  starved and we should investigate before users start reporting the
+  spinner symptom again.
+- **Widget config.**
+  - Widget type: `Line Chart` (time series).
+  - Dataset: Transactions (Discover).
+  - Filter: `has:measurements.ios.paint_tick_ms environment:production os.name:iOS`
+  - Two Y-axis series:
+    - `p50(measurements.ios.paint_tick_ms)`
+    - `p95(measurements.ios.paint_tick_ms)`
+  - Group by: `release` (so a regression on a new release is visible).
+  - X axis: time, 1h buckets.
+  - Y axis unit: milliseconds.
+  - Threshold line: 1500 ms (paired with the alert in section 4 for
+    `godcache.waited_ms`; treat both elevated as the paint-tick fix
+    being defeated by something upstream).
+
 ### Panel 4 — Interaction-vs-timeout wins
 
 - **Goal.** Track which deferral path actually fires hydration in the
@@ -237,7 +264,64 @@ After saving the dashboard, verify against the live data:
 
 ---
 
-## 7. Source files referenced
+## 7. Why we force repaint on iOS (Task #1407)
+
+After Tasks #1394–#1398 shipped, every player tab on iOS still showed
+the yellow spinner for 30–60+ seconds on cold-start — but **a single
+swipe in any direction, or a swipe-up to the iOS app-switcher, loaded
+every tab instantly**. Android was unaffected.
+
+That asymmetry is the smoking gun: data was already in the cache (the
+hydration fixes from #1394 worked), and the queries had already
+settled (the dispatch fixes from #1398 worked) — but iOS Fabric was
+holding the *render* commit until something poked it.
+
+Two compounding causes were identified:
+
+1. **`react-native-screens` defaults detach inactive screens on iOS.**
+   `freezeOnBlur` and `detachInactiveScreens` were not set anywhere in
+   the navigators (verified by `rg -n "freezeOnBlur|detachInactiveScreens" client/`).
+   On iOS Fabric this means inactive screens don't get a real layout
+   pass until activated by a gesture or AppState event.
+2. **Splash dismiss does not produce a paint event by itself.**
+   `AnimatedSplashScreen` flips `setShowSplash(false)` via `runOnJS`
+   from a Reanimated worklet. The React tree-shape changes, but iOS
+   appears to defer the resulting commit until a real input or layout
+   event arrives. The user's gesture *is* that event — which is why
+   any swipe instantly fixes it.
+
+The fix is two-layered:
+
+- **Disable screen-detach on iOS** in every native-stack navigator
+  (`client/navigation/RootStackNavigator.tsx` plus the four player
+  stacks in `client/player/navigation/PlayerNavigator.tsx`) so
+  inactive screens stay mounted and paint when their parent does.
+- **Schedule a paint-tick after splash dismiss** in `client/App.tsx`:
+  on iOS only, after `splashComplete` flips, bump a tiny opacity
+  delta (1.000 ↔ 0.999) on the View wrapping `<NavigationContainerWithRef />`
+  at +300 ms, +1000 ms, and on every AppState `active` event. The
+  delta is visually imperceptible but is enough to force iOS to
+  re-commit the view tree, simulating the gesture that would
+  otherwise be needed.
+
+The wrapper style is **inline, not memoised** so the View is
+guaranteed to re-render on every tick. The navigator itself has
+**no `key=`** — keying the navigator would remount providers and
+reset the queryClient.
+
+Each tick emits a `cold-start` / `ios-paint-tick` breadcrumb with
+`src` and `ms_since_first_paint`, and the first tick promotes
+`measurements.ios.paint_tick_ms` so Panel 5 above can chart it.
+
+If a future change either (a) renames or removes the paint-tick
+state, (b) extracts it into a helper without preserving the inline
+opacity nudge, or (c) adds `key={...}` to the navigator — the spinner
+symptom will return. **Do not "clean up" the inline style without
+verifying iOS cold-start in production first.**
+
+---
+
+## 8. Source files referenced
 
 - `client/lib/queryCachePersist.ts` — emits all `cold-start`
   breadcrumbs, measurements, and tags consumed by this dashboard.

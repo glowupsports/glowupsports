@@ -358,7 +358,14 @@ function PlayScreenWithCallback(props: any) {
 function PlayStackNavigator() {
   const { t } = useTranslation();
   return (
-    <PlayStack.Navigator screenOptions={{ headerShown: false }}>
+    <PlayStack.Navigator screenOptions={{
+      headerShown: false,
+      // Task #1407 — iOS keeps inactive screens unfrozen so player tabs paint
+      // immediately after splash dismiss. See comment in RootStackNavigator
+      // for the full rationale, and App.tsx (`iosPaintTick`) for the companion
+      // commit-flush mechanism.
+      freezeOnBlur: Platform.OS !== "ios",
+    }}>
       <PlayStack.Screen name="Play" component={PlayScreenWithCallback} />
       <PlayStack.Screen 
         name="OpenMatches" 
@@ -460,7 +467,11 @@ function ScheduleMainWithCallback(props: any) {
 function ScheduleStackNavigator() {
   const { t } = useTranslation();
   return (
-    <ScheduleStack.Navigator screenOptions={{ headerShown: false }}>
+    <ScheduleStack.Navigator screenOptions={{
+      headerShown: false,
+      // Task #1407 — see RootStackNavigator + App.tsx (`iosPaintTick`).
+      freezeOnBlur: Platform.OS !== "ios",
+    }}>
       <ScheduleStack.Screen name="ScheduleMain" component={ScheduleMainWithCallback} />
       <ScheduleStack.Screen name="CourtBooking" component={CourtBookingScreen} />
       <ScheduleStack.Screen name="CourtDetail" component={CourtDetailScreen} />
@@ -583,7 +594,11 @@ function ProgressStackNavigator() {
   const { t } = useTranslation();
 
   return (
-    <ProgressStack.Navigator screenOptions={{ headerShown: false }}>
+    <ProgressStack.Navigator screenOptions={{
+      headerShown: false,
+      // Task #1407 — see RootStackNavigator + App.tsx (`iosPaintTick`).
+      freezeOnBlur: Platform.OS !== "ios",
+    }}>
       <ProgressStack.Screen name="ProgressMain" component={GrowthMainWithCallback} />
       <ProgressStack.Screen 
         name="GlowLeaderboard" 
@@ -1064,7 +1079,11 @@ function LegacyProgressRedirect() {
 function PlayerStackNavigator() {
   const { t } = useTranslation();
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{
+      headerShown: false,
+      // Task #1407 — see RootStackNavigator + App.tsx (`iosPaintTick`).
+      freezeOnBlur: Platform.OS !== "ios",
+    }}>
       <Stack.Screen name="PlayerTabs" component={PlayerTabs} />
       <Stack.Screen 
         name="Training" 
