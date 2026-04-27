@@ -19,6 +19,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { SkeletonCard } from "@/components/SkeletonLoader";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
@@ -589,8 +590,10 @@ export default function CommunityScreen() {
           {filter === "news" ? (
             <NewsSection />
           ) : isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.dark.primary} />
+            <View style={styles.feedSkeletonWrap}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
             </View>
           ) : (
             <FlatList
@@ -795,6 +798,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  feedSkeletonWrap: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    gap: Spacing.md,
   },
   feedList: {
     paddingHorizontal: Spacing.lg,

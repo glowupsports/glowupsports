@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors, TextColors } from "@/constants/theme";
+import { Skeleton, SkeletonCard } from "@/components/SkeletonLoader";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -840,9 +841,27 @@ export default function PlayerProfileScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
-        <Text style={styles.loadingText}>{t("player.profile.loadingProfile")}</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.profileSkeletonHeader}>
+            <Skeleton width={120} height={120} borderRadius={60} />
+            <Skeleton width={160} height={22} style={{ marginTop: Spacing.md }} />
+            <Skeleton width={100} height={14} style={{ marginTop: Spacing.sm }} />
+          </View>
+          <View style={styles.profileSkeletonRow}>
+            <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
+            <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
+            <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
+          </View>
+          <View style={styles.profileSkeletonSection}>
+            <SkeletonCard />
+            <SkeletonCard style={{ marginTop: Spacing.md }} />
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -1925,6 +1944,21 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  profileSkeletonHeader: {
+    alignItems: "center",
+    paddingTop: Spacing.xl,
+    paddingHorizontal: Spacing.xl,
+  },
+  profileSkeletonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.xl,
+  },
+  profileSkeletonSection: {
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.xl,
   },
   headerCard: {
     marginHorizontal: Spacing.xl,

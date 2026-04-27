@@ -13,6 +13,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch, apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { Image as ExpoImage } from "expo-image";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
+import { Skeleton, SkeletonCard, SkeletonSessionCard } from "@/components/SkeletonLoader";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, type Sport } from "@/player/context/SportContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
@@ -1516,11 +1517,42 @@ function PlayerHomeContent() {
 
   const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
 
-  // Spinner only while we're still waiting for the very first response.
+  // Skeleton shell while we're still waiting for the very first response —
+  // gives the user the layout instantly instead of a yellow spinner. Sections
+  // with their own queries (PlayerDNABanner, MiniFeed, etc.) hydrate
+  // independently as their data arrives.
   if (!isGuest && isLoading && !homeData) {
     return (
-      <View style={[styles.container, styles.loadingContainer, { backgroundColor: Colors.dark.backgroundRoot }]}>
-        <ActivityIndicator size="large" color={Colors.dark.accentText} />
+      <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: insets.top, paddingBottom: insets.bottom + 180 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.homeSkeletonHeader}>
+            <Skeleton width={64} height={64} borderRadius={32} />
+            <View style={styles.homeSkeletonHeaderText}>
+              <Skeleton width="70%" height={20} />
+              <Skeleton width="50%" height={14} style={{ marginTop: Spacing.sm }} />
+            </View>
+            <Skeleton width={36} height={36} borderRadius={18} />
+          </View>
+          <View style={styles.homeSkeletonActionRow}>
+            <Skeleton width="48%" height={56} borderRadius={BorderRadius.md} />
+            <Skeleton width="48%" height={56} borderRadius={BorderRadius.md} />
+          </View>
+          <View style={styles.homeSkeletonSection}>
+            <Skeleton width="40%" height={18} style={{ marginBottom: Spacing.md }} />
+            <SkeletonSessionCard />
+          </View>
+          <View style={styles.homeSkeletonSection}>
+            <Skeleton width="40%" height={18} style={{ marginBottom: Spacing.md }} />
+            <SkeletonCard />
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -2282,6 +2314,25 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   loadingContainer: {
     justifyContent: "center",
     alignItems: "center",
+  },
+  homeSkeletonHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+  },
+  homeSkeletonHeaderText: {
+    flex: 1,
+    marginLeft: Spacing.md,
+    marginRight: Spacing.md,
+  },
+  homeSkeletonActionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+  },
+  homeSkeletonSection: {
+    paddingHorizontal: Spacing.lg,
   },
   scrollView: {
     flex: 1,

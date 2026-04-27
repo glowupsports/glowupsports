@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
+import { Skeleton, SkeletonCard } from "@/components/SkeletonLoader";
 import Svg, { Polygon, Circle, Text as SvgText, Line, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import BallLevelBadge from "@/components/BallLevelBadge";
@@ -1719,9 +1720,28 @@ export default function PlayerProgressScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
-        <Text style={styles.loadingText}>Loading your progress...</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.progressSkeletonHeader}>
+            <Skeleton width="60%" height={26} />
+            <Skeleton width="40%" height={14} style={{ marginTop: Spacing.sm }} />
+          </View>
+          <View style={styles.progressSkeletonRadar}>
+            <Skeleton width={220} height={220} borderRadius={110} />
+          </View>
+          <View style={styles.progressSkeletonStats}>
+            <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
+            <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
+            <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
+          </View>
+          <View style={styles.progressSkeletonSection}>
+            <SkeletonCard />
+            <SkeletonCard style={{ marginTop: Spacing.md }} />
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -2832,6 +2852,23 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     gap: Spacing.md,
+  },
+  progressSkeletonHeader: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+  },
+  progressSkeletonRadar: {
+    alignItems: "center",
+    paddingVertical: Spacing.xl,
+  },
+  progressSkeletonStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  progressSkeletonSection: {
+    paddingHorizontal: Spacing.xl,
   },
   loadingText: {
     ...Typography.body,

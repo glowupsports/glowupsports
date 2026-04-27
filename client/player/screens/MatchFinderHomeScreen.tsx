@@ -37,6 +37,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { PlayerMatchCard, type MatchCandidate } from "@/player/components/match/PlayerMatchCard";
 import { ChallengeComposerModal } from "@/player/components/match/ChallengeComposerModal";
 import { OutsideInviteModal } from "@/player/components/match/OutsideInviteModal";
+import { SkeletonPlayerCard } from "@/components/SkeletonLoader";
 
 const LEVEL_FILTERS: { id: "all" | "green" | "yellow" | "orange" | "red"; label: string }[] = [
   { id: "all", label: "All levels" },
@@ -216,7 +217,14 @@ export default function MatchFinderHomeScreen() {
     </View>
   );
 
-  const ListEmpty = !isLoading ? (
+  const ListEmpty = isLoading ? (
+    <View style={styles.skeletonList}>
+      <SkeletonPlayerCard />
+      <SkeletonPlayerCard />
+      <SkeletonPlayerCard />
+      <SkeletonPlayerCard />
+    </View>
+  ) : (
     <View style={styles.empty}>
       <Ionicons name="search" size={36} color={Colors.dark.textMuted} />
       <Text style={styles.emptyTitle}>No players match your filters</Text>
@@ -235,7 +243,7 @@ export default function MatchFinderHomeScreen() {
         <Text style={styles.footerBtnText}>Invite a friend</Text>
       </Pressable>
     </View>
-  ) : null;
+  );
 
   const ListFooter = (
     <View style={styles.footerWrap}>
@@ -283,12 +291,6 @@ export default function MatchFinderHomeScreen() {
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.4}
       />
-      {isLoading ? (
-        <View style={[styles.loadingOverlay, { top: headerHeight + 120 }]}>
-          <ActivityIndicator color={Colors.dark.primary} />
-        </View>
-      ) : null}
-
       <ChallengeComposerModal
         visible={composerOpen}
         onClose={() => setComposerOpen(false)}
@@ -413,10 +415,7 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xs,
     marginTop: 2,
   },
-  loadingOverlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    alignItems: "center",
+  skeletonList: {
+    gap: Spacing.md,
   },
 });
