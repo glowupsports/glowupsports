@@ -54,6 +54,56 @@ export async function saveMessages(messages: ChatMessage[]): Promise<void> {
   }
 }
 
+// Boot-time multiGet replacing the two sequential getItem calls
+// previously made by PlayerContext (Task #1395).
+export async function getPlayerAndMessages(): Promise<{
+  player: Player;
+  messages: ChatMessage[];
+}> {
+  try {
+    const entries = await AsyncStorage.multiGet([
+      STORAGE_KEYS.PLAYER,
+      STORAGE_KEYS.MESSAGES,
+    ]);
+    const map = new Map(entries);
+    const playerRaw = map.get(STORAGE_KEYS.PLAYER) ?? null;
+    const messagesRaw = map.get(STORAGE_KEYS.MESSAGES) ?? null;
+
+    let player = INITIAL_PLAYER;
+    if (playerRaw) {
+      try {
+        player = JSON.parse(playerRaw) as Player;
+      } catch {
+        await savePlayer(INITIAL_PLAYER);
+      }
+    } else {
+      await savePlayer(INITIAL_PLAYER);
+    }
+
+    let messages = INITIAL_MESSAGES;
+    if (messagesRaw) {
+      try {
+        const parsed = JSON.parse(messagesRaw) as Array<
+          Omit<ChatMessage, "timestamp"> & { timestamp: string }
+        >;
+        messages = parsed.map((m) => ({
+          ...m,
+          timestamp: new Date(m.timestamp),
+        }));
+      } catch {
+        await saveMessages(INITIAL_MESSAGES);
+      }
+    } else {
+      await saveMessages(INITIAL_MESSAGES);
+    }
+
+    return { player, messages };
+  } catch (error) {
+    console.error("Error loading player snapshot:", error);
+    return { player: INITIAL_PLAYER, messages: INITIAL_MESSAGES };
+  }
+}
+
 export async function addXP(amount: number): Promise<{ player: Player; leveledUp: boolean }> {
   const player = await getPlayer();
   let newXP = player.currentXP + amount;

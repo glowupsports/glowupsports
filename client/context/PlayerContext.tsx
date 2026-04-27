@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { InteractionManager, Platform } from "react-native";
 import { Player, ChatMessage, ChatChannel, INITIAL_PLAYER, INITIAL_MESSAGES } from "@/constants/playerData";
 import * as storage from "@/lib/storage";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -51,10 +52,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [loadedPlayer, loadedMessages] = await Promise.all([
-        storage.getPlayer(),
-        storage.getMessages(),
-      ]);
+      const { player: loadedPlayer, messages: loadedMessages } =
+        await storage.getPlayerAndMessages();
       setPlayer(loadedPlayer);
       setMessages(loadedMessages);
     } catch (error) {
@@ -64,8 +63,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Task #1395: defer boot hydration past first paint, with a
+  // Platform-tuned timeout fallback in case an animated splash keeps
+  // InteractionManager pending. Same shape as deferredHydrateAndPersist
+  // in queryCachePersist.ts.
   useEffect(() => {
-    loadData();
+    let ran = false;
+    const fire = () => {
+      if (ran) return;
+      ran = true;
+      void loadData();
+    };
+    const handle = InteractionManager.runAfterInteractions(fire);
+    const timeoutId = setTimeout(fire, Platform.OS === "ios" ? 600 : 50);
+    return () => {
+      clearTimeout(timeoutId);
+      handle.cancel?.();
+    };
   }, [loadData]);
 
   const refreshPlayer = useCallback(async () => {

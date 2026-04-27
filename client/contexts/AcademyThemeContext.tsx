@@ -83,45 +83,36 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
   // Serialize override writes so rapid toggles always persist last intent.
   const overrideWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  // Hydrate the global cache (logo / fallback theme) once on mount.
+  // Hydrate the global cache and (when known) the per-user override in
+  // one AsyncStorage.multiGet round-trip (Task #1395). Re-runs on
+  // account switches so the new user's override is loaded.
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(CACHE_KEY)
-      .then((raw) => {
-        if (cancelled || !raw) return;
-        try {
-          const parsed = JSON.parse(raw) as AcademyTheme;
-          if (parsed && typeof parsed === "object") setCached(parsed);
-        } catch {
-          /* ignore corrupt cache */
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Hydrate the player override whenever the active user changes (account
-  // switch, login, logout). When userId is null we clear the override so
-  // logged-out screens don't apply a previous user's theme.
-  useEffect(() => {
-    let cancelled = false;
-    if (!userId) {
-      setPlayerOverrideState(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-    AsyncStorage.getItem(overrideKey)
-      .then((raw) => {
+    const keys = userId ? [CACHE_KEY, overrideKey] : [CACHE_KEY];
+    AsyncStorage.multiGet(keys)
+      .then((entries) => {
         if (cancelled) return;
-        if (!raw) {
+        const map = new Map(entries);
+        const cacheRaw = map.get(CACHE_KEY) ?? null;
+        if (cacheRaw) {
+          try {
+            const parsed = JSON.parse(cacheRaw) as AcademyTheme;
+            if (parsed && typeof parsed === "object") setCached(parsed);
+          } catch {
+            /* ignore corrupt cache */
+          }
+        }
+        if (!userId) {
+          setPlayerOverrideState(null);
+          return;
+        }
+        const overrideRaw = map.get(overrideKey) ?? null;
+        if (!overrideRaw) {
           setPlayerOverrideState(null);
           return;
         }
         try {
-          const parsed = JSON.parse(raw) as AcademyTheme;
+          const parsed = JSON.parse(overrideRaw) as AcademyTheme;
           setPlayerOverrideState(
             parsed && typeof parsed === "object" ? parsed : null,
           );
