@@ -1283,6 +1283,10 @@ function PlayerHomeContent() {
     // during cold start.
     spotlightCurrentWeek: SpotlightCurrentWeekMini | null;
     spotlightWeeklyWinner: { winner: SpotlightWeeklyWinnerMini | null };
+    // Task #1419 — added to god-route. Eliminates the two standalone
+    // useQuery calls TennisIQMiniTile and UnifiedImproveCard used to
+    // fire on mount.
+    tennisIq: { score: number | null; lastQuizAt: string | null } | null;
     // Task #1419 — folded /api/ai-pro/status here too. The home
     // screen's `isNearLimit` banner used to fire its own useQuery for
     // this, contributing to the cold-start fanout.
@@ -1310,16 +1314,20 @@ function PlayerHomeContent() {
   // RecentFeedbackCard, PlayerDNABanner, etc.) that still useQuery the
   // old endpoints get a cache hit instead of firing their own request.
   //
-  // Task #1419 — we now ALSO prime `["/api/player/me/profile"]` and
-  // `["/api/ai-pro/status"]`. The home god-route fetches the full
-  // /profile + /ai-pro/status shape via in-process dispatch (see
-  // server/routes/player-home.ts → fetchProfileFull / fetchAiProStatus),
-  // so seeding here gives byte-equivalent data to any downstream
-  // component. This kills the "double-refresh" cold-start bug where
-  // the DNA banner + 2 TennisIQ queries + 1 ai-pro/status query would
-  // each fire on mount, stacking on top of home-data's own request and
-  // saturating the iOS JS<->native bridge for 1-2s before the screen
-  // looked ready.
+  // Task #1419 — the home god-route now returns the FULL `profile.player`
+  // object including the 10 DNA fields PlayerDNABanner reads
+  // (dominantHand, backhandType, height, tshirtSize, playStyle,
+  // tennisIdol, enjoymentTags, shortTermGoal, longTermDream,
+  // typicalPlayTimes) plus profilePhotoUrl. We can finally seed
+  // `["/api/player/me/profile"]` from the god-route response without
+  // breaking the banner's completion math, killing the standalone
+  // useQuery the banner used to fire on mount.
+  //
+  // Also seed tennisIq and aiProStatus, both newly returned by the home
+  // god-route under Task #1419. These were previously standalone
+  // useQuery calls in TennisIQMiniTile and UnifiedImproveCard. Seeding
+  // here gives byte-equivalent data to any downstream component and
+  // kills the "double-refresh" cold-start bug.
   useEffect(() => {
     if (!homeData) return;
     Sentry.addBreadcrumb({
@@ -1335,6 +1343,9 @@ function PlayerHomeContent() {
     });
     if (homeData.dashboard) {
       queryClient.setQueryData(["/api/player/me/dashboard"], homeData.dashboard);
+    }
+    if (homeData.profile) {
+      queryClient.setQueryData(["/api/player/me/profile"], homeData.profile);
     }
     queryClient.setQueryData(
       ["/api/player/me/notifications/unread-count"],
@@ -1361,7 +1372,7 @@ function PlayerHomeContent() {
       ["/api/player/spotlight/weekly-winner"],
       homeData.spotlightWeeklyWinner ?? { winner: null },
     );
-    // Task #1419 — seed full profile + ai-pro/status. Only seed when the
+    // Task #1419 — tennis IQ + AI Pro status. Only seed when the
     // server branch resolved (non-null) so a transient backend hiccup
     // doesn't lock subcomponents into a null state for 30s.
     if (homeData.profile) {
@@ -1370,13 +1381,47 @@ function PlayerHomeContent() {
         homeData.profile,
       );
     }
-    if (homeData.aiProStatus) {
-      queryClient.setQueryData(
-        ["/api/ai-pro/status"],
-        homeData.aiProStatus,
-      );
-    }
+    queryClient.setQueryData(
+      ["/api/player/me/tennis-iq"],
+      homeData.tennisIq ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/ai-pro/status"],
+      homeData.aiProStatus ?? {
+        isPro: false,
+        isCoach: false,
+        callCount: 0,
+        limit: 5,
+      },
+    );
   }, [homeData, queryClient]);
+
+  // Task #1419 — prefetch the other player tabs' god-routes once the home
+  // god-route resolves and the first paint is done. By the time the user
+  // taps Progress / Community / AI Coach, react-query already has the
+  // payload in cache, so the next tab paints instantly from cache while
+  // the SWR refresh runs in the background. We keep this scheduled
+  // through `requestAnimationFrame` to make sure we don't preempt the
+  // visible Home paint, and bail entirely if homeData is still null.
+  useEffect(() => {
+    if (!homeData || !user?.id) return;
+    let cancelled = false;
+    const handle = requestAnimationFrame(() => {
+      if (cancelled) return;
+      const queries = [
+        ["/api/player/me/progress-data", { sport: "tennis" }],
+        ["/api/player/me/community-data"],
+        ["/api/player/me/ai-coach-data"],
+      ];
+      for (const queryKey of queries) {
+        queryClient.prefetchQuery({ queryKey }).catch(() => {});
+      }
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(handle);
+    };
+  }, [homeData, queryClient, user?.id]);
 
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [bookingWizardSport, setBookingWizardSport] = useState<string | undefined>(undefined);

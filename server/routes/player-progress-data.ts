@@ -15,14 +15,12 @@
 // every legacy queryKey via `queryClient.setQueryData` so child components
 // (PillarRows, GlowMirrorLayers, etc.) hit cache instead of network.
 //
-// Implementation note — internal HTTP fan-out:
-// We deliberately call the legacy endpoints over the loopback interface
-// instead of inlining/duplicating ~1500 lines of business logic. This
-// guarantees byte-equivalent shape parity with the legacy endpoints (which
-// stay alive and unchanged for child components, deep links, web, etc.) and
-// eliminates drift risk that pure inline duplication would introduce. The
-// global rate-limiter in server/index.ts (~line 949) skips loopback IPs so
-// these internal calls do not burn the public 300/15min per-IP budget.
+// Task #1419 — Switched from HTTP loopback `subFetch` to
+// `dispatchInProcess` so each child request reuses the parent's
+// already-resolved `req.user`. That cuts ~26 redundant DB round-trips
+// (auth + family-link + account-lock checks across 13 sub-fetches) and
+// the loopback HTTP framing cost out of every Progress tab open. Same
+// pattern community-data.ts adopted under Task #1398.
 //
 // Cache: 60s in-memory per `playerId:sport`. Critical branch is `progress`
 // (the radar/XP block — the screen's must-have above-the-fold payload).
@@ -35,6 +33,7 @@ import {
   authMiddlewareWithFreshData as authMiddleware,
 } from "../auth";
 import type { AuthenticatedRequest } from "../auth";
+import { dispatchInProcess, type DispatchResult } from "../lib/in-process-dispatch";
 
 const router = Router();
 
@@ -108,37 +107,7 @@ function requirePlayerOrOwner(
   res.status(403).json({ error: "Player account required" });
 }
 
-const INTERNAL_PORT = process.env.PORT || "5000";
-const INTERNAL_BASE = `http://127.0.0.1:${INTERNAL_PORT}`;
-
-interface SubFetchResult<T> {
-  status: "ok" | "error";
-  data: T | null;
-  httpStatus: number | null;
-}
-
-async function subFetch<T>(
-  path: string,
-  authHeader: string,
-  forwardHeaders: Record<string, string> = {},
-): Promise<SubFetchResult<T>> {
-  try {
-    const r = await fetch(`${INTERNAL_BASE}${path}`, {
-      headers: {
-        Authorization: authHeader,
-        Accept: "application/json",
-        ...forwardHeaders,
-      },
-    });
-    if (!r.ok) {
-      return { status: "error", data: null, httpStatus: r.status };
-    }
-    const data = (await r.json()) as T;
-    return { status: "ok", data, httpStatus: r.status };
-  } catch {
-    return { status: "error", data: null, httpStatus: null };
-  }
-}
+type SubFetchResult<T> = DispatchResult<T>;
 
 router.get(
   "/api/player/me/progress-data",
@@ -191,35 +160,22 @@ router.get(
         return res.json(cached);
       }
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader) {
+      if (!req.headers.authorization) {
         return res
           .status(401)
           .json({ error: "Authorization header missing" });
       }
 
-      // Forward player/academy context headers from the original request so
-      // sub-fetches resolve against the SAME effective player (Family switch
-      // flows depend on `x-active-player-id`; multi-academy users on
-      // `x-academy-id`). Without this, god-endpoint fanout silently
-      // resolves against the user's default player instead of the active
-      // one and parity with legacy direct fetches breaks.
-      const forwardHeaders: Record<string, string> = {};
-      const activePlayerId = req.headers["x-active-player-id"];
-      if (typeof activePlayerId === "string") {
-        forwardHeaders["x-active-player-id"] = activePlayerId;
-      }
-      const academyId = req.headers["x-academy-id"];
-      if (typeof academyId === "string") {
-        forwardHeaders["x-academy-id"] = academyId;
-      }
-
       const sportQS = `?sport=${encodeURIComponent(sport)}`;
 
-      // Fan out to all legacy endpoints in parallel. Failures in any branch
-      // are isolated by `subFetch` (it neutralises throws / non-OK into a
-      // typed `{status:"error"}` row) so one slow / broken sub-call
-      // (e.g. AI coach context) cannot black-out the whole Progress screen.
+      // In-process Express dispatch — see server/lib/in-process-dispatch.ts.
+      // Carries the parent request's `req.user`, `x-academy-id` and
+      // `x-active-player-id` headers automatically. Failures in any branch
+      // are isolated as a typed `{status:"error"}` row so one slow / broken
+      // sub-call (e.g. AI coach context) cannot black-out the whole Progress
+      // screen.
+      const sub = <T>(path: string) => dispatchInProcess<T>(req, path);
+
       const [
         progress,
         attendance,
@@ -235,27 +191,19 @@ router.get(
         pillarProgress,
         profile,
       ] = await Promise.all([
-        subFetch<unknown>(`/api/player/me/progress${sportQS}`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/attendance${sportQS}`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/weekly-plan`, authHeader, forwardHeaders),
-        subFetch<unknown>(
-          `/api/player/me/monthly-assessment/current`,
-          authHeader,
-          forwardHeaders,
-        ),
-        subFetch<unknown>(`/api/player/me/ai-coach/context`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/weekly-digest`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/feedback${sportQS}`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/session-feedback`, authHeader, forwardHeaders),
-        subFetch<unknown>(
-          `/api/player/me/stroke-feedback${sportQS}`,
-          authHeader,
-          forwardHeaders,
-        ),
-        subFetch<unknown>(`/api/player/me/glow-ratings`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/video-feedback`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/pillar-progress`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/profile`, authHeader, forwardHeaders),
+        sub<unknown>(`/api/player/me/progress${sportQS}`),
+        sub<unknown>(`/api/player/me/attendance${sportQS}`),
+        sub<unknown>(`/api/player/me/weekly-plan`),
+        sub<unknown>(`/api/player/me/monthly-assessment/current`),
+        sub<unknown>(`/api/player/me/ai-coach/context`),
+        sub<unknown>(`/api/player/me/weekly-digest`),
+        sub<unknown>(`/api/player/me/feedback${sportQS}`),
+        sub<unknown>(`/api/player/me/session-feedback`),
+        sub<unknown>(`/api/player/me/stroke-feedback${sportQS}`),
+        sub<unknown>(`/api/player/me/glow-ratings`),
+        sub<unknown>(`/api/player/me/video-feedback`),
+        sub<unknown>(`/api/player/me/pillar-progress`),
+        sub<unknown>(`/api/player/me/profile`),
       ]);
 
       const errors: Record<string, number | null> = {};

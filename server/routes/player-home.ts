@@ -68,6 +68,45 @@ export function invalidatePlayerHomeDataCache(playerId: string): void {
   homeDataCache.delete(playerId);
 }
 
+// Task #1419 — branch-level slow cache.
+//
+// The route-level cache has a 30s TTL because the dashboard branch
+// (next session, credits, unread count) genuinely changes that often
+// during a coaching day. But several branches change much more slowly
+// (profile DNA fields, weekly digest, AI coach context which is computed
+// from rolling 30-day analytics, the spotlight weekly winner). Re-running
+// those every 30s on a hot home tab burns DB time for no client-visible
+// benefit.
+//
+// `memoBranch` wraps a fetcher so the underlying call only fires every
+// `ttlMs` per playerId; intermediate calls in the same window get the
+// cached value without paying the DB cost. Failures are NOT cached so
+// a transient error does not get pinned for the full window.
+const SLOW_BRANCH_TTL_MS = 5 * 60 * 1000;
+const branchCaches = new Map<string, Map<string, { value: unknown; expiresAt: number }>>();
+
+function memoBranch<T>(
+  branch: string,
+  ttlMs: number,
+  fetcher: (playerId: string) => Promise<T>,
+): (playerId: string) => Promise<T> {
+  let bucket = branchCaches.get(branch);
+  if (!bucket) {
+    bucket = new Map();
+    branchCaches.set(branch, bucket);
+  }
+  const cache = bucket;
+  return async (playerId: string): Promise<T> => {
+    const hit = cache.get(playerId);
+    if (hit && hit.expiresAt > Date.now()) {
+      return hit.value as T;
+    }
+    const value = await fetcher(playerId);
+    cache.set(playerId, { value, expiresAt: Date.now() + ttlMs });
+    return value;
+  };
+}
+
 // Local middleware mirroring `requirePlayerOrOwner` from admin-series.ts —
 // duplicated here so this route file stays self-contained.
 function requirePlayerOrOwner(
@@ -133,6 +172,10 @@ router.get(
           unreadCount: { count: 0 },
           weeklyDigest: null,
           aiCoachContext: null,
+          spotlightCurrentWeek: null,
+          spotlightWeeklyWinner: { winner: null },
+          tennisIq: null,
+          aiProStatus: { isPro: false, isCoach: false, callCount: 0, limit: 5 },
         });
       }
 
@@ -151,6 +194,13 @@ router.get(
       // freeze on iOS. Folding them into the god-route lets the screen
       // seed react-query from the same response and skip those network
       // round-trips entirely.
+      //
+      // Task #1419 — added the tennisIq + aiProStatus branches for the
+      // same reason: TennisIQMiniTile and UnifiedImproveCard each fired
+      // their own useQuery on mount. Both are cheap; tennisIq is on the
+      // 5-min slow tier, aiProStatus on the route-level 30s tier (quota
+      // counters change per call).
+      const userId = req.user!.userId;
       const [
         dashboardResult,
         profileResult,
@@ -159,15 +209,17 @@ router.get(
         aiCoachContextResult,
         spotlightCurrentWeekResult,
         spotlightWeeklyWinnerResult,
+        tennisIqResult,
         aiProStatusResult,
       ] = await Promise.allSettled([
         fetchDashboard(playerId),
-        fetchProfileFull(req),
+        fetchProfile(req),
         fetchUnreadCount(playerId),
         fetchWeeklyDigest(playerId),
         fetchAiCoachContext(playerId),
         fetchSpotlightCurrentWeek(playerId),
         fetchSpotlightWeeklyWinner(playerId),
+        fetchTennisIq(playerId),
         fetchAiProStatus(req),
       ]);
 
@@ -196,10 +248,8 @@ router.get(
           spotlightWeeklyWinnerResult.status === "fulfilled"
             ? spotlightWeeklyWinnerResult.value
             : { winner: null },
-        // Task #1419 — folded ai-pro/status into the home god-route. The
-        // home screen renders an "X messages left this month" warning
-        // tile that previously fired its own /api/ai-pro/status useQuery
-        // on mount.
+        tennisIq:
+          tennisIqResult.status === "fulfilled" ? tennisIqResult.value : null,
         aiProStatus:
           aiProStatusResult.status === "fulfilled"
             ? aiProStatusResult.value
@@ -217,6 +267,7 @@ router.get(
         ["aiCoachContext", aiCoachContextResult],
         ["spotlightCurrentWeek", spotlightCurrentWeekResult],
         ["spotlightWeeklyWinner", spotlightWeeklyWinnerResult],
+        ["tennisIq", tennisIqResult],
         ["aiProStatus", aiProStatusResult],
       ] as const) {
         if (r.status === "rejected") {
@@ -567,19 +618,7 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
   };
 }
 
-// Task #1419 — full mirror of `/api/player/me/profile` via in-process
-// dispatch. Earlier (Task #1379) we hand-rolled a *reduced* fetchProfile
-// that only included `academy.{id,name}` + a minimal player blob, with
-// an explicit comment saying the screen would not seed this key because
-// the legacy endpoint returned more fields than the reduced version did.
-//
-// That trade-off is the source of the "double-refresh" cold-start bug:
-// `PlayerDNABanner` and the two TennisIQ subcomponents on Home each
-// fire their own `["/api/player/me/profile"]` useQuery on mount because
-// the reduced shape was missing `dominantHand`, `backhandType`,
-// `tshirtSize`, `tennisIdol`, social.matchesPlayed, etc. Three extra
-// network requests on the cold-start critical path = visible spinner.
-//
+// mirror of `/api/player/me/profile`.
 // Fix: dispatch the legacy /profile route in-process so we get a
 // byte-equivalent shape with zero duplication. The auth middleware
 // short-circuits because dispatchInProcess attaches `__inProcessUser`
@@ -587,7 +626,7 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
 // server/lib/in-process-dispatch.ts. Cost: one extra ~1ms in-process
 // hop, but it's inside `Promise.allSettled` alongside dashboard so it
 // runs in parallel and doesn't extend the home-data critical path.
-async function fetchProfileFull(
+async function fetchProfileImpl(
   req: AuthenticatedRequest,
 ): Promise<Record<string, unknown> | null> {
   const result = await dispatchInProcess<Record<string, unknown>>(
@@ -598,10 +637,10 @@ async function fetchProfileFull(
 }
 
 // Task #1419 — mirror of `/api/ai-pro/status` (server/routes/ai-pro.ts).
-// Same rationale as fetchProfileFull: the home screen's `isNearLimit`
+// Same rationale as fetchProfile: the home screen's `isNearLimit`
 // banner used to fire its own useQuery for this on cold start. Now it
 // rides home-data so the banner can paint without an extra round trip.
-async function fetchAiProStatus(
+async function fetchAiProStatusImpl(
   req: AuthenticatedRequest,
 ): Promise<Record<string, unknown> | null> {
   const result = await dispatchInProcess<Record<string, unknown>>(
@@ -610,6 +649,27 @@ async function fetchAiProStatus(
   );
   return result.status === "ok" ? result.data : null;
 }
+
+const fetchProfile = memoBranch(
+  "profile",
+  SLOW_BRANCH_TTL_MS,
+  fetchProfileImpl,
+);
+
+const fetchAiProStatus = memoBranch(
+  "aiProStatus",
+  SLOW_BRANCH_TTL_MS,
+  fetchAiProStatusImpl,
+);
+
+// Forward declarations of slow branch wrappers — implementations live
+// further down. We construct the wrappers right next to the impls but
+// reference them from the route handler, hence the `let` bindings here
+// to satisfy hoisting.
+let fetchWeeklyDigest: (playerId: string) => Promise<Record<string, unknown> | null>;
+let fetchAiCoachContext: (playerId: string) => Promise<Record<string, unknown> | null>;
+let fetchSpotlightWeeklyWinner: (playerId: string) => Promise<Record<string, unknown> | null>;
+let fetchTennisIq: (playerId: string) => Promise<Record<string, unknown> | null>;
 
 // Mirror of `/api/player/me/notifications/unread-count` (coach-calendar.ts).
 async function fetchUnreadCount(playerId: string): Promise<{ count: number }> {
@@ -626,7 +686,7 @@ async function fetchUnreadCount(playerId: string): Promise<{ count: number }> {
 }
 
 // Mirror of `/api/player/me/weekly-digest` (coach-calendar.ts).
-async function fetchWeeklyDigest(
+async function fetchWeeklyDigestImpl(
   playerId: string,
 ): Promise<Record<string, unknown> | null> {
   const [digest] = await db
@@ -642,13 +702,18 @@ async function fetchWeeklyDigest(
     .limit(1);
   return digest ?? null;
 }
+fetchWeeklyDigest = memoBranch(
+  "weeklyDigest",
+  SLOW_BRANCH_TTL_MS,
+  fetchWeeklyDigestImpl,
+);
 
 // Mirror of `/api/player/me/ai-coach/context` (player-progress.ts).
 // This is the single biggest tail-latency source on the original home
 // screen — `buildPlayerSelfAIContext` opens a chain of analytics queries.
 // We still call it (to keep response parity) but it sits inside the
 // `Promise.allSettled` so its slowness no longer blocks anything else.
-async function fetchAiCoachContext(
+async function fetchAiCoachContextImpl(
   playerId: string,
 ): Promise<Record<string, unknown> | null> {
   try {
@@ -679,8 +744,37 @@ async function fetchAiCoachContext(
     return null;
   }
 }
+fetchAiCoachContext = memoBranch(
+  "aiCoachContext",
+  SLOW_BRANCH_TTL_MS,
+  fetchAiCoachContextImpl,
+);
 
-// ----------------------------------------------------------------------------
+// Task #1419 — Mirror of `/api/player/me/tennis-iq` (player-tennis-iq.ts).
+// The home screen's TennisIQMiniTile previously fired a standalone
+// useQuery for this. The score is updated only when the player completes
+// a quiz, so it's safe to memoise for 5 minutes.
+async function fetchTennisIqImpl(
+  playerId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const player = await storage.getPlayer(playerId);
+    if (!player) return null;
+    return {
+      score: (player as any).quizScore ?? null,
+      lastQuizAt: (player as any).lastQuizAt ?? null,
+    };
+  } catch (err) {
+    console.error("[player-home] tennisIq failed:", err);
+    return null;
+  }
+}
+fetchTennisIq = memoBranch(
+  "tennisIq",
+  SLOW_BRANCH_TTL_MS,
+  fetchTennisIqImpl,
+);
+
 // Spotlight (Task #1418)
 // ----------------------------------------------------------------------------
 // Mirrors of `/api/player/spotlight/current-week` and
@@ -803,7 +897,7 @@ async function fetchSpotlightCurrentWeek(
 // acceptable tradeoff — the home Spotlight tile already handles the
 // null-winner state, and the data converges within minutes of the
 // first detail-screen visit.
-async function fetchSpotlightWeeklyWinner(
+async function fetchSpotlightWeeklyWinnerImpl(
   playerId: string,
 ): Promise<{ winner: Record<string, unknown> | null }> {
   const player = await storage.getPlayer(playerId).catch(() => null);
@@ -852,5 +946,10 @@ async function fetchSpotlightWeeklyWinner(
   // — the tile falls back to State C correctly.
   return { winner: null };
 }
+fetchSpotlightWeeklyWinner = memoBranch(
+  "spotlightWeeklyWinner",
+  SLOW_BRANCH_TTL_MS,
+  fetchSpotlightWeeklyWinnerImpl,
+) as (playerId: string) => Promise<Record<string, unknown> | null>;
 
 export default router;

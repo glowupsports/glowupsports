@@ -78,7 +78,7 @@ same deferred-ready signal — otherwise the cold-start regression
 returns and you re-introduce the "two-refresh-needed" bug this task
 fixed.
 
-### CRITICAL: Player tab cold-start deferrals (Tasks #1394, #1418)
+### CRITICAL: Player tab cold-start deferrals (Tasks #1394, #1418, #1419)
 The Player tabs used to show a spinner on iOS cold-start until the user
 swiped, because too many `useQuery` calls fired synchronously during the
 first render and back-pressured the JS thread. The fix is layered:
@@ -86,7 +86,11 @@ first render and back-pressured the JS thread. The fix is layered:
 - **God-route hydration** is deferred via `deferredHydrateAndPersist` in
   `client/lib/queryCachePersist.ts` (#1394). Same module gates first
   fetches behind an `InteractionManager.runAfterInteractions` +
-  `FALLBACK_DEFER_MS` race (600ms on iOS, 50ms elsewhere).
+  `FALLBACK_DEFER_MS` race (120ms on iOS as of #1419, down from 600ms;
+  50ms elsewhere). The TRACKED_GOD_KEY_PREFIXES whitelist drives which
+  god-routes are persisted to AsyncStorage and includes home-data,
+  progress-data, play-data, schedule-data, profile-data, community-data,
+  and ai-coach-data.
 - **PlayerContext `/api/player/me`** is deferred behind that same race
   via `scheduleDeferredFlip` in `client/player/context/PlayerContext.tsx`
   (#1418). Mirrors the queryCachePersist pattern. Constant
@@ -110,9 +114,40 @@ first render and back-pressured the JS thread. The fix is layered:
   eval time — that would defeat the deferrals above. Test guard lives
   in `client/lib/__tests__/queryAppStateBridge.test.ts`.
 
+- **Per-tab god-route fold-in** (#1419) — every above-the-fold
+  `useQuery` on the four player tabs (Home, Progress, Community, AI
+  Coach) is now satisfied by a single god-route per tab. The map is:
+  Home → `/api/player/me/home-data` (extended to include `tennisIq`
+  and `aiProStatus` alongside dashboard/profile/etc.); Progress →
+  `/api/player/me/progress-data`; Community →
+  `/api/player/me/community-data`; AI Coach →
+  `/api/player/me/ai-coach-data` (NEW; lives in
+  `server/routes/player-ai-coach-data.ts`, fans out via
+  `dispatchInProcess` to 7 endpoints incl. ai-coach context, intel,
+  history, profile, tennis-iq, ai-pro status, weekly-digest; 60s
+  cache; only caches when the primary `aiCoachContext` branch
+  succeeds). Server-side fan-outs use `dispatchInProcess` from
+  `server/lib/in-process-dispatch.ts` — NEVER HTTP-loopback `fetch` —
+  so a single inbound request never spawns N TCP connections back to
+  itself. `player-progress-data.ts` was migrated off its old `subFetch`
+  helper to `dispatchInProcess` in #1419.
+- **Two-tier server cache** (#1419) in `server/routes/player-home.ts`
+  via `memoBranch(slow=true)` (~5 min TTL) for branches whose payloads
+  rarely change inside a session (profile, weekly-digest,
+  aiCoachContext, spotlight weekly-winner, tennis-iq, ai-pro status)
+  vs. the default 30s TTL for hot branches (dashboard, unread count,
+  current-week spotlight). Ratio matters: tightening the slow tier
+  re-introduces the per-render N+1 fanout that #1419 was sent to fix.
+- **Tab god-route prefetch from Home** (#1419) — `ProPlayerHomeScreen`
+  fires a single `useEffect` after first render that calls
+  `queryClient.prefetchQuery` for `progress-data`, `community-data`,
+  and `ai-coach-data`. Combined with the persist-whitelist this means
+  the first tab switch on a warm cache resolves from memory.
+
 If you ship a new player-screen `useQuery` that runs above the fold,
-either fold it into the god-route or gate `enabled` on the same
-deferred-ready signal — otherwise the cold-start regression returns.
+either fold it into the right tab god-route, or gate `enabled` on the
+same deferred-ready signal — otherwise the cold-start regression
+returns. Coach screens are intentionally untouched by #1419.
 
 ### CRITICAL: iOS cold-start paint-tick (Tasks #1407, #1409)
 The iOS paint-tick lives in `client/lib/iosPaintTick.tsx` as `useIosPaintTick(splashComplete)` and the `<IosPaintFlush tick={...}>` wrapper. `client/App.tsx` calls the hook and wraps `<NavigationContainerWithRef />` with the wrapper. Removing or "cleaning up" either piece brings back the 30–60 s spinner symptom on every player tab on iOS cold-start (Home / Community / Play / Growth / Me). The opacity delta is 0.001 (1.000 ↔ 0.999) — visually imperceptible, but it is the only thing that makes iOS Fabric flush its pending React commit without a user gesture.

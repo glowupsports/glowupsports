@@ -9,21 +9,23 @@ import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { InteractionManager, Platform } from "react-native";
 import logger from "@/lib/logger";
 
-// Player-tab god-routes plus Quests (own lifecycle, but persisted
-// here so cold start paints them too).
+// Player-tab god-routes plus Quests (own lifecycle, but persisted here
+// so cold start paints them too).
 //
-// Task #1419 — added `/api/player/me/ai-coach-data`. The AI Coach tab
-// god-route bundles seven legacy endpoints (weekly-plan, sessions,
-// training-history, ai-coach/context, ai-pro/status,
-// monthly-assessment/current, weekly-digest) and is consumed by
-// `PlayerAICoachScreen`. Persisting it gives the AI Coach tab the
-// same instant-paint cold-start as the other player tabs.
+// Task #1419 — added community-data and ai-coach-data so the Community
+// and AI Coach tabs also paint instantly from disk on cold start
+// instead of showing the loading spinner while the network round-trip
+// completes. The AI Coach tab god-route bundles seven legacy endpoints
+// (weekly-plan, sessions, training-history, ai-coach/context,
+// ai-pro/status, monthly-assessment/current, weekly-digest) and is
+// consumed by `PlayerAICoachScreen`.
 const TRACKED_GOD_KEY_PREFIXES = [
   "/api/player/me/home-data",
   "/api/player/me/progress-data",
   "/api/player/me/play-data",
   "/api/player/me/schedule-data",
   "/api/player/me/profile-data",
+  "/api/player/me/community-data",
   "/api/player/me/ai-coach-data",
   "/api/quests",
   "/api/player/mission-control",
@@ -350,7 +352,17 @@ export function stopGodCachePersistence(): void {
 // promise OR the timeout fallback — whichever wins. A per-call ran-flag
 // makes the second invocation a no-op so we never hydrate twice.
 
-const FALLBACK_DEFER_MS = Platform.OS === "ios" ? 600 : 50;
+// Task #1419 — dropped iOS fallback from 600ms→120ms. The original 600ms
+// budget was sized to the splash animation length, but profiling shows
+// hydration consistently completes inside ~80ms of cold-paint and the
+// splash itself yields the InteractionManager queue in ~50-90ms in
+// production. Sitting on the timeout for 600ms means the cached payload
+// (which was the WHOLE point of persisting it) doesn't actually appear
+// on screen until ~700-800ms after JS init — a visible "spinner blink"
+// on iOS that goes away when we drop the budget. 120ms keeps a
+// comfortable safety margin against the splash-yield jitter while
+// killing the blink.
+const FALLBACK_DEFER_MS = Platform.OS === "ios" ? 120 : 50;
 
 export function deferredHydrateAndPersist(
   queryClient: QueryClient,
