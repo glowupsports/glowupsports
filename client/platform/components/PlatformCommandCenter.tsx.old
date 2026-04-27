@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Updates from "expo-updates";
 import Animated, {
   useSharedValue,
@@ -108,96 +109,127 @@ export function PlatformCommandCenter({
 
   return (
     <View style={styles.container}>
-      <View style={styles.innerContainer}>
-        <View style={styles.header}>
-          <View style={styles.logoSection}>
-            <View style={styles.logoContainer}>
-              <Animated.View style={[styles.logoPulse, pulseStyle]} />
-              <Ionicons name="globe" size={28} color={PLATFORM_PURPLE} />
+      <LinearGradient
+        colors={[
+          "#FF000035",
+          "#FF7F0030",
+          "#FFFF0028",
+          "#00FF0022",
+          "#0000FF1C",
+          "#4B008218",
+          "#9400D310",
+          "transparent",
+        ]}
+        style={styles.gradientBg}
+      />
+      
+      <View style={styles.borderContainer}>
+        <LinearGradient
+          colors={[
+            "#FF0000",
+            "#FF7F00",
+            "#FFFF00",
+            "#00FF00",
+            "#0000FF",
+            "#4B0082",
+            "#9400D3",
+          ]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientBorder}
+        />
+        
+        <View style={styles.innerContainer}>
+          <View style={styles.header}>
+            <View style={styles.logoSection}>
+              <View style={styles.logoContainer}>
+                <Animated.View style={[styles.logoPulse, pulseStyle]} />
+                <Ionicons name="globe" size={28} color={PLATFORM_PURPLE} />
+              </View>
+              <View>
+                <Text style={styles.label}>PLATFORM CENTER</Text>
+                <Text style={styles.platformName}>{platformName}</Text>
+              </View>
             </View>
-            <View>
-              <Text style={styles.label}>PLATFORM CENTER</Text>
-              <Text style={styles.platformName}>{platformName}</Text>
+            
+            <View style={styles.actionButtons}>
+              <Pressable style={styles.actionBtn} onPress={onSettingsPress}>
+                <Ionicons name="settings-outline" size={20} color={PLATFORM_PURPLE} />
+              </Pressable>
+              <Pressable style={styles.actionBtn} onPress={onLogoutPress}>
+                <Ionicons name="log-out-outline" size={20} color={PLATFORM_PURPLE} />
+              </Pressable>
             </View>
           </View>
-          
-          <View style={styles.actionButtons}>
-            <Pressable style={styles.actionBtn} onPress={onSettingsPress}>
-              <Ionicons name="settings-outline" size={20} color={PLATFORM_PURPLE} />
-            </Pressable>
-            <Pressable style={styles.actionBtn} onPress={onLogoutPress}>
-              <Ionicons name="log-out-outline" size={20} color={PLATFORM_PURPLE} />
-            </Pressable>
+
+          <View style={styles.mrrSection}>
+            <View style={styles.mrrLabel}>
+              <Ionicons name="cash-outline" size={16} color={PLATFORM_PURPLE} />
+              <Text style={styles.mrrLabelText}>Monthly Recurring Revenue</Text>
+            </View>
+            <View style={styles.mrrValueRow}>
+              <Text style={styles.currencySymbol}>{currency}</Text>
+              <Text style={styles.mrrValue}>{formatCurrency(totalMrr)}</Text>
+            </View>
           </View>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <View style={[styles.statIconBg, { backgroundColor: PLATFORM_PURPLE + "20" }]}>
+                <Ionicons name="business" size={18} color={PLATFORM_PURPLE} />
+              </View>
+              <Text style={styles.statValue}>{activeAcademies}</Text>
+              <Text style={styles.statLabel}>Active Academies</Text>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.statBox}>
+              <View style={[styles.statIconBg, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
+                <Ionicons name="people" size={18} color={Colors.dark.xpCyan} />
+              </View>
+              <Text style={styles.statValue}>{formatCurrency(totalPlayers)}</Text>
+              <Text style={styles.statLabel}>Total Players</Text>
+            </View>
+          </View>
+
+          <Text style={styles.otaDebugLine} numberOfLines={1}>
+            {otaDebugLine}
+          </Text>
+
+          {showOtaTestButton ? (
+            <View style={styles.otaTestBlock}>
+              <Pressable
+                onPress={handleTriggerCheck}
+                disabled={updateController?.isChecking}
+                style={({ pressed }) => [
+                  styles.otaTestButton,
+                  pressed ? styles.otaTestButtonPressed : null,
+                  updateController?.isChecking
+                    ? styles.otaTestButtonDisabled
+                    : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Check for OTA update now"
+                accessibilityState={{
+                  disabled: !!updateController?.isChecking,
+                }}
+              >
+                <Ionicons
+                  name="cloud-download-outline"
+                  size={14}
+                  color={PLATFORM_PURPLE}
+                />
+                <Text style={styles.otaTestButtonText}>{otaCheckLabel}</Text>
+              </Pressable>
+              {otaStatusLine ? (
+                <Text style={styles.otaTestStatus} numberOfLines={2}>
+                  {otaStatusLine}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
         </View>
-
-        <View style={styles.mrrSection}>
-          <View style={styles.mrrLabel}>
-            <Ionicons name="cash-outline" size={16} color={PLATFORM_PURPLE} />
-            <Text style={styles.mrrLabelText}>Monthly Recurring Revenue</Text>
-          </View>
-          <View style={styles.mrrValueRow}>
-            <Text style={styles.currencySymbol}>{currency}</Text>
-            <Text style={styles.mrrValue}>{formatCurrency(totalMrr)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <View style={[styles.statIconBg, { backgroundColor: PLATFORM_PURPLE + "20" }]}>
-              <Ionicons name="business" size={18} color={PLATFORM_PURPLE} />
-            </View>
-            <Text style={styles.statValue}>{activeAcademies}</Text>
-            <Text style={styles.statLabel}>Active Academies</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.statBox}>
-            <View style={[styles.statIconBg, { backgroundColor: Colors.dark.xpCyan + "20" }]}>
-              <Ionicons name="people" size={18} color={Colors.dark.xpCyan} />
-            </View>
-            <Text style={styles.statValue}>{formatCurrency(totalPlayers)}</Text>
-            <Text style={styles.statLabel}>Total Players</Text>
-          </View>
-        </View>
-
-        <Text style={styles.otaDebugLine} numberOfLines={1}>
-          {otaDebugLine}
-        </Text>
-
-        {showOtaTestButton ? (
-          <View style={styles.otaTestBlock}>
-            <Pressable
-              onPress={handleTriggerCheck}
-              disabled={updateController?.isChecking}
-              style={({ pressed }) => [
-                styles.otaTestButton,
-                pressed ? styles.otaTestButtonPressed : null,
-                updateController?.isChecking
-                  ? styles.otaTestButtonDisabled
-                  : null,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Check for OTA update now"
-              accessibilityState={{
-                disabled: !!updateController?.isChecking,
-              }}
-            >
-              <Ionicons
-                name="cloud-download-outline"
-                size={14}
-                color={PLATFORM_PURPLE}
-              />
-              <Text style={styles.otaTestButtonText}>{otaCheckLabel}</Text>
-            </Pressable>
-            {otaStatusLine ? (
-              <Text style={styles.otaTestStatus} numberOfLines={2}>
-                {otaStatusLine}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
       </View>
     </View>
   );
@@ -228,12 +260,30 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: Spacing.lg,
   },
+  gradientBg: {
+    position: "absolute",
+    top: -70,
+    left: -40,
+    right: -40,
+    height: 250,
+    borderRadius: 125,
+  },
+  borderContainer: {
+    borderRadius: BorderRadius.xl,
+    padding: 2,
+    overflow: "hidden",
+  },
+  gradientBorder: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   innerContainer: {
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.xl - 2,
     padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: PLATFORM_PURPLE + "55",
   },
   header: {
     flexDirection: "row",
