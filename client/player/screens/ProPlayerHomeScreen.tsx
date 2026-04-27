@@ -2,7 +2,8 @@ import React, { useCallback, useState, useEffect, useMemo, useRef } from "react"
 import * as Sentry from "@sentry/react-native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, InteractionManager } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import { LazyOnScroll, ScrollPositionContext, useScrollPositionController } from "@/player/components/LazyOnScroll";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -604,20 +605,38 @@ function IQQuizModal({
 }
 
 function UnifiedImproveCard({
-  quest,
-  questType,
   onQuestPress,
   onSpotlightNominate,
   onSpotlightDetails,
 }: {
-  quest: Quest | null;
-  questType: "daily" | "weekly" | null;
   onQuestPress: () => void;
   onSpotlightNominate: () => void;
   onSpotlightDetails: () => void;
 }) {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+
+  // Task #1396 — quests used to be fetched in the parent screen on mount and
+  // passed down. Moving the fetch in here means it only runs when this card
+  // (which lives below the fold) is actually mounted — i.e. when the user
+  // scrolls the IMPROVE block into view.
+  const { data: questsData } = useQuests(!!user?.playerId);
+  const { quest, questType } = useMemo(() => {
+    if (!questsData) return { quest: null as Quest | null, questType: null as "daily" | "weekly" | null };
+    const dailyActive = questsData.daily.filter((q) => q.status === "active" || q.status === "in_progress");
+    const weeklyActive = questsData.weekly.filter((q) => q.status === "active" || q.status === "in_progress");
+    const tagged: { quest: Quest; type: "daily" | "weekly" }[] = [
+      ...dailyActive.map((q) => ({ quest: q, type: "daily" as const })),
+      ...weeklyActive.map((q) => ({ quest: q, type: "weekly" as const })),
+    ];
+    if (tagged.length === 0) return { quest: null as Quest | null, questType: null as "daily" | "weekly" | null };
+    const sorted = tagged.sort((a, b) => {
+      const aRatio = a.quest.targetProgress > 0 ? a.quest.currentProgress / a.quest.targetProgress : 0;
+      const bRatio = b.quest.targetProgress > 0 ? b.quest.currentProgress / b.quest.targetProgress : 0;
+      return bRatio - aRatio;
+    });
+    return { quest: sorted[0].quest as Quest | null, questType: sorted[0].type as "daily" | "weekly" | null };
+  }, [questsData]);
 
   // ── AI Coach data
   const { data: aiStatus } = useQuery<{
@@ -1291,23 +1310,23 @@ function PlayerHomeContent() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [ramadanDismissed, setRamadanDismissed] = useState(false);
 
-  // Defer below-the-fold heavy widgets (IMPROVE, COMMUNITY, SHOP) until after
-  // the first frame settles. The home screen mounts ~10 useQuery-driven
-  // sections at once, which has caused 2s+ main-thread freezes on slower
-  // devices (Sentry REACT-NATIVE-1A). InteractionManager lets the initial
-  // paint + scroll be responsive before we hydrate secondary content.
-  const [secondaryReady, setSecondaryReady] = useState(false);
-  useEffect(() => {
-    const handle = InteractionManager.runAfterInteractions(() => {
-      setSecondaryReady(true);
-    });
-    // Safety fallback: never wait longer than 1.2s.
-    const fallback = setTimeout(() => setSecondaryReady(true), 1200);
-    return () => {
-      handle.cancel?.();
-      clearTimeout(fallback);
-    };
-  }, []);
+  // Task #1396 — drive section reveal from actual scroll position instead of
+  // a blanket `secondaryReady` timer. The previous approach hydrated *every*
+  // below-the-fold widget ~1.2s after mount, causing the same ~21 HTTP-call
+  // fan-out that the task is trying to eliminate (just shifted off the first
+  // frame). With per-section LazyOnScroll wrappers each block now mounts —
+  // and triggers its own queries — only when it's about to enter the
+  // viewport, so cold start fires ≤10 requests.
+  const scrollPosition = useScrollPositionController();
+  const onHomeScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollPosition.emit(
+        e.nativeEvent.contentOffset.y,
+        e.nativeEvent.layoutMeasurement.height,
+      );
+    },
+    [scrollPosition],
+  );
 
   const guestDashboard: DashboardData = useMemo(() => ({
     player: {
@@ -1325,29 +1344,12 @@ function PlayerHomeContent() {
     isFreePlayer: true,
   }), []);
 
-  // Quests/social/shop only feed deferred below-the-fold sections, so gate
-  // their network + JSON work on `secondaryReady` to keep the first frame
-  // light (Sentry REACT-NATIVE-1A — 2s app hang).
-  const { data: questsData } = useQuests(!isGuest && secondaryReady);
-
-  const { data: socialPosts } = useQuery<any[]>({
-    queryKey: ["/api/social/feed", "dashboard-preview"],
-    queryFn: async () => {
-      const response = await apiFetch("/api/social/feed?filter=for_you");
-      if (!response.ok) return [];
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
-    },
-    enabled: !isGuest && secondaryReady,
-    staleTime: 60000,
-  });
-
-  const { data: shopData } = useQuery<{ featuredProducts?: any[] }>({
-    queryKey: ["/api/player/shop"],
-    enabled: !isGuest && secondaryReady,
-    staleTime: 5 * 60 * 1000,
-  });
-
+  // Task #1396 — quests, social feed and shop fetches used to live here so
+  // the parent could pre-decide whether MiniFeed/GlowMarketSpotlight should
+  // render. They have been pushed into the components themselves
+  // (UnifiedImproveCard handles quests; MiniFeed self-gates on empty data;
+  // GlowMarketSpotlight already short-circuits when there are no products),
+  // so no extra HTTP calls fire on the home tab's cold start.
   const effectiveData = isGuest ? guestDashboard : dashboardData;
 
   useFocusEffect(
@@ -1514,23 +1516,6 @@ function PlayerHomeContent() {
 
   const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
 
-  const { activeQuest, activeQuestType } = useMemo(() => {
-    if (!questsData) return { activeQuest: null, activeQuestType: null };
-    const dailyActive = questsData.daily.filter(q => q.status === "active" || q.status === "in_progress");
-    const weeklyActive = questsData.weekly.filter(q => q.status === "active" || q.status === "in_progress");
-    const tagged: { quest: Quest; type: "daily" | "weekly" }[] = [
-      ...dailyActive.map(q => ({ quest: q, type: "daily" as const })),
-      ...weeklyActive.map(q => ({ quest: q, type: "weekly" as const })),
-    ];
-    if (tagged.length === 0) return { activeQuest: null, activeQuestType: null };
-    const sorted = tagged.sort((a, b) => {
-      const aRatio = a.quest.targetProgress > 0 ? a.quest.currentProgress / a.quest.targetProgress : 0;
-      const bRatio = b.quest.targetProgress > 0 ? b.quest.currentProgress / b.quest.targetProgress : 0;
-      return bRatio - aRatio;
-    });
-    return { activeQuest: sorted[0].quest, activeQuestType: sorted[0].type };
-  }, [questsData]);
-
   // Spinner only while we're still waiting for the very first response.
   if (!isGuest && isLoading && !homeData) {
     return (
@@ -1620,6 +1605,7 @@ function PlayerHomeContent() {
       <FeedbackToast />
       <ChooseUsernameModal />
 
+      <ScrollPositionContext.Provider value={scrollPosition.contextValue}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
@@ -1627,6 +1613,8 @@ function PlayerHomeContent() {
           { paddingTop: insets.top, paddingBottom: insets.bottom + 180 },
         ]}
         showsVerticalScrollIndicator={false}
+        onScroll={onHomeScroll}
+        scrollEventThrottle={64}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -1688,8 +1676,14 @@ function PlayerHomeContent() {
 
         <HeroCarousel onBookSession={handleBookLesson} />
 
-        {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services */}
-        {!isGuest ? <UpcomingProviderSessionCard /> : null}
+        {/* UPCOMING PROVIDER SESSION - Smart card for booked provider services.
+            Sits just below the hero carousel, so it's often visible on first
+            paint on tall phones — keep eager-mounted but its query is light. */}
+        {!isGuest ? (
+          <LazyOnScroll prefetchOffset={400} minHeight={1}>
+            <UpcomingProviderSessionCard />
+          </LazyOnScroll>
+        ) : null}
 
         {/* WELCOME / GUIDE — first-run dismissible card pointing to the unified Player Guide */}
         <WelcomeGuideCard />
@@ -1706,25 +1700,35 @@ function PlayerHomeContent() {
         </View>
 
         {/* COACHES RAIL — Public coaches the player can browse and book */}
-        {!isGuest ? <CoachesRail /> : null}
+        {!isGuest ? (
+          <LazyOnScroll prefetchOffset={400} minHeight={180}>
+            <CoachesRail />
+          </LazyOnScroll>
+        ) : null}
 
         {/* PLAYERS NEAR YOU — academy players only; free players land here from
             the Coaches rail and surface players via the Social tab instead. */}
-        {!isFreePlayer && !isGuest ? <PlayersNearYouRow /> : null}
+        {!isFreePlayer && !isGuest ? (
+          <LazyOnScroll minHeight={160}>
+            <PlayersNearYouRow />
+          </LazyOnScroll>
+        ) : null}
 
-        {!isGuest ? <CountryLeaderboardsEntry /> : null}
+        {!isGuest ? (
+          <LazyOnScroll minHeight={120}>
+            <CountryLeaderboardsEntry />
+          </LazyOnScroll>
+        ) : null}
 
         {/* ── IMPROVE SECTION ── always shown for logged-in players (AI Coach is the entry point) */}
-        {secondaryReady && !isGuest ? (
-          <>
+        {!isGuest ? (
+          <LazyOnScroll minHeight={240}>
             <View style={styles.sectionDivider}>
               <Ionicons name="trending-up" size={12} color={Colors.dark.accentText} />
               <Text style={[styles.sectionDividerText, { color: Colors.dark.accentText }]}>IMPROVE</Text>
             </View>
 
             <UnifiedImproveCard
-              quest={activeQuest}
-              questType={activeQuestType}
               onQuestPress={() => {
                 track("home:quest_tracker");
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -1741,27 +1745,51 @@ function PlayerHomeContent() {
                 <UpcomingAppointmentCard />
               </>
             ) : null}
-          </>
+          </LazyOnScroll>
         ) : null}
 
         {/* ── TENNIS NEWS ── horizontal strip after IMPROVE, before COMMUNITY */}
-        {secondaryReady && !isGuest ? <TennisNewsStrip /> : null}
+        {!isGuest ? (
+          <LazyOnScroll minHeight={140}>
+            <TennisNewsStrip />
+          </LazyOnScroll>
+        ) : null}
 
         {/* ── STREAKS — show before community feed for daily motivation */}
-        {secondaryReady && !isGuest ? <StreakRail /> : null}
+        {!isGuest ? (
+          <LazyOnScroll minHeight={120}>
+            <StreakRail />
+          </LazyOnScroll>
+        ) : null}
 
         {/* ── SQUAD vs SQUAD — only meaningful for academy players */}
-        {secondaryReady && !isGuest && !isFreePlayer ? <SquadVsSquadWidget /> : null}
+        {!isGuest && !isFreePlayer ? (
+          <LazyOnScroll minHeight={180}>
+            <SquadVsSquadWidget />
+          </LazyOnScroll>
+        ) : null}
 
-        {/* ── COMMUNITY ── only show when there are real social posts */}
-        {secondaryReady && !isGuest && socialPosts && socialPosts.length > 0 ? <MiniFeed /> : null}
+        {/* ── COMMUNITY ── MiniFeed self-gates: returns null when there are no
+            real social posts, so an empty feed shows nothing (parity with the
+            old `socialPosts.length > 0` parent check). */}
+        {!isGuest ? (
+          <LazyOnScroll>
+            <MiniFeed />
+          </LazyOnScroll>
+        ) : null}
 
-        {/* ── SHOP ── only show when there are marketplace products */}
-        {secondaryReady && !isGuest && shopData?.featuredProducts && shopData.featuredProducts.length > 0 ? <GlowMarketSpotlight /> : null}
+        {/* ── SHOP ── GlowMarketSpotlight returns null when there are no
+            featured products, preserving the old "only when products" gate. */}
+        {!isGuest ? (
+          <LazyOnScroll>
+            <GlowMarketSpotlight />
+          </LazyOnScroll>
+        ) : null}
 
         {/* ── JOIN ACADEMY (free players only) — soft CTA at the very bottom, after universal modules */}
         {isFreePlayer && !isGuest ? <JoinAcademySoftCard /> : null}
       </ScrollView>
+      </ScrollPositionContext.Provider>
 
       <BetaFeedbackButton
         playerId={player?.id}

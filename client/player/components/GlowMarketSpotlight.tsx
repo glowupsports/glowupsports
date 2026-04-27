@@ -132,7 +132,14 @@ export function GlowMarketSpotlight() {
 
   // Task #1313 — Hooks must run unconditionally. Early-return guard moved
   // below all hook calls.
-  if (shopData !== undefined && featuredProducts.length === 0) return null;
+  // Task #1396 — also return null while `shopData` is still loading. The
+  // ProPlayerHomeScreen parent used to gate this entire card on
+  // `shopData?.featuredProducts?.length > 0`, so it stayed completely
+  // invisible until real products arrived. Without this guard the loading
+  // state would render an empty "GLOW MARKET — Gear, services & exclusive
+  // deals" fallback row that never existed before the parent gate was
+  // removed.
+  if (!shopData || featuredProducts.length === 0) return null;
 
   return (
     <Animated.View entering={FadeIn.duration(400)} style={styles.container}>

@@ -313,27 +313,13 @@ export function MiniFeed() {
 
   const events = state.communityEvents.slice(0, 2);
 
+  // Task #1396 — render nothing until we have a real post. Previously the
+  // ProPlayerHomeScreen parent ran its own duplicate `/api/social/feed` query
+  // just to decide whether to render this component at all; making MiniFeed
+  // self-gating lets that parent-level fetch be removed without changing the
+  // visible behaviour (no posts ⇒ section is invisible, exactly as before).
   if (!latestPost) {
-    return (
-      <Animated.View entering={FadeIn.duration(300)} layout={LinearTransition.springify()} style={collapsedStyles.pill}>
-        <View style={[collapsedStyles.iconWrap, { backgroundColor: "rgba(200, 255, 61, 0.1)" }]}>
-          <Ionicons name="people-outline" size={18} color={Colors.dark.accentText} />
-        </View>
-        <View style={collapsedStyles.textGroup}>
-          <Text style={collapsedStyles.label}>Community</Text>
-          <Text style={collapsedStyles.hint}>Nothing new yet</Text>
-        </View>
-        <Pressable
-          style={collapsedStyles.ctaButton}
-          onPress={() => {
-            handleSeeAll();
-          }}
-        >
-          <Text style={collapsedStyles.ctaText}>Open</Text>
-          <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
-        </Pressable>
-      </Animated.View>
-    );
+    return null;
   }
 
   return (
