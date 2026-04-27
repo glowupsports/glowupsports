@@ -4,8 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl, getAuthHeaders, setActivePlayerOverride } from "@/lib/query-client";
 import {
   clearGodCache,
-  hydrateGodCache,
-  startGodCachePersistence,
+  deferredHydrateAndPersist,
 } from "@/lib/queryCachePersist";
 
 export interface FamilyMember {
@@ -125,8 +124,13 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
     // from. Hydrate is best-effort: if there's a snapshot from a
     // prior session we paint it instantly; if not, the next round-
     // trip fills it in and write-through takes over from there.
-    hydrateGodCache(queryClient, newPlayerId).catch(() => {});
-    startGodCachePersistence(queryClient, newPlayerId);
+    //
+    // Task #1394 — deferred so the family-switch animation/transition
+    // can paint before we replay the whole god-cache into react-query.
+    // Switching a child mid-session is interactive (user just tapped),
+    // so InteractionManager will resolve very quickly here — but the
+    // 600ms iOS fallback timer still bounds the worst case.
+    deferredHydrateAndPersist(queryClient, newPlayerId);
   }, [queryClient, playerId, activePlayerId]);
 
   const refreshFamily = useCallback(async (): Promise<boolean> => {

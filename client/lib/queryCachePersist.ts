@@ -6,6 +6,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
+import { InteractionManager, Platform } from "react-native";
 import logger from "@/lib/logger";
 
 // Five Player-tab god-routes plus Quests (own lifecycle, but persisted
@@ -240,6 +241,140 @@ export function stopGodCachePersistence(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Deferred boot helper — Task #1394.
+// ---------------------------------------------------------------------------
+//
+// Background: the original Task #1387 wiring called hydrateGodCache +
+// startGodCachePersistence SYNCHRONOUSLY from AuthContext / FamilyContext
+// during cold start. On iOS Fabric this fired:
+//   - one ~80KB AsyncStorage.getItem (bridge round-trip)
+//   - 5-7 setQueryData calls (cache mutation + subscriber notify storm)
+//   - 5-7 invalidateQueries calls
+//   - a permanent QueryCache subscription
+// at the EXACT moment the Player navigator was mounting and ProPlayerHome
+// fired its 21+ useQueries. The bridge saturated and the player tabs
+// rendered their loading spinner indefinitely until a user gesture (tab
+// swipe) drained the pending work. Coach was never affected because the
+// `data.user?.playerId` gate is null for coach accounts. Android was fine
+// because its bridge handles the burst better than iOS Fabric does.
+//
+// Fix: defer both calls to AFTER first paint via InteractionManager, with
+// a hard-timeout fallback so an infinitely-running splash animation
+// (which IS a registered interaction) cannot starve hydration forever.
+// We also emit Sentry breadcrumbs around the deferred work so we can
+// measure cold-start hydration cost in production without another OTA.
+//
+// Idempotency: the callback can fire from EITHER the InteractionManager
+// promise OR the timeout fallback — whichever wins. A per-call ran-flag
+// makes the second invocation a no-op so we never hydrate twice.
+
+const FALLBACK_DEFER_MS = Platform.OS === "ios" ? 600 : 50;
+
+export function deferredHydrateAndPersist(
+  queryClient: QueryClient,
+  playerId: string,
+): void {
+  if (!playerId) return;
+  // Snapshot the activeHydrationToken AT SCHEDULE TIME. Both
+  // `hydrateGodCache` and `clearGodCache` bump this token, so a
+  // mismatch when our deferred callback eventually fires means
+  // SOMETHING has happened in between (logout, account switch, a
+  // newer hydrate request) and our scheduled work is now stale.
+  // Without this guard, a stale callback would fall through to
+  // `startGodCachePersistence(queryClient, oldPlayerId)` — which
+  // unconditionally tears down whatever subscription is currently
+  // active and re-binds it to the old player. The next tracked
+  // god-key change would then be persisted into the OLD player's
+  // storage key even though the UI is now showing a DIFFERENT
+  // player — exact cross-account cache leak the token guard exists
+  // to prevent. (Architect review on Task #1394 caught this; the
+  // regression test "...stale clear" guards it.)
+  const scheduledAtToken = activeHydrationToken;
+  let ran = false;
+  const t0 = Date.now();
+  const run = (source: "interaction" | "timeout") => {
+    if (ran) return;
+    ran = true;
+    const waited = Date.now() - t0;
+    // Stale-callback guard. If anything bumped the token between
+    // schedule and run, this whole callback is for a player that
+    // is no longer relevant. Bail entirely — do NOT touch
+    // hydrateGodCache (which would also abort internally, but the
+    // problem is the persistence subscription below) and do NOT
+    // touch startGodCachePersistence.
+    if (activeHydrationToken !== scheduledAtToken) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const Sentry = require("@sentry/react-native");
+        Sentry.addBreadcrumb?.({
+          category: "boot",
+          level: "info",
+          message: `godCache hydrate aborted · stale (token moved) · src=${source} waited=${waited}ms`,
+        });
+      } catch {
+        // ignore
+      }
+      return;
+    }
+    // Sentry is a peer dep of the app, never of this helper. Wrap the
+    // import + every Sentry call so a missing native module on web/dev
+    // can never crash the cold-start path.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const Sentry = require("@sentry/react-native");
+      Sentry.addBreadcrumb?.({
+        category: "boot",
+        level: "info",
+        message: `godCache hydrate start · src=${source} waited=${waited}ms`,
+      });
+    } catch {
+      // Sentry not available in this environment — fine.
+    }
+    const tHydrateStart = Date.now();
+    hydrateGodCache(queryClient, playerId)
+      .then((count) => {
+        const dur = Date.now() - tHydrateStart;
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const Sentry = require("@sentry/react-native");
+          Sentry.addBreadcrumb?.({
+            category: "boot",
+            level: "info",
+            message: `godCache hydrate end · entries=${count} dur=${dur}ms`,
+          });
+        } catch {
+          // ignore
+        }
+      })
+      .catch(() => {
+        // hydrateGodCache already logs internally; never throw past here.
+      });
+    // Persistence subscription is cheap (one cache.subscribe call) but
+    // we still bundle it in the deferred phase so the very first cache
+    // notification wave from the navigator's useQueries doesn't have a
+    // listener yet — that wave is exactly the burst we don't want to
+    // round-trip back to disk anyway.
+    try {
+      startGodCachePersistence(queryClient, playerId);
+    } catch (err) {
+      if (__DEV__) {
+        console.warn("[queryCachePersist] startGodCachePersistence failed:", err);
+      }
+    }
+  };
+  // InteractionManager resolves once gesture/animation handlers settle.
+  // On iOS during cold start this is normally <100ms, but the animated
+  // splash uses withRepeat(-1) which CAN keep it pending — hence the
+  // unconditional fallback timer.
+  try {
+    InteractionManager.runAfterInteractions(() => run("interaction"));
+  } catch {
+    // RN web shim sometimes throws here — fall through to timeout.
+  }
+  setTimeout(() => run("timeout"), FALLBACK_DEFER_MS);
+}
+
+// ---------------------------------------------------------------------------
 // Cleanup — logout, account switch, version bump.
 // ---------------------------------------------------------------------------
 export async function clearGodCache(playerId?: string): Promise<void> {
@@ -305,4 +440,8 @@ export const __test__ = {
   STORAGE_KEY_PREFIX,
   MAX_BYTES,
   WRITE_DEBOUNCE_MS,
+  // Task #1394 — exposed so the deferral regression tests can prove that
+  // a stale callback never re-binds persistence to the old playerId.
+  getTrackedPlayerId: () => trackedPlayerId,
+  getActiveHydrationToken: () => activeHydrationToken,
 };

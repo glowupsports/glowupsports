@@ -5,8 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { loginRevenueCat, logoutRevenueCat } from "@/lib/revenuecat";
 import {
-  hydrateGodCache,
-  startGodCachePersistence,
+  deferredHydrateAndPersist,
   clearGodCache,
 } from "@/lib/queryCachePersist";
 import { 
@@ -144,9 +143,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // the "instant first paint" knob: by the time the player nav
         // mounts, Schedule / Profile / Home / Progress / Play already
         // have their last-known payload primed into react-query.
+        //
+        // Task #1394 — defer this past first paint. Doing it inline here
+        // saturated the iOS Fabric bridge during cold start and made
+        // every player tab render a never-ending spinner until the user
+        // swiped a tab to drain the bridge. See queryCachePersist.ts for
+        // the full root-cause write-up.
         if (data.user?.playerId) {
-          hydrateGodCache(queryClient, data.user.playerId).catch(() => {});
-          startGodCachePersistence(queryClient, data.user.playerId);
+          deferredHydrateAndPersist(queryClient, data.user.playerId);
         }
 
         if (data.user?.id) {
@@ -228,11 +232,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // by the time NavigationContainer mounts the player tabs,
           // their useQuery calls return the persisted snapshot
           // synchronously and the screen renders with content.
+          //
+          // Task #1394 — defer past first paint (see queryCachePersist).
+          // The deferred wrapper still primes react-query before the
+          // user sees the home tab in normal navigation, but it no
+          // longer steals the bridge during the navigator-mount burst.
           const cachedPlayerId =
             (authState.user as { playerId?: string | null } | null)?.playerId;
           if (cachedPlayerId) {
-            hydrateGodCache(queryClient, cachedPlayerId).catch(() => {});
-            startGodCachePersistence(queryClient, cachedPlayerId);
+            deferredHydrateAndPersist(queryClient, cachedPlayerId);
           }
           logger.log("[AuthContext] Fetching user data...");
           const success = await fetchUserData(authState.token);

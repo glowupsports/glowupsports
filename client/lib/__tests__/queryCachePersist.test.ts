@@ -25,6 +25,26 @@ vi.mock("@/lib/logger", () => ({
   default: { log: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+// Task #1394 — InteractionManager + Platform are pulled in by
+// `deferredHydrateAndPersist`. The interaction-callback path is mocked
+// to NEVER fire so the test exercises the hard-timeout fallback (the
+// safety net the fix relies on when the splash animation keeps
+// InteractionManager pending forever on iOS).
+vi.mock("react-native", () => ({
+  InteractionManager: {
+    runAfterInteractions: () => ({ cancel: () => {} }),
+  },
+  Platform: { OS: "ios" },
+}));
+
+// `@sentry/react-native` is required from inside `deferredHydrateAndPersist`
+// to emit boot breadcrumbs. The helper wraps the require in try/catch so
+// missing native module is non-fatal in production, but vitest-node will
+// fail to resolve the module name unless we mock it.
+vi.mock("@sentry/react-native", () => ({
+  addBreadcrumb: vi.fn(),
+}));
+
 // __DEV__ is a React Native global; vitest-node doesn't define it. Stub
 // it to false so the helper's dev-only console.warn calls stay quiet.
 (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
@@ -228,6 +248,188 @@ describe("queryCachePersist — clearGodCache", () => {
     expect(storage.has(__test__.storageKeyForPlayer("a"))).toBe(false);
     expect(storage.has(__test__.storageKeyForPlayer("b"))).toBe(false);
     expect(storage.has("@some-other-thing")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task #1394 — deferredHydrateAndPersist must NOT touch react-query
+// synchronously. This is the regression guard for the iOS-Fabric
+// bridge-saturation bug that made every Player tab spin forever on
+// cold start until the user swiped a tab.
+// ---------------------------------------------------------------------------
+describe("queryCachePersist — deferredHydrateAndPersist", () => {
+  it("does not seed react-query synchronously; only after the iOS fallback timer fires", async () => {
+    const mod = await import("@/lib/queryCachePersist");
+    const { __test__, deferredHydrateAndPersist } = mod;
+    const playerId = "player-deferred-1";
+
+    // Pre-seed disk so hydration has real work to do once it eventually runs.
+    storage.set(
+      __test__.storageKeyForPlayer(playerId),
+      JSON.stringify({
+        savedAt: Date.now(),
+        entries: [
+          { queryKey: ["/api/player/me/home-data"], data: { home: 1 } },
+          { queryKey: ["/api/player/me/profile-data"], data: { p: 1 } },
+        ],
+      }),
+    );
+
+    const dest = makeFakeQueryClient();
+    deferredHydrateAndPersist(dest as never, playerId);
+
+    // CRITICAL: nothing has touched react-query yet. If this assertion
+    // ever fails, the iOS cold-start regression has been silently
+    // re-introduced — the whole point of #1394 is that the navigator
+    // mount burst is NOT contended by hydration disk + setQueryData.
+    expect(dest.setQueryData).not.toHaveBeenCalled();
+    expect(dest.invalidateQueries).not.toHaveBeenCalled();
+
+    // Drive the iOS-fallback timer (FALLBACK_DEFER_MS = 600 on iOS) plus
+    // the AsyncStorage-getItem microtask + setQueryData loop.
+    await vi.advanceTimersByTimeAsync(700);
+
+    expect(dest.setQueryData).toHaveBeenCalledWith(
+      ["/api/player/me/home-data"],
+      { home: 1 },
+    );
+    expect(dest.setQueryData).toHaveBeenCalledWith(
+      ["/api/player/me/profile-data"],
+      { p: 1 },
+    );
+  });
+
+  it("is a no-op when called with an empty playerId (defends against pre-auth boot)", async () => {
+    const { deferredHydrateAndPersist } = await import("@/lib/queryCachePersist");
+    const dest = makeFakeQueryClient();
+    deferredHydrateAndPersist(dest as never, "");
+    await vi.advanceTimersByTimeAsync(700);
+    expect(dest.setQueryData).not.toHaveBeenCalled();
+  });
+
+  it("a clearGodCache that lands BEFORE the deferral fires aborts the in-flight hydration", async () => {
+    const mod = await import("@/lib/queryCachePersist");
+    const { __test__, deferredHydrateAndPersist, clearGodCache } = mod;
+    const playerId = "player-deferred-clear";
+    storage.set(
+      __test__.storageKeyForPlayer(playerId),
+      JSON.stringify({
+        savedAt: Date.now(),
+        entries: [{ queryKey: ["/api/player/me/home-data"], data: { x: 1 } }],
+      }),
+    );
+    const dest = makeFakeQueryClient();
+    deferredHydrateAndPersist(dest as never, playerId);
+
+    // Logout / account-switch happens BEFORE the deferral fires.
+    await clearGodCache(playerId);
+
+    // Now let the deferred timer fire. The hydrate token check inside
+    // `hydrateGodCache` must short-circuit so we don't bleed the
+    // logged-out player's data back into react-query.
+    await vi.advanceTimersByTimeAsync(700);
+    expect(dest.setQueryData).not.toHaveBeenCalled();
+  });
+
+  it("after clearGodCache(A) and a new startGodCachePersistence(B), a STALE deferred(A) callback must NOT re-bind persistence to A (cross-account leak guard)", async () => {
+    // This is the bug architect review caught: the original deferred
+    // wrapper had no token snapshot, so a callback scheduled for
+    // player A that fired AFTER a logout-then-relogin-as-B would
+    // call startGodCachePersistence(qc, A) and tear down B's
+    // subscription, re-binding it to A. The next time react-query
+    // emitted a tracked god-key event for B's data, it would write
+    // to A's storage key. Token snapshot in deferredHydrateAndPersist
+    // closes that window — verified here.
+    const mod = await import("@/lib/queryCachePersist");
+    const {
+      __test__,
+      deferredHydrateAndPersist,
+      clearGodCache,
+      startGodCachePersistence,
+    } = mod;
+    const playerA = "player-stale-A";
+    const playerB = "player-stale-B";
+    storage.set(
+      __test__.storageKeyForPlayer(playerA),
+      JSON.stringify({
+        savedAt: Date.now(),
+        entries: [{ queryKey: ["/api/player/me/home-data"], data: { a: 1 } }],
+      }),
+    );
+    const dest = makeFakeQueryClient();
+
+    // Schedule deferred for A.
+    deferredHydrateAndPersist(dest as never, playerA);
+
+    // Account-switch happens. clearGodCache bumps the activeHydrationToken
+    // and stops persistence. Then we install B's persistence.
+    await clearGodCache(playerA);
+    startGodCachePersistence(dest as never, playerB);
+    expect(__test__.getTrackedPlayerId()).toBe(playerB);
+
+    // Now the stale deferred-A callback fires. Without the token
+    // snapshot fix, this would call startGodCachePersistence(A),
+    // which would call stopGodCachePersistence() (unsubscribing B!)
+    // and then resubscribe under A. With the fix, the run() body
+    // bails immediately on the token mismatch.
+    await vi.advanceTimersByTimeAsync(700);
+
+    // No data leaked into the cache.
+    expect(dest.setQueryData).not.toHaveBeenCalled();
+    // Persistence is still owned by B — the stale callback did NOT
+    // tear down B's subscription. This is THE assertion that proves
+    // the cross-account leak is closed.
+    expect(__test__.getTrackedPlayerId()).toBe(playerB);
+  });
+
+  it("when both InteractionManager and the timeout fallback would fire, hydration runs exactly once", async () => {
+    // Our test mock intentionally has InteractionManager.runAfterInteractions
+    // never invoke its callback (so the timer is the only path that wins).
+    // This test reproduces the dual-fire scenario by manually invoking the
+    // interaction callback before the timer would, then advancing the
+    // timer; the per-call `ran` flag must coalesce the two paths.
+    let interactionCb: (() => void) | null = null;
+    vi.doMock("react-native", () => ({
+      InteractionManager: {
+        runAfterInteractions: (cb: () => void) => {
+          interactionCb = cb;
+          return { cancel: () => {} };
+        },
+      },
+      Platform: { OS: "ios" },
+    }));
+    vi.resetModules();
+    const mod = await import("@/lib/queryCachePersist");
+    const { __test__, deferredHydrateAndPersist } = mod;
+    const playerId = "player-once";
+    storage.set(
+      __test__.storageKeyForPlayer(playerId),
+      JSON.stringify({
+        savedAt: Date.now(),
+        entries: [
+          { queryKey: ["/api/player/me/home-data"], data: { only: 1 } },
+        ],
+      }),
+    );
+    const dest = makeFakeQueryClient();
+    deferredHydrateAndPersist(dest as never, playerId);
+
+    // Fire BOTH paths.
+    expect(interactionCb).toBeTruthy();
+    interactionCb!();
+    await vi.advanceTimersByTimeAsync(700);
+    // Let any pending microtasks (the AsyncStorage.getItem promise +
+    // setQueryData loop inside hydrateGodCache) drain.
+    await vi.runAllTimersAsync();
+
+    // setQueryData hit exactly once for the only seeded entry.
+    expect(dest.setQueryData).toHaveBeenCalledTimes(1);
+    expect(dest.setQueryData).toHaveBeenCalledWith(
+      ["/api/player/me/home-data"],
+      { only: 1 },
+    );
+
+    vi.doUnmock("react-native");
   });
 });
 
