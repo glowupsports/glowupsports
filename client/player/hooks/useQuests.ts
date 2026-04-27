@@ -94,9 +94,15 @@ export interface ClaimChainBonusResult {
 }
 
 export function useQuests(enabled: boolean = true) {
+  // Task #1390 — `staleTime` lets the screen remount within the
+  // window without auto-refetching, so the previous session's payload
+  // (primed via the persisted god-cache in `queryCachePersist`) paints
+  // instantly on cold start. Mutations on the screen still invalidate
+  // when progress changes, so freshness is unaffected.
   return useQuery<QuestsData>({
     queryKey: ["/api/quests"],
     enabled,
+    staleTime: 30 * 1000,
   });
 }
 

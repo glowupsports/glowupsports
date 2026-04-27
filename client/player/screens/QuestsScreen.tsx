@@ -19,7 +19,6 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { useTabNavigation } from "@/components/TabNavigationContext";
@@ -702,7 +701,6 @@ const TAB_CONFIG: { key: QuestType; label: string; icon: string }[] = [
 export default function QuestsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const queryClient = useQueryClient();
   const track = useTrackFeature();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
@@ -714,20 +712,45 @@ export default function QuestsScreen() {
   const [infoToast, setInfoToast] = useState<string | null>(null);
   const prevAllDoneRef = useRef<Record<QuestType, boolean>>({ daily: false, weekly: false, monthly: false });
 
-  const { data: questsData, isLoading } = useQuests();
+  const { data: questsData } = useQuests();
   const claimReward = useClaimQuestReward();
   const claimChainBonus = useClaimChainBonus();
   const assignDailyQuests = useAssignDailyQuests();
   const assignWeeklyQuests = useAssignWeeklyQuests();
   const assignMonthlyQuests = useAssignMonthlyQuests();
 
+  // Task #1390 — Cold start used to look slow on Quests because every
+  // focus also called `queryClient.invalidateQueries(["/api/quests"])`,
+  // which marked the persisted god-cache stale and triggered a full
+  // refetch alongside three assign POSTs whose `onSuccess` ALSO
+  // invalidated `["/api/quests"]`. Combined with the screen gating on
+  // `isLoading`, the hydrated payload from disk never got a chance to
+  // paint before the spinner re-took the screen.
+  //
+  // We still need the three assign mutations on focus — they are the
+  // only path that creates today's daily slot / this week's weekly
+  // bucket / this month's monthly bucket, and the cached `daily` array
+  // can be non-empty across a period rollover (yesterday's quests are
+  // still in the cache until the background refetch evicts them via
+  // server-side `expiresAt` filtering). The mutations are idempotent
+  // server-side (they short-circuit with `alreadyAssigned: true` when
+  // the period is already populated), and their own `onSuccess` will
+  // invalidate `/api/quests` if a brand-new period was actually
+  // bootstrapped, which then refreshes via stale-while-revalidate
+  // without hiding the cached payload.
+  //
+  // What we drop here is only the unconditional pre-mutation
+  // `invalidateQueries`. The hook's `staleTime: 30s` plus react-query's
+  // refetch-on-mount semantics already keep things fresh.
+  const assignDailyMutate = assignDailyQuests.mutate;
+  const assignWeeklyMutate = assignWeeklyQuests.mutate;
+  const assignMonthlyMutate = assignMonthlyQuests.mutate;
   useFocusEffect(
     useCallback(() => {
-      queryClient.invalidateQueries({ queryKey: ["/api/quests"] });
-      assignDailyQuests.mutate();
-      assignWeeklyQuests.mutate();
-      assignMonthlyQuests.mutate();
-    }, [queryClient])
+      assignDailyMutate();
+      assignWeeklyMutate();
+      assignMonthlyMutate();
+    }, [assignDailyMutate, assignWeeklyMutate, assignMonthlyMutate])
   );
 
   const dailyQuests = questsData?.daily || [];
@@ -898,7 +921,7 @@ export default function QuestsScreen() {
           onDone={() => setShowChainCelebration(false)}
         />
 
-        {isLoading ? (
+        {!questsData ? (
           <View style={styles.loadingState}>
             <Ionicons name="hourglass" size={32} color={Colors.dark.textSecondary} />
             <ThemedText style={styles.loadingText}>Loading quests...</ThemedText>
