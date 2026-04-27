@@ -43,6 +43,11 @@ vi.mock("react-native", () => ({
 // fail to resolve the module name unless we mock it.
 vi.mock("@sentry/react-native", () => ({
   addBreadcrumb: vi.fn(),
+  // Task #1397 — the cold-start path also calls setMeasurement and
+  // setTag to feed the Sentry dashboard. They're no-ops in tests but
+  // must exist on the mock so optional chaining doesn't shortcut.
+  setMeasurement: vi.fn(),
+  setTag: vi.fn(),
 }));
 
 // __DEV__ is a React Native global; vitest-node doesn't define it. Stub

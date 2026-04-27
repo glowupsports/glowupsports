@@ -35,6 +35,8 @@ For mixed changes (server + client): Republish first, then OTA push.
 ### CRITICAL: Player god-cache hydration MUST stay deferred
 `hydrateGodCache` and `startGodCachePersistence` from `client/lib/queryCachePersist.ts` must NEVER be called synchronously from the AuthContext / FamilyContext bootstrap path. Always go through the `deferredHydrateAndPersist` wrapper.
 
+The cold-start breadcrumbs emitted by that wrapper (`category: "cold-start"` — `godCache hydrate start/end/aborted`, `first-paint`, `first-god-fetch-settled`) are the source for the Sentry dashboard documented in `docs/sentry-cold-start-dashboard.md` (Task #1397). If a future change renames or removes any of those breadcrumbs, the dashboard runbook must be updated in the same change.
+
 ### CRITICAL: API Development Rule
 DO NOT create new API endpoints without explicit permission!
 1. **First**: Check existing endpoints.

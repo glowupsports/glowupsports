@@ -216,6 +216,7 @@ export function markColdStartFirstPaint(): void {
   // and the existing `godCache hydrate start/end` breadcrumbs to get
   // a complete cold-start timing picture in Sentry without needing
   // another OTA push.
+  const elapsedMs = Date.now() - coldStartT0;
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const Sentry = require("@sentry/react-native");
@@ -224,8 +225,16 @@ export function markColdStartFirstPaint(): void {
       level: "info",
       type: "info",
       message: "first-paint",
-      data: { ms_since_module_eval: Date.now() - coldStartT0 },
+      data: { ms_since_module_eval: elapsedMs },
     });
+    // Task #1397 — promote the numeric to a measurement on the active
+    // app-start transaction so the Sentry dashboard ("Cold-start:
+    // god-cache hydration") can compute p50/p95 in Discover. Breadcrumb
+    // `data` fields are not aggregatable by Sentry; measurements are.
+    // No-op when no transaction is sampled (tracesSampleRate=0.05) — at
+    // 5% sampling we still get plenty of cold-start volume for stable
+    // percentiles, without paying the perf tax of full sampling.
+    Sentry.setMeasurement?.("godcache.first_paint_ms", elapsedMs, "millisecond");
   } catch {
     // Sentry not available — fine.
   }
@@ -256,6 +265,7 @@ export function startGodCachePersistence(
     // needing another OTA push. Cheap (boolean check) and bounded.
     if (!firstGodFetchEmitted) {
       firstGodFetchEmitted = true;
+      const elapsedMs = Date.now() - coldStartT0;
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const Sentry = require("@sentry/react-native");
@@ -265,10 +275,21 @@ export function startGodCachePersistence(
           type: "info",
           message: "first-god-fetch-settled",
           data: {
-            ms_since_module_eval: Date.now() - coldStartT0,
+            ms_since_module_eval: elapsedMs,
             query_key: String(event.query.queryKey?.[0] ?? "unknown"),
           },
         });
+        // Task #1397 — measurement + tag for the dashboard. See the
+        // comment block in markColdStartFirstPaint for the rationale.
+        Sentry.setMeasurement?.(
+          "godcache.first_god_fetch_ms",
+          elapsedMs,
+          "millisecond",
+        );
+        Sentry.setTag?.(
+          "godcache.first_god_fetch_key",
+          String(event.query.queryKey?.[0] ?? "unknown"),
+        );
       } catch {
         // ignore
       }
@@ -366,6 +387,14 @@ export function deferredHydrateAndPersist(
           message: "godCache hydrate aborted (stale)",
           data: { src: source, waited_ms: waited, reason: "token-moved" },
         });
+        // Task #1397 — surface the abort outcome + src as scope tags so
+        // the Sentry dashboard can split panel 3 (% stale-aborts) and
+        // panel 4 (interaction-vs-timeout) by tag instead of relying on
+        // breadcrumb message search. Measurement still records the
+        // wait time so percentile aggregation includes the abort path.
+        Sentry.setTag?.("godcache.outcome", "aborted_stale");
+        Sentry.setTag?.("godcache.src", source);
+        Sentry.setMeasurement?.("godcache.waited_ms", waited, "millisecond");
       } catch {
         // ignore
       }
@@ -384,6 +413,12 @@ export function deferredHydrateAndPersist(
         message: "godCache hydrate start",
         data: { src: source, waited_ms: waited, player_id: playerId },
       });
+      // Task #1397 — promote the wait time to a transaction measurement
+      // and the deferral source to a scope tag. The dashboard reads
+      // p50/p95 of measurements.godcache.waited_ms (panel 1) and splits
+      // panel 4 by tags[godcache.src] = "interaction" | "timeout".
+      Sentry.setMeasurement?.("godcache.waited_ms", waited, "millisecond");
+      Sentry.setTag?.("godcache.src", source);
     } catch {
       // Sentry not available in this environment — fine.
     }
@@ -401,6 +436,15 @@ export function deferredHydrateAndPersist(
             message: "godCache hydrate end",
             data: { entries: count, dur_ms: dur, player_id: playerId },
           });
+          // Task #1397 — promote duration + outcome for the dashboard.
+          // Panel 2 reads p50/p95 of measurements.godcache.dur_ms; the
+          // outcome tag distinguishes "seeded the cache" from "ran but
+          // had nothing on disk" (first-ever cold start, version bump).
+          Sentry.setMeasurement?.("godcache.dur_ms", dur, "millisecond");
+          Sentry.setTag?.(
+            "godcache.outcome",
+            count > 0 ? "completed_seeded" : "completed_empty",
+          );
         } catch {
           // ignore
         }
