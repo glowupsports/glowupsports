@@ -1,6 +1,5 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Platform } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Updates from "expo-updates";
 import Animated, {
   useSharedValue,
@@ -109,37 +108,7 @@ export function PlatformCommandCenter({
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[
-          "#FF000035",
-          "#FF7F0030",
-          "#FFFF0028",
-          "#00FF0022",
-          "#0000FF1C",
-          "#4B008218",
-          "#9400D310",
-          "transparent",
-        ]}
-        style={styles.gradientBg}
-      />
-      
-      <View style={styles.borderContainer}>
-        <LinearGradient
-          colors={[
-            "#FF0000",
-            "#FF7F00",
-            "#FFFF00",
-            "#00FF00",
-            "#0000FF",
-            "#4B0082",
-            "#9400D3",
-          ]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.gradientBorder}
-        />
-        
-        <View style={styles.innerContainer}>
+      <View style={styles.innerContainer}>
           <View style={styles.header}>
             <View style={styles.logoSection}>
               <View style={styles.logoContainer}>
@@ -229,7 +198,6 @@ export function PlatformCommandCenter({
               ) : null}
             </View>
           ) : null}
-        </View>
       </View>
     </View>
   );
@@ -260,30 +228,12 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: Spacing.lg,
   },
-  gradientBg: {
-    position: "absolute",
-    top: -70,
-    left: -40,
-    right: -40,
-    height: 250,
-    borderRadius: 125,
-  },
-  borderContainer: {
-    borderRadius: BorderRadius.xl,
-    padding: 2,
-    overflow: "hidden",
-  },
-  gradientBorder: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
   innerContainer: {
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.xl - 2,
+    borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: PLATFORM_PURPLE + "55",
   },
   header: {
     flexDirection: "row",
