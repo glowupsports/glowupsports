@@ -1,7 +1,7 @@
 # Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-Glow Up Sports is a multi-academy SaaS platform for Tennis Coaches and Players. It aims to streamline academy administration, monitor player progress, and enhance coaching and playing experiences through gamification, detailed progress tracking, and efficient resource management. The platform features specialized applications for Platform Owners, Academy Owners, Coaches, and Players, designed to revolutionize tennis academy operations and boost player engagement.
+Glow Up Sports is a multi-academy SaaS platform revolutionizing tennis academy administration, coaching, and player engagement. It offers specialized applications for Platform Owners, Academy Owners, Coaches, and Players. Key features include gamification, detailed progress tracking, and efficient resource management. The platform aims to modernize operations, enhance player retention, and improve the overall experience in tennis academies.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -35,128 +35,14 @@ For mixed changes (server + client): Republish first, then OTA push.
 ### CRITICAL: Player god-cache hydration MUST stay deferred
 `hydrateGodCache` and `startGodCachePersistence` from `client/lib/queryCachePersist.ts` must NEVER be called synchronously from the AuthContext / FamilyContext bootstrap path. Always go through the `deferredHydrateAndPersist` wrapper.
 
-The cold-start breadcrumbs emitted by that wrapper (`category: "cold-start"` — `godCache hydrate start/end/aborted`, `first-paint`, `first-god-fetch-settled`) are the source for the Sentry dashboard documented in `docs/sentry-cold-start-dashboard.md` (Task #1397). If a future change renames or removes any of those breadcrumbs, the dashboard runbook must be updated in the same change.
+### CRITICAL: AI Coach + Home god-route fan-in
+The AI Coach tab and the Home tab use god-routes for data fetching to prevent parallel `useQuery` calls on cold start, improving performance. These god-routes (`/api/player/me/home-data` and `/api/player/me/ai-coach-data`) bundle multiple endpoints and seed legacy query keys via `setQueryData` to ensure data is available from cache. New `useQuery` calls on player screens must be integrated into these god-routes or be gated by a deferred-ready signal to avoid performance regressions.
 
-### CRITICAL: AI Coach + Home god-route fan-in (Task #1419)
-The AI Coach tab and the Home tab both used to fire many parallel
-`useQuery` calls on cold start. The fix folds them into per-tab
-god-routes via in-process dispatch:
+### CRITICAL: Player tab cold-start deferrals
+Player tab data fetching on iOS cold-start is deferred using `deferredHydrateAndPersist` and `scheduleDeferredFlip` to prevent UI freezes. God-route hydration is persisted to `AsyncStorage`, and `PlayerContext` loading is also deferred. Spotlight queries are folded into the `/api/player/me/home-data` god-route. The `AppState/NetInfo` bridge ensures `focusManager` and `onlineManager` updates are asynchronous. Each player tab has a single god-route, and server-side fan-outs use `dispatchInProcess`. A two-tier server cache is employed for different data freshness requirements. Tab god-routes are prefetched from the Home screen.
 
-- **Home god-route** (`/api/player/me/home-data`,
-  `server/routes/player-home.ts`) now ALSO returns the full
-  `/api/player/me/profile` shape (via `fetchProfileFull` →
-  `dispatchInProcess`) and `/api/ai-pro/status` (via
-  `fetchAiProStatus`). `ProPlayerHomeScreen` seeds both legacy keys
-  (`["/api/player/me/profile"]` and `["/api/ai-pro/status"]`) via
-  `setQueryData` in the same effect that already seeds dashboard /
-  weekly-digest / spotlight, so `PlayerDNABanner`, `TennisIQTile`,
-  `TennisIQQuizModal`, and the AI-pro near-limit banner all hit
-  cache instead of firing extra requests during cold start.
-- **AI Coach god-route** (`/api/player/me/ai-coach-data`,
-  `server/routes/player-ai-coach-data.ts`) bundles seven endpoints:
-  `weekly-plan`, `sessions`, `training-history`, `ai-coach/context`,
-  `ai-pro/status`, `monthly-assessment/current`, `weekly-digest`.
-  All seven branches dispatch in parallel via `dispatchInProcess`
-  with `Promise.allSettled`. 30s in-memory cache, only persisted
-  when `aiCoachContext` succeeds.
-- **`PlayerAICoachScreen`** consumes the god-route, derives the four
-  parent-level reads (`contextData`, `aiStatus`,
-  `monthlyAssessmentData`, `digest`) from `aiCoachData`, and seeds
-  all seven legacy queryKeys via `setQueryData`. The two
-  subcomponents (`MyMirrorTab`, `GlowPlanTab`) take a `tabDataReady`
-  prop (default `true` for backwards compat) that gates their
-  internal `useQuery` calls so they don't fire before the seed
-  lands. Removing or "cleaning up" the `tabDataReady` plumbing
-  brings back the cold-start fan-out.
-- **Persist whitelist** in `client/lib/queryCachePersist.ts` includes
-  `/api/player/me/ai-coach-data` so the AI Coach tab paints from
-  AsyncStorage before the network round-trip on cold start.
-
-If you ship a new player-screen `useQuery` that runs above the fold,
-either fold it into the relevant god-route or gate `enabled` on the
-same deferred-ready signal — otherwise the cold-start regression
-returns and you re-introduce the "two-refresh-needed" bug this task
-fixed.
-
-### CRITICAL: Player tab cold-start deferrals (Tasks #1394, #1418, #1419)
-The Player tabs used to show a spinner on iOS cold-start until the user
-swiped, because too many `useQuery` calls fired synchronously during the
-first render and back-pressured the JS thread. The fix is layered:
-
-- **God-route hydration** is deferred via `deferredHydrateAndPersist` in
-  `client/lib/queryCachePersist.ts` (#1394). Same module gates first
-  fetches behind an `InteractionManager.runAfterInteractions` +
-  `FALLBACK_DEFER_MS` race (120ms on iOS as of #1419, down from 600ms;
-  50ms elsewhere). The TRACKED_GOD_KEY_PREFIXES whitelist drives which
-  god-routes are persisted to AsyncStorage and includes home-data,
-  progress-data, play-data, schedule-data, profile-data, community-data,
-  and ai-coach-data.
-- **PlayerContext `/api/player/me`** is deferred behind that same race
-  via `scheduleDeferredFlip` in `client/player/context/PlayerContext.tsx`
-  (#1418). Mirrors the queryCachePersist pattern. Constant
-  `PLAYER_ME_DEFER_MS` (600/50) lives at module top so a future tweak
-  to the fallback budget only changes one number.
-- **Spotlight current-week and weekly-winner queries** are folded into
-  the `/api/player/me/home-data` god-route (#1418, server side
-  `fetchSpotlightCurrentWeek` + `fetchSpotlightWeeklyWinner` in
-  `server/routes/player-home.ts`). The home-data response includes
-  `spotlightCurrentWeek` + `spotlightWeeklyWinner`, and
-  `ProPlayerHomeScreen` seeds both legacy cache keys via
-  `setQueryData` in the same effect that reads `homeData`. The
-  per-key `useQuery` calls inside `UnifiedImproveCard` are gated on a
-  `homeDataReady` prop (default true) so cold start fires zero spotlight
-  network requests.
-- **AppState/NetInfo bridge** in `client/lib/queryAppStateBridge.ts`
-  (#1418) wires `AppState change → focusManager.setFocused()` and
-  `NetInfo isConnected → onlineManager.setOnline()`. Started from a
-  `useEffect` in `client/App.tsx` AFTER mount. CRITICAL: the bridge must
-  NEVER call `focusManager.setFocused(true)` synchronously at module
-  eval time — that would defeat the deferrals above. Test guard lives
-  in `client/lib/__tests__/queryAppStateBridge.test.ts`.
-
-- **Per-tab god-route fold-in** (#1419) — every above-the-fold
-  `useQuery` on the four player tabs (Home, Progress, Community, AI
-  Coach) is now satisfied by a single god-route per tab. The map is:
-  Home → `/api/player/me/home-data` (extended to include `tennisIq`
-  and `aiProStatus` alongside dashboard/profile/etc.); Progress →
-  `/api/player/me/progress-data`; Community →
-  `/api/player/me/community-data`; AI Coach →
-  `/api/player/me/ai-coach-data` (NEW; lives in
-  `server/routes/player-ai-coach-data.ts`, fans out via
-  `dispatchInProcess` to 7 endpoints incl. ai-coach context, intel,
-  history, profile, tennis-iq, ai-pro status, weekly-digest; 60s
-  cache; only caches when the primary `aiCoachContext` branch
-  succeeds). Server-side fan-outs use `dispatchInProcess` from
-  `server/lib/in-process-dispatch.ts` — NEVER HTTP-loopback `fetch` —
-  so a single inbound request never spawns N TCP connections back to
-  itself. `player-progress-data.ts` was migrated off its old `subFetch`
-  helper to `dispatchInProcess` in #1419.
-- **Two-tier server cache** (#1419) in `server/routes/player-home.ts`
-  via `memoBranch(slow=true)` (~5 min TTL) for branches whose payloads
-  rarely change inside a session (profile, weekly-digest,
-  aiCoachContext, spotlight weekly-winner, tennis-iq, ai-pro status)
-  vs. the default 30s TTL for hot branches (dashboard, unread count,
-  current-week spotlight). Ratio matters: tightening the slow tier
-  re-introduces the per-render N+1 fanout that #1419 was sent to fix.
-- **Tab god-route prefetch from Home** (#1419) — `ProPlayerHomeScreen`
-  fires a single `useEffect` after first render that calls
-  `queryClient.prefetchQuery` for `progress-data`, `community-data`,
-  and `ai-coach-data`. Combined with the persist-whitelist this means
-  the first tab switch on a warm cache resolves from memory.
-
-If you ship a new player-screen `useQuery` that runs above the fold,
-either fold it into the right tab god-route, or gate `enabled` on the
-same deferred-ready signal — otherwise the cold-start regression
-returns. Coach screens are intentionally untouched by #1419.
-
-### CRITICAL: iOS cold-start paint-tick (Tasks #1407, #1409)
-The iOS paint-tick lives in `client/lib/iosPaintTick.tsx` as `useIosPaintTick(splashComplete)` and the `<IosPaintFlush tick={...}>` wrapper. `client/App.tsx` calls the hook and wraps `<NavigationContainerWithRef />` with the wrapper. Removing or "cleaning up" either piece brings back the 30–60 s spinner symptom on every player tab on iOS cold-start (Home / Community / Play / Growth / Me). The opacity delta is 0.001 (1.000 ↔ 0.999) — visually imperceptible, but it is the only thing that makes iOS Fabric flush its pending React commit without a user gesture.
-
-Hard rules:
-- The opacity-nudge style inside `<IosPaintFlush>` must stay **inline** — do NOT extract to `useMemo`, do NOT pull into `StyleSheet.create`, do NOT factor into a deeper child. Inline guarantees a re-render on every tick change.
-- The navigator child of `<IosPaintFlush>` must NOT carry `key={tick}` (or any other key tied to the tick). Keying the navigator would remount providers and reset the queryClient.
-- `freezeOnBlur: Platform.OS !== "ios"` must stay set on `RootStackNavigator`'s `Stack.Navigator` and on every player stack navigator (`PlayStack`, `ScheduleStack`, `ProgressStack`, root player `Stack`). Android keeps the default freeze behavior. (`detachInactiveScreens` is NOT a native-stack screen option — it is silently ignored if added; do not re-add it expecting it to do something.)
-- The `cold-start` / `ios-paint-tick` breadcrumb and `ios.paint_tick_ms` measurement feed Panel 5 of the Sentry cold-start dashboard. If you rename or remove either, update `docs/sentry-cold-start-dashboard.md` in the same change.
+### CRITICAL: iOS cold-start paint-tick
+The `useIosPaintTick(splashComplete)` hook and `<IosPaintFlush tick={...}>` wrapper in `client/lib/iosPaintTick.tsx` are essential for iOS Fabric to flush pending React commits on cold start, preventing a prolonged spinner. The opacity nudge style within `<IosPaintFlush>` must remain inline. The navigator child must not carry a `key={tick}`. `freezeOnBlur: Platform.OS !== "ios"` must be set on relevant navigators.
 
 ### CRITICAL: API Development Rule
 DO NOT create new API endpoints without explicit permission!
@@ -167,11 +53,11 @@ DO NOT create new API endpoints without explicit permission!
 ## System Architecture
 
 ### UI/UX Decisions
-The platform features a dark-themed premium sports aesthetic with Neon Green, White, and Yellow accents, utilizing card-based elements, drawer navigation, custom headers, and animated empty states. Theming is token-based, with dedicated UI themes and navigation tailored for each user role (Coach, Player, Platform Owner, Service Provider).
+The platform features a dark-themed premium sports aesthetic with Neon Green, White, and Yellow accents, utilizing card-based elements, drawer navigation, custom headers, and animated empty states. Theming is token-based with dedicated UI themes and navigation tailored for each user role (Coach, Player, Platform Owner, Service Provider).
 
 ### Technical Implementations
 - **Frontend**: React Native with Expo SDK 54, React Navigation, React Context, `AsyncStorage`, and `React Native Reanimated`.
-- **Backend**: Express.js server with TypeScript, providing RESTful API endpoints.
+- **Backend**: Express.js server with TypeScript for RESTful API endpoints.
 - **Data Storage**: Client-side `AsyncStorage`; Drizzle ORM with Supabase PostgreSQL server-side.
 - **Build System**: Concurrent Expo and Express servers; static Expo web build served by Express; Drizzle Kit for PostgreSQL migrations.
 - **API Caching**: In-memory caching with TTLs and pattern-based invalidation, including god-endpoints for player data, and persisted query cache to `AsyncStorage` for stale-while-revalidate.
@@ -180,8 +66,8 @@ The platform features a dark-themed premium sports aesthetic with Neon Green, Wh
 - **Timezone Handling**: Academy-specific IANA timezones managed client-side and server-side using `AT TIME ZONE` in PostgreSQL.
 - **Core Features**: Credit System (V2 ledger), Gamification (Glow Leveling OS, Adult Glow DSS Rating System, 50-level XP Engine), Player Assessment (Start Baseline, Skill Evidence Capture via video), Session & Match Management (templates, planning, logging, Match Challenge System), Session Player Integrity, Player Onboarding (17-step adaptable process), User Onboarding & Guidance (checklists, modals, help centers).
 - **Role-Specific Applications**: Dedicated apps for Coaches, Players, Platform Owners, and Service Providers.
-- **Market & Community**: Glow Market (e-commerce with XP-based discounts), Community Marketplace (used equipment), Player Chat Surface (with `@` mentions, typing indicators, unread messages, minor restrictions), Group Social Hub (Events with RSVP, Chat with emoji reactions), Coach & Academy Posts (templates, role-tinted feed, pinned posts, auto lesson-recap drafts, country-scope publishing), Coach Following.
-- **Academy Management**: Session Waitlist, Tournament Management, Ladder System, Multiple Locations per Academy, Live Scoring, Free Player Mode (without academy membership).
+- **Market & Community**: Glow Market (e-commerce with XP-based discounts), Community Marketplace (used equipment), Player Chat Surface, Group Social Hub (Events with RSVP, Chat with emoji reactions), Coach & Academy Posts (templates, role-tinted feed, pinned posts, auto lesson-recap drafts, country-scope publishing), Coach Following.
+- **Academy Management**: Session Waitlist, Tournament Management, Ladder System, Multiple Locations per Academy, Live Scoring, Free Player Mode.
 - **Player Tools**: Player Calendar Integration (ICS feed, native calendar), Venue/Club System (coaching, court rental, social clubs), Playtomic-Style Court Booking System (multi-phase, friend invites, cost splitting, smart availability), Slot Reservation System (atomic 5-minute holds).
 - **Family & Corporate**: Family Lobby System (Netflix-style multi-account, audit logs, screen-time locks), Family Wallet (Stripe payment, spend caps), Corporate/Business Accounts (session credit pools).
 - **Engagement & Planning**: Quest System (daily, weekly, monthly, streak tracking, XP multipliers), Week Planner (Coach's "Week View"), Guest Player System, Smart Fill (holidaying players as guests).
@@ -196,6 +82,6 @@ The platform features a dark-themed premium sports aesthetic with Neon Green, Wh
 - **Email Service**: Resend API
 - **Calendar Integration**: Google Calendar
 - **Server State Management**: TanStack Query
-- **Expo Modules**: Haptics, Linear Gradient, Blur, Image, Splash Screen
 - **UI Components**: `expo-glass-effect`
 - **Keyboard Management**: `react-native-keyboard-controller`
+- **Expo Modules**: Haptics, Linear Gradient, Blur, Image, Splash Screen

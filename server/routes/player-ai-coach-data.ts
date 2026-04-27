@@ -53,7 +53,7 @@ function cacheKey(
   playerId: string,
   academyId: string | null | undefined,
 ): string {
-  return \`\${playerId}|\${academyId ?? "_"}\`;
+  return `${playerId}|${academyId ?? "_"}`;
 }
 
 function getCached(key: string): Record<string, unknown> | null {
@@ -71,7 +71,7 @@ function setCache(key: string, data: Record<string, unknown>): void {
 }
 
 export function invalidatePlayerAiCoachDataCache(playerId: string): void {
-  const prefix = \`\${playerId}|\`;
+  const prefix = `${playerId}|`;
   for (const k of aiCoachDataCache.keys()) {
     if (k.startsWith(prefix)) aiCoachDataCache.delete(k);
   }
@@ -162,9 +162,9 @@ router.get(
         if (r.status === "error") {
           errors[k] = r.httpStatus;
           if (r.httpStatus === 500) {
-            console.error(\`[player-ai-coach-data] sub-fetch '\${k}' failed for player \${playerId}\`);
+            console.error(`[player-ai-coach-data] sub-fetch '${k}' failed for player ${playerId}`);
           } else {
-            console.warn(\`[player-ai-coach-data] sub-fetch '\${k}' returned HTTP \${r.httpStatus} for player \${playerId}\`);
+            console.warn(`[player-ai-coach-data] sub-fetch '${k}' returned HTTP ${r.httpStatus} for player ${playerId}`);
           }
         }
       };

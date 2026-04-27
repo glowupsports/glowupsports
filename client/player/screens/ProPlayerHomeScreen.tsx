@@ -1409,7 +1409,7 @@ function PlayerHomeContent() {
     const handle = requestAnimationFrame(() => {
       if (cancelled) return;
       const queries = [
-        ["/api/player/me/progress-data", { sport: "tennis" }],
+        ["/api/player/me/progress-data", "tennis"],
         ["/api/player/me/community-data"],
         ["/api/player/me/ai-coach-data"],
       ];
