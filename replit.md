@@ -71,7 +71,7 @@ The platform features a dark-themed premium sports aesthetic with Neon Green, Wh
 - **Backend**: Express.js server with TypeScript, providing RESTful API endpoints.
 - **Data Storage**: Client-side `AsyncStorage`; Drizzle ORM with Supabase PostgreSQL server-side.
 - **Build System**: Concurrent Expo and Express servers; static Expo web build served by Express; Drizzle Kit for PostgreSQL migrations.
-- **API Caching**: In-memory caching with TTLs and pattern-based invalidation, including god-endpoints for player home, progress, play, schedule, and profile data.
+- **API Caching**: In-memory caching with TTLs and pattern-based invalidation, including god-endpoints for player home, progress, play, schedule, profile, and community data to optimize initial load times.
 - **Persisted Query Cache**: The five Player-tab god-keys are persisted to `AsyncStorage` for stale-while-revalidate behavior on cold starts.
 - **Authentication**: Automatic client-side token refresh via `refreshAuthMiddleware`.
 - **Internationalization**: `i18next` and `react-i18next` for English, Arabic (RTL), Indonesian.

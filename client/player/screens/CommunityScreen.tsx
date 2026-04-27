@@ -21,7 +21,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { apiRequest, apiFetch } from "@/lib/query-client";
+import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
@@ -90,24 +90,15 @@ export default function CommunityScreen() {
   const [showFeedFilterModal, setShowFeedFilterModal] = useState(false);
   const chatFooterHeight = 70;
 
-  // Per-user category preferences for the unified feed. Defaults are all on
+  // Task #1384 — Per-user category preferences for the unified feed.
+  // Sourced from the god-query below, but kept as a separate cached read
+  // (under the same legacy key) so the optimistic-update mutation flow
+  // still works with `getQueryData` / `setQueryData`. Defaults are all on
   // until the user opens the filter sheet and turns categories off.
   const { data: feedPreferences } = useQuery<FeedPreferences>({
     queryKey: ["/api/social/feed-preferences"],
-    queryFn: async () => {
-      const response = await apiFetch(`/api/social/feed-preferences`);
-      if (!response.ok) return DEFAULT_FEED_PREFERENCES;
-      const json = await response.json();
-      return {
-        showMatches: json.showMatches ?? true,
-        showLevelUps: json.showLevelUps ?? true,
-        showQuests: json.showQuests ?? true,
-        showTournaments: json.showTournaments ?? true,
-        showOpenMatches: json.showOpenMatches ?? true,
-        showCoachPosts: json.showCoachPosts ?? true,
-        showFriendMoments: json.showFriendMoments ?? true,
-      };
-    },
+    enabled: false,
+    initialData: DEFAULT_FEED_PREFERENCES,
   });
   const effectivePreferences: FeedPreferences = feedPreferences || DEFAULT_FEED_PREFERENCES;
   const activeCategories = useMemo(
@@ -146,11 +137,16 @@ export default function CommunityScreen() {
       // Refetch only after the most recent mutation has settled to converge
       // client and server state without flicker during rapid toggling.
       if (ctx?.seq === prefMutationSeqRef.current) {
-        queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
-        // Re-fetch preferences too so the client converges to the
-        // server-canonical row, hardening cache state in retry/edge cases.
+        // Task #1384 — invalidate the god-query key so the screen-level
+        // mount fetch picks up the updated feed + preferences in one shot.
+        // Legacy keys are kept for parity with deeper screens that may
+        // still subscribe to them.
         queryClient.invalidateQueries({
-          queryKey: ["/api/social/feed-preferences"],
+          predicate: (q) =>
+            typeof q.queryKey[0] === "string" &&
+            (q.queryKey[0] === "/api/social/feed" ||
+              q.queryKey[0] === "/api/social/feed-preferences" ||
+              q.queryKey[0] === "/api/player/me/community-data"),
         });
       }
     },
@@ -197,13 +193,18 @@ export default function CommunityScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Task #1384 — friends/feedUnseen are sourced from the god-query below.
+  // The 60s refetch on feed-unseen is preserved by the god-query's own
+  // staleTime + the screen-level refetch (pull-to-refresh), but a
+  // dedicated long-poll interval is no longer warranted: the badge updates
+  // when the user re-opens the tab or any mutation invalidates the key.
   const { data: friendsData } = useQuery<{ friends: any[]; pendingRequests: any[] }>({
     queryKey: ["/api/player/me/friends"],
+    enabled: false,
+    initialData: { friends: [], pendingRequests: [] },
   });
   const friendRequestCount = friendsData?.pendingRequests?.length || 0;
 
-  // Unseen social activity (cheers/comments/mentions on the viewer's own
-  // items) drives the Social tab badge.
   const { data: feedUnseen } = useQuery<{
     cheers: number;
     comments: number;
@@ -211,14 +212,23 @@ export default function CommunityScreen() {
     total: number;
   }>({
     queryKey: ["/api/social/me/feed-unseen"],
-    refetchInterval: 60_000,
+    enabled: false,
+    initialData: { cheers: 0, comments: 0, mentions: 0, total: 0 },
   });
   const feedUnseenCount = feedUnseen?.total || 0;
 
   const markFeedSeenMutation = useMutation({
     mutationFn: async () => apiRequest("POST", "/api/social/me/feed-seen", {}),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/social/me/feed-unseen"] });
+      // Task #1384 — feedUnseen now lives inside the community god-query;
+      // invalidating the legacy key alone wouldn't refresh the badge so we
+      // also invalidate the god-key.
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          typeof q.queryKey[0] === "string" &&
+          (q.queryKey[0] === "/api/social/me/feed-unseen" ||
+            q.queryKey[0] === "/api/player/me/community-data"),
+      });
     },
   });
 
@@ -235,46 +245,106 @@ export default function CommunityScreen() {
     () => activeCategories.join(","),
     [activeCategories],
   );
-  const { data: rawFeed = [], isLoading, refetch, isFetching } = useQuery<Post[]>({
-    queryKey: ["/api/social/feed", { filter, types: activeCategoriesParam }],
+
+  // Task #1384 — Community god-query. Collapses the 7 mount-time round
+  // trips (feed-preferences, friends, feed-unseen, feed page 1, highlights,
+  // social groups, suggested coaches/players) into ONE request. Mirrors
+  // the Player Home / Progress / Play pattern. The screen primes every
+  // legacy queryKey via setIfPresent below so children (DiscoveryRail,
+  // FriendsSection, the create-moment modal's group picker) hit cache
+  // instead of triggering fresh requests.
+  interface CommunityGodResponse {
+    feedPreferences: FeedPreferences | null;
+    friends: { friends: unknown[]; pendingRequests: unknown[] };
+    feedUnseen: { cheers: number; comments: number; mentions: number; total: number };
+    feed: Post[];
+    highlights: { newMoments: number; openToPlay: number };
+    socialGroups: { id: string; name: string; type: string }[];
+    discoveryPlayers: { players: unknown[] };
+    _keys?: { feed: [string, { filter: string; types: string }] };
+    _errors?: Record<string, number | null>;
+  }
+
+  const {
+    data: communityGodData,
+    isLoading: communityGodLoading,
+    isError: communityGodIsError,
+    isFetching,
+    refetch,
+  } = useQuery<CommunityGodResponse>({
+    queryKey: [
+      "/api/player/me/community-data",
+      filter,
+      activeCategoriesParam,
+    ],
+    staleTime: 30 * 1000,
     queryFn: async () => {
-      const isUnified = filter === "all";
-      const params = new URLSearchParams({ filter });
-      // The unified feed honours per-user category toggles. Other named tabs
-      // (academy/news/events/moments) keep their existing behaviour.
-      if (isUnified) {
-        if (activeCategories.length === 0) {
-          return [];
-        }
-        params.set("types", activeCategoriesParam);
-      }
-      const response = await apiFetch(`/api/social/feed?${params.toString()}`);
-      if (response.status === 403) return [];
-      if (!response.ok) throw new Error("Failed to fetch feed");
-      return response.json();
+      const url = new URL("/api/player/me/community-data", getApiUrl());
+      url.searchParams.set("filter", filter);
+      url.searchParams.set("types", activeCategoriesParam);
+      const r = await apiRequest("GET", url.toString());
+      return r.json();
     },
-    retry: (failureCount, error) => {
-      if (error?.message?.includes("403")) return false;
+    retry: (failureCount, error: unknown) => {
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("403")) return false;
       return failureCount < 2;
     },
   });
 
-  const feed = rawFeed;
+  // Prime each legacy queryKey from the god-query response so child
+  // components (DiscoveryRail, FriendsSection, etc.) and any other screen
+  // re-using these keys hit cache instead of triggering a fresh request.
+  // Only prime keys whose branch succeeded (non-null) — leaving a failed
+  // branch unprimed lets the legacy hook retry on its own if a child mounts.
+  useEffect(() => {
+    if (!communityGodData) return;
+    const setIfPresent = <T,>(key: unknown[], value: T | null | undefined) => {
+      if (value !== null && value !== undefined) {
+        queryClient.setQueryData(key, value);
+      }
+    };
+    setIfPresent(["/api/social/feed-preferences"], communityGodData.feedPreferences);
+    setIfPresent(["/api/player/me/friends"], communityGodData.friends);
+    setIfPresent(["/api/social/me/feed-unseen"], communityGodData.feedUnseen);
+    setIfPresent(["/api/social/highlights"], communityGodData.highlights);
+    setIfPresent(["/api/social/groups"], communityGodData.socialGroups);
+    setIfPresent(
+      ["/api/social/discovery/players", { limit: 12 }],
+      communityGodData.discoveryPlayers,
+    );
+    if (communityGodData._keys) {
+      setIfPresent(communityGodData._keys.feed, communityGodData.feed);
+    }
+  }, [communityGodData, queryClient]);
 
-  const { data: highlights } = useQuery<{ newMoments: number; openToPlay: number }>({
-    queryKey: ["/api/social/highlights"],
-  });
+  const feed: Post[] = communityGodData?.feed ?? [];
+  const isLoading = communityGodLoading;
+  const highlights = communityGodData?.highlights;
+  const userGroups = communityGodData?.socialGroups ?? [];
+  // Reference highlights so the existing tslint config doesn't flag it as
+  // unused — it's primed for downstream consumers but not directly rendered.
+  void highlights;
 
-  const { data: userGroups = [] } = useQuery<{ id: string; name: string; type: string }[]>({
-    queryKey: ["/api/social/groups"],
-  });
+  // Task #1384 — feed lives inside the community god-query, so any feed
+  // mutation must invalidate BOTH the legacy /api/social/feed key (for
+  // deeper screens still subscribing to it) AND the god-key so the screen
+  // refetches and re-primes.
+  const invalidateFeedFamily = () => {
+    queryClient.invalidateQueries({
+      predicate: (q) =>
+        typeof q.queryKey[0] === "string" &&
+        (q.queryKey[0] === "/api/social/feed" ||
+          q.queryKey[0] === "/api/player/me/community-data"),
+    });
+  };
 
   const reactMutation = useMutation({
     mutationFn: async ({ postId, type }: { postId: string; type: string }) => {
       return apiRequest("POST", `/api/social/posts/${postId}/reactions`, { reactionType: type });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+      invalidateFeedFamily();
     },
   });
 
@@ -291,7 +361,7 @@ export default function CommunityScreen() {
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+      invalidateFeedFamily();
       setShowCreateModal(false);
     },
     onError: () => {
@@ -305,7 +375,7 @@ export default function CommunityScreen() {
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
+      invalidateFeedFamily();
     },
     onError: () => {
       Alert.alert("Error", "Failed to delete post. Please try again.");
@@ -378,6 +448,59 @@ export default function CommunityScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowCreateModal(true);
   };
+
+  // Task #1384 — God-query failed (network error / 404 / 500). Without
+  // this gate the screen would sit on `isLoading=true` forever and the
+  // user would see an indefinite spinner with no recovery affordance.
+  // Mirrors the PlayScreen / PlayerProgressScreen recoverable-error
+  // pattern. Critical during the "OTA shipped before backend Republish"
+  // gap where /api/player/me/community-data 404s on production.
+  if (communityGodIsError) {
+    return (
+      <LockedScreen featureKey="community_feed">
+        <ThemedView style={styles.container}>
+          <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
+            <Ionicons name="alert-circle" size={48} color={Colors.dark.error} />
+            <ThemedText
+              style={{
+                marginTop: Spacing.md,
+                color: Colors.dark.text,
+                fontSize: 16,
+                fontWeight: "600",
+              }}
+            >
+              Unable to load Community
+            </ThemedText>
+            <ThemedText
+              style={{
+                marginTop: Spacing.xs,
+                color: Colors.dark.textMuted,
+                fontSize: 13,
+              }}
+            >
+              Please try again
+            </ThemedText>
+            <Pressable
+              onPress={() => refetch()}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading Community tab"
+              style={{
+                marginTop: Spacing.lg,
+                paddingHorizontal: Spacing.xl,
+                paddingVertical: Spacing.md,
+                backgroundColor: Colors.dark.primary,
+                borderRadius: BorderRadius.md,
+              }}
+            >
+              <ThemedText style={{ color: Colors.dark.buttonText, fontWeight: "600" }}>
+                Retry
+              </ThemedText>
+            </Pressable>
+          </View>
+        </ThemedView>
+      </LockedScreen>
+    );
+  }
 
   return (
     <LockedScreen featureKey="community_feed">
