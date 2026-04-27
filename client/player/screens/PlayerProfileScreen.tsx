@@ -330,7 +330,6 @@ const sportSectionStyles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.md,
   },
   sectionTitle: {
-    ...Typography.subheading,
     color: Colors.dark.text,
     fontWeight: "700",
   },
@@ -700,23 +699,8 @@ export default function PlayerProfileScreen() {
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : "image/jpeg";
 
-      if (Platform.OS === "web") {
-        const webAssetFile = (asset as { file?: File }).file;
-        if (webAssetFile) {
-          formData.append("photo", webAssetFile);
-        } else if (asset.uri.startsWith("data:")) {
-          const response = await fetch(asset.uri);
-          const blob = await response.blob();
-          formData.append("photo", blob, filename);
-        } else {
-          const response = await fetch(asset.uri);
-          const blob = await response.blob();
-          formData.append("photo", blob, filename);
-        }
-      } else {
-        const { appendImageToFormData } = await import("@/lib/uploads");
-        await appendImageToFormData(formData, "photo", asset.uri, type);
-      }
+      const { appendImageToFormData } = await import("@/lib/uploads");
+      await appendImageToFormData(formData, "photo", asset.uri, type);
 
       const token = getAuthToken();
       
