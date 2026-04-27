@@ -76,6 +76,14 @@ if (SENTRY_DSN) {
     environment: __DEV__ ? "development" : "production",
     beforeSend(event) {
       if (__DEV__) return null;
+      // Task #1432 — drop info-level events (boot beacons, ota_boot_status,
+      // ota_*_transient, ota_reload_requested) from the Sentry issues feed.
+      // The diagnostic data is still attached as breadcrumbs + tags
+      // (ota_update_id, ota_runtime, ota_commit_sha, boot_source, etc.) so
+      // when a real warning/error/exception fires the OTA bisection context
+      // is still visible on that crash event. Warnings/errors/exceptions
+      // continue through untouched.
+      if (event.level === "info") return null;
       return event;
     },
   });
