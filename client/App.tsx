@@ -427,6 +427,33 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Task #1418 — bridge RN AppState + NetInfo into React Query's
+    // focusManager + onlineManager so backgrounding/foregrounding the
+    // app and toggling connectivity actually trigger react-query's
+    // built-in revalidation. The bridge is started AFTER mount and
+    // intentionally never fires `setFocused(true)` synchronously, so
+    // it doesn't perturb the cold-start render. See
+    // client/lib/queryAppStateBridge.ts for the full rationale.
+    let stop: (() => void) | undefined;
+    import("@/lib/queryAppStateBridge")
+      .then(({ startQueryAppStateBridge }) => {
+        stop = startQueryAppStateBridge();
+      })
+      .catch((err) => {
+        if (__DEV__) {
+          console.warn("[queryAppStateBridge] start skipped:", err);
+        }
+      });
+    return () => {
+      try {
+        stop?.();
+      } catch {
+        // ignore
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     // Task #1379 — lazy RevenueCat init. Was previously a synchronous
     // module-eval call (see header comment near the Sentry block) which
     // blocked first paint by ~150-300ms on iOS Fabric. Deferring to after

@@ -287,6 +287,16 @@ function SpotlightTileAvatar({ photoUrl, borderColor = Colors.dark.gold }: { pho
   );
 }
 
+// DEPRECATED — superseded by the spotlight rendering inside
+// `UnifiedImproveCard` (search "Spotlight" in this file). Kept around
+// only because removing it conflicts with parallel work in flight on
+// the home screen; do NOT add new call sites. If you reintroduce this
+// component, copy the `homeDataReady` gating pattern from
+// UnifiedImproveCard or you will reopen the cold-start fanout that
+// Task #1418 just closed. The two `useQuery` calls below intentionally
+// stay un-gated because the function has zero call sites today (verified
+// by `rg "<SpotlightMiniTile"`); leaving them gateless makes the dead-
+// code intent obvious to the next reader.
 function SpotlightMiniTile({ onNominate, onViewDetails }: { onNominate: () => void; onViewDetails: () => void }) {
   const { user } = useAuth();
 
@@ -609,10 +619,18 @@ function UnifiedImproveCard({
   onQuestPress,
   onSpotlightNominate,
   onSpotlightDetails,
+  homeDataReady,
 }: {
   onQuestPress: () => void;
   onSpotlightNominate: () => void;
   onSpotlightDetails: () => void;
+  // Task #1418 — gate the spotlight useQuery calls on the home god-query
+  // having resolved. The god-query primes the spotlight cache via
+  // setQueryData, so by the time `enabled` flips true the data is
+  // already fresh and react-query will return it without a network
+  // round-trip. This is what eliminates the cold-start spinner on the
+  // Player tab: those two requests no longer stack on the JS bridge.
+  homeDataReady: boolean;
 }) {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
@@ -695,13 +713,20 @@ function UnifiedImproveCard({
   }, [profileData]);
 
   // ── Spotlight
+  // Task #1418 — `enabled` is gated on `homeDataReady` so we don't fire
+  // these two requests during cold start. Once the home god-query has
+  // resolved (and seeded the spotlight cache via setQueryData in the
+  // parent), `enabled` flips true and react-query returns the cached
+  // data immediately. Default staleTime (5min) prevents a refetch on
+  // that flip; subsequent invalidations from SpotlightNominationModal
+  // still trigger a refresh as before.
   const { data: currentWeek } = useQuery<SpotlightCurrentWeekMini>({
     queryKey: ["/api/player/spotlight/current-week"],
-    enabled: !!user?.playerId,
+    enabled: !!user?.playerId && homeDataReady,
   });
   const { data: weeklyWinner } = useQuery<{ winner: SpotlightWeeklyWinnerMini | null }>({
     queryKey: ["/api/player/spotlight/weekly-winner"],
-    enabled: !!user?.playerId,
+    enabled: !!user?.playerId && homeDataReady,
   });
   const hasVoted = !!currentWeek?.myNomination;
   const topNominee = currentWeek?.nominations?.[0] ?? null;
@@ -1246,6 +1271,11 @@ function PlayerHomeContent() {
     unreadCount: { count: number };
     weeklyDigest: any;
     aiCoachContext: any;
+    // Task #1418 — added to god-route to eliminate the two extra
+    // mount-time spotlight requests that were stacking on the JS bridge
+    // during cold start.
+    spotlightCurrentWeek: SpotlightCurrentWeekMini | null;
+    spotlightWeeklyWinner: { winner: SpotlightWeeklyWinnerMini | null };
   }>({
     queryKey: ["/api/player/me/home-data"],
     enabled: !!user?.playerId && !isGuest,
@@ -1302,6 +1332,19 @@ function PlayerHomeContent() {
     queryClient.setQueryData(
       ["/api/player/me/ai-coach/context"],
       homeData.aiCoachContext ?? null,
+    );
+    // Task #1418 — seed the spotlight queries so the two SpotlightMiniTile
+    // useQuery calls (one in this screen body, one in the standalone
+    // mini-tile component) hit the cache instead of firing parallel
+    // network requests during cold start. The home god-route returns
+    // these in the same payload, so we never need a separate request.
+    queryClient.setQueryData(
+      ["/api/player/spotlight/current-week"],
+      homeData.spotlightCurrentWeek ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/player/spotlight/weekly-winner"],
+      homeData.spotlightWeeklyWinner ?? { winner: null },
     );
   }, [homeData, queryClient]);
 
@@ -1768,6 +1811,7 @@ function PlayerHomeContent() {
               }}
               onSpotlightNominate={() => setShowSpotlightNomination(true)}
               onSpotlightDetails={() => navigation.navigate("SpotlightDetail" as never)}
+              homeDataReady={!!homeData}
             />
 
             {/* RecentFeedback & UpcomingAppointment are academy-only — hide for free players */}

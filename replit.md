@@ -37,6 +37,42 @@ For mixed changes (server + client): Republish first, then OTA push.
 
 The cold-start breadcrumbs emitted by that wrapper (`category: "cold-start"` — `godCache hydrate start/end/aborted`, `first-paint`, `first-god-fetch-settled`) are the source for the Sentry dashboard documented in `docs/sentry-cold-start-dashboard.md` (Task #1397). If a future change renames or removes any of those breadcrumbs, the dashboard runbook must be updated in the same change.
 
+### CRITICAL: Player tab cold-start deferrals (Tasks #1394, #1418)
+The Player tabs used to show a spinner on iOS cold-start until the user
+swiped, because too many `useQuery` calls fired synchronously during the
+first render and back-pressured the JS thread. The fix is layered:
+
+- **God-route hydration** is deferred via `deferredHydrateAndPersist` in
+  `client/lib/queryCachePersist.ts` (#1394). Same module gates first
+  fetches behind an `InteractionManager.runAfterInteractions` +
+  `FALLBACK_DEFER_MS` race (600ms on iOS, 50ms elsewhere).
+- **PlayerContext `/api/player/me`** is deferred behind that same race
+  via `scheduleDeferredFlip` in `client/player/context/PlayerContext.tsx`
+  (#1418). Mirrors the queryCachePersist pattern. Constant
+  `PLAYER_ME_DEFER_MS` (600/50) lives at module top so a future tweak
+  to the fallback budget only changes one number.
+- **Spotlight current-week and weekly-winner queries** are folded into
+  the `/api/player/me/home-data` god-route (#1418, server side
+  `fetchSpotlightCurrentWeek` + `fetchSpotlightWeeklyWinner` in
+  `server/routes/player-home.ts`). The home-data response includes
+  `spotlightCurrentWeek` + `spotlightWeeklyWinner`, and
+  `ProPlayerHomeScreen` seeds both legacy cache keys via
+  `setQueryData` in the same effect that reads `homeData`. The
+  per-key `useQuery` calls inside `UnifiedImproveCard` are gated on a
+  `homeDataReady` prop (default true) so cold start fires zero spotlight
+  network requests.
+- **AppState/NetInfo bridge** in `client/lib/queryAppStateBridge.ts`
+  (#1418) wires `AppState change → focusManager.setFocused()` and
+  `NetInfo isConnected → onlineManager.setOnline()`. Started from a
+  `useEffect` in `client/App.tsx` AFTER mount. CRITICAL: the bridge must
+  NEVER call `focusManager.setFocused(true)` synchronously at module
+  eval time — that would defeat the deferrals above. Test guard lives
+  in `client/lib/__tests__/queryAppStateBridge.test.ts`.
+
+If you ship a new player-screen `useQuery` that runs above the fold,
+either fold it into the god-route or gate `enabled` on the same
+deferred-ready signal — otherwise the cold-start regression returns.
+
 ### CRITICAL: iOS cold-start paint-tick (Tasks #1407, #1409)
 The iOS paint-tick lives in `client/lib/iosPaintTick.tsx` as `useIosPaintTick(splashComplete)` and the `<IosPaintFlush tick={...}>` wrapper. `client/App.tsx` calls the hook and wraps `<NavigationContainerWithRef />` with the wrapper. Removing or "cleaning up" either piece brings back the 30–60 s spinner symptom on every player tab on iOS cold-start (Home / Community / Play / Growth / Me). The opacity delta is 0.001 (1.000 ↔ 0.999) — visually imperceptible, but it is the only thing that makes iOS Fabric flush its pending React commit without a user gesture.
 

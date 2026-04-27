@@ -1,7 +1,65 @@
 import logger from "@/lib/logger";
-import React, { createContext, useContext, ReactNode } from "react";
+import React, { createContext, useContext, ReactNode, useEffect, useState } from "react";
+import { InteractionManager, Platform } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
+
+// Task #1418 — defer the PlayerContext `/api/player/me` query off the
+// critical cold-start path, mirroring the same pattern that landed in
+// #1394 for `deferredHydrateAndPersist`. PlayerProvider mounts above
+// every player screen so its useQuery used to fire SYNCHRONOUSLY on
+// the first render, contributing to the bridge stack-up that left iOS
+// users staring at a spinner until they swiped. We wait until either
+// the InteractionManager queue drains or a hard timeout — whichever
+// fires first — and only then flip `enabled` true so the query runs.
+// Idempotent: a per-mount `ran` flag means InteractionManager + the
+// timeout both calling `setReady(true)` collapses to a single state
+// transition.
+export const PLAYER_ME_DEFER_MS = Platform.OS === "ios" ? 600 : 50;
+
+/**
+ * Schedules `flipFn` to fire on whichever of these happens first:
+ *   - InteractionManager.runAfterInteractions resolves
+ *   - PLAYER_ME_DEFER_MS hard-timeout elapses
+ *
+ * Returns a cleanup function that cancels both. The internal `ran` flag
+ * makes it safe for both paths to fire — they collapse to a single call.
+ *
+ * Extracted as a pure (non-hook) helper so it can be unit-tested without
+ * a React renderer; `useDeferredEnabled` below is the React surface.
+ */
+export function scheduleDeferredFlip(flipFn: () => void): () => void {
+  let ran = false;
+  const flip = () => {
+    if (ran) return;
+    ran = true;
+    flipFn();
+  };
+  let interactionHandle: { cancel: () => void } | null = null;
+  try {
+    interactionHandle = InteractionManager.runAfterInteractions(flip);
+  } catch {
+    // RN web shim sometimes throws; the timeout fallback below covers it.
+  }
+  const timeoutId = setTimeout(flip, PLAYER_ME_DEFER_MS);
+  return () => {
+    clearTimeout(timeoutId);
+    try {
+      interactionHandle?.cancel();
+    } catch {
+      // ignore
+    }
+  };
+}
+
+function useDeferredEnabled(): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (ready) return;
+    return scheduleDeferredFlip(() => setReady(true));
+  }, [ready]);
+  return ready;
+}
 
 interface PlayerContextData {
   playerId: string | null;
@@ -79,10 +137,14 @@ interface PlayerProfile {
 
 export function PlayerProvider({ children }: PlayerProviderProps) {
   const { user } = useAuth();
+  // Task #1418 — defer the `/api/player/me` fetch off the cold-start
+  // critical path. See `useDeferredEnabled` above for rationale and the
+  // exact pattern (mirrors #1394's `deferredHydrateAndPersist`).
+  const deferReady = useDeferredEnabled();
 
   const { data: profile, isLoading } = useQuery<PlayerProfile>({
     queryKey: ["/api/player/me"],
-    enabled: user?.role === "player",
+    enabled: user?.role === "player" && deferReady,
   });
 
   const dateOfBirth = profile?.player?.dateOfBirth || null;

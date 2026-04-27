@@ -29,6 +29,9 @@ import {
   bookingRequests,
   playerNotifications,
   aiCoachConversations,
+  spotlightNominations,
+  spotlightWeeklyWinners,
+  players,
 } from "@shared/schema";
 import { and, desc, eq, isNotNull, count } from "drizzle-orm";
 import {
@@ -140,18 +143,29 @@ router.get(
       // All branches run in parallel. We use allSettled because a single
       // slow/broken sub-fetch (most often the AI context) used to take
       // the entire home screen down with it.
+      //
+      // Task #1418 — added the spotlightCurrentWeek + spotlightWeeklyWinner
+      // branches. Both used to be standalone useQuery calls on
+      // ProPlayerHomeScreen mount, contributing to the cold-start spinner
+      // freeze on iOS. Folding them into the god-route lets the screen
+      // seed react-query from the same response and skip those network
+      // round-trips entirely.
       const [
         dashboardResult,
         profileResult,
         unreadResult,
         weeklyDigestResult,
         aiCoachContextResult,
+        spotlightCurrentWeekResult,
+        spotlightWeeklyWinnerResult,
       ] = await Promise.allSettled([
         fetchDashboard(playerId),
         fetchProfile(playerId),
         fetchUnreadCount(playerId),
         fetchWeeklyDigest(playerId),
         fetchAiCoachContext(playerId),
+        fetchSpotlightCurrentWeek(playerId),
+        fetchSpotlightWeeklyWinner(playerId),
       ]);
 
       const result: Record<string, unknown> = {
@@ -171,6 +185,14 @@ router.get(
           aiCoachContextResult.status === "fulfilled"
             ? aiCoachContextResult.value
             : null,
+        spotlightCurrentWeek:
+          spotlightCurrentWeekResult.status === "fulfilled"
+            ? spotlightCurrentWeekResult.value
+            : null,
+        spotlightWeeklyWinner:
+          spotlightWeeklyWinnerResult.status === "fulfilled"
+            ? spotlightWeeklyWinnerResult.value
+            : { winner: null },
       };
 
       // Log any rejected branch so we can see in production logs which
@@ -182,6 +204,8 @@ router.get(
         ["unreadCount", unreadResult],
         ["weeklyDigest", weeklyDigestResult],
         ["aiCoachContext", aiCoachContextResult],
+        ["spotlightCurrentWeek", spotlightCurrentWeekResult],
+        ["spotlightWeeklyWinner", spotlightWeeklyWinnerResult],
       ] as const) {
         if (r.status === "rejected") {
           console.error(
@@ -654,6 +678,179 @@ async function fetchAiCoachContext(
     console.error("[player-home] aiCoachContext failed:", err);
     return null;
   }
+}
+
+// ----------------------------------------------------------------------------
+// Spotlight (Task #1418)
+// ----------------------------------------------------------------------------
+// Mirrors of `/api/player/spotlight/current-week` and
+// `/api/player/spotlight/weekly-winner` from server/routes/player-social.ts.
+// Logic intentionally duplicated rather than extracted/shared, to keep this
+// route file self-contained — exactly like fetchDashboard / fetchProfile
+// above. Any future change to the spotlight handlers' response shape MUST
+// be applied here too.
+
+function getSpotlightWeekStart(date: Date = new Date()): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diff);
+  return d.toISOString().split("T")[0];
+}
+
+async function fetchSpotlightCurrentWeek(
+  playerId: string,
+): Promise<Record<string, unknown>> {
+  const player = await storage.getPlayer(playerId).catch(() => null);
+  const academyId = player?.academyId ?? null;
+  const weekStart = getSpotlightWeekStart();
+
+  // No academy → return the same empty shell the standalone endpoint
+  // returns so client-side State C ("be the first to nominate") still
+  // renders correctly.
+  if (!academyId) {
+    return {
+      weekStart,
+      nominations: [],
+      myNomination: null,
+      daysRemaining: 0,
+      totalVotes: 0,
+    };
+  }
+
+  const nominations = await db
+    .select({
+      nominatedPlayerId: spotlightNominations.nominatedPlayerId,
+      reason: spotlightNominations.reason,
+      nominatorPlayerId: spotlightNominations.nominatorPlayerId,
+      playerName: players.name,
+      profilePhotoUrl: players.profilePhotoUrl,
+      level: players.level,
+      ballLevel: players.ballLevel,
+    })
+    .from(spotlightNominations)
+    .innerJoin(players, eq(players.id, spotlightNominations.nominatedPlayerId))
+    .where(
+      and(
+        eq(spotlightNominations.academyId, academyId),
+        eq(spotlightNominations.weekStart, weekStart),
+      ),
+    );
+
+  const aggregated: Record<
+    string,
+    {
+      playerId: string;
+      playerName: string;
+      profilePhotoUrl: string | null;
+      level: number | null;
+      ballLevel: string | null;
+      totalVotes: number;
+      reasons: string[];
+    }
+  > = {};
+  for (const nom of nominations) {
+    if (!aggregated[nom.nominatedPlayerId]) {
+      aggregated[nom.nominatedPlayerId] = {
+        playerId: nom.nominatedPlayerId,
+        playerName: nom.playerName,
+        profilePhotoUrl: nom.profilePhotoUrl,
+        level: nom.level,
+        ballLevel: nom.ballLevel,
+        totalVotes: 0,
+        reasons: [],
+      };
+    }
+    aggregated[nom.nominatedPlayerId].totalVotes++;
+    aggregated[nom.nominatedPlayerId].reasons.push(nom.reason);
+  }
+
+  const sortedNominations = Object.values(aggregated).sort(
+    (a, b) => b.totalVotes - a.totalVotes,
+  );
+
+  const myNomination =
+    nominations.find((n) => n.nominatorPlayerId === playerId) ?? null;
+
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysRemaining = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+
+  return {
+    weekStart,
+    nominations: sortedNominations,
+    myNomination,
+    daysRemaining,
+    totalVotes: nominations.length,
+  };
+}
+
+// DELIBERATE BEHAVIOURAL DIVERGENCE from the standalone
+// `/api/player/spotlight/weekly-winner` route: that route has a
+// compute-and-insert side-effect — if no winner row exists for the
+// target week, it tallies the nominations and INSERTs the winner.
+// This god-route sub-fetcher reads only. Two reasons:
+//   1. The god-route runs on EVERY home open; promoting a write into
+//      that hot path would amplify a single user opening the app to N
+//      tally+insert cycles per week instead of one.
+//   2. A read-only fan-out is safe to run in `Promise.allSettled` — a
+//      failure in the writer-path would otherwise have to be quietly
+//      swallowed to avoid breaking the rest of the home-data response.
+// Net effect for the client: home-data may briefly return
+// `{ winner: null }` for the very first page load of the new week
+// until a player visits the standalone Spotlight detail screen (which
+// hits the legacy endpoint and triggers the insert). That's an
+// acceptable tradeoff — the home Spotlight tile already handles the
+// null-winner state, and the data converges within minutes of the
+// first detail-screen visit.
+async function fetchSpotlightWeeklyWinner(
+  playerId: string,
+): Promise<{ winner: Record<string, unknown> | null }> {
+  const player = await storage.getPlayer(playerId).catch(() => null);
+  const academyId = player?.academyId ?? null;
+  if (!academyId) {
+    return { winner: null };
+  }
+
+  // Same default as the standalone endpoint: target last week's window.
+  const lastWeek = new Date();
+  lastWeek.setDate(lastWeek.getDate() - 7);
+  const targetWeekStart = getSpotlightWeekStart(lastWeek);
+
+  const [existingWinner] = await db
+    .select({
+      playerId: spotlightWeeklyWinners.playerId,
+      totalVotes: spotlightWeeklyWinners.totalVotes,
+      topReason: spotlightWeeklyWinners.topReason,
+      weekStart: spotlightWeeklyWinners.weekStart,
+      playerName: players.name,
+      profilePhotoUrl: players.profilePhotoUrl,
+      level: players.level,
+      ballLevel: players.ballLevel,
+    })
+    .from(spotlightWeeklyWinners)
+    .innerJoin(players, eq(players.id, spotlightWeeklyWinners.playerId))
+    .where(
+      and(
+        eq(spotlightWeeklyWinners.academyId, academyId),
+        eq(spotlightWeeklyWinners.weekStart, targetWeekStart),
+      ),
+    );
+
+  if (existingWinner) {
+    return { winner: existingWinner };
+  }
+
+  // The standalone handler computes-and-inserts a fresh winner here when
+  // the target week has ended and nominations exist. We deliberately
+  // SKIP that side-effect: the home god-route is a read path, fires on
+  // every cold start, and writing winner rows from a hot read code path
+  // would introduce duplicate inserts under concurrent loads. The first
+  // visit to the spotlight details screen still hits the standalone
+  // endpoint and computes the winner there. For the home tile, returning
+  // `winner: null` is functionally identical to a not-yet-computed week
+  // — the tile falls back to State C correctly.
+  return { winner: null };
 }
 
 export default router;
