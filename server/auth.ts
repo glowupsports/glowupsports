@@ -168,8 +168,19 @@ export function refreshAuthMiddleware(req: AuthenticatedRequest, res: Response, 
 }
 
 export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  // Task #1398 — In-process dispatch from a player god-endpoint passes
+  // the parent request's already-resolved `req.user` via these flags so
+  // the child request can skip JWT re-verification entirely. The parent
+  // request was authenticated normally before reaching the god-endpoint
+  // handler, so this is safe.
+  if ((req as any).__inProcessDispatch && (req as any).__inProcessUser) {
+    req.user = (req as any).__inProcessUser;
+    next();
+    return;
+  }
+
   const authHeader = req.headers.authorization;
-  
+
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(401).json({ error: "Authentication required" });
     return;
@@ -194,12 +205,23 @@ export function setFreshUserStorage(storage: UserStorageInterface): void {
 }
 
 export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  // Task #1398 — In-process dispatch from a player god-endpoint already
+  // ran this middleware on the parent request and can pass the
+  // resolved `req.user` directly. Re-running this here would do another
+  // 1-3 DB round-trips per sub-fetch (fresh user + family-link +
+  // account-lock checks) for no security gain.
+  if ((req as any).__inProcessDispatch && (req as any).__inProcessUser) {
+    req.user = (req as any).__inProcessUser;
+    next();
+    return;
+  }
+
   const authHeader = req.headers.authorization;
-  
+
   // Debug: log auth header status for certain endpoints
   if (req.path.includes("/play/")) {
   }
-  
+
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(401).json({ error: "Authentication required" });
     return;

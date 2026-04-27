@@ -1190,6 +1190,25 @@ export const players = pgTable("players", {
   // Speeds up the Players list (Task #628): SQL pushdown for status filter
   // per academy used by getAllPlayersWithCredits.
   index("players_academy_status_idx").on(table.academyId, table.status),
+  // Task #1398 — Player Dashboard perf pass.
+  // Discovery (Find a Match) Bucket 1 sorts same-country players by
+  // ABS(glow_mmr - meMmr); without this composite the query did a
+  // sequential scan + sort. See migrations/0040_player_dashboard_perf_indexes.sql.
+  index("players_country_glow_mmr_idx").on(table.country, table.glowMmr),
+  // Same-academy ranked discovery + academy leaderboards.
+  index("players_academy_glow_mmr_idx").on(table.academyId, table.glowMmr),
+  // Glow leaderboard global / category orderings — Postgres can stream
+  // results in index order with no extra sort step. The migration
+  // (0040_player_dashboard_perf_indexes.sql) creates these as
+  // `DESC NULLS LAST`; the schema definition mirrors that direction
+  // via a sql expression so the two stay in sync (drizzle-kit sees the
+  // same shape it would generate).
+  index("players_glow_score_desc_idx").on(sql`${table.glowScore} DESC NULLS LAST`),
+  index("players_total_xp_desc_idx").on(sql`${table.totalXp} DESC NULLS LAST`),
+  index("players_glow_mmr_desc_idx").on(sql`${table.glowMmr} DESC NULLS LAST`),
+  // Country-scoped leaderboards (Task #1039 ladders + Glow Leaderboard
+  // country tab). Migration creates `(country, glow_score DESC NULLS LAST)`.
+  index("players_country_glow_score_idx").on(table.country, sql`${table.glowScore} DESC NULLS LAST`),
 ]);
 
 export const insertPlayerSchema = createInsertSchema(players).omit({ id: true, createdAt: true });

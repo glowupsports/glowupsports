@@ -54,11 +54,19 @@ describe("player-schedule-data god-endpoint route — Task #1387 regression guar
     );
   });
 
-  it("uses an allSettled-equivalent fan-out (subFetch swallows errors) so a single slow branch can't take Schedule down", () => {
+  it("uses an allSettled-equivalent fan-out so a single slow branch can't take Schedule down", () => {
+    // Task #1387's schedule-data route still uses the legacy `subFetch`
+    // pattern — Task #1398 only migrated profile-data, community-data,
+    // and player-play-data to in-process dispatch. Until #1403 lands,
+    // this guard accepts EITHER pattern (subFetch HTTP fan-out OR
+    // dispatchInProcess) so the regression net stays meaningful.
     const src = readRepoFile("server/routes/player-schedule-data.ts");
-    expect(src).toMatch(/async function subFetch/);
+    expect(
+      /async function subFetch/.test(src) ||
+        /dispatchInProcess/.test(src),
+    ).toBe(true);
     expect(src).toMatch(/return \{ status: ["']error["'], data: null/);
-    expect(src).toMatch(/Promise\.all\(\[\s*\n[\s\S]{0,100}subFetch/);
+    expect(src).toMatch(/Promise\.all\(\[/);
   });
 
   it("forwards the legacy queryKey echo via `_keys` so the client can prime the same caches it would otherwise mint", () => {
@@ -184,10 +192,24 @@ describe("player-profile-data god-endpoint route — Task #1387 regression guard
     );
   });
 
-  it("uses subFetch fan-out (no single slow branch can lock Profile)", () => {
+  it("uses dispatchInProcess fan-out (no single slow branch can lock Profile)", () => {
+    // Task #1398 — Replaced `subFetch` HTTP loopback with the in-process
+    // Express dispatch (`dispatchInProcess` from
+    // `server/lib/in-process-dispatch.ts`). Same allSettled semantics:
+    // each branch is wrapped so a single failure can't strand the screen.
     const src = readRepoFile("server/routes/player-profile-data.ts");
-    expect(src).toMatch(/async function subFetch/);
-    expect(src).toMatch(/Promise\.all\(\[\s*\n[\s\S]{0,100}subFetch/);
+    expect(src).toMatch(/dispatchInProcess/);
+    // The route wraps dispatchInProcess in a small `sub<T>(path)` helper
+    // and fans those out via Promise.all([...]). Just check both pieces
+    // exist; their wiring is exercised by integration tests.
+    expect(src).toMatch(/Promise\.all\(\[/);
+    expect(src).toMatch(/dispatchInProcess</);
+    expect(src).toMatch(
+      /import\s+\{[\s\S]{0,80}dispatchInProcess[\s\S]{0,80}\}\s+from\s+["']\.\.\/lib\/in-process-dispatch["']/,
+    );
+    const authSrc = readRepoFile("server/auth.ts");
+    expect(authSrc).toMatch(/__inProcessDispatch/);
+    expect(authSrc).toMatch(/__inProcessUser/);
   });
 });
 

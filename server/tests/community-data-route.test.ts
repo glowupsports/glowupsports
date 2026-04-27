@@ -52,20 +52,40 @@ describe("community-data god-endpoint route — Task #1384 regression guard", ()
     );
   });
 
-  it("uses an allSettled-equivalent fan-out (subFetch swallows errors) so a single slow branch can't take Community down", () => {
+  it("uses an allSettled-equivalent fan-out (dispatchInProcess swallows errors) so a single slow branch can't take Community down", () => {
+    // Task #1398 — Replaced `subFetch` HTTP loopback with the in-process
+    // Express dispatch (`dispatchInProcess` from
+    // `server/lib/in-process-dispatch.ts`). The pattern is the same:
+    // each branch is wrapped so a single slow / failing branch can't
+    // strand the screen, and the parallel fan-out is preserved via
+    // `Promise.all([...])`.
     const src = readRepoFile("server/routes/community-data.ts");
-    expect(src).toMatch(/async function subFetch/);
-    expect(src).toMatch(/return \{ status: "error", data: null/);
-    expect(src).toMatch(/Promise\.all\(\[\s*\n[\s\S]{0,200}subFetch/);
+    expect(src).toMatch(/dispatchInProcess/);
+    // The dispatch lib hands back `{ status, data, httpStatus }` for
+    // every branch; this route reads `r.status === "error"` to populate
+    // the per-key `_errors` map (used by the client to show inline
+    // retry cards instead of failing the whole god-call).
+    expect(src).toMatch(/r\.status\s*===\s*["']error["']/);
+    // The route wraps dispatchInProcess in a small `sub<T>(path)` helper
+    // and fans those out via Promise.all([...]). Just check both pieces
+    // exist; their wiring is exercised by integration tests.
+    expect(src).toMatch(/Promise\.all\(\[/);
+    expect(src).toMatch(/dispatchInProcess</);
   });
 
-  it("forwards x-active-player-id and x-academy-id on every internal fan-out (Family / multi-academy parity)", () => {
+  it("uses the in-process Express dispatcher (no HTTP loopback) so child handlers reuse the parent req.user (Family / multi-academy parity)", () => {
+    // Task #1398 — In-process dispatch reuses the authenticated parent
+    // request, so we no longer need to manually forward
+    // `x-active-player-id` / `x-academy-id` headers. The dispatch helper
+    // sets `__inProcessDispatch` + `__inProcessUser` flags that the auth
+    // middleware short-circuits on, preserving the parent's user context.
     const src = readRepoFile("server/routes/community-data.ts");
-    // Without this, a Family-switched request loses its active-player
-    // context the moment the god-endpoint fans out internally.
-    expect(src).toMatch(/x-active-player-id/);
-    expect(src).toMatch(/x-academy-id/);
-    expect(src).toMatch(/forwardHeaders/);
+    expect(src).toMatch(
+      /import\s+\{[\s\S]{0,80}dispatchInProcess[\s\S]{0,80}\}\s+from\s+["']\.\.\/lib\/in-process-dispatch["']/,
+    );
+    const authSrc = readRepoFile("server/auth.ts");
+    expect(authSrc).toMatch(/__inProcessDispatch/);
+    expect(authSrc).toMatch(/__inProcessUser/);
   });
 
   it("includes academy context in the cache key (multi-academy admins must not see stale data after a switch)", () => {

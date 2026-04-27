@@ -3968,12 +3968,41 @@ function socialPostUploadHandler(
       try {
         const playerId = req.user!.playerId;
         if (!playerId) {
-          return res.json({ players: [] });
+          return res.json({ players: [], nextCursor: null });
         }
         const limitVal = Math.min(
           Math.max(parseInt(String(req.query.limit ?? "10")) || 10, 1),
           25,
         );
+
+        // Task #1398 — Cursor pagination for the same-country bucket.
+        // Cursor encodes the last (mmrDistance, playerId) tuple so the
+        // next page can skip past it deterministically. Distance is
+        // bounded by the index `players_country_glow_mmr_idx` (Bucket 1
+        // re-orders client-side; see notes below).
+        const rawCursor =
+          typeof req.query.cursor === "string" && req.query.cursor.length > 0
+            ? req.query.cursor
+            : null;
+        let cursorDistance: number | null = null;
+        let cursorId: string | null = null;
+        if (rawCursor) {
+          try {
+            const decoded = Buffer.from(rawCursor, "base64url").toString("utf8");
+            const parsed = JSON.parse(decoded);
+            if (
+              typeof parsed?.d === "number" &&
+              typeof parsed?.i === "string"
+            ) {
+              cursorDistance = parsed.d;
+              cursorId = parsed.i;
+            }
+          } catch {
+            // Ignore malformed cursors — caller will get the first page.
+            cursorDistance = null;
+            cursorId = null;
+          }
+        }
 
         // Task #1271 — when called from the new Match Finder ("intent=match")
         // we enrich each row with extra fields the player card needs (city,
@@ -4130,12 +4159,41 @@ function socialPostUploadHandler(
               p.name.trim().length > 0,
           );
 
-        // BUCKET 1 — strict: same country, ranked by mmr/ball-level
-        // closeness. Returns up to limitVal results.
+        // BUCKET 1 — strict: same country, ranked by glow_mmr distance.
+        //
+        // Task #1398 — Previously this fetched up to 200 same-country
+        // rows and re-sorted in JS. We now push the distance ordering
+        // and the cursor-based skip down to Postgres so the index
+        // `players_country_glow_mmr_idx` does the bounded scan. We
+        // request `limitVal + 1` rows to detect "is there a next page",
+        // then trim back to `limitVal` for the response. Distance is
+        // expressed as `ABS(glow_mmr - meMmr)` with a generous
+        // COALESCE fallback so rows missing glow_mmr still sort last
+        // (mirrors the legacy JS-side default of `9999`).
         let bucket: DiscoveryRow[] = [];
+        let bucket1Distances: number[] = [];
+        // Task #1398 — True overflow signal for bucket 1 (we drained
+        // `limitVal + 1` rows from Postgres and at least one survived
+        // stripping). Used by the cursor emitter below.
+        let bucket1HasMore = false;
+        const meMmrForBucket =
+          typeof me.glowMmr === "number" ? me.glowMmr : null;
         if (me.country) {
-          const sameCountry = await db
-            .select(baseSelect)
+          const distanceExpr = meMmrForBucket !== null
+            ? sql`COALESCE(ABS(${players.glowMmr} - ${meMmrForBucket}), 9999)`
+            : sql`9999`;
+
+          // Cursor predicate: rows past `(distance, id)` in the
+          // (distance ASC, id ASC) ordering. Uses the standard
+          // (a, b) > (a0, b0) "tuple comparison" pattern but expanded
+          // for portability to Postgres+Drizzle.
+          const cursorPredicate =
+            cursorDistance !== null && cursorId !== null
+              ? sql`(${distanceExpr} > ${cursorDistance} OR (${distanceExpr} = ${cursorDistance} AND ${players.id} > ${cursorId}))`
+              : sql`TRUE`;
+
+          const sameCountryRanked = await db
+            .select({ ...baseSelect, _distance: distanceExpr.as("_distance") })
             .from(players)
             .where(
               and(
@@ -4149,28 +4207,39 @@ function socialPostUploadHandler(
                       sql`, `,
                     )})`
                   : sql`TRUE`,
+                cursorPredicate,
               ),
             )
-            .limit(200);
+            .orderBy(sql`_distance ASC, ${players.id} ASC`)
+            .limit(limitVal + 1);
 
-          const ranked = stripHidden(sameCountry as DiscoveryRow[])
-            .map((p) => {
-              let distance = 9999;
-              if (
-                typeof me.glowMmr === "number" &&
-                typeof p.glowMmr === "number"
-              ) {
-                distance = Math.abs(me.glowMmr - p.glowMmr);
-              } else if (me.ballLevel && p.ballLevel) {
-                distance = me.ballLevel === p.ballLevel ? 50 : 500;
-              } else if (me.skillLevel && p.skillLevel) {
-                distance = me.skillLevel === p.skillLevel ? 100 : 750;
-              }
-              return { p, distance };
-            })
-            .sort((a, b) => a.distance - b.distance)
-            .map((x) => x.p);
-          bucket = ranked.slice(0, limitVal);
+          // Task #1398 — Strip hidden rows BEFORE slicing so the
+          // distance array stays index-aligned with `bucket`. (The
+          // earlier implementation sliced from the unstripped result
+          // and ended up with a misaligned `bucket1Distances`, which
+          // could produce a wrong cursor anchor and let the next page
+          // skip or duplicate rows.)
+          const rawWithDist = sameCountryRanked as Array<
+            DiscoveryRow & { _distance: number | string | null }
+          >;
+          const strippedWithDist = rawWithDist.filter(
+            (p) =>
+              !!p.id &&
+              !HIDDEN_PLAYER_IDS.includes(p.id) &&
+              p.name &&
+              p.name.trim().length > 0,
+          );
+          bucket = strippedWithDist.slice(0, limitVal);
+          bucket1Distances = bucket.map((r) =>
+            Number((r as DiscoveryRow & { _distance: number | string | null })._distance ?? 9999),
+          );
+          // Real overflow signal — there's at least one more bucket-1
+          // row past what we returned. This is what the next-page
+          // emitter must check (not `bucket.length === limitVal`,
+          // which would emit an empty-page cursor when stripping or
+          // chip filters happen to leave us with exactly `limitVal`
+          // rows from a smaller raw set).
+          bucket1HasMore = strippedWithDist.length > limitVal;
         }
 
         // BUCKET 2 — same academy, any country.
@@ -4325,7 +4394,31 @@ function socialPostUploadHandler(
           );
         }
 
-        res.json({ players: playersWithStatus });
+        // Task #1398 — Cursor pagination is only emitted for Bucket 1
+        // (same-country, ranked by mmr distance). The next cursor must
+        // anchor at the LAST raw bucket-1 row we returned (post-strip,
+        // pre-chip-filter) — chip filters apply per-page on top of the
+        // SQL scan, so the cursor must reflect the SQL position, not
+        // the post-filter position. Anchoring on a post-filter row
+        // could either skip surviving rows (if filtered rows preceded
+        // it in the scan) or re-show already-shown rows (if we
+        // anchored ahead of the actual scan tip).
+        //
+        // We only emit when `bucket1HasMore` is true — i.e. Postgres
+        // gave us strictly more than `limitVal` survivors of stripping.
+        // Bucket 2 / 3 fallbacks are tiny by construction (academy or
+        // 14-day-active worldwide) and intentionally don't paginate.
+        let nextCursor: string | null = null;
+        if (me.country && bucket1HasMore && bucket.length > 0) {
+          const lastIdx = bucket.length - 1;
+          const payload = JSON.stringify({
+            d: bucket1Distances[lastIdx] ?? 9999,
+            i: bucket[lastIdx].id,
+          });
+          nextCursor = Buffer.from(payload, "utf8").toString("base64url");
+        }
+
+        res.json({ players: playersWithStatus, nextCursor });
       } catch (error) {
         console.error("[Discovery] Error:", error);
         res.status(500).json({ error: "Failed to load discovery" });

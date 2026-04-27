@@ -30,6 +30,7 @@ import {
   authMiddlewareWithFreshData as authMiddleware,
 } from "../auth";
 import type { AuthenticatedRequest } from "../auth";
+import { dispatchInProcess, type DispatchResult } from "../lib/in-process-dispatch";
 
 const router = Router();
 
@@ -105,37 +106,10 @@ function requirePlayerOrOwner(
   res.status(403).json({ error: "Player account required" });
 }
 
-const INTERNAL_PORT = process.env.PORT || "5000";
-const INTERNAL_BASE = `http://127.0.0.1:${INTERNAL_PORT}`;
-
-interface SubFetchResult<T> {
-  status: "ok" | "error";
-  data: T | null;
-  httpStatus: number | null;
-}
-
-async function subFetch<T>(
-  path: string,
-  authHeader: string,
-  forwardHeaders: Record<string, string> = {},
-): Promise<SubFetchResult<T>> {
-  try {
-    const r = await fetch(`${INTERNAL_BASE}${path}`, {
-      headers: {
-        Authorization: authHeader,
-        Accept: "application/json",
-        ...forwardHeaders,
-      },
-    });
-    if (!r.ok) {
-      return { status: "error", data: null, httpStatus: r.status };
-    }
-    const data = (await r.json()) as T;
-    return { status: "ok", data, httpStatus: r.status };
-  } catch {
-    return { status: "error", data: null, httpStatus: null };
-  }
-}
+// Task #1398 — In-process Express dispatch replaces HTTP loopback so
+// each child request reuses the parent's `req.user` and skips redundant
+// auth/family/lock DB hits. See server/lib/in-process-dispatch.ts.
+type SubFetchResult<T> = DispatchResult<T>;
 
 router.get(
   "/api/player/me/play-data",
@@ -221,27 +195,10 @@ router.get(
         return res.json(cached);
       }
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader) {
+      if (!req.headers.authorization) {
         return res
           .status(401)
           .json({ error: "Authorization header missing" });
-      }
-
-      // Forward player/academy context headers from the original request so
-      // sub-fetches resolve against the SAME effective player (Family switch
-      // flows depend on `x-active-player-id`; multi-academy users on
-      // `x-academy-id`). Without this the god-endpoint would silently
-      // resolve against the user's default player and parity with the
-      // legacy direct fetches breaks.
-      const forwardHeaders: Record<string, string> = {};
-      const activePlayerId = req.headers["x-active-player-id"];
-      if (typeof activePlayerId === "string") {
-        forwardHeaders["x-active-player-id"] = activePlayerId;
-      }
-      const academyIdHdr = req.headers["x-academy-id"];
-      if (typeof academyIdHdr === "string") {
-        forwardHeaders["x-academy-id"] = academyIdHdr;
       }
 
       // Build the same query strings the screens build today so the legacy
@@ -253,6 +210,8 @@ router.get(
           : `/api/play/nearby-players?sport=${encodeURIComponent(sport)}&travelTime=${travelTime}&scope=${encodeURIComponent(resolvedScope)}`;
       const openMatchesPath = `/api/open-matches?includeAllLevels=true&sport=${encodeURIComponent(sport)}&scope=${encodeURIComponent(resolvedScope)}`;
 
+      const sub = <T>(path: string) => dispatchInProcess<T>(req, path);
+
       const [
         profile,
         bookingInvites,
@@ -261,12 +220,12 @@ router.get(
         sessions,
         nearbyPlayers,
       ] = await Promise.all([
-        subFetch<unknown>(`/api/player/me/profile`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/booking-invites`, authHeader, forwardHeaders),
-        subFetch<unknown>(openMatchesPath, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/corporate/my-account`, authHeader, forwardHeaders),
-        subFetch<unknown>(sessionsPath, authHeader, forwardHeaders),
-        subFetch<unknown>(nearbyPath, authHeader, forwardHeaders),
+        sub<unknown>(`/api/player/me/profile`),
+        sub<unknown>(`/api/player/booking-invites`),
+        sub<unknown>(openMatchesPath),
+        sub<unknown>(`/api/corporate/my-account`),
+        sub<unknown>(sessionsPath),
+        sub<unknown>(nearbyPath),
       ]);
 
       const errors: Record<string, number | null> = {};

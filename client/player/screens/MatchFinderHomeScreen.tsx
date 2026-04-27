@@ -22,7 +22,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
@@ -54,7 +54,9 @@ const SCOPE_FILTERS: { id: "academy" | "country" | "global"; label: string }[] =
 
 interface DiscoveryResponse {
   players: MatchCandidate[];
-  cursor?: string | null;
+  // Task #1398 — Server emits an opaque base64url cursor `{d, i}` keyed on
+  // (mmr-distance, player-id). `null` means the bucket is exhausted.
+  nextCursor?: string | null;
 }
 
 export default function MatchFinderHomeScreen() {
@@ -70,25 +72,55 @@ export default function MatchFinderHomeScreen() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selected, setSelected] = useState<MatchCandidate | null>(null);
 
-  const queryPath = useMemo(() => {
-    const params = new URLSearchParams();
-    params.set("intent", "match");
-    params.set("scope", scope);
-    if (levelFilter !== "all") params.set("ballLevel", levelFilter);
-    params.set("limit", "25");
-    return `/api/social/discovery/players?${params.toString()}`;
-  }, [scope, levelFilter]);
+  // Task #1398 — Discovery now bounds bucket-1 with LIMIT(N+1) and returns a
+  // cursor `{d, i}` (mmr-distance + secondary id), so the Match Finder feed is
+  // paginated with `useInfiniteQuery` instead of fetching the entire pool in a
+  // single roundtrip. Page size is 25; the FlatList triggers `fetchNextPage`
+  // when scrolled near the bottom.
+  const buildQueryPath = useCallback(
+    (cursor: string | null) => {
+      const params = new URLSearchParams();
+      params.set("intent", "match");
+      params.set("scope", scope);
+      if (levelFilter !== "all") params.set("ballLevel", levelFilter);
+      params.set("limit", "25");
+      if (cursor) params.set("cursor", cursor);
+      return `/api/social/discovery/players?${params.toString()}`;
+    },
+    [scope, levelFilter],
+  );
 
-  const { data, isLoading, refetch, isRefetching } =
-    useQuery<DiscoveryResponse>({
-      queryKey: ["/api/social/discovery/players", "match", scope, levelFilter],
-      queryFn: async () => {
-        const res = await apiRequest("GET", queryPath);
-        return (await res.json()) as DiscoveryResponse;
-      },
-    });
+  const {
+    data,
+    isLoading,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery<DiscoveryResponse, Error>({
+    queryKey: ["/api/social/discovery/players", "match", scope, levelFilter],
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      const res = await apiRequest("GET", buildQueryPath(pageParam as string | null));
+      return (await res.json()) as DiscoveryResponse;
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
 
-  const players = data?.players ?? [];
+  // Flatten paged results once per data change so FlatList sees a stable array
+  // identity for unrelated re-renders (filter chip toggles still produce a new
+  // ref via the new query key, which is correct).
+  const players = useMemo<MatchCandidate[]>(
+    () => (data?.pages ?? []).flatMap((p) => p.players ?? []),
+    [data],
+  );
+
+  const handleEndReached = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleChallenge = useCallback((p: MatchCandidate) => {
     setSelected(p);
@@ -207,6 +239,9 @@ export default function MatchFinderHomeScreen() {
 
   const ListFooter = (
     <View style={styles.footerWrap}>
+      {isFetchingNextPage ? (
+        <ActivityIndicator color={Colors.dark.primary} />
+      ) : null}
       <Pressable
         style={[styles.footerBtn, styles.footerBtnPrimary]}
         onPress={() => {
@@ -245,6 +280,8 @@ export default function MatchFinderHomeScreen() {
         }
         ListHeaderComponentStyle={{ marginBottom: Spacing.lg }}
         ItemSeparatorComponent={null}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.4}
       />
       {isLoading ? (
         <View style={[styles.loadingOverlay, { top: headerHeight + 120 }]}>

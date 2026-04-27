@@ -15,6 +15,15 @@
 // Cache: per-`playerId:academyId`, 60s TTL — Profile changes much
 // less often than Schedule (no payment polling), and refreshes happen
 // via mutation invalidation. Critical branch is `profile`.
+//
+// Task #1398 — Replaced HTTP loopback fan-out with in-process Express
+// dispatch (`dispatchInProcess`). Each legacy sub-fetch used to pay for
+// a TCP round-trip + a full re-run of `authMiddlewareWithFreshData`
+// (~2 extra DB queries per call). With 10 sub-fetches that was ~20
+// "free" DB hits and ~50ms of HTTP overhead on every Profile open. The
+// dispatcher routes the child request through the same Express app
+// while reusing the parent request's already-resolved `req.user`, so
+// response shape stays byte-equivalent.
 
 import { Router } from "express";
 import type { NextFunction, Response } from "express";
@@ -22,6 +31,7 @@ import {
   authMiddlewareWithFreshData as authMiddleware,
 } from "../auth";
 import type { AuthenticatedRequest } from "../auth";
+import { dispatchInProcess, type DispatchResult } from "../lib/in-process-dispatch";
 
 const router = Router();
 
@@ -88,37 +98,7 @@ function requirePlayerOrOwner(
   res.status(403).json({ error: "Player account required" });
 }
 
-const INTERNAL_PORT = process.env.PORT || "5000";
-const INTERNAL_BASE = `http://127.0.0.1:${INTERNAL_PORT}`;
-
-interface SubFetchResult<T> {
-  status: "ok" | "error";
-  data: T | null;
-  httpStatus: number | null;
-}
-
-async function subFetch<T>(
-  path: string,
-  authHeader: string,
-  forwardHeaders: Record<string, string> = {},
-): Promise<SubFetchResult<T>> {
-  try {
-    const r = await fetch(`${INTERNAL_BASE}${path}`, {
-      headers: {
-        Authorization: authHeader,
-        Accept: "application/json",
-        ...forwardHeaders,
-      },
-    });
-    if (!r.ok) {
-      return { status: "error", data: null, httpStatus: r.status };
-    }
-    const data = (await r.json()) as T;
-    return { status: "ok", data, httpStatus: r.status };
-  } catch {
-    return { status: "error", data: null, httpStatus: null };
-  }
-}
+type SubFetchResult<T> = DispatchResult<T>;
 
 router.get(
   "/api/player/me/profile-data",
@@ -154,25 +134,23 @@ router.get(
         return res.json(cached);
       }
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader) {
+      // Authorization is optional for in-process dispatch — the
+      // dispatcher carries `req.user` directly so child handlers don't
+      // need the Bearer header — but we still surface a 401 if the
+      // outer request itself wasn't authenticated.
+      if (!req.headers.authorization) {
         return res
           .status(401)
           .json({ error: "Authorization header missing" });
       }
 
-      const forwardHeaders: Record<string, string> = {};
-      const activePlayerId = req.headers["x-active-player-id"];
-      if (typeof activePlayerId === "string") {
-        forwardHeaders["x-active-player-id"] = activePlayerId;
-      }
-      const academyIdHdr = req.headers["x-academy-id"];
-      if (typeof academyIdHdr === "string") {
-        forwardHeaders["x-academy-id"] = academyIdHdr;
-      }
-
       const v2WalletPath = `/api/v2/credits/wallet/${encodeURIComponent(playerId)}`;
       const playerOfWeekPath = `/api/leaderboards/player-of-week/by-player/${encodeURIComponent(playerId)}`;
+
+      // In-process Express dispatch — see server/lib/in-process-dispatch.ts.
+      // Replaces 10 HTTP loopback round-trips with a single Promise.all
+      // over direct app(req, res) invocations that reuse `req.user`.
+      const sub = <T>(path: string) => dispatchInProcess<T>(req, path);
 
       const [
         profile,
@@ -186,16 +164,16 @@ router.get(
         playerOfWeek,
         vacation,
       ] = await Promise.all([
-        subFetch<unknown>(`/api/player/me/profile`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/groups`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/connections`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/dashboard`, authHeader, forwardHeaders),
-        subFetch<unknown>(v2WalletPath, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/live-scoring/player/me/active`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/badges`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/titles`, authHeader, forwardHeaders),
-        subFetch<unknown>(playerOfWeekPath, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/vacation`, authHeader, forwardHeaders),
+        sub<unknown>(`/api/player/me/profile`),
+        sub<unknown>(`/api/player/groups`),
+        sub<unknown>(`/api/player/connections`),
+        sub<unknown>(`/api/player/me/dashboard`),
+        sub<unknown>(v2WalletPath),
+        sub<unknown>(`/api/live-scoring/player/me/active`),
+        sub<unknown>(`/api/player/badges`),
+        sub<unknown>(`/api/player/titles`),
+        sub<unknown>(playerOfWeekPath),
+        sub<unknown>(`/api/player/me/vacation`),
       ]);
 
       const errors: Record<string, number | null> = {};

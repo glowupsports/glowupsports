@@ -5,7 +5,7 @@
 //
 // Pure presentational component — its actions are wired by the parent.
 
-import React from "react";
+import React, { memo } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -69,7 +69,10 @@ function formatLastActive(iso: string | null): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export function PlayerMatchCard({
+// Task #1398 — Memoized so the Match Finder list (and any other paginated
+// player feed) doesn't re-render every card on each parent re-render.
+// Cards keyed on `player.id` are referentially stable across pages.
+function PlayerMatchCardImpl({
   player,
   academyName,
   hasOpenMatch,
@@ -203,6 +206,8 @@ export function PlayerMatchCard({
     </View>
   );
 }
+
+export const PlayerMatchCard = memo(PlayerMatchCardImpl);
 
 const styles = StyleSheet.create({
   card: {

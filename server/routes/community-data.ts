@@ -13,11 +13,16 @@
 // downstream components (DiscoveryRail, FriendsSection, the create-moment
 // modal's group picker) hit cache instead of network.
 //
-// Internal HTTP fan-out: same approach as player-progress-data.ts /
-// player-play-data.ts. We call the legacy endpoints over loopback (the
-// rate-limiter in server/index.ts skips loopback IPs) instead of duplicating
-// the social/feed business logic. Shape parity is therefore byte-equivalent
-// and drift-free.
+// Internal fan-out: same approach as player-progress-data.ts /
+// player-play-data.ts. We invoke the legacy endpoints in-process instead
+// of duplicating the social/feed business logic. Shape parity is
+// therefore byte-equivalent and drift-free.
+//
+// Task #1398 — Switched from HTTP loopback `subFetch` to
+// `dispatchInProcess` so each child request reuses the parent's
+// already-resolved `req.user`. That cuts ~14 redundant DB round-trips
+// (auth + family-link + account-lock checks) and the loopback HTTP
+// framing cost out of every Community open.
 //
 // Cache: per-`playerId:academyId:filter:typesCSV`, 30s TTL — short because
 // the feed mutates rapidly (cheers/comments) and the screen's pull-to-refresh
@@ -30,6 +35,7 @@ import {
   authMiddlewareWithFreshData as authMiddleware,
 } from "../auth";
 import type { AuthenticatedRequest } from "../auth";
+import { dispatchInProcess, type DispatchResult } from "../lib/in-process-dispatch";
 
 const router = Router();
 
@@ -102,37 +108,7 @@ function requirePlayerOrOwner(
   res.status(403).json({ error: "Player account required" });
 }
 
-const INTERNAL_PORT = process.env.PORT || "5000";
-const INTERNAL_BASE = `http://127.0.0.1:${INTERNAL_PORT}`;
-
-interface SubFetchResult<T> {
-  status: "ok" | "error";
-  data: T | null;
-  httpStatus: number | null;
-}
-
-async function subFetch<T>(
-  path: string,
-  authHeader: string,
-  forwardHeaders: Record<string, string> = {},
-): Promise<SubFetchResult<T>> {
-  try {
-    const r = await fetch(`${INTERNAL_BASE}${path}`, {
-      headers: {
-        Authorization: authHeader,
-        Accept: "application/json",
-        ...forwardHeaders,
-      },
-    });
-    if (!r.ok) {
-      return { status: "error", data: null, httpStatus: r.status };
-    }
-    const data = (await r.json()) as T;
-    return { status: "ok", data, httpStatus: r.status };
-  } catch {
-    return { status: "error", data: null, httpStatus: null };
-  }
-}
+type SubFetchResult<T> = DispatchResult<T>;
 
 router.get(
   "/api/player/me/community-data",
@@ -179,27 +155,10 @@ router.get(
         return res.json(cached);
       }
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader) {
+      if (!req.headers.authorization) {
         return res
           .status(401)
           .json({ error: "Authorization header missing" });
-      }
-
-      // Forward player/academy context headers from the original request so
-      // sub-fetches resolve against the SAME effective player (Family switch
-      // flows depend on `x-active-player-id`; multi-academy users on
-      // `x-academy-id`). Without this the god-endpoint would silently
-      // resolve against the user's default player and parity with the
-      // legacy direct fetches breaks.
-      const forwardHeaders: Record<string, string> = {};
-      const activePlayerId = req.headers["x-active-player-id"];
-      if (typeof activePlayerId === "string") {
-        forwardHeaders["x-active-player-id"] = activePlayerId;
-      }
-      const academyIdHdr = req.headers["x-academy-id"];
-      if (typeof academyIdHdr === "string") {
-        forwardHeaders["x-academy-id"] = academyIdHdr;
       }
 
       // Build the same /api/social/feed query the screen builds today so
@@ -218,6 +177,11 @@ router.get(
       }
       const feedPath = `/api/social/feed?${feedParams.toString()}`;
 
+      // In-process Express dispatch — see server/lib/in-process-dispatch.ts.
+      // Carries the parent request's `req.user`, `x-academy-id` and
+      // `x-active-player-id` headers automatically.
+      const sub = <T>(path: string) => dispatchInProcess<T>(req, path);
+
       const [
         feedPreferences,
         friends,
@@ -227,15 +191,19 @@ router.get(
         socialGroups,
         discoveryPlayers,
       ] = await Promise.all([
-        subFetch<unknown>(`/api/social/feed-preferences`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/player/me/friends`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/social/me/feed-unseen`, authHeader, forwardHeaders),
+        sub<unknown>(`/api/social/feed-preferences`),
+        sub<unknown>(`/api/player/me/friends`),
+        sub<unknown>(`/api/social/me/feed-unseen`),
         skipFeed
-          ? Promise.resolve({ status: "ok" as const, data: [] as unknown, httpStatus: 200 })
-          : subFetch<unknown>(feedPath, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/social/highlights`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/social/groups`, authHeader, forwardHeaders),
-        subFetch<unknown>(`/api/social/discovery/players?limit=12`, authHeader, forwardHeaders),
+          ? Promise.resolve<SubFetchResult<unknown>>({
+              status: "ok",
+              data: [] as unknown,
+              httpStatus: 200,
+            })
+          : sub<unknown>(feedPath),
+        sub<unknown>(`/api/social/highlights`),
+        sub<unknown>(`/api/social/groups`),
+        sub<unknown>(`/api/social/discovery/players?limit=12`),
       ]);
 
       const errors: Record<string, number | null> = {};

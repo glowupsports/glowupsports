@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, memo } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -105,7 +105,11 @@ function getMetricVisual(metric: CategoryKey): { icon: IoniconName; color: strin
   }
 }
 
-function TopThreePlayer({ player, position, metric }: { player: RankedPlayer; position: 1 | 2 | 3; metric: CategoryKey }) {
+// Task #1398 — Wrapped in React.memo so the podium doesn't re-render
+// every time the parent screen re-renders (chip toggles, refetch, etc).
+// Props (player, position, metric) are referentially stable across
+// queries so the default shallow comparison is the right call here.
+const TopThreePlayer = memo(function TopThreePlayer({ player, position, metric }: { player: RankedPlayer; position: 1 | 2 | 3; metric: CategoryKey }) {
   const navigation = useNavigation<any>();
   const sizes = { 1: { avatar: 80, container: 100 }, 2: { avatar: 64, container: 80 }, 3: { avatar: 64, container: 80 } };
   const size = sizes[position];
@@ -161,9 +165,13 @@ function TopThreePlayer({ player, position, metric }: { player: RankedPlayer; po
       </Pressable>
     </Animated.View>
   );
-}
+});
 
-function RankingRow({ player, index, metric }: { player: RankedPlayer; index: number; metric: CategoryKey }) {
+// Task #1398 — Wrapped in React.memo so leaderboard rows don't re-render
+// when the parent re-renders (chip toggles, refetch). Each row keeps a
+// stable identity keyed on player.id, so most leaderboard re-renders
+// now skip the row tree entirely.
+const RankingRow = memo(function RankingRow({ player, index, metric }: { player: RankedPlayer; index: number; metric: CategoryKey }) {
   const navigation = useNavigation<any>();
   
   return (
@@ -224,7 +232,7 @@ function RankingRow({ player, index, metric }: { player: RankedPlayer; index: nu
       </Pressable>
     </Animated.View>
   );
-}
+});
 
 function getCategoryScoreDisplay(player: RankedPlayer, category: CategoryKey) {
   switch (category) {
@@ -303,9 +311,29 @@ export default function GlowLeaderboardScreen() {
   const effectiveRefetching = isRollingMetric ? rollingRefetching : isRefetching;
   const effectiveRefetch = isRollingMetric ? refetchRolling : refetch;
 
-  const topThree = effectiveData?.rankings?.slice(0, 3) ?? [];
-  const restOfRankings = effectiveData?.rankings?.slice(3) ?? [];
+  // Task #1398 — Memoize the slices so the top-3 podium and the row
+  // FlatList don't get fresh array references on every render. Without
+  // this each unrelated re-render forces the FlatList to diff against a
+  // brand-new array and re-evaluate every visible row.
+  const topThree = useMemo<RankedPlayer[]>(
+    () => effectiveData?.rankings?.slice(0, 3) ?? [],
+    [effectiveData?.rankings],
+  );
+  const restOfRankings = useMemo<RankedPlayer[]>(
+    () => effectiveData?.rankings?.slice(3) ?? [],
+    [effectiveData?.rankings],
+  );
   const currentCat = CATEGORIES.find(c => c.key === category) || CATEGORIES[0];
+
+  // Task #1398 — Stable handlers / extractors so the FlatList does not
+  // tear down and rebuild its rows on every render of the parent.
+  const keyExtractor = useCallback((item: RankedPlayer) => item.id, []);
+  const renderItem = useCallback(
+    ({ item, index }: { item: RankedPlayer; index: number }) => (
+      <RankingRow player={item} index={index} metric={category} />
+    ),
+    [category],
+  );
 
   return (
     <LockedScreen featureKey="glow_leaderboard">
@@ -354,7 +382,7 @@ export default function GlowLeaderboardScreen() {
       ) : (
         <FlatList
           data={restOfRankings}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           refreshControl={
             <RefreshControl refreshing={effectiveRefetching} onRefresh={effectiveRefetch} tintColor={Colors.dark.gold} />
           }
@@ -387,7 +415,7 @@ export default function GlowLeaderboardScreen() {
               ) : null}
             </>
           }
-          renderItem={({ item, index }) => <RankingRow player={item} index={index} metric={category} />}
+          renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: insets.bottom + Spacing.xl, paddingHorizontal: Spacing.md }}
           ListEmptyComponent={
             <View style={styles.emptyState}>
