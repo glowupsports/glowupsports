@@ -280,9 +280,9 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       <div class="lessons-header">
         <div class="section-title" style="margin-bottom:0;">${isMultiSeries ? '' : 'Lessons'}</div>
         <div class="pagination-controls" id="paginationControls_${id}" style="display:flex;align-items:center;gap:12px;">
-          <button class="page-btn" id="prevBtn_${id}" onclick="changePage_${id}(-1)">&#8592; Prev</button>
+          <button class="page-btn" id="prevBtn_${id}">&#8592; Prev</button>
           <span class="page-info" id="pageInfo_${id}"></span>
-          <button class="page-btn" id="nextBtn_${id}" onclick="changePage_${id}(1)">Next &#8594;</button>
+          <button class="page-btn" id="nextBtn_${id}">Next &#8594;</button>
         </div>
       </div>
       <table class="attendance-table" style="margin-top:16px;">
@@ -347,13 +347,18 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
           nextBtn.style.opacity = nextBtn.disabled ? '0.3' : '1';
         }
 
-        window['changePage_${id}'] = function(dir) {
+        function changePage(dir) {
           var next = currentPage + dir;
           if (next >= 0 && next < totalPages) {
             currentPage = next;
             renderPage(currentPage);
           }
-        };
+        }
+
+        var prevBtnEl = document.getElementById('prevBtn_${id}');
+        var nextBtnEl = document.getElementById('nextBtn_${id}');
+        if (prevBtnEl) prevBtnEl.addEventListener('click', function() { changePage(-1); });
+        if (nextBtnEl) nextBtnEl.addEventListener('click', function() { changePage(1); });
 
         renderPage(0);
       })();
