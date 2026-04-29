@@ -57,6 +57,7 @@ import { CalendarDayViewOverview } from "@/coach/components/calendar/CalendarDay
 import { CalendarWeekViewOverview } from "@/coach/components/calendar/CalendarWeekViewOverview";
 import { CalendarWeekViewSlots } from "@/coach/components/calendar/CalendarWeekViewSlots";
 import { CalendarDayViewSlots } from "@/coach/components/calendar/CalendarDayViewSlots";
+import { AddPlayerToSessionModal, type CalendarSessionForAdd } from "@/coach/components/calendar/AddPlayerToSessionModal";
 import { TIME_COLUMN_WIDTH, MIN_COURT_LANE_WIDTH, HOUR_HEIGHT_60, HOUR_HEIGHT_30, START_HOUR, END_HOUR } from "@/coach/components/calendar/calendarConstants";
 import { dimColors, DraggableSessionBlock, WeekDraggableSessionBlock, PulsingDot } from "@/coach/components/calendar/SessionBlocks";
 import { styles } from "@/coach/components/calendar/calendarStyles";
@@ -125,6 +126,7 @@ export default function CalendarScreen() {
   const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
   const [detailInitialAction, setDetailInitialAction] = useState<"attendance" | "detail" | "extend" | "end" | undefined>(undefined);
   const [selectedSessionForFeedback, setSelectedSessionForFeedback] = useState<Session | null>(null);
+  const [selectedSessionForAddPlayer, setSelectedSessionForAddPlayer] = useState<CalendarSessionForAdd | null>(null);
   const [dayMode, setDayMode] = useState<"overview" | "slots">("slots");
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("availability");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
@@ -1116,7 +1118,32 @@ export default function CalendarScreen() {
     const options: { text: string; onPress?: () => void; style?: "cancel" | "default" | "destructive" }[] = [
       { text: "Cancel", style: "cancel" },
     ];
-    
+
+    // Add Player is available regardless of timing — past sessions get
+    // attendance backfill via the series endpoint inside the modal.
+    if (session.status !== "cancelled" && session.status !== "deleted") {
+      options.unshift({
+        text: "Add Player",
+        onPress: () => {
+          const s = session as Session & {
+            seriesId?: string | null;
+            maxPlayers?: number | null;
+            players?: { id?: string; name?: string | null; status?: string | null; attendanceStatus?: string | null }[];
+          };
+          setSelectedSessionForAddPlayer({
+            id: s.id,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            sessionType: s.sessionType,
+            seriesId: s.seriesId ?? null,
+            title: s.title ?? null,
+            maxPlayers: s.maxPlayers ?? null,
+            players: s.players ?? [],
+          });
+        },
+      });
+    }
+
     if (isActive || isPast) {
       options.unshift({
         text: "Mark Attendance",
@@ -1667,6 +1694,14 @@ export default function CalendarScreen() {
         onSave={() => {
           setSelectedSessionForAttendance(null);
         }}
+      />
+
+      {/* Add Player to Session Modal (long-press entry from calendar day view) */}
+      <AddPlayerToSessionModal
+        visible={!!selectedSessionForAddPlayer}
+        session={selectedSessionForAddPlayer}
+        academyTimezone={academyTimezone}
+        onClose={() => setSelectedSessionForAddPlayer(null)}
       />
 
       {/* Quick Feedback Modal */}
