@@ -146,6 +146,10 @@ interface CreateSessionWizardProps {
   onClose: () => void;
   initialCourtId?: string;
   initialTime?: Date;
+  initialDate?: Date;
+  initialPlayer?: Player;
+  initialSessionType?: SessionType;
+  initialSchedulePattern?: "one-time" | "recurring" | "flexible";
   adminMode?: boolean;
   coaches?: Coach[];
   selectedCoachId?: string;
@@ -257,6 +261,10 @@ export default function CreateSessionWizard({
   onClose,
   initialCourtId,
   initialTime,
+  initialDate,
+  initialPlayer,
+  initialSessionType,
+  initialSchedulePattern,
   adminMode = false,
   coaches = [],
   selectedCoachId,
@@ -894,6 +902,17 @@ export default function CreateSessionWizard({
         const hours = initialTime.getHours().toString().padStart(2, "0");
         const mins = initialTime.getMinutes().toString().padStart(2, "0");
         setStartTime(`${hours}:${mins}`);
+      } else if (initialDate) {
+        setSelectedDate(initialDate);
+      }
+      if (initialSessionType) {
+        setSessionType(initialSessionType);
+      }
+      if (initialSchedulePattern) {
+        setSchedulePattern(initialSchedulePattern);
+      }
+      if (initialPlayer) {
+        setSelectedPlayers([initialPlayer]);
       }
     } else {
       resetForm();

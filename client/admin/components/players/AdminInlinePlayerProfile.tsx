@@ -20,6 +20,8 @@ import { formatCredits } from "@/lib/dateUtils";
 import { styles } from "./adminPlayersStyles";
 import { generateAttendanceReportPDF, StatItem, SkillBar } from "./AdminPlayerHelpers";
 import { AdminPlayer, AdminPlayerPackage, AdminPlayerSessionItem, AdminPlayerStats } from "./adminPlayerTypes";
+import { ScheduleExtraLessonModal } from "@/coach/components/players/ScheduleExtraLessonModal";
+import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 
 interface AdminInlinePlayerProfileProps {
   selectedPlayerId: string;
@@ -58,10 +60,26 @@ export function AdminInlinePlayerProfile({
   const [progressExpanded, setProgressExpanded] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [selectedSeriesFilter, setSelectedSeriesFilter] = useState<string | null>(null);
+  const [showScheduleExtraLesson, setShowScheduleExtraLesson] = useState(false);
+  const [extraLessonWizardConfig, setExtraLessonWizardConfig] = useState<
+    | { date: Date; sessionType: "private" | "semi_private" | "group" }
+    | null
+  >(null);
+  const [wizardCoachIdOverride, setWizardCoachIdOverride] = useState<string | undefined>(undefined);
 
   const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<AdminPlayerStats>({
     queryKey: ["/api/admin/players", selectedPlayerId, "stats"],
     enabled: !!selectedPlayerId,
+  });
+
+  // Coaches list for the Create Session wizard when launched in admin mode.
+  // The wizard requires this whenever adminMode is true so that the
+  // selectedCoachId can be resolved to a full coach record.
+  const { data: coachesList = [] } = useQuery<
+    { id: string; name: string; profilePhotoUrl?: string | null; color?: string | null }[]
+  >({
+    queryKey: ["/api/coaches"],
+    enabled: extraLessonWizardConfig !== null,
   });
 
   const { data: playerInvite, isLoading: inviteLoading } = useQuery<{ inviteCode?: string }>({
@@ -628,18 +646,30 @@ export function AdminInlinePlayerProfile({
                   <Text style={{ fontSize: 12, color: Colors.dark.textMuted, marginTop: 2 }}>{filteredSessions?.length || 0} sessions recorded</Text>
                 </View>
               </View>
-              <Pressable
-                onPress={() => {
-                  if (stats && selectedPlayer) {
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Pressable
+                  onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    generateAttendanceReportPDF(stats, selectedPlayer);
-                  }
-                }}
-                style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#FF0000", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 2, borderColor: "#FF0000" }}
-              >
-                <Ionicons name="download-outline" size={16} color="#FFFFFF" />
-                <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "700" }}>Report</Text>
-              </Pressable>
+                    setShowScheduleExtraLesson(true);
+                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: `${Colors.dark.xpCyan}15`, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: `${Colors.dark.xpCyan}40` }}
+                >
+                  <Ionicons name="calendar-outline" size={16} color={Colors.dark.xpCyan} />
+                  <Text style={{ color: Colors.dark.xpCyan, fontSize: 13, fontWeight: "700" }}>Schedule</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (stats && selectedPlayer) {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      generateAttendanceReportPDF(stats, selectedPlayer);
+                    }
+                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#FF0000", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 2, borderColor: "#FF0000" }}
+                >
+                  <Ionicons name="download-outline" size={16} color="#FFFFFF" />
+                  <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "700" }}>Report</Text>
+                </Pressable>
+              </View>
             </View>
             {uniqueSeries.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.seriesFilterContainer} contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm }}>
@@ -774,6 +804,52 @@ export function AdminInlinePlayerProfile({
           </Pressable>
         </>
       ) : null}
+
+      <ScheduleExtraLessonModal
+        visible={showScheduleExtraLesson}
+        onClose={() => setShowScheduleExtraLesson(false)}
+        playerId={selectedPlayerId}
+        playerName={playerStats?.player?.name || selectedPlayer?.name || "Player"}
+        coachId={selectedPlayer?.coachId || null}
+        adminMode={true}
+        onCreateNewLesson={(date, sessionType) => {
+          setShowScheduleExtraLesson(false);
+          setWizardCoachIdOverride(selectedPlayer?.coachId ?? undefined);
+          setExtraLessonWizardConfig({ date, sessionType });
+        }}
+      />
+
+      <CreateSessionWizard
+        visible={extraLessonWizardConfig !== null}
+        onClose={() => {
+          setExtraLessonWizardConfig(null);
+          setWizardCoachIdOverride(undefined);
+        }}
+        adminMode={true}
+        coaches={coachesList}
+        selectedCoachId={wizardCoachIdOverride}
+        onCoachIdChange={(coachId) => setWizardCoachIdOverride(coachId)}
+        initialDate={extraLessonWizardConfig?.date}
+        initialSessionType={extraLessonWizardConfig?.sessionType}
+        initialSchedulePattern="one-time"
+        initialPlayer={
+          playerStats?.player
+            ? {
+                id: playerStats.player.id,
+                name: playerStats.player.name,
+                email: playerStats.player.email ?? "",
+                ballLevel: playerStats.player.ballLevel,
+              }
+            : selectedPlayer
+              ? {
+                  id: selectedPlayer.id,
+                  name: selectedPlayer.name,
+                  email: selectedPlayer.email ?? "",
+                  ballLevel: selectedPlayer.ballLevel,
+                }
+              : undefined
+        }
+      />
     </ScrollView>
   );
 }

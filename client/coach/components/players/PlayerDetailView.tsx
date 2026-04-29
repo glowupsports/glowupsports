@@ -53,11 +53,11 @@ import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { JuniorAssessmentFlow } from "@/coach/components/JuniorAssessmentFlow";
 import { ActionSheet } from "@/components/ActionSheet";
+import { ScheduleExtraLessonModal } from "./ScheduleExtraLessonModal";
+import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import type { AssessmentResult as JuniorAssessmentResult } from "@/coach/components/JuniorAssessmentFlow";
 import { PlayerPaymentsSection } from "./PlayerPaymentsSection";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
-import { ScheduleExtraLessonModal } from "./ScheduleExtraLessonModal";
-import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 
 import * as Clipboard from "expo-clipboard";
 import { styles } from "./playersStyles";
@@ -432,7 +432,13 @@ export function PlayerDetailView({
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false);
   const [showScheduleExtraLesson, setShowScheduleExtraLesson] = useState(false);
-  const [createWizardInitialTime, setCreateWizardInitialTime] = useState<Date | null>(null);
+  const [extraLessonWizardConfig, setExtraLessonWizardConfig] = useState<
+    | {
+        date: Date;
+        sessionType: "private" | "semi_private" | "group";
+      }
+    | null
+  >(null);
 
   useEffect(() => {
     setLocalPlayer(player);
@@ -1930,7 +1936,7 @@ export function PlayerDetailView({
             id: "schedule-extra-lesson",
             label: "Schedule Extra Lesson",
             icon: "calendar-outline",
-            color: Colors.dark.successNeon,
+            color: Colors.dark.xpCyan,
             onPress: () => {
               setShowScheduleExtraLesson(true);
             },
@@ -2007,30 +2013,38 @@ export function PlayerDetailView({
         onClose={() => setShowScheduleExtraLesson(false)}
         playerId={player.id}
         playerName={localPlayer.name}
-        onCreateNewLesson={(date) => {
+        coachId={coach?.id}
+        onCreateNewLesson={(date, sessionType) => {
           setShowScheduleExtraLesson(false);
-          setCreateWizardInitialTime(date);
+          setExtraLessonWizardConfig({ date, sessionType });
         }}
       />
 
-      {createWizardInitialTime !== null && (
-        <CreateSessionWizard
-          visible
-          initialTime={createWizardInitialTime}
-          onClose={() => {
-            setCreateWizardInitialTime(null);
-            queryClient.invalidateQueries({
-              queryKey: [`/api/coach/players/${player.id}/attendance-history`],
-            });
-            queryClient.invalidateQueries({
-              queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
-            });
-            queryClient.invalidateQueries({
-              queryKey: [`/api/coach/calendar`],
-            });
-          }}
-        />
-      )}
+      <CreateSessionWizard
+        visible={extraLessonWizardConfig !== null}
+        onClose={() => {
+          setExtraLessonWizardConfig(null);
+          queryClient.invalidateQueries({
+            queryKey: [`/api/coach/players/${player.id}/attendance-history`],
+          });
+          queryClient.invalidateQueries({
+            queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
+          });
+          queryClient.invalidateQueries({
+            queryKey: [`/api/coach/calendar`],
+          });
+        }}
+        initialDate={extraLessonWizardConfig?.date}
+        initialSessionType={extraLessonWizardConfig?.sessionType}
+        initialSchedulePattern="one-time"
+        initialPlayer={{
+          id: player.id,
+          name: localPlayer.name,
+          email: localPlayer.email ?? "",
+          ballLevel: localPlayer.ballLevel,
+          skillLevel: localPlayer.skillLevel ? Number(localPlayer.skillLevel) : null,
+        }}
+      />
 
     </View>
   );

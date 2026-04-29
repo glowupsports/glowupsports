@@ -5,6 +5,7 @@ export type AdminPlayer = {
   phone?: string | null;
   ballLevel?: string;
   level?: number;
+  coachId?: string | null;
   coachName?: string;
   age?: number;
   dateOfBirth?: string;

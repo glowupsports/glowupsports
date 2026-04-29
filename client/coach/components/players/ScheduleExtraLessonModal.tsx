@@ -1,36 +1,28 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   Modal,
   Pressable,
-  ActivityIndicator,
   ScrollView,
+  ActivityIndicator,
+  StyleSheet,
   Alert,
-  Platform,
 } from "react-native";
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  Colors,
-  Spacing,
-  BorderRadius,
-  Typography,
-  FontSizes,
-} from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { apiRequest, apiFetch } from "@/lib/query-client";
+import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 
-type SessionType = "private" | "semi_private" | "group";
+type SessionTypeFilter = "private" | "semi_private" | "group";
 
-interface CalendarPlayer {
+interface CalendarSessionPlayer {
   id: string;
-  name: string;
+  name?: string | null;
   status?: string | null;
   attendanceStatus?: string | null;
   isGuest?: boolean;
@@ -41,58 +33,85 @@ interface CalendarSession {
   startTime: string;
   endTime: string;
   sessionType: string;
-  status: string;
+  courtId?: string | null;
+  courtName?: string | null;
   seriesId?: string | null;
+  seriesName?: string | null;
+  status?: string | null;
   maxPlayers?: number | null;
-  players?: CalendarPlayer[];
+  players?: CalendarSessionPlayer[];
 }
 
 interface CalendarResponse {
-  ownSessions: CalendarSession[];
+  ownSessions?: CalendarSession[];
 }
 
-interface Props {
+interface ScheduleExtraLessonModalProps {
   visible: boolean;
   onClose: () => void;
   playerId: string;
   playerName: string;
-  onCreateNewLesson: (date: Date, type: SessionType) => void;
+  coachId: string | null | undefined;
+  /**
+   * When true, the modal is being opened from an admin surface
+   * (AdminInlinePlayerProfile). The coach `/api/coach/series/:id/players`
+   * endpoint enforces `series.coachId === req.user.coachId` and will 403 for
+   * admin/academy_owner users, so admins must take the session-level path
+   * (`/api/coach/sessions/:id/players` is academy-scoped) and use the admin
+   * attendance endpoint for past-date credit processing.
+   */
+  adminMode?: boolean;
+  onCreateNewLesson: (date: Date, sessionType: SessionTypeFilter) => void;
 }
 
 const SESSION_TYPE_OPTIONS: {
-  value: SessionType;
+  value: SessionTypeFilter;
   label: string;
+  icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }[] = [
-  { value: "group", label: "Group", color: Colors.dark.orange },
-  { value: "private", label: "Private", color: Colors.dark.primary },
-  { value: "semi_private", label: "Semi", color: Colors.dark.xpCyan },
+  { value: "group", label: "Group", icon: "people", color: Colors.dark.xpCyan },
+  { value: "semi_private", label: "Semi", icon: "person-add", color: Colors.dark.gold },
+  { value: "private", label: "Private", icon: "person", color: Colors.dark.primary },
 ];
 
-function toDateOnlyString(d: Date) {
+function formatDateLocal(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
-function formatTimeHHMM(iso: string) {
-  const d = new Date(iso);
-  const h = d.getHours().toString().padStart(2, "0");
-  const m = d.getMinutes().toString().padStart(2, "0");
-  return `${h}:${m}`;
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
-function formatDateLabel(d: Date) {
-  return d.toLocaleDateString(undefined, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+function formatTimeRange(startIso: string, endIso: string): string {
+  const start = new Date(startIso);
+  const end = new Date(endIso);
+  const fmt = (d: Date) =>
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  return `${fmt(start)} – ${fmt(end)}`;
 }
 
-function normalizeType(raw: string): SessionType | null {
+function prettySessionType(type: string): string {
+  switch (type) {
+    case "group":
+      return "Group";
+    case "semi_private":
+      return "Semi-Private";
+    case "private":
+      return "Private";
+    default:
+      return type;
+  }
+}
+
+function normalizeType(raw: string): SessionTypeFilter | null {
   const t = (raw || "").toLowerCase();
   if (t === "group") return "group";
   if (t === "private") return "private";
@@ -105,115 +124,179 @@ export function ScheduleExtraLessonModal({
   onClose,
   playerId,
   playerName,
+  coachId,
+  adminMode = false,
   onCreateNewLesson,
-}: Props) {
+}: ScheduleExtraLessonModalProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const [date, setDate] = useState<Date>(new Date());
-  const [type, setType] = useState<SessionType>("group");
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [busySessionId, setBusySessionId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [sessionType, setSessionType] = useState<SessionTypeFilter>("group");
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
-      setDate(new Date());
-      setType("group");
-      setShowDatePicker(false);
-      setBusySessionId(null);
+      setSelectedDate(new Date());
+      setSessionType("group");
+      setPendingSessionId(null);
     }
   }, [visible]);
 
-  const dateStr = toDateOnlyString(date);
+  const dateParam = useMemo(() => formatDateLocal(selectedDate), [selectedDate]);
 
-  const { data, isLoading, isFetching, isError, refetch } =
-    useQuery<CalendarResponse>({
-      queryKey: [`/api/coach/calendar`, dateStr, "day"],
-      queryFn: async () => {
-        const r = await apiRequest(
-          "GET",
-          `/api/coach/calendar?date=${dateStr}&view=day`,
-        );
-        return r.json();
-      },
-      enabled: visible,
-      staleTime: 15_000,
-    });
+  const calendarQueryKey = useMemo(
+    () => [`/api/coach/calendar`, dateParam, "day", coachId ?? "self"],
+    [dateParam, coachId],
+  );
 
-  const matchingSessions = useMemo(() => {
-    const list = data?.ownSessions ?? [];
+  const { data: calendarData, isLoading: calendarLoading } = useQuery<CalendarResponse>({
+    queryKey: calendarQueryKey,
+    queryFn: async () => {
+      const params = new URLSearchParams({ date: dateParam, view: "day" });
+      if (coachId) params.set("coachId", coachId);
+      const res = await apiFetch(`/api/coach/calendar?${params.toString()}`);
+      if (!res.ok) {
+        throw new Error("Failed to load calendar");
+      }
+      return res.json();
+    },
+    enabled: visible,
+  });
+
+  const sessionsForDay = useMemo(() => {
+    const list = calendarData?.ownSessions ?? [];
     return list
-      .filter((s) => normalizeType(s.sessionType) === type)
+      .filter((s) => normalizeType(s.sessionType) === sessionType)
       .filter((s) => s.status !== "cancelled" && s.status !== "deleted")
-      .filter((s) => !(s.players ?? []).some((p) => p.id === playerId))
+      .filter((s) => {
+        const start = new Date(s.startTime);
+        return isSameDay(start, selectedDate);
+      })
       .sort(
         (a, b) =>
           new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
       );
-  }, [data, type, playerId]);
+  }, [calendarData, sessionType, selectedDate]);
 
   const isPastDay = useMemo(() => {
-    const end = new Date(date);
+    const end = new Date(selectedDate);
     end.setHours(23, 59, 59, 999);
     return end.getTime() < Date.now();
-  }, [date]);
+  }, [selectedDate]);
 
-  const addToSession = async (
-    session: CalendarSession,
-    skipCreditCheck: boolean,
-  ) => {
-    setBusySessionId(session.id);
-    try {
-      const res = await apiRequest(
-        "POST",
-        `/api/coach/sessions/${session.id}/players`,
-        {
-          playerId,
-          isGuest: false,
-          skipCreditCheck,
-        },
-      );
-      const json = await res.json();
+  const playerAlreadyInSession = (s: CalendarSession): boolean => {
+    return (s.players ?? []).some((p) => p.id === playerId);
+  };
 
-      if (json?.warning === "credit_mismatch") {
-        setBusySessionId(null);
-        const creditLabel = (json.requiredCreditType || type).replace(
-          "_",
-          "-",
+  const sessionIsFull = (s: CalendarSession): boolean => {
+    if (!s.maxPlayers) return false;
+    const activeCount = (s.players ?? []).filter(
+      (p) => p.status !== "left" && (p.attendanceStatus ?? null) !== "absent",
+    ).length;
+    return activeCount >= s.maxPlayers;
+  };
+
+  // Add-player path selection — picked so that, for past sessions, attendance
+  // is backfilled through code paths that actually run credit processing
+  // (markAttendance + ensureCreditProcessed), not just status updates.
+  //
+  //   COACH surface, past session in a series:
+  //     POST /api/coach/series/:seriesId/players
+  //          { playerId, attendedSessionIds:[sessionId] }
+  //     Reuses the existing series add-with-backfill flow, which inside its
+  //     loop calls storage.markAttendance + ensureCreditProcessed (see
+  //     server/routes/coaching-series.ts ~3038-3070). The new-player path of
+  //     that endpoint only enrolls the player into the explicit
+  //     attendedSessionIds — no other future sessions are touched.
+  //
+  //   COACH surface, future session OR session with no series:
+  //     POST /api/coach/sessions/:sessionId/players
+  //     Future sessions don't need credit processing at add time. One-off
+  //     past sessions (no seriesId) can't use the series flow, so the
+  //     normal completion flow handles credits later.
+  //
+  //   ADMIN surface (any case):
+  //     POST /api/coach/sessions/:sessionId/players  (academy-scoped, works
+  //         for admin/academy_owner; coach series endpoint enforces coachId
+  //         so admins would 403)
+  //     plus, if past:
+  //     POST /api/admin/sessions/:sessionId/attendance   { attendance:[…] }
+  //         which DOES call ensureCreditProcessed per record (see
+  //         server/routes/admin-series.ts ~1418-1443).
+  const addPlayerMutation = useMutation({
+    mutationFn: async (input: {
+      session: CalendarSession;
+      skipCreditCheck?: boolean;
+    }) => {
+      const { session, skipCreditCheck = false } = input;
+      const isPast = new Date(session.startTime).getTime() < Date.now();
+      const useCoachSeriesBackfill =
+        !adminMode && isPast && !!session.seriesId;
+
+      if (useCoachSeriesBackfill && session.seriesId) {
+        const seriesRes = await apiRequest(
+          "POST",
+          `/api/coach/series/${session.seriesId}/players`,
+          {
+            playerId,
+            attendedSessionIds: [session.id],
+            skipCreditCheck,
+          },
         );
-        Alert.alert(
-          "No matching credits",
-          `${playerName} has no ${creditLabel} credits. Add anyway? A debt will be recorded.`,
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Add anyway",
-              onPress: () => {
-                addToSession(session, true);
-              },
-            },
-          ],
-        );
-        return;
-      }
-
-      let attendanceFailed = false;
-      const sessionStartMs = new Date(session.startTime).getTime();
-      if (sessionStartMs < Date.now()) {
-        try {
-          await apiRequest(
-            "PATCH",
-            `/api/coach/players/${playerId}/sessions/${session.id}/attendance`,
-            { newStatus: "present" },
-          );
-        } catch (e) {
-          attendanceFailed = true;
-          console.warn(
-            "[ScheduleExtraLesson] Failed to mark attendance present",
-            e,
+        const seriesPayload = (await seriesRes.json().catch(() => ({}))) as {
+          warning?: string;
+          message?: string;
+          requiredCreditType?: string;
+        };
+        if (seriesPayload?.warning === "credit_mismatch" && !skipCreditCheck) {
+          throw Object.assign(
+            new Error(
+              seriesPayload.message ||
+                `Player has no ${seriesPayload.requiredCreditType ?? sessionType.replace("_", "-")} credits available`,
+            ),
+            { creditMismatch: true, session },
           );
         }
+        return seriesPayload;
       }
 
+      const addRes = await apiRequest(
+        "POST",
+        `/api/coach/sessions/${session.id}/players`,
+        { playerId, isGuest: false, skipCreditCheck },
+      );
+      const addPayload = (await addRes.json().catch(() => ({}))) as {
+        warning?: string;
+        message?: string;
+        requiredCreditType?: string;
+      };
+
+      if (addPayload?.warning === "credit_mismatch" && !skipCreditCheck) {
+        throw Object.assign(
+          new Error(
+            addPayload.message ||
+              `Player has no ${addPayload.requiredCreditType ?? sessionType.replace("_", "-")} credits available`,
+          ),
+          { creditMismatch: true, session },
+        );
+      }
+
+      if (adminMode && isPast) {
+        await apiRequest(
+          "POST",
+          `/api/admin/sessions/${session.id}/attendance`,
+          {
+            attendance: [{ playerId, status: "present" }],
+          },
+        );
+      }
+
+      return addPayload;
+    },
+    onMutate: ({ session }) => {
+      setPendingSessionId(session.id);
+    },
+    onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({
         queryKey: [`/api/coach/players/${playerId}/attendance-history`],
@@ -228,134 +311,142 @@ export function ScheduleExtraLessonModal({
         queryKey: [`/api/players/${playerId}/credit-balance`],
       });
       queryClient.invalidateQueries({
-        queryKey: [`/api/coach/calendar`],
+        queryKey: ["/api/admin/players", playerId, "stats"],
       });
-
-      const timeLabel = formatTimeHHMM(session.startTime);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      setPendingSessionId(null);
       onClose();
-      setTimeout(() => {
-        if (attendanceFailed) {
-          Alert.alert(
-            "Added — but attendance not marked",
-            `${playerName} was added to the ${timeLabel} session on ${formatDateLabel(date)}, but marking them present failed. Open the session to set attendance manually.`,
-          );
-        } else {
-          Alert.alert(
-            "Lesson added",
-            `${playerName} added to the ${timeLabel} ${type === "semi_private" ? "semi" : type} session on ${formatDateLabel(date)}.`,
-          );
-        }
-      }, 300);
-    } catch (err: any) {
+    },
+    onError: (err: Error & { creditMismatch?: boolean; session?: CalendarSession }) => {
+      setPendingSessionId(null);
+      if (err?.creditMismatch && err.session) {
+        const creditLabel = sessionType.replace("_", "-");
+        Alert.alert(
+          "No matching credits",
+          `${playerName} has no ${creditLabel} credits. Add anyway? A debt will be recorded.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Add anyway",
+              onPress: () => {
+                addPlayerMutation.mutate({
+                  session: err.session as CalendarSession,
+                  skipCreditCheck: true,
+                });
+              },
+            },
+          ],
+        );
+        return;
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        "Could not add player",
-        err?.message || "Please try again.",
+        "Couldn't add player",
+        err?.message || "Failed to schedule the extra lesson. Please try again.",
       );
-      setBusySessionId(null);
-    }
-  };
+    },
+  });
 
-  const handleDateChange = (event: DateTimePickerEvent, picked?: Date) => {
-    if (Platform.OS === "android") setShowDatePicker(false);
-    if (event.type === "dismissed") return;
-    if (picked) setDate(picked);
+  const handleSelectSession = (session: CalendarSession) => {
+    if (addPlayerMutation.isPending) return;
+    if (playerAlreadyInSession(session)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
+    if (sessionIsFull(session)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert("Session full", "This session has reached its capacity.");
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    addPlayerMutation.mutate({ session });
   };
 
   const handleCreateNew = () => {
-    onClose();
-    setTimeout(() => onCreateNewLesson(date, type), 200);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onCreateNewLesson(selectedDate, sessionType);
   };
 
   return (
     <Modal
       visible={visible}
-      transparent
       animationType="slide"
+      presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <View style={modalStyles.root}>
+        <LinearGradient
+          colors={["rgba(0,224,255,0.12)", "transparent"]}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, height: 160 }}
+        />
         <View
           style={[
-            styles.sheet,
-            { paddingBottom: Math.max(insets.bottom, Spacing.lg) },
+            modalStyles.header,
+            { paddingTop: insets.top > 0 ? Spacing.md : Spacing.lg },
           ]}
         >
-          <View style={styles.handle} />
-          <View style={styles.header}>
-            <Text style={styles.title}>Schedule Extra Lesson</Text>
-            <Pressable
-              onPress={onClose}
-              hitSlop={12}
-              style={styles.closeButton}
-            >
-              <Ionicons name="close" size={22} color={Colors.dark.text} />
-            </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={modalStyles.headerTitle}>Schedule Extra Lesson</Text>
+            <Text style={modalStyles.headerSubtitle} numberOfLines={1}>
+              {playerName}
+            </Text>
           </View>
-          <Text style={styles.subtitle}>
-            Add {playerName} to a session on the chosen date.
-          </Text>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            style={modalStyles.closeBtn}
+          >
+            <Ionicons name="close" size={22} color={Colors.dark.text} />
+          </Pressable>
+        </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Date</Text>
-            <Pressable
-              style={styles.datePill}
-              onPress={() => setShowDatePicker((s) => !s)}
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={18}
-                color={Colors.dark.text}
-              />
-              <Text style={styles.datePillText}>{formatDateLabel(date)}</Text>
-              <Ionicons
-                name="chevron-down"
-                size={16}
-                color={Colors.dark.tabIconDefault}
-              />
-            </Pressable>
-            {showDatePicker && (
-              <View style={styles.pickerWrap}>
-                <DateTimePicker
-                  value={date}
-                  mode="date"
-                  display={Platform.OS === "ios" ? "inline" : "default"}
-                  onChange={handleDateChange}
-                  themeVariant="dark"
-                />
-                {Platform.OS === "ios" && (
-                  <Pressable
-                    style={styles.pickerDone}
-                    onPress={() => setShowDatePicker(false)}
-                  >
-                    <Text style={styles.pickerDoneText}>Done</Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: Spacing.lg,
+            paddingBottom: insets.bottom + Spacing.xl,
+            gap: Spacing.lg,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={modalStyles.card}>
+            <Text style={modalStyles.cardLabel}>Date</Text>
+            <WebCalendarPicker
+              value={selectedDate}
+              onChange={(d) => {
+                Haptics.selectionAsync();
+                setSelectedDate(d);
+              }}
+            />
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Type</Text>
-            <View style={styles.typeRow}>
+          <View style={modalStyles.card}>
+            <Text style={modalStyles.cardLabel}>Session Type</Text>
+            <View style={modalStyles.typeRow}>
               {SESSION_TYPE_OPTIONS.map((opt) => {
-                const active = opt.value === type;
+                const active = sessionType === opt.value;
                 return (
                   <Pressable
                     key={opt.value}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setSessionType(opt.value);
+                    }}
                     style={[
-                      styles.typeChip,
+                      modalStyles.typeChip,
                       active && {
-                        backgroundColor: opt.color + "26",
+                        backgroundColor: `${opt.color}22`,
                         borderColor: opt.color,
                       },
                     ]}
-                    onPress={() => setType(opt.value)}
                   >
+                    <Ionicons
+                      name={opt.icon}
+                      size={16}
+                      color={active ? opt.color : Colors.dark.textMuted}
+                    />
                     <Text
                       style={[
-                        styles.typeChipText,
+                        modalStyles.typeChipLabel,
                         active && { color: opt.color },
                       ]}
                     >
@@ -367,238 +458,183 @@ export function ScheduleExtraLessonModal({
             </View>
           </View>
 
-          <View style={[styles.section, styles.sessionsSection]}>
-            <Text style={styles.sectionLabel}>
-              {isLoading || isFetching
-                ? "Looking up sessions…"
-                : isError
-                  ? "Couldn't load sessions"
-                  : matchingSessions.length > 0
-                    ? `Sessions on ${formatDateLabel(date)}`
-                    : "No matching sessions"}
-            </Text>
-            {isLoading ? (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator color={Colors.dark.primary} />
-              </View>
-            ) : isError ? (
-              <View style={styles.emptyBox}>
-                <Ionicons
-                  name="cloud-offline-outline"
-                  size={32}
-                  color={Colors.dark.tabIconDefault}
-                />
-                <Text style={styles.emptyText}>
-                  Couldn&apos;t load sessions for this date.
-                </Text>
-                <Pressable
-                  style={styles.createNewButton}
-                  onPress={() => refetch()}
-                >
-                  <Ionicons name="refresh" size={18} color="#000" />
-                  <Text style={styles.createNewButtonText}>Try again</Text>
-                </Pressable>
-              </View>
-            ) : matchingSessions.length === 0 ? (
-              <View style={styles.emptyBox}>
+          <View style={modalStyles.card}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: Spacing.sm,
+              }}
+            >
+              <Text style={modalStyles.cardLabel}>
+                {prettySessionType(sessionType)} sessions on this day
+              </Text>
+              {calendarLoading ? (
+                <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+              ) : null}
+            </View>
+
+            {!calendarLoading && sessionsForDay.length === 0 ? (
+              <View style={modalStyles.emptyBlock}>
                 <Ionicons
                   name="calendar-outline"
-                  size={32}
-                  color={Colors.dark.tabIconDefault}
+                  size={28}
+                  color={Colors.dark.textMuted}
                 />
-                <Text style={styles.emptyText}>
-                  No {type === "semi_private" ? "semi" : type} session on this
-                  date.
+                <Text style={modalStyles.emptyText}>
+                  No {prettySessionType(sessionType).toLowerCase()} sessions on
+                  this date.
                 </Text>
-                <Pressable
-                  style={styles.createNewButton}
-                  onPress={handleCreateNew}
-                >
-                  <Ionicons name="add" size={18} color="#000" />
-                  <Text style={styles.createNewButtonText}>
-                    Create new lesson
-                  </Text>
-                </Pressable>
               </View>
-            ) : (
-              <ScrollView
-                style={styles.sessionsList}
-                contentContainerStyle={{ paddingBottom: Spacing.md }}
-              >
-                {matchingSessions.map((s) => {
-                  const players = s.players ?? [];
-                  const activeCount = players.filter(
-                    (p) =>
-                      p.status !== "left" && (p.attendanceStatus ?? null) !==
-                      "absent",
-                  ).length;
-                  const max = s.maxPlayers ?? null;
-                  const isFull = max != null && activeCount >= max;
-                  const isBusy = busySessionId === s.id;
-                  const disabled = isBusy || busySessionId !== null || isFull;
-                  return (
-                    <Pressable
-                      key={s.id}
-                      style={[
-                        styles.sessionCard,
-                        (isBusy || isFull) && { opacity: 0.5 },
-                      ]}
-                      disabled={disabled}
-                      onPress={() => addToSession(s, false)}
-                    >
-                      <View style={styles.sessionTimeBox}>
-                        <Text style={styles.sessionTimeText}>
-                          {formatTimeHHMM(s.startTime)}
-                        </Text>
-                        <Text style={styles.sessionTimeSep}>–</Text>
-                        <Text style={styles.sessionTimeText}>
-                          {formatTimeHHMM(s.endTime)}
-                        </Text>
-                      </View>
-                      <View style={styles.sessionInfo}>
-                        <Text style={styles.sessionTypeLabel}>
-                          {s.sessionType.replace("_", " ")}
-                        </Text>
-                        <Text style={styles.sessionPlayerCount}>
-                          {activeCount}
-                          {max ? ` / ${max}` : ""} players
-                          {isFull ? " · Full" : ""}
-                        </Text>
-                      </View>
-                      {isBusy ? (
-                        <ActivityIndicator color={Colors.dark.primary} />
-                      ) : isFull ? (
-                        <Ionicons
-                          name="lock-closed"
-                          size={22}
-                          color={Colors.dark.tabIconDefault}
-                        />
-                      ) : (
-                        <Ionicons
-                          name="add-circle"
-                          size={26}
-                          color={Colors.dark.primary}
-                        />
-                      )}
-                    </Pressable>
-                  );
-                })}
+            ) : null}
+
+            {sessionsForDay.map((session) => {
+              const enrolled = playerAlreadyInSession(session);
+              const full = sessionIsFull(session);
+              const playersCount = (session.players ?? []).filter(
+                (p) => p.status !== "left",
+              ).length;
+              const isSubmitting =
+                addPlayerMutation.isPending && pendingSessionId === session.id;
+              return (
                 <Pressable
-                  style={styles.createNewSecondary}
-                  onPress={handleCreateNew}
-                  disabled={busySessionId !== null}
+                  key={session.id}
+                  onPress={() => handleSelectSession(session)}
+                  disabled={enrolled || full || addPlayerMutation.isPending}
+                  style={({ pressed }) => [
+                    modalStyles.sessionRow,
+                    pressed && !enrolled && !full && { opacity: 0.7 },
+                    (enrolled || full) && { opacity: 0.55 },
+                  ]}
                 >
-                  <Ionicons
-                    name="add"
-                    size={18}
-                    color={Colors.dark.primary}
-                  />
-                  <Text style={styles.createNewSecondaryText}>
-                    Or create a new lesson on this date
-                  </Text>
+                  <View style={modalStyles.sessionTimeBlock}>
+                    <Ionicons
+                      name="time-outline"
+                      size={16}
+                      color={Colors.dark.xpCyan}
+                    />
+                    <Text style={modalStyles.sessionTime}>
+                      {formatTimeRange(session.startTime, session.endTime)}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={modalStyles.sessionTitle} numberOfLines={1}>
+                      {session.seriesName ||
+                        prettySessionType(session.sessionType)}
+                    </Text>
+                    <Text style={modalStyles.sessionMeta} numberOfLines={1}>
+                      {playersCount}
+                      {session.maxPlayers ? ` / ${session.maxPlayers}` : ""}{" "}
+                      players
+                      {full ? " · Full" : ""}
+                      {session.courtName ? ` · ${session.courtName}` : ""}
+                    </Text>
+                  </View>
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  ) : enrolled ? (
+                    <View style={modalStyles.enrolledBadge}>
+                      <Ionicons
+                        name="checkmark"
+                        size={14}
+                        color={Colors.dark.successNeon}
+                      />
+                      <Text style={modalStyles.enrolledText}>Enrolled</Text>
+                    </View>
+                  ) : full ? (
+                    <Ionicons
+                      name="lock-closed"
+                      size={22}
+                      color={Colors.dark.textMuted}
+                    />
+                  ) : (
+                    <Ionicons
+                      name="add-circle"
+                      size={26}
+                      color={Colors.dark.xpCyan}
+                    />
+                  )}
                 </Pressable>
-              </ScrollView>
-            )}
-            {isPastDay && matchingSessions.length > 0 && (
-              <Text style={styles.pastNote}>
+              );
+            })}
+
+            {sessionsForDay.length === 0 && !calendarLoading ? (
+              <Pressable
+                onPress={handleCreateNew}
+                disabled={addPlayerMutation.isPending}
+                style={({ pressed }) => [
+                  modalStyles.createNewBtn,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Ionicons
+                  name="add-circle-outline"
+                  size={20}
+                  color={Colors.dark.primary}
+                />
+                <Text style={modalStyles.createNewText}>
+                  Create new lesson on this date
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {isPastDay && sessionsForDay.length > 0 ? (
+              <Text style={modalStyles.pastNote}>
                 Past date — added players will be marked Present.
               </Text>
-            )}
+            ) : null}
           </View>
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
+const modalStyles = StyleSheet.create({
+  root: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    maxHeight: "92%",
-  },
-  handle: {
-    alignSelf: "center",
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.dark.tabIconDefault,
-    opacity: 0.5,
-    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.background,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    gap: Spacing.md,
   },
-  title: {
+  headerTitle: {
     color: Colors.dark.text,
-    fontSize: FontSizes.xl,
-    fontFamily: Typography.bold,
+    fontSize: 20,
+    fontWeight: "700" as const,
   },
-  closeButton: {
-    padding: Spacing.xs,
-  },
-  subtitle: {
-    color: Colors.dark.tabIconDefault,
-    fontSize: FontSizes.sm,
+  headerSubtitle: {
+    color: Colors.dark.textMuted,
+    fontSize: 13,
     marginTop: 2,
-    marginBottom: Spacing.md,
   },
-  section: {
-    marginBottom: Spacing.md,
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  sessionsSection: {
-    flexShrink: 1,
+  card: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    padding: Spacing.md,
+    gap: Spacing.sm,
   },
-  sectionLabel: {
-    color: Colors.dark.tabIconDefault,
-    fontSize: FontSizes.xs,
-    fontFamily: Typography.medium,
+  cardLabel: {
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+    fontWeight: "600" as const,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginBottom: Spacing.xs,
-  },
-  datePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    borderWidth: 1,
-    borderColor: Colors.dark.tabIconDefault + "40",
-  },
-  datePillText: {
-    flex: 1,
-    color: Colors.dark.text,
-    fontSize: FontSizes.md,
-    fontFamily: Typography.medium,
-  },
-  pickerWrap: {
-    marginTop: Spacing.sm,
-    backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: BorderRadius.lg,
-    padding: Platform.OS === "ios" ? Spacing.sm : 0,
-  },
-  pickerDone: {
-    alignSelf: "flex-end",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  pickerDoneText: {
-    color: Colors.dark.primary,
-    fontSize: FontSizes.md,
-    fontFamily: Typography.bold,
   },
   typeRow: {
     flexDirection: "row",
@@ -606,110 +642,101 @@ const styles = StyleSheet.create({
   },
   typeChip: {
     flex: 1,
-    paddingVertical: Spacing.sm + 2,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.backgroundRoot,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
-    borderColor: Colors.dark.tabIconDefault + "30",
-    alignItems: "center",
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.03)",
   },
-  typeChipText: {
+  typeChipLabel: {
+    color: Colors.dark.textMuted,
+    fontSize: 13,
+    fontWeight: "600" as const,
+  },
+  sessionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "rgba(0,224,255,0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(0,224,255,0.12)",
+    marginBottom: Spacing.xs,
+  },
+  sessionTimeBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    minWidth: 110,
+  },
+  sessionTime: {
     color: Colors.dark.text,
-    fontSize: FontSizes.sm,
-    fontFamily: Typography.medium,
+    fontSize: 13,
+    fontWeight: "600" as const,
   },
-  sessionsList: {
-    maxHeight: 320,
+  sessionTitle: {
+    color: Colors.dark.text,
+    fontSize: 14,
+    fontWeight: "600" as const,
   },
-  loadingBox: {
-    paddingVertical: Spacing.xl,
+  sessionMeta: {
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  enrolledBadge: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: `${Colors.dark.successNeon}15`,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.successNeon}30`,
   },
-  emptyBox: {
+  enrolledText: {
+    color: Colors.dark.successNeon,
+    fontSize: 11,
+    fontWeight: "600" as const,
+  },
+  createNewBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: `${Colors.dark.primary}12`,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}40`,
+    borderStyle: "dashed",
+  },
+  createNewText: {
+    color: Colors.dark.primary,
+    fontSize: 14,
+    fontWeight: "700" as const,
+  },
+  emptyBlock: {
     paddingVertical: Spacing.xl,
     alignItems: "center",
     gap: Spacing.sm,
   },
   emptyText: {
-    color: Colors.dark.tabIconDefault,
-    fontSize: FontSizes.sm,
+    color: Colors.dark.textMuted,
+    fontSize: 13,
     textAlign: "center",
   },
-  createNewButton: {
-    marginTop: Spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    backgroundColor: Colors.dark.primary,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm + 2,
-    borderRadius: BorderRadius.lg,
-  },
-  createNewButtonText: {
-    color: "#000",
-    fontSize: FontSizes.md,
-    fontFamily: Typography.bold,
-  },
-  createNewSecondary: {
-    marginTop: Spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm + 2,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "60",
-  },
-  createNewSecondaryText: {
-    color: Colors.dark.primary,
-    fontSize: FontSizes.sm,
-    fontFamily: Typography.medium,
-  },
-  sessionCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    backgroundColor: Colors.dark.backgroundRoot,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.dark.tabIconDefault + "20",
-  },
-  sessionTimeBox: {
-    alignItems: "center",
-    minWidth: 56,
-  },
-  sessionTimeText: {
-    color: Colors.dark.text,
-    fontSize: FontSizes.sm,
-    fontFamily: Typography.bold,
-  },
-  sessionTimeSep: {
-    color: Colors.dark.tabIconDefault,
-    fontSize: FontSizes.xs,
-    marginVertical: 1,
-  },
-  sessionInfo: {
-    flex: 1,
-  },
-  sessionTypeLabel: {
-    color: Colors.dark.text,
-    fontSize: FontSizes.md,
-    fontFamily: Typography.medium,
-    textTransform: "capitalize",
-  },
-  sessionPlayerCount: {
-    color: Colors.dark.tabIconDefault,
-    fontSize: FontSizes.xs,
-    marginTop: 2,
-  },
   pastNote: {
-    color: Colors.dark.tabIconDefault,
-    fontSize: FontSizes.xs,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
     fontStyle: "italic",
     marginTop: Spacing.sm,
     textAlign: "center",
