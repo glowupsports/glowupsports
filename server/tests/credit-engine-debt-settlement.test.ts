@@ -151,7 +151,9 @@ function extractParams(q: any): unknown[] {
 const fakeDb = new FakeDb();
 vi.mock("../db", () => ({ db: fakeDb }));
 
-const { purchasePackage } = await import("../services/credit-engine");
+const { purchasePackage, awardMakeupCredit, manualAdjustment } = await import(
+  "../services/credit-engine"
+);
 
 beforeEach(() => {
   fakeDb.ledger.clear();
@@ -291,5 +293,200 @@ describe("purchasePackage debt settlement (Task #1443)", () => {
     // The pre-existing -7 isn't in our test's ledger map (it pre-existed).
     expect(wallet).toBe(-2);
     expect(ledgerSum).toBe(5);
+  });
+});
+
+describe("awardMakeupCredit debt settlement (Task #1443)", () => {
+  const PLAYER = "pl-2";
+  const ACADEMY = "ac-1";
+
+  it("does NOT write a settlement row when the player has no debt", async () => {
+    fakeDb.balances.set(fakeDb.bkey(PLAYER, ACADEMY, "group"), 2);
+    const r = await awardMakeupCredit({
+      playerId: PLAYER,
+      academyId: ACADEMY,
+      type: "group",
+      qty: 1,
+      eventKey: "makeup:test:positive",
+      actorId: "coach-1",
+    });
+    expect(r.ok).toBe(true);
+    expect(r.newBalance).toBe(3);
+    expect(fakeDb.ledger.has("makeup:test:positive")).toBe(true);
+    expect(fakeDb.ledger.has("makeup:test:positive:settle")).toBe(false);
+  });
+
+  it("writes a settlement audit row (delta=0, lotConsumptions=[]) when player is in debt", async () => {
+    fakeDb.balances.set(fakeDb.bkey(PLAYER, ACADEMY, "group"), -3);
+    const r = await awardMakeupCredit({
+      playerId: PLAYER,
+      academyId: ACADEMY,
+      type: "group",
+      qty: 1,
+      eventKey: "makeup:test:debt",
+      actorId: "coach-1",
+    });
+    expect(r.ok).toBe(true);
+    // wallet -3 + 1 = -2 (still in debt, but reduced by 1)
+    expect(r.newBalance).toBe(-2);
+    const settle = fakeDb.ledger.get("makeup:test:debt:settle");
+    expect(settle).toBeDefined();
+    expect(settle!.delta).toBe(0);
+    expect(settle!.reason).toBe("consume_debt_settlement");
+    expect(settle!.metadata.settleAmount).toBe(1);
+    expect(settle!.metadata.preBalance).toBe(-3);
+    expect(settle!.metadata.grantReason).toBe("makeup");
+    // Make-up grants don't create lots ⇒ empty lotConsumptions array.
+    expect(settle!.metadata.lotConsumptions).toEqual([]);
+    // No lot side-effect.
+    expect(fakeDb.lots.size).toBe(0);
+  });
+});
+
+describe("manualAdjustment debt settlement (Task #1443)", () => {
+  const PLAYER = "pl-3";
+  const ACADEMY = "ac-1";
+
+  it("does NOT write a settlement row when the player has no debt", async () => {
+    fakeDb.balances.set(fakeDb.bkey(PLAYER, ACADEMY, "group"), 0);
+    const r = await manualAdjustment({
+      playerId: PLAYER,
+      academyId: ACADEMY,
+      type: "group",
+      delta: 2,
+      reason: "promo",
+      actorId: "admin-1",
+      eventKey: "manual:test:positive",
+    });
+    expect(r.ok).toBe(true);
+    expect(r.newBalance).toBe(2);
+    expect(fakeDb.ledger.has("manual:test:positive:settle")).toBe(false);
+  });
+
+  it("writes a settlement audit row when positive delta lands on a negative wallet", async () => {
+    fakeDb.balances.set(fakeDb.bkey(PLAYER, ACADEMY, "group"), -5);
+    const r = await manualAdjustment({
+      playerId: PLAYER,
+      academyId: ACADEMY,
+      type: "group",
+      delta: 3,
+      reason: "goodwill",
+      actorId: "admin-1",
+      eventKey: "manual:test:debt",
+    });
+    expect(r.ok).toBe(true);
+    expect(r.newBalance).toBe(-2);
+    const settle = fakeDb.ledger.get("manual:test:debt:settle");
+    expect(settle).toBeDefined();
+    expect(settle!.delta).toBe(0);
+    expect(settle!.reason).toBe("consume_debt_settlement");
+    expect(settle!.metadata.settleAmount).toBe(3);
+    expect(settle!.metadata.preBalance).toBe(-5);
+    expect(settle!.metadata.lotConsumptions).toEqual([]);
+    expect(fakeDb.lots.size).toBe(0);
+  });
+
+  it("does NOT write a settlement row for a NEGATIVE manual adjustment", async () => {
+    fakeDb.balances.set(fakeDb.bkey(PLAYER, ACADEMY, "group"), -5);
+    const r = await manualAdjustment({
+      playerId: PLAYER,
+      academyId: ACADEMY,
+      type: "group",
+      delta: -1,
+      reason: "removal",
+      actorId: "admin-1",
+      eventKey: "manual:test:negative",
+      allowOverdraw: true,
+    });
+    expect(r.ok).toBe(true);
+    expect(r.newBalance).toBe(-6);
+    expect(fakeDb.ledger.has("manual:test:negative:settle")).toBe(false);
+  });
+
+  it("does NOT write a settlement row for refund-shaped manual adjustments", async () => {
+    fakeDb.balances.set(fakeDb.bkey(PLAYER, ACADEMY, "group"), -2);
+    const r = await manualAdjustment({
+      playerId: PLAYER,
+      academyId: ACADEMY,
+      type: "group",
+      delta: 1,
+      reason: "session refund",
+      actorId: "admin-1",
+      ledgerReason: "refund_cancelled_session",
+      eventKey: "manual:test:refund",
+    });
+    expect(r.ok).toBe(true);
+    expect(r.newBalance).toBe(-1);
+    // Refunds restore credit, they aren't new grant intent — settlement
+    // semantics don't apply.
+    expect(fakeDb.ledger.has("manual:test:refund:settle")).toBe(false);
+  });
+});
+
+// Idempotency contract for the operational scripts. We intentionally test
+// the SOURCE of the scripts here rather than spinning up a real Postgres,
+// so a refactor that drops the deterministic event_key + ON CONFLICT
+// pattern fails CI immediately. A real-Postgres integration test for the
+// scripts is tracked as a follow-up (#1445).
+describe("Task #1443 operational scripts — idempotency contract", () => {
+  it("undo script uses a deterministic event_key + ON CONFLICT DO NOTHING", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(
+      "server/scripts/undo-task-1332-writeoffs.ts",
+      "utf8",
+    );
+    expect(src).toMatch(
+      /task-1332-undo-writeoff:\$\{w\.player_id\}:\$\{w\.academy_id\}:\$\{w\.type\}/,
+    );
+    expect(src).toMatch(/ON CONFLICT \(event_key\) DO NOTHING/);
+    // Wallet only updated when the reversal row was actually inserted.
+    expect(src).toMatch(/if \(inserted === 0\)/);
+    // Per-player diff output (architect-required reporting).
+    expect(src).toMatch(/Per-player diff/);
+    expect(src).toMatch(/walletBefore/);
+    expect(src).toMatch(/walletAfter/);
+  });
+
+  it("backfill script gates on a deterministic settle event_key + ON CONFLICT DO NOTHING", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(
+      "server/scripts/backfill-debt-settlement.ts",
+      "utf8",
+    );
+    // Deterministic per-lot settle key — one row per lot, so reruns are
+    // a no-op via the unique event_key index.
+    expect(src).toMatch(/settle:lot:/);
+    expect(src).toMatch(/ON CONFLICT \(event_key\) DO NOTHING/);
+    // Precondition guard against running before undo finishes.
+    expect(src).toMatch(/task-1332-debt-writeoff:/);
+    expect(src).toMatch(/ignore-pending-writeoffs/);
+  });
+
+  it("backfill script skips lots already settled by the engine fix (no double-settle)", async () => {
+    // Architect-flagged regression guard. Post-engine-fix purchases carry
+    // their own `${purchaseEventKey}:settle` ledger row + an already-decremented
+    // lot. The backfill must detect that and NOT plan another settlement
+    // for the same lot — otherwise it would (a) write a second settlement
+    // row under the `settle:lot:<lotId>` key (different namespace, so
+    // ON CONFLICT does not catch it) and (b) decrement
+    // `credit_lots.qty_remaining` a second time.
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(
+      "server/scripts/backfill-debt-settlement.ts",
+      "utf8",
+    );
+    // Pre-scan for already-settled lots is built before the replay loop.
+    expect(src).toMatch(/lotsAlreadySettled/);
+    // The pre-scan must look for `consume_debt_settlement` rows.
+    expect(src.match(/consume_debt_settlement/g)?.length ?? 0).toBeGreaterThan(
+      1,
+    );
+    // The replay loop must short-circuit BEFORE adding to `planned` for
+    // lots that are already settled.
+    expect(src).toMatch(/if \(lotsAlreadySettled\.has\(lot\.id\)\) continue;/);
+    // The pre-scan must also harvest lot ids from `metadata.lotConsumptions`
+    // — that is what carries the lot reference for prior backfill rows
+    // that wrote `settle:lot:<lotId>`.
+    expect(src).toMatch(/lotConsumptions/);
   });
 });

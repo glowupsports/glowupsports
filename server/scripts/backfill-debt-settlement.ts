@@ -264,6 +264,35 @@ async function main() {
     }));
 
     // -------------------------------------------------------------------
+    // Pre-scan: which lots ALREADY have a `consume_debt_settlement` row
+    // in the ledger? Two sources can produce one:
+    //   - the engine fix (purchasePackage), with event_key
+    //     `${purchaseEventKey}:settle` and lot_id set on the row.
+    //   - a prior run of THIS backfill, with event_key
+    //     `settle:lot:<lotId>` and lot_id set on the row.
+    //
+    // For any lot already in this set, we must NOT generate a new planned
+    // entry — doing so would (a) write an additional settlement row under
+    // a different event_key namespace and (b) decrement
+    // `credit_lots.qty_remaining` a second time. The replay loop also
+    // skips the per-purchase decrement for these lots; the existing
+    // `consume_debt_settlement` row's `metadata.lotConsumptions` will
+    // apply the decrement to `replay[]` when we walk it, so FIFO state
+    // for downstream consumes stays correct.
+    // -------------------------------------------------------------------
+    const lotsAlreadySettled = new Set<string>();
+    for (const row of ledger) {
+      if (row.reason !== "consume_debt_settlement") continue;
+      if (row.lot_id) lotsAlreadySettled.add(row.lot_id);
+      const lc = (row.metadata?.lotConsumptions as
+        | { lotId: string; qty: number }[]
+        | undefined) ?? null;
+      if (lc && Array.isArray(lc)) {
+        for (const r of lc) lotsAlreadySettled.add(r.lotId);
+      }
+    }
+
+    // -------------------------------------------------------------------
     // FIFO replay with the purchase-time settlement fix applied. We track
     // each lot's `replayed_qty_remaining` separately from its current DB
     // value so we can compare at the end.
@@ -282,6 +311,12 @@ async function main() {
         const lot = lotById.get(row.lot_id);
         if (!lot) continue;
         if (preBalance < 0) {
+          // If this lot already has a settlement row in the ledger, the
+          // engine (or a prior backfill) has already handled it. Leave
+          // `replay[lot]` unchanged here — the settlement row, processed
+          // below, will apply its own decrement, so the FIFO state stays
+          // consistent for downstream consumes. Do NOT add to `planned`.
+          if (lotsAlreadySettled.has(lot.id)) continue;
           const settleAmount = Math.min(row.delta, -preBalance);
           const cur = replay.get(lot.id) ?? lot.qty_total;
           const after = Math.max(0, cur - settleAmount);

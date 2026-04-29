@@ -139,6 +139,21 @@ async function main() {
   console.log(`\nApplying reversals...`);
   let writtenRows = 0;
   let walletsUpdated = 0;
+  // Per-player diff log: walletBefore is the snapshot taken inside the tx
+  // BEFORE the reversal row is written (so it reflects what the operator
+  // would have seen had they queried the wallet a moment earlier);
+  // walletAfter is the canonical SUM(ledger.delta) after the reversal;
+  // restored is the absolute value of the original write-off delta.
+  interface PlayerDiff {
+    playerId: string;
+    academyId: string;
+    type: string;
+    walletBefore: number;
+    walletAfter: number;
+    restored: number;
+    skipped: boolean;
+  }
+  const diffs: PlayerDiff[] = [];
 
   // Process each writeoff in its own transaction so a single failure doesn't
   // leave the script half-applied. Idempotent via deterministic event_key.
@@ -191,6 +206,15 @@ async function main() {
       const inserted = (ins as unknown as { rowCount?: number }).rowCount ?? 0;
       if (inserted === 0) {
         // Already reversed — nothing to do for this row, do not touch wallet.
+        diffs.push({
+          playerId: w.player_id,
+          academyId: w.academy_id,
+          type: w.type,
+          walletBefore: currentBal,
+          walletAfter: currentBal,
+          restored: -Number(w.delta),
+          skipped: true,
+        });
         return;
       }
       writtenRows += 1;
@@ -212,7 +236,35 @@ async function main() {
           AND type = ${w.type}
       `);
       walletsUpdated += 1;
+      diffs.push({
+        playerId: w.player_id,
+        academyId: w.academy_id,
+        type: w.type,
+        walletBefore: currentBal,
+        walletAfter: canonical,
+        restored: restoreAmount,
+        skipped: false,
+      });
     });
+  }
+
+  // Per-player diff: one line per (player, academy, type) showing the
+  // wallet snapshot taken at the start of the tx, the canonical SUM after
+  // the reversal row was committed, and the restored amount. Sorted by
+  // restored amount DESC so the largest debt restorations show first.
+  diffs.sort((a, b) => b.restored - a.restored);
+  console.log(`\nPer-player diff:`);
+  console.log(
+    `  ${"player_id".padEnd(38)}${"type".padEnd(15)}before  -> after  (restored)  status`,
+  );
+  for (const d of diffs) {
+    const before = d.walletBefore.toString().padStart(6);
+    const after = d.walletAfter.toString().padStart(6);
+    const restored = `+${d.restored}`.padStart(8);
+    const status = d.skipped ? "SKIP (already reversed)" : "OK";
+    console.log(
+      `  ${d.playerId.padEnd(38)}${d.type.padEnd(15)}${before}  -> ${after}  (${restored})  ${status}`,
+    );
   }
 
   console.log(`\nDone.`);

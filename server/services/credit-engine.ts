@@ -923,6 +923,42 @@ export async function awardMakeupCredit(input: AwardMakeupCreditInput) {
     });
     if (ledger === null) throw new DuplicateEventError(eventKey);
     await writeBalance(tx, input.playerId, input.academyId, input.type, newBalance);
+
+    // Task #1443 — debt-settlement audit row for grants applied while the
+    // wallet was negative. Make-up grants don't insert a `credit_lots` row
+    // (unlike `purchasePackage`), so there is no lot to decrement here —
+    // the wallet math is already correct. We still write a `delta=0`
+    // `consume_debt_settlement` row to make the "this grant paid down past
+    // debt" intent explicit in the audit trail and in any future
+    // per-player UI that surfaces "X used to clear past debt".
+    if (before < 0) {
+      const settleAmount = Math.min(qty, -before);
+      const settleEventKey = `${eventKey}:settle`;
+      const settleLedger = await insertLedger(tx, {
+        playerId: input.playerId,
+        academyId: input.academyId,
+        type: input.type,
+        delta: 0,
+        reason: "consume_debt_settlement",
+        eventKey: settleEventKey,
+        actorId: input.actorId ?? null,
+        actorRole: input.actorRole ?? "coach",
+        sessionId: input.sessionId ?? null,
+        balanceAfter: newBalance,
+        metadata: {
+          settleAmount,
+          grantQty: qty,
+          preBalance: before,
+          grantEventKey: eventKey,
+          grantReason: "makeup",
+          // No lot consumption: make-up grants don't create lots.
+          lotConsumptions: [],
+          note: "Make-up grant paid down pre-grant debt (Task #1443).",
+        },
+      });
+      if (settleLedger === null) throw new DuplicateEventError(settleEventKey);
+    }
+
     return { ok: true as const, alreadyApplied: false, newBalance };
   }).catch((err) => {
     if (err instanceof DuplicateEventError) {
@@ -1056,6 +1092,47 @@ async function manualAdjustmentTxBody(
   });
   if (ledger === null) throw new DuplicateEventError(eventKey);
   await writeBalance(tx, input.playerId, input.academyId, input.type, newBalance);
+
+  // Task #1443 — debt-settlement audit row for positive manual top-ups
+  // applied while the wallet was negative. Manual adjustments don't insert
+  // a `credit_lots` row (unlike `purchasePackage`), so there is no lot to
+  // decrement — the wallet math is already correct. We still write a
+  // `delta=0` `consume_debt_settlement` row so the audit trail explicitly
+  // records that this top-up paid down pre-grant debt. Skipped when
+  // `ledgerReason` is a refund variant (refunds restore credit, not new
+  // grant intent).
+  const isPositiveGrant =
+    input.delta > 0 &&
+    !(input.ledgerReason ?? "").startsWith("refund_");
+  if (isPositiveGrant && before < 0) {
+    const settleAmount = Math.min(input.delta, -before);
+    const settleEventKey = `${eventKey}:settle`;
+    const settleLedger = await insertLedger(tx, {
+      playerId: input.playerId,
+      academyId: input.academyId,
+      type: input.type,
+      delta: 0,
+      reason: "consume_debt_settlement",
+      eventKey: settleEventKey,
+      actorId: input.actorId,
+      actorRole: input.actorRole ?? "admin",
+      sessionId: input.sessionId ?? null,
+      sessionPlayerId: input.sessionPlayerId ?? null,
+      balanceAfter: newBalance,
+      metadata: {
+        settleAmount,
+        grantQty: input.delta,
+        preBalance: before,
+        grantEventKey: eventKey,
+        grantReason: input.ledgerReason ?? "manual",
+        // No lot consumption: manual top-ups don't create lots.
+        lotConsumptions: [],
+        note: "Manual top-up paid down pre-grant debt (Task #1443).",
+      },
+    });
+    if (settleLedger === null) throw new DuplicateEventError(settleEventKey);
+  }
+
   return { ok: true as const, alreadyApplied: false, newBalance };
 }
 
