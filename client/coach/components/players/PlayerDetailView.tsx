@@ -56,6 +56,8 @@ import { ActionSheet } from "@/components/ActionSheet";
 import type { AssessmentResult as JuniorAssessmentResult } from "@/coach/components/JuniorAssessmentFlow";
 import { PlayerPaymentsSection } from "./PlayerPaymentsSection";
 import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
+import { ScheduleExtraLessonModal } from "./ScheduleExtraLessonModal";
+import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 
 import * as Clipboard from "expo-clipboard";
 import { styles } from "./playersStyles";
@@ -429,6 +431,8 @@ export function PlayerDetailView({
   const [mergeSearch, setMergeSearch] = useState("");
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false);
+  const [showScheduleExtraLesson, setShowScheduleExtraLesson] = useState(false);
+  const [createWizardInitialTime, setCreateWizardInitialTime] = useState<Date | null>(null);
 
   useEffect(() => {
     setLocalPlayer(player);
@@ -1923,6 +1927,15 @@ export function PlayerDetailView({
             },
           },
           {
+            id: "schedule-extra-lesson",
+            label: "Schedule Extra Lesson",
+            icon: "calendar-outline",
+            color: Colors.dark.successNeon,
+            onPress: () => {
+              setShowScheduleExtraLesson(true);
+            },
+          },
+          {
             id: "merge",
             label: "Merge Player",
             icon: "git-merge-outline",
@@ -1988,6 +2001,36 @@ export function PlayerDetailView({
           queryClient.invalidateQueries({ queryKey: ["/api/admin/players", player.id, "stats"] });
         }}
       />
+
+      <ScheduleExtraLessonModal
+        visible={showScheduleExtraLesson}
+        onClose={() => setShowScheduleExtraLesson(false)}
+        playerId={player.id}
+        playerName={localPlayer.name}
+        onCreateNewLesson={(date) => {
+          setShowScheduleExtraLesson(false);
+          setCreateWizardInitialTime(date);
+        }}
+      />
+
+      {createWizardInitialTime !== null && (
+        <CreateSessionWizard
+          visible
+          initialTime={createWizardInitialTime}
+          onClose={() => {
+            setCreateWizardInitialTime(null);
+            queryClient.invalidateQueries({
+              queryKey: [`/api/coach/players/${player.id}/attendance-history`],
+            });
+            queryClient.invalidateQueries({
+              queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
+            });
+            queryClient.invalidateQueries({
+              queryKey: [`/api/coach/calendar`],
+            });
+          }}
+        />
+      )}
 
     </View>
   );
