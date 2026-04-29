@@ -104,12 +104,38 @@ async function main() {
   const playerFilter =
     playerFilterIdx >= 0 ? process.argv[playerFilterIdx + 1] ?? null : null;
 
+  // Task #1443 — debt write-offs are now opt-in and require an actor on
+  // record. This script silently forgave 376 credits across 67 players the
+  // last time it ran with `--apply` (Apr 25, 2026); that operation has now
+  // been undone (`undo-task-1332-writeoffs.ts`) and the underlying engine
+  // bug has been fixed in `purchasePackage`. To prevent that mistake from
+  // happening again, the writeoff branch below is gated on:
+  //   1. an explicit `--forgive-debt` flag, AND
+  //   2. a non-system `--actor <userId>` so the audit trail names a person.
+  // Without both flags, the reconcile still rewrites wallets to canonical
+  // (`max(0, sum(ledger.delta))`) but skips emitting any new
+  // `task-1332-debt-writeoff:*` rows — it just reports the drift.
+  const forgiveDebt = args.has("--forgive-debt");
+  const actorIdx = process.argv.indexOf("--actor");
+  const writeoffActor =
+    actorIdx >= 0 ? process.argv[actorIdx + 1] ?? null : null;
+  const canForgiveDebt = forgiveDebt && !!writeoffActor && writeoffActor !== "system";
+
   console.log(
     `\n========================================================================`,
   );
   console.log(
     `  Task #1332 — V2 credit reconcile  ${apply ? "[APPLY]" : "[DRY-RUN]"}${playerFilter ? `  player=${playerFilter}` : ""}`,
   );
+  if (forgiveDebt) {
+    console.log(
+      `  [Task #1443 guard] --forgive-debt ${canForgiveDebt ? `(actor=${writeoffActor})` : "REJECTED — needs non-system --actor <userId>"}`,
+    );
+  } else {
+    console.log(
+      `  [Task #1443 guard] --forgive-debt NOT SET — debt write-offs disabled`,
+    );
+  }
   console.log(
     `========================================================================\n`,
   );
@@ -406,6 +432,25 @@ async function main() {
       } else if (row.reason === "expiry" && row.delta < 0 && row.lot_id) {
         const target = lotById.get(row.lot_id);
         if (target) target.qty_remaining = 0;
+      } else if (row.reason === "consume_debt_settlement") {
+        // Task #1443 — purchase-time debt settlement rows have delta=0 (the
+        // wallet was already moved by the matching `purchase` row). They
+        // exist solely to record that a slice of the new lot was used to
+        // pay down pre-grant debt, so the FIFO replay must decrement that
+        // lot here exactly the same way `consume` does. Without this the
+        // next reconcile run resets `qty_remaining = qty_total`, undoing
+        // the engine fix and re-introducing lot-vs-wallet drift.
+        const lc = (row.metadata?.lotConsumptions as
+          | { lotId: string; qty: number }[]
+          | undefined) ?? null;
+        if (lc && Array.isArray(lc)) {
+          for (const r of lc) {
+            const target = lotById.get(r.lotId);
+            if (!target) continue;
+            const take = Math.min(target.qty_remaining, r.qty);
+            target.qty_remaining -= take;
+          }
+        }
       }
       // purchase / manual / money_* / etc. don't touch lots in this replay.
     }
@@ -460,39 +505,74 @@ async function main() {
         AND type = ${key.type}
       LIMIT 1
     `);
-    const walletRowTyped = walletRow.rows[0] as RawWalletRow | undefined;
+    const walletRowTyped = walletRow.rows[0] as unknown as RawWalletRow | undefined;
     const currentWallet = walletRowTyped ? Number(walletRowTyped.credits) : null;
 
     if (canonical < 0) {
-      // Write off the debt with a manual +abs(canonical) ledger row so
-      // ledger sum becomes 0. eventKey is deterministic — re-running the
-      // script will hit ON CONFLICT DO NOTHING (eventKey unique idx).
+      // Task #1443 — debt write-offs require explicit `--forgive-debt
+      // --actor <userId>`. Without those, we ONLY report the drift below;
+      // we do NOT write a `task-1332-debt-writeoff:*` row. The wallet is
+      // still set to `desiredWallet = max(0, canonical)` further down
+      // unless the writeoff actually lands — see the gate there.
       const writeoffAmount = -canonical;
       const eventKey = `task-1332-debt-writeoff:${key.player_id}:${key.academy_id}:${key.type}`;
-      walletWriteoffsCreated++;
-      totalCreditsForgiven += writeoffAmount;
-      if (apply) {
-        await db.execute(sql`
-          INSERT INTO credit_ledger_v2 (
-            player_id, academy_id, type, delta, reason, event_key,
-            actor_id, actor_role, balance_after, metadata, occurred_at
-          ) VALUES (
-            ${key.player_id}, ${key.academy_id}, ${key.type},
-            ${writeoffAmount}, 'manual', ${eventKey},
-            'system', 'system', 0,
-            ${JSON.stringify({
-              task: 1332,
-              kind: "debt_writeoff",
-              prior_canonical: canonical,
-              prior_wallet: currentWallet,
-              forgiven: writeoffAmount,
-              note: "Negative wallet forgiven during Task #1332 reconcile (lot drift cleanup).",
-            })}::jsonb,
-            NOW()
-          )
-          ON CONFLICT (event_key) DO NOTHING
-        `);
+      if (canForgiveDebt) {
+        walletWriteoffsCreated++;
+        totalCreditsForgiven += writeoffAmount;
+        if (apply) {
+          await db.execute(sql`
+            INSERT INTO credit_ledger_v2 (
+              player_id, academy_id, type, delta, reason, event_key,
+              actor_id, actor_role, balance_after, metadata, occurred_at
+            ) VALUES (
+              ${key.player_id}, ${key.academy_id}, ${key.type},
+              ${writeoffAmount}, 'manual', ${eventKey},
+              ${writeoffActor}, 'admin', 0,
+              ${JSON.stringify({
+                task: 1332,
+                kind: "debt_writeoff",
+                prior_canonical: canonical,
+                prior_wallet: currentWallet,
+                forgiven: writeoffAmount,
+                actor: writeoffActor,
+                note: "Negative wallet forgiven during reconcile run (gated by --forgive-debt).",
+              })}::jsonb,
+              NOW()
+            )
+            ON CONFLICT (event_key) DO NOTHING
+          `);
+        }
+      } else {
+        // Just leave the canonical (negative) value alone — overwrite the
+        // desired wallet so the wallet rewrite below restores the debt
+        // instead of silently zeroing it out. We can't reassign
+        // `desiredWallet` (const) in a clean way, so mirror the rewrite
+        // branch right here and `continue` past the default rewrite below.
+        if (currentWallet === null || Math.abs(currentWallet - canonical) > 1e-9) {
+          walletsRewritten++;
+          if (apply) {
+            if (currentWallet === null) {
+              await db.execute(sql`
+                INSERT INTO player_credit_balance (player_id, academy_id, type, credits, updated_at)
+                VALUES (${key.player_id}, ${key.academy_id}, ${key.type}, ${canonical}, NOW())
+                ON CONFLICT (player_id, academy_id, type)
+                DO UPDATE SET credits = EXCLUDED.credits, updated_at = NOW()
+              `);
+            } else {
+              await db.execute(sql`
+                UPDATE player_credit_balance
+                SET credits = ${canonical}, updated_at = NOW()
+                WHERE player_id = ${key.player_id}
+                  AND academy_id = ${key.academy_id}
+                  AND type = ${key.type}
+              `);
+            }
+          }
+        }
+        // Skip the desiredWallet rewrite below for this tuple — we just did it.
+        continue;
       }
+      void eventKey;
     }
 
     if (currentWallet === null || Math.abs((currentWallet ?? 0) - desiredWallet) > 1e-9) {

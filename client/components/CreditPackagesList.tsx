@@ -34,6 +34,10 @@ interface Lot {
   invoice_number?: string | null;
   invoice_status?: string | null;
   payment_method?: string | null;
+  // Task #1443 — credits from this lot that were immediately spent paying
+  // down a negative wallet balance at the moment of purchase. Drives the
+  // "X used to clear past debt" hint below the qty line.
+  debt_settled?: string | number | null;
 }
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -314,6 +318,13 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
                 <Text style={{ fontSize: 11, color: Colors.dark.textMuted, marginTop: 2 }}>
                   {fmtNumber(remaining)}/{fmtNumber(total)} left · {currency} {totalPrice.toFixed(2)}
                 </Text>
+                {Number(lot.debt_settled ?? 0) > 0 ? (
+                  // Task #1443 — explain why fewer credits are available than
+                  // the player paid for: some were used to clear past debt.
+                  <Text style={{ fontSize: 10, color: Colors.dark.warning ?? "#F59E0B", marginTop: 1 }}>
+                    {fmtNumber(lot.debt_settled)} used to clear past debt
+                  </Text>
+                ) : null}
                 <Text style={{ fontSize: 10, color: Colors.dark.textMuted, marginTop: 1 }}>
                   Bought {fmtDate(lot.created_at)}
                   {lot.expires_at ? ` · Exp ${fmtDate(lot.expires_at)}` : ""}
@@ -380,11 +391,22 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
                 const invoiceVal = selected.invoice_number
                   ? `${selected.invoice_number}${invStatus ? ` (${invStatus})` : ""}`
                   : "No invoice";
+                // Task #1443 — surface the debt-settled portion in the
+                // breakdown so the user understands why `remaining` can be
+                // smaller than `total - used` for visible sessions.
+                const debtSettled = Number(selected.debt_settled ?? 0);
                 const rows: { label: string; value: string; color?: string }[] = [
                   { label: "Type", value: typeLabel, color: TYPE_COLOR[selected.type as string] },
                   { label: "Status", value: meta.label, color: meta.color },
                   { label: "Credits", value: `${fmtNumber(used)} used / ${fmtNumber(total)} total` },
                   { label: "Remaining", value: fmtNumber(remaining) },
+                  ...(debtSettled > 0
+                    ? [{
+                        label: "Cleared past debt",
+                        value: fmtNumber(debtSettled),
+                        color: Colors.dark.warning ?? "#FFB020",
+                      }]
+                    : []),
                   {
                     label: "Price",
                     value: `${currency} ${totalPrice.toFixed(2)} (${currency} ${ppc.toFixed(2)}/credit)`,

@@ -13,7 +13,18 @@ export type LedgerReason =
   | "manual"
   | "expiry"
   | "money_charge"
-  | "money_topup";
+  | "money_topup"
+  // Task #1443 — purchase-time debt settlement audit row. Wallet delta is 0
+  // (the +qty purchase row already moved the wallet). The settlement row
+  // exists so `credit_lots.qty_remaining` correctly reflects "this many of
+  // the newly minted credits were immediately spent paying down past debt".
+  // Carries `metadata.lotConsumptions=[{lotId, qty}]` so the reconcile FIFO
+  // replay can honor it the same way it honors a real `consume`.
+  | "consume_debt_settlement"
+  // Task #1443 — reversal row for the Task #1332 debt write-offs. Negative
+  // delta restores the forgiven debt. Paired 1:1 with a `manual` row that
+  // had `event_key LIKE 'task-1332-debt-writeoff:%'`.
+  | "undo_debt_writeoff";
 
 export type ActorRole = "player" | "coach" | "admin" | "system";
 
@@ -286,7 +297,68 @@ export async function purchasePackage(
       throw new DuplicateEventError(eventKey);
     }
 
-    return { ok: true, alreadyApplied: false, lotId, newBalance };
+    // ----------------------------------------------------------------------
+    // Task #1443 — purchase-time debt settlement.
+    //
+    // If the wallet was negative BEFORE this purchase (the player was in
+    // debt), the freshly minted credits should immediately pay down that
+    // debt instead of sitting "available" in the new lot. Without this:
+    //   - `lot.qty_remaining` reports phantom availability,
+    //   - the next `consume` FIFO-takes from this lot AND still goes deeper
+    //     into wallet debt (the wallet was already at e.g. -4 with lot 10/10,
+    //     so a 1-credit consume takes lot to 9/10 and wallet to -5),
+    //   - the amount the player actually owes keeps drifting away from
+    //     `sum(active lots)` vs `wallet`.
+    //
+    // The fix: when `before < 0`, decrement `qty_remaining` on the new lot
+    // by `min(qty, -before)` and write a `consume_debt_settlement` audit
+    // row (delta=0, no wallet movement — the wallet was already moved by
+    // the purchase row). The reconcile FIFO replay treats this row the same
+    // way it treats `consume` for lot bookkeeping.
+    // ----------------------------------------------------------------------
+    if (before < 0) {
+      const settleAmount = Math.min(input.qty, -before);
+      const newQtyRemaining = input.qty - settleAmount;
+      await tx.execute(sql`
+        UPDATE credit_lots
+        SET qty_remaining = ${newQtyRemaining},
+            status = CASE WHEN ${newQtyRemaining} <= 0 THEN 'depleted' ELSE status END
+        WHERE id = ${lotId}
+      `);
+      const settleEventKey = `${eventKey}:settle`;
+      const settleLedger = await insertLedger(tx, {
+        playerId: input.playerId,
+        academyId: input.academyId,
+        type: input.type,
+        delta: 0,
+        reason: "consume_debt_settlement",
+        eventKey: settleEventKey,
+        actorId: input.actorId ?? null,
+        actorRole: input.actorRole ?? "system",
+        lotId,
+        balanceAfter: newBalance,
+        metadata: {
+          settleAmount,
+          lotQtyTotal: input.qty,
+          lotQtyRemainingAfter: newQtyRemaining,
+          preBalance: before,
+          purchaseEventKey: eventKey,
+          // Mirror the shape used by `consume` rows so the reconcile FIFO
+          // replay can decrement the lot from `metadata.lotConsumptions`.
+          lotConsumptions: [{ lotId, qty: settleAmount }],
+          note: "Purchase-time debt settlement (Task #1443).",
+        },
+        occurredAt: purchasedAt,
+      });
+      if (settleLedger === null) {
+        // Settle row already exists from an earlier partial run — that means
+        // this purchase has already been fully processed; abort to keep the
+        // outer purchase insert idempotent.
+        throw new DuplicateEventError(settleEventKey);
+      }
+    }
+
+    return { ok: true as const, alreadyApplied: false, lotId, newBalance };
   }).catch((err) => {
     if (err instanceof DuplicateEventError) {
       return { ok: true as const, alreadyApplied: true, lotId: null, newBalance: NaN };

@@ -127,6 +127,10 @@ router.get(
       if (!access.ok || !access.academyId) {
         return res.status(403).json({ error: "Forbidden" });
       }
+      // Task #1443 — left-join the per-lot debt-settlement total so the UI
+      // can show "X used to clear past debt" without a second round trip.
+      // The settlement row is delta=0 (no wallet impact); the actual amount
+      // settled lives in `metadata.settleAmount`.
       const r = await db.execute(sql`
         SELECT
           cl.id,
@@ -141,10 +145,19 @@ router.get(
           inv.id              AS invoice_id,
           inv.invoice_number  AS invoice_number,
           inv.status          AS invoice_status,
-          inv.payment_method  AS payment_method
+          inv.payment_method  AS payment_method,
+          COALESCE(settled.settled_amount, 0)::numeric AS debt_settled
         FROM credit_lots cl
         LEFT JOIN invoices inv
           ON inv.package_id = cl.source_package_id
+        LEFT JOIN (
+          SELECT lot_id,
+                 SUM(COALESCE((metadata->>'settleAmount')::numeric, 0)) AS settled_amount
+          FROM credit_ledger_v2
+          WHERE reason = 'consume_debt_settlement'
+            AND lot_id IS NOT NULL
+          GROUP BY lot_id
+        ) settled ON settled.lot_id = cl.id
         WHERE cl.player_id = ${playerId} AND cl.academy_id = ${access.academyId}
         ORDER BY
           CASE cl.status WHEN 'active' THEN 0 WHEN 'depleted' THEN 1 ELSE 2 END,
@@ -203,13 +216,25 @@ router.get(
         isV2EnabledForAcademy(academyId),
         getBalance(playerId, academyId),
         getMoneyWallet(playerId, academyId),
+        // Task #1443 — include `debt_settled` per active lot so the player
+        // wallet UI can show "X used to clear past debt" alongside the
+        // remaining credits.
         db.execute(sql`
-          SELECT id, type, qty_total, qty_remaining, price_per_credit,
-                 expires_at, status, created_at
-          FROM credit_lots
-          WHERE player_id = ${playerId} AND academy_id = ${academyId}
-            AND status = 'active'
-          ORDER BY expires_at NULLS LAST, created_at ASC
+          SELECT cl.id, cl.type, cl.qty_total, cl.qty_remaining,
+                 cl.price_per_credit, cl.expires_at, cl.status, cl.created_at,
+                 COALESCE(settled.settled_amount, 0)::numeric AS debt_settled
+          FROM credit_lots cl
+          LEFT JOIN (
+            SELECT lot_id,
+                   SUM(COALESCE((metadata->>'settleAmount')::numeric, 0)) AS settled_amount
+            FROM credit_ledger_v2
+            WHERE reason = 'consume_debt_settlement'
+              AND lot_id IS NOT NULL
+            GROUP BY lot_id
+          ) settled ON settled.lot_id = cl.id
+          WHERE cl.player_id = ${playerId} AND cl.academy_id = ${academyId}
+            AND cl.status = 'active'
+          ORDER BY cl.expires_at NULLS LAST, cl.created_at ASC
         `),
         db.execute(sql`
           SELECT id, type, delta, reason, actor_role, balance_after,
