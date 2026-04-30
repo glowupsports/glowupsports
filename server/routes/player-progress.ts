@@ -1299,13 +1299,23 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         };
         const chargesBySession = new Map<string, ChargeAgg>();
         if (sessionIdsForCredits.length > 0) {
+          // Build a parameterised IN-list. We can't bind a JS array as
+          // postgres `text[]` through the drizzle template — postgres-js
+          // serialises a JS array as a record/tuple, so `= ANY($1::text[])`
+          // fails with "cannot cast type record to text[]". `sql.join` emits
+          // each id as its own bound parameter, which is both safe and the
+          // pattern other raw-SQL spots in this file rely on.
+          const sessionIdList = sql.join(
+            sessionIdsForCredits.map((id) => sql`${id}`),
+            sql`, `,
+          );
           // V2 ledger — primary `consume` aggregation.
           try {
             const v2Rows = await db.execute(sql`
               SELECT session_id, type, delta
               FROM credit_ledger_v2
               WHERE player_id = ${playerId}
-                AND session_id = ANY(${sessionIdsForCredits as any}::text[])
+                AND session_id IN (${sessionIdList})
                 AND reason = 'consume'
                 AND delta < 0
             `);
@@ -1339,7 +1349,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                      COALESCE((metadata->>'settleAmount')::numeric, 0) AS settle_amount
               FROM credit_ledger_v2
               WHERE player_id = ${playerId}
-                AND session_id = ANY(${sessionIdsForCredits as any}::text[])
+                AND session_id IN (${sessionIdList})
                 AND reason = 'consume_debt_settlement'
             `);
             for (const row of settleRows.rows as any[]) {
