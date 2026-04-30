@@ -2835,13 +2835,15 @@ export const styles = StyleSheet.create({
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
+    gap: Spacing.sm,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
     borderLeftWidth: 3,
     borderLeftColor: GlowColors.primary,
   },
   attendanceHistoryDate: {
-    flex: 1,
+    flexShrink: 0,
+    minWidth: 96,
   },
   attendanceHistoryDateText: {
     fontSize: Typography.body.fontSize,
@@ -2854,9 +2856,13 @@ export const styles = StyleSheet.create({
     marginTop: 2,
   },
   attendanceHistoryDetails: {
+    flex: 1,
+    flexShrink: 1,
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
-    gap: Spacing.md,
+    justifyContent: "flex-end",
+    gap: Spacing.sm,
   },
   attendanceHistoryType: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",

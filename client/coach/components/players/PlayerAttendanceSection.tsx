@@ -277,7 +277,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
             <Text style={styles.attendanceHistoryTypeText}>
               {record.sessionType === "private" ? "Private" :
                record.sessionType === "group" ? "Group" :
-               record.sessionType === "semi-private" ? "Semi" : record.sessionType}
+               (record.sessionType === "semi-private" || record.sessionType === "semi_private") ? "Semi" : record.sessionType}
             </Text>
           </View>
           <View style={[
