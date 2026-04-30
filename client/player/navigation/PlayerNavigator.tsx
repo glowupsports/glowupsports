@@ -977,9 +977,16 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
 
   const { isChatExpanded } = useChatState();
 
+  // Task #1474 — no `key=` here. We used to remount the entire tab
+  // bar once `useResolvedInitialTab` finished its AsyncStorage read
+  // so the restored tab landed as the initial page. That cost us a
+  // full child unmount/remount on every cold start (and again on
+  // every Community-unread badge flip, until #1456 narrowed the
+  // dependency). The chrome now stays mounted; the AsyncStorage
+  // restore lands as a state update on `initialPage`/`currentTabKey`
+  // and React reconciles in place — same as the coach tab bar.
   return (
     <SwipeableTabBar
-      key={isResolved ? `tabs-${initialTabKey}` : "tabs-loading"}
       tabs={playerTabs}
       initialPage={initialPage >= 0 ? initialPage : 0}
       primaryColor={Colors.dark.primary}
@@ -1808,17 +1815,22 @@ interface PlayerDashboard {
 
 function PlayerThemedRoot({ children }: { children: React.ReactNode }) {
   const { resolvedScheme } = usePlayerAppearance();
+  // Task #1474 — removed the `<View key={resolvedScheme}>` remount
+  // wrapper. It existed so a Light/Dark/System toggle would force
+  // every screen to re-evaluate its `makeReactiveStyles` Proxy
+  // against the freshly mutated `Colors.*` globals. The cost was
+  // that the very first appearance resolution on cold start (the
+  // AsyncStorage read inside PlayerAppearanceProvider) ALSO
+  // counted as a scheme change and triggered a full player-tree
+  // remount mid-paint — the visible "freezes until app-switcher"
+  // symptom. The theme toggle now runs through ThemeContext's
+  // setScheme; screens that need to re-style on toggle should
+  // subscribe to that signal explicitly rather than rely on a
+  // global remount.
   return (
     <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
       <StatusBar style={resolvedScheme === "light" ? "dark" : "light"} />
-      {/* Keying the inner tree on the resolved scheme forces a remount when
-          the player toggles Light/Dark/System. Combined with the
-          `makeReactiveStyles` Proxy, every screen and component re-evaluates
-          its StyleSheet against the freshly mutated theme tokens, giving us
-          a coherent player-wide repaint without per-component refactors. */}
-      <View key={resolvedScheme} style={styles.container}>
-        {children}
-      </View>
+      {children}
     </View>
   );
 }

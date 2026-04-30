@@ -50,7 +50,6 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { WebContainer } from "@/components/WebContainer";
 import { WebAlertProvider } from "@/components/WebAlertProvider";
 import { ChatStateProvider } from "@/coach/context/ChatStateContext";
-import { useIosPaintTick, IosPaintFlush } from "@/lib/iosPaintTick";
 
 // Task #1379 — RevenueCat init moved out of module-eval to a useEffect
 // inside <App />. The native RNPurchases.configure() call blocks the JS
@@ -375,12 +374,12 @@ function RTLDirectionWrapper({ children }: { children: React.ReactNode }) {
 export default function App() {
   const [isReady, setIsReady] = useState(false);
   const [splashComplete, setSplashComplete] = useState(false);
-  // Task #1407 / #1409 — iOS cold-start paint-tick. The hook + wrapper live in
-  // `client/lib/iosPaintTick.tsx`. Removing either one re-introduces the
-  // 30–60 s spinner symptom on iOS cold-start (Home / Community / Play /
-  // Growth / Me). See replit.md "iOS cold-start paint-tick" CRITICAL block
-  // and docs/sentry-cold-start-dashboard.md §7 for the post-mortem.
-  const iosPaintTick = useIosPaintTick(splashComplete);
+  // Task #1474 — `useIosPaintTick` / `IosPaintFlush` removed. Those
+  // existed to flush iOS Fabric commits the player tree was leaving
+  // pending on cold start, and the only reason it left them pending
+  // was the persisted-cache + deferred-hydrate stack we also removed
+  // in this task. With the player surface back to coach-style
+  // synchronous bootstrap there is nothing to flush.
 
   // On native (Expo Go / production), preload TTF files via the Metro asset system.
   // On web, preload via our Express-served /fonts/*.ttf so the browser downloads them
@@ -527,16 +526,7 @@ export default function App() {
                                           <RTLDirectionWrapper>
                                             <ImpersonationBanner />
                                             <ChatStateProvider>
-                                              {/*
-                                                Task #1407 / #1409 — iOS paint-tick wrapper.
-                                                See client/lib/iosPaintTick.tsx for the inline
-                                                opacity-nudge contract. NO `key=` on the navigator
-                                                child — that would remount providers and reset the
-                                                queryClient.
-                                              */}
-                                              <IosPaintFlush tick={iosPaintTick}>
-                                                <NavigationContainerWithRef />
-                                              </IosPaintFlush>
+                                              <NavigationContainerWithRef />
                                             </ChatStateProvider>
                                             <WhatsNewGate />
                                             <ForceUpdateGate />

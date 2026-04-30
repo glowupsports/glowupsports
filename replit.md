@@ -32,19 +32,11 @@ OTA pushes ship only the React Native client bundle. The Replit Express server r
 Any change touching `server/`, `shared/schema.ts`, migrations, or env-var contracts requires a Replit Republish (use `suggest_deploy`). Client-only changes (`client/`) can use the OTA Push workflow.
 For mixed changes (server + client): Republish first, then OTA push.
 
-### CRITICAL: Player god-cache hydration MUST stay deferred
-`hydrateGodCache` and `startGodCachePersistence` from `client/lib/queryCachePersist.ts` must NEVER be called synchronously from the AuthContext / FamilyContext bootstrap path. Always go through the `deferredHydrateAndPersist` wrapper.
+### CRITICAL: Player surface mirrors the coach surface
+The player surface uses synchronous bootstrap, no persisted query cache, no deferred hydration, no iOS paint-tick wrapper. God-routes (`/api/player/me/home-data`, `progress-data`, `play-data`, `schedule-data`, `profile-data`, `community-data`, `ai-coach-data`) do server-side fan-in; the client renders chrome immediately and fills sections from React Query as data arrives. Do not re-introduce AsyncStorage cache hydration, deferred bootstrap helpers, or remount keys on the player navigator/theme wrapper without a measured cold-start regression that proves they are needed — see Task #1474 for the full rollback rationale.
 
 ### CRITICAL: AI Coach + Home god-route fan-in
-The AI Coach tab and the Home tab use god-routes for data fetching to prevent parallel `useQuery` calls on cold start, improving performance. These god-routes (`/api/player/me/home-data` and `/api/player/me/ai-coach-data`) bundle multiple endpoints and seed legacy query keys via `setQueryData` to ensure data is available from cache. New `useQuery` calls on player screens must be integrated into these god-routes or be gated by a deferred-ready signal to avoid performance regressions.
-
-### CRITICAL: Player tab cold-start deferrals
-Player tab data fetching on iOS cold-start is deferred using `deferredHydrateAndPersist` and `scheduleDeferredFlip` to prevent UI freezes. God-route hydration is persisted to `AsyncStorage`, and `PlayerContext` loading is also deferred. Spotlight queries are folded into the `/api/player/me/home-data` god-route. The `AppState/NetInfo` bridge ensures `focusManager` and `onlineManager` updates are asynchronous. Each player tab has a single god-route, and server-side fan-outs use `dispatchInProcess`. A two-tier server cache is employed for different data freshness requirements. Tab god-routes are prefetched from the Home screen.
-
-### CRITICAL: iOS cold-start paint-tick
-The `useIosPaintTick(splashComplete)` hook and `<IosPaintFlush tick={...}>` wrapper in `client/lib/iosPaintTick.tsx` are essential for iOS Fabric to flush pending React commits on cold start, preventing a prolonged spinner. The opacity nudge style within `<IosPaintFlush>` must remain inline. The navigator child must not carry a `key={tick}`. `freezeOnBlur: Platform.OS !== "ios"` must be set on relevant navigators.
-
-Bumps run at +300 ms, +1000 ms, +2000 ms, +3500 ms, +5000 ms, +8000 ms after splashComplete, plus on every AppState 'active' event. The post-1 s ticks (added in #1456) catch god-routes that resolve later than 1 s — without them, screens whose `isLoading` flips false after the original two ticks (e.g. Growth and Me's `progress-data` / `profile-data` routes) would otherwise remain stuck on their full-screen skeleton until the user manually swipes.
+The AI Coach tab and the Home tab use god-routes for data fetching to prevent parallel `useQuery` calls on cold start, improving performance. These god-routes (`/api/player/me/home-data` and `/api/player/me/ai-coach-data`) bundle multiple endpoints and seed legacy query keys via `setQueryData` to ensure data is available from cache. New `useQuery` calls on player screens must be integrated into these god-routes rather than firing in parallel, to keep server-side fan-in the source of truth.
 
 ### CRITICAL: API Development Rule
 DO NOT create new API endpoints without explicit permission!

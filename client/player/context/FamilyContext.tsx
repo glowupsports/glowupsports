@@ -1,52 +1,14 @@
 import logger from "@/lib/logger";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from "react";
-import { InteractionManager, Platform } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl, getAuthHeaders, setActivePlayerOverride } from "@/lib/query-client";
-// Task #1455 — `deferredHydrateAndPersist` is no longer wired into the
-// active-player switch path. The persisted god-cache replay was a
-// player-only extra that coach/admin/owner roles never ran; on iOS
-// Fabric it stalled the JS bridge during cold start and tab-switch.
-// `clearGodCache` is still called when switching family member so any
-// snapshot from a previous child can't bleed into the next one.
+// Task #1474 — `clearGodCache` is still called on family-switch as a
+// safety net to remove any leftover persisted god-cache blob from
+// previous OTA versions; the persisted cache itself was deleted in
+// the same task. See client/lib/queryCachePersist.ts.
 import {
   clearGodCache,
 } from "@/lib/queryCachePersist";
-
-// Task #1455 — defer the family bootstrap fetch off the cold-start
-// critical path. FamilyProvider mounts above EVERY player tab (see
-// PlayerNavigator.tsx) so without this, its useEffect fired its
-// network call (/api/family/me/group + /api/family/status) on the
-// same JS-bridge tick that the home god-query is competing for.
-// Coach has no equivalent and loads instantly. We mirror the same
-// InteractionManager-or-timeout pattern queryCachePersist used for
-// hydrate. Idempotent: the per-call `ran` flag means both paths
-// firing collapse to a single setReady.
-const FAMILY_BOOTSTRAP_DEFER_MS = Platform.OS === "ios" ? 600 : 50;
-
-function scheduleAfterPaint(flipFn: () => void): () => void {
-  let ran = false;
-  const flip = () => {
-    if (ran) return;
-    ran = true;
-    flipFn();
-  };
-  let interactionHandle: { cancel: () => void } | null = null;
-  try {
-    interactionHandle = InteractionManager.runAfterInteractions(flip);
-  } catch {
-    // RN web shim sometimes throws — the timeout below covers it.
-  }
-  const timeoutId = setTimeout(flip, FAMILY_BOOTSTRAP_DEFER_MS);
-  return () => {
-    clearTimeout(timeoutId);
-    try {
-      interactionHandle?.cancel();
-    } catch {
-      // ignore
-    }
-  };
-}
 
 export interface FamilyMember {
   id: string;
@@ -318,24 +280,18 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
       }
     };
 
-    // Task #1455 — defer the very first family bootstrap fetch past
-    // the cold-start paint. Previously this fired through a fixed
-    // 300ms setTimeout which still landed in the same JS-bridge burst
-    // as the home god-query and the auth /me round-trip. Coach has
-    // nothing comparable and loads cleanly. We now wait until either
-    // InteractionManager drains (the splash + first commit have
-    // settled) or the 600ms iOS hard-timeout, whichever fires first.
-    // Subsequent retries from a transient 401 still use the fast
-    // 1000ms backoff above — the deferral applies only to the
-    // initial mount.
-    const cancelDefer = scheduleAfterPaint(() => {
-      if (!mountedRef.current) return;
-      void attemptFetch();
-    });
+    // Task #1474 — fire the family bootstrap fetch directly on mount,
+    // mirroring the synchronous coach bootstrap. The provider already
+    // renders children unconditionally (no render gate on
+    // `isLoading`), so the fetch runs in the background while the
+    // tabs paint. The earlier InteractionManager / 600ms-timeout
+    // dance existed to dodge a JS-bridge burst that no longer
+    // happens now that the persisted god-cache and deferred-flip
+    // layers are gone.
+    void attemptFetch();
 
     return () => {
       mountedRef.current = false;
-      cancelDefer();
       if (retryTimeoutId) {
         clearTimeout(retryTimeoutId);
       }

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { InteractionManager, Platform } from "react-native";
 import { Player, ChatMessage, ChatChannel, INITIAL_PLAYER, INITIAL_MESSAGES } from "@/constants/playerData";
 import * as storage from "@/lib/storage";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
@@ -63,23 +62,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Task #1395: defer boot hydration past first paint, with a
-  // Platform-tuned timeout fallback in case an animated splash keeps
-  // InteractionManager pending. Same shape as deferredHydrateAndPersist
-  // in queryCachePersist.ts.
+  // Task #1474 — boot hydration runs synchronously on mount.
+  // Children render unconditionally (no render gate on `isLoading`),
+  // so the AsyncStorage read fills `player`/`messages` in the
+  // background while the tree paints. The earlier
+  // InteractionManager / Platform-tuned timeout existed to dodge a
+  // JS-bridge burst that the persisted god-cache + deferred-flip
+  // stack used to cause; that stack is gone, so the defer is gone.
   useEffect(() => {
-    let ran = false;
-    const fire = () => {
-      if (ran) return;
-      ran = true;
-      void loadData();
-    };
-    const handle = InteractionManager.runAfterInteractions(fire);
-    const timeoutId = setTimeout(fire, Platform.OS === "ios" ? 600 : 50);
-    return () => {
-      clearTimeout(timeoutId);
-      handle.cancel?.();
-    };
+    void loadData();
   }, [loadData]);
 
   const refreshPlayer = useCallback(async () => {
