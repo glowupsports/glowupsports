@@ -919,10 +919,17 @@ router.get("/coach/:coachId/pending-reviews", async (req: Request, res: Response
       return res.json([]);
     }
 
+    // Build a parameterised IN-list. postgres-js serialises a JS array as a
+    // record/tuple, so `= ANY($1)` fails with "cannot cast type record to
+    // text[]". `sql.join` emits each id as its own bound parameter.
+    const playerIdList = sql.join(
+      playerIds.map((id) => sql`${id}`),
+      sql`, `,
+    );
     const recentMatches = await db
       .select()
       .from(matches)
-      .where(sql`${matches.playerId} = ANY(${playerIds}) AND ${matches.verifiedBy} IS NULL`)
+      .where(sql`${matches.playerId} IN (${playerIdList}) AND ${matches.verifiedBy} IS NULL`)
       .orderBy(desc(matches.matchDate))
       .limit(20);
 

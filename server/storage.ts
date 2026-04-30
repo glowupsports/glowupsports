@@ -1957,6 +1957,14 @@ export const storage = {
       const ballLevelsByCoach = new Map<string, string[]>();
       if (academyCoaches.length > 0) {
         const coachIds = academyCoaches.map((c) => c.id);
+        // Build a parameterised IN-list. postgres-js serialises a JS array
+        // as a record/tuple, so `= ANY($1)` fails with "cannot cast type
+        // record to text[]". `sql.join` emits each id as its own bound
+        // parameter, matching the safe pattern used elsewhere in the codebase.
+        const coachIdList = sql.join(
+          coachIds.map((id) => sql`${id}`),
+          sql`, `,
+        );
         const ballLevelRows = await db.execute(sql`
           SELECT
             coach_id AS "coachId",
@@ -1974,7 +1982,7 @@ export const storage = {
               WHERE lvl IS NOT NULL AND lvl <> ''
             ) AS "levels"
           FROM sessions s
-          WHERE coach_id = ANY(${coachIds})
+          WHERE coach_id IN (${coachIdList})
           GROUP BY coach_id
         `);
         for (const row of ballLevelRows.rows as Array<{ coachId: string; levels: string[] | null }>) {

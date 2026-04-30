@@ -1143,8 +1143,15 @@ router.post("/doubles-match", async (req: AuthenticatedRequest, res) => {
     
     // Get all players
     const allPlayerIds = [team1Player1Id, team1Player2Id, team2Player1Id, team2Player2Id];
+    // Build a parameterised IN-list. postgres-js serialises a JS array as a
+    // record/tuple, so `= ANY($1)` fails with "cannot cast type record to
+    // text[]". `sql.join` emits each id as its own bound parameter.
+    const allPlayerIdList = sql.join(
+      allPlayerIds.map((id) => sql`${id}`),
+      sql`, `,
+    );
     const playersData = await db.select().from(players).where(
-      sql`${players.id} = ANY(${allPlayerIds})`
+      sql`${players.id} IN (${allPlayerIdList})`
     );
 
     // Academy isolation for coaches/admins: all players must be in the caller's academy
