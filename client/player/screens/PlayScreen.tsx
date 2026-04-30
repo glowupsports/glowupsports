@@ -81,6 +81,7 @@ import {
   useThemeReactivity,
 } from "@/hooks/useThemedStyles";
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
+import { SkeletonSessionCard } from "@/components/SkeletonLoader";
 // react-native-maps is a native module. On builds where the native side
 // isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
 // build, a missing/expired Google Maps key, or a future SDK upgrade) the
@@ -3603,11 +3604,15 @@ export default function PlayScreen() {
           {activeTab === "Group Lessons" ? (
             <>
               {sessionsLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={Colors.dark.primary} />
-                  <Text style={styles.loadingText}>
-                    {t("player.play.findingGroupLessons")}
-                  </Text>
+                // Task #1465 — inline session-card skeletons replace the
+                // centered "Finding group lessons…" spinner so the tab
+                // chrome paints immediately and the list area shows the
+                // shape it's about to fill in.
+                <View style={{ paddingHorizontal: Spacing.md, gap: Spacing.md }}>
+                  <SkeletonSessionCard />
+                  <SkeletonSessionCard />
+                  <SkeletonSessionCard />
+                  <SkeletonSessionCard />
                 </View>
               ) : filteredSessions.length > 0 ? (
                 (() => {

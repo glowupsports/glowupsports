@@ -419,7 +419,11 @@ export default function PlayerProfileScreen() {
   const track = useTrackFeature();
   const { setMode } = useAppMode();
   const { logout, isGuest } = useAuth();
-  const { isBirthday } = usePlayer();
+  // Task #1465 — pull the in-memory player snapshot so the avatar / level
+  // badge / ball-level chip can paint on first frame instead of waiting
+  // for the profile god-route. Mirrors the ProPlayerHomeScreen pattern.
+  const playerCtx = usePlayer();
+  const { isBirthday } = playerCtx;
   const [showPinModal, setShowPinModal] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -839,7 +843,15 @@ export default function PlayerProfileScreen() {
     );
   }
 
-  if (isLoading) {
+  // Task #1465 — Progressive shell. Replaces the old full-screen skeleton
+  // gate so the avatar / level badge / ball-level chip paint on first
+  // frame using the cached PlayerContext snapshot. Per-block skeletons
+  // stand in for badges / packages / connections cards until the profile
+  // god-route lands; the existing main render below takes over once data
+  // is ready.
+  if (isLoading && !data) {
+    const shellBallLevel = playerCtx.ballLevel || "red";
+    const shellBallColor = getBallLevelColor(shellBallLevel);
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView
@@ -847,11 +859,45 @@ export default function PlayerProfileScreen() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.profileSkeletonHeader}>
-            <Skeleton width={120} height={120} borderRadius={60} />
-            <Skeleton width={160} height={22} style={{ marginTop: Spacing.md }} />
-            <Skeleton width={100} height={14} style={{ marginTop: Spacing.sm }} />
+          {/* Header card — avatar + level badge from PlayerContext, name
+              and title swap in once the god-route resolves. */}
+          <View style={styles.headerCard}>
+            <View style={styles.header}>
+              <View style={styles.avatarSection}>
+                <View style={styles.avatarContainer}>
+                  <LinearGradient
+                    colors={[shellBallColor, Colors.dark.primary]}
+                    style={styles.avatarGradient}
+                  >
+                    <View style={styles.avatarInner}>
+                      <Ionicons name="person" size={48} color={Colors.dark.text} />
+                    </View>
+                  </LinearGradient>
+                  <View style={[styles.levelBadgeOverlay, { backgroundColor: shellBallColor }]}>
+                    <Text style={styles.levelBadgeText}>{playerCtx.level}</Text>
+                  </View>
+                </View>
+                <View style={{ marginTop: Spacing.md, alignItems: "center" }}>
+                  <Skeleton width={160} height={22} />
+                  <Skeleton width={100} height={14} style={{ marginTop: Spacing.sm }} />
+                </View>
+              </View>
+              <View style={styles.badges}>
+                <View style={[styles.ballBadge, { borderColor: shellBallColor }]}>
+                  <View style={[styles.ballDot, { backgroundColor: shellBallColor }]} />
+                  <Text style={[styles.ballText, { color: shellBallColor }]}>
+                    {shellBallLevel.charAt(0).toUpperCase() + shellBallLevel.slice(1)} Ball
+                  </Text>
+                </View>
+                <View style={styles.glowBadge}>
+                  <Ionicons name="flash" size={14} color={Colors.dark.primary} />
+                  <Text style={styles.glowText}>{playerCtx.glowScore} Glow</Text>
+                </View>
+              </View>
+            </View>
           </View>
+
+          {/* Per-block skeletons for stats / packages / connections cards. */}
           <View style={styles.profileSkeletonRow}>
             <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
             <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />

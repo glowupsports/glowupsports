@@ -45,6 +45,7 @@ import {
 } from "./CommunityTypes";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { SkeletonCard } from "@/components/SkeletonLoader";
 export function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (achievement: Achievement) => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -976,8 +977,21 @@ export function GroupsSection() {
     <View style={groupStyles.sectionContainer}>
       {renderFilterTabs()}
       {isLoading ? (
-        <View style={groupStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+        // Task #1465 — inline group-card skeletons replace the centered
+        // ActivityIndicator so the tab chrome and filter tabs stay
+        // anchored while the community god-route resolves.
+        <View
+          style={{
+            paddingHorizontal: Spacing.md,
+            paddingTop: Spacing.md,
+            paddingBottom: tabBarHeight + 100,
+            gap: Spacing.md,
+          }}
+        >
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </View>
       ) : (
         <ScrollView

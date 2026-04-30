@@ -19,6 +19,7 @@ import { getStageFromLevel, type BallStage } from "@shared/language-switch";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon } from "@/player/context/SportContext";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import { usePlayer } from "@/player/context/PlayerContext";
 import { CoachReviewModal } from "@/player/components/CoachReviewModal";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { MonthlyAssessmentModal } from "@/player/components/MonthlyAssessmentModal";
@@ -1448,6 +1449,11 @@ export default function PlayerProgressScreen() {
   const track = useTrackFeature();
   const { activeSports, activeSport, setActiveSport, isMultiSport } = useSport();
   const { logout, isGuest } = useAuth();
+  // Task #1465 — pull the in-memory player snapshot so the header chrome
+  // (level number, ball-level badge, glow score, XP) can paint on first
+  // frame instead of waiting for the progress god-route. Mirrors the
+  // ProPlayerHomeScreen pattern from Task #1455.
+  const playerCtx = usePlayer();
   const [showLevelModal, setShowLevelModal] = useState(false);
   const [showGlowScoreModal, setShowGlowScoreModal] = useState(false);
   const [showXpModal, setShowXpModal] = useState(false);
@@ -1718,24 +1724,117 @@ export default function PlayerProgressScreen() {
     );
   }
 
-  if (isLoading) {
+  // Task #1465 — Progressive shell. Replaces the old full-screen skeleton
+  // gate so the header / sport switcher / level badge / stats paint on
+  // first frame using the cached PlayerContext snapshot. Per-block
+  // skeletons stand in for the radar / AI coach / weekly plan / journal
+  // until the god-route lands; each block then swaps to real content via
+  // the existing main render below. Same pattern coach DashboardScreen +
+  // ProPlayerHomeScreen use today.
+  if (isLoading && !data) {
+    const shellBallLevelId = (playerCtx.ballLevel || "red1").trim() || "red1";
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <ScrollView
+          style={styles.scrollView}
           contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.xl }}
+          scrollIndicatorInsets={{ bottom: insets.bottom }}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.progressSkeletonHeader}>
-            <Skeleton width="60%" height={26} />
-            <Skeleton width="40%" height={14} style={{ marginTop: Spacing.sm }} />
+          {/* Static header chrome — paints instantly. */}
+          <View style={styles.header}>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.title}>My Progress</Text>
+            </View>
+            <Text style={styles.subtitle}>Coach-validated skill development</Text>
+          </View>
+
+          {/* Sport switcher — driven by useSport() context, not god-route. */}
+          {isMultiSport ? (
+            <View style={styles.sportTabsRow}>
+              {SPORT_DEFINITIONS.filter(s => activeSports.includes(s.key)).map(sport => {
+                const isActive = activeSport === sport.key;
+                return (
+                  <Pressable
+                    key={sport.key}
+                    style={[styles.sportTab, isActive && { borderBottomColor: sport.color, borderBottomWidth: 2 }]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setActiveSport(sport.key);
+                    }}
+                  >
+                    <Ionicons
+                      name={sport.icon as keyof typeof Ionicons.glyphMap}
+                      size={15}
+                      color={isActive ? sport.color : Colors.dark.textMuted}
+                    />
+                    <Text style={[styles.sportTabText, isActive && { color: sport.color }]}>
+                      {sport.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+
+          {/* Level badge — uses PlayerContext snapshot so it paints with
+              the user's real ball level / level number on first frame. */}
+          <View style={styles.ballLevelSection}>
+            <LinearGradient
+              colors={["rgba(200, 255, 61, 0.22)", "rgba(0, 229, 255, 0.18)", "rgba(224, 64, 251, 0.18)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.ballLevelGradientBorder}
+            >
+              <View style={styles.ballLevelInner}>
+                <Text style={styles.ballLevelHeroNumber}>{`Glow ${playerCtx.level}`}</Text>
+                <View style={styles.ballLevelArcWrap}>
+                  <BallLevelBadge
+                    levelId={shellBallLevelId}
+                    size="large"
+                    showLabel={false}
+                  />
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Stats row — PlayerContext snapshot. */}
+          <View style={styles.statsRow}>
+            <View style={[styles.statTile, { borderColor: "rgba(200, 255, 61, 0.25)" }]}>
+              <View style={styles.statTileHeader}>
+                <Text style={styles.statTileLabel}>GLOW SCORE</Text>
+              </View>
+              <Text style={[styles.statTileValue, { color: Colors.dark.accentText }]}>
+                {playerCtx.glowScore}
+              </Text>
+            </View>
+            <View style={[styles.statTile, { borderColor: Colors.dark.chipBorder }]}>
+              <View style={styles.statTileHeader}>
+                <Text style={styles.statTileLabel}>LEVEL</Text>
+              </View>
+              <Text style={[styles.statTileValue, { color: Colors.dark.text }]}>
+                {playerCtx.level}
+              </Text>
+            </View>
+            <View style={[styles.statTile, { borderColor: "rgba(255, 215, 0, 0.28)" }]}>
+              <View style={styles.statTileHeader}>
+                <Text style={styles.statTileLabel}>TOTAL XP</Text>
+              </View>
+              <Text style={[styles.statTileValue, { color: Colors.dark.gold }]}>
+                {playerCtx.xp}
+              </Text>
+            </View>
+          </View>
+
+          {/* Per-block skeletons stand in for AI coach hero / radar /
+              feedback cards until the god-route resolves. */}
+          <View style={styles.progressSkeletonSection}>
+            <SkeletonCard />
+            <SkeletonCard style={{ marginTop: Spacing.md }} />
           </View>
           <View style={styles.progressSkeletonRadar}>
             <Skeleton width={220} height={220} borderRadius={110} />
-          </View>
-          <View style={styles.progressSkeletonStats}>
-            <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
-            <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
-            <Skeleton width="30%" height={70} borderRadius={BorderRadius.md} />
           </View>
           <View style={styles.progressSkeletonSection}>
             <SkeletonCard />
