@@ -381,11 +381,6 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Pro
                   }
                 };
                 const message = `Delete invoice #${inv.invoiceNumber}? This cannot be undone.`;
-                if (Platform.OS === "web") {
-                  const ok = (globalThis as any).confirm?.(message);
-                  if (ok) await doDelete();
-                  return;
-                }
                 Alert.alert("Delete invoice?", message, [
                   { text: "Cancel", style: "cancel" },
                   { text: "Delete", style: "destructive", onPress: doDelete },
