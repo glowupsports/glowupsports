@@ -928,6 +928,28 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
   const navigation = useNavigation<any>();
   const track = useTrackFeature();
   const isMountedRef = useRef(false);
+  const { navigateToTab } = useTabNavigation();
+
+  // Task #1474 — last-used-tab restore. SwipeableTabBar reads `initialPage`
+  // only on its first mount (`useState(initialPage)`), so once
+  // `useResolvedInitialTab` finishes its AsyncStorage read we have to jump
+  // imperatively to the resolved tab. We deliberately do NOT remount the
+  // bar to do this — that's exactly the player-only workaround Task #1474
+  // ripped out. Coach has no per-role tab restore so this is the one bit of
+  // player-specific glue we keep, and it stays here (one-shot, behind a
+  // ref) instead of as a layout-level remount.
+  const restoredOnceRef = useRef(false);
+  useEffect(() => {
+    if (!isResolved) return;
+    if (restoredOnceRef.current) return;
+    restoredOnceRef.current = true;
+    if (initialTabKey && initialTabKey !== currentTabKey) {
+      navigateToTab(initialTabKey);
+    }
+    // currentTabKey intentionally omitted from deps: we only fire once on
+    // resolution, not on every subsequent user-driven tab change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isResolved, initialTabKey, navigateToTab]);
 
   const playCenterButton = useMemo(() => ({
     icon: "tennisball-outline" as const,
