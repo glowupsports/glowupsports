@@ -14,7 +14,7 @@ import { apiFetch, apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
 import { Image as ExpoImage } from "expo-image";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { Skeleton, SkeletonCard, SkeletonSessionCard } from "@/components/SkeletonLoader";
-import { useAuth } from "@/coach/context/AuthContext";
+import { useAuth, type AuthPlayer } from "@/coach/context/AuthContext";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, type Sport } from "@/player/context/SportContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
@@ -1087,7 +1087,7 @@ function PlayerHomeContent() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const track = useTrackFeature();
-  const { user, isGuest } = useAuth();
+  const { user, isGuest, patchPlayer } = useAuth();
   // Task #1455 — pull the in-memory player snapshot so the header
   // (avatar, name, level, XP, ball level) can paint on first frame
   // instead of waiting for the home god-query. `usePlayer()` is
@@ -1245,7 +1245,50 @@ function PlayerHomeContent() {
         limit: 5,
       },
     );
-  }, [homeData, queryClient]);
+
+    // Task #1467 — mirror the freshest player numbers back into
+    // AuthContext.player so screens that read via `usePlayer()`
+    // (Growth, Me, profile header, ProPlayerCard subtitle on other
+    // tabs, etc.) update without the user reopening the app. The
+    // home god-query already invalidates on focus, after AI chat,
+    // after quest completion and on pull-to-refresh, so this single
+    // bridge keeps every consumer of `useAuth().player` live without
+    // any per-mutation `refreshAuth()` plumbing. Match-derived fields
+    // (glowMmr/glowRank/totalMatchesPlayed) come from the same player
+    // record and were added to the dashboard branch in the same task.
+    const dp = homeData.dashboard?.player as
+      | {
+          level?: number;
+          xp?: number;
+          glowScore?: number;
+          ballLevel?: string | null;
+          dateOfBirth?: string | null;
+          profilePhotoUrl?: string | null;
+          glowMmr?: number;
+          glowRank?: number;
+          totalMatchesPlayed?: number;
+        }
+      | null
+      | undefined;
+    if (dp) {
+      const patch: Partial<AuthPlayer> = {};
+      if (typeof dp.level === "number") patch.level = dp.level;
+      if (typeof dp.xp === "number") patch.xp = dp.xp;
+      if (typeof dp.glowScore === "number") patch.glowScore = dp.glowScore;
+      if (typeof dp.glowMmr === "number") patch.glowMmr = dp.glowMmr;
+      if (typeof dp.glowRank === "number") patch.glowRank = dp.glowRank;
+      if (typeof dp.totalMatchesPlayed === "number")
+        patch.totalMatchesPlayed = dp.totalMatchesPlayed;
+      if (dp.ballLevel !== undefined) patch.ballLevel = dp.ballLevel ?? null;
+      if (dp.dateOfBirth !== undefined)
+        patch.dateOfBirth = dp.dateOfBirth ?? null;
+      if (dp.profilePhotoUrl !== undefined)
+        patch.profilePhotoUrl = dp.profilePhotoUrl ?? null;
+      if (Object.keys(patch).length > 0) {
+        patchPlayer(patch);
+      }
+    }
+  }, [homeData, queryClient, patchPlayer]);
 
   // Task #1419 — prefetch the other player tabs' god-routes once the home
   // god-route resolves and the first paint is done. By the time the user

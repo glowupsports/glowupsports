@@ -116,6 +116,15 @@ interface AuthContextType {
   resetPasswordWithToken: (token: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshAuth: () => Promise<void>;
+  // Task #1467 — partial in-place updater for `player`. Lets the
+  // player home/AI Coach god-route success paths mirror fresh
+  // dashboard/profile fields (level, xp, glowScore, glowMmr,
+  // glowRank, totalMatchesPlayed, profilePhotoUrl, ...) back into
+  // AuthContext.player so screens that read via `usePlayer()`
+  // (Growth, Me, profile header, etc.) stay live without the user
+  // having to background + foreground the app or trigger a full
+  // `refreshAuth()`. No-op when the user is not a player.
+  patchPlayer: (patch: Partial<AuthPlayer>) => void;
   isImpersonating: boolean;
   impersonatedAcademyName: string | null;
   startImpersonation: (academyId: string, academyName: string) => Promise<{ success: boolean; error?: string }>;
@@ -601,6 +610,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Task #1467 — see interface comment. Functional setState so we
+  // never overwrite an unrelated field that came in from a concurrent
+  // /api/me refresh, and never touch state when there is no player
+  // (coach/admin/owner sessions).
+  const patchPlayer = useCallback((patch: Partial<AuthPlayer>) => {
+    setPlayer((prev) => {
+      if (!prev) return prev;
+      return { ...prev, ...patch };
+    });
+  }, []);
+
   const startImpersonation = async (academyId: string, academyName: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const currentAuthState = await loadAuthState();
@@ -720,6 +740,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPasswordWithToken,
         logout,
         refreshAuth,
+        patchPlayer,
         isImpersonating,
         impersonatedAcademyName,
         startImpersonation,

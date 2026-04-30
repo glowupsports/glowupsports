@@ -583,6 +583,17 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
       dateOfBirth: player.dateOfBirth,
       profilePhotoUrl: (player as any).profilePhotoUrl || null,
       playStyle: (player as any).playStyle || null,
+      // Task #1467 — surface the live match-derived fields so the
+      // ProPlayerHomeScreen home-data success path can mirror them
+      // back into AuthContext.player. Without these, screens that
+      // read glowRank / glowMmr / totalMatchesPlayed via usePlayer()
+      // (Growth, Me, profile header) would stay stale until the user
+      // backgrounds + foregrounds the app or hits a flow that calls
+      // refreshAuth(). They're already on the player record, so this
+      // is just a passthrough — no extra DB cost.
+      glowMmr: player.glowMmr || 1000,
+      glowRank: player.glowRank || 9,
+      totalMatchesPlayed: player.totalMatchesPlayed || 0,
     },
     coach: coach
       ? {
