@@ -1270,19 +1270,36 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return dateB.getTime() - dateA.getTime();
         });
 
-        // Task #817: Per-lesson credit charge map. Source of truth is the
-        // V2 ledger (credit_ledger_v2) for V2 academies; we also union the
-        // legacy credit_transactions table so legacy/historical sessions still
-        // show their charge. We sum non-cancelled debit deltas keyed by
-        // session_id and report `{ amount, count }` so the UI can flag
-        // duplicates ("Duplicate charge detected") if any slipped through.
+        // Task #817 / #1450: Per-lesson credit charge map. Source of truth is
+        // V2 (`credit_ledger_v2`). We sum non-cancelled debit deltas keyed by
+        // session_id and report `{ amount, count, source }` so the UI can flag
+        // duplicates ("Duplicate charge detected") if any slipped through and
+        // distinguish a fresh consume from a debt-settlement charge.
+        //
+        // Precedence (Task #1450):
+        //   1. V2 `consume` rows (delta < 0)              → source = 'v2-consume'
+        //   2. else V2 `consume_debt_settlement` rows for that same session
+        //      (delta = 0; the actual charge lives in metadata.settleAmount) →
+        //      source = 'v2-settlement'. This covers attendance that was paid
+        //      down via a later top-up/grant rather than a fresh wallet debit,
+        //      so the row still reflects the credit truth instead of the
+        //      misleading "No charge".
+        //   3. else                                        → source = null
+        //
+        // No V1 fallback: V1 is retired. Sessions with no V2 evidence stay at 0.
         const sessionIdsForCredits = sortedRecords
           .map((r) => r.sessionId)
           .filter((s): s is string => !!s);
-        type ChargeAgg = { amount: number; count: number; type: string | null };
+        type ChargeSource = "v2-consume" | "v2-settlement" | null;
+        type ChargeAgg = {
+          amount: number;
+          count: number;
+          type: string | null;
+          source: ChargeSource;
+        };
         const chargesBySession = new Map<string, ChargeAgg>();
         if (sessionIdsForCredits.length > 0) {
-          // V2 ledger
+          // V2 ledger — primary `consume` aggregation.
           try {
             const v2Rows = await db.execute(sql`
               SELECT session_id, type, delta
@@ -1295,38 +1312,55 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             for (const row of v2Rows.rows as any[]) {
               const sid = row.session_id as string;
               const delta = Number(row.delta);
-              const cur = chargesBySession.get(sid) ?? { amount: 0, count: 0, type: null };
+              const cur = chargesBySession.get(sid) ?? {
+                amount: 0,
+                count: 0,
+                type: null,
+                source: "v2-consume" as ChargeSource,
+              };
               cur.amount += Math.abs(delta);
               cur.count += 1;
               cur.type = cur.type ?? (row.type as string | null);
+              cur.source = "v2-consume";
               chargesBySession.set(sid, cur);
             }
           } catch (creditErr) {
-            console.warn("[AttendanceHistory] V2 credit join skipped:", creditErr);
+            console.warn("[AttendanceHistory] V2 consume join skipped:", creditErr);
           }
-          // Legacy V1 ledger (only for sessions without V2 rows)
+          // V2 ledger — settlement fallback. Only fold in `consume_debt_settlement`
+          // rows for sessions that produced no `consume` aggregate above, so we
+          // never double-count a session that has both a fresh consume and a
+          // later settlement against unrelated debt. The settled credit count
+          // lives in `metadata.settleAmount` (the row's own delta is 0 because
+          // the wallet was already moved by the matching top-up/purchase).
           try {
-            const v1Rows = await db.execute(sql`
-              SELECT session_id, credit_type, amount
-              FROM credit_transactions
+            const settleRows = await db.execute(sql`
+              SELECT session_id, type,
+                     COALESCE((metadata->>'settleAmount')::numeric, 0) AS settle_amount
+              FROM credit_ledger_v2
               WHERE player_id = ${playerId}
                 AND session_id = ANY(${sessionIdsForCredits as any}::text[])
-                AND type = 'debit'
-                AND reason IN ('session_debt','session_consumed','session_booking')
-                AND COALESCE(metadata->>'cancelled','false') != 'true'
+                AND reason = 'consume_debt_settlement'
             `);
-            for (const row of v1Rows.rows as any[]) {
+            for (const row of settleRows.rows as any[]) {
               const sid = row.session_id as string;
-              if (chargesBySession.has(sid)) continue; // V2 wins
-              const amt = Math.abs(Number(row.amount));
-              const cur = chargesBySession.get(sid) ?? { amount: 0, count: 0, type: null };
+              if (chargesBySession.has(sid)) continue; // consume wins
+              const amt = Math.abs(Number(row.settle_amount ?? 0));
+              if (!Number.isFinite(amt) || amt <= 0) continue;
+              const cur = chargesBySession.get(sid) ?? {
+                amount: 0,
+                count: 0,
+                type: null,
+                source: "v2-settlement" as ChargeSource,
+              };
               cur.amount += amt;
               cur.count += 1;
-              cur.type = cur.type ?? (row.credit_type as string | null);
+              cur.type = cur.type ?? (row.type as string | null);
+              cur.source = "v2-settlement";
               chargesBySession.set(sid, cur);
             }
           } catch (creditErr) {
-            console.warn("[AttendanceHistory] V1 credit join skipped:", creditErr);
+            console.warn("[AttendanceHistory] V2 settlement join skipped:", creditErr);
           }
         }
 
@@ -1360,6 +1394,9 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             creditsCharged: charge ? charge.amount : 0,
             creditChargeCount: charge ? charge.count : 0,
             creditChargeType: charge?.type ?? null,
+            // Task #1450: which V2 source produced this charge so the UI can
+            // label settlement-derived charges differently from a fresh consume.
+            creditChargeSource: charge?.source ?? null,
           };
         });
 

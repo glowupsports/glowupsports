@@ -26,10 +26,14 @@ interface AttendanceHistoryRecord {
   seriesId?: string | null;
   seriesDayOfWeek?: number | null;
   seriesTitle?: string | null;
-  // Task #817: per-lesson credit charge from the V2/V1 ledger.
+  // Task #817: per-lesson credit charge from the V2 ledger.
   creditsCharged?: number;
   creditChargeCount?: number;
   creditChargeType?: string | null;
+  // Task #1450: which V2 source produced the charge — `'v2-consume'` for a
+  // fresh wallet debit, `'v2-settlement'` when the session was paid via a
+  // later top-up against existing debt, `null` when V2 has no evidence.
+  creditChargeSource?: "v2-consume" | "v2-settlement" | null;
 }
 
 interface SeriesAttendanceSummary {
@@ -315,8 +319,9 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
             </Text>
           </View>
           {(() => {
-            // Task #817 — show "−1 group credit" / "No charge" / "Duplicate charge"
-            // sub-line directly under the row so the ledger truth is visible.
+            // Task #817 / #1450 — show "−1 group" / "−1 group · settled" /
+            // "No charge" / "DUP CHARGE" sub-line directly under the row so
+            // the ledger truth is visible.
             const status = (record.status || "").toLowerCase();
             const showCharge =
               status === "present" || status === "late" || status === "absent";
@@ -357,13 +362,15 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
                 </Text>
               );
             }
+            const isSettlement = record.creditChargeSource === "v2-settlement";
+            const suffix = isSettlement ? " · settled" : "";
             return (
               <Text
                 style={{ marginLeft: 6, fontSize: 10, color: Colors.dark.textSecondary, fontWeight: "600" }}
-                accessibilityLabel={`${Math.abs(amt)} ${typeLabel} credit charged`}
+                accessibilityLabel={`${Math.abs(amt)} ${typeLabel} credit ${isSettlement ? "settled via debt" : "charged"}`}
               >
                 {amt < 0 ? "−" : "+"}
-                {Math.abs(amt)} {typeLabel}
+                {Math.abs(amt)} {typeLabel}{suffix}
               </Text>
             );
           })()}
