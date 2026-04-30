@@ -40,7 +40,12 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Dimensions, LayoutChangeEvent, View } from "react-native";
+import {
+  Dimensions,
+  InteractionManager,
+  LayoutChangeEvent,
+  View,
+} from "react-native";
 
 type Listener = () => void;
 
@@ -83,6 +88,47 @@ export function useScrollPositionController(): ScrollPositionController {
       viewportHeightRef.current = viewportHeight;
     }
     listenersRef.current.forEach((cb) => cb());
+  }, []);
+
+  // Task #1456 — initial reveal-tick. iOS cold-start does not produce
+  // an organic scroll event, so any LazyOnScroll child whose layoutY
+  // measurement arrives after first paint (e.g. News, Coaches on the
+  // player Home tab) used to wait for a manual swipe before revealing.
+  // Emit one synthetic tick after the first interaction tick: every
+  // already-mounted LazyOnScroll child will re-run `checkVisible()`
+  // with its now-known layoutY and reveal itself if within
+  // viewport + prefetchOffset. Idempotent — LazyOnScroll's reveal is
+  // one-shot, so already-revealed children short-circuit.
+  //
+  // Two parallel paths fire the same fanOut (same idempotent set):
+  //   1. InteractionManager.runAfterInteractions + 16ms — preferred,
+  //      waits for the JS bridge to settle so layoutY is populated.
+  //   2. 600ms hard timeout fallback — covers the worst-case where
+  //      InteractionManager itself stalls during a heavy cold start.
+  //   `fired` flag ensures the listeners are notified at most once even
+  //   if both paths race; both paths also clean up their pending timer
+  //   on unmount.
+  useEffect(() => {
+    let fired = false;
+    let nestedTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    const fanOut = () => {
+      if (fired) return;
+      fired = true;
+      listenersRef.current.forEach((cb) => cb());
+    };
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (fired) return;
+      // Tiny defer so any onLayout pass scheduled in the same frame
+      // gets a chance to populate layoutY first.
+      nestedTimeoutId = setTimeout(fanOut, 16);
+    });
+    const fallbackTimeoutId = setTimeout(fanOut, 600);
+    return () => {
+      fired = true;
+      if (handle && typeof handle.cancel === "function") handle.cancel();
+      if (nestedTimeoutId !== null) clearTimeout(nestedTimeoutId);
+      clearTimeout(fallbackTimeoutId);
+    };
   }, []);
 
   return { contextValue, emit };

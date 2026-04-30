@@ -44,6 +44,8 @@ Player tab data fetching on iOS cold-start is deferred using `deferredHydrateAnd
 ### CRITICAL: iOS cold-start paint-tick
 The `useIosPaintTick(splashComplete)` hook and `<IosPaintFlush tick={...}>` wrapper in `client/lib/iosPaintTick.tsx` are essential for iOS Fabric to flush pending React commits on cold start, preventing a prolonged spinner. The opacity nudge style within `<IosPaintFlush>` must remain inline. The navigator child must not carry a `key={tick}`. `freezeOnBlur: Platform.OS !== "ios"` must be set on relevant navigators.
 
+Bumps run at +300 ms, +1000 ms, +2000 ms, +3500 ms, +5000 ms, +8000 ms after splashComplete, plus on every AppState 'active' event. The post-1 s ticks (added in #1456) catch god-routes that resolve later than 1 s — without them, screens whose `isLoading` flips false after the original two ticks (e.g. Growth and Me's `progress-data` / `profile-data` routes) would otherwise remain stuck on their full-screen skeleton until the user manually swipes.
+
 ### CRITICAL: API Development Rule
 DO NOT create new API endpoints without explicit permission!
 1. **First**: Check existing endpoints.

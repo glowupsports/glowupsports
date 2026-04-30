@@ -12,6 +12,11 @@
 // View wrapping the navigator, bumped:
 //   - at +300 ms after splashComplete
 //   - at +1000 ms after splashComplete
+//   - at +2000 ms, +3500 ms, +5000 ms, +8000 ms after splashComplete
+//     (Task #1456 — covers god-routes that resolve >1 s, e.g. Growth /
+//     Me where slow tournament/profile branches keep `isLoading` true
+//     past the original two ticks and otherwise leave the screen
+//     stuck on its skeleton until the user swipes)
 //   - on every AppState 'active' event after splashComplete
 // The delta is visually imperceptible but is enough to force iOS to
 // re-commit the view tree, simulating the gesture that would otherwise
@@ -52,7 +57,16 @@ export function useIosPaintTick(splashComplete: boolean): number {
     if (Platform.OS !== "ios") return;
     if (!splashComplete) return;
     let firstTickEmitted = false;
-    const bump = (src: "t300" | "t1000" | "appstate") => {
+    const bump = (
+      src:
+        | "t300"
+        | "t1000"
+        | "t2000"
+        | "t3500"
+        | "t5000"
+        | "t8000"
+        | "appstate",
+    ) => {
       requestAnimationFrame(() => {
         setIosPaintTick((t) => t + 1);
         try {
@@ -82,12 +96,26 @@ export function useIosPaintTick(splashComplete: boolean): number {
     };
     const t1 = setTimeout(() => bump("t300"), 300);
     const t2 = setTimeout(() => bump("t1000"), 1000);
+    // Task #1456 — extra bumps for god-routes that resolve later than
+    // the original 1 s ceiling. Without these, screens whose `isLoading`
+    // flips false at e.g. 1.4 s sit on their skeleton until a manual
+    // swipe forces Fabric to flush. Each extra bump is cheap (one
+    // requestAnimationFrame + one state set) and they short-circuit
+    // through React's bailout once the screen has already painted.
+    const t3 = setTimeout(() => bump("t2000"), 2000);
+    const t4 = setTimeout(() => bump("t3500"), 3500);
+    const t5 = setTimeout(() => bump("t5000"), 5000);
+    const t6 = setTimeout(() => bump("t8000"), 8000);
     const sub = AppState.addEventListener("change", (s) => {
       if (s === "active") bump("appstate");
     });
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+      clearTimeout(t5);
+      clearTimeout(t6);
       sub.remove();
     };
   }, [splashComplete]);
