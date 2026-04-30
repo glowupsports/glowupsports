@@ -4,8 +4,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { loginRevenueCat, logoutRevenueCat } from "@/lib/revenuecat";
+// Task #1455 — `deferredHydrateAndPersist` removed from the bootstrap
+// path. The persisted god-cache hydrate was player-only and contributed
+// to the "frozen until swipe" iOS cold-start where coach/admin/owner
+// roles loaded fine. We now mirror coach: no extra AsyncStorage blob
+// read on cold start. `clearGodCache` is still used on logout/401 to
+// flush any leftover snapshot from previous sessions.
 import {
-  deferredHydrateAndPersist,
   clearGodCache,
 } from "@/lib/queryCachePersist";
 import { 
@@ -138,20 +143,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCoach(data.coach);
         setAcademy(data.academy);
 
-        // Task #1387 — As soon as we know the active player, hydrate the
-        // persisted god-cache from disk and start write-through. This is
-        // the "instant first paint" knob: by the time the player nav
-        // mounts, Schedule / Profile / Home / Progress / Play already
-        // have their last-known payload primed into react-query.
-        //
-        // Task #1394 — defer this past first paint. Doing it inline here
-        // saturated the iOS Fabric bridge during cold start and made
-        // every player tab render a never-ending spinner until the user
-        // swiped a tab to drain the bridge. See queryCachePersist.ts for
-        // the full root-cause write-up.
-        if (data.user?.playerId) {
-          deferredHydrateAndPersist(queryClient, data.user.playerId);
-        }
+        // Task #1455 — god-cache hydrate removed from the login-success
+        // path. Coach/admin/owner never ran this and load instantly;
+        // the player-only AsyncStorage blob read was a measurable
+        // bridge-stall on iOS cold start. The home god-query
+        // (`/api/player/me/home-data`) replaces the persisted snapshot
+        // as the source of truth and arrives before the user can read
+        // the screen anyway.
 
         if (data.user?.id) {
           loginRevenueCat(data.user.id).catch(() => {});
@@ -224,24 +222,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (authState.token && authState.user && isMounted) {
           setAuthToken(authState.token);
-          // Task #1387 — pre-hydrate the god-cache from disk BEFORE the
-          // /api/me round-trip. The cached `authState.user` already
-          // carries `playerId` from the previous session, so we can
-          // start filling react-query while the auth refresh is still
-          // in-flight. This is the bulk of the cold-start latency win:
-          // by the time NavigationContainer mounts the player tabs,
-          // their useQuery calls return the persisted snapshot
-          // synchronously and the screen renders with content.
-          //
-          // Task #1394 — defer past first paint (see queryCachePersist).
-          // The deferred wrapper still primes react-query before the
-          // user sees the home tab in normal navigation, but it no
-          // longer steals the bridge during the navigator-mount burst.
-          const cachedPlayerId =
-            (authState.user as { playerId?: string | null } | null)?.playerId;
-          if (cachedPlayerId) {
-            deferredHydrateAndPersist(queryClient, cachedPlayerId);
-          }
+          // Task #1455 — god-cache hydrate removed from the
+          // session-restore path. Coach/admin/owner never had this and
+          // load fine; the player-only blob hydrate was the largest
+          // remaining cold-start hit on iOS Fabric. The home
+          // god-query fires immediately on tab-mount and that single
+          // round-trip is faster than the AsyncStorage read + replay
+          // it used to fall back to.
           logger.log("[AuthContext] Fetching user data...");
           const success = await fetchUserData(authState.token);
           logger.log("[AuthContext] Fetch user data result:", success);

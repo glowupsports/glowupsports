@@ -19,6 +19,7 @@ import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, type Sport }
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import { PlayerStateProvider , usePlayerState } from "@/player/context/PlayerStateContext";
+import { usePlayer } from "@/player/context/PlayerContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { PrimaryActionsRow } from "@/player/components/PrimaryActionsRow";
@@ -1087,6 +1088,12 @@ function PlayerHomeContent() {
   const queryClient = useQueryClient();
   const track = useTrackFeature();
   const { user, isGuest } = useAuth();
+  // Task #1455 — pull the in-memory player snapshot so the header
+  // (avatar, name, level, XP, ball level) can paint on first frame
+  // instead of waiting for the home god-query. `usePlayer()` is
+  // backed by the lightweight `/api/player/me` query that PlayerContext
+  // owns and arrives well before `/api/player/me/home-data` does.
+  const playerCtx = usePlayer();
   const { openDrawer } = usePlayerDrawer();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
@@ -1479,73 +1486,20 @@ function PlayerHomeContent() {
 
   const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
 
-  // Skeleton shell while we're still waiting for the very first response —
-  // gives the user the layout instantly instead of a yellow spinner. Sections
-  // with their own queries (PlayerDNABanner, MiniFeed, etc.) hydrate
-  // independently as their data arrives.
+  // Task #1455 — full-screen skeleton-gate removed. The old branch
+  // returned a single shimmer-blob whenever `homeData` wasn't loaded
+  // yet, which on iOS Fabric meant the cold-start blob → real-content
+  // transition would visibly stall ("frozen until swipe"). Coach has
+  // never had this gate; it always rendered its layout immediately
+  // and let kaarten progressief invullen. We now mirror coach: the
+  // header paints from `useAuth()` + `usePlayer()` (already in memory
+  // before home-data arrives) and each section ships its own
+  // mini-skeleton while it's waiting on its slice of the god-query.
   //
-  // Task #1433 — guard widened from `isLoading && !homeData` to just
-  // `!homeData`. The old guard required `isLoading === true`, but during the
-  // ~600ms PLAYER_ME_DEFER_MS cold-start window the home god-query is
-  // DISABLED (`enabled: !!user?.playerId && !isGuest` — playerId hasn't
-  // arrived yet from the deferred AuthContext hydrate). TanStack Query
-  // reports `isLoading === false` for disabled queries, so the old guard
-  // missed this window, the second guard at L1528 also missed (needs
-  // `homeData` truthy), and execution fell through to the
-  // `effectiveData!.player` destructure → TypeError → blue cold-start
-  // screen reproduced in Sentry issue REACT-NATIVE-45 on release 1.3.6.
-  // Bonus: this also covers the isError path (errored query reports
-  // isLoading=false + homeData=undefined) — proper isError handling with
-  // a retry card is a separate task if it ever surfaces in telemetry.
-  if (!isGuest && !homeData) {
-    try {
-      Sentry.addBreadcrumb({
-        category: "player_home",
-        level: "info",
-        message: "rendering skeleton — homeData not ready",
-        data: {
-          isLoading,
-          hasUserPlayerId: !!user?.playerId,
-          queryEnabled: !!user?.playerId && !isGuest,
-        },
-      });
-    } catch {
-      // Sentry never throws past the render path.
-    }
-    return (
-      <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingTop: insets.top, paddingBottom: insets.bottom + 180 },
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.homeSkeletonHeader}>
-            <Skeleton width={64} height={64} borderRadius={32} />
-            <View style={styles.homeSkeletonHeaderText}>
-              <Skeleton width="70%" height={20} />
-              <Skeleton width="50%" height={14} style={{ marginTop: Spacing.sm }} />
-            </View>
-            <Skeleton width={36} height={36} borderRadius={18} />
-          </View>
-          <View style={styles.homeSkeletonActionRow}>
-            <Skeleton width="48%" height={56} borderRadius={BorderRadius.md} />
-            <Skeleton width="48%" height={56} borderRadius={BorderRadius.md} />
-          </View>
-          <View style={styles.homeSkeletonSection}>
-            <Skeleton width="40%" height={18} style={{ marginBottom: Spacing.md }} />
-            <SkeletonSessionCard />
-          </View>
-          <View style={styles.homeSkeletonSection}>
-            <Skeleton width="40%" height={18} style={{ marginBottom: Spacing.md }} />
-            <SkeletonCard />
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
+  // The error-card branch BELOW stays — it covers the "god-query
+  // resolved but the dashboard sub-branch returned null" case, which
+  // is a real Sentry-observed failure mode (#1379 retry-card) and
+  // can't be folded into the optimistic render.
 
   // God-query resolved but the critical dashboard branch failed (server
   // returns `dashboard: null` with HTTP 200 in that case so the AI/digest
@@ -1578,7 +1532,32 @@ function PlayerHomeContent() {
     );
   }
 
-  const { player, credits } = effectiveData!;
+  // Task #1455 — defensive header data. `effectiveData` is undefined
+  // on cold start until the home god-query resolves. Pulling identity
+  // off `useAuth()` + `usePlayer()` lets the ProPlayerCard, hero
+  // greeting and modals render with the real avatar/name/level on the
+  // very first commit instead of waiting for /home-data. Once
+  // /home-data lands, the dashboardData branch wins and supplies the
+  // server-of-truth values (streak, profile photo crop, etc.).
+  const dashboardPlayer = effectiveData?.player;
+  const player = {
+    id: dashboardPlayer?.id ?? user?.playerId ?? "",
+    name:
+      dashboardPlayer?.name ??
+      user?.displayName ??
+      user?.username ??
+      "",
+    level: dashboardPlayer?.level ?? playerCtx.level ?? 1,
+    xp: dashboardPlayer?.xp ?? playerCtx.xp ?? 0,
+    glowScore: dashboardPlayer?.glowScore ?? playerCtx.glowScore ?? 0,
+    ballLevel: dashboardPlayer?.ballLevel ?? playerCtx.ballLevel ?? null,
+    streak: dashboardPlayer?.streak ?? 0,
+    profilePhotoUrl:
+      dashboardPlayer?.profilePhotoUrl ?? user?.profilePhotoUrl ?? null,
+    dateOfBirth: dashboardPlayer?.dateOfBirth ?? null,
+    playStyle: dashboardPlayer?.playStyle ?? null,
+  };
+  const credits = effectiveData?.credits;
   
   const handleAvatarPress = () => {
     guardAction(() => openDrawer());
