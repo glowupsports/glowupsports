@@ -1,16 +1,14 @@
 import logger from "@/lib/logger";
 import React, { createContext, useContext, ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
 
-// Task #1455 — deferred-enable removed. Coach has no equivalent and
-// loads instantly; the `scheduleDeferredFlip` / `useDeferredEnabled`
-// dance below was only there to push `/api/player/me` off the
-// cold-start critical path while the persisted god-cache was being
-// hydrated. With god-cache hydrate gone (#1455 too), there is nothing
-// to defer around — the query fires immediately when `user.role ===
-// "player"`, exactly mirroring how AuthContext's coach/admin queries
-// behave for the other roles.
+// Task #1466 — `usePlayer()` is now derived directly from `useAuth().player`,
+// which is folded into `/api/me` server-side (mirror of how coach data is
+// folded). The previous separate `useQuery(["/api/player/me"])` round-trip
+// is gone — that was the 1-3 s gap between paint and "real" player data on
+// iOS cold start. Now player data arrives in the same payload as auth
+// itself, so `usePlayer()` is populated the moment auth resolves, exactly
+// like `useCoach()` is for coaches today. No second fetch, no skeleton race.
 
 interface PlayerContextData {
   playerId: string | null;
@@ -63,69 +61,42 @@ interface PlayerProviderProps {
   children: ReactNode;
 }
 
-interface PlayerProfile {
-  player: {
-    id: string;
-    academyId: string;
-    coachId: string;
-    level: number;
-    xp: number;
-    glowScore: number;
-    ballLevel: string;
-    dateOfBirth?: string | null;
-    isAdult?: boolean;
-    glowMmr?: number;
-    glowRank?: number;
-    totalMatchesPlayed?: number;
-    chatEnabled?: boolean | null;
-    communityEnabled?: boolean | null;
-  };
-  coach?: {
-    id: string;
-    username: string;
-  };
-}
-
 export function PlayerProvider({ children }: PlayerProviderProps) {
-  const { user } = useAuth();
+  const { user, coach, player, isLoading: authLoading } = useAuth();
 
-  // Task #1455 — query is enabled directly on role, no defer. Coach
-  // does the same for its `/api/coach/me/home-data` query and loads
-  // instantly; the previous defer dance only existed to coexist with
-  // the player-only god-cache hydrate that has now also been removed.
-  const { data: profile, isLoading } = useQuery<PlayerProfile>({
-    queryKey: ["/api/player/me"],
-    enabled: user?.role === "player",
-  });
+  // Loading semantics: while auth is resolving for a player role, treat
+  // PlayerContext as loading. Once auth is done, `player` is either
+  // populated (player role) or null (non-player role) — no extra wait.
+  const isPlayerRole = user?.role === "player";
+  const isLoading = isPlayerRole && authLoading;
 
-  const dateOfBirth = profile?.player?.dateOfBirth || null;
+  const dateOfBirth = player?.dateOfBirth || null;
   const age = calculateAge(dateOfBirth);
   const isBirthday = checkIsBirthday(dateOfBirth);
-  
-  // Debug logging for birthday
-  if (profile?.player) {
+
+  if (player) {
     logger.log("[PlayerContext] dateOfBirth:", dateOfBirth, "isBirthday:", isBirthday, "today:", new Date().toISOString());
   }
-  
+
   const value: PlayerContextData = {
-    playerId: profile?.player?.id ?? null,
-    academyId: profile?.player?.academyId ?? null,
-    coachId: profile?.player?.coachId ?? null,
-    coachName: profile?.coach?.username ?? null,
-    level: profile?.player?.level ?? 1,
-    xp: profile?.player?.xp ?? 0,
-    glowScore: profile?.player?.glowScore ?? 0,
-    ballLevel: profile?.player?.ballLevel ?? "red",
+    playerId: player?.id ?? null,
+    academyId: player?.academyId ?? null,
+    coachId: player?.coachId ?? null,
+    coachName: coach?.name ?? null,
+    level: player?.level ?? 1,
+    xp: player?.xp ?? 0,
+    glowScore: player?.glowScore ?? 0,
+    ballLevel: player?.ballLevel ?? "red",
     dateOfBirth,
     isMinor: age <= 17,
     isLoading,
-    isAdult: profile?.player?.isAdult ?? false,
-    glowMmr: profile?.player?.glowMmr ?? 1000,
-    glowRank: profile?.player?.glowRank ?? 9,
-    totalMatchesPlayed: profile?.player?.totalMatchesPlayed ?? 0,
+    isAdult: player?.isAdult ?? false,
+    glowMmr: player?.glowMmr ?? 1000,
+    glowRank: player?.glowRank ?? 9,
+    totalMatchesPlayed: player?.totalMatchesPlayed ?? 0,
     isBirthday,
-    chatEnabled: age <= 17 ? (profile?.player?.chatEnabled ?? false) : true,
-    communityEnabled: age <= 17 ? (profile?.player?.communityEnabled ?? false) : true,
+    chatEnabled: age <= 17 ? (player?.chatEnabled ?? false) : true,
+    communityEnabled: age <= 17 ? (player?.communityEnabled ?? false) : true,
   };
 
   return (

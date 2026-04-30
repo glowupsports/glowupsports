@@ -47,6 +47,35 @@ interface Academy {
   timezone?: string | null;
 }
 
+// Task #1466 — player record folded into /api/me, mirroring the coach
+// contract. `usePlayer()` reads from `useAuth().player` so cold-start
+// Home paints with real player data on the first frame, no separate
+// `/api/player/me` round-trip. Shape must match `buildAuthPlayerPayload`
+// in server/routes/player-auth.ts.
+export interface AuthPlayer {
+  id: string;
+  name: string;
+  displayName: string | null;
+  email: string | null;
+  ballLevel: string | null;
+  level: number;
+  xp: number;
+  glowScore: number;
+  dateOfBirth: string | null;
+  academyId: string | null;
+  coachId: string | null;
+  profilePhotoUrl: string | null;
+  isAdult: boolean;
+  glowMmr: number;
+  glowRank: number;
+  totalMatchesPlayed: number;
+  chatEnabled: boolean | null;
+  communityEnabled: boolean | null;
+  lastLatitude: number | null;
+  lastLongitude: number | null;
+  attendanceStreak: number | null;
+}
+
 interface PlayerRegisterData {
   username: string;
   firstName: string;
@@ -66,6 +95,7 @@ interface AuthContextType {
   user: AuthUser | null;
   coach: Coach | null;
   academy: Academy | null;
+  player: AuthPlayer | null;
   isGuest: boolean;
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   loginWithToken: (token: string, user: AuthUser, refreshToken?: string) => Promise<void>;
@@ -112,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [coach, setCoach] = useState<Coach | null>(null);
   const [academy, setAcademy] = useState<Academy | null>(null);
+  const [player, setPlayer] = useState<AuthPlayer | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [impersonatedAcademyName, setImpersonatedAcademyName] = useState<string | null>(null);
@@ -138,10 +169,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return false;
         }
         const data = JSON.parse(text);
-        logger.log("[AuthContext] Received user data:", { hasUser: !!data.user, hasCoach: !!data.coach, hasAcademy: !!data.academy });
+        logger.log("[AuthContext] Received user data:", { hasUser: !!data.user, hasCoach: !!data.coach, hasAcademy: !!data.academy, hasPlayer: !!data.player });
         setUser(data.user);
         setCoach(data.coach);
         setAcademy(data.academy);
+        // Task #1466 — fold player into auth state. PlayerContext now
+        // reads from useAuth().player instead of a second `/api/player/me`
+        // round-trip, mirroring how CoachContext derives coach from auth.
+        setPlayer(data.player ?? null);
 
         // Task #1455 — god-cache hydrate removed from the login-success
         // path. Coach/admin/owner never ran this and load instantly;
@@ -194,6 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setCoach(null);
     setAcademy(null);
+    setPlayer(null);
   }, [queryClient, isGuest, user?.playerId]);
 
   useEffect(() => {
@@ -269,6 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsGuest(true);
     setCoach(null);
     setAcademy(null);
+    setPlayer(null);
     const availableModes = getModesForRole("player");
     const defaultMode = getDefaultModeForRole("player");
     setAvailableModesRef.current(availableModes, defaultMode);
@@ -549,6 +586,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setCoach(null);
       setAcademy(null);
+      setPlayer(null);
       logoutRevenueCat().catch(() => {});
       logger.log("[AuthContext] Logout successful");
     } catch (error) {
@@ -668,6 +706,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         coach,
         academy,
+        player,
         isGuest,
         login,
         loginWithToken,

@@ -85,6 +85,36 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
   // ==================== AUTH/ME ENDPOINTS ====================
 
+  // Task #1466 — shared shape between `/api/me` (cold-start fold-in)
+  // and `/api/player/me` (legacy refresh endpoint in coach-calendar.ts).
+  // Keep these aligned: PlayerContext consumes both and expects an
+  // identical record shape so swapping the source is a no-op.
+  function buildAuthPlayerPayload(player: typeof players.$inferSelect) {
+    return {
+      id: player.id,
+      name: player.name,
+      displayName: player.displayName,
+      email: player.email,
+      ballLevel: player.ballLevel,
+      level: player.level || 1,
+      xp: player.totalXp || 0,
+      glowScore: player.glowScore || 0,
+      dateOfBirth: player.dateOfBirth,
+      academyId: player.academyId,
+      coachId: player.coachId,
+      profilePhotoUrl: player.profilePhotoUrl,
+      isAdult: player.isAdult || false,
+      glowMmr: player.glowMmr || 1000,
+      glowRank: player.glowRank || 9,
+      totalMatchesPlayed: player.totalMatchesPlayed || 0,
+      chatEnabled: player.chatEnabled ?? null,
+      communityEnabled: player.communityEnabled ?? null,
+      lastLatitude: player.lastLatitude ?? null,
+      lastLongitude: player.lastLongitude ?? null,
+      attendanceStreak: player.streak ?? null,
+    };
+  }
+
   // Get current user with coach and academy context (authenticated)
   router.get(
     "/api/me",
@@ -118,6 +148,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         let coach = null;
         let academy = null;
+        let player = null;
 
         if (isImpersonating) {
           const impersonatedCoachId = tokenUser.coachId;
@@ -129,6 +160,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
           if (impersonatedAcademyId) {
             academy = await storage.getAcademy(impersonatedAcademyId);
+          }
+          // Task #1466 — fold player into /api/me to mirror the coach
+          // contract. `usePlayer()` reads from `useAuth().player`,
+          // eliminating the second `/api/player/me` round-trip on cold
+          // start. Honors `effectivePlayerId` for impersonation.
+          if (impersonatedPlayerId) {
+            player = await storage.getPlayer(impersonatedPlayerId);
           }
 
           res.json({
@@ -164,6 +202,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                   timezone: academy.timezone || "Asia/Dubai",
                 }
               : null,
+            player: player ? buildAuthPlayerPayload(player) : null,
           });
         } else {
           // When a family-switch synthetic token is used, tokenUser.playerId holds
@@ -179,8 +218,19 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               ? (tokenUser.academyId ?? freshUser.academyId)
               : freshUser.academyId;
 
-          if (freshUser.coachId) {
-            coach = await storage.getCoach(freshUser.coachId);
+          // Task #1466 — fold player into /api/me. Same effectivePlayerId
+          // family-switch logic as above so a parent acting as a child
+          // sees the child's player record. Fetch player BEFORE coach so
+          // we can derive the coach from `player.coachId` (matching the
+          // legacy `/api/player/me` shape). In family-switch sessions
+          // `freshUser.coachId` belongs to the parent (usually null),
+          // while the child's actual coach lives on `player.coachId`.
+          if (effectivePlayerId) {
+            player = await storage.getPlayer(effectivePlayerId);
+          }
+          const coachIdForLookup = player?.coachId ?? freshUser.coachId;
+          if (coachIdForLookup) {
+            coach = await storage.getCoach(coachIdForLookup);
           }
           if (effectiveAcademyId) {
             academy = await storage.getAcademy(effectiveAcademyId);
@@ -219,6 +269,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
                   timezone: academy.timezone || "Asia/Dubai",
                 }
               : null,
+            player: player ? buildAuthPlayerPayload(player) : null,
           });
         }
       } catch (error) {
