@@ -21,6 +21,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { fromZodError } from "zod-validation-error";
   import { getBallLevelFromAge } from "@shared/ballLevel";
   import { resolveOrCreateFamilyForCaller, addPlayerToFamily, findFamilyForPlayer } from "../lib/family-groups";
+  import { resolveEffectivePlayerId } from "../lib/effective-player-id";
   import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
   import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
   import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
@@ -205,13 +206,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             player: player ? buildAuthPlayerPayload(player) : null,
           });
         } else {
-          // When a family-switch synthetic token is used, tokenUser.playerId holds
-          // the child's playerId while freshUser.playerId belongs to the parent.
-          // Use the token's playerId so the session is scoped to the correct player.
-          const effectivePlayerId =
-            tokenUser.playerId && tokenUser.playerId !== freshUser.playerId
-              ? tokenUser.playerId
-              : freshUser.playerId;
+          // Family-switch: prefer the token's playerId via the shared
+          // helper so this endpoint and /api/player/me stay aligned
+          // (Task #1468).
+          const effectivePlayerId = resolveEffectivePlayerId({
+            tokenUser,
+            freshUser,
+          });
 
           const effectiveAcademyId =
             tokenUser.playerId && tokenUser.playerId !== freshUser.playerId

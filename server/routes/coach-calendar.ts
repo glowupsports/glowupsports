@@ -55,7 +55,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
     submitReviewSchema,
   } from "@shared/schema";
-  import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
+  import { resolveEffectivePlayerId } from "../lib/effective-player-id";
+import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";
   import { broadcastSessionUpdate } from "../websocket";
   const router = Router();
@@ -885,11 +886,22 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         // Get fresh user data
         const freshUser = await storage.getUserById(tokenUser.userId);
-        if (!freshUser || !freshUser.playerId) {
+        if (!freshUser) {
           return res.status(400).json({ error: "Player not found" });
         }
 
-        const player = await storage.getPlayer(freshUser.playerId);
+        // Task #1468 — honour family-switch tokens via the shared helper
+        // so this endpoint stays in sync with /api/me.
+        const effectivePlayerId = resolveEffectivePlayerId({
+          tokenUser,
+          freshUser,
+        });
+
+        if (!effectivePlayerId) {
+          return res.status(400).json({ error: "Player not found" });
+        }
+
+        const player = await storage.getPlayer(effectivePlayerId);
         if (!player) {
           return res.status(404).json({ error: "Player not found" });
         }
