@@ -53,17 +53,25 @@ describe("player-progress-data god-endpoint route — Task #1383 regression guar
   });
 
   it("uses an allSettled-equivalent fan-out so a single slow branch can't take Progress down", () => {
-    // Task #1383's progress-data route still uses the legacy `subFetch`
-    // pattern — Task #1398 only migrated profile-data, community-data,
-    // and player-play-data to in-process dispatch. Until #1403 lands,
-    // this guard accepts EITHER pattern (subFetch HTTP fan-out OR
-    // dispatchInProcess) so the regression net stays meaningful.
+    // Task #1383's progress-data route originally used a local `subFetch`
+    // helper that produced its own `{ status: "error", data: null, ... }`
+    // failure rows. Task #1398 migrated this route to the shared
+    // `dispatchInProcess` helper (server/lib/in-process-dispatch.ts),
+    // which now owns that error-shape contract. This guard accepts
+    // EITHER pattern: if the route still uses a local `subFetch`, the
+    // error-shape literal must live in the route file; if it uses
+    // `dispatchInProcess`, the literal must live in the helper file.
+    // Either way the failure-isolation contract is enforced.
     const src = readRepoFile("server/routes/player-progress-data.ts");
-    expect(
-      /async function subFetch/.test(src) ||
-        /dispatchInProcess/.test(src),
-    ).toBe(true);
-    expect(src).toMatch(/return \{ status: "error", data: null/);
+    const usesSubFetch = /async function subFetch/.test(src);
+    const usesDispatch = /dispatchInProcess/.test(src);
+    expect(usesSubFetch || usesDispatch).toBe(true);
+    if (usesDispatch) {
+      const helperSrc = readRepoFile("server/lib/in-process-dispatch.ts");
+      expect(helperSrc).toMatch(/return \{ status: "error", data: null/);
+    } else {
+      expect(src).toMatch(/return \{ status: "error", data: null/);
+    }
     expect(src).toMatch(/Promise\.all\(\[/);
   });
 

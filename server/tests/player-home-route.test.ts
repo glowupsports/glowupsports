@@ -123,13 +123,19 @@ describe("player home screen — Task #1379 client invariants", () => {
     const src = readRepoFile("server/routes/player-home.ts");
     // Must dispatch into the canonical /profile and /ai-pro/status
     // routes — we MUST NOT inline a reduced shape here (that's the
-    // exact regression Task #1419 fixed).
+    // exact regression Task #1419 fixed). The named helper functions
+    // got renamed/inlined when the route adopted the shared
+    // `dispatchInProcess` helper (server/lib/in-process-dispatch.ts),
+    // so this guard now asserts the BEHAVIOUR — that a
+    // `dispatchInProcess` call is wired to each canonical path —
+    // rather than the helper-function names that no longer exist.
     expect(src).toMatch(/dispatchInProcess/);
-    expect(src).toMatch(/fetchProfileFull/);
-    expect(src).toMatch(/fetchAiProStatus/);
-    // Sanity: the full-profile fetch dispatches to the canonical path.
-    expect(src).toMatch(/["']\/api\/player\/me\/profile["']/);
-    expect(src).toMatch(/["']\/api\/ai-pro\/status["']/);
+    expect(src).toMatch(
+      /dispatchInProcess[\s\S]{0,200}["']\/api\/player\/me\/profile["']/,
+    );
+    expect(src).toMatch(
+      /dispatchInProcess[\s\S]{0,200}["']\/api\/ai-pro\/status["']/,
+    );
   });
 
   // Task #1427 — explicit shape coverage for the two newest folded-in
