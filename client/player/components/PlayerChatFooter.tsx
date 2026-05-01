@@ -37,7 +37,6 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
-import { useTabNavigation } from "@/components/TabNavigationContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 
@@ -257,7 +256,6 @@ export function PlayerChatFooter() {
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
   const { user } = useAuth();
   const { isMinor, chatEnabled } = usePlayer();
   const { setChatExpanded } = useChatState();

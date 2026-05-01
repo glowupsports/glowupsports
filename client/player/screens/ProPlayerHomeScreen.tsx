@@ -1117,7 +1117,7 @@ function PlayerHomeContent() {
   // also prime the React Query cache for those legacy keys (see effect
   // below) so any subcomponent that still calls `useQuery(["/api/player/me/profile"])`
   // resolves instantly from cache instead of triggering its own fetch.
-  const { data: homeData, isLoading, refetch, isRefetching } = useQuery<{
+  const { data: homeData, isLoading, refetch } = useQuery<{
     dashboard: DashboardData | null;
     // Task #1419 — `profile` is now the FULL `/api/player/me/profile`
     // shape (player+coach+academy+stats+social+countryLadders) so we
@@ -1163,6 +1163,16 @@ function PlayerHomeContent() {
     // caught this as a regression vs. the old per-query setup.
     refetchInterval: 120 * 1000,
   });
+
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const handleManualRefresh = async () => {
+    setIsManualRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  };
 
   // Derived views — same shape as the old per-query results so the rest
   // of the screen reads identically.
@@ -1739,8 +1749,8 @@ function PlayerHomeContent() {
         scrollEventThrottle={64}
         refreshControl={
           <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
+            refreshing={isManualRefreshing}
+            onRefresh={handleManualRefresh}
             tintColor={Colors.dark.accentText}
             colors={[GlowColors.primary]}
           />

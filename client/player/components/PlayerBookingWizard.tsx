@@ -18,7 +18,6 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { openDirections } from "@/lib/maps";
 import { useNavigation } from "@react-navigation/native";
-import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -220,7 +219,6 @@ export default function PlayerBookingWizard({
   );
 
   const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
   // Current slide (0-4)
   const [currentSlide, setCurrentSlide] = useState(0);
 

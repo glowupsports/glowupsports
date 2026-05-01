@@ -12,7 +12,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
-import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Location from "expo-location";
@@ -296,7 +295,6 @@ export default function DiscoveryMapScreen() {
 function DiscoveryMapScreenInner() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<DiscoveryMapNav>>();
-  const { navigateToTab } = useTabNavigation();
   const route = useRoute<RouteProp<DiscoveryMapNav, "DiscoveryMap">>();
   const [filter, setFilter] = useState<FilterKey>(route.params?.initialFilter ?? "all");
   const [region, setRegion] = useState<Region>(WORLD_REGION);

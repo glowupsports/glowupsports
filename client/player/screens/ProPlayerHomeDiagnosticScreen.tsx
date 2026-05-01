@@ -582,7 +582,7 @@ function DiagnosticHomeContent() {
   );
 
   // ── God-route query (exact from ProPlayerHomeScreen) ─────────────────────
-  const { data: homeData, refetch, isRefetching } = useQuery<{
+  const { data: homeData, refetch } = useQuery<{
     dashboard: DashboardData | null;
     profile: Record<string, unknown> | null;
     unreadCount: { count: number };
@@ -598,6 +598,16 @@ function DiagnosticHomeContent() {
     staleTime: 0,
     refetchInterval: 120 * 1000,
   });
+
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const handleManualRefresh = async () => {
+    setIsManualRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  };
 
   // ── Derived data (exact from ProPlayerHomeScreen) ─────────────────────────
   const dashboardData = homeData?.dashboard ?? undefined;
@@ -812,8 +822,8 @@ function DiagnosticHomeContent() {
           onScroll={onHomeScroll}
           refreshControl={
             <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
+              refreshing={isManualRefreshing}
+              onRefresh={handleManualRefresh}
               tintColor={Colors.dark.accentText}
               colors={[GlowColors.primary]}
             />

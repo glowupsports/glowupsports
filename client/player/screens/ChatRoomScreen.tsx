@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -124,7 +123,6 @@ function parseMatchInvite(body: string): null | {
 export default function ChatRoomScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
   const route = useRoute<any>();
   const roomId: string = route.params?.roomId;
   const initialTitle: string = route.params?.title || "Room";
