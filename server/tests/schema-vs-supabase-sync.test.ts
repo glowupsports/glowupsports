@@ -174,17 +174,20 @@ describe("Task #1350 — schema.ts vs. real Supabase sync", () => {
    *   chat_room_mutes              + scope
    *   coaches                      + public_profile_backfilled,
    *                                + public_profile_default_on_backfilled
-   *   conversation_participants    - pinned_at
-   *   open_matches                 - invited_player_id, is_adult, match_intent,
-   *                                  preferred_date, preferred_time
-   *   player_social_notif_prefs    - quiet_hours_end, quiet_hours_start
    *   subscription_plans           + description, stripe_product_id, updated_at
    *   users                        + home_address, home_lat, home_lng
    *
    * (`-` = declared in schema.ts but missing in Supabase;
    *  `+` = present in Supabase but missing from schema.ts.)
    *
-   * That drift is tracked by Task #1349 (`Map row.X reads to real schema
+   * Resolved by Task #1485 (startup ALTER TABLE migrations):
+   *   conversation_participants    - pinned_at                            (FIXED)
+   *   open_matches                 - invited_player_id, is_adult,         (FIXED)
+   *                                  match_intent, preferred_date,
+   *                                  preferred_time
+   *   player_social_notif_prefs    - quiet_hours_end, quiet_hours_start   (FIXED)
+   *
+   * Remaining drift is tracked by Task #1349 (`Map row.X reads to real schema
    * columns`) and follow-up sync work; it is intentionally OUT OF SCOPE for
    * the safety-net itself. The test is wrapped in `it.skip` only until #1349
    * lands. When that task closes, FLIP `it.skip` BACK TO `it` so the guard

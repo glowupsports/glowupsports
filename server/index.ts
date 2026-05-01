@@ -1360,6 +1360,49 @@ function setupErrorHandler(app: express.Application) {
         console.error("[CommunityGroupMemberCountBackfill] Failed:", err);
       }
 
+      // ── SchemaColumnMigrations ─────────────────────────────────────────────
+      // Add columns declared in shared/schema.ts that were missing from
+      // Supabase, causing "column X does not exist" crashes at runtime.
+      // All statements use ADD COLUMN IF NOT EXISTS — fully idempotent.
+      try {
+        const { db: dbMigrate } = await import("./db");
+        const { sql: sqlMigrate } = await import("drizzle-orm");
+
+        // conversation_participants — pinned_at (Task #1485)
+        await dbMigrate.execute(sqlMigrate`
+          ALTER TABLE conversation_participants
+            ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ
+        `);
+
+        // open_matches — match_intent, preferred_date, preferred_time,
+        //                is_adult, invited_player_id (Task #1485)
+        await dbMigrate.execute(sqlMigrate`
+          ALTER TABLE open_matches
+            ADD COLUMN IF NOT EXISTS match_intent TEXT DEFAULT 'friendly',
+            ADD COLUMN IF NOT EXISTS preferred_date DATE,
+            ADD COLUMN IF NOT EXISTS preferred_time TEXT,
+            ADD COLUMN IF NOT EXISTS is_adult BOOLEAN DEFAULT true,
+            ADD COLUMN IF NOT EXISTS invited_player_id VARCHAR REFERENCES players(id)
+        `);
+
+        // Index for preferred_date lookups
+        await dbMigrate.execute(sqlMigrate`
+          CREATE INDEX IF NOT EXISTS open_matches_preferred_date_idx
+            ON open_matches (preferred_date)
+        `);
+
+        // player_social_notif_prefs — quiet_hours_start, quiet_hours_end (Task #1485)
+        await dbMigrate.execute(sqlMigrate`
+          ALTER TABLE player_social_notif_prefs
+            ADD COLUMN IF NOT EXISTS quiet_hours_start INTEGER,
+            ADD COLUMN IF NOT EXISTS quiet_hours_end INTEGER
+        `);
+
+        log("[SchemaColumnMigrations] All missing columns added successfully");
+      } catch (err) {
+        console.error("[SchemaColumnMigrations] Failed:", err);
+      }
+
       // ── CommunityGroupForSeriesBackfill ──────────────────────────────────
       // Ensure every non-private coaching_series has a Community Group with
       // members matching active enrollment + assigned coach. Idempotent.
