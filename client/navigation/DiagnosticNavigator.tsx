@@ -428,7 +428,7 @@ function DiagnosticStackWithDrawer() {
         {/* ── AI / Media ── */}
         <Stack.Screen name="VideoFeedbackPlayer" component={VideoFeedbackPlayerScreen} options={{ presentation: "card", headerShown: false }} />
         <Stack.Screen name="PlayerAICoach" component={PlayerAICoachScreen} options={{ presentation: "card", headerShown: false }} />
-        <Stack.Screen name="YearInTennis" component={YearInTennisScreen} options={{ presentation: "fullScreenModal", headerShown: false, animation: "fade" }} />
+        <Stack.Screen name="YearInTennis" component={YearInTennisScreen} options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }} />
 
         {/* ── Training ── */}
         <Stack.Screen name="Training" component={PlayerTrainingScreen} options={{ presentation: "modal" }} />

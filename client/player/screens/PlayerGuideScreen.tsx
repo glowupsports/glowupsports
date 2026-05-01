@@ -154,7 +154,7 @@ const EXPLORE_GROUPS: { groupKey: string; entries: ExploreEntryDef[] }[] = [
     entries: [
       { key: "findPlayers", icon: "people", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("PlayStack") : _nav.navigate("PlayerTabs", { screen: "Play" }) },
       { key: "bookCourt", icon: "tennisball", onPress: (nav) => nav.navigate("CourtBooking") },
-      { key: "tournaments", icon: "trophy", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("PlayStack", { initialTab: "Tournaments" }) : _nav.navigate("PlayerTabs", { screen: "Play", params: { initialTab: "Tournaments" } }) },
+      { key: "tournaments", icon: "trophy", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("PlayStack", { screen: "Play", params: { initialTab: "Tournaments" } }) : _nav.navigate("PlayerTabs", { screen: "Play", params: { initialTab: "Tournaments" } }) },
       { key: "groupEvents", icon: "calendar-number", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("PlayStack") : _nav.navigate("PlayerTabs", { screen: "Play" }) },
     ],
   },
