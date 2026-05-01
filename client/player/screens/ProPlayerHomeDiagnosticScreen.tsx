@@ -65,6 +65,9 @@ import { useQuests, Quest } from "@/player/hooks/useQuests";
 import SpotlightNominationModal from "@/player/components/SpotlightNominationModal";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
+import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
+import { TennisNewsStrip } from "@/player/components/TennisNewsStrip";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -917,6 +920,20 @@ function DiagnosticHomeContent() {
                   ((homeData?.profile as { player?: { quizScore?: number | null } } | null)?.player?.quizScore) ?? null
                 }
               />
+              {/* RecentFeedback & UpcomingAppointment — academy-only */}
+              {!isFreePlayer && !isGuest ? (
+                <>
+                  <RecentFeedbackCard />
+                  <UpcomingAppointmentCard />
+                </>
+              ) : null}
+            </LazyOnScroll>
+          ) : null}
+
+          {/* TENNIS NEWS */}
+          {!isGuest ? (
+            <LazyOnScroll minHeight={140}>
+              <TennisNewsStrip />
             </LazyOnScroll>
           ) : null}
         </ScrollView>
