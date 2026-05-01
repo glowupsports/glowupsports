@@ -1,100 +1,291 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { View, StyleSheet } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
 import { PlayerAppearanceProvider } from "@/player/context/PlayerAppearanceContext";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
-import { TabNavigationProvider } from "@/components/TabNavigationContext";
+import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { SportContextProvider } from "@/player/context/SportContext";
+import { ScheduleFocusProvider } from "@/player/context/ScheduleFocusContext";
+import { FamilyProvider } from "@/player/context/FamilyContext";
+import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
+import { CartProvider } from "@/player/contexts/CartContext";
 import { useChatState } from "@/coach/context/ChatStateContext";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { Colors } from "@/constants/theme";
+import { useAuth } from "@/coach/context/AuthContext";
+import { apiFetch } from "@/lib/query-client";
 
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 
+// ── Tab screens ─────────────────────────────────────────────────────────────
 import ProPlayerHomeDiagnosticScreen from "@/player/screens/ProPlayerHomeDiagnosticScreen";
+import CommunityScreen from "@/player/screens/CommunityScreen";
+import PlayerProfileScreen from "@/player/screens/PlayerProfileScreen";
+import {
+  PlayStackNavigator,
+  ProgressStackNavigator,
+} from "@/player/navigation/PlayerNavigator";
+
+// ── Push screens (mirrors PlayerStackNavigator exactly) ──────────────────────
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
 import ParentCreditStoreScreen from "@/player/screens/ParentCreditStoreScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerGuideScreen from "@/player/screens/PlayerGuideScreen";
 import PlayerDNAWizardScreen from "@/player/screens/PlayerDNAWizard";
+import PlayerSettingsScreen from "@/player/screens/PlayerSettingsScreen";
+import ThemePreviewScreen from "@/player/screens/ThemePreviewScreen";
+import PlayerEditProfileScreen from "@/player/screens/PlayerEditProfileScreen";
+import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
+import AcademyProfileScreen from "@/player/screens/AcademyProfileScreen";
+import CoachDirectoryScreen from "@/player/screens/CoachDirectoryScreen";
+import TransferRequestScreen from "@/player/screens/TransferRequestScreen";
+import PlayerHolidaysScreen from "@/player/screens/PlayerHolidaysScreen";
+import AccountAuditLogScreen from "@/player/screens/AccountAuditLogScreen";
+import ManageMatchScreen from "@/player/screens/ManageMatchScreen";
+import ParentDashboardScreen from "@/player/screens/ParentDashboardScreen";
+import ParentLessonsScreen from "@/player/screens/ParentLessonsScreen";
+import ParentSettingsScreen from "@/player/screens/ParentSettingsScreen";
+import ParentReportsScreen from "@/player/screens/ParentReportsScreen";
+import QuickBookScreen from "@/player/screens/QuickBookScreen";
+import LessonBookingScreen from "@/player/screens/LessonBookingScreen";
+import BrowseGroupLessonsScreen from "@/player/screens/BrowseGroupLessonsScreen";
+import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
+import BookingConfirmedScreen from "@/player/screens/BookingConfirmedScreen";
+import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
+import FriendsListScreen from "@/player/screens/FriendsListScreen";
+import NewsScreen from "@/player/screens/NewsScreen";
+import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
+import AcademyVsAcademyScreen from "@/player/screens/AcademyVsAcademyScreen";
+import SkillChallengeSubmissionsScreen from "@/player/screens/SkillChallengeSubmissionsScreen";
+import SquadGroupScreen from "@/player/screens/SquadGroupScreen";
+import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
+import StartLiveMatchScreen from "@/player/screens/StartLiveMatchScreen";
+import MatchSummaryScreen from "@/player/screens/MatchSummaryScreen";
+import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
+import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
+import VideoFeedbackPlayerScreen from "@/player/screens/VideoFeedbackPlayerScreen";
+import PlayerAICoachScreen from "@/player/screens/PlayerAICoachScreen";
+import YearInTennisScreen from "@/player/screens/YearInTennisScreen";
+import GroupsScreen from "@/player/screens/GroupsScreen";
+import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
+import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
+import ChatRoomScreen from "@/player/screens/ChatRoomScreen";
+import BrowseChatRoomsScreen from "@/player/screens/BrowseChatRoomsScreen";
+import PlayerBookingChatScreen from "@/player/screens/PlayerBookingChatScreen";
+import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
+import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
+import PlayerAcademyProfileScreen from "@/player/screens/PlayerAcademyProfileScreen";
+import ShopScreen from "@/player/screens/ShopScreen";
+import ProductDetailScreen from "@/player/screens/ProductDetailScreen";
+import ServiceDetailScreen from "@/player/screens/ServiceDetailScreen";
+import PlayerOrderDetailScreen from "@/player/screens/PlayerOrderDetailScreen";
+import CartScreen from "@/player/screens/CartScreen";
+import ShopCategoryScreen from "@/player/screens/ShopCategoryScreen";
+import MarketplaceScreen from "@/player/screens/MarketplaceScreen";
+import PlayerEquipmentScreen from "@/player/screens/PlayerEquipmentScreen";
+import MarketplaceListingDetailScreen from "@/player/screens/MarketplaceListingDetailScreen";
+import MyListingsScreen from "@/player/screens/MyListingsScreen";
+import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
+import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
+import CorporateBenefitsScreen from "@/player/screens/CorporateBenefitsScreen";
+import CompanyContactDashboardScreen from "@/player/screens/CompanyContactDashboardScreen";
+import FindGameScreen from "@/player/screens/FindGameScreen";
+import CreateGameRequestScreen from "@/player/screens/CreateGameRequestScreen";
+import MyGamesScreen from "@/player/screens/MyGamesScreen";
+import DiscoveryMapScreen from "@/player/screens/DiscoveryMapScreen";
+import ClassesDiscoveryScreen from "@/player/screens/ClassesDiscoveryScreen";
+import ClassDetailScreen from "@/player/screens/ClassDetailScreen";
+import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
+import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
+import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
+import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
+import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 
-// Placeholder screens for tabs that aren't built yet
-function PlaceholderScreen() {
-  return <View style={styles.placeholder} />;
-}
-
+// ─── Stack param list — mirrors PlayerStackParamList minus PlayerTabs ────────
 export type DiagnosticStackParamList = {
   DiagnosticHome: undefined;
+  // Family
   FamilyLobby: undefined;
   ParentCreditStore: { playerId?: string };
+  ParentDashboard: undefined;
+  ParentLessons: { playerId: string };
+  ParentSettings: undefined;
+  ParentReports: { playerId: string; childName?: string };
+  // Notifications / Help
   PlayerNotifications: undefined;
   PlayerHelp: { initialTab?: "start" | "explore" | "faq" | "whatsnew" } | undefined;
+  PlayerGuide: { initialTab?: "start" | "explore" | "faq" | "whatsnew" } | undefined;
   PlayerDNAWizard: undefined;
+  // Profile / Settings
+  Settings: undefined;
+  ThemePreview: undefined;
+  EditProfile: undefined;
+  PlayerHolidays: undefined;
+  AccountAuditLog: { playerId?: string; playerName?: string } | undefined;
+  PrivacySettings: { isOnboarding?: boolean; currentLevel?: string };
+  // Profiles
+  PublicProfile: { playerId?: string };
+  CoachProfile: { coachId: string };
+  AcademyProfile: { academyId: string };
+  AcademyPublicProfile: { academyId: string };
+  AcademyBrowser: undefined;
+  CoachDirectory: undefined;
+  TransferRequest: { academyId?: string; academyName?: string } | undefined;
+  // Social / Groups
+  PlayerFinder: undefined;
+  FriendsList: { initialTab?: "friends" | "requests" } | undefined;
+  Groups: { initialTab?: "communities" | "training" | "discover" } | undefined;
+  GroupDetail: { groupId: string; groupName: string };
+  PlayerMessages: undefined;
+  ChatRoom: { roomId: string; title?: string };
+  BrowseChatRooms: undefined;
+  PlayerBookingChat: { orderId?: string; conversationId?: string };
+  // Booking
+  QuickBook: undefined;
+  LessonBooking: { sport?: string } | undefined;
+  BrowseGroupLessons: undefined;
+  MyLessonRequests: undefined;
+  BookingConfirmed: {
+    sessionType: string;
+    dateStr: string;
+    timeStr: string;
+    coachName?: string;
+    coachWelcomeMessage?: string;
+    durationMinutes?: number;
+  };
+  BookingPreferences: undefined;
+  BookingInvites: undefined;
+  ManageMatch: { matchId: string };
+  // Shop / Marketplace
+  Shop: undefined;
+  ProductDetail: { productId: string };
+  ServiceDetail: { serviceId: string };
+  PlayerOrderDetail: { orderId: string };
+  Cart: undefined;
+  ShopCategory: { categoryId?: string; categoryName: string; collection?: string };
+  Marketplace: undefined;
+  MarketplaceListing: { listingId: string };
+  Equipment: undefined;
+  MyListings: undefined;
+  // Match / Live
+  MatchLive: {
+    matchId: string;
+    opponentName: string;
+    opponentId: string;
+    sport: string;
+    matchFormat: string;
+    scoringMode: string;
+    challengeId?: string;
+    matchType?: string;
+    scheduledDate?: string;
+    scheduledTime?: string;
+    courtName?: string;
+    challengerId?: string;
+  };
+  StartLiveMatch: { opponentId: string; opponentName: string; challengeId?: string };
+  MatchSummary: {
+    matchId: string;
+    opponentName: string;
+    opponentId: string;
+    winnerId?: string;
+    setScoreSummary?: string;
+    mmrDeltaCreator?: number;
+    previousMmrCreator?: number;
+    newMmrCreator?: number;
+    previousRankCreator?: number;
+    newRankCreator?: number;
+    creatorId: string;
+  };
+  LiveMatchViewer: { matchId: string; playerName?: string };
+  MatchHistory: { playerId?: string } | undefined;
+  // Discovery / News
+  News: undefined;
+  SpotlightDetail: undefined;
+  AcademyVsAcademy: undefined;
+  SkillChallengeSubmissions: undefined;
+  SquadGroup: { squadId: string; squadName?: string };
+  PlayerFinder2: undefined;
+  DiscoveryMap: { initialFilter?: "all" | "academies" | "lessons" | "matches" | "tournaments" } | undefined;
+  ClassesDiscovery: undefined;
+  ClassDetail: { session: any };
+  FindGame: undefined;
+  CreateGameRequest: undefined;
+  MyGames: undefined;
+  // AI / Media
+  VideoFeedbackPlayer: { feedbackId?: string } | undefined;
+  PlayerAICoach: undefined;
+  YearInTennis: { year?: number } | undefined;
+  // Training
+  Training: undefined;
+  TrainingDetail: { sessionId: string };
+  SkillDetail: { domain: string };
+  Journey: undefined;
+  // Corporate
+  CorporateBenefits: undefined;
+  CompanyContactDashboard: undefined;
+  // Legacy redirects (no-op)
+  Schedule: undefined;
+  Quests: undefined;
+  Progress: undefined;
 };
 
 const Stack = createNativeStackNavigator<DiagnosticStackParamList>();
 
-// The 5 tabs — exact same keys / icons / labels as PlayerNavigator
-const DIAGNOSTIC_TABS: TabConfig[] = [
-  {
-    key: "Home",
-    label: "Home",
-    icon: "home-outline",
-    iconFocused: "home",
-    component: ProPlayerHomeDiagnosticScreen,
-  },
-  {
-    key: "Social",
-    label: "Social",
-    icon: "people-outline",
-    iconFocused: "people",
-    component: PlaceholderScreen,
-  },
-  {
-    key: "PlayStack",
-    label: "Play",
-    icon: "tennisball-outline",
-    iconFocused: "tennisball",
-    component: PlaceholderScreen,
-  },
-  {
-    key: "Growth",
-    label: "Growth",
-    icon: "trending-up-outline",
-    iconFocused: "trending-up",
-    component: PlaceholderScreen,
-  },
-  {
-    key: "Profile",
-    label: "Me",
-    icon: "person-outline",
-    iconFocused: "person",
-    component: PlaceholderScreen,
-  },
-];
-
-const PLAY_CENTER_BUTTON = {
-  icon: "tennisball-outline" as const,
-  iconFocused: "tennisball" as const,
-  label: "Play",
-  color: Colors.dark.primary,
-  pagerIndex: 2, // PlayStack is index 2
-};
-
 // Chat only shows on Home tab — mirrors SHOW_CHAT_TABS = ["Home"] in PlayerNavigator
 const SHOW_CHAT_TABS = ["Home"];
 
-// Inner tab view component — rendered as the DiagnosticHome screen
+// ─── Tab bar view ─────────────────────────────────────────────────────────────
 function DiagnosticTabView() {
+  const { t } = useTranslation();
+  const { user } = useAuth();
   const { isChatExpanded } = useChatState();
+  const { navigateToTab } = useTabNavigation();
 
-  const handleChallenge = useCallback((_opponentId: string, _opponentName: string) => {
-    // placeholder — Play tab not built yet
-  }, []);
+  // Community unread badge — exact same query as PlayerTabsContent
+  const { data: communityUnread } = useQuery<{ count: number }>({
+    queryKey: ["/api/player/me/notifications/unread-count", "community_group_join"],
+    queryFn: async () => {
+      const resp = await apiFetch(
+        "/api/player/me/notifications/unread-count?type=community_group_join",
+      );
+      if (!resp.ok) return { count: 0 };
+      return resp.json();
+    },
+    enabled: !!user?.playerId,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+  const hasCommunityUnread = (communityUnread?.count ?? 0) > 0;
+
+  const tabs: TabConfig[] = useMemo(() => [
+    { key: "Home",      label: "Home",   icon: "home-outline",            iconFocused: "home",            component: ProPlayerHomeDiagnosticScreen },
+    { key: "Community", label: "Social", icon: "people-outline",          iconFocused: "people",          component: CommunityScreen, badge: hasCommunityUnread },
+    { key: "PlayStack", label: "Play",   icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
+    { key: "Growth",    label: "Growth", icon: "trending-up-outline",     iconFocused: "trending-up",     component: ProgressStackNavigator },
+    { key: "Profile",   label: "Me",     icon: "person-outline",          iconFocused: "person",          component: PlayerProfileScreen },
+  ], [hasCommunityUnread]);
+
+  const playCenterButton = useMemo(() => ({
+    icon: "tennisball-outline" as const,
+    iconFocused: "tennisball" as const,
+    label: "Play",
+    color: Colors.dark.primary,
+    pagerIndex: 2,
+  }), []);
+
+  const handleChallenge = useCallback(
+    (opponentId: string, opponentName: string, opponentPhoto?: string) => {
+      navigateToTab("PlayStack", { screen: "ChallengePlayer", params: { opponentId, opponentName, opponentPhoto } });
+    },
+    [navigateToTab],
+  );
 
   const handlePageChange = useCallback(() => {}, []);
 
@@ -105,28 +296,27 @@ function DiagnosticTabView() {
 
   return (
     <SwipeableTabBar
-      tabs={DIAGNOSTIC_TABS}
+      tabs={tabs}
       initialPage={0}
       primaryColor={Colors.dark.primary}
       secondaryColor={Colors.dark.primary}
       onPageChange={handlePageChange}
       renderOverlay={renderOverlay}
-      centerButtonConfig={PLAY_CENTER_BUTTON}
+      centerButtonConfig={playCenterButton}
       hideTabBar={isChatExpanded}
     />
   );
 }
 
-// Exact copy of PlayerTabsWithDrawer pattern — wires openDrawer + renders overlay
+// ─── Stack + Drawer ───────────────────────────────────────────────────────────
 function DiagnosticStackWithDrawer() {
+  const { t } = useTranslation();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const navigation = useNavigation<any>();
   const { setOpenDrawer } = usePlayerDrawer();
 
   React.useEffect(() => {
     setOpenDrawer(() => setDrawerVisible(true));
-    // setOpenDrawer is unstable (not memoized in PlayerDrawerContext) —
-    // intentionally run only on mount to register the opener once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -141,52 +331,154 @@ function DiagnosticStackWithDrawer() {
   return (
     <View style={styles.flex}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {/* DiagnosticHome renders the full SwipeableTabBar */}
+        {/* ── Home tab view (full SwipeableTabBar) ── */}
         <Stack.Screen name="DiagnosticHome" component={DiagnosticTabView} />
-        {/* Push screens — navigated to from ProPlayerCard / drawer */}
-        <Stack.Screen name="FamilyLobby" component={FamilyLobbyScreen} />
-        <Stack.Screen
-          name="ParentCreditStore"
-          component={ParentCreditStoreScreen}
-          options={{ presentation: "card" }}
-        />
-        <Stack.Screen
-          name="PlayerNotifications"
-          component={PlayerNotificationsScreen}
-          options={{ presentation: "card" }}
-        />
-        <Stack.Screen
-          name="PlayerHelp"
-          component={PlayerGuideScreen}
-          options={{ presentation: "card" }}
-        />
-        <Stack.Screen
-          name="PlayerDNAWizard"
-          component={PlayerDNAWizardScreen}
-          options={{ presentation: "card" }}
-        />
+
+        {/* ── Family ── */}
+        <Stack.Screen name="FamilyLobby" component={FamilyLobbyScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Family", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="ParentCreditStore" component={ParentCreditStoreScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="ParentDashboard" component={ParentDashboardScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="ParentLessons" component={ParentLessonsScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="ParentSettings" component={ParentSettingsScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="ParentReports" component={ParentReportsScreen} options={{ presentation: "card", headerTitle: "Monthly Reports" }} />
+
+        {/* ── Notifications / Help ── */}
+        <Stack.Screen name="PlayerNotifications" component={PlayerNotificationsScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="PlayerHelp" component={PlayerGuideScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="PlayerGuide" component={PlayerGuideScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="PlayerDNAWizard" component={PlayerDNAWizardScreen} options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }} />
+
+        {/* ── Profile / Settings ── */}
+        <Stack.Screen name="Settings" component={PlayerSettingsScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="ThemePreview" component={ThemePreviewScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Theme Gallery", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" }, headerBackVisible: true }} />
+        <Stack.Screen name="EditProfile" component={PlayerEditProfileScreen} options={{ headerTitle: "Edit Profile", presentation: "modal" }} />
+        <Stack.Screen name="PlayerHolidays" component={PlayerHolidaysScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="AccountAuditLog" component={AccountAuditLogScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Activity log", headerTransparent: true, headerTintColor: Colors.dark.text }} />
+        <Stack.Screen name="PrivacySettings" options={{ presentation: "modal", headerShown: false }}>
+          {(screenProps) => (
+            <PrivacySettingsScreen
+              isOnboarding={screenProps.route.params?.isOnboarding}
+              currentLevel={screenProps.route.params?.currentLevel as any}
+              onGoBack={() => screenProps.navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
+        {/* ── Remote profiles ── */}
+        <Stack.Screen name="PublicProfile" component={PlayerPublicProfileScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Player Profile", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerBackTitle: "Back" }} />
+        <Stack.Screen name="CoachProfile" component={PlayerCoachProfileScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="AcademyProfile" component={AcademyProfileScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="AcademyPublicProfile" component={PlayerAcademyProfileScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="AcademyBrowser" component={AcademyBrowserScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="CoachDirectory" component={CoachDirectoryScreen} options={{ presentation: "card", headerTitle: t("player.settings.findCoaches"), headerTransparent: true, headerShown: true, headerTintColor: Colors.dark.text }} />
+        <Stack.Screen name="TransferRequest" component={TransferRequestScreen} options={{ presentation: "card" }} />
+
+        {/* ── Social / Groups ── */}
+        <Stack.Screen name="PlayerFinder" component={PlayerFinderScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="FriendsList" component={FriendsListScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Friends", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerBackTitle: "Back" }} />
+        <Stack.Screen name="Groups" component={GroupsScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="GroupDetail" component={GroupDetailScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="PlayerMessages" component={PlayerMessagesScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="ChatRoom" component={ChatRoomScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="BrowseChatRooms" component={BrowseChatRoomsScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="PlayerBookingChat" component={PlayerBookingChatScreen} options={{ presentation: "card", headerShown: false }} />
+
+        {/* ── Booking ── */}
+        <Stack.Screen name="QuickBook" component={QuickBookScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="LessonBooking" component={LessonBookingScreen} options={{ presentation: "fullScreenModal", headerShown: true, headerTitle: t("player.booking.bookSession"), headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="BrowseGroupLessons" component={BrowseGroupLessonsScreen} options={{ presentation: "transparentModal", headerShown: false, animation: "slide_from_bottom", contentStyle: { backgroundColor: "transparent" } }} />
+        <Stack.Screen name="MyLessonRequests" component={MyLessonRequestsScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Requests", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerBackTitle: "Back" }} />
+        <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} options={{ presentation: "modal", headerShown: false, animation: "slide_from_bottom" }} />
+        <Stack.Screen name="BookingPreferences" component={BookingPreferencesScreen} options={{ presentation: "card", headerShown: true, headerTitle: t("player.booking.preferences"), headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "700" } }} />
+        <Stack.Screen name="BookingInvites" component={BookingInvitesScreen} options={{ presentation: "card", headerShown: true, headerTitle: t("player.booking.invites"), headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="ManageMatch" component={ManageMatchScreen} options={{ headerShown: true, headerTitle: t("player.booking.manageMatch"), headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" }, headerBackVisible: true, presentation: "card" }} />
+
+        {/* ── Shop / Marketplace ── */}
+        <Stack.Screen name="Shop" component={ShopScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Product", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Service", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="PlayerOrderDetail" component={PlayerOrderDetailScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Booking Detail", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="Cart" component={CartScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Cart", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="ShopCategory" component={ShopCategoryScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Category", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="Marketplace" component={MarketplaceScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Marketplace", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="MarketplaceListing" component={MarketplaceListingDetailScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Listing", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Listings", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="Equipment" component={PlayerEquipmentScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Equipment", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+
+        {/* ── Match / Live ── */}
+        <Stack.Screen name="MatchLive" component={MatchLiveScreen} options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }} />
+        <Stack.Screen name="StartLiveMatch" component={StartLiveMatchScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Start Live Match", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="MatchSummary" component={MatchSummaryScreen} options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom", gestureEnabled: false }} />
+        <Stack.Screen name="LiveMatchViewer" component={LiveMatchViewerScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="MatchHistory" component={MatchHistoryScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Match History", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+
+        {/* ── Discovery / News / Social ── */}
+        <Stack.Screen name="News" component={NewsScreen} options={{ presentation: "card", headerShown: true, headerTitle: t("player.home.newsFeed"), headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="SpotlightDetail" component={SpotlightDetailScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="AcademyVsAcademy" component={AcademyVsAcademyScreen} options={{ presentation: "card", headerShown: true, headerTransparent: true, headerTitle: "Academy Rankings", headerTintColor: Colors.dark.text, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="SkillChallengeSubmissions" component={SkillChallengeSubmissionsScreen} options={{ presentation: "card", headerShown: true, headerTransparent: true, headerTitle: "Skill Challenge", headerTintColor: Colors.dark.text, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="SquadGroup" component={SquadGroupScreen} options={{ presentation: "card", headerShown: true, headerTransparent: true, headerTitle: "Squad", headerTintColor: Colors.dark.text, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="DiscoveryMap" component={DiscoveryMapScreen} options={{ headerShown: true, headerTitle: "Map", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="ClassesDiscovery" component={ClassesDiscoveryScreen} options={{ headerShown: true, headerTitle: "Classes", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" }, headerTransparent: false }} />
+        <Stack.Screen name="ClassDetail" component={ClassDetailScreen} options={{ headerShown: true, headerTitle: "Class Details", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="FindGame" component={FindGameScreen} options={{ headerShown: true, headerTitle: "Find a Game", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="CreateGameRequest" component={CreateGameRequestScreen} options={{ headerShown: true, headerTitle: "Post a Game", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="MyGames" component={MyGamesScreen} options={{ headerShown: true, headerTitle: "My Games", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+
+        {/* ── AI / Media ── */}
+        <Stack.Screen name="VideoFeedbackPlayer" component={VideoFeedbackPlayerScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="PlayerAICoach" component={PlayerAICoachScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="YearInTennis" component={YearInTennisScreen} options={{ presentation: "fullScreenModal", headerShown: false, animation: "fade" }} />
+
+        {/* ── Training ── */}
+        <Stack.Screen name="Training" component={PlayerTrainingScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="TrainingDetail" component={TrainingDetailScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="SkillDetail" component={SkillDetailScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="Journey" component={PlayerJourneyScreen} options={{ presentation: "card" }} />
+
+        {/* ── Corporate ── */}
+        <Stack.Screen name="CorporateBenefits" component={CorporateBenefitsScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="CompanyContactDashboard" component={CompanyContactDashboardScreen} options={{ headerShown: false }} />
+
+        {/* ── Legacy redirects (no-op — Growth tab handles these internally) ── */}
+        <Stack.Screen name="Schedule" component={NoOpScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Quests" component={NoOpScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Progress" component={NoOpScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
       <PlayerIdentityDrawer
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
-        onNavigateToProfile={() => {
-          setDrawerVisible(false);
-        }}
+        onNavigateToProfile={() => setDrawerVisible(false)}
         onNavigate={handleDrawerNavigate}
       />
     </View>
   );
 }
 
+function NoOpScreen() {
+  const navigation = useNavigation<any>();
+  React.useEffect(() => { navigation.goBack(); }, [navigation]);
+  return null;
+}
+
+// ─── Root — wraps with all providers (mirrors PlayerNavigator) ─────────────────
 export default function DiagnosticNavigator() {
   return (
     <PlayerAppearanceProvider>
       <TabNavigationProvider>
         <PlayerDataProvider>
           <SportContextProvider>
-            <PlayerDrawerProvider>
-              <DiagnosticStackWithDrawer />
-            </PlayerDrawerProvider>
+            <ScheduleFocusProvider>
+              <FamilyProvider>
+                <PlayerLevelProvider>
+                  <CartProvider>
+                    <PlayerDrawerProvider>
+                      <DiagnosticStackWithDrawer />
+                    </PlayerDrawerProvider>
+                  </CartProvider>
+                </PlayerLevelProvider>
+              </FamilyProvider>
+            </ScheduleFocusProvider>
           </SportContextProvider>
         </PlayerDataProvider>
       </TabNavigationProvider>
@@ -196,5 +488,4 @@ export default function DiagnosticNavigator() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  placeholder: { flex: 1, backgroundColor: "#0a0a0a" },
 });

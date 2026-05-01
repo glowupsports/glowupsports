@@ -350,7 +350,7 @@ function PlayScreenWithCallback(props: any) {
   return <PlayScreen {...props} />;
 }
 
-function PlayStackNavigator() {
+export function PlayStackNavigator() {
   const { t } = useTranslation();
   return (
     <PlayStack.Navigator screenOptions={{
@@ -586,7 +586,7 @@ function GrowthMainWithCallback(props: any) {
   return <GrowthScreen {...props} setSubTabSetter={setSubTabSetter} />;
 }
 
-function ProgressStackNavigator() {
+export function ProgressStackNavigator() {
   const { t } = useTranslation();
 
   return (
