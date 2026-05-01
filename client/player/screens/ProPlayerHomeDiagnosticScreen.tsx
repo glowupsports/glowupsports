@@ -59,7 +59,7 @@ import {
 } from "@/player/components/RamadanCelebrationOverlay";
 import { UpcomingProviderSessionCard } from "@/player/components/UpcomingProviderSessionCard";
 import { WelcomeGuideCard } from "@/player/components/WelcomeGuideCard";
-import { CoachesRail } from "@/player/components/CoachesRail";
+import { CoachesRail, JoinAcademySoftCard } from "@/player/components/CoachesRail";
 import { PlayersNearYouRow, CountryLeaderboardsEntry } from "@/player/components/DiscoveryRows";
 import { useQuests, Quest } from "@/player/hooks/useQuests";
 import SpotlightNominationModal from "@/player/components/SpotlightNominationModal";
@@ -68,6 +68,12 @@ import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
 import { TennisNewsStrip } from "@/player/components/TennisNewsStrip";
+import StreakRail from "@/components/StreakRail";
+import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
+import { MiniFeed } from "@/player/components/MiniFeed";
+import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
+import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
+import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -936,6 +942,37 @@ function DiagnosticHomeContent() {
               <TennisNewsStrip />
             </LazyOnScroll>
           ) : null}
+
+          {/* STREAKS */}
+          {!isGuest ? (
+            <LazyOnScroll minHeight={120}>
+              <StreakRail />
+            </LazyOnScroll>
+          ) : null}
+
+          {/* SQUAD VS SQUAD */}
+          {!isGuest && !isFreePlayer ? (
+            <LazyOnScroll minHeight={180}>
+              <SquadVsSquadWidget />
+            </LazyOnScroll>
+          ) : null}
+
+          {/* COMMUNITY */}
+          {!isGuest ? (
+            <LazyOnScroll>
+              <MiniFeed />
+            </LazyOnScroll>
+          ) : null}
+
+          {/* SHOP */}
+          {!isGuest ? (
+            <LazyOnScroll>
+              <GlowMarketSpotlight />
+            </LazyOnScroll>
+          ) : null}
+
+          {/* JOIN ACADEMY — free players only */}
+          {isFreePlayer && !isGuest ? <JoinAcademySoftCard /> : null}
         </ScrollView>
 
         {/* MODE SWITCHER */}
@@ -1031,6 +1068,21 @@ function DiagnosticHomeContent() {
         <SpotlightNominationModal
           visible={showSpotlightNomination}
           onClose={() => setShowSpotlightNomination(false)}
+        />
+
+        {/* BETA FEEDBACK */}
+        <BetaFeedbackButton
+          playerId={player?.id}
+          playerName={player?.name}
+          bottomOffset={145}
+        />
+
+        {/* DAILY BRIEFING */}
+        <DailyBriefingModal
+          player={isGuest ? null : (effectiveData?.player ?? null)}
+          nextSession={effectiveData?.nextSession ?? null}
+          coachName={effectiveData?.coach?.name ?? null}
+          isGuest={isGuest}
         />
       </View>
     </ScrollPositionContext.Provider>
