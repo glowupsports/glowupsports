@@ -1388,13 +1388,38 @@ function PlayerHomeContent() {
     }, [queryClient])
   );
 
-  // Task #1491 — iOS cold-start retry: iOS URLSession sometimes isn't
-  // fully initialised on the very first network call after a cold launch.
-  // The god-query can fire and fail silently (no error state, just
-  // undefined data) before the TCP stack is ready. We schedule two
-  // refetch attempts (800ms and 1800ms after mount) that only touch
-  // *active* observers — so if the query already resolved they're no-ops.
-  // Same pattern as the dashboard retry in PlayerNavigator (Task #1487).
+  // Task #1495 — Auth-ready watcher (primary cold-start fix):
+  // On iOS cold start, the useFocusEffect fires and the timer retries
+  // below may all trigger BEFORE user.playerId is available. When the
+  // query is disabled (enabled: false), refetchQueries is a no-op.
+  // React Query's automatic re-enable behaviour is unreliable on iOS.
+  // This effect watches exactly when playerId first becomes truthy and
+  // fires a refetch at that moment — the query is now enabled and has
+  // an active observer, so type: "active" is sufficient and avoids
+  // cascading into inactive/disabled queries.
+  // A ref sentinel prevents repeated triggers on subsequent renders.
+  // queryClient is intentionally captured via ref to keep it out of
+  // the dependency array and prevent stale-closure / infinite-loop risk.
+  const homeDataFetchedOnAuthRef = useRef(false);
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
+  useEffect(() => {
+    if (!user?.playerId || isGuest) return;
+    if (homeDataFetchedOnAuthRef.current) return;
+    homeDataFetchedOnAuthRef.current = true;
+    queryClientRef.current.refetchQueries({
+      queryKey: ["/api/player/me/home-data"],
+      type: "active",
+    });
+  }, [user?.playerId, isGuest]);
+
+  // Task #1491 / #1495 — iOS cold-start retry safety net: fire refetch
+  // attempts at 800ms, 1800ms, 3000ms and 5000ms after mount. The extra
+  // 3s/5s windows cover slow-auth devices where playerId arrives after
+  // 1.8s. These are no-ops if the auth-ready watcher above already
+  // resolved the query. Uses type: "active" so they don't fight a
+  // disabled query; the auth-ready watcher (type: "all") handles the
+  // disabled case.
   useEffect(() => {
     if (Platform.OS !== "ios") return;
     const t1 = setTimeout(() => {
@@ -1409,9 +1434,23 @@ function PlayerHomeContent() {
         type: "active",
       });
     }, 1800);
+    const t3 = setTimeout(() => {
+      queryClient.refetchQueries({
+        queryKey: ["/api/player/me/home-data"],
+        type: "active",
+      });
+    }, 3000);
+    const t4 = setTimeout(() => {
+      queryClient.refetchQueries({
+        queryKey: ["/api/player/me/home-data"],
+        type: "active",
+      });
+    }, 5000);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
     };
   }, [queryClient]);
 
