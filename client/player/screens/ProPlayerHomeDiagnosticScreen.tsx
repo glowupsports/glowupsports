@@ -910,9 +910,9 @@ function DiagnosticHomeContent() {
                 onSpotlightDetails={() => navigation.navigate("SpotlightDetail" as never)}
                 aiStatus={homeData?.aiProStatus ?? null}
                 aiCoachContext={homeData?.aiCoachContext ?? null}
-                weeklyDigest={homeData?.weeklyDigest ?? null}
-                spotlightCurrentWeek={homeData?.spotlightCurrentWeek ?? null}
-                spotlightWeeklyWinner={homeData?.spotlightWeeklyWinner ?? { winner: null }}
+                weeklyDigest={(homeData?.weeklyDigest ?? null) as any}
+                spotlightCurrentWeek={(homeData?.spotlightCurrentWeek ?? null) as any}
+                spotlightWeeklyWinner={(homeData?.spotlightWeeklyWinner ?? { winner: null }) as any}
                 serverQuizScore={
                   ((homeData?.profile as { player?: { quizScore?: number | null } } | null)?.player?.quizScore) ?? null
                 }
@@ -993,7 +993,7 @@ function DiagnosticHomeContent() {
         <PlayerBookingWizard
           visible={showBookingWizard}
           onClose={() => setShowBookingWizard(false)}
-          onSuccess={handleBookingSuccess}
+          onBookingSuccess={handleBookingSuccess}
           sport={bookingWizardSport}
         />
 
