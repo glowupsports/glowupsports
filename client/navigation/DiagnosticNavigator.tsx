@@ -330,7 +330,7 @@ function DiagnosticStackWithDrawer() {
 
   return (
     <View style={styles.flex}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false, animation: "none", gestureEnabled: false }}>
         {/* ── Home tab view (full SwipeableTabBar) ── */}
         <Stack.Screen name="DiagnosticHome" component={DiagnosticTabView} />
 
