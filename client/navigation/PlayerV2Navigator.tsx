@@ -460,25 +460,35 @@ function NoOpScreen() {
   return null;
 }
 
+// ─── Inner root — has access to PlayerDataProvider's query cache for playerId ──
+function PlayerV2Inner() {
+  const { user } = useAuth();
+  const playerId = user?.playerId ?? null;
+
+  return (
+    <SportContextProvider>
+      <ScheduleFocusProvider>
+        <FamilyProvider>
+          <PlayerLevelProvider playerId={playerId}>
+            <CartProvider>
+              <PlayerDrawerProvider>
+                <PlayerV2StackWithDrawer />
+              </PlayerDrawerProvider>
+            </CartProvider>
+          </PlayerLevelProvider>
+        </FamilyProvider>
+      </ScheduleFocusProvider>
+    </SportContextProvider>
+  );
+}
+
 // ─── Root — wraps with all providers (mirrors PlayerNavigator) ─────────────────
 export default function PlayerV2Navigator() {
   return (
     <PlayerAppearanceProvider>
       <TabNavigationProvider>
         <PlayerDataProvider>
-          <SportContextProvider>
-            <ScheduleFocusProvider>
-              <FamilyProvider>
-                <PlayerLevelProvider>
-                  <CartProvider>
-                    <PlayerDrawerProvider>
-                      <PlayerV2StackWithDrawer />
-                    </PlayerDrawerProvider>
-                  </CartProvider>
-                </PlayerLevelProvider>
-              </FamilyProvider>
-            </ScheduleFocusProvider>
-          </SportContextProvider>
+          <PlayerV2Inner />
         </PlayerDataProvider>
       </TabNavigationProvider>
     </PlayerAppearanceProvider>
