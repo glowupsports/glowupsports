@@ -1,13 +1,31 @@
-import React from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable } from "react-native";
+import React, { useCallback, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  Pressable,
+  DimensionValue,
+  Platform,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQuery } from "@tanstack/react-query";
-import { useAuth } from "@/coach/context/AuthContext";
-import { Skeleton } from "@/components/SkeletonLoader";
-import { Spacing, Colors, BorderRadius, GlowColors } from "@/constants/theme";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import type { NavigationProp } from "@react-navigation/native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useNavigation } from "@react-navigation/native";
 
+import { useAuth } from "@/coach/context/AuthContext";
+import { usePlayer } from "@/player/context/PlayerContext";
+import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { Spacing, GlowColors, BorderRadius, Colors } from "@/constants/theme";
+import { ProPlayerCard } from "@/player/components/ProPlayerCard";
+import { PrimaryActionsRow } from "@/player/components/PrimaryActionsRow";
+import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
+import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+
+// ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
   player: {
     id: string;
@@ -18,7 +36,10 @@ interface DashboardData {
     ballLevel: string | null;
     streak: number;
     profilePhotoUrl?: string | null;
+    dateOfBirth?: string | null;
+    playStyle?: string | null;
   };
+  coach: { id: string; name: string } | null;
   academy: { id: string; name: string } | null;
   credits?: {
     total: number;
@@ -32,257 +53,387 @@ interface DashboardData {
     type: string;
     endTime?: string;
   } | null;
+  isFreePlayer?: boolean;
 }
 
-export default function ProPlayerHomeDiagnosticScreen() {
-  const { user } = useAuth();
-  const insets = useSafeAreaInsets();
-  const navigation = useNavigation<any>();
+// ─── PlayerDNABanner (exact copy from ProPlayerHomeScreen ~line 2099) ──────
+function PlayerDNABanner({ playerId }: { playerId: string }) {
+  const navigation = useNavigation<NavigationProp<PlayerStackParamList>>();
 
-  const { data, isLoading } = useQuery<DashboardData>({
-    queryKey: ["/api/player/me/dashboard"],
-    staleTime: 60 * 1000,
-    refetchOnMount: false,
+  const { data: profileData } = useQuery<{ player: Record<string, unknown> | null }>({
+    queryKey: ["/api/player/me/profile"],
+    enabled: !!playerId,
+    staleTime: 60000,
   });
 
-  const playerName = data?.player?.name ?? user?.displayName ?? user?.username ?? "";
-  const level = data?.player?.level ?? 1;
-  const xp = data?.player?.xp ?? 0;
-  const totalCredits = data?.credits?.total ?? 0;
-  const academyName = data?.academy?.name ?? null;
+  const p = profileData?.player as Record<string, unknown> | null | undefined;
+  if (!p) return null;
 
-  const XP_PER_LEVEL = 1000;
-  const xpProgress = Math.min((xp % XP_PER_LEVEL) / XP_PER_LEVEL, 1);
+  const DNA_FIELDS = [
+    !!p.dominantHand,
+    !!p.backhandType,
+    !!p.height,
+    !!p.tshirtSize,
+    !!p.playStyle,
+    !!p.tennisIdol,
+    Array.isArray(p.enjoymentTags) && (p.enjoymentTags as unknown[]).length > 0,
+    !!p.shortTermGoal,
+    !!p.longTermDream,
+    Array.isArray(p.typicalPlayTimes) && (p.typicalPlayTimes as unknown[]).length > 0,
+    !!p.profilePhotoUrl,
+  ];
+  const filled = DNA_FIELDS.filter(Boolean).length;
+  const total = DNA_FIELDS.length;
+  const pct = Math.round((filled / total) * 100);
+
+  if (pct >= 100) return null;
+
+  const fillWidth: DimensionValue = `${pct}%`;
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: insets.top + Spacing.sm,
-          paddingBottom: insets.bottom + Spacing.xl,
-        },
-      ]}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
+    <Pressable
+      style={dnaBannerStyles.card}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        navigation.navigate("PlayerDNAWizard");
+      }}
+      accessibilityLabel="Complete your player DNA profile"
     >
-      <View style={styles.headerCard}>
-        <View style={styles.topRow}>
-          <View style={styles.avatar}>
-            {isLoading && !data ? (
-              <Skeleton width={44} height={44} borderRadius={22} />
-            ) : (
-              <Text style={styles.avatarInitial}>
-                {playerName.charAt(0).toUpperCase() || "?"}
-              </Text>
-            )}
-          </View>
-
-          <View style={styles.nameBlock}>
-            {isLoading && !data ? (
-              <>
-                <Skeleton width={120} height={16} />
-                <Skeleton width={80} height={12} style={{ marginTop: 4 }} />
-              </>
-            ) : (
-              <>
-                <Text style={styles.playerName} numberOfLines={1}>
-                  {playerName}
-                </Text>
-                {academyName ? (
-                  <Text style={styles.academyName} numberOfLines={1}>
-                    {academyName}
-                  </Text>
-                ) : null}
-              </>
-            )}
-          </View>
-
-          <View style={styles.creditBadge}>
-            {isLoading && !data ? (
-              <Skeleton width={48} height={22} borderRadius={11} />
-            ) : (
-              <>
-                <Text style={styles.creditValue}>{totalCredits}</Text>
-                <Text style={styles.creditLabel}>credits</Text>
-              </>
-            )}
-          </View>
+      <View style={dnaBannerStyles.row}>
+        <View style={dnaBannerStyles.iconWrap}>
+          <Ionicons name="analytics-outline" size={20} color={Colors.dark.accentText} />
         </View>
-
-        <View style={styles.xpRow}>
-          <Text style={styles.levelLabel}>Lv {level}</Text>
-          <View style={styles.xpBar}>
-            {isLoading && !data ? (
-              <Skeleton width="100%" height={6} borderRadius={3} />
-            ) : (
-              <View
-                style={[
-                  styles.xpFill,
-                  { width: `${Math.max(xpProgress * 100, 2)}%` as unknown as `${number}%` },
-                ]}
-              />
-            )}
-          </View>
-          {!isLoading || data ? (
-            <Text style={styles.xpLabel}>{xp} XP</Text>
-          ) : null}
+        <View style={dnaBannerStyles.textWrap}>
+          <Text style={dnaBannerStyles.title}>Complete Your Player DNA</Text>
+          <Text style={dnaBannerStyles.sub}>{filled}/{total} fields complete — {pct}%</Text>
         </View>
-
-        <View style={styles.actionsRow}>
-          <Pressable
-            style={styles.actionBtn}
-            onPress={() => navigation.navigate("LessonBooking")}
-            accessibilityLabel="Book session"
-          >
-            <Ionicons name="add-circle-outline" size={18} color={GlowColors.primary} />
-            <Text style={styles.actionBtnText}>Book</Text>
-          </Pressable>
-          <Pressable
-            style={styles.actionBtn}
-            onPress={() => navigation.navigate("ParentCreditStore")}
-            accessibilityLabel="Wallet"
-          >
-            <Ionicons name="wallet-outline" size={18} color={Colors.dark.textSubtle} />
-            <Text style={styles.actionBtnText}>Wallet</Text>
-          </Pressable>
-          <Pressable
-            style={styles.actionBtn}
-            onPress={() => navigation.navigate("PlayerNotifications")}
-            accessibilityLabel="Notifications"
-          >
-            <Ionicons name="notifications-outline" size={18} color={Colors.dark.textSubtle} />
-            <Text style={styles.actionBtnText}>Meldingen</Text>
-          </Pressable>
-        </View>
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.accentText} />
       </View>
-
-      <View style={styles.diagnosticBox}>
-        <Text style={styles.diagnosticLabel}>Diagnostische modus</Text>
-        <Text style={styles.diagnosticSub}>
-          Task #1498 — cold-start test. Alle andere modules zijn uitgeschakeld.
-        </Text>
+      <View style={dnaBannerStyles.progressTrack}>
+        <View style={[dnaBannerStyles.progressFill, { width: fillWidth }]} />
       </View>
-    </ScrollView>
+      <Text style={dnaBannerStyles.cta}>Tap to build your profile</Text>
+    </Pressable>
+  );
+}
+
+const dnaBannerStyles = StyleSheet.create({
+  card: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.accentTextSoft,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.accentTextSoft,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.accentTextSoft,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  textWrap: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  sub: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: GlowColors.primary,
+    borderRadius: 2,
+  },
+  cta: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.accentText,
+  },
+});
+
+// ─── Main DiagnosticScreen ─────────────────────────────────────────────────
+export default function ProPlayerHomeDiagnosticScreen() {
+  const { user, isGuest, patchPlayer } = useAuth();
+  const playerCtx = usePlayer();
+  const { openDrawer } = usePlayerDrawer();
+  const navigation = useNavigation<any>();
+  const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
+
+  // ── God-route query (exact from ProPlayerHomeScreen) ─────────────────────
+  const { data: homeData, isLoading: _isLoading, refetch, isRefetching } = useQuery<{
+    dashboard: DashboardData | null;
+    profile: Record<string, unknown> | null;
+    unreadCount: { count: number };
+    weeklyDigest: any;
+    aiCoachContext: any;
+    spotlightCurrentWeek: any;
+    spotlightWeeklyWinner: { winner: any };
+    tennisIq: { score: number | null; lastQuizAt: string | null } | null;
+    aiProStatus: { isPro: boolean; isCoach: boolean; callCount: number; limit: number } | null;
+  }>({
+    queryKey: ["/api/player/me/home-data"],
+    enabled: !!user?.playerId && !isGuest,
+    staleTime: 0,
+    refetchInterval: 120 * 1000,
+  });
+
+  // ── Derived views (exact from ProPlayerHomeScreen) ────────────────────────
+  const dashboardData = homeData?.dashboard ?? undefined;
+  const unreadCount = homeData?.unreadCount?.count ?? 0;
+
+  // ── Seed legacy query keys (exact from ProPlayerHomeScreen) ───────────────
+  useEffect(() => {
+    if (!homeData) return;
+    if (homeData.dashboard) {
+      queryClient.setQueryData(["/api/player/me/dashboard"], homeData.dashboard);
+    }
+    if (homeData.profile) {
+      queryClient.setQueryData(["/api/player/me/profile"], homeData.profile);
+    }
+    queryClient.setQueryData(
+      ["/api/player/me/notifications/unread-count"],
+      homeData.unreadCount ?? { count: 0 },
+    );
+    queryClient.setQueryData(
+      ["/api/player/me/weekly-digest"],
+      homeData.weeklyDigest ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/player/me/ai-coach/context"],
+      homeData.aiCoachContext ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/player/spotlight/current-week"],
+      homeData.spotlightCurrentWeek ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/player/spotlight/weekly-winner"],
+      homeData.spotlightWeeklyWinner ?? { winner: null },
+    );
+    if (homeData.profile) {
+      queryClient.setQueryData(["/api/player/me/profile"], homeData.profile);
+    }
+    queryClient.setQueryData(
+      ["/api/player/me/tennis-iq"],
+      homeData.tennisIq ?? null,
+    );
+    queryClient.setQueryData(
+      ["/api/ai-pro/status"],
+      homeData.aiProStatus ?? { isPro: false, isCoach: false, callCount: 0, limit: 5 },
+    );
+    const dp = homeData.dashboard?.player as any;
+    if (dp) {
+      const patch: any = {};
+      if (typeof dp.level === "number") patch.level = dp.level;
+      if (typeof dp.xp === "number") patch.xp = dp.xp;
+      if (typeof dp.glowScore === "number") patch.glowScore = dp.glowScore;
+      if (typeof dp.glowMmr === "number") patch.glowMmr = dp.glowMmr;
+      if (typeof dp.glowRank === "number") patch.glowRank = dp.glowRank;
+      if (typeof dp.totalMatchesPlayed === "number") patch.totalMatchesPlayed = dp.totalMatchesPlayed;
+      if (dp.ballLevel !== undefined) patch.ballLevel = dp.ballLevel ?? null;
+      if (dp.dateOfBirth !== undefined) patch.dateOfBirth = dp.dateOfBirth ?? null;
+      if (dp.profilePhotoUrl !== undefined) patch.profilePhotoUrl = dp.profilePhotoUrl ?? null;
+      if (Object.keys(patch).length > 0) patchPlayer(patch);
+    }
+  }, [homeData, queryClient, patchPlayer]);
+
+  // ── Prefetch other tabs (exact from ProPlayerHomeScreen) ──────────────────
+  useEffect(() => {
+    if (!homeData || !user?.id) return;
+    let cancelled = false;
+    const handle = requestAnimationFrame(() => {
+      if (cancelled) return;
+      const queries = [
+        ["/api/player/me/progress-data", "tennis"],
+        ["/api/player/me/community-data"],
+        ["/api/player/me/ai-coach-data"],
+      ];
+      for (const queryKey of queries) {
+        queryClient.prefetchQuery({ queryKey }).catch(() => {});
+      }
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(handle);
+    };
+  }, [homeData, queryClient, user?.id]);
+
+  // ── useFocusEffect invalidation (exact from ProPlayerHomeScreen) ──────────
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
+    }, [queryClient])
+  );
+
+  // ── Auth-ready ref (exact from ProPlayerHomeScreen #1495) ─────────────────
+  const homeDataFetchedOnAuthRef = useRef(false);
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
+  useEffect(() => {
+    if (!user?.playerId || isGuest) return;
+    if (homeDataFetchedOnAuthRef.current) return;
+    homeDataFetchedOnAuthRef.current = true;
+    queryClientRef.current.refetchQueries({
+      queryKey: ["/api/player/me/home-data"],
+      type: "active",
+    });
+  }, [user?.playerId, isGuest]);
+
+  // ── iOS cold-start retry timers (exact from ProPlayerHomeScreen #1491) ────
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    const t1 = setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["/api/player/me/home-data"], type: "active" });
+    }, 800);
+    const t2 = setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["/api/player/me/home-data"], type: "active" });
+    }, 1800);
+    const t3 = setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["/api/player/me/home-data"], type: "active" });
+    }, 3000);
+    const t4 = setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["/api/player/me/home-data"], type: "active" });
+    }, 5000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
+  }, [queryClient]);
+
+  // ── effectiveData + player derivation (exact from ProPlayerHomeScreen) ────
+  const effectiveData = dashboardData;
+  const dashboardPlayer = effectiveData?.player;
+  const player = {
+    id: dashboardPlayer?.id ?? user?.playerId ?? "",
+    name: dashboardPlayer?.name ?? user?.displayName ?? user?.username ?? "",
+    level: dashboardPlayer?.level ?? playerCtx.level ?? 1,
+    xp: dashboardPlayer?.xp ?? playerCtx.xp ?? 0,
+    glowScore: dashboardPlayer?.glowScore ?? playerCtx.glowScore ?? 0,
+    ballLevel: dashboardPlayer?.ballLevel ?? playerCtx.ballLevel ?? null,
+    streak: dashboardPlayer?.streak ?? 0,
+    profilePhotoUrl: dashboardPlayer?.profilePhotoUrl ?? user?.profilePhotoUrl ?? null,
+    dateOfBirth: dashboardPlayer?.dateOfBirth ?? null,
+    playStyle: dashboardPlayer?.playStyle ?? null,
+  };
+  const credits = effectiveData?.credits;
+
+  // ── Handlers (simplified: no guardAction for diagnostic screen) ───────────
+  const handleAvatarPress = () => {
+    openDrawer();
+  };
+
+  const handleWalletPress = () => {
+    navigation.navigate("ParentCreditStore");
+  };
+
+  const handleSquadPress = () => {
+    navigation.navigate("FamilyLobby");
+  };
+
+  return (
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top, paddingBottom: insets.bottom + 120 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={64}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={refetch}
+            tintColor={Colors.dark.accentText}
+            colors={[GlowColors.primary]}
+          />
+        }
+      >
+        {/* HEADER — exact ProPlayerCard van ProPlayerHomeScreen */}
+        <View style={styles.headerSection}>
+          <ProPlayerCard
+            player={player}
+            credits={credits}
+            academyName={effectiveData?.academy?.name}
+            onAvatarPress={handleAvatarPress}
+            onWalletPress={handleWalletPress}
+            onSquadPress={handleSquadPress}
+            showSquadSwitch={true}
+            onNotificationPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("PlayerNotifications");
+            }}
+            unreadNotificationCount={unreadCount}
+            accessibilityLabel={`Player card for ${player.name}, level ${player.level}, ${player.xp} XP`}
+          />
+        </View>
+
+        {/* DNA BANNER — exact van ProPlayerHomeScreen */}
+        {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
+
+        {/* PRIMARY ACTIONS — exact van ProPlayerHomeScreen */}
+        <PrimaryActionsRow
+          firstName={player.name}
+          nextSessionDate={effectiveData?.nextSession?.date ?? null}
+          nextSessionEndTime={effectiveData?.nextSession?.endTime ?? null}
+        />
+
+        {/* DIAGNOSTIC BOX — herkenningspunt voor testers */}
+        <View style={styles.diagnosticBox}>
+          <Text style={styles.diagnosticLabel}>Diagnostische modus — Phase 1</Text>
+          <Text style={styles.diagnosticSub}>
+            Header module geladen. Modules 2–10 volgen in volgende fases.
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* MODE SWITCHER — zijknop om te switchen (exact van ProPlayerHomeScreen) */}
+      <CollapsibleModeSwitcher />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
+    backgroundColor: Colors.dark.backgroundRoot,
   },
-  content: {
-    gap: Spacing.md,
-    paddingHorizontal: Spacing.md,
-  },
-  headerCard: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: GlowColors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  avatarInitial: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  nameBlock: {
+  scrollView: {
     flex: 1,
-    gap: 2,
   },
-  playerName: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: Colors.dark.text,
+  scrollContent: {
+    gap: 0,
   },
-  academyName: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-  },
-  creditBadge: {
-    alignItems: "center",
-    backgroundColor: Colors.dark.chipBackground,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    flexShrink: 0,
-  },
-  creditValue: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  creditLabel: {
-    fontSize: 9,
-    color: Colors.dark.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  xpRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  levelLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: GlowColors.primary,
-    minWidth: 28,
-  },
-  xpBar: {
-    flex: 1,
-    height: 6,
-    backgroundColor: Colors.dark.chipBackground,
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  xpFill: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: GlowColors.primary,
-  },
-  xpLabel: {
-    fontSize: 11,
-    color: Colors.dark.textMuted,
-    minWidth: 44,
-    textAlign: "right",
-  },
-  actionsRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 5,
-    backgroundColor: Colors.dark.chipBackground,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.sm,
-  },
-  actionBtnText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.dark.textSubtle,
+  headerSection: {
+    paddingHorizontal: 0,
   },
   diagnosticBox: {
-    marginTop: Spacing.lg,
+    marginTop: Spacing.xl,
+    marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: GlowColors.primary + "44",
