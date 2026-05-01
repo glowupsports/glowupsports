@@ -1417,9 +1417,9 @@ function PlayerHomeContent() {
   // attempts at 800ms, 1800ms, 3000ms and 5000ms after mount. The extra
   // 3s/5s windows cover slow-auth devices where playerId arrives after
   // 1.8s. These are no-ops if the auth-ready watcher above already
-  // resolved the query. Uses type: "active" so they don't fight a
-  // disabled query; the auth-ready watcher (type: "all") handles the
-  // disabled case.
+  // resolved the query. Uses type: "active" — by the time these timers
+  // fire the auth-ready watcher will have run first (if playerId became
+  // truthy before the timer) and the query is already enabled.
   useEffect(() => {
     if (Platform.OS !== "ios") return;
     const t1 = setTimeout(() => {
