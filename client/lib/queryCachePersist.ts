@@ -1,4 +1,5 @@
 // Task #1474 — Player surface rolled back to coach-simple architecture.
+// Task #1479 — No-op compatibility stubs deleted after one OTA cycle.
 //
 // HISTORY: This module used to persist a slice of the player's
 // react-query cache to AsyncStorage so the player tabs could paint
@@ -22,17 +23,13 @@
 //     versions. Called on logout/family-switch as a safety net so
 //     installs that ran the old persisted cache don't hang on to
 //     stale player data forever.
+//   - `clearOrphanedVersions` — version-agnostic variant of
+//     `clearGodCache`, kept for parity with previous exports.
 //   - `markColdStartFirstPaint` — Sentry telemetry for the
 //     splash-dismissed moment. Kept because the cold-start dashboard
 //     still reads `godcache.first_paint_ms`.
-//   - `hydrateGodCache`, `startGodCachePersistence`,
-//     `stopGodCachePersistence`, `deferredHydrateAndPersist` —
-//     intentional no-ops kept for backwards-compatible imports
-//     during the OTA rollout window. They will be deleted once
-//     follow-up cleanup confirms no caller remains.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { QueryClient } from "@tanstack/react-query";
 
 const KNOWN_VERSION_PREFIXES = ["@glow:godCache:v1:"] as const;
 
@@ -56,34 +53,6 @@ export function markColdStartFirstPaint(): void {
   } catch {
     // Sentry not available in this environment — fine.
   }
-}
-
-// No-op stubs preserved for backwards-compatible imports during the
-// OTA rollout window. The persisted cache is no longer wired into
-// the player bootstrap; coach never had it.
-export async function hydrateGodCache(
-  _queryClient: QueryClient,
-  _playerId: string,
-): Promise<number> {
-  return 0;
-}
-
-export function startGodCachePersistence(
-  _queryClient: QueryClient,
-  _playerId: string,
-): void {
-  /* intentionally empty — see file header */
-}
-
-export function stopGodCachePersistence(): void {
-  /* intentionally empty — see file header */
-}
-
-export function deferredHydrateAndPersist(
-  _queryClient: QueryClient,
-  _playerId: string,
-): void {
-  /* intentionally empty — see file header */
 }
 
 // Best-effort removal of any persisted god-cache blob left over
