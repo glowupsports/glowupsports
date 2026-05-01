@@ -355,6 +355,7 @@ function PlayStackNavigator() {
   return (
     <PlayStack.Navigator screenOptions={{
       headerShown: false,
+      animation: "none",
       // Task #1407 — iOS keeps inactive screens unfrozen so player tabs paint
       // immediately after splash dismiss. See RootStackNavigator for the full
       // rationale.
@@ -463,6 +464,7 @@ function ScheduleStackNavigator() {
   return (
     <ScheduleStack.Navigator screenOptions={{
       headerShown: false,
+      animation: "none",
       // Task #1407 — see RootStackNavigator.
       freezeOnBlur: Platform.OS !== "ios",
     }}>
@@ -590,6 +592,7 @@ function ProgressStackNavigator() {
   return (
     <ProgressStack.Navigator screenOptions={{
       headerShown: false,
+      animation: "none",
       // Task #1407 — see RootStackNavigator.
       freezeOnBlur: Platform.OS !== "ios",
     }}>
