@@ -1865,13 +1865,40 @@ export default function PlayerNavigator() {
   // Fetch dashboard for player role accounts and any account with a playerId
   // (multi-role users like platform_owners may have player accounts needing onboarding)
   const shouldFetchDashboard = user?.role === "player" || !!user?.playerId;
-  
+
+  const [bootTimedOut, setBootTimedOut] = useState(false);
+
   const { data: dashboard, isLoading } = useQuery<PlayerDashboard>({
     queryKey: ["/api/player/me/dashboard"],
     enabled: shouldFetchDashboard,
     staleTime: 0,
     refetchOnMount: "always",
   });
+
+  // iOS early retry — replicates the focus trigger that swipe-up provides.
+  // Fires at 300 ms and 1000 ms after mount so slow initial requests resolve
+  // without requiring the user to visit the app switcher.
+  useEffect(() => {
+    if (!shouldFetchDashboard || Platform.OS !== "ios") return;
+    const t1 = setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["/api/player/me/dashboard"], type: "active" });
+    }, 300);
+    const t2 = setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["/api/player/me/dashboard"], type: "active" });
+    }, 1000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [shouldFetchDashboard, queryClient]);
+
+  // Boot timeout safety net (iOS only) — release the loading gate after 3 s
+  // so iOS users are never stuck indefinitely on a blank spinner.
+  useEffect(() => {
+    if (!isLoading || !shouldFetchDashboard || Platform.OS !== "ios") return;
+    const t = setTimeout(() => setBootTimedOut(true), 3000);
+    return () => clearTimeout(t);
+  }, [isLoading, shouldFetchDashboard]);
 
   const handleOnboardingComplete = async () => {
     // Refresh user data to get the new playerId
@@ -1882,7 +1909,7 @@ export default function PlayerNavigator() {
     queryClient.invalidateQueries({ queryKey: ["/api/me"] });
   };
 
-  if (isLoading && shouldFetchDashboard) {
+  if (isLoading && shouldFetchDashboard && !bootTimedOut) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.dark.primary} />
