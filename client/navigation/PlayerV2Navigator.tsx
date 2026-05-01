@@ -1,9 +1,10 @@
-import React, { useState, useCallback, useMemo } from "react";
-import { View, StyleSheet } from "react-native";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { View, StyleSheet, Platform, ActivityIndicator } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
 import { PlayerAppearanceProvider } from "@/player/context/PlayerAppearanceContext";
@@ -19,9 +20,14 @@ import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiFetch } from "@/lib/query-client";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
+
+// ── Onboarding ───────────────────────────────────────────────────────────────
+import PlayerOnboardingV2 from "@/player/screens/PlayerOnboardingV2";
+import AddFamilyMemberPrompt from "@/player/components/AddFamilyMemberPrompt";
 
 // ── Tab screens ─────────────────────────────────────────────────────────────
 import ProPlayerHomeDiagnosticScreen from "@/player/screens/ProPlayerHomeDiagnosticScreen";
@@ -239,12 +245,116 @@ const Stack = createNativeStackNavigator<PlayerV2StackParamList>();
 // Chat only shows on Home tab — mirrors SHOW_CHAT_TABS = ["Home"] in PlayerNavigator
 const SHOW_CHAT_TABS = ["Home"];
 
+// Tab analytics keys — mirrors TAB_FEATURE_KEYS in PlayerNavigator
+const TAB_FEATURE_KEYS: Record<string, string> = {
+  Home: "tab:home",
+  Community: "tab:social",
+  PlayStack: "tab:play",
+  Growth: "tab:growth",
+  Profile: "tab:me",
+};
+
+// ── Gap 2: Last-used tab restore ─────────────────────────────────────────────
+// Mirrors useResolvedInitialTab from PlayerNavigator exactly.
+type PlayerRole = "free" | "academy";
+const TAB_STORAGE_KEY = "player:tabs:lastUsed:v1";
+
+interface StoredTabState {
+  role: PlayerRole;
+  tab: string;
+  userId?: string;
+}
+
+function rolesDefaultTab(_role: PlayerRole): string {
+  return "Home";
+}
+
+function useResolvedInitialTab(
+  isFreePlayer: boolean,
+  isPlayerStatusReady: boolean,
+  userId: string | undefined,
+  validTabKeys: Set<string>,
+): { initialTabKey: string; isResolved: boolean } {
+  const [resolved, setResolved] = useState<{ tab: string; ready: boolean }>({
+    tab: rolesDefaultTab(isFreePlayer ? "free" : "academy"),
+    ready: false,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isPlayerStatusReady) return;
+    const role: PlayerRole = isFreePlayer ? "free" : "academy";
+
+    AsyncStorage.getItem(TAB_STORAGE_KEY)
+      .then((raw) => {
+        if (cancelled) return;
+        let stored: StoredTabState | null = null;
+        if (raw) {
+          try { stored = JSON.parse(raw) as StoredTabState; } catch { stored = null; }
+        }
+        const sameContext =
+          stored &&
+          stored.role === role &&
+          (!stored.userId || !userId || stored.userId === userId);
+        const candidate =
+          sameContext && stored && validTabKeys.has(stored.tab)
+            ? stored.tab
+            : rolesDefaultTab(role);
+        if (!sameContext) {
+          AsyncStorage.setItem(
+            TAB_STORAGE_KEY,
+            JSON.stringify({ role, tab: candidate, userId } satisfies StoredTabState),
+          ).catch(() => {});
+        }
+        setResolved((prev) =>
+          prev.tab === candidate && prev.ready === true
+            ? prev
+            : { tab: candidate, ready: true },
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setResolved((prev) => {
+          const next = rolesDefaultTab(role);
+          return prev.tab === next && prev.ready === true
+            ? prev
+            : { tab: next, ready: true };
+        });
+      });
+    return () => { cancelled = true; };
+  }, [isFreePlayer, isPlayerStatusReady, userId, validTabKeys]);
+
+  return { initialTabKey: resolved.tab, isResolved: resolved.ready };
+}
+
+// ── Gap 1 helper: free-player status (needed for tab restore role) ────────────
+function useFreePlayerStatus(): { isFreePlayer: boolean; isReady: boolean } {
+  const { user } = useAuth();
+  const { data, isFetched } = useQuery<{ isFreePlayer?: boolean; academy?: unknown }>({
+    queryKey: ["/api/player/me/dashboard"],
+    enabled: !!user?.playerId,
+    staleTime: 10 * 60 * 1000,
+  });
+  if (!user?.playerId) return { isFreePlayer: false, isReady: true };
+  if (!data) return { isFreePlayer: false, isReady: isFetched };
+  const isFreePlayer = data.isFreePlayer ?? !data.academy;
+  return { isFreePlayer, isReady: true };
+}
+
 // ─── Tab bar view ─────────────────────────────────────────────────────────────
 function PlayerV2TabView() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { isChatExpanded } = useChatState();
   const { navigateToTab } = useTabNavigation();
+  const { openDrawer } = usePlayerDrawer();
+
+  // Gap 5: feature tracking
+  const track = useTrackFeature();
+  const isMountedRef = useRef(false);
+
+  // Gap 2: free-player status for tab restore
+  const { isFreePlayer, isReady: isPlayerStatusReady } = useFreePlayerStatus();
 
   // Community unread badge — exact same query as PlayerTabsContent
   const { data: communityUnread } = useQuery<{ count: number }>({
@@ -271,6 +381,30 @@ function PlayerV2TabView() {
     { key: "Profile",   label: "Me",     icon: "person-outline",          iconFocused: "person",          component: PlayerProfileScreen },
   ], [hasCommunityUnread]);
 
+  const validTabKeys = useMemo(() => new Set(tabs.map((tab) => tab.key)), [tabs]);
+
+  // Gap 2: resolve initial tab from AsyncStorage
+  const { initialTabKey, isResolved } = useResolvedInitialTab(
+    isFreePlayer,
+    isPlayerStatusReady,
+    user?.playerId,
+    validTabKeys,
+  );
+  const initialPage = tabs.findIndex((tab) => tab.key === initialTabKey);
+
+  // Gap 2: once resolved, jump imperatively to the restored tab (one-shot)
+  const restoredOnceRef = useRef(false);
+  const [currentTabKey, setCurrentTabKey] = useState(initialTabKey);
+  useEffect(() => {
+    if (!isResolved) return;
+    if (restoredOnceRef.current) return;
+    restoredOnceRef.current = true;
+    if (initialTabKey && initialTabKey !== currentTabKey) {
+      navigateToTab(initialTabKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isResolved, initialTabKey, navigateToTab]);
+
   const playCenterButton = useMemo(() => ({
     icon: "tennisball-outline" as const,
     iconFocused: "tennisball" as const,
@@ -286,19 +420,44 @@ function PlayerV2TabView() {
     [navigateToTab],
   );
 
-  const handlePageChange = useCallback(() => {}, []);
+  // Gap 5: track tab feature + Gap 2: persist last-used tab
+  const handlePageChange = useCallback((_index: number, key: string) => {
+    setCurrentTabKey(key);
+
+    // Gap 5: analytics
+    const featureKey = TAB_FEATURE_KEYS[key];
+    if (featureKey && isMountedRef.current) {
+      track(featureKey);
+    }
+    isMountedRef.current = true;
+
+    // Gap 2: persist last-used tab
+    if (isResolved) {
+      const role: PlayerRole = isFreePlayer ? "free" : "academy";
+      AsyncStorage.setItem(
+        TAB_STORAGE_KEY,
+        JSON.stringify({ role, tab: key, userId: user?.playerId } satisfies StoredTabState),
+      ).catch(() => {});
+    }
+  }, [track, isResolved, isFreePlayer, user?.playerId]);
 
   const renderOverlay = useCallback((tabKey: string) => {
     if (!SHOW_CHAT_TABS.includes(tabKey)) return null;
     return <CoachChatFooter mode="player" onChallenge={handleChallenge} />;
   }, [handleChallenge]);
 
+  // Gap 4: edge-swipe opens the drawer via context
+  const handleEdgeSwipeLeft = useCallback(() => {
+    openDrawer();
+  }, [openDrawer]);
+
   return (
     <SwipeableTabBar
       tabs={tabs}
-      initialPage={0}
+      initialPage={initialPage >= 0 ? initialPage : 0}
       primaryColor={Colors.dark.primary}
       secondaryColor={Colors.dark.primary}
+      onEdgeSwipeLeft={handleEdgeSwipeLeft}
       onPageChange={handlePageChange}
       renderOverlay={renderOverlay}
       centerButtonConfig={playCenterButton}
@@ -314,6 +473,8 @@ function PlayerV2StackWithDrawer() {
   const navigation = useNavigation<any>();
   const { setOpenDrawer } = usePlayerDrawer();
 
+  // Register the drawer-open callback so PlayerV2TabView's edge-swipe
+  // and the drawer icon both work correctly.
   React.useEffect(() => {
     setOpenDrawer(() => setDrawerVisible(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -482,8 +643,108 @@ function PlayerV2Inner() {
   );
 }
 
-// ─── Root — wraps with all providers (mirrors PlayerNavigator) ─────────────────
+// ─── Onboarding gate types ────────────────────────────────────────────────────
+interface PlayerDashboard {
+  isDemo?: boolean;
+  isOnboarding?: boolean;
+  player: {
+    id: string;
+    name: string;
+    onboardingCompleted?: boolean;
+    academyId?: string | null;
+  };
+}
+
+// ─── Root — onboarding gate + providers ───────────────────────────────────────
+// Gap 1: onboarding gate (before providers so new players never see a broken home)
+// Gap 3: iOS boot retries at 300 ms + 1000 ms + 3 s timeout
 export default function PlayerV2Navigator() {
+  const { user, refreshAuth } = useAuth();
+  const queryClient = useQueryClient();
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [showPrivacySetup, setShowPrivacySetup] = useState(false);
+  const [showFamilyPrompt, setShowFamilyPrompt] = useState(false);
+  const [bootTimedOut, setBootTimedOut] = useState(false);
+
+  const shouldFetchDashboard = user?.role === "player" || !!user?.playerId;
+
+  const { data: dashboard, isLoading } = useQuery<PlayerDashboard>({
+    queryKey: ["/api/player/me/dashboard"],
+    enabled: shouldFetchDashboard,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
+  // Gap 3: iOS early retries — replicates what V1 does exactly
+  useEffect(() => {
+    if (!shouldFetchDashboard || Platform.OS !== "ios") return;
+    const t1 = setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["/api/player/me/dashboard"], type: "active" });
+    }, 300);
+    const t2 = setTimeout(() => {
+      queryClient.refetchQueries({ queryKey: ["/api/player/me/dashboard"], type: "active" });
+    }, 1000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [shouldFetchDashboard, queryClient]);
+
+  // Gap 3: 3-second boot timeout so iOS users are never stuck on a blank spinner
+  useEffect(() => {
+    if (!isLoading || !shouldFetchDashboard || Platform.OS !== "ios") return;
+    const t = setTimeout(() => setBootTimedOut(true), 3000);
+    return () => clearTimeout(t);
+  }, [isLoading, shouldFetchDashboard]);
+
+  const handleOnboardingComplete = async () => {
+    await refreshAuth();
+    setOnboardingComplete(true);
+    setShowPrivacySetup(true);
+    queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+  };
+
+  // Show a spinner while waiting for dashboard on iOS (matches V1 behaviour)
+  if (isLoading && shouldFetchDashboard && !bootTimedOut) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={Colors.dark.primary} />
+      </View>
+    );
+  }
+
+  // Gap 1: onboarding gate — only fires for new/incomplete player accounts
+  const needsOnboarding = dashboard?.isOnboarding === true;
+  const showOnboarding = needsOnboarding && onboardingComplete !== true;
+
+  if (showOnboarding) {
+    return <PlayerOnboardingV2 onComplete={handleOnboardingComplete} />;
+  }
+
+  if (showPrivacySetup) {
+    return (
+      <PrivacySettingsScreen
+        isOnboarding
+        onComplete={() => {
+          setShowPrivacySetup(false);
+          setShowFamilyPrompt(true);
+        }}
+      />
+    );
+  }
+
+  if (showFamilyPrompt) {
+    return (
+      <View style={styles.flex}>
+        <AddFamilyMemberPrompt
+          visible={true}
+          onDone={() => setShowFamilyPrompt(false)}
+        />
+      </View>
+    );
+  }
+
   return (
     <PlayerAppearanceProvider>
       <TabNavigationProvider>
@@ -497,4 +758,10 @@ export default function PlayerV2Navigator() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
 });
