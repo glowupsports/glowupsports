@@ -975,159 +975,190 @@ import { Router, type Response } from "express";
           return res.status(404).json({ error: "Player not found" });
         }
 
-        // Step 1: Get all session_players records for this player
-        const playerRecords = await db
-          .select({
-            sessionId: sessionPlayers.sessionId,
-            attendanceStatus: sessionPlayers.attendanceStatus,
-            lateMinutes: sessionPlayers.lateMinutes,
-          })
-          .from(sessionPlayers)
-          .where(eq(sessionPlayers.playerId, playerId));
+        // Pagination params — default to first 20 rows
+        const rawLimit = parseInt(req.query.limit as string, 10);
+        const rawOffset = parseInt(req.query.offset as string, 10);
+        const pageLimit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 20;
+        const pageOffset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
 
-        // Step 1.5: Find orphaned completed sessions (in player's series but no sessionPlayers record)
-        // CRITICAL: Only include sessions that happened AFTER the player joined the series (and before they left)
-        const playerSeriesForHistory = await db
-          .select({
-            seriesId: seriesPlayers.seriesId,
-            joinedAt: seriesPlayers.joinedAt,
-            createdAt: seriesPlayers.createdAt,
-            leftAt: seriesPlayers.leftAt,
-          })
-          .from(seriesPlayers)
-          .where(
-            and(
-              eq(seriesPlayers.playerId, playerId),
-              inArray(seriesPlayers.status, ["active", "paused", "left"]),
-            ),
-          );
-        const seriesIdsForHistory = playerSeriesForHistory
-          .map((s) => s.seriesId)
-          .filter(Boolean) as string[];
-        const seriesJoinDatesForHistory = new Map(
-          playerSeriesForHistory.map((s) => [s.seriesId, s.joinedAt ?? s.createdAt]),
-        );
-        const seriesLeftDatesForHistory = new Map(
-          playerSeriesForHistory.map((s) => [s.seriesId, s.leftAt]),
-        );
-        const existingSessionIdsForHistory = new Set(
-          playerRecords.map((r) => r.sessionId),
-        );
+        const dateParam = req.query.date as string | undefined;
+        const now = dateParam ? new Date(dateParam) : new Date();
 
-        if (seriesIdsForHistory.length > 0) {
-          const orphanedSessions = await db
-            .select({
-              id: sessions.id,
-              status: sessions.status,
-              seriesId: sessions.seriesId,
-              startTime: sessions.startTime,
-            })
-            .from(sessions)
-            .where(
-              and(
-                inArray(sessions.seriesId, seriesIdsForHistory),
-                eq(sessions.status, "completed"),
-              ),
-            );
-          const orphaned = orphanedSessions.filter((s) => {
-            if (existingSessionIdsForHistory.has(s.id)) return false;
-            const joinDate = s.seriesId
-              ? seriesJoinDatesForHistory.get(s.seriesId)
-              : null;
-            if (joinDate && s.startTime) {
-              const sessionTime = new Date(s.startTime);
-              if (sessionTime < new Date(joinDate)) return false;
-              const leftDate = s.seriesId ? seriesLeftDatesForHistory.get(s.seriesId) : null;
-              const upperBound = leftDate ? new Date(leftDate) : new Date();
-              if (sessionTime > upperBound) return false;
-              return true;
-            }
-            return false;
-          });
-          for (const s of orphaned) {
-            playerRecords.push({
-              sessionId: s.id,
-              attendanceStatus: null,
-              lateMinutes: null,
-            });
-          }
-          if (orphaned.length > 0) {
-            console.log(
-              `[AttendanceHistory] Found ${orphaned.length} orphaned completed sessions for player ${playerId} (filtered by join/left date window)`,
-            );
-          }
-        }
+        // ─── Step 1: Paginated history + total count (single SQL query) ─────────
+        //
+        // A UNION ALL CTE merges two record sources:
+        //   A) session_players rows (player explicitly attended / marked)
+        //   B) "orphaned" sessions — player was in the series but the
+        //      session_players row was never created (e.g. bulk-reconcile lag)
+        //
+        // All filtering that was previously done in JS is now in SQL:
+        //   • future sessions excluded (start_time < $now)
+        //   • holiday/vacation attendance status excluded
+        //   • cancelled sessions excluded (covers the old nonCancelledHistory filter)
+        //   • semi/semi_private/private_adjusted: absent attendance excluded
+        //     (these session types don't charge an absent player)
+        //   • orphan window: start_time between joined_at and left_at
+        //
+        // COUNT(*) OVER() returns the total matching rows alongside the page —
+        // no second COUNT query needed.
+        const historyResult = await db.execute(sql`
+          WITH filtered_history AS (
+            -- A: sessions the player has an explicit attendance record for
+            SELECT
+              sp.session_id,
+              sp.attendance_status,
+              sp.late_minutes,
+              s.start_time,
+              s.end_time,
+              s.session_type,
+              s.status      AS session_status,
+              s.series_id
+            FROM session_players sp
+            JOIN sessions s ON s.id = sp.session_id
+            WHERE sp.player_id = ${playerId}
+              AND s.start_time < ${now}
+              AND s.status != 'cancelled'
+              AND COALESCE(sp.attendance_status, '') NOT IN ('holiday', 'vacation')
+              AND NOT (
+                s.session_type IN ('semi', 'semi_private', 'private_adjusted')
+                AND sp.attendance_status = 'absent'
+              )
 
-        // Step 2: Get session details separately to avoid Drizzle LEFT JOIN issues
-        const sessionIds = playerRecords
-          .map((r) => r.sessionId)
-          .filter(Boolean);
-        let sessionMap: Record<
-          string,
-          {
-            startTime: Date;
-            endTime: Date;
-            sessionType: string;
-            status: string;
-            seriesId: string | null;
-          }
-        > = {};
+            UNION ALL
 
-        if (sessionIds.length > 0) {
-          const sessionDetails = await db
-            .select({
-              id: sessions.id,
-              startTime: sessions.startTime,
-              endTime: sessions.endTime,
-              sessionType: sessions.sessionType,
-              status: sessions.status,
-              seriesId: sessions.seriesId,
-            })
-            .from(sessions)
-            .where(inArray(sessions.id, sessionIds));
-
-          sessionMap = sessionDetails.reduce(
-            (acc, s) => {
-              acc[s.id] = {
-                startTime: s.startTime,
-                endTime: s.endTime,
-                sessionType: s.sessionType,
-                status: s.status,
-                seriesId: s.seriesId,
-              };
-              return acc;
-            },
-            {} as Record<
-              string,
-              {
-                startTime: Date;
-                endTime: Date;
-                sessionType: string;
-                status: string;
-                seriesId: string | null;
-              }
-            >,
-          );
-        }
-
-        // Step 2.5: Fetch series info for grouping
-        const uniqueSeriesIds = [
-          ...new Set(
-            Object.values(sessionMap)
-              .map((s) => s.seriesId)
-              .filter(Boolean),
+            -- B: orphaned sessions — player in series, no session_players row
+            SELECT
+              s.id          AS session_id,
+              NULL::text    AS attendance_status,
+              NULL::integer AS late_minutes,
+              s.start_time,
+              s.end_time,
+              s.session_type,
+              s.status      AS session_status,
+              s.series_id
+            FROM sessions s
+            JOIN series_players serp
+              ON serp.series_id = s.series_id
+             AND serp.player_id = ${playerId}
+             AND serp.status IN ('active', 'paused', 'left')
+            WHERE s.status = 'completed'
+              AND s.start_time < ${now}
+              AND s.start_time > COALESCE(serp.joined_at, serp.created_at)
+              AND (serp.left_at IS NULL OR s.start_time < serp.left_at)
+              AND NOT EXISTS (
+                SELECT 1 FROM session_players spl
+                WHERE spl.session_id = s.id
+                  AND spl.player_id = ${playerId}
+              )
           ),
-        ] as string[];
-        let seriesMap: Record<
-          string,
-          {
-            title: string;
-            dayOfWeek: number;
-            startTime: string;
-            sessionType: string;
-          }
-        > = {};
+          page_rows AS (
+            SELECT *
+            FROM filtered_history
+            ORDER BY start_time DESC
+            LIMIT ${pageLimit} OFFSET ${pageOffset}
+          ),
+          totals AS (
+            SELECT COUNT(*)::bigint AS total_count FROM filtered_history
+          )
+          -- LEFT JOIN ensures totals row is always returned, even when page is empty
+          -- (e.g. out-of-range offset). Filter session_id IS NOT NULL to get real rows.
+          SELECT
+            pr.session_id, pr.attendance_status, pr.late_minutes,
+            pr.start_time, pr.end_time, pr.session_type, pr.session_status, pr.series_id,
+            t.total_count
+          FROM totals t
+          LEFT JOIN page_rows pr ON TRUE
+        `);
 
+        type HistoryRow = {
+          session_id: string | null;
+          attendance_status: string | null;
+          late_minutes: number | null;
+          start_time: Date | null;
+          end_time: Date | null;
+          session_type: string | null;
+          session_status: string | null;
+          series_id: string | null;
+          total_count: string; // postgres returns bigint as string
+        };
+        const rawRows = historyResult.rows as HistoryRow[];
+        // total_count is present on every row (even the null sentinel row from LEFT JOIN)
+        const total = rawRows.length > 0 ? Number(rawRows[0].total_count) : 0;
+        // Filter out the sentinel null row produced by LEFT JOIN on empty page
+        const pagedRows = rawRows.filter((r): r is HistoryRow & { session_id: string } => r.session_id != null);
+
+        // ─── Step 2: Series aggregate summaries (full history, not paged) ────────
+        //
+        // Same UNION logic, but GROUP BY series_id to get counts without
+        // materialising all rows. Only runs when the player has series history.
+        const summaryResult = await db.execute(sql`
+          WITH filtered_history AS (
+            SELECT
+              s.series_id,
+              sp.attendance_status,
+              s.status AS session_status
+            FROM session_players sp
+            JOIN sessions s ON s.id = sp.session_id
+            WHERE sp.player_id = ${playerId}
+              AND s.start_time < ${now}
+              AND s.status != 'cancelled'
+              AND COALESCE(sp.attendance_status, '') NOT IN ('holiday', 'vacation')
+              AND NOT (
+                s.session_type IN ('semi', 'semi_private', 'private_adjusted')
+                AND sp.attendance_status = 'absent'
+              )
+
+            UNION ALL
+
+            SELECT
+              s.series_id,
+              NULL::text  AS attendance_status,
+              s.status    AS session_status
+            FROM sessions s
+            JOIN series_players serp
+              ON serp.series_id = s.series_id
+             AND serp.player_id = ${playerId}
+             AND serp.status IN ('active', 'paused', 'left')
+            WHERE s.status = 'completed'
+              AND s.start_time < ${now}
+              AND s.start_time > COALESCE(serp.joined_at, serp.created_at)
+              AND (serp.left_at IS NULL OR s.start_time < serp.left_at)
+              AND NOT EXISTS (
+                SELECT 1 FROM session_players spl
+                WHERE spl.session_id = s.id
+                  AND spl.player_id = ${playerId}
+              )
+          )
+          SELECT
+            series_id,
+            COUNT(*)::int AS total_sessions,
+            COUNT(*) FILTER (
+              WHERE attendance_status = 'present'
+                 OR (attendance_status IS NULL AND session_status = 'completed')
+            )::int AS present_count,
+            COUNT(*) FILTER (WHERE attendance_status = 'absent')::int AS absent_count
+          FROM filtered_history
+          WHERE series_id IS NOT NULL
+          GROUP BY series_id
+        `);
+
+        type SummaryRow = {
+          series_id: string;
+          total_sessions: number;
+          present_count: number;
+          absent_count: number;
+        };
+        const summaryRows = summaryResult.rows as SummaryRow[];
+
+        // ─── Step 3: Fetch series info for the unique series IDs ─────────────────
+        const uniqueSeriesIds = [
+          ...new Set([
+            ...pagedRows.map(r => r.series_id).filter(Boolean),
+            ...summaryRows.map(r => r.series_id).filter(Boolean),
+          ]),
+        ] as string[];
+
+        let seriesMap: Record<string, { title: string; dayOfWeek: number; startTime: string; sessionType: string }> = {};
         if (uniqueSeriesIds.length > 0) {
           const seriesDetails = await db
             .select({
@@ -1139,260 +1170,132 @@ import { Router, type Response } from "express";
             })
             .from(coachingSeries)
             .where(inArray(coachingSeries.id, uniqueSeriesIds));
-
-          seriesMap = seriesDetails.reduce(
-            (acc, s) => {
-              acc[s.id] = {
-                title: s.title || "",
-                dayOfWeek: s.dayOfWeek,
-                startTime: s.startTime,
-                sessionType: s.sessionType,
-              };
-              return acc;
-            },
-            {} as Record<
-              string,
-              {
-                title: string;
-                dayOfWeek: number;
-                startTime: string;
-                sessionType: string;
-              }
-            >,
-          );
+          seriesMap = seriesDetails.reduce((acc, s) => {
+            acc[s.id] = { title: s.title || "", dayOfWeek: s.dayOfWeek, startTime: s.startTime, sessionType: s.sessionType };
+            return acc;
+          }, {} as typeof seriesMap);
         }
 
-        // Step 3: Combine and sort
-        const combinedRecords = playerRecords.map((record) => {
-          const sessionInfo = record.sessionId
-            ? sessionMap[record.sessionId]
-            : null;
-          return {
-            sessionId: record.sessionId,
-            attendanceStatus: record.attendanceStatus,
-            lateMinutes: record.lateMinutes,
-            sessionStartTime: sessionInfo?.startTime || null,
-            sessionEndTime: sessionInfo?.endTime || null,
-            sessionType: sessionInfo?.sessionType || null,
-            sessionStatus: sessionInfo?.status || null,
-            seriesId: sessionInfo?.seriesId || null,
-          };
-        });
-
-        // Filter out future sessions - only show history (past sessions)
-        const dateParam = req.query.date as string | undefined;
-        const now = dateParam ? new Date(dateParam) : new Date();
-        const DUBAI_OFFSET = 4;
-        const _dubaiNow = new Date(
-          now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
-        );
-        // Semi-private style types: original semi-private OR the auto-converted
-        // private_adjusted session. In both cases the absent player effectively
-        // didn't attend — hide their row from the history list and exclude them
-        // from the summary totals so the two counters stay in sync.
-        const isSemiOrConvertedType = (type: string | null) =>
-          type === "semi" || type === "semi_private" || type === "private_adjusted";
-        const pastRecords = combinedRecords.filter((record) => {
-          if (!record.sessionStartTime) return false;
-          const status = record.attendanceStatus;
-          if (status === "holiday" || status === "vacation") return false;
-          // For semi-private and private_adjusted sessions, hide absent and
-          // cancelled rows — those sessions don't count for the absent player.
-          if (isSemiOrConvertedType(record.sessionType)) {
-            if (record.sessionStatus === "cancelled") return false;
-            if (status === "absent") return false;
-          }
-          return new Date(record.sessionStartTime) < now;
-        });
-
-        // Sort by session start time (newest first)
-        const sortedRecords = pastRecords.sort((a, b) => {
-          const dateA = a.sessionStartTime
-            ? new Date(a.sessionStartTime)
-            : new Date(0);
-          const dateB = b.sessionStartTime
-            ? new Date(b.sessionStartTime)
-            : new Date(0);
-          return dateB.getTime() - dateA.getTime();
-        });
-
-        // Task #817 / #1450: Per-lesson credit charge map. Source of truth is
-        // V2 (`credit_ledger_v2`). We sum non-cancelled debit deltas keyed by
-        // session_id and report `{ amount, count, source }` so the UI can flag
-        // duplicates ("Duplicate charge detected") if any slipped through and
-        // distinguish a fresh consume from a debt-settlement charge.
+        // ─── Step 4: Credit ledger — single merged query for the page only ───────
         //
-        // Precedence (Task #1450):
-        //   1. V2 `consume` rows (delta < 0)              → source = 'v2-consume'
-        //   2. else V2 `consume_debt_settlement` rows for that same session
-        //      (delta = 0; the actual charge lives in metadata.settleAmount) →
-        //      source = 'v2-settlement'. This covers attendance that was paid
-        //      down via a later top-up/grant rather than a fresh wallet debit,
-        //      so the row still reflects the credit truth instead of the
-        //      misleading "No charge".
-        //   3. else                                        → source = null
-        //
-        // No V1 fallback: V1 is retired. Sessions with no V2 evidence stay at 0.
-        const sessionIdsForCredits = sortedRecords
-          .map((r) => r.sessionId)
+        // Task #817 / #1450: precedence:
+        //   1. V2 `consume` rows (delta < 0)          → source = 'v2-consume'
+        //   2. V2 `consume_debt_settlement` rows       → source = 'v2-settlement'
+        //   3. else                                    → source = null
+        const sessionIdsForCredits = pagedRows
+          .map(r => r.session_id)
           .filter((s): s is string => !!s);
         type ChargeSource = "v2-consume" | "v2-settlement" | null;
-        type ChargeAgg = {
-          amount: number;
-          count: number;
-          type: string | null;
-          source: ChargeSource;
-        };
+        type ChargeAgg = { amount: number; count: number; type: string | null; source: ChargeSource };
         const chargesBySession = new Map<string, ChargeAgg>();
         if (sessionIdsForCredits.length > 0) {
-          // Build a parameterised IN-list. We can't bind a JS array as
-          // postgres `text[]` through the drizzle template — postgres-js
-          // serialises a JS array as a record/tuple, so `= ANY($1::text[])`
-          // fails with "cannot cast type record to text[]". `sql.join` emits
-          // each id as its own bound parameter, which is both safe and the
-          // pattern other raw-SQL spots in this file rely on.
           const sessionIdList = sql.join(
-            sessionIdsForCredits.map((id) => sql`${id}`),
+            sessionIdsForCredits.map(id => sql`${id}`),
             sql`, `,
           );
-          // V2 ledger — primary `consume` aggregation.
+          type LedgerRow = {
+            session_id: string;
+            type: string | null;
+            reason: string;
+            delta: string; // postgres returns numeric as string
+            settle_amount: string; // COALESCE(...) also numeric
+          };
           try {
-            const v2Rows = await db.execute(sql`
-              SELECT session_id, type, delta
-              FROM credit_ledger_v2
-              WHERE player_id = ${playerId}
-                AND session_id IN (${sessionIdList})
-                AND reason = 'consume'
-                AND delta < 0
-            `);
-            for (const row of v2Rows.rows as any[]) {
-              const sid = row.session_id as string;
-              const delta = Number(row.delta);
-              const cur = chargesBySession.get(sid) ?? {
-                amount: 0,
-                count: 0,
-                type: null,
-                source: "v2-consume" as ChargeSource,
-              };
-              cur.amount += Math.abs(delta);
-              cur.count += 1;
-              cur.type = cur.type ?? (row.type as string | null);
-              cur.source = "v2-consume";
-              chargesBySession.set(sid, cur);
-            }
-          } catch (creditErr) {
-            console.warn("[AttendanceHistory] V2 consume join skipped:", creditErr);
-          }
-          // V2 ledger — settlement fallback. Only fold in `consume_debt_settlement`
-          // rows for sessions that produced no `consume` aggregate above, so we
-          // never double-count a session that has both a fresh consume and a
-          // later settlement against unrelated debt. The settled credit count
-          // lives in `metadata.settleAmount` (the row's own delta is 0 because
-          // the wallet was already moved by the matching top-up/purchase).
-          try {
-            const settleRows = await db.execute(sql`
-              SELECT session_id, type,
+            const ledgerResult = await db.execute(sql`
+              SELECT session_id, type, reason, delta,
                      COALESCE((metadata->>'settleAmount')::numeric, 0) AS settle_amount
               FROM credit_ledger_v2
               WHERE player_id = ${playerId}
                 AND session_id IN (${sessionIdList})
-                AND reason = 'consume_debt_settlement'
+                AND reason IN ('consume', 'consume_debt_settlement')
+                AND (reason = 'consume_debt_settlement' OR delta < 0)
+              ORDER BY reason
             `);
-            for (const row of settleRows.rows as any[]) {
-              const sid = row.session_id as string;
-              if (chargesBySession.has(sid)) continue; // consume wins
+            const ledgerRows = ledgerResult.rows as LedgerRow[];
+            for (const row of ledgerRows) {
+              if (row.reason === "consume") {
+                const cur = chargesBySession.get(row.session_id) ?? { amount: 0, count: 0, type: null, source: "v2-consume" as ChargeSource };
+                cur.amount += Math.abs(Number(row.delta));
+                cur.count += 1;
+                cur.type = cur.type ?? row.type;
+                cur.source = "v2-consume";
+                chargesBySession.set(row.session_id, cur);
+              }
+            }
+            for (const row of ledgerRows) {
+              if (row.reason !== "consume_debt_settlement") continue;
+              if (chargesBySession.has(row.session_id)) continue;
               const amt = Math.abs(Number(row.settle_amount ?? 0));
               if (!Number.isFinite(amt) || amt <= 0) continue;
-              const cur = chargesBySession.get(sid) ?? {
-                amount: 0,
-                count: 0,
-                type: null,
-                source: "v2-settlement" as ChargeSource,
-              };
+              const cur = chargesBySession.get(row.session_id) ?? { amount: 0, count: 0, type: null, source: "v2-settlement" as ChargeSource };
               cur.amount += amt;
               cur.count += 1;
-              cur.type = cur.type ?? (row.type as string | null);
+              cur.type = cur.type ?? row.type;
               cur.source = "v2-settlement";
-              chargesBySession.set(sid, cur);
+              chargesBySession.set(row.session_id, cur);
             }
           } catch (creditErr) {
-            console.warn("[AttendanceHistory] V2 settlement join skipped:", creditErr);
+            console.warn("[AttendanceHistory] V2 ledger query skipped:", creditErr);
           }
         }
 
-        // Format for frontend - include records even if session details are missing
-        const history = sortedRecords.map((record) => {
-          const seriesInfo = record.seriesId
-            ? seriesMap[record.seriesId]
-            : null;
-          const charge = record.sessionId
-            ? chargesBySession.get(record.sessionId)
-            : undefined;
+        // ─── Format page for frontend ─────────────────────────────────────────────
+        const history = pagedRows.map(record => {
+          const seriesInfo = record.series_id ? seriesMap[record.series_id] : null;
+          const charge = chargesBySession.get(record.session_id);
           return {
-            sessionId: record.sessionId,
-            date: record.sessionStartTime
-              ? new Date(record.sessionStartTime).toISOString().split("T")[0]
+            sessionId: record.session_id,
+            date: record.start_time
+              ? new Date(record.start_time).toISOString().split("T")[0]
               : null,
-            startTime: record.sessionStartTime || null,
-            endTime: record.sessionEndTime || null,
-            sessionType: record.sessionType || "group",
+            startTime: record.start_time || null,
+            endTime: record.end_time || null,
+            sessionType: record.session_type || "group",
             status:
-              record.sessionStatus === "cancelled"
+              record.session_status === "cancelled"
                 ? "cancelled"
-                : record.attendanceStatus ||
-                  (record.sessionStatus === "completed" ? "present" : null),
-            lateMinutes: record.lateMinutes,
-            sessionStatus: record.sessionStatus || "completed",
-            seriesId: record.seriesId,
+                : record.attendance_status ||
+                  (record.session_status === "completed" ? "present" : null),
+            lateMinutes: record.late_minutes,
+            sessionStatus: record.session_status || "completed",
+            seriesId: record.series_id,
             seriesDayOfWeek: seriesInfo?.dayOfWeek ?? null,
             seriesTitle: seriesInfo?.title || null,
-            // Task #817: per-lesson credit charge surfaced from the ledger.
             creditsCharged: charge ? charge.amount : 0,
             creditChargeCount: charge ? charge.count : 0,
             creditChargeType: charge?.type ?? null,
-            // Task #1450: which V2 source produced this charge so the UI can
-            // label settlement-derived charges differently from a fresh consume.
             creditChargeSource: charge?.source ?? null,
           };
         });
 
-        const nonCancelledHistory = history.filter((r) => r.status !== "cancelled");
-        const seriesSummaries = uniqueSeriesIds
-          .map((seriesId) => {
-            const seriesRecords = nonCancelledHistory.filter(
-              (r) => r.seriesId === seriesId,
-            );
-            const presentCount = seriesRecords.filter(
-              (r) => r.status === "present",
-            ).length;
-            const absentCount = seriesRecords.filter(
-              (r) => r.status === "absent",
-            ).length;
-            const seriesInfo = seriesMap[seriesId];
-            const total = seriesRecords.length;
-
+        // ─── Series summaries (full history, not just page) ───────────────────────
+        const seriesSummaries = summaryRows
+          .map(row => {
+            const seriesInfo = seriesMap[row.series_id];
+            const total_s = Number(row.total_sessions);
+            const presentCount = Number(row.present_count);
+            const absentCount = Number(row.absent_count);
             return {
-              seriesId,
+              seriesId: row.series_id,
               dayOfWeek: seriesInfo?.dayOfWeek ?? 0,
-              dayName: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
-                seriesInfo?.dayOfWeek ?? 0
-              ],
+              dayName: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][seriesInfo?.dayOfWeek ?? 0],
               startTime: seriesInfo?.startTime || "",
               title: seriesInfo?.title || "",
-              totalSessions: total,
+              totalSessions: total_s,
               presentCount,
               absentCount,
-              attendanceRate:
-                total > 0 ? Math.round((presentCount / total) * 100) : 0,
+              attendanceRate: total_s > 0 ? Math.round((presentCount / total_s) * 100) : 0,
             };
           })
           .sort((a, b) => a.dayOfWeek - b.dayOfWeek);
 
-        // Task #1335 — exclude cancelled sessions from the attendance history
-        // list. They aren't charged and shouldn't appear as rows in the
-        // player's history. The per-series summary math above already
-        // excludes them via `nonCancelledHistory`.
-        res.json({ history: nonCancelledHistory, seriesSummaries });
+        res.json({
+          history,
+          seriesSummaries,
+          total,
+          limit: pageLimit,
+          offset: pageOffset,
+        });
       } catch (error) {
         console.error("Error fetching player attendance history:", error);
         res.status(500).json({ error: "Failed to fetch attendance history" });

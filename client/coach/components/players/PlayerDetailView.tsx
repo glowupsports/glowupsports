@@ -2009,7 +2009,9 @@ export function PlayerDetailView({
         onClose={() => {
           setExtraLessonWizardConfig(null);
           queryClient.invalidateQueries({
-            queryKey: [`/api/coach/players/${player.id}/attendance-history`],
+            predicate: (q) =>
+              typeof q.queryKey[0] === "string" &&
+              (q.queryKey[0] as string).includes(`/coach/players/${player.id}/attendance-history`),
           });
           queryClient.invalidateQueries({
             queryKey: [`/api/coach/players/${player.id}/attendance-summary`],

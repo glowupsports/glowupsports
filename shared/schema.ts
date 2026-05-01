@@ -1806,7 +1806,10 @@ export const sessions = pgTable("sessions", {
   courtBookingUrl: text("court_booking_url"),
 
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  // Task #1505 — attendance-history pagination: filter + sort on series/status/time
+  index("sessions_series_status_start_idx").on(table.seriesId, table.status, table.startTime),
+]);
 
 export const insertSessionSchema = createInsertSchema(sessions).omit({ id: true, createdAt: true });
 export type InsertSession = z.infer<typeof insertSessionSchema>;
@@ -1915,6 +1918,8 @@ export const seriesPlayers = pgTable("series_players", {
 }, (table) => ({
   seriesPlayerIdx: index("series_players_series_player_idx").on(table.seriesId, table.playerId),
   statusIdx: index("series_players_status_idx").on(table.status),
+  // Task #1505 — attendance-history pagination: look up by player + status
+  playerStatusIdx: index("series_players_player_status_idx").on(table.playerId, table.status),
 }));
 
 export const insertSeriesPlayerSchema = createInsertSchema(seriesPlayers).omit({ id: true });
@@ -8286,6 +8291,8 @@ export const creditLedgerV2 = pgTable("credit_ledger_v2", {
   index("credit_ledger_v2_academy_time_idx").on(table.academyId, table.occurredAt),
   index("credit_ledger_v2_session_idx").on(table.sessionId),
   index("credit_ledger_v2_session_player_idx").on(table.sessionPlayerId),
+  // Task #1505 — attendance-history credit lookup: player + session_id + reason
+  index("credit_ledger_v2_player_session_reason_idx").on(table.playerId, table.sessionId, table.reason),
   // Task #1332 — belt-and-suspenders against any future code path inserting a
   // second `consume` ledger row for the same session_player. The eventKey
   // unique idx already blocks the canonical write (eventKey = consume:<spId>),

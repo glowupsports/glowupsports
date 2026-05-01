@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, Modal, ActivityIndicator, Alert, Platform, ScrollView } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Feather } from "@expo/vector-icons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -51,6 +51,9 @@ interface SeriesAttendanceSummary {
 interface AttendanceHistoryResponse {
   history: AttendanceHistoryRecord[];
   seriesSummaries: SeriesAttendanceSummary[];
+  total: number;
+  limit: number;
+  offset: number;
 }
 
 interface Props {
@@ -60,11 +63,19 @@ interface Props {
   hideHeader?: boolean;
 }
 
+const PAGE_SIZE = 20;
+
 export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader = false }: Props) {
   const queryClient = useQueryClient();
-  const [showAllHistory, setShowAllHistory] = useState(false);
   const [expandedSeriesIds, setExpandedSeriesIds] = useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = useState<"all" | "private" | "semi" | "group">("all");
+
+  // Pagination state — accumulate records across pages
+  const [pageOffset, setPageOffset] = useState(0);
+  const [allHistory, setAllHistory] = useState<AttendanceHistoryRecord[]>([]);
+  const [seriesAttendanceSummaries, setSeriesAttendanceSummaries] = useState<SeriesAttendanceSummary[]>([]);
+  const [totalSessions, setTotalSessions] = useState(0);
+  const prevPlayerIdRef = useRef(playerId);
 
   const normalizeSessionType = (raw: string): "private" | "semi" | "group" => {
     const lower = (raw ?? "").toLowerCase();
@@ -78,17 +89,47 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
   const [isSharingAttendanceLink, setIsSharingAttendanceLink] = useState(false);
   const [isSendingMonthlyReport, setIsSendingMonthlyReport] = useState(false);
 
-  const { data: attendanceData } = useQuery<AttendanceHistoryResponse>({
-    queryKey: [`/api/coach/players/${playerId}/attendance-history`],
+  const attendanceQueryKey = `/api/coach/players/${playerId}/attendance-history?limit=${PAGE_SIZE}&offset=${pageOffset}`;
+
+  const { data: attendanceData, isFetching: isLoadingPage } = useQuery<AttendanceHistoryResponse>({
+    queryKey: [attendanceQueryKey],
+    placeholderData: keepPreviousData,
   });
-  // Task #1335 — defensive client-side filter: cancelled sessions should
-  // never appear in the attendance history list, the visible counts shown
-  // in the "Show All (N)" button, or the per-series counters. The server
-  // already strips them, but this is a safety net in case any leak through.
-  const attendanceHistory = (attendanceData?.history || []).filter(
-    (r) => r.status !== "cancelled",
-  );
-  const seriesAttendanceSummaries = attendanceData?.seriesSummaries || [];
+
+  // Reset accumulated state when the player changes
+  useEffect(() => {
+    if (prevPlayerIdRef.current !== playerId) {
+      prevPlayerIdRef.current = playerId;
+      setPageOffset(0);
+      setAllHistory([]);
+      setSeriesAttendanceSummaries([]);
+      setTotalSessions(0);
+    }
+  }, [playerId]);
+
+  // Accumulate pages as they arrive
+  useEffect(() => {
+    if (!attendanceData) return;
+    const newRecords = (attendanceData.history || []).filter(r => r.status !== "cancelled");
+    if (attendanceData.offset === 0) {
+      setAllHistory(newRecords);
+      setSeriesAttendanceSummaries(attendanceData.seriesSummaries || []);
+    } else {
+      setAllHistory(prev => {
+        const existingIds = new Set(prev.map(r => r.sessionId));
+        const deduped = newRecords.filter(r => !existingIds.has(r.sessionId));
+        return [...prev, ...deduped];
+      });
+    }
+    // Never decrease the known total — an empty out-of-range page shouldn't reset it
+    setTotalSessions(prev =>
+      attendanceData.offset === 0
+        ? (attendanceData.total ?? 0)
+        : Math.max(prev, attendanceData.total ?? 0),
+    );
+  }, [attendanceData]);
+
+  const attendanceHistory = allHistory;
 
   interface SessionRatingRecord {
     rating: number;
@@ -105,6 +146,8 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
     ? attendanceHistory
     : attendanceHistory.filter(r => normalizeSessionType(r.sessionType) === typeFilter);
 
+  const hasMore = allHistory.length < totalSessions;
+
   const seriesIdKey = seriesAttendanceSummaries.map(s => s.seriesId).sort().join(',');
   useEffect(() => {
     if (seriesAttendanceSummaries.length > 0) {
@@ -113,7 +156,6 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
   }, [seriesIdKey]);
 
   useEffect(() => {
-    setShowAllHistory(false);
     if (typeFilter !== "all" && seriesAttendanceSummaries.length > 1) {
       const matchingSeriesIds = new Set(
         filteredHistory.map(r => r.seriesId).filter(Boolean) as string[]
@@ -121,6 +163,23 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
       setExpandedSeriesIds(matchingSeriesIds);
     }
   }, [typeFilter, filteredHistory.length, seriesAttendanceSummaries.length]);
+
+  const resetAndRefetchHistory = () => {
+    // Remove all cached attendance pages for this player
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const k = query.queryKey[0];
+        return typeof k === "string" && (k as string).includes(`/coach/players/${playerId}/attendance-history`);
+      },
+    });
+    setAllHistory([]);
+    setTotalSessions(0);
+    setPageOffset(0);
+    // Explicitly invalidate the first page to trigger a fresh fetch
+    queryClient.invalidateQueries({
+      queryKey: [`/api/coach/players/${playerId}/attendance-history?limit=${PAGE_SIZE}&offset=0`],
+    });
+  };
 
   const formatAttendanceDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -154,7 +213,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/coach/players/${playerId}/attendance-history`] });
+      resetAndRefetchHistory();
       queryClient.invalidateQueries({ queryKey: [`/api/coach/players/${playerId}/attendance-summary`] });
       queryClient.invalidateQueries({ queryKey: [`/api/players/${playerId}/credit-balance`] });
       // Task #930 — attendance edits change credit balances; refresh the
@@ -261,7 +320,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
     }
   };
 
-  const displayedHistory = showAllHistory ? filteredHistory : filteredHistory.slice(0, 5);
+  const displayedHistory = filteredHistory;
 
   const renderAttendanceRow = (record: AttendanceHistoryRecord, showTime = false) => {
     const sessionRating = sessionRatingsMap[record.sessionId];
@@ -625,18 +684,25 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
                 .map((record) => renderAttendanceRow(record, true))
             )}
 
-            {filteredHistory.length > 5 ? (
+            {hasMore ? (
               <Pressable
-                style={styles.showMoreHistoryButton}
+                style={[styles.showMoreHistoryButton, isLoadingPage && { opacity: 0.5 }]}
+                disabled={isLoadingPage}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowAllHistory(!showAllHistory);
+                  setPageOffset(allHistory.length);
                 }}
               >
-                <Text style={styles.showMoreHistoryText}>
-                  {showAllHistory ? "Show Less" : `Show All (${filteredHistory.length} sessions)`}
-                </Text>
-                <Ionicons name={showAllHistory ? "chevron-up" : "chevron-down"} size={16} color={Colors.dark.xpCyan} />
+                {isLoadingPage ? (
+                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                ) : (
+                  <>
+                    <Text style={styles.showMoreHistoryText}>
+                      {`Load more (${totalSessions - allHistory.length} remaining)`}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={Colors.dark.xpCyan} />
+                  </>
+                )}
               </Pressable>
             ) : null}
           </View>

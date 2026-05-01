@@ -299,7 +299,9 @@ export function ScheduleExtraLessonModal({
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({
-        queryKey: [`/api/coach/players/${playerId}/attendance-history`],
+        predicate: (q) =>
+          typeof q.queryKey[0] === "string" &&
+          (q.queryKey[0] as string).includes(`/coach/players/${playerId}/attendance-history`),
       });
       queryClient.invalidateQueries({
         queryKey: [`/api/coach/players/${playerId}/attendance-summary`],
