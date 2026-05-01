@@ -2,7 +2,7 @@ import React, { useCallback, useState, useEffect, useMemo, useRef } from "react"
 import * as Sentry from "@sentry/react-native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, NativeScrollEvent, NativeSyntheticEvent } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, NativeScrollEvent, NativeSyntheticEvent, Platform } from "react-native";
 import { LazyOnScroll, ScrollPositionContext, useScrollPositionController } from "@/player/components/LazyOnScroll";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -1148,10 +1148,15 @@ function PlayerHomeContent() {
   }>({
     queryKey: ["/api/player/me/home-data"],
     enabled: !!user?.playerId && !isGuest,
-    // Match the server-side 30s in-memory cache. Above that and we'd be
-    // reading data the backend already considers stale; below and we'd
-    // miss the cache hit entirely on rapid re-mounts.
-    staleTime: 30 * 1000,
+    // Task #1491 — staleTime 0 so React Query always treats home-data as
+    // stale on mount and fires a fresh fetch immediately. The previous
+    // 30s window was causing iOS cold-start to silently skip the refetch
+    // when the initial request had failed (data was undefined but RQ
+    // considered the slot "fresh" for 30s). staleTime:0 means every
+    // mount that passes the `enabled` gate will produce a real HTTP call,
+    // matching the server-side 30s in-memory cache without over-caching
+    // on the client.
+    staleTime: 0,
     // Old `/notifications/unread-count` query polled every 2 minutes.
     // Keep that cadence on the god-query so the bell badge can update
     // without the user leaving and re-entering the tab — code review
@@ -1365,16 +1370,50 @@ function PlayerHomeContent() {
   // so no extra HTTP calls fire on the home tab's cold start.
   const effectiveData = isGuest ? guestDashboard : dashboardData;
 
+  // Task #1491 — Race condition fix: the previous version only called
+  // invalidateQueries when user?.playerId was already set. On iOS cold
+  // start the auth context isn't fully resolved by the time the first
+  // focus event fires, so the invalidation was silently skipped and the
+  // home-data query never re-fetched after auth arrived.
+  //
+  // Fix: always invalidate on focus. The query's own `enabled` guard
+  // (!!user?.playerId && !isGuest) ensures no actual HTTP call is made
+  // until the auth context is ready — so this is safe for unauthenticated
+  // states. When auth resolves after focus, the query is already marked
+  // stale (staleTime:0) and React Query fires the fetch immediately on
+  // the next render that passes the enabled gate.
   useFocusEffect(
     useCallback(() => {
-      if (user?.playerId) {
-        // Bust the god-query so the dashboard tile, unread bell and AI
-        // context all refresh together on tab focus, exactly like the
-        // old per-resource invalidate did for the dashboard alone.
-        queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
-      }
-    }, [user?.playerId, queryClient])
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
+    }, [queryClient])
   );
+
+  // Task #1491 — iOS cold-start retry: iOS URLSession sometimes isn't
+  // fully initialised on the very first network call after a cold launch.
+  // The god-query can fire and fail silently (no error state, just
+  // undefined data) before the TCP stack is ready. We schedule two
+  // refetch attempts (800ms and 1800ms after mount) that only touch
+  // *active* observers — so if the query already resolved they're no-ops.
+  // Same pattern as the dashboard retry in PlayerNavigator (Task #1487).
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    const t1 = setTimeout(() => {
+      queryClient.refetchQueries({
+        queryKey: ["/api/player/me/home-data"],
+        type: "active",
+      });
+    }, 800);
+    const t2 = setTimeout(() => {
+      queryClient.refetchQueries({
+        queryKey: ["/api/player/me/home-data"],
+        type: "active",
+      });
+    }, 1800);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [queryClient]);
 
   const isBirthday = useMemo(() => {
     const dateOfBirth = effectiveData?.player?.dateOfBirth;
