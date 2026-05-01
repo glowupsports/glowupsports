@@ -417,7 +417,7 @@ export async function consumeCredit(
 ): Promise<ConsumeCreditResult> {
   const eventKey = input.eventKey ?? `consume:${input.sessionPlayerId}`;
 
-  return await db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     // Lock the session_player row + join session info.
     const spResult = await tx.execute(sql`
       SELECT
@@ -624,6 +624,13 @@ export async function consumeCredit(
       amount,
       newBalance,
       lotIdsConsumed,
+      // Carry rebalance context out of the transaction so we can trigger it
+      // AFTER this transaction commits (avoids cross-player lock ordering issues).
+      rebalanceContext: (
+        type === "semi_private" &&
+        (sp.session_type === "semi_private" || sp.session_type === "semi-private") &&
+        !input.typeOverride
+      ) ? { sessionId: sp.session_id, academyId: sp.academy_id, amount } : null,
     };
   }).catch((err) => {
     if (err instanceof DuplicateEventError) {
@@ -635,10 +642,234 @@ export async function consumeCredit(
         amount: 0,
         newBalance: null,
         lotIdsConsumed: [],
+        rebalanceContext: null,
       };
     }
     throw err;
   });
+
+  // After the transaction commits: if a second (or later) player was just
+  // charged semi_private, retroactively correct any earlier "private" charges
+  // in the same session back to "semi_private".
+  const { rebalanceContext, ...cleanResult } = result;
+  if (rebalanceContext) {
+    try {
+      await rebalanceSemiPrivateCharges(
+        rebalanceContext.sessionId,
+        rebalanceContext.academyId,
+        rebalanceContext.amount,
+      );
+    } catch (rbErr) {
+      console.error(
+        `[credit-engine] rebalanceSemiPrivateCharges failed for session ${rebalanceContext.sessionId}:`,
+        rbErr,
+      );
+    }
+  }
+
+  return cleanResult;
+}
+
+/**
+ * Rebalance "private" credit charges back to "semi_private" for players who
+ * were charged first (when only 1 player was present) in a session that is
+ * now confirmed semi-private (≥2 attendees).
+ *
+ * For each affected session_player:
+ *   1. Refund the original private credit (restock lot, restore private balance)
+ *   2. Charge a semi_private credit (FIFO from semi lots, or debt)
+ *
+ * Idempotent — event_keys `rebalance:private_to_semi:refund:<spId>` and
+ * `rebalance:private_to_semi:consume:<spId>` are unique in the ledger.
+ *
+ * Safe to call multiple times. Each player gets their own db.transaction so
+ * there are no cross-player deadlocks.
+ */
+export async function rebalanceSemiPrivateCharges(
+  sessionId: string,
+  academyId: string,
+  creditCost: number = 1,
+): Promise<{ rebalanced: number; errors: string[] }> {
+  const out = { rebalanced: 0, errors: [] as string[] };
+
+  // Find all session_players that:
+  //   - were charged "private" via the V2 engine (consume row with type='private')
+  //   - belong to a session whose coaching_series is semi_private
+  //   - have NOT already been rebalanced (no refund event_key exists yet)
+  // We also select the consume row id and lot_id so we can UPDATE it in place,
+  // which ensures all read paths (that query reason='consume') see type='semi_private'.
+  const rowsResult = await db.execute(sql`
+    SELECT
+      sp.id           AS sp_id,
+      sp.player_id,
+      lv.id           AS consume_row_id,
+      lv.delta        AS charged_delta,
+      lv.lot_id       AS charged_lot_id,
+      lv.metadata     AS charged_metadata
+    FROM session_players sp
+    JOIN sessions s ON s.id = sp.session_id
+    JOIN coaching_series cs ON cs.id = s.series_id
+    JOIN credit_ledger_v2 lv
+      ON lv.session_player_id = sp.id
+     AND lv.reason = 'consume'
+     AND lv.type = 'private'
+    WHERE sp.session_id = ${sessionId}
+      AND sp.attendance_status IN ('present', 'late')
+      AND cs.session_type = 'semi_private'
+      AND NOT EXISTS (
+        SELECT 1 FROM credit_ledger_v2
+        WHERE event_key = 'rebalance:private_to_semi:refund:' || sp.id::text
+      )
+  `);
+
+  const occurredAt = new Date();
+
+  for (const rawRow of rowsResult.rows) {
+    const row = rawRow as {
+      sp_id: string;
+      player_id: string;
+      consume_row_id: string;
+      charged_delta: string | number;
+      charged_lot_id: string | null;
+      charged_metadata: { lotConsumptions?: { lotId: string; qty: number }[] } | null;
+    };
+
+    const spId = row.sp_id;
+    const playerId = row.player_id;
+    const consumeRowId = row.consume_row_id;
+    const originalAmount = Math.abs(num(row.charged_delta));
+    const lotConsumptions: { lotId: string; qty: number }[] =
+      row.charged_metadata?.lotConsumptions ?? [];
+
+    const refundKey = `rebalance:private_to_semi:refund:${spId}`;
+
+    try {
+      await db.transaction(async (tx) => {
+        // --- Step 1: Refund the private credit ---
+        const privateBefore = await lockBalance(tx, playerId, academyId, "private");
+        const privateAfter = privateBefore + originalAmount;
+
+        const refundLedger = await insertLedger(tx, {
+          playerId,
+          academyId,
+          type: "private",
+          delta: originalAmount,
+          reason: "refund",
+          eventKey: refundKey,
+          actorRole: "system",
+          sessionId,
+          sessionPlayerId: spId,
+          balanceAfter: privateAfter,
+          occurredAt,
+          metadata: {
+            note: "Semi-private rebalance: returning private credit (Task #1506)",
+            lotConsumptionsToRestock: lotConsumptions,
+          },
+        });
+        if (refundLedger === null) {
+          // Already done — skip entirely.
+          throw new DuplicateEventError(refundKey);
+        }
+
+        await writeBalance(tx, playerId, academyId, "private", privateAfter);
+
+        // Restock original private lots (FIFO reversed).
+        for (const lc of lotConsumptions) {
+          await tx.execute(sql`
+            UPDATE credit_lots
+            SET qty_remaining = qty_remaining + ${lc.qty},
+                status = 'active'
+            WHERE id = ${lc.lotId}
+          `);
+        }
+
+        // --- Step 2: Correct the existing consume row to semi_private ---
+        // We UPDATE the original consume row (type: private → semi_private) so
+        // all read paths that query reason='consume' see the corrected credit type.
+        // The partial unique index credit_ledger_v2_no_dup_consume only blocks new
+        // INSERTs with reason='consume'; an UPDATE of the existing row is safe.
+        //
+        // Use the same amount that was originally charged as private so the
+        // correction is perfectly symmetric. `creditCost` is used as a fallback
+        // when the original amount is somehow zero (should not happen in practice).
+        const semiAmount = originalAmount > 0 ? originalAmount : (creditCost > 0 ? creditCost : 1);
+        const semiBefore = await lockBalance(tx, playerId, academyId, "semi_private");
+        const semiAfter = semiBefore - semiAmount;
+
+        // FIFO-consume from non-expired semi_private lots.
+        const semiLotConsumptions: { lotId: string; qty: number }[] = [];
+        let toConsume = semiAmount;
+        const semiLots = await tx.execute(sql`
+          SELECT id, qty_remaining
+          FROM credit_lots
+          WHERE player_id = ${playerId}
+            AND academy_id = ${academyId}
+            AND type = 'semi_private'
+            AND status = 'active'
+            AND qty_remaining > 0
+            AND (expires_at IS NULL OR expires_at > ${occurredAt})
+          ORDER BY purchased_at ASC, created_at ASC
+          FOR UPDATE
+        `);
+        for (const lotRow of semiLots.rows) {
+          if (toConsume <= 0) break;
+          const lot = lotRow as { id: string; qty_remaining: string | number };
+          const have = num(lot.qty_remaining);
+          const take = Math.min(have, toConsume);
+          const remaining = have - take;
+          await tx.execute(sql`
+            UPDATE credit_lots
+            SET qty_remaining = ${remaining},
+                status = CASE WHEN ${remaining} <= 0 THEN 'depleted' ELSE status END
+            WHERE id = ${lot.id}
+          `);
+          semiLotConsumptions.push({ lotId: lot.id, qty: take });
+          toConsume -= take;
+        }
+
+        const newMetadata = {
+          ...(typeof row.charged_metadata === "object" && row.charged_metadata !== null
+            ? row.charged_metadata
+            : {}),
+          rebalancedFromPrivateAt: occurredAt.toISOString(),
+          note: "Semi-private rebalance: corrected from private to semi_private (Task #1506)",
+          lotConsumptions: semiLotConsumptions,
+          lotIdsConsumed: semiLotConsumptions.map((l) => l.lotId),
+          debt: toConsume > 0 ? toConsume : 0,
+        };
+
+        // UPDATE the original consume row in place: change type and balance_after
+        // so all existing read paths immediately see the corrected charge type.
+        await tx.execute(sql`
+          UPDATE credit_ledger_v2
+          SET
+            type         = 'semi_private',
+            lot_id       = ${semiLotConsumptions[0]?.lotId ?? null},
+            balance_after = ${semiAfter},
+            metadata     = ${JSON.stringify(newMetadata)}
+          WHERE id = ${consumeRowId}
+        `);
+
+        await writeBalance(tx, playerId, academyId, "semi_private", semiAfter);
+      });
+
+      out.rebalanced += 1;
+      console.log(
+        `[credit-engine][rebalance] Rebalanced private→semi_private for player=${playerId} sp=${spId} session=${sessionId}`,
+      );
+    } catch (err: unknown) {
+      if (err instanceof DuplicateEventError) {
+        // Already processed — count as done, not an error.
+        out.rebalanced += 1;
+        continue;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[credit-engine][rebalance] Failed for sp=${spId}:`, err);
+      out.errors.push(`sp ${spId}: ${msg}`);
+    }
+  }
+
+  return out;
 }
 
 export interface RefundCreditInput {
