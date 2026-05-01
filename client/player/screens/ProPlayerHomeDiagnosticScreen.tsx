@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Skeleton } from "@/components/SkeletonLoader";
@@ -38,7 +37,6 @@ interface DashboardData {
 export default function ProPlayerHomeDiagnosticScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<any>();
 
   const { data, isLoading } = useQuery<DashboardData>({
@@ -63,7 +61,7 @@ export default function ProPlayerHomeDiagnosticScreen() {
         styles.content,
         {
           paddingTop: insets.top + Spacing.sm,
-          paddingBottom: tabBarHeight + Spacing.xl,
+          paddingBottom: insets.bottom + Spacing.xl,
         },
       ]}
       scrollIndicatorInsets={{ bottom: insets.bottom }}

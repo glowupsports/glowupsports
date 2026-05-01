@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export type AppMode = "player" | "coach" | "admin" | "academy_owner" | "platform" | "service_provider";
+export type AppMode = "player" | "coach" | "admin" | "academy_owner" | "platform" | "service_provider" | "diagnostic";
 
 interface AppModeContextType {
   mode: AppMode;
@@ -32,7 +32,8 @@ export function AppModeProvider({ children }: { children: ReactNode }) {
         stored === "admin" ||
         stored === "academy_owner" ||
         stored === "platform" ||
-        stored === "service_provider"
+        stored === "service_provider" ||
+        stored === "diagnostic"
       ) {
         setModeState(stored as AppMode);
       }
@@ -79,7 +80,7 @@ export function useAppMode() {
 export function getModesForRole(role: string): AppMode[] {
   switch (role) {
     case "platform_owner":
-      return ["platform", "academy_owner", "admin", "coach", "player", "service_provider"];
+      return ["platform", "academy_owner", "admin", "coach", "player", "service_provider", "diagnostic"];
     case "owner":
     case "academy_owner":
       return ["academy_owner", "admin", "coach", "player"];

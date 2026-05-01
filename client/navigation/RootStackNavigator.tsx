@@ -10,6 +10,7 @@ import AdminNavigator from "@/admin/navigation/AdminNavigator";
 import OwnerNavigator from "@/owner/navigation/OwnerNavigator";
 import PlatformNavigator from "@/platform/navigation/PlatformNavigator";
 import ProviderNavigator from "@/provider/navigation/ProviderNavigator";
+import DiagnosticNavigator from "@/navigation/DiagnosticNavigator";
 import ProviderJoinScreen from "@/provider/screens/ProviderJoinScreen";
 import LoginScreen from "@/coach/screens/LoginScreen";
 import ResetPasswordScreen from "@/screens/ResetPasswordScreen";
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   AcademyOwner: undefined;
   Platform: undefined;
   Provider: undefined;
+  Diagnostic: undefined;
   Login: undefined;
   ResetPassword: { token?: string } | undefined;
   ProviderJoin: { token: string };
@@ -104,6 +106,7 @@ function useNavigationEffect(
         case "admin": targetRoute = "Admin"; break;
         case "coach": targetRoute = "Coach"; break;
         case "service_provider": targetRoute = "Provider"; break;
+        case "diagnostic": targetRoute = "Diagnostic"; break;
         case "player":
         default: targetRoute = "Player"; break;
       }
@@ -239,6 +242,7 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
       case "admin": return "Admin";
       case "coach": return "Coach";
       case "service_provider": return "Provider";
+      case "diagnostic": return "Diagnostic";
       case "player":
       default: return "Player";
     }
@@ -303,6 +307,11 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
       <Stack.Screen
         name="Provider"
         component={ProviderNavigator}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Diagnostic"
+        component={DiagnosticNavigator}
         options={{ headerShown: false }}
       />
       <Stack.Screen
