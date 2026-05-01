@@ -26,7 +26,6 @@
  *   1. publish.js — verbose debug logging of the manifest sent to EAS
  *   2. client.js  — verbose GraphQL error logging ([EAS-DEBUG] prefix)
  */
-/* eslint-disable */
 const fs = require('fs');
 const path = require('path');
 
