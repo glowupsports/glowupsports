@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -17,8 +17,12 @@ import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { useAuth } from "@/coach/context/AuthContext";
+import type { AuthPlayer } from "@/coach/context/AuthContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
+import PinEntryModal from "@/components/PinEntryModal";
+import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { Spacing, GlowColors, BorderRadius, Colors } from "@/constants/theme";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { PrimaryActionsRow } from "@/player/components/PrimaryActionsRow";
@@ -180,16 +184,20 @@ export default function ProPlayerHomeDiagnosticScreen() {
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const track = useTrackFeature();
+  const { guardAction, promptProps } = useGuestGuard();
+
+  const [showPinModal, setShowPinModal] = useState(false);
 
   // ── God-route query (exact from ProPlayerHomeScreen) ─────────────────────
-  const { data: homeData, isLoading: _isLoading, refetch, isRefetching } = useQuery<{
+  const { data: homeData, refetch, isRefetching } = useQuery<{
     dashboard: DashboardData | null;
     profile: Record<string, unknown> | null;
     unreadCount: { count: number };
-    weeklyDigest: any;
-    aiCoachContext: any;
-    spotlightCurrentWeek: any;
-    spotlightWeeklyWinner: { winner: any };
+    weeklyDigest: Record<string, unknown> | null;
+    aiCoachContext: Record<string, unknown> | null;
+    spotlightCurrentWeek: Record<string, unknown> | null;
+    spotlightWeeklyWinner: { winner: Record<string, unknown> | null };
     tennisIq: { score: number | null; lastQuizAt: string | null } | null;
     aiProStatus: { isPro: boolean; isCoach: boolean; callCount: number; limit: number } | null;
   }>({
@@ -243,9 +251,23 @@ export default function ProPlayerHomeDiagnosticScreen() {
       ["/api/ai-pro/status"],
       homeData.aiProStatus ?? { isPro: false, isCoach: false, callCount: 0, limit: 5 },
     );
-    const dp = homeData.dashboard?.player as any;
+    // Mirror player numbers back into AuthContext (exact from ProPlayerHomeScreen #1467)
+    const dp = homeData.dashboard?.player as
+      | {
+          level?: number;
+          xp?: number;
+          glowScore?: number;
+          ballLevel?: string | null;
+          dateOfBirth?: string | null;
+          profilePhotoUrl?: string | null;
+          glowMmr?: number;
+          glowRank?: number;
+          totalMatchesPlayed?: number;
+        }
+      | null
+      | undefined;
     if (dp) {
-      const patch: any = {};
+      const patch: Partial<AuthPlayer> = {};
       if (typeof dp.level === "number") patch.level = dp.level;
       if (typeof dp.xp === "number") patch.xp = dp.xp;
       if (typeof dp.glowScore === "number") patch.glowScore = dp.glowScore;
@@ -341,17 +363,20 @@ export default function ProPlayerHomeDiagnosticScreen() {
   };
   const credits = effectiveData?.credits;
 
-  // ── Handlers (simplified: no guardAction for diagnostic screen) ───────────
+  // ── Handlers (exact from ProPlayerHomeScreen) ─────────────────────────────
   const handleAvatarPress = () => {
-    openDrawer();
+    guardAction(() => openDrawer());
   };
 
   const handleWalletPress = () => {
-    navigation.navigate("ParentCreditStore");
+    guardAction(() => setShowPinModal(true));
   };
 
   const handleSquadPress = () => {
-    navigation.navigate("FamilyLobby");
+    guardAction(() => {
+      track("home:family_lobby");
+      navigation.navigate("FamilyLobby");
+    });
   };
 
   return (
@@ -384,8 +409,10 @@ export default function ProPlayerHomeDiagnosticScreen() {
             onSquadPress={handleSquadPress}
             showSquadSwitch={true}
             onNotificationPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("PlayerNotifications");
+              guardAction(() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("PlayerNotifications");
+              });
             }}
             unreadNotificationCount={unreadCount}
             accessibilityLabel={`Player card for ${player.name}, level ${player.level}, ${player.xp} XP`}
@@ -411,8 +438,21 @@ export default function ProPlayerHomeDiagnosticScreen() {
         </View>
       </ScrollView>
 
-      {/* MODE SWITCHER — zijknop om te switchen (exact van ProPlayerHomeScreen) */}
+      {/* MODE SWITCHER — zijknop (exact van ProPlayerHomeScreen) */}
       <CollapsibleModeSwitcher />
+
+      {/* PIN MODAL — exact van ProPlayerHomeScreen */}
+      <PinEntryModal
+        visible={showPinModal}
+        onClose={() => setShowPinModal(false)}
+        onSuccess={() => {
+          setShowPinModal(false);
+          navigation.navigate("ParentCreditStore", { playerId: player?.id });
+        }}
+      />
+
+      {/* GUEST PROMPT — exact van ProPlayerHomeScreen */}
+      <GuestPromptModal {...promptProps} />
     </View>
   );
 }
