@@ -8,7 +8,7 @@ import Animated, {
   interpolate,
   Easing,
 } from "react-native-reanimated";
-import { Colors, Backgrounds, BorderRadius, Spacing } from "@/constants/theme";
+import { Backgrounds, BorderRadius, Spacing } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface SkeletonProps {

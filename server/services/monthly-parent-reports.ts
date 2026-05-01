@@ -1,24 +1,7 @@
 import { db } from "../db";
-import { eq, and, desc, gte, lte, sql, count } from "drizzle-orm";
+import { eq, and, desc, gte, lte } from "drizzle-orm";
 import OpenAI from "openai";
-import {
-  players,
-  sessions,
-  sessionPlayers,
-  playerBallLevels,
-  ballLevels,
-  levelSkills,
-  glowSkills,
-  playerSkillScores,
-  playerPillarProgress,
-  inSessionFeedback,
-  sessionAiSummaries,
-  coaches,
-  academies,
-  playerMonthlyReports,
-  parentPlayerRelations,
-  users,
-} from "@shared/schema";
+import { players, sessions, sessionPlayers, playerBallLevels, ballLevels, levelSkills, glowSkills, playerSkillScores, playerPillarProgress, inSessionFeedback, sessionAiSummaries, playerMonthlyReports, parentPlayerRelations } from "@shared/schema";
 import { logAiCall } from "../middleware/aiQuotaMiddleware";
 
 const openai = new OpenAI({

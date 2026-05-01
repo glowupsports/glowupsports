@@ -38,6 +38,39 @@ The player surface uses synchronous bootstrap, no persisted query cache, no defe
 ### CRITICAL: AI Coach + Home god-route fan-in
 The AI Coach tab and the Home tab use god-routes for data fetching to prevent parallel `useQuery` calls on cold start, improving performance. These god-routes (`/api/player/me/home-data` and `/api/player/me/ai-coach-data`) bundle multiple endpoints and seed legacy query keys via `setQueryData` to ensure data is available from cache. New `useQuery` calls on player screens must be integrated into these god-routes rather than firing in parallel, to keep server-side fan-in the source of truth.
 
+### CRITICAL: Lint baseline (Task #1469)
+`npm run lint` (= `npx expo lint`) is the canonical lint gate. The current
+healthy baseline is **0 errors / ~325 warnings**, down from ~3617 warnings
+before Task #1469. The breakdown is:
+
+- ~258 `react-hooks/exhaustive-deps` — known followup. Most are
+  `useSharedValue` / `useAnimatedStyle` results from `react-native-reanimated`
+  that the developer intentionally omits because the value object is stable
+  across renders. Per-line audit + targeted `// eslint-disable-next-line` is
+  the right cleanup, **not** disabling the rule.
+- ~35 `@typescript-eslint/no-unused-vars` — long-tail PascalCase components
+  / hooks (`AnimatedEventCard`, `ScheduleStackNavigator`, custom `useFoo`)
+  the auto-cleanup intentionally **left alone** because renaming them to
+  `_Foo` / `_useFoo` invalidates `react-hooks/rules-of-hooks` for every
+  internal `useState`/`useEffect` call.
+- ~13 `@typescript-eslint/no-require-imports` — intentional, conditional
+  `require(...)` calls used as platform/lazy fallbacks (`@sentry/react-native`,
+  `react-native-keyboard-controller`).
+- ~14 `import/*` — duplicate-import / default-vs-named noise from
+  `rate-limiter-flexible`, hand-cleanable.
+
+**Never disable `@typescript-eslint/no-unused-vars` to bury new warnings.**
+The rule is configured (in `eslint.config.js`) to honour the conventional
+`_`-prefix escape hatch (`argsIgnorePattern: "^_"`, etc.). If a new unused
+var is *intentional* (placeholder destructure, unused arg in an interface
+contract), prefix it with `_`. If it's a leftover from a refactor, delete it.
+The two helper scripts that did the bulk cleanup (`.local/scratch/clean_unused_v1.cjs`
+for dead named imports and `.local/scratch/clean_unused_v2.cjs` for renames)
+can be re-run on a fresh `npx expo lint --format json` dump if the unused-vars
+count starts climbing again — but only after re-reading the hook/component
+guards inside v2 (it MUST skip `^use[A-Z]` and `^[A-Z][a-z]` declarations or
+it will silently break `react-hooks/rules-of-hooks`).
+
 ### CRITICAL: API Development Rule
 DO NOT create new API endpoints without explicit permission!
 1. **First**: Check existing endpoints.

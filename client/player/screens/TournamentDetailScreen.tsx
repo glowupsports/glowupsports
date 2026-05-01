@@ -19,13 +19,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
-import {
-  Spacing,
-  Typography,
-  BorderRadius,
-  GlowColors,
-  TextColors,
- Backgrounds, Colors } from "@/constants/theme";
+import { Spacing, GlowColors, TextColors, Backgrounds, Colors } from "@/constants/theme";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
@@ -729,7 +723,7 @@ export default function TournamentDetailScreen() {
               <Text style={styles.americanoRoundTitle}>{round}</Text>
             </View>
             {roundMatches.map((match: any) => {
-              const partnersStr = match.score || "";
+              const _partnersStr = match.score || "";
               const isCompleted = match.status === "completed";
               let score = isCompleted ? match.score : null;
               return (

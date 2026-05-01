@@ -1,22 +1,13 @@
-import React, { useState, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { ObservationTrendChart } from "@/components/ObservationTrendChart";
-import { NeoLoadoutPanel, NeoGlowBadge } from "@/components/NeoLoadoutPanel";
-import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
+import { Colors, Spacing } from "@/constants/theme";
+import { ObservationTrendChart } from "@/components/ObservationTrendChart";import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
 import type { TabProps, PlayerSkillState, PlayerXpData, ObservationTrend, SkillDomain, PlayerWithProgress, AssessmentStatus } from "./types";
 import { styles } from "./coachingStyles";
 import { getDomainIcon, getTrendIcon, getTrendColor, getMomentumColor, getProgressColor, getAssessmentBadge, getLevelColor, formatSessionTime, formatSessionDate, getSessionTypeLabel } from "./progressUtils";
@@ -35,11 +26,11 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
   // Get coachId from calendar data (coach's own sessions)
   const coachId = calendarData?.ownSessions?.[0]?.coachId;
   
-  const { data: players = [], isLoading: playersLoading } = useQuery<PlayerWithProgress[]>({
+  const { data: _players = [], isLoading: playersLoading } = useQuery<PlayerWithProgress[]>({
     queryKey: ["/api/coach/players/progress"],
   });
 
-  const { data: domains = [] } = useQuery<SkillDomain[]>({
+  const { data: _domains = [] } = useQuery<SkillDomain[]>({
     queryKey: ["/api/progress/domains"],
   });
 

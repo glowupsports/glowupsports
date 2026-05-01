@@ -9,7 +9,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 const PRODUCT_CARD_WIDTH = 140;
 const CARD_SPACING = 10;
 const AUTO_ROTATE_INTERVAL = 3000;

@@ -104,7 +104,7 @@ function groupByDate(feedback: FeedbackItem[]): { title: string; data: FeedbackI
 export default function PlayerFeedbackHistorySheet({
   visible,
   player,
-  sessionId,
+  sessionId: _sessionId,
   onClose,
   onGiveFeedback,
 }: Props) {

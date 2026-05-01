@@ -15,7 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent } from "expo";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 

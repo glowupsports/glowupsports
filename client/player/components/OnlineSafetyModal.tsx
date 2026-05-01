@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius, TextColors, Backgrounds } from "@/constants/theme";
+import { Spacing, BorderRadius, TextColors, Backgrounds } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface OnlineSafetyModalProps {

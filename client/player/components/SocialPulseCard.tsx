@@ -1,8 +1,8 @@
 import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { FadeIn, useAnimatedStyle, withRepeat, withTiming, withSequence } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import Animated, { useAnimatedStyle, withRepeat, withTiming, withSequence } from "react-native-reanimated";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 

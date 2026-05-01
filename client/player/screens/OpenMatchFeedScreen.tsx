@@ -15,25 +15,11 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Animated, { 
-  FadeIn, 
-  FadeInDown, 
-  FadeInUp,
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSpring,
-  Easing,
-} from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import Animated, { FadeIn, FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from "@/constants/theme";
-import { ThemedText } from "@/components/ThemedText";
-import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl, getAuthHeaders } from "@/lib/query-client";
+import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";import { apiRequest, getApiUrl, buildPhotoUrl, getAuthHeaders } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getSportLabel, getSportIcon, getSportColor } from "@/player/context/SportContext";
@@ -41,7 +27,7 @@ import { MatchSummaryCard, COMPETE_ACCENT } from "@/player/components/MatchSumma
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useTranslation } from "react-i18next";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OpenMatch {
   id: string;
@@ -638,7 +624,7 @@ export default function OpenMatchFeedScreen() {
       <View style={styles.container}>
         <Animated.View entering={FadeInUp} style={styles.filterSection}>
           <View style={styles.filterRow}>
-            {(["all", "singles", "doubles"] as FilterType[]).map((filter, idx) => {
+            {(["all", "singles", "doubles"] as FilterType[]).map((filter, _idx) => {
               const isActive = activeFilter === filter;
               const getFilterColor = () => {
                 if (filter === "doubles") return "#9333EA";

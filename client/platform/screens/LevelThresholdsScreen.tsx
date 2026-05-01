@@ -114,7 +114,7 @@ export default function LevelThresholdsScreen() {
       } else {
         Alert.alert("Success", "Level thresholds saved successfully!");
       }
-    } catch (error) {
+    } catch (_error) {
       setSavingLevel(null);
       if (Platform.OS === "web") {
         window.alert("Failed to save level thresholds");
@@ -158,7 +158,7 @@ export default function LevelThresholdsScreen() {
         <Text style={styles.subtitle}>Configure XP required for each player level</Text>
 
         <View style={[styles.card, CardStyles.elevated]}>
-          {localThresholds.map((threshold, index) => (
+          {localThresholds.map((threshold, _index) => (
             <View key={threshold.level} style={styles.row}>
               <View style={[styles.levelBadge, { backgroundColor: `${getLevelColor(threshold.level)}20` }]}>
                 <View style={[styles.levelDot, { backgroundColor: getLevelColor(threshold.level) }]} />

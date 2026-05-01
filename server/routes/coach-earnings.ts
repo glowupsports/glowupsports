@@ -173,7 +173,7 @@ router.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthReques
     console.log('[Earnings PERF] Starting calculation for coach:', coachId);
     
     const dateParam = req.query.date as string | undefined;
-    const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+    const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
     
@@ -813,7 +813,7 @@ router.get("/api/coach/earnings/analytics", authMiddleware, async (req: AuthRequ
       const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
       const weekEnd = Math.min(weekStart + 6, daysInMonth);
       const startDate = new Date(currentYear, currentMonth - 1, weekStart);
-      const endDate = new Date(currentYear, currentMonth - 1, weekEnd);
+      const _endDate = new Date(currentYear, currentMonth - 1, weekEnd);
       const monthShort = startDate.toLocaleString("en-US", { month: "short" });
       return {
         week: i + 1,

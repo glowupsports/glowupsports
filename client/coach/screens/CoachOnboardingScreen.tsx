@@ -13,15 +13,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, { 
-  FadeIn, 
-  FadeInDown,
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -837,7 +831,7 @@ export default function CoachOnboardingScreen({ onComplete }: CoachOnboardingScr
     }
   };
   
-  const renderStep = ({ item: StepComponent, index }: { item: React.FC<StepProps>; index: number }) => (
+  const renderStep = ({ item: StepComponent, index: _index }: { item: React.FC<StepProps>; index: number }) => (
     <View style={{ width: SCREEN_WIDTH }}>
       <StepComponent data={data} setData={setData} onNext={handleNext} />
     </View>

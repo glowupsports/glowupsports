@@ -4,7 +4,7 @@ import { getMessage, getMessagesForAllRoles, getDefaultTemplates, RoleType } fro
 
 const router = Router();
 
-router.get("/api/role-messages/templates", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/api/role-messages/templates", authMiddleware, async (_req: AuthenticatedRequest, res: Response) => {
   try {
     const templates = getDefaultTemplates();
     const templateKeys = Object.keys(templates);

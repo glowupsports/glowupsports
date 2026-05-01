@@ -8,9 +8,7 @@
  * Scoring: 0 = Not Yet, 1 = Emerging, 2 = Achieved
  */
 
-import { db } from "../db";
-import { skillRubrics } from "../../shared/schema";
-import { sql } from "drizzle-orm";
+import { db } from "../db";import { sql } from "drizzle-orm";
 
 interface RubricEntry {
   skillId: string;

@@ -162,7 +162,7 @@ export default function AdminRolesPermissionsScreen() {
   const [localRoles, setLocalRoles] = useState<Role[]>(DEFAULT_ROLES);
   const [hasChanges, setHasChanges] = useState(false);
 
-  const { data: rolesData, isLoading } = useQuery<{ roles: Role[] }>({
+  const { data: rolesData, isLoading: _isLoading } = useQuery<{ roles: Role[] }>({
     queryKey: ["/api/admin/roles"],
   });
 

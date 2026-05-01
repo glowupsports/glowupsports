@@ -19,7 +19,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { apiRequest } from "@/lib/query-client";
-import type { PlayerStackParamList, ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
+import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const MIRROR_ACCENT = "#A78BFA";
@@ -221,7 +221,7 @@ export default function MatchPrepScreen() {
     },
   });
 
-  const savePreReflection = async (planId: string) => {
+  const savePreReflection = async (_planId: string) => {
     if (!params.matchId) return;
     try {
       await apiRequest("POST", `/api/match-intelligence/matches/${params.matchId}/reflection`, {

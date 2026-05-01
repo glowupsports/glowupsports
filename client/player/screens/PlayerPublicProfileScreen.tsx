@@ -17,15 +17,11 @@ import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import * as Haptics from "expo-haptics";
-import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
-import Animated, { FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";import Animated, { FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface PublicProfile {

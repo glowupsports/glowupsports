@@ -1,22 +1,12 @@
 import React, { useMemo, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Dimensions,
-  ActivityIndicator,
-  Platform,
-  Modal,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, ActivityIndicator, Platform } from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, CardStyles, GlowColors, RoleColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, CardStyles, RoleColors } from "@/constants/theme";
 import { SportBadge } from "@/components/SportBadge";
 import { SPORTS, type Sport } from "@shared/sportConfig";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
@@ -88,7 +78,7 @@ export default function AdminCalendarScreen() {
     date: Date;
   } | null>(null);
   const [wizardCoachId, setWizardCoachId] = useState<string | undefined>(undefined);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [_currentTime, _setCurrentTime] = useState(new Date());
   const isDesktop = useDesktop();
   const [desktopSelectedSession, setDesktopSelectedSession] = useState<Session | null>(null);
 

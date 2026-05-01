@@ -1,20 +1,8 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigation } from "@react-navigation/native";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery } from "@tanstack/react-query";
-import * as Haptics from "expo-haptics";
-import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
 import type { TabProps } from "./types";
 import { useCoachingScroll } from "./CoachingScrollContext";
 

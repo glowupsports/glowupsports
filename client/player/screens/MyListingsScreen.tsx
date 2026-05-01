@@ -10,13 +10,11 @@ import {
   Alert,
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Backgrounds, Spacing, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -110,7 +108,7 @@ export default function MyListingsScreen() {
 
   const formatPrice = (price: string) => `AED ${parseFloat(price).toFixed(0)}`;
 
-  const formatDate = (dateString: string) => {
+  const _formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
@@ -161,7 +159,7 @@ export default function MyListingsScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Active ({activeListings.length})</Text>
                 {activeListings.map((listing, index) => {
-                  const conditionInfo = CONDITIONS[listing.condition] || CONDITIONS.used;
+                  const _conditionInfo = CONDITIONS[listing.condition] || CONDITIONS.used;
                   return (
                     <Animated.View key={listing.id} entering={FadeInUp.delay(index * 50).duration(300)}>
                       <Pressable

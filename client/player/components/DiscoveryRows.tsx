@@ -1,20 +1,10 @@
 import logger from "@/lib/logger";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Platform, Image as RNImage } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { 
-  FadeInRight, 
-  FadeIn, 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withSequence, 
-  withTiming,
-  withSpring,
-  cancelAnimation 
-} from "react-native-reanimated";
+import Animated, { FadeInRight, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, cancelAnimation } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors, Colors, TextColors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
@@ -25,9 +15,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 import { GlowAvatar } from "./GlowAvatar";
 import { MatchSummaryCard, COMPETE_ACCENT } from "./MatchSummaryCard";
-import { buildPhotoUrl, apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
-import { SwipeBlocker } from "@/components/SwipeBlocker";
-import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
+import { buildPhotoUrl, apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";import { formatSessionDateShort, formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -356,7 +344,7 @@ export function PlayersNearYouRow({
 }
 
 // Helper to format date nicely
-function formatSessionDate(dateStr?: string): string {
+function _formatSessionDate(dateStr?: string): string {
   if (!dateStr) return "Today";
   // Use Dubai timezone for consistent display
   return formatSessionDateShort(dateStr, "Asia/Dubai");
@@ -397,7 +385,7 @@ export function GroupLessonsRow() {
   const { t } = useTranslation();
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
+  const { navigateToTab: _navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
   const [travelTimeMap, setTravelTimeMap] = useState<Map<string, number>>(new Map());
@@ -541,7 +529,7 @@ export function GroupLessonsRow() {
       <View style={styles.fullWidthLessonsContainer}>
         {groupLessons.slice(0, 3).map((session, index) => {
           const levelColor = session.ballLevel ? getBallLevelColor(session.ballLevel) : ProTennisColors.electricGreen;
-          const currentPlayers = (session.maxPlayers || 6) - session.spotsLeft;
+          const _currentPlayers = (session.maxPlayers || 6) - session.spotsLeft;
           const isFull = session.spotsLeft === 0;
           const isJoining = joiningSessionId === session.id;
           const countdown = getCountdownText((session as any).date || (session as any).startTime || new Date().toISOString());
@@ -798,13 +786,13 @@ export function OpenMatchesRow() {
     navigateToTab("PlayStack", { screen: "CreateMatch" });
   };
 
-  const getMatchTypeGradient = (maxPlayers: number): readonly [string, string, ...string[]] => {
+  const _getMatchTypeGradient = (maxPlayers: number): readonly [string, string, ...string[]] => {
     const isDoubles = maxPlayers === 4;
     if (isDoubles) return ["#9333EA", "#7C3AED", "#6366F1"] as const;
     return [Colors.dark.primary, "#22D3EE", "#06B6D4"] as const;
   };
 
-  const getSkillLabel = (skillLevel?: number) => {
+  const _getSkillLabel = (skillLevel?: number) => {
     if (!skillLevel) return "";
     if (skillLevel <= 2) return "PRO";
     if (skillLevel <= 4) return "ADV";
@@ -1244,7 +1232,7 @@ export function OpenSessionsRow() {
 export function CommunityFeedPreview() {
   const { t } = useTranslation();
   const { state } = usePlayerState();
-  const navigation = useNavigation<any>();
+  const _navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
 
   const communityEvents = state.communityEvents ?? [];

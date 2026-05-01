@@ -54,7 +54,7 @@ export default function CorporateBenefitsScreen() {
   const [inviteToken, setInviteToken] = useState("");
   const [showTokenInput, setShowTokenInput] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery<MyCorpData>({
+  const { data, isLoading, refetch: _refetch } = useQuery<MyCorpData>({
     queryKey: ["/api/corporate/my-account"],
   });
 

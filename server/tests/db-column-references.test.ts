@@ -38,7 +38,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { existsSync, readFileSync, statSync, readdirSync } from "node:fs";
+import { existsSync, statSync, readdirSync } from "node:fs";
 import { resolve, join, relative, dirname } from "node:path";
 import * as ts from "typescript";
 import { is } from "drizzle-orm";

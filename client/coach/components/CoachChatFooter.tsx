@@ -38,7 +38,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload, type OnlineStatusPayload } from "@/lib/useWebSocket";
 import { useChatState } from "@/coach/context/ChatStateContext";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
@@ -285,7 +285,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   // P3–P7: mute map, mark-unread set, world-hype counts, quick-phrase bar, jump-to-unread, ticker rotation
   const [mutedConvMap, setMutedConvMap] = useState<Record<string, number>>({});
   const [markedUnreadSet, setMarkedUnreadSet] = useState<Set<string>>(new Set());
-  const [worldHypeMap, setWorldHypeMap] = useState<Record<string, { mine: boolean; count: number }>>({});
+  const [_worldHypeMap, setWorldHypeMap] = useState<Record<string, { mine: boolean; count: number }>>({});
   const [tickerIndex, setTickerIndex] = useState(0);
   const tickerFade = useSharedValue(1);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -323,13 +323,13 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   const persistMarkedUnread = useCallback((s: Set<string>) => {
     AsyncStorage.setItem("@glow_marked_unread", JSON.stringify(Array.from(s))).catch(() => {});
   }, []);
-  const persistWorldHype = useCallback((m: Record<string, { mine: boolean; count: number }>) => {
+  const _persistWorldHype = useCallback((m: Record<string, { mine: boolean; count: number }>) => {
     AsyncStorage.setItem("@glow_world_hype", JSON.stringify(m)).catch(() => {});
   }, []);
 
   const height = useSharedValue(FOOTER_COLLAPSED);
   const tickerOffset = useSharedValue(0);
-  const leftPillWidthSV = useSharedValue(0);
+  const _leftPillWidthSV = useSharedValue(0);
 
   useEffect(() => {
     AsyncStorage.getItem("@glow_safety_banner_dismissed").then(val => {
@@ -467,7 +467,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     queryClient.invalidateQueries({ queryKey: qk });
   }, [isPlayerMode, userId]);
 
-  const { isConnected, sendTyping, sendReadReceipt } = useWebSocket({
+  const { isConnected, sendTyping, sendReadReceipt: _sendReadReceipt } = useWebSocket({
     onNewMessage: handleNewMessage,
     onTyping: handleTyping,
     onOnlineStatus: handleOnlineStatus,
@@ -642,7 +642,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   }, [selectedConversation, isPlayerMode]);
 
 
-  const toggleFullscreen = () => {
+  const _toggleFullscreen = () => {
     if (isFullscreen) {
       setIsFullscreen(false);
     } else {
@@ -780,7 +780,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     selectedConversation.type !== "world_chat" &&
     selectedConversation.type !== "global" &&
     selectedConversation.type !== "provider_player";
-  const { data: friendsData } = useQuery<{ friends?: Array<{ id: string; name: string }> }>({
+  const { data: friendsData } = useQuery<{ friends?: { id: string; name: string }[] }>({
     queryKey: ["/api/player/me/friends"],
     enabled: !!userId && isPlayerMode && isCurrentConvMentionable,
     staleTime: 5 * 60 * 1000,
@@ -813,7 +813,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   });
 
   const sendMessageMutation = useMutation({
-    mutationFn: async ({ body, optimisticId }: { body: string; optimisticId: string }) => {
+    mutationFn: async ({ body, optimisticId: _optimisticId }: { body: string; optimisticId: string }) => {
       if (!selectedConversation || !userId) return;
       // Task #1320 — Parse @handles client-side and pass them to the server
       // so it can resolve + persist mention rows (used for inbox badging and
@@ -1197,7 +1197,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     return `${diffDay}d`;
   };
 
-  const getReactionIcon = (emoji: string): keyof typeof Ionicons.glyphMap => {
+  const _getReactionIcon = (emoji: string): keyof typeof Ionicons.glyphMap => {
     const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
       thumbsup: "thumbs-up-outline",
       heart: "heart-outline",
@@ -1332,11 +1332,11 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     transform: [{ translateX: tickerOffset.value }],
   }));
 
-  const leftTickerStyle = useAnimatedStyle(() => ({
+  const _leftTickerStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: tickerOffset.value }],
   }));
 
-  const recentContacts = useMemo(() => {
+  const _recentContacts = useMemo(() => {
     const sorted = [...conversations]
       .filter(c => {
         if (c.type === "academy") return false;
@@ -1366,7 +1366,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
   });
   const activityEvents = activityFeedData?.events || [];
 
-  const { data: worldMessages = [], isLoading: loadingWorldMessages } = useQuery<WorldMessage[]>({
+  const { data: worldMessages = [], isLoading: _loadingWorldMessages } = useQuery<WorldMessage[]>({
     queryKey: ["/api/world-chat/messages"],
     enabled: !!userId && currentTab === "world",
     // WS push provides real-time updates; only poll when disconnected as fallback
@@ -2056,7 +2056,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     }
   };
 
-  const handleCreateAcademyChat = () => {
+  const _handleCreateAcademyChat = () => {
     createConversationMutation.mutate({
       type: "academy",
       title: "Academy Chat",
@@ -2099,8 +2099,8 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     if (cleanTitle(conv.title)) return cleanTitle(conv.title)!;
     return "Conversation";
   };
-  const getConvName = (conv: Conversation) => getConvDisplayName(conv);
-  const getInitial = (name: string) => name.charAt(0).toUpperCase();
+  const _getConvName = (conv: Conversation) => getConvDisplayName(conv);
+  const _getInitial = (name: string) => name.charAt(0).toUpperCase();
 
   const getConvIcon = (conv: Conversation): keyof typeof Ionicons.glyphMap => {
     switch (conv.type) {
@@ -2224,7 +2224,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
     );
   };
 
-  const renderQuickContacts = () => {
+  const _renderQuickContacts = () => {
     return null;
   };
 

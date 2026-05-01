@@ -1,203 +1,18 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import rateLimit from "express-rate-limit";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import {
-  storage,
-  getSessionTypeByPlayerCount,
-  updateSeriesSessionType,
-  recalculateSeriesCredits,
-} from "./storage";
+import { storage } from "./storage";
 import { db, pool } from "./db";
-import { awardXP } from "./services/xp-service";
-import {
-  playerHolidays,
-  coachWellnessLogs,
-  insertCoachWellnessLogSchema,
-  levelUpEvents,
-  playerXpEvents,
-  ballLevels,
-  playerNotifications,
-  spotlightNominations,
-  spotlightWeeklyWinners,
-  spotlightMonthlyWinners,
-
-  invoices,
-  payments,
-  sessionPlayers,
-  sessionWaitlist,
-  players,
-  locationTravelTimes,
-  sessions,
-  sessionFeedback,
-  inSessionFeedback,
-  seriesPlayers,
-  coachingSeries,
-  sessionSkillObservations,
-  sessionSkillFeedback,
-  playerSessionCancellations,
-  playerPillarProgress,
-  coachXpTransactions,
-  xpTransactions,
-  playerBaselineSkillScores,
-  playerBaselines,
-  // Social features
-  posts as postsTable,
-  postReactions as postReactionsTable,
-  postComments as postCommentsTable,
-  commentLikes as commentLikesTable,
-  communityGroups as communityGroupsTable,
-  groupMembers as groupMembersTable,
-  openToPlay as openToPlayTable,
-  userSocialProfiles as userSocialProfilesTable,
-  users,
-  coaches,
-  // Quest system
-  questTemplates as questTemplatesTable,
-  playerQuests as playerQuestsTable,
-  dailyQuestSlots as dailyQuestSlotsTable,
-  // Connections
-  playerConnections,
-  // Badge & Title system
-  badges as badgesTable,
-  playerBadges as playerBadgesTable,
-  titles as titlesTable,
-  playerTitles as playerTitlesTable,
-  sessionPlans,
-  // Social Booking & Open Matches (Phase 2-4)
-  bookingInvites,
-  bookingInviteGuests,
-  openMatches,
-  openMatchSlots,
-  playerBookingPreferences,
-  courtAvailability,
-  courtAvailabilitySnapshots,
-  coachSettings,
-  coachAvailability,
-  availabilityExceptions,
-  coachTimeBlocks,
-  // Monthly report tables
-  courtBookings,
-  matchLogs,
-  playerBallLevels,
-  academies,
-  pushDeviceTokens,
-  platformConfig,
-  providerInvites,
-  serviceProviders,
-  loginSchema,
-  registerSchema,
-  playerRegisterSchema,
-  coachInviteRegisterSchema,
-  academyApplicationInputSchema,
-  insertSessionSchema,
-  insertPlayerSchema,
-  updatePlayerSchema,
-  insertPackageSchema,
-  insertPlayerNoteSchema,
-  insertMessageSchema,
-  insertMessageReactionSchema,
-  submitReviewSchema} from "@shared/schema";
-import {
-  eq,
-  sql,
-  desc,
-  and,
-  ne,
-  gt,
-  gte,
-  asc,
-  inArray,
-  notInArray,
-  isNull,
-  isNotNull,
-  or,
-  count,
-  ilike,
-  lte,
-} from "drizzle-orm";
-import {
-  setupWebSocket,
-  broadcastNewMessage,
-  broadcastNewSession,
-  broadcastFeedbackReceived,
-  broadcastSessionUpdate,
-} from "./websocket";
-import {
-  hashPassword,
-  verifyPassword,
-  generateToken,
-  validatePassword,
-  authMiddlewareWithFreshData as authMiddleware,
-  requireRole,
-  requireAcademy,
-  setFreshUserStorage,
-  setFeatureUnlockChecker,
-  requireFeatureUnlock,
-  validatePlayerOwnership,
-  validateCourtOwnership,
-  validateSessionOwnership,
-  validatePackageOwnership,
-  validateNotificationOwnership,
-  refreshAuthMiddleware,
-  JWT_SECRET,
-  type AuthenticatedRequest,
-} from "./auth";
+import { sessionPlayers, players, sessions, xpTransactions, users, coaches, courtBookings, matchLogs, playerBallLevels, academies, platformConfig } from "@shared/schema";
+import { eq, sql, and, gte, inArray, lte } from "drizzle-orm";
+import { setupWebSocket } from "./websocket";
+import { authMiddlewareWithFreshData as authMiddleware, requireRole, setFreshUserStorage, setFeatureUnlockChecker, JWT_SECRET, type AuthenticatedRequest } from "./auth";
 import crypto from "crypto";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
-import {
-  sanitizeNote,
-  sanitizeMessage,
-  sanitizeTemplateName,
-  sanitizeTemplateContent,
-} from "./utils/sanitize";
-import {
-  localTimeToUTC,
-  utcToLocalTime,
-  getTimezoneOffset,
-  getFirstSessionDate,
-  addDaysToLocalDate,
-  getLocalDateParts,
-  resolveLocalTimeToUTC,
-  ensureResolvableLocalTime,
-} from "./utils/timezone";
-import {
-  sendFeedbackNotification,
-  sendLevelUpNotification,
-  sendBadgeEarnedNotification,
-  sendXPGainNotification,
-  sendSessionConfirmedNotification,
-  sendSessionCancelledNotification,
-  sendNewMessageNotification,
-  sendCreditsLowNotification,
-  getPlayerPushTokens,
-  getCoachPushTokens,
-  sendPushNotification,
-} from "./pushNotifications";
-import {
-  sendFeedbackNotificationEmail,
-  sendLevelUpEmail,
-  sendWelcomeEmail,
-  sendPlayerInviteEmail,
-  sendSessionReminderEmail,
-  sendCoachInviteEmail,
-  sendOTPEmail,
-  verifyOTPCode,
-  hasValidOTP,
-} from "./emailService";
-import {
-  createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
-  checkConnection as checkCalendarConnection,
-  SessionEventData,
-} from "./googleCalendarService";
-import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "./services/invoicePdf";
-import { apiCache, CACHE_KEYS, CACHE_TTL } from "./cache";
-import { getCurrencyForCountry } from "@shared/countries";
 import shopRoutes from "./shop-routes";
 import marketplaceRoutes from "./marketplace-routes";
 import equipmentRoutes from "./equipment-routes";
@@ -269,11 +84,9 @@ import playerProfileDataRouter from "./routes/player-profile-data";
 import communityDataRouter from "./routes/community-data";
 import playerAiCoachDataRouter from "./routes/player-ai-coach-data";
 import quizRouter from "./routes/quiz";
-import { filterProfanity } from "./profanityFilter";
-import { isPlayerMinor, getPlayerParentalControls } from "./childSafety";
-import { chatRateLimiter, postRateLimiter, diagnosticsLimiter, adminRepairLimiter } from "./rateLimiter";
+import { diagnosticsLimiter } from "./rateLimiter";
 
-const authLimiter = rateLimit({
+const _authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: "Too many login attempts, please try again later" },
@@ -281,7 +94,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const inviteLimiter = rateLimit({
+const _inviteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: "Too many invite attempts. Please wait 15 minutes and try again." },
@@ -302,7 +115,7 @@ const diagnosticsReportSchema = z.object({
   deviceInfo: z.union([z.string().max(2000), z.record(z.unknown())]).optional().nullable(),
 });
 
-function generateShortInviteCode(): string {
+function _generateShortInviteCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
   for (let i = 0; i < 6; i++) {
@@ -343,7 +156,7 @@ const courtPhotoStorage = multer.diskStorage({
   },
 });
 
-const courtPhotoUpload = multer({
+const _courtPhotoUpload = multer({
   storage: courtPhotoStorage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB max
@@ -380,7 +193,7 @@ const profilePhotoStorage = multer.diskStorage({
   },
 });
 
-const profilePhotoUpload = multer({
+const _profilePhotoUpload = multer({
   storage: profilePhotoStorage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB max for profile photos
@@ -417,7 +230,7 @@ const socialPostStorage = multer.diskStorage({
   },
 });
 
-const socialPostUpload = multer({
+const _socialPostUpload = multer({
   storage: socialPostStorage,
   limits: {
     fileSize: 50 * 1024 * 1024, // 50MB max (for videos)
@@ -456,7 +269,7 @@ const socialPostUpload = multer({
 });
 
 // Pagination helper
-function parsePagination(query: {
+function _parsePagination(query: {
   limit?: string;
   offset?: string;
   page?: string;
@@ -470,7 +283,7 @@ function parsePagination(query: {
 }
 
 // Birthday check helper - returns true if today matches the player birth date (month and day)
-function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
+function _isBirthdayToday(dateOfBirth: string | Date | null): boolean {
   if (!dateOfBirth) return false;
   const birthDate = new Date(dateOfBirth);
   const today = new Date();
@@ -481,7 +294,7 @@ function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
 }
 
 // Helper to convert UTC to Dubai timezone (UTC+4)
-function toDubaiTime(utcDate: Date): Date {
+function _toDubaiTime(utcDate: Date): Date {
   const dubaiOffset = 4 * 60; // minutes
   const utcTime = utcDate.getTime();
   return new Date(utcTime + dubaiOffset * 60 * 1000);
@@ -702,7 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       res.status(dbHealthy ? 200 : 503).json(health);
-    } catch (error) {
+    } catch (_error) {
       res.status(503).json({
         status: "unhealthy",
         timestamp: new Date().toISOString(),
@@ -1064,7 +877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? "Platform is under maintenance. Please try again later."
           : null,
       });
-    } catch (error) {
+    } catch (_error) {
       res.json({ maintenance: false, message: null });
     }
   });
@@ -1139,7 +952,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId = decoded.userId;
           academyId = decoded.academyId;
           userRole = decoded.role;
-        } catch (e) {
+        } catch (_e) {
           // Token invalid, proceed without user context
         }
       }
@@ -1199,7 +1012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!parsed.success) {
           return res.status(400).json({ error: fromZodError(parsed.error).message });
         }
-        const { severity, message, screen, context, userComment } = parsed.data;
+        const { severity: _severity, message, screen, context, userComment } = parsed.data;
         const userId = req.user?.userId;
         const academyId = req.user?.academyId;
         const userRole = req.user?.role;

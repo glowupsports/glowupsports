@@ -895,7 +895,7 @@ router.delete("/api/chat-rooms/:roomId/mute", authMiddleware, async (req: Authen
       .delete(chatRoomMutes)
       .where(and(eq(chatRoomMutes.roomId, req.params.roomId), eq(chatRoomMutes.userId, userId)));
     res.json({ ok: true });
-  } catch (err) {
+  } catch (_err) {
     res.status(500).json({ error: "Failed to unmute" });
   }
 });

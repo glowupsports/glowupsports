@@ -1,19 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  Image as RNImage,
-  Dimensions,
-} from "react-native";
-import { Image } from "expo-image";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, ActivityIndicator, Alert, Modal, Platform, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,31 +8,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getCurrentAcademyId } from "@/lib/auth";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
-import * as Linking from "expo-linking";
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring,
-  withTiming,
-  withSequence,
-  interpolate,
-  runOnJS,
-  useAnimatedScrollHandler,
-  Extrapolation,
-} from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, interpolate, useAnimatedScrollHandler, Extrapolation } from "react-native-reanimated";
+import { Colors, Spacing, BorderRadius, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
-import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import PackagesCard from "@/coach/components/PackagesCard";
-import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
 import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
-import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
 import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
@@ -63,7 +30,7 @@ const PLAYERS_CACHE_PREFIX = "@coach.playersList.v1";
 const PAST_PLAYERS_CACHE_PREFIX = "@coach.pastPlayersList.v1";
 const PENDING_PLAYERS_CACHE_PREFIX = "@coach.pendingPlayersList.v1";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const BALL_LEVELS = ["blue", "red", "orange", "green", "yellow", "glow"];
 
@@ -100,7 +67,7 @@ interface Player {
   onHoliday?: boolean;
 }
 
-interface PlayerNote {
+interface _PlayerNote {
   id: string;
   playerId: string | null;
   coachId: string | null;
@@ -112,7 +79,7 @@ interface PlayerNote {
   updatedAt: string | null;
 }
 
-interface PlayerXpData {
+interface _PlayerXpData {
   totalXp: number;
   transactions: { id: string; xpAmount: number; source: string; description: string | null; createdAt: string }[];
 }
@@ -134,7 +101,7 @@ type LevelReadiness = {
   xpNeeded: number;
 } | null;
 
-const getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelReadiness => {
+const _getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelReadiness => {
   if (!currentLevel) return null;
   const levelData = LEVEL_THRESHOLDS[currentLevel.toLowerCase() as keyof typeof LEVEL_THRESHOLDS];
   // Return null for max level (Glow) or invalid level - no progress card needed
@@ -154,7 +121,7 @@ const getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelR
   };
 };
 
-const NOTE_CATEGORIES = [
+const _NOTE_CATEGORIES = [
   { value: "technique", label: "Technique", icon: "fitness-outline" as const },
   { value: "mental", label: "Mental", icon: "bulb-outline" as const },
   { value: "physical", label: "Physical", icon: "body-outline" as const },
@@ -188,13 +155,13 @@ export default function PlayersScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [createdPlayerInvite, setCreatedPlayerInvite] = useState<{ name: string; inviteCode: string } | null>(null);
-  const [newPlayerName, setNewPlayerName] = useState("");
-  const [newPlayerEmail, setNewPlayerEmail] = useState("");
-  const [newPlayerPhone, setNewPlayerPhone] = useState("");
-  const [newPlayerBallLevel, setNewPlayerBallLevel] = useState<string>("green");
-  const [newPlayerSkillLevel, setNewPlayerSkillLevel] = useState<number>(1);
-  const [newPlayerParentName, setNewPlayerParentName] = useState("");
-  const [newPlayerParentPhone, setNewPlayerParentPhone] = useState("");
+  const [_newPlayerName, setNewPlayerName] = useState("");
+  const [_newPlayerEmail, setNewPlayerEmail] = useState("");
+  const [_newPlayerPhone, setNewPlayerPhone] = useState("");
+  const [_newPlayerBallLevel, setNewPlayerBallLevel] = useState<string>("green");
+  const [_newPlayerSkillLevel, setNewPlayerSkillLevel] = useState<number>(1);
+  const [_newPlayerParentName, setNewPlayerParentName] = useState("");
+  const [_newPlayerParentPhone, setNewPlayerParentPhone] = useState("");
   const [baselinePlayer, setBaselinePlayer] = useState<Player | null>(null);
   const [showBaselineDrawer, setShowBaselineDrawer] = useState(false);
   // Active/Past/Pending Payment tab switcher
@@ -595,7 +562,7 @@ export default function PlayersScreen() {
     }
   }, [players]);
 
-  const createPlayerMutation = useMutation({
+  const _createPlayerMutation = useMutation({
     mutationFn: async (data: { name: string; email?: string; phone?: string; ballLevel?: string; skillLevel?: number; coachId?: string; parentName?: string; parentPhone?: string }) => {
       return apiRequest("POST", "/api/players", data);
     },
@@ -628,7 +595,7 @@ export default function PlayersScreen() {
 
   const ballLevels = BALL_LEVELS;
   const [filterSubLevel, setFilterSubLevel] = useState<number | null>(null);
-  const [showSubLevelDropdown, setShowSubLevelDropdown] = useState<string | null>(null);
+  const [_showSubLevelDropdown, _setShowSubLevelDropdown] = useState<string | null>(null);
 
   const filteredPlayers = useMemo(() => {
     let result = rosterTab === "active" ? players : rosterTab === "past" ? pastPlayers : pendingPaymentPlayers;
@@ -723,7 +690,7 @@ export default function PlayersScreen() {
     }
   };
 
-  const formatDate = (date: string | null) => {
+  const _formatDate = (date: string | null) => {
     if (!date) return "No lessons";
     const d = new Date(date);
     const now = new Date();

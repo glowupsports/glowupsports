@@ -1,18 +1,5 @@
-import React, { useState, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  TextInput,
-  Alert,
-  Image,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-  FlatList,
-} from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Image, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -20,8 +7,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import { Colors, Spacing } from "@/constants/theme";
 import { getStaticAssetsUrl, apiRequest } from "@/lib/query-client";
-import { getPrimarySpecialization } from "@/provider/constants/specializations";
-
 interface BookingItem {
   id: string;
   orderNumber: string;

@@ -3,24 +3,8 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withDelay,
-  withSpring,
-  FadeInDown,
-} from "react-native-reanimated";
-import {
-  Spacing,
-  BorderRadius,
-  Typography,
-  GlowColors,
-  TextColors,
-  FunctionColors,
-Backgrounds, } from "@/constants/theme";
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, FadeInDown } from "react-native-reanimated";
+import { Spacing, BorderRadius, Typography, GlowColors, TextColors, Backgrounds } from "@/constants/theme";
 
 
 interface GuidedEmptyStateProps {

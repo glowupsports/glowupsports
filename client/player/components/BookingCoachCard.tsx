@@ -7,11 +7,11 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
+const _CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
 
 interface BookingCoachCardProps {
   coach: {

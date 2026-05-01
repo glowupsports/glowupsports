@@ -8,23 +8,7 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Image,
-  Alert,
-  ImageBackground,
-  Dimensions,
-  Platform,
-  Image as RNImage,
-  TextInput,
-  Modal,
-  Linking,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal, Linking } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -42,32 +26,13 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
-import {
-  Colors,
-  Spacing,
-  Typography,
-  BorderRadius,
-  GlowColors,
-  TextColors,
-  Backgrounds,
-} from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, TextColors, Backgrounds } from "@/constants/theme";
 import { openDirections as openMapsDirections } from "@/lib/maps";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
-import {
-  apiRequest,
-  getApiUrl,
-  getStaticAssetsUrl,
-  buildPhotoUrl,
-} from "@/lib/query-client";
+import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useFamily } from "@/player/context/FamilyContext";
 import FamilyQuickSwitch from "@/player/components/FamilyQuickSwitch";
-import {
-  useSport,
-  getSportLabel,
-  getSportColor,
-  getSportIcon,
-  SPORT_DEFINITIONS,
-} from "@/player/context/SportContext";
+import { useSport, getSportLabel, getSportIcon, SPORT_DEFINITIONS } from "@/player/context/SportContext";
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 import {
   RecentlyActiveWorldwideRow,
@@ -278,7 +243,7 @@ interface NearbyCourt {
 
 const TAB_OPTIONS = ["Group Lessons", "Players", "Leaderboard"] as const;
 
-const BALL_LEVELS = [
+const _BALL_LEVELS = [
   "my_level",
   "all",
   "blue",
@@ -444,7 +409,7 @@ export default function PlayScreen() {
   const lastScrollY = useSharedValue(0);
   const headerTranslation = useSharedValue(0);
   const headerHeightSV = useSharedValue(0);
-  const [headerHeight, setHeaderHeight] = useState(0);
+  const [_headerHeight, setHeaderHeight] = useState(0);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -642,7 +607,7 @@ export default function PlayScreen() {
       try {
         await apiRequest("PATCH", "/api/player/me/profile", patch);
         queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
-      } catch (e) {
+      } catch (_e) {
         // Silent failure - background enrichment only
       }
     },
@@ -881,7 +846,7 @@ export default function PlayScreen() {
     { id: "tomorrow", label: "Tomorrow" },
     { id: "weekend", label: "Weekend" },
   ] as const;
-  type DayPresetId = (typeof DAY_PRESETS)[number]["id"];
+  type _DayPresetId = (typeof DAY_PRESETS)[number]["id"];
 
   const filteredSessions = useMemo(() => {
     if (!sessions) return [];
@@ -1202,7 +1167,7 @@ export default function PlayScreen() {
     };
   };
 
-  const getLevelRangeText = (session: PlaySession) => {
+  const _getLevelRangeText = (session: PlaySession) => {
     if (session.minLevel && session.maxLevel) {
       return `Lv ${session.minLevel}-${session.maxLevel}`;
     }
@@ -1227,7 +1192,7 @@ export default function PlayScreen() {
 
   const renderSessionCard = (session: PlaySession) => {
     const statusBadge = getStatusBadge(session);
-    const effectiveMax =
+    const _effectiveMax =
       session.sessionType === "semi_private"
         ? Math.min(session.maxPlayers, 2)
         : session.maxPlayers;
@@ -4621,7 +4586,7 @@ export default function PlayScreen() {
   );
 }
 
-const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2;
+const _CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2;
 
 const styles = makeReactiveStyles(() =>
   StyleSheet.create({

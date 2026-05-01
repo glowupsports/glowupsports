@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Image } from "expo-image";
 import { useSport } from "@/player/context/SportContext";
@@ -93,7 +93,7 @@ function formatDateTime(dateStr: string): string {
   const now = new Date();
   const diff = d.getTime() - now.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const _hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
   const timeStr = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 

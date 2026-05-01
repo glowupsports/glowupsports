@@ -237,7 +237,7 @@ function CoachTabs() {
       <PremiumAddPlayerFlow
         visible={showAddPlayerModal}
         onClose={() => setShowAddPlayerModal(false)}
-        onComplete={(player) => {
+        onComplete={(_player) => {
           queryClient.invalidateQueries({ queryKey: ["/api/players"] });
           queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
         }}

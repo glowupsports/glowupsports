@@ -23,7 +23,7 @@ import Animated, {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { useTranslation } from "react-i18next";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -185,7 +185,7 @@ export default function AcademySettingsScreen() {
         await Share.share({
           message: `Join ${joinCodeData.academyName} on Glow Up Sports! Use code: ${joinCodeData.joinCode}`,
         });
-      } catch (error) {
+      } catch (_error) {
         handleCopyJoinCode();
       }
     }

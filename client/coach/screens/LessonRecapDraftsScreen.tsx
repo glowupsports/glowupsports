@@ -9,9 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Switch,
-} from "react-native";
-import { ScrollView } from "react-native-gesture-handler";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+} from "react-native";import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Ionicons from "@expo/vector-icons/Ionicons";

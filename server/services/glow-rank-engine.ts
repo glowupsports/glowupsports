@@ -158,7 +158,7 @@ export async function calculateGlowRank(playerId: string): Promise<GlowRank | nu
     const latestScore = latestScores.get(ls.skillId);
     const score = latestScore?.score ?? 0;
     const movingAvg = latestScore?.movingAverage ? Number(latestScore.movingAverage) : 0;
-    const targetScore = ls.targetScore ?? 2;
+    const _targetScore = ls.targetScore ?? 2;
     
     return {
       skillId: ls.skillId,

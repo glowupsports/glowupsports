@@ -70,7 +70,7 @@ export default function AdminCourtsScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCourt, setSelectedCourt] = useState<Court | null>(null);
-  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [_showColorPicker, _setShowColorPicker] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [sportFilter, setSportFilter] = useState<SportOrMulti | "all">("all");
   const [courtAddressSearch, setCourtAddressSearch] = useState<{ address: string; lat: number; lng: number; placeId?: string; matchedLocationId?: string } | null>(null);

@@ -1,6 +1,6 @@
 import { StyleSheet, Platform } from "react-native";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
-import { TIME_COLUMN_WIDTH, HOUR_HEIGHT_60, HOUR_HEIGHT_30 } from "@/coach/components/calendar/calendarConstants";
+import { TIME_COLUMN_WIDTH, HOUR_HEIGHT_60 } from "@/coach/components/calendar/calendarConstants";
 
 export const styles = StyleSheet.create({
   container: {

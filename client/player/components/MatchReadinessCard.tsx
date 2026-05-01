@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
-import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface MatchReadinessData {

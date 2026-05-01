@@ -15,7 +15,7 @@ import type { TabProps } from "./types";
 import { useCoachingScroll } from "./CoachingScrollContext";
 
 export function LevelCardsTab({ insets: _insets, tabBarHeight }: TabProps) {
-  const navigation = useNavigation<any>();
+  const _navigation = useNavigation<any>();
   const onScroll = useCoachingScroll();
   const [selectedLevel, setSelectedLevel] = useState<string>("red");
 

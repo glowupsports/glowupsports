@@ -1,7 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { View, Text, StyleSheet, Pressable } from "react-native";import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayerLevelContext } from "../context/PlayerLevelContext";
 
@@ -34,7 +32,7 @@ export function FeatureGate({
   const featureInfo = getFeatureInfo(featureKey);
   const requiredLevel = featureInfo?.requiredLevel || 1;
   const featureName = featureInfo?.featureName || featureKey.replace(/_/g, " ");
-  const featureIcon = featureInfo?.featureIcon || "lock-closed";
+  const _featureIcon = featureInfo?.featureIcon || "lock-closed";
 
   return (
     <Pressable 
@@ -66,7 +64,7 @@ interface LockedFeatureCardProps {
 }
 
 export function LockedFeatureCard({
-  featureKey,
+  featureKey: _featureKey,
   requiredLevel,
   featureName,
   featureDescription,
@@ -166,7 +164,7 @@ export function UpcomingUnlocksList({
       </View>
       
       <View style={styles.upcomingList}>
-        {lockedFeatures.map((feature, idx) => (
+        {lockedFeatures.map((feature, _idx) => (
           <LockedFeatureCard
             key={feature.featureKey}
             featureKey={feature.featureKey}

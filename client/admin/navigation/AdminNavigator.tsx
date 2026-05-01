@@ -20,9 +20,7 @@ import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigat
 import { Colors } from "@/constants/theme";
 import { useDesktop } from "@/hooks/useDesktop";
 import { type DesktopAdminRoute } from "@/admin/components/desktop/DesktopAdminSidebar";
-import DesktopAdminLayout from "@/admin/components/desktop/DesktopAdminLayout";
-import { useAuth } from "@/coach/context/AuthContext";
-import { useQuery } from "@tanstack/react-query";
+import DesktopAdminLayout from "@/admin/components/desktop/DesktopAdminLayout";import { useQuery } from "@tanstack/react-query";
 
 export type AdminTabParamList = {
   AdminDashboard: undefined;

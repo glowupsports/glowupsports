@@ -56,7 +56,7 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
-function formatTime(dateStr: string): string {
+function _formatTime(dateStr: string): string {
   const date = new Date(dateStr);
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }

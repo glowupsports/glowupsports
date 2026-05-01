@@ -9,9 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Backgrounds, Spacing } from "@/constants/theme";
@@ -119,7 +117,7 @@ export default function WellnessLogScreen() {
     },
   });
 
-  const formatDate = (dateStr: string) => {
+  const _formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
   };

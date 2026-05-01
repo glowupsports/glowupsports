@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as Print from "expo-print";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { sharePdf } from "@/lib/sharePdf";
@@ -166,7 +166,7 @@ export default function ParentInvoicesScreen() {
           filename: `Invoice_${safeNumber}`,
         });
       }
-    } catch (error) {
+    } catch (_error) {
       // sharePdf shows its own user-facing alerts on mobile; only alert on web.
       if (Platform.OS === "web") {
         Alert.alert("Error", "Failed to generate PDF. Please try again.");

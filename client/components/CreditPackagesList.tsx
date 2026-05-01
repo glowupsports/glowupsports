@@ -257,7 +257,7 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
         sortedLots.map((lot) => {
           const total = Number(lot.qty_total);
           const remaining = Number(lot.qty_remaining);
-          const used = Math.max(0, total - remaining);
+          const _used = Math.max(0, total - remaining);
           const status = statusOf(lot);
           const meta = STATUS_META[status];
           const typeColor = TYPE_COLOR[lot.type as string] || Colors.dark.text;

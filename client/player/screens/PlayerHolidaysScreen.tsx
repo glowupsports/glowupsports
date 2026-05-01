@@ -19,7 +19,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
-import { Colors, Spacing, BorderRadius, Backgrounds, TextColors } from "@/constants/theme";
+import { Spacing, BorderRadius, Backgrounds, TextColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 

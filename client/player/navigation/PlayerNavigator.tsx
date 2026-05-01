@@ -1,11 +1,8 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
-import { HeaderButton } from "@react-navigation/elements";
-import { StyleSheet, View, Platform, ActivityIndicator, ViewStyle, Pressable, Text, AppState } from "react-native";
+import { StyleSheet, View, Platform, ActivityIndicator, Pressable, Text } from "react-native";
 import { useSafeAreaInsets , SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { BlurView } from "expo-blur";
 import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
 import { PlayerAppearanceProvider, usePlayerAppearance } from "@/player/context/PlayerAppearanceContext";
@@ -32,7 +29,6 @@ import CoachDirectoryScreen from "@/player/screens/CoachDirectoryScreen";
 import TransferRequestScreen from "@/player/screens/TransferRequestScreen";
 import PlayerHolidaysScreen from "@/player/screens/PlayerHolidaysScreen";
 import AccountAuditLogScreen from "@/player/screens/AccountAuditLogScreen";
-import PlayerOnboardingScreen from "@/player/screens/PlayerOnboardingScreen";
 import PlayerOnboardingV2 from "@/player/screens/PlayerOnboardingV2";
 import ParentDashboardScreen from "@/player/screens/ParentDashboardScreen";
 import ParentLessonsScreen from "@/player/screens/ParentLessonsScreen";
@@ -125,18 +121,17 @@ import LadderDetailScreen from "@/player/screens/LadderDetailScreen";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
-import { Colors, Spacing, FontSizes, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { FamilyProvider } from "@/player/context/FamilyContext";
-import { apiFetch, getApiUrl } from "@/lib/query-client";
+import { apiFetch } from "@/lib/query-client";
 
 import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
 import { ScheduleFocusProvider } from "@/player/context/ScheduleFocusContext";
 import { SportContextProvider } from "@/player/context/SportContext";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
@@ -959,7 +954,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
     pagerIndex: playerTabs.findIndex(tab => tab.key === "PlayStack"),
   }), [playerTabs]);
   
-  const hideChat = !SHOW_CHAT_TABS.includes(currentTabKey);
+  const _hideChat = !SHOW_CHAT_TABS.includes(currentTabKey);
 
   const handleChallenge = useCallback(
     (opponentId: string, opponentName: string, opponentPhoto?: string) => {
@@ -971,7 +966,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
     [navigation],
   );
   
-  const handlePageChange = useCallback((index: number, key: string) => {
+  const handlePageChange = useCallback((_index: number, key: string) => {
     setCurrentTabKey(key);
     const featureKey = TAB_FEATURE_KEYS[key];
     if (featureKey && isMountedRef.current) {

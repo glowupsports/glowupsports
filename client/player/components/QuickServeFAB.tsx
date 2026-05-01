@@ -21,7 +21,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useGlassTint } from "@/hooks/useGlassTint";
 import { useCategoryAccent } from "@/player/theme/useCategoryAccent";
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH, height: _SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface QuickAction {
   id: string;

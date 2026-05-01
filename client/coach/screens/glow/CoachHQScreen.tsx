@@ -9,7 +9,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import BallLevelBadge from "@/components/BallLevelBadge";
 import { RosterInsightsCard } from "@/coach/components/RosterInsightsCard";
 import { getApiUrl, getAuthHeaders, apiRequest } from "@/lib/query-client";

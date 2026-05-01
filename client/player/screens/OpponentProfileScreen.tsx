@@ -61,7 +61,7 @@ function ChipSelector({
   options,
   selected,
   onToggle,
-  single = false,
+  single: _single = false,
   color = PRIMARY,
 }: {
   options: string[];

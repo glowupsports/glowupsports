@@ -16,9 +16,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
-import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
+import { formatCredits } from "@/lib/dateUtils";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -100,7 +100,7 @@ const TABS: { id: TabId; label: string; icon: string }[] = [
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-const SESSION_TYPE_COLORS: Record<string, string> = {
+const _SESSION_TYPE_COLORS: Record<string, string> = {
   private: Colors.dark.sessionPrivate,
   semi_private: Colors.dark.sessionSemiPrivate,
   group: Colors.dark.sessionGroup,
@@ -125,8 +125,8 @@ export default function AdminSeriesDetailDrawer({
   const [showPauseFromPicker, setShowPauseFromPicker] = useState(false);
   const [showPauseUntilPicker, setShowPauseUntilPicker] = useState(false);
   const [removingPlayerId, setRemovingPlayerId] = useState<string | null>(null);
-  const [removeDate, setRemoveDate] = useState<Date>(new Date());
-  const [showRemoveDatePicker, setShowRemoveDatePicker] = useState(false);
+  const [_removeDate, _setRemoveDate] = useState<Date>(new Date());
+  const [_showRemoveDatePicker, _setShowRemoveDatePicker] = useState(false);
   const [selectedSession, setSelectedSession] = useState<SessionInstance | null>(null);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [attendanceState, setAttendanceState] = useState<Record<string, "present" | "late" | "absent" | "holiday" | null>>({});
@@ -579,7 +579,7 @@ export default function AdminSeriesDetailDrawer({
                       <Text style={styles.emptyStateText}>No sessions yet</Text>
                     </View>
                   ) : (
-                    timeline.map((session: any, index: number) => {
+                    timeline.map((session: any, _index: number) => {
                       const statusColor = session.status === "completed" ? Colors.dark.green : session.status === "cancelled" ? Colors.dark.red : session.status === "scheduled" ? ADMIN_COLOR : Colors.dark.cyan;
                       const needsAttendance = session.status === "scheduled" && new Date(session.date) <= new Date();
                       return (
@@ -731,7 +731,7 @@ export default function AdminSeriesDetailDrawer({
                       <DateTimePicker
                         value={pauseFromDate}
                         mode="date"
-                        onChange={(e, date) => {
+                        onChange={(_e, date) => {
                           setShowPauseFromPicker(false);
                           if (date) {
                             setPauseFromDate(date);
@@ -762,7 +762,7 @@ export default function AdminSeriesDetailDrawer({
                         value={pauseUntilDate}
                         mode="date"
                         minimumDate={pauseFromDate}
-                        onChange={(e, date) => {
+                        onChange={(_e, date) => {
                           setShowPauseUntilPicker(false);
                           if (date) setPauseUntilDate(date);
                         }}

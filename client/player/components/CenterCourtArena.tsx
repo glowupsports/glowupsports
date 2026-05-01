@@ -2,25 +2,14 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withSpring,
-  interpolate,
-  Easing,
-  FadeIn,
-  FadeInDown,
-} from "react-native-reanimated";
-import Svg, { Line, Rect, Circle, Ellipse, Path } from "react-native-svg";
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, withSpring, Easing, FadeIn } from "react-native-reanimated";
+import Svg, { Line, Rect, Circle, Ellipse } from "react-native-svg";
 import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { usePlayerState, BroadcastMode } from "@/player/context/PlayerStateContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 const ARENA_HEIGHT = 220;
 
 interface SessionData {
@@ -173,7 +162,7 @@ function CourtSurfaceBackground({ mode }: { mode: BroadcastMode }) {
   );
 }
 
-function BroadcastOverlay({ mode, session }: { mode: BroadcastMode; session?: SessionData | null }) {
+function BroadcastOverlay({ mode, session: _session }: { mode: BroadcastMode; session?: SessionData | null }) {
   const overlayPulse = useSharedValue(0);
   
   useEffect(() => {
@@ -280,7 +269,7 @@ export function CenterCourtArena({
   const sessionDate = nextSession?.date ? new Date(nextSession.date) : null;
   const showCountdown = (mode === "pre_game" || mode === "on_air") && sessionDate;
 
-  const dynamicTitle = nextSession?.type 
+  const _dynamicTitle = nextSession?.type 
     ? `${copy.title.replace("CENTER COURT", "")} ${nextSession.type.toUpperCase()}`
     : copy.title;
 

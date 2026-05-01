@@ -44,7 +44,7 @@ interface HistoryMatch {
   opponents: { id: string; name: string }[];
 }
 
-function MatchCard({ match, myId }: { match: HistoryMatch; myId?: string }) {
+function MatchCard({ match, myId: _myId }: { match: HistoryMatch; myId?: string }) {
   const navigation = useNavigation<any>();
   const opponentName = match.isCreator
     ? match.opponents?.[0]?.name || "Unknown"
@@ -101,7 +101,7 @@ function MatchCard({ match, myId }: { match: HistoryMatch; myId?: string }) {
 }
 
 export default function MatchHistoryScreen() {
-  const navigation = useNavigation<any>();
+  const _navigation = useNavigation<any>();
   const route = useRoute<RouteProp<{ MatchHistory: MatchHistoryParams }, "MatchHistory">>();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();

@@ -346,7 +346,7 @@ function SupportSection({
 export function HelpCenterModal({
   visible,
   onClose,
-  role,
+  role: _role,
   faqs,
   glossary,
   tutorials,

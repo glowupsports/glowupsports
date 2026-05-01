@@ -1,27 +1,16 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  Pressable,
-  ScrollView,
-  Dimensions,
-  Platform,
-} from "react-native";
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView, Dimensions } from "react-native";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
+import Animated, { SlideInDown } from "react-native-reanimated";
 
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface CoachProfileDrawerProps {
   visible: boolean;

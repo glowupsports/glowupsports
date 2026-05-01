@@ -1,16 +1,16 @@
-import React, { useState, useMemo, useCallback, useEffect, memo } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
+import React, { useState, useMemo, useCallback, memo } from "react";
+import { View, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { getStaticAssetsUrl, apiFetch, buildPhotoUrl } from "@/lib/query-client";
+import { apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { LockedScreen } from "../components/LockedScreen";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
@@ -234,7 +234,7 @@ const RankingRow = memo(function RankingRow({ player, index, metric }: { player:
   );
 });
 
-function getCategoryScoreDisplay(player: RankedPlayer, category: CategoryKey) {
+function _getCategoryScoreDisplay(player: RankedPlayer, category: CategoryKey) {
   switch (category) {
     case "xp":
       return { value: player.xp?.toLocaleString() || "0", icon: "star", color: Colors.dark.primary };
@@ -251,7 +251,7 @@ function getCategoryScoreDisplay(player: RankedPlayer, category: CategoryKey) {
 
 export default function GlowLeaderboardScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const _navigation = useNavigation();
   const [scope, setScope] = useState<"squad" | "academy" | "country" | "world">("academy");
   const [category, setCategory] = useState<CategoryKey>("xp_weekly");
 
@@ -323,7 +323,7 @@ export default function GlowLeaderboardScreen() {
     () => effectiveData?.rankings?.slice(3) ?? [],
     [effectiveData?.rankings],
   );
-  const currentCat = CATEGORIES.find(c => c.key === category) || CATEGORIES[0];
+  const _currentCat = CATEGORIES.find(c => c.key === category) || CATEGORIES[0];
 
   // Task #1398 — Stable handlers / extractors so the FlatList does not
   // tear down and rebuild its rows on every render of the parent.

@@ -7,22 +7,14 @@ import {
   StyleSheet,
   Dimensions,
 } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withDelay,
-  FadeIn,
-  FadeInUp,
-} from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence, FadeIn, FadeInUp } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 const SLOT_WIDTH = 70;
 const SLOT_HEIGHT = 56;
 
@@ -59,7 +51,7 @@ interface SlotItemProps {
   index: number;
 }
 
-function SlotItem({ slot, courtId, courtName, isSelected, onPress, index }: SlotItemProps) {
+function SlotItem({ slot, courtId: _courtId, courtName: _courtName, isSelected, onPress, index }: SlotItemProps) {
   const scale = useSharedValue(1);
   const glowIntensity = useSharedValue(isSelected ? 1 : 0);
 

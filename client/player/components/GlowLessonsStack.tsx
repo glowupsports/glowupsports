@@ -15,7 +15,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
 
-import { Spacing, BorderRadius, TextColors, GlowColors, Backgrounds, Colors } from "@/constants/theme";
+import { Spacing, BorderRadius, GlowColors, Backgrounds, Colors } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { BALL_LEVEL_ORDER, type BallLevelId } from "@shared/ballLevel";
 
@@ -310,7 +310,7 @@ function LessonCard({
           ) : (
             <Pressable
               style={({ pressed }) => [styles.joinBtn, { backgroundColor: brandAccent }, pressed && { opacity: 0.85 }]}
-              onPress={(e) => {
+              onPress={(_e) => {
                 onJoin(session);
               }}
               disabled={isJoining}
@@ -342,7 +342,7 @@ interface GlowLessonsStackProps {
   inCarousel?: boolean;
 }
 
-export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarousel }: GlowLessonsStackProps) {
+export function GlowLessonsStack({ enrolledSessionId: _enrolledSessionId, fallback, accent, inCarousel }: GlowLessonsStackProps) {
   useThemeReactivity();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
@@ -390,7 +390,7 @@ export function GlowLessonsStack({ enrolledSessionId, fallback, accent, inCarous
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/social?levelFallback=adjacent"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
     },
-    onError: (e: any) => {
+    onError: (_e: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     },
     onSettled: () => setJoiningId(null),

@@ -109,7 +109,7 @@ export function AdminMarkPaidModal({ visible, onClose, selectedPackage, selected
                 value={paymentDate}
                 mode="date"
                 display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(event, selectedDate) => {
+                onChange={(_event, selectedDate) => {
                   if (Platform.OS === "android") setShowDatePicker(false);
                   if (selectedDate) setPaymentDate(selectedDate);
                 }}

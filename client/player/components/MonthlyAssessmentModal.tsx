@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, getAuthHeaders, getApiUrl } from "@/lib/query-client";
+import { getAuthHeaders, getApiUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 

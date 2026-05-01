@@ -1,16 +1,5 @@
 import React, { useState, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ActivityIndicator,
-  FlatList,
-  Alert,
-  TextInput,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, TextInput } from "react-native";import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import Animated, { 
@@ -208,7 +197,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
   const [sportFilter, setSportFilter] = useState<SportFilter>("all");
   const [expandedDays, setExpandedDays] = useState<Set<number>>(new Set());
   const [searchText, setSearchText] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
+  const [_showSearch, _setShowSearch] = useState(false);
   const queryClient = useQueryClient();
   const { academy } = useCoach();
   const timezone = academy?.timezone || "Asia/Dubai";
@@ -217,7 +206,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
     queryKey: ["/api/coach/series"],
   });
 
-  const migrateMutation = useMutation({
+  const _migrateMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/coach/series/migrate");
       if (!response.ok) {

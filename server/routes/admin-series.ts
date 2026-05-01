@@ -1,34 +1,9 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { Router, Response, NextFunction } from "express";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { storage } from "../storage";
 import { db } from "../db";
-import {
-  sessions,
-  sessionPlayers,
-  sessionFeedback,
-  creditTransactions,
-  players,
-  openMatches,
-  posts as postsTable,
-  users,
-  coaches,
-  courtBookings,
-  academies,
-  sessionRatings,
-  coachReviews,
-  coachReviewStats,
-  seriesPlayers,
-  locations,
-  courts,
-  coachingSeries,
-  bookingRequests,
-  payments,
-  coachFollows,
-  xpTransactions,
-  coachXpTransactions,
-  playerPillarProgress,
-} from "@shared/schema";
+import { sessions, sessionPlayers, sessionFeedback, players, openMatches, posts as postsTable, users, coaches, academies, coachReviews, seriesPlayers, locations, courts, coachingSeries, bookingRequests, payments, coachFollows, xpTransactions, coachXpTransactions, playerPillarProgress } from "@shared/schema";
 import { sendReflectionReminderForSession } from "../pushNotifications";
 import {
   eq,
@@ -59,10 +34,8 @@ import {
   generateToken,
   type AuthenticatedRequest,
 } from "../auth";
-import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-import { awardXP } from "../services/xp-service";
-import { getBalance } from "../services/credit-engine";
-import crypto from "crypto";
+import { apiCache } from "../cache";
+import { awardXP } from "../services/xp-service";import crypto from "crypto";
 import { generateShortInviteCode } from "../utils/inviteCode";
 import { BALL_LEVEL_ORDER } from "@shared/ballLevel";
 
@@ -235,10 +208,10 @@ router.get(
             const dateParam = req.query.date as string | undefined;
             const now = dateParam ? new Date(dateParam) : new Date();
             const DUBAI_OFFSET = 4;
-            const dubaiNow = new Date(
+            const _dubaiNow = new Date(
               now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
             );
-            const nextSession = sessionsGroup.find(
+            const _nextSession = sessionsGroup.find(
               (s) => s.status === "scheduled" && new Date(s.startTime) > now,
             );
 
@@ -1031,7 +1004,7 @@ router.post(
         });
       }
 
-      const updatedSeries = await storage.getCoachingSeriesById(id);
+      const _updatedSeries = await storage.getCoachingSeriesById(id);
       const seriesPlayers = await storage.getSeriesPlayers(id);
 
       res.json({ success: true, players: seriesPlayers });
@@ -1768,7 +1741,7 @@ router.post(
         // Add players if provided (with credit deduction and notifications)
         if (playerIds && Array.isArray(playerIds)) {
           for (const playerId of playerIds) {
-            const player = await storage.getPlayer(playerId, academyId);
+            const _player = await storage.getPlayer(playerId, academyId);
 
             await storage.addPlayerToSession({
               sessionId: session.id,
@@ -2068,7 +2041,7 @@ router.post(
         // Add players with credit deduction and notifications
         if (playerIds && Array.isArray(playerIds)) {
           for (const playerId of playerIds) {
-            const player = await storage.getPlayer(playerId, academyId);
+            const _player = await storage.getPlayer(playerId, academyId);
             await storage.addPlayerToSession({
               sessionId: session.id,
               playerId,
@@ -2437,7 +2410,7 @@ router.get(
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay());
       startOfWeek.setHours(0, 0, 0, 0);
@@ -2616,7 +2589,7 @@ router.get(
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(now.getDate() - 30);
 
@@ -3322,7 +3295,7 @@ router.get(
                   );
                 }
               }
-            } catch (e) {
+            } catch (_e) {
               // Fall back: leave map empty, effectiveType defaults to original
             }
           }
@@ -3337,7 +3310,7 @@ router.get(
               for (const row of rows) {
                 if (row.name) seriesNameById.set(row.id, row.name);
               }
-            } catch (e) {
+            } catch (_e) {
               // Fall back: leave map empty, seriesName defaults to null
             }
           }
@@ -3598,7 +3571,7 @@ router.get(
   "/api/admin/audit-credits",
   authMiddleware,
   requireRole("admin", "platform_owner"),
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (_req: AuthenticatedRequest, res: Response) => {
     try {
       console.log("[CreditAudit] Starting full credit audit...");
 
@@ -3719,7 +3692,7 @@ router.get(
   "/api/platform/dashboard/enhanced",
   authMiddleware,
   requireRole("platform_owner"),
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (_req: AuthenticatedRequest, res: Response) => {
     try {
       const allAcademies = await db.select().from(academies);
       const allPlayers = await db
@@ -4001,7 +3974,7 @@ router.get(
   "/api/platform/users",
   authMiddleware,
   requireRole("platform_owner"),
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (_req: AuthenticatedRequest, res: Response) => {
     try {
       const allUsers = await storage.getAllUsers();
 
@@ -4681,7 +4654,7 @@ router.get(
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const academySessions = await storage.getSessionsByAcademy(
         player.academyId,
       );
@@ -5198,7 +5171,7 @@ router.get(
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
 
@@ -5237,7 +5210,7 @@ router.get(
                 );
               }
             }
-          } catch (e) {}
+          } catch (_e) {}
         }
 
         const filterByAllowedLevels = (allowedLevels: Set<string>) =>
@@ -5445,7 +5418,7 @@ router.get(
             : null;
           const time = new Date(session.startTime);
           const maxPlayers = session.maxPlayers || 6;
-          const currentPlayers = (_spBySession.get(session.id) || []).length;
+          const _currentPlayers = (_spBySession.get(session.id) || []).length;
 
           // Get participants from session_players table (not from session object)
           let participants: {
@@ -5698,7 +5671,7 @@ router.get(
           const dateParam = req.query.date as string | undefined;
           const now = dateParam ? new Date(dateParam) : new Date();
           const DUBAI_OFFSET = 4;
-          const dubaiNow = new Date(
+          const _dubaiNow = new Date(
             now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
           );
           const diffHours = Math.floor(
@@ -5735,7 +5708,7 @@ router.get(
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
 

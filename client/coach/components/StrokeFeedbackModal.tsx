@@ -340,7 +340,7 @@ export default function StrokeFeedbackModal({
               <Text style={styles.sectionTitle}>Beoordeling per slag</Text>
               {selectedStrokes.map((strokeData) => {
                 const strokeInfo = STROKES.find((s) => s.id === strokeData.stroke);
-                const ratingInfo = STROKE_RATINGS.find((r) => r.value === strokeData.rating);
+                const _ratingInfo = STROKE_RATINGS.find((r) => r.value === strokeData.rating);
                 const isNoteExpanded = expandedStrokeNote === strokeData.stroke;
 
                 return (

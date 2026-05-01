@@ -18,7 +18,7 @@ import Animated, {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Spacing, BorderRadius, GlowColors, Backgrounds, TextColors, Colors, getPlayerLevelColor } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
-import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { buildPhotoUrl } from "@/lib/query-client";
 import { isRTL } from "@/i18n";
 import { formatCredits } from "@/lib/dateUtils";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
@@ -68,8 +68,8 @@ export function ProPlayerCard({
   onWalletPress,
   onSquadPress,
   showSquadSwitch = false,
-  onNotificationPress,
-  unreadNotificationCount = 0,
+  onNotificationPress: _onNotificationPress,
+  unreadNotificationCount: _unreadNotificationCount = 0,
 }: ProPlayerCardProps) {
   const { t, i18n: i18nInstance } = useTranslation();
   const navigation = useNavigation<any>();

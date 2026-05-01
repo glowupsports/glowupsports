@@ -15,7 +15,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
@@ -180,7 +180,7 @@ export default function MyCourtBookingsScreen() {
     }
   };
 
-  const getPartnerIcon = (partnerType?: string) => {
+  const _getPartnerIcon = (partnerType?: string) => {
     switch (partnerType) {
       case "friend": return "people";
       case "guest": return "person-add";
@@ -190,7 +190,7 @@ export default function MyCourtBookingsScreen() {
     }
   };
 
-  const getPartnerColor = (partnerType?: string) => {
+  const _getPartnerColor = (partnerType?: string) => {
     switch (partnerType) {
       case "friend": return Colors.dark.primary;
       case "guest": return Colors.dark.primaryGlow;

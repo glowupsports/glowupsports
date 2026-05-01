@@ -1,16 +1,7 @@
 import { Router, Response } from "express";
 import { db } from "../db";
-import { 
-  lessonTemplates, 
-  drillBlocks, 
-  sessionPlans, 
-  sessions,
-  playerBallLevels,
-  ballLevels,
-  players,
-  sessionPlayers,
-} from "../../shared/schema";
-import { eq, and, sql, inArray, desc, isNull, or } from "drizzle-orm";
+import { lessonTemplates, drillBlocks, sessionPlans, sessions, playerBallLevels, sessionPlayers } from "../../shared/schema";
+import { eq, and, sql, inArray, isNull, or } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, validateSessionOwnership } from "../auth";
 import { storage } from "../storage";
 
@@ -340,7 +331,7 @@ router.post("/api/sessions/:sessionId/plan/complete", authMiddleware, requireAca
 });
 
 // Auto-generate plan based on player levels
-async function autoGeneratePlan(sessionId: string, academyId: string): Promise<any[]> {
+async function autoGeneratePlan(sessionId: string, _academyId: string): Promise<any[]> {
   // Get session players
   const [session] = await db
     .select()

@@ -1,13 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ActivityIndicator,
-  ScrollView,
-  Platform,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -59,11 +51,11 @@ interface Coach {
 
 type FilterType = "all" | "active" | "paused" | "ended";
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const DAY_ABBREV = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const _DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const _DAY_ABBREV = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const FLEXIBLE_DAY = -1;
 
-const SESSION_TYPE_COLORS: Record<string, string> = {
+const _SESSION_TYPE_COLORS: Record<string, string> = {
   private: Colors.dark.sessionPrivate,
   semi_private: Colors.dark.sessionSemiPrivate,
   group: Colors.dark.sessionGroup,

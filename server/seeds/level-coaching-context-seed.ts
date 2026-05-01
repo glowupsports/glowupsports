@@ -8,9 +8,7 @@
  * Sources: USTA Player Development, Tennis Australia, KNLTB, ITF, Glow 9→1 rubric
  */
 
-import { db } from "../db";
-import { levelCoachingContext } from "../../shared/schema";
-import { sql } from "drizzle-orm";
+import { db } from "../db";import { sql } from "drizzle-orm";
 
 interface CoachingContextEntry {
   levelId: string;

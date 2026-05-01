@@ -6,21 +6,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { Colors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import type Ionicons from "@expo/vector-icons/Ionicons";
-import type {
-  TabProps,
-  ProgressTrend,
-  EffortLevel,
-  Intensity,
-  Session,
-  SessionPlayer,
-  SkillDomain,
-  SkillChipState,
-  SkillProgress,
-  QuickSignal,
-  SocialIssue,
-  PlayerFeedbackState,
-  DomainImpact,
-} from "../types";
+import type { ProgressTrend, EffortLevel, Intensity, Session, SessionPlayer, SkillDomain, SkillChipState, SkillProgress, QuickSignal, SocialIssue, PlayerFeedbackState, DomainImpact } from "../types";
 
 const FEEDBACK_XP_REWARDS: Record<string, number> = {
   private: 25,

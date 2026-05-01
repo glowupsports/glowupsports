@@ -6,9 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
-import { SPORTS, getSportConfig, getSportDisplayName } from "@shared/sportConfig";
-import { SportBadge, SportSingleSelector } from "@/components/SportBadge";
+import { apiRequest } from "@/lib/query-client";import { SportBadge, SportSingleSelector } from "@/components/SportBadge";
 
 interface Court {
   id: string;

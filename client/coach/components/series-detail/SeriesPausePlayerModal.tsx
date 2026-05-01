@@ -89,7 +89,7 @@ export function SeriesPausePlayerModal({
                         value={pauseFromDate}
                         mode="date"
                         display="default"
-                        onChange={(e, date) => {
+                        onChange={(_e, date) => {
                           setShowPauseFromPicker(false);
                           if (date) {
                             setPauseFromDate(date);
@@ -127,7 +127,7 @@ export function SeriesPausePlayerModal({
                         mode="date"
                         display="default"
                         minimumDate={pauseFromDate}
-                        onChange={(e, date) => {
+                        onChange={(_e, date) => {
                           setShowPauseUntilPicker(false);
                           if (date) setPauseUntilDate(date);
                         }}

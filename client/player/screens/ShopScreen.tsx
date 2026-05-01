@@ -51,7 +51,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   services: "build",
 };
 
-const SHOP_CATEGORIES = [
+const _SHOP_CATEGORIES = [
   { name: "Rackets", slug: "rackets", icon: "tennisball" },
   { name: "Strings & Grips", slug: "strings", icon: "construct" },
   { name: "Shoes", slug: "shoes", icon: "footsteps" },

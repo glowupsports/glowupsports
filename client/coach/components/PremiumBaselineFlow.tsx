@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,26 +13,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withSequence,
-  runOnJS,
-  FadeIn,
-  FadeOut,
-  SlideInRight,
-  SlideOutLeft,
-} from "react-native-reanimated";
+import Animated, { SlideInRight } from "react-native-reanimated";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
-import { BaselineFlowCard, AnimatedCheckbox, ProgressRing } from "./BaselineFlowCard";
-import { PostActionModal } from "@/components/PostActionModal";
-import { AnimatedCheck } from "@/components/AnimatedCheck";
+import { BaselineFlowCard, AnimatedCheckbox, ProgressRing } from "./BaselineFlowCard";import { AnimatedCheck } from "@/components/AnimatedCheck";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Player {
   id: string;
@@ -55,7 +42,7 @@ type PlayerType = "kid" | "adult";
 type BallLevel = "BLUE" | "RED" | "ORANGE" | "GREEN" | "YELLOW";
 type GlowLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
-interface LevelSuggestion {
+interface _LevelSuggestion {
   suggestedLevelId: string;
   suggestedStage: string;
   suggestedRank: number;
@@ -111,7 +98,7 @@ const STAGE_COLORS: Record<string, string> = {
   GLOW: GlowColors.primary,
 };
 
-const OVERRIDE_REASONS = [
+const _OVERRIDE_REASONS = [
   { value: "player_clearly_advanced", label: "Player clearly advanced" },
   { value: "late_starter_athletic", label: "Late starter, athletic" },
   { value: "other_academy", label: "Came from another academy" },
@@ -168,8 +155,8 @@ export function PremiumBaselineFlow({
   const [checkedSkills, setCheckedSkills] = useState<Set<string>>(new Set());
   
   // UI state
-  const [showPostActionModal, setShowPostActionModal] = useState(false);
-  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [_showPostActionModal, setShowPostActionModal] = useState(false);
+  const [_showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   
   // Compute the level ID based on selection
   useEffect(() => {
@@ -181,7 +168,7 @@ export function PremiumBaselineFlow({
   }, [playerType, selectedBallLevel, selectedGlowLevel, selectedSublevel]);
   
   // Fetch level details when we have a confirmed level
-  const { data: levelDetails, isLoading: loadingLevel } = useQuery<LevelDetails>({
+  const { data: levelDetails, isLoading: _loadingLevel } = useQuery<LevelDetails>({
     queryKey: [`/api/glow/levels/${confirmedLevel}`],
     enabled: !!confirmedLevel && step === "requirements",
   });

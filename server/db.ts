@@ -41,7 +41,7 @@ pool.query('SELECT 1').then(async () => {
   try {
     await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS audit_verified_at TIMESTAMP`);
     await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS audit_verified_by VARCHAR`);
-  } catch (e: any) {
+  } catch (_e: any) {
     console.log('[Database] Audit columns already exist or migration skipped');
   }
   try {

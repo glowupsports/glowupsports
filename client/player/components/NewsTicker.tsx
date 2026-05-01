@@ -15,7 +15,7 @@ import Animated, {
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -139,7 +139,7 @@ export function NewsTicker({
     if (link && link !== "#") {
       try {
         await Linking.openURL(link);
-      } catch (error) {
+      } catch (_error) {
         logger.log("Could not open link:", link);
       }
     }
@@ -252,7 +252,7 @@ export function NewsCard({ article, style }: NewsCardProps) {
     if (article.link && article.link !== "#") {
       try {
         await Linking.openURL(article.link);
-      } catch (error) {
+      } catch (_error) {
         logger.log("Could not open link");
       }
     }

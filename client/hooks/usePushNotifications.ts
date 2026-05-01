@@ -1,6 +1,6 @@
 import logger from "@/lib/logger";
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -293,7 +293,7 @@ export function usePushNotifications() {
 
     try {
       const url = new URL('/api/push/register', getApiUrl());
-      const response = await apiRequest('POST', url.toString(), {
+      const _response = await apiRequest('POST', url.toString(), {
         token,
         platform: Platform.OS,
         deviceName: `${Device.brand || 'Unknown'} ${Device.modelName || 'Device'}`,

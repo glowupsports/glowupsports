@@ -24,7 +24,7 @@ import {
   userFeedPreferences,
   coachFollows as coachFollowsTable,
 } from "@shared/schema";
-import { eq, sql, and, desc, asc, inArray, notInArray, gte, count, ne, or } from "drizzle-orm";
+import { eq, sql, and, asc, inArray, notInArray, gte, count, ne, or } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireFeatureUnlock,
@@ -54,7 +54,7 @@ interface AuthRequest extends Request {
 // Phase 2 — generalised reactions/comments + mentions/notifications
 // =====================================================================
 
-const SYSTEM_FEED_SOURCE_TYPES = new Set([
+const _SYSTEM_FEED_SOURCE_TYPES = new Set([
   "match_result",
   "level_up",
   "quest_complete",
@@ -2732,7 +2732,7 @@ function socialPostUploadHandler(
               }
             }
           }
-        } catch (e) {
+        } catch (_e) {
           // Keep defaults
         }
         
@@ -2758,7 +2758,7 @@ function socialPostUploadHandler(
                   }
                 }
               }
-            } catch (e) {
+            } catch (_e) {
               // Keep null
             }
           }
@@ -3473,7 +3473,7 @@ function socialPostUploadHandler(
               }
             }
           }
-        } catch (e) {
+        } catch (_e) {
           /* keep defaults */
         }
 
@@ -3699,7 +3699,7 @@ function socialPostUploadHandler(
     try {
       const academyId = req.user!.academyId;
       const dateParam = req.query.date as string | undefined;
-      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       
       const openPlayers = await db.select({
         openToPlay: openToPlayTable,
@@ -3806,10 +3806,10 @@ function socialPostUploadHandler(
   // Get social highlights for home screen
   router.get("/api/social/highlights", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.user!.userId;
+      const _userId = req.user!.userId;
       const academyId = req.user!.academyId;
       const dateParam = req.query.date as string | undefined;
-      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
       // Count new moments in last 24h
@@ -4219,9 +4219,7 @@ function socialPostUploadHandler(
           // and ended up with a misaligned `bucket1Distances`, which
           // could produce a wrong cursor anchor and let the next page
           // skip or duplicate rows.)
-          const rawWithDist = sameCountryRanked as Array<
-            DiscoveryRow & { _distance: number | string | null }
-          >;
+          const rawWithDist = sameCountryRanked as (DiscoveryRow & { _distance: number | string | null })[];
           const strippedWithDist = rawWithDist.filter(
             (p) =>
               !!p.id &&

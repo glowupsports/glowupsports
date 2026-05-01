@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import {
   Dimensions,
 } from "react-native";
 import { Image } from "expo-image";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,34 +21,19 @@ import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
-import * as Linking from "expo-linking";
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withTiming,
-  withSequence,
-  interpolate,
-  runOnJS,
-} from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders, buildPhotoUrl } from "@/lib/query-client";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming, withSequence, interpolate } from "react-native-reanimated";
+import { Colors, Spacing, getPlayerLevelColor, getPlayerLevelTextColor } from "@/constants/theme";
+import { apiRequest, getApiUrl, getAuthHeaders, buildPhotoUrl } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useNavigation } from "@react-navigation/native";
-import { formatCredits } from "@/lib/dateUtils";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import PackagesCard from "@/coach/components/PackagesCard";
 import { CoachCreditV2Panel, useV2Enabled } from "./CoachCreditV2Panel";
-import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
 import { PlayerAttendanceSection } from "./PlayerAttendanceSection";
 import { PlayerStrokeFeedbackSection } from "./PlayerStrokeFeedbackSection";
 import { PlayerNotesSection } from "./PlayerNotesSection";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { PlayerMonthlyReportsSection } from "./PlayerMonthlyReportsSection";
-import { GuidedEmptyState } from "@/components/GuidedEmptyState";
-import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
-import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
-import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { JuniorAssessmentFlow } from "@/coach/components/JuniorAssessmentFlow";
 import { ActionSheet } from "@/components/ActionSheet";
@@ -64,7 +48,7 @@ import { styles } from "./playersStyles";
 
 const TAB_BAR_HEIGHT = 80;
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const BALL_LEVELS = ["blue", "red", "orange", "green", "yellow", "glow"];
 
@@ -405,7 +389,7 @@ export function PlayerDetailView({
   const [pillarProgressExpanded, setPillarProgressExpanded] = useState(false);
   const [showRatePlayerSessions, setShowRatePlayerSessions] = useState(false);
   const [selectedSessionForRating, setSelectedSessionForRating] = useState<{ id: string; players: { id: string; name: string; ballLevel?: string | null }[] } | null>(null);
-  const [showDeepAssessment, setShowDeepAssessment] = useState(false);
+  const [_showDeepAssessment, setShowDeepAssessment] = useState(false);
   const [showJuniorAssessment, setShowJuniorAssessment] = useState(false);
   const [lastJuniorAssessmentResult, setLastJuniorAssessmentResult] = useState<JuniorAssessmentResult | null>(null);
   const [showEditPlayer, setShowEditPlayer] = useState(false);
@@ -427,7 +411,7 @@ export function PlayerDetailView({
 
   // Merge player state
   const [showMergeModal, setShowMergeModal] = useState(false);
-  const [mergeTarget, setMergeTarget] = useState<Player | null>(null);
+  const [_mergeTarget, setMergeTarget] = useState<Player | null>(null);
   const [mergeSearch, setMergeSearch] = useState("");
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false);
@@ -818,12 +802,12 @@ export function PlayerDetailView({
     createdAt: string;
     lockedAt: string | null;
   }
-  const { data: baselineData } = useQuery<BaselineData>({
+  const { data: _baselineData } = useQuery<BaselineData>({
     queryKey: [`/api/players/${player.id}/baseline`],
   });
-  const [showResetBaselineConfirm, setShowResetBaselineConfirm] = useState(false);
+  const [_showResetBaselineConfirm, setShowResetBaselineConfirm] = useState(false);
 
-  const resetBaselineMutation = useMutation({
+  const _resetBaselineMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("DELETE", `/api/players/${player.id}/baseline`);
     },
@@ -918,7 +902,7 @@ export function PlayerDetailView({
   }, [attendanceHistoryData, strokeFeedbackData]);
 
   // Calculate level readiness (returns null for max level or invalid level)
-  const levelReadiness = getLevelReadiness(localPlayer.ballLevel, xpData?.totalXp || 0);
+  const _levelReadiness = getLevelReadiness(localPlayer.ballLevel, xpData?.totalXp || 0);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

@@ -288,7 +288,7 @@ export async function dispatchInProcess<T>(
           finish();
         }
       });
-    } catch (err) {
+    } catch (_err) {
       if (!resolved) {
         statusCode = 500;
         finish();

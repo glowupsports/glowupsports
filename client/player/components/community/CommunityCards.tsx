@@ -413,7 +413,7 @@ export function SystemFeedCard({
   currentPlayerId?: string | null;
   onOpenCreateMatch?: (opponentId?: string, opponentName?: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t: _t } = useTranslation();
   const queryClient = useQueryClient();
   const navigation = useNavigation<any>();
   const [showCheerPicker, setShowCheerPicker] = useState(false);

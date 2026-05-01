@@ -7,38 +7,12 @@ import React, {
   useRef,
 } from "react";
 
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Modal,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Dimensions,
-  ScrollView,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, TextInput, ActivityIndicator, Alert, Dimensions, ScrollView } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  interpolate,
-  Extrapolate,
-  runOnJS,
-  FadeIn,
-  FadeOut,
-  SlideInRight,
-  SlideOutLeft,
-} from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, interpolate, runOnJS, FadeIn } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Colors,
@@ -49,25 +23,14 @@ import {
   GlowColors,
 } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
-import {
-  getSportConfig,
-  SPORTS,
-  type Sport,
-  type SportOrMulti,
-} from "@shared/sportConfig";
+import { getSportConfig, type Sport } from "@shared/sportConfig";
 import { SportSingleSelector } from "@/components/SportBadge";
-import {
-  apiRequest,
-  apiFetch,
-  getApiUrl,
-  getStaticAssetsUrl,
-  buildPhotoUrl,
-} from "@/lib/query-client";
+import { apiRequest, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Player {
   id: string;
@@ -225,7 +188,7 @@ const BALL_LEVELS: { value: BallLevel; label: string; color: string }[] = [
   { value: "glow", label: "Glow", color: "#00D4FF" },
 ];
 
-const SKILL_LEVELS: { value: SkillLevel; label: string }[] = [
+const _SKILL_LEVELS: { value: SkillLevel; label: string }[] = [
   { value: 1, label: "Beginner" },
   { value: 2, label: "Intermediate" },
   { value: 3, label: "Advanced" },
@@ -315,7 +278,7 @@ export default function CreateSessionWizard({
   const [flexibleDefaultTime, setFlexibleDefaultTime] = useState<string | null>(
     null,
   );
-  const [showFlexibleCalendar, setShowFlexibleCalendar] = useState(false);
+  const [_showFlexibleCalendar, setShowFlexibleCalendar] = useState(false);
   const [flexibleCalendarMonth, setFlexibleCalendarMonth] = useState(
     new Date(),
   );
@@ -410,7 +373,7 @@ export default function CreateSessionWizard({
   const [notes, setNotes] = useState("");
 
   // Loading states
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [_isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [multiWeekBlockedSlots, setMultiWeekBlockedSlots] = useState<
     Set<string>
   >(new Set());
@@ -2277,7 +2240,7 @@ export default function CreateSessionWizard({
           <View style={styles.pillarsRow}>
             <Text style={styles.pillarsLabel}>Glow Power</Text>
             <View style={styles.pillarsContainer}>
-              {PILLARS.map((pillar, index) => {
+              {PILLARS.map((pillar, _index) => {
                 // Distribute glow power across 6 pillars (0-100 each, max 600 total)
                 const pillarScore = Math.min(100, Math.floor(glowPower / 6));
                 return (
@@ -3384,7 +3347,7 @@ export default function CreateSessionWizard({
                 // Days of the month
                 for (let d = 1; d <= daysInMonth; d++) {
                   const date = new Date(year, month, d);
-                  const isPast = date < today;
+                  const _isPast = date < today;
                   const isSelected =
                     date.toDateString() === selectedDate.toDateString();
                   const isToday = date.toDateString() === today.toDateString();

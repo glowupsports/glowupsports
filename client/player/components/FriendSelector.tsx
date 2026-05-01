@@ -14,7 +14,7 @@ import Animated, { FadeIn, FadeInRight, ZoomIn } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
-import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Friend {

@@ -15,9 +15,7 @@ import {
 } from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, {
   useSharedValue,
@@ -633,7 +631,7 @@ export default function LoginScreen() {
   const isInviteRegisteringRef = useRef(false);
   const [savedAccounts, setSavedAccounts] = useState<SavedAccount[]>([]);
   const [brokenAvatars, setBrokenAvatars] = useState<Record<string, boolean>>({});
-  const [biometryType, setBiometryType] = useState<string | null>(null);
+  const [_biometryType, setBiometryType] = useState<string | null>(null);
 
   const glowRingScale = useSharedValue(1);
   const glowRingOpacity = useSharedValue(0.5);
@@ -786,7 +784,7 @@ export default function LoginScreen() {
       } else {
         Alert.alert("Error", data.error || "Failed to send verification code");
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert("Error", "Failed to send verification code. Please try again.");
     } finally {
       setOtpSending(false);
@@ -848,7 +846,7 @@ export default function LoginScreen() {
           error: data.available ? null : data.error,
           suggestions: data.suggestions || [],
         });
-      } catch (error) {
+      } catch (_error) {
         setUsernameStatus({ checking: false, available: null, error: null, suggestions: [] });
       }
     }, 500);
@@ -1130,7 +1128,7 @@ export default function LoginScreen() {
           Alert.alert("Registration Failed", result.error || "Please try again");
         }
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert("Error", "Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -1183,7 +1181,7 @@ export default function LoginScreen() {
       } else {
         Alert.alert("Registration Failed", result.error || "Please try again");
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert("Error", "Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);

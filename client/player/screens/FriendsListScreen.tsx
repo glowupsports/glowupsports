@@ -7,12 +7,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
-import Animated, { FadeIn, FadeInRight, SlideInRight } from "react-native-reanimated";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
+import Animated, { FadeInRight, SlideInRight } from "react-native-reanimated";
+import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
-import { getStaticAssetsUrl, apiFetch, apiRequest, buildPhotoUrl } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

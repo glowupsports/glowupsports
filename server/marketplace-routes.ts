@@ -4,13 +4,8 @@ import {
   marketplaceListings, marketplaceFavorites, marketplaceMessages, sellerProfiles,
   insertMarketplaceListingSchema, players
 } from "../shared/schema";
-import { eq, and, desc, asc, sql, ne, or, ilike, gte, lte } from "drizzle-orm";
-import { 
-  authMiddlewareWithFreshData as authMiddleware,
-  requireRole, 
-  requireFeatureUnlock,
-  JWTPayload 
-} from "./auth";
+import { eq, and, desc, sql, or, ilike, gte, lte } from "drizzle-orm";
+import { authMiddlewareWithFreshData as authMiddleware, requireFeatureUnlock, JWTPayload } from "./auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";

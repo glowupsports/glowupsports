@@ -6,16 +6,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { SwipeBlocker } from "@/components/SwipeBlocker";
-import Animated, {
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  useSharedValue,
-  interpolateColor,
-  withSpring,
-  Easing,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, withRepeat, withSequence, withTiming, useSharedValue, interpolateColor, Easing } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTabNavigation } from "@/components/TabNavigationContext";
@@ -129,7 +120,7 @@ function AnimatedStakeCard({ icon, text, color, positive = true }: { icon: strin
   );
 }
 
-function NeonBorderGlow({ color, children, style }: { color: string; children: React.ReactNode; style?: any }) {
+function NeonBorderGlow({ color: _color, children, style }: { color: string; children: React.ReactNode; style?: any }) {
   return (
     <View
       style={[
@@ -230,7 +221,7 @@ const gamingStyles = makeReactiveStyles(() => StyleSheet.create({
 }));
 
 export function SessionHeroCard({
-  onCheckIn,
+  onCheckIn: _onCheckIn,
   onCancel,
   onExtend,
   onBookSession,
@@ -826,7 +817,7 @@ export function SessionHeroCard({
       match_live: { accent: "#FF4444", bg: "rgba(255, 68, 68, 0.12)", gradient: "rgba(255, 68, 68, 0.08)" },
       post_match: { accent: "#A855F7", bg: "rgba(168, 85, 247, 0.12)", gradient: "rgba(168, 85, 247, 0.08)" },
     };
-    const { accent: accentColor, bg: accentBg, gradient: gradientStart } = lifecycleColors[challengeLifecycle];
+    const { accent: accentColor, bg: accentBg, gradient: _gradientStart } = lifecycleColors[challengeLifecycle];
 
     const lifecycleIcons: Record<ChallengeLifecycle, string> = {
       incoming: "zap",

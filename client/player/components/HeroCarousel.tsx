@@ -1,17 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  FlatList,
-  Dimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  Platform,
-  Alert,
-  Image as RNImage,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, Dimensions, Platform, Alert, Image as RNImage } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -127,7 +115,7 @@ interface OpenMatchLite {
   };
 }
 
-function getBallLevelColor(level?: string | null): string {
+function _getBallLevelColor(level?: string | null): string {
   const l = (level || "").toLowerCase();
   if (l.includes("blue")) return "#3B82F6";
   if (l.includes("red")) return "#EF4444";
@@ -138,7 +126,7 @@ function getBallLevelColor(level?: string | null): string {
   return GlowColors.primary;
 }
 
-function getInitials(name?: string): string {
+function _getInitials(name?: string): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/);
   return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "?";
@@ -250,7 +238,7 @@ function XpChip({ amount, accent }: { amount: number; accent: string }) {
 // =============================================================================
 // COMPETE LENS
 // =============================================================================
-const COMPETE_ACCENT = FunctionColors.info;
+const _COMPETE_ACCENT = FunctionColors.info;
 
 function CompeteCard() {
   const COMPETE_ACCENT = useCategoryAccent("openMatches", FunctionColors.info);
@@ -375,7 +363,7 @@ function CompeteCard() {
     }
   };
 
-  const goPlayerFinder = () => {
+  const _goPlayerFinder = () => {
     try {
       navigation.navigate("PlayerFinder");
     } catch {
@@ -602,7 +590,7 @@ function CompeteCard() {
 // =============================================================================
 // EVENTS LENS
 // =============================================================================
-const EVENTS_ACCENT = RoleColors.owner;
+const _EVENTS_ACCENT = RoleColors.owner;
 
 function EventsCard() {
   const EVENTS_ACCENT = useCategoryAccent("tournaments", RoleColors.owner);
@@ -1771,7 +1759,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
 }));
 
-const openMatchHeroStyles = makeReactiveStyles(() => StyleSheet.create({
+const _openMatchHeroStyles = makeReactiveStyles(() => StyleSheet.create({
   hostRow: {
     flexDirection: "row",
     alignItems: "center",

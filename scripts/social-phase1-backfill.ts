@@ -16,7 +16,7 @@ import {
   openMatches,
   posts,
 } from "@shared/schema";
-import { and, gte, eq, isNotNull, ne } from "drizzle-orm";
+import { and, gte, eq, isNotNull } from "drizzle-orm";
 import {
   publishMatchResult,
   publishLevelUp,

@@ -14,7 +14,7 @@ import {
   users,
 } from "@shared/schema";
 import { and, eq, gte, lt, inArray, sql, isNotNull } from "drizzle-orm";
-import { mondayOf, aggregatePlayerMatches, sumMatchAgg } from "./routes/leaderboards-extras";
+import { mondayOf, aggregatePlayerMatches } from "./routes/leaderboards-extras";
 
 const WEEKLY_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MIN_MATCHES_FOR_AWARD = 3;

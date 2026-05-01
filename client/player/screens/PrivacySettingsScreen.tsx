@@ -79,7 +79,7 @@ export default function PrivacySettingsScreen({
         onGoBack();
       }
     },
-    onError: (error: Error) => {
+    onError: (_error: Error) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         "Could not save",

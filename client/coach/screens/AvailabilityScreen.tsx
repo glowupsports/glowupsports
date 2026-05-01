@@ -1,16 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Switch,
-  Alert,
-  Platform,
-  Modal,
-  TextInput,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation } from "@react-navigation/native";
@@ -449,7 +438,7 @@ export default function AvailabilityScreen() {
 
         {isExpanded && day.isAvailable ? (
           <View style={styles.dayContent}>
-            {day.timeBlocks.map((block, index) => (
+            {day.timeBlocks.map((block, _index) => (
               <View key={block.id} style={styles.timeBlockRow}>
                 <View style={styles.timeSelector}>
                   <Text style={styles.timeSelectorLabel}>From</Text>

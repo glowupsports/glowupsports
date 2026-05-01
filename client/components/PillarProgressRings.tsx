@@ -1,11 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
-import Svg, { Circle } from "react-native-svg";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
 import type { BallStage } from "@shared/language-switch";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
@@ -175,13 +173,13 @@ function PillarCard({
 
 export default function PillarProgressRings({
   pillars,
-  stage,
-  role = "player",
+  stage: _stage,
+  role: _role = "player",
   onPillarPress,
 }: PillarProgressRingsProps) {
   const screenWidth = Dimensions.get("window").width;
   // Calculate card width for 2-column layout: screen width - horizontal padding (lg * 2) - gap between cards (sm)
-  const cardWidth = (screenWidth - Spacing.lg * 2 - Spacing.sm) / 2;
+  const _cardWidth = (screenWidth - Spacing.lg * 2 - Spacing.sm) / 2;
   
   return (
     <View style={styles.container}>

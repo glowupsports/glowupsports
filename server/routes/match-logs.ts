@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { db } from "../db";
-import { matchLogs, players, sessions, coaches } from "../../shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { matchLogs, players } from "../../shared/schema";
+import { eq, desc } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, validatePlayerOwnership, validateSessionOwnership } from "../auth";
 import { storage } from "../storage";
 import { fireQuestEvent } from "../services/quest-events";

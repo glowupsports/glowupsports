@@ -2,34 +2,8 @@ import { Router } from "express";
 import type { Response } from "express";
 import { db } from "../db";
 import { storage } from "../storage";
-import {
-  coaches,
-  sessions,
-  locations,
-  locationTravelTimes,
-  sessionPlayers,
-  coachingSeries,
-  players,
-  sessionSkillFeedback,
-  bookingRequests,
-  coachSettings,
-  xpTransactions,
-} from "@shared/schema";
-import {
-  eq,
-  and,
-  gte,
-  lte,
-  isNotNull,
-  asc,
-  inArray,
-  isNull,
-  lt,
-  desc,
-  gte as greaterThanOrEqual,
-  count,
-  sql,
-} from "drizzle-orm";
+import { coaches, sessions, locations, locationTravelTimes, sessionPlayers, coachingSeries, players, sessionSkillFeedback, coachSettings, xpTransactions } from "@shared/schema";
+import { eq, and, gte, lte, isNotNull, asc, inArray, isNull, lt, desc, count, sql } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,

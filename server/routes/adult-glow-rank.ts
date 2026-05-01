@@ -15,27 +15,7 @@ import { players, adultGlowMatches, adultSkillAssessments, dssSpeelsterkteThresh
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { fireQuestEvent } from "../services/quest-events";
-import {
-  updateGlowRankAfterMatch,
-  getRankInfo,
-  getAllRanks,
-  getSkillRubric,
-  getSkillRubricsByPillar,
-  getUnlockedSkillGates,
-  mmrToRank,
-  calculateExpectedScore,
-  mmrToDssRating,
-  formatDssRating,
-  getDssBracket,
-  estimateMatchesToNextRank,
-  getRatingTrend,
-  getPlayerRatingStatus,
-  calculateTeamRating,
-  calculateDoublesExpectedScore,
-  updateDoublesRatings,
-  type MatchResult,
-  type PlayerMatchStats,
-} from "../services/glow-rank-engine-adult";
+import { updateGlowRankAfterMatch, getRankInfo, getAllRanks, getSkillRubric, getSkillRubricsByPillar, getUnlockedSkillGates, mmrToRank, calculateExpectedScore, mmrToDssRating, formatDssRating, getDssBracket, estimateMatchesToNextRank, getPlayerRatingStatus, updateDoublesRatings, type MatchResult, type PlayerMatchStats } from "../services/glow-rank-engine-adult";
 import { ADULT_GLOW_RANKS, ADULT_SKILL_RUBRICS, MMR_CONFIG } from "../seeds/adult-glow-rank-seed";
 import { ADULT_LESSON_TEMPLATES, getTemplatesByGoal, getTemplatesByType, selectTemplate } from "../seeds/adult-lesson-templates-seed";
 import { updatePillarProgressFromMatch } from "../services/match-pillar-update";
@@ -1117,9 +1097,9 @@ router.post("/doubles-match", async (req: AuthenticatedRequest, res) => {
       team2Player1Id,
       team2Player2Id,
       team1Won,
-      gamesDiff,
-      setScore,
-      matchType = "friendly",
+      gamesDiff: _gamesDiff,
+      setScore: _setScore,
+      matchType: _matchType = "friendly",
       verification = "self_reported",
     } = req.body;
     
@@ -1293,7 +1273,7 @@ router.get("/simulate-match", async (req, res) => {
 router.get("/leaderboard", async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-    const academyId = req.query.academyId as string;
+    const _academyId = req.query.academyId as string;
     
     let query = db
       .select({

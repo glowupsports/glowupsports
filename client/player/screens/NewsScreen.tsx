@@ -15,26 +15,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
-import { Image } from "expo-image";
-import { BlurView } from "expo-blur";
-import * as WebBrowser from "expo-web-browser";
+import { Image } from "expo-image";import * as WebBrowser from "expo-web-browser";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
-import { Colors, ProTennisColors, Spacing, BorderRadius, GlowColors, Backgrounds } from "@/constants/theme";
+import Animated, { FadeIn, FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+import { Colors, ProTennisColors, Spacing, BorderRadius, Backgrounds } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 const NEWS_SPORT_PREF_KEY = "@news_sport_preference";
 
@@ -319,7 +309,7 @@ function SportFilterChips({
 
 export default function NewsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const _navigation = useNavigation();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSport, setSelectedSport] = useState<SportKey>("tennis");
@@ -366,7 +356,7 @@ export default function NewsScreen() {
     }
   }, []);
 
-  const { data, isLoading, error, refetch } = useQuery<NewsResponse>({
+  const { data, isLoading, error: _error, refetch } = useQuery<NewsResponse>({
     queryKey: ["/api/player/news", selectedSport],
     queryFn: async () => {
       const res = await apiFetch(`/api/player/news?sport=${selectedSport}`);

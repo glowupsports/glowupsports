@@ -1,28 +1,16 @@
 import logger from "@/lib/logger";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Share,
-} from "react-native";
+import { View, StyleSheet, FlatList, Pressable, RefreshControl, Alert, Platform, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
+import Ionicons from "@expo/vector-icons/Ionicons";import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { SkeletonCard } from "@/components/SkeletonLoader";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { LockedScreen } from "../components/LockedScreen";
 import * as Clipboard from "expo-clipboard";
@@ -53,12 +41,7 @@ import {
 
 import { DiscoveryRail } from "../components/community/DiscoveryRail";
 
-import {
-  AchievementShowcase,
-  NewsSection,
-  FriendsSection,
-  GroupsSection,
-} from "../components/community/CommunitySections";
+import { NewsSection, FriendsSection, GroupsSection } from "../components/community/CommunitySections";
 
 import {
   CommentsModal,

@@ -1,12 +1,6 @@
 import React, { ReactNode } from "react";
 import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  WithSpringConfig,
-  interpolateColor,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, WithSpringConfig } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -43,7 +37,7 @@ export function Button({
   variant = "primary",
   haptic = true,
 }: ButtonProps) {
-  const { theme } = useTheme();
+  const { theme: _theme } = useTheme();
   const scale = useSharedValue(1);
   const pressed = useSharedValue(0);
 

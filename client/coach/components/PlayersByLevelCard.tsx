@@ -1,26 +1,11 @@
 import React from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { 
-  FadeIn, 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring,
-  withRepeat,
-  withSequence,
-} from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
-import * as Haptics from "expo-haptics";
-
 interface LevelSummary {
   red: { total: number; levels: { 1: number; 2: number; 3: number } };
   orange: { total: number; levels: { 1: number; 2: number; 3: number } };

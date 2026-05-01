@@ -75,7 +75,7 @@ export default function AdminReportsScreen() {
   const [activeReport, setActiveReport] = useState<ReportType>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [_showMonthPicker, _setShowMonthPicker] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   // Cross-platform alert (uses in-app modal on web, native Alert on iOS/Android)

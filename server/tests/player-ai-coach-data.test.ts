@@ -31,6 +31,11 @@ import express from "express";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 
+// Imported AFTER vi.mock so the route picks up the mocked dispatcher.
+import playerAiCoachDataRouter, {
+  invalidatePlayerAiCoachDataCache,
+} from "../routes/player-ai-coach-data";
+
 // Mock dispatchInProcess BEFORE importing the route. vi.mock is hoisted
 // above the import statements, so the route file's reference to
 // `dispatchInProcess` resolves to our spy.
@@ -38,11 +43,6 @@ const dispatchSpy = vi.fn<(req: any, path: string) => Promise<any>>();
 vi.mock("../lib/in-process-dispatch", () => ({
   dispatchInProcess: (req: any, path: string) => dispatchSpy(req, path),
 }));
-
-// Imported AFTER vi.mock so the route picks up the mocked dispatcher.
-import playerAiCoachDataRouter, {
-  invalidatePlayerAiCoachDataCache,
-} from "../routes/player-ai-coach-data";
 
 interface TestUser {
   userId: string;

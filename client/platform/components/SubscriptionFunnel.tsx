@@ -1,7 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { View, Text, StyleSheet } from "react-native";import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
 const PLATFORM_PURPLE = "#9B59B6";

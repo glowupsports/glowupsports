@@ -35,7 +35,7 @@ import {
 } from "@/player/hooks/useQuests";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 type QuestType = "daily" | "weekly" | "monthly";
 
@@ -356,7 +356,7 @@ function ClaimCelebrationModal({
   );
 }
 
-function ChainProgress({ quests, type }: { quests: Quest[]; type: QuestType }) {
+function ChainProgress({ quests, type: _type }: { quests: Quest[]; type: QuestType }) {
   const completed = quests.filter(q => q.status === "completed" || q.status === "claimed").length;
   const total = quests.length;
   const allDone = completed >= total && total > 0;

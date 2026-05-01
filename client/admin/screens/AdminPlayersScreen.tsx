@@ -18,17 +18,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import * as Clipboard from "expo-clipboard";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
+import * as Clipboard from "expo-clipboard";import { Colors, Spacing, BorderRadius, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
-import { formatCredits } from "@/lib/dateUtils";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import CreditStoreModal from "@/admin/components/CreditStoreModal";
-import { GLOW_UP_TENNIS_LOGO } from "@/admin/components/logoBase64";
-import { styles } from "@/admin/components/players/adminPlayersStyles";
-import { generateAttendanceReportPDF, StatItem, SkillBar } from "@/admin/components/players/AdminPlayerHelpers";
-import { AdminPlayerDetailModal } from "@/admin/components/players/AdminPlayerDetailModal";
+import { formatCredits } from "@/lib/dateUtils";import CreditStoreModal from "@/admin/components/CreditStoreModal";import { styles } from "@/admin/components/players/adminPlayersStyles";import { AdminPlayerDetailModal } from "@/admin/components/players/AdminPlayerDetailModal";
 import { AdminInlinePlayerProfile } from "@/admin/components/players/AdminInlinePlayerProfile";
 import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerModal";
 
@@ -116,9 +108,9 @@ export default function AdminPlayersScreen() {
   const [showMarkPaidModal, setShowMarkPaidModal] = useState(false);
   const [progressExpanded, setProgressExpanded] = useState(false);
   const [selectedPackageForPayment, setSelectedPackageForPayment] = useState<PlayerPackage | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "bank_transfer">("cash");
-  const [paymentDate, setPaymentDate] = useState(new Date());
-  const [showPaymentDatePicker, setShowPaymentDatePicker] = useState(false);
+  const [_paymentMethod, setPaymentMethod] = useState<"cash" | "bank_transfer">("cash");
+  const [_paymentDate, setPaymentDate] = useState(new Date());
+  const [_showPaymentDatePicker, _setShowPaymentDatePicker] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [ballLevelFilter, setBallLevelFilter] = useState<string>("all");
@@ -275,7 +267,7 @@ export default function AdminPlayersScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const openDetailModal = (playerId: string) => {
+  const _openDetailModal = (playerId: string) => {
     togglePlayerExpansion(playerId);
   };
 
@@ -413,7 +405,7 @@ export default function AdminPlayersScreen() {
     }
   };
 
-  const getPaymentStatusColor = (status?: string) => {
+  const _getPaymentStatusColor = (status?: string) => {
     switch (status) {
       case "paid": return Colors.dark.successNeon;
       case "partial": return Colors.dark.orange;
@@ -496,7 +488,7 @@ export default function AdminPlayersScreen() {
     sortBy !== "name_asc",
   ].filter(Boolean).length;
 
-  const getCreditsColor = (remaining?: number, total?: number) => {
+  const _getCreditsColor = (remaining?: number, total?: number) => {
     if (!remaining || !total || total === 0) return Colors.dark.textMuted;
     const ratio = remaining / total;
     if (ratio <= 0.2) return Colors.dark.error;

@@ -13,7 +13,7 @@ import Animated, {
   FadeIn,
   FadeInDown,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -130,8 +130,8 @@ export function BirthdayBanner({ playerName, playerAge }: BirthdayThemeOverlayPr
     opacity: sparkleOpacity.value,
   }));
 
-  const ageText = playerAge ? `${playerAge}th` : "";
-  const ordinalSuffix = playerAge === 1 ? "st" : playerAge === 2 ? "nd" : playerAge === 3 ? "rd" : "th";
+  const _ageText = playerAge ? `${playerAge}th` : "";
+  const _ordinalSuffix = playerAge === 1 ? "st" : playerAge === 2 ? "nd" : playerAge === 3 ? "rd" : "th";
 
   return (
     <Animated.View entering={FadeInDown.duration(600).springify()} style={styles.bannerContainer}>

@@ -8,9 +8,7 @@ import {
   TextStyle,
   Platform,
   ActivityIndicator,
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
+} from "react-native";import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, {
   useSharedValue,
@@ -24,17 +22,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-import {
-  TextColors,
-  GlowColors,
-  FunctionColors,
-  RoleColors,
-  Spacing,
-  BorderRadius,
-  Typography,
-  Shadows,
-  Gradients,
-Backgrounds, } from "@/constants/theme";
+import { TextColors, GlowColors, FunctionColors, RoleColors, Spacing, BorderRadius, Shadows, Backgrounds } from "@/constants/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 

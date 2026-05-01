@@ -1,11 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
-import {
-  authMiddlewareWithFreshData as authMiddleware,
-  requireRole,
-  type AuthenticatedRequest,
-  JWTPayload,
-} from "../auth";
+import { authMiddlewareWithFreshData as authMiddleware, JWTPayload } from "../auth";
 import { filterProfanity } from "../profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
 import { chatRateLimiter } from "../rateLimiter";
@@ -744,7 +739,7 @@ router.get("/api/player/me/conversations/:id/messages", authMiddleware, requireP
     // Task #1320 — Hydrate @mentions for the page in a single batched query
     // so the inbox + bubble UI can highlight mention-only threads without N+1.
     const messageIds = messages.map((m) => m.id).filter(Boolean);
-    const mentionRowsByMessage = new Map<string, Array<{ handle: string; playerId: string | null; coachId: string | null }>>();
+    const mentionRowsByMessage = new Map<string, { handle: string; playerId: string | null; coachId: string | null }[]>();
     if (messageIds.length > 0) {
       try {
         const rows = await db

@@ -57,7 +57,7 @@ interface RoomMessage {
   senderCountry?: string | null;
   senderFlag?: string | null;
   academyName?: string;
-  reactions?: Array<{ id: string; emoji: string; reactorPlayerId: string | null; reactorCoachId: string | null }>;
+  reactions?: { id: string; emoji: string; reactorPlayerId: string | null; reactorCoachId: string | null }[];
   isPinned?: boolean;
   mentions?: MessageMention[];
 }
@@ -225,7 +225,7 @@ export default function ChatRoomScreen() {
     onSuccess: () => Alert.alert("Reported", "Thanks — our team will review."),
   });
 
-  const { data: friendsData } = useQuery<{ friends?: Array<{ id: string; name: string }> }>({
+  const { data: friendsData } = useQuery<{ friends?: { id: string; name: string }[] }>({
     queryKey: ["/api/player/me/friends"],
     staleTime: 60_000,
   });

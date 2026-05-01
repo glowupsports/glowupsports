@@ -13,7 +13,7 @@ import Animated, {
   FadeIn,
   FadeInDown,
 } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors, Backgrounds, TextColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Backgrounds, TextColors } from "@/constants/theme";
 import { useTranslation } from "react-i18next";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

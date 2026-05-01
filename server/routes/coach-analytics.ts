@@ -1,55 +1,9 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Response } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
-  import {
-    eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
-    isNull, isNotNull, or, count, ilike, lte,
-  } from "drizzle-orm";
-  import {
-    authMiddlewareWithFreshData as authMiddleware,
-    requireRole,
-    requireAcademy,
-    requireFeatureUnlock,
-    validatePlayerOwnership,
-    validateCourtOwnership,
-    validateSessionOwnership,
-    validatePackageOwnership,
-    validateNotificationOwnership,
-    type AuthenticatedRequest,
-  } from "../auth";
-  import { z } from "zod";
-  import { fromZodError } from "zod-validation-error";
-  import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
-  import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
-  import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-  import {
-    users, coaches, players, academies, sessions, coachingSeries, seriesPlayers,
-    invoices, payments, sessionPlayers, sessionWaitlist,
-    locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
-    sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
-    coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
-    coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
-    courtAvailability, courtAvailabilitySnapshots,
-    bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    playerBookingPreferences,
-    courtBookings, matchLogs, playerBallLevels,
-    playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
-    levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
-    spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
-    posts as postsTable, postReactions as postReactionsTable,
-    postComments as postCommentsTable, commentLikes as commentLikesTable,
-    communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
-    openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
-    questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
-    dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
-    badges as badgesTable, playerBadges as playerBadgesTable,
-    titles as titlesTable, playerTitles as playerTitlesTable,
-    sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
-    loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
-    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
-    insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema,
-  } from "@shared/schema";
+  import { eq, desc, and, gte } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, requireAcademy, validatePlayerOwnership, type AuthenticatedRequest } from "../auth";
+  import { coachWellnessLogs } from "@shared/schema";
   
   const router = Router();
 
@@ -447,7 +401,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
       try {
         const { id } = req.params;
         const coachId = req.user!.coachId;
-        const academyId = req.user!.academyId!;
+        const _academyId = req.user!.academyId!;
 
         if (id !== coachId) {
           return res.status(403).json({ error: "Access denied" });

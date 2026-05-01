@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from "react";
+import React from "react";
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";

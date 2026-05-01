@@ -1,17 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  TextInput,
-  Image,
-  Platform,
-  Alert,
-  ActivityIndicator,
-  DimensionValue,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Image, Alert, ActivityIndicator, DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps } from "react";
@@ -116,7 +104,7 @@ interface Props {
   onComplete?: () => void;
 }
 
-export default function PlayerDNAWizardScreen({ onComplete }: Props) {
+export default function PlayerDNAWizardScreen({ onComplete: _onComplete }: Props) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<PlayerStackParamList>>();
   const queryClient = useQueryClient();

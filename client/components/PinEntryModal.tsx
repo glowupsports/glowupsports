@@ -13,7 +13,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
@@ -169,7 +169,7 @@ export default function PinEntryModal({
       } else {
         setError(data.error || "Failed to change PIN");
       }
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to change PIN");
     } finally {
       setIsVerifying(false);

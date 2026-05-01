@@ -71,7 +71,7 @@ const TYPE_COLOR: Record<string, string> = {
   private: Colors.dark.orange,
 };
 
-const EXPIRING_SOON_MS = 14 * 24 * 60 * 60 * 1000;
+const _EXPIRING_SOON_MS = 14 * 24 * 60 * 60 * 1000;
 
 function fmtNumber(n: string | number | null | undefined): string {
   const v = Number(n ?? 0);
@@ -79,7 +79,7 @@ function fmtNumber(n: string | number | null | undefined): string {
   return v % 1 === 0 ? v.toFixed(0) : v.toFixed(1);
 }
 
-function fmtDate(iso: string | null | undefined): string {
+function _fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleDateString("en-GB", {
@@ -530,7 +530,7 @@ export function CoachCreditV2Panel({ playerId }: Props) {
     enabled: enabled && showLedger && !!playerId,
   });
 
-  const totalActive = useMemo(() => {
+  const _totalActive = useMemo(() => {
     const b = walletQuery.data?.balance;
     if (!b) return 0;
     return (b.group || 0) + (b.semi_private || 0) + (b.private || 0);

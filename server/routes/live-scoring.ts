@@ -11,7 +11,7 @@
 
 import { Router } from "express";
 import { db } from "../db";
-import { liveMatches, players, adultGlowMatches, playerConnections, coaches } from "@shared/schema";
+import { liveMatches, players, adultGlowMatches, playerConnections } from "@shared/schema";
 import { eq, and, or, desc, inArray, sql } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,

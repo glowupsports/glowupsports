@@ -1,16 +1,8 @@
 import React, { useState, useMemo } from "react";
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-  Platform,
-  FlatList,
-} from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
@@ -321,7 +313,7 @@ function TemplateCard({ template, index }: { template: LessonTemplate; index: nu
   );
 }
 
-function DrillBlockCard({ block, index, color }: { block: DrillBlock; index: number; color: string }) {
+function DrillBlockCard({ block, index, color: _color }: { block: DrillBlock; index: number; color: string }) {
   const [showDetails, setShowDetails] = useState(false);
   const blockConfig = BLOCK_TYPE_CONFIG[block.blockType] || { color: "#7C8290", label: block.blockType };
   

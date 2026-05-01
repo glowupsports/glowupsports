@@ -2375,7 +2375,7 @@ router.post("/api/coach/tournaments/:id/generate-americano-rounds", authMiddlewa
 
     // Insert matches as tournament_matches
     // Each court in each round = 1 match. round label = "Round X", matchOrder = courtNumber
-    const matchDefs = schedule.flatMap(({ round, courts }) =>
+    const _matchDefs = schedule.flatMap(({ round, courts }) =>
       courts.map(court => ({
         tournamentId: id,
         round: `Round ${round}`,

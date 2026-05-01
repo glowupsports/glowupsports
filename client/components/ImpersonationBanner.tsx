@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useAuth } from "@/coach/context/AuthContext";
-import { Colors, Typography, Spacing } from "@/constants/theme";
+import { Typography, Spacing } from "@/constants/theme";
 
 export function ImpersonationBanner() {
   const { isImpersonating, impersonatedAcademyName, stopImpersonation } = useAuth();

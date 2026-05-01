@@ -18,7 +18,7 @@ import Animated, {
   withTiming,
   useSharedValue,
 } from "react-native-reanimated";
-import { Backgrounds, Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
+import { Backgrounds, Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

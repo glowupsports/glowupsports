@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -23,9 +23,9 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, TextColors, Backgrounds } from "@/constants/theme";
+import { Colors, TextColors, Backgrounds } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
-import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload } from "@/lib/useWebSocket";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -2030,7 +2030,7 @@ const QUICK_REACTIONS = ["👍", "❤️", "😂", "🎾", "🔥"];
 function GroupChatTab({
   groupId,
   typeColor,
-  groupName,
+  groupName: _groupName,
 }: {
   groupId: string;
   typeColor: string;

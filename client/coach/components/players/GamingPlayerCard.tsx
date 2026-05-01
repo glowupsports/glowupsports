@@ -1,58 +1,23 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  Image as RNImage,
-  Dimensions,
-} from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable, ActivityIndicator, Modal, Platform, Image as RNImage, Dimensions } from "react-native";
 import { Image } from "expo-image";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
-import * as Linking from "expo-linking";
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring,
-  withTiming,
-  withSequence,
-  interpolate,
-  runOnJS,
-} from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, getApiUrl, getAuthHeaders, buildPhotoUrl } from "@/lib/query-client";
-import { useCoach } from "@/coach/context/CoachContext";
-import { convertUTCTimeToLocal, formatCredits } from "@/lib/dateUtils";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import PackagesCard from "@/coach/components/PackagesCard";
-import QuickBaselineDrawer from "@/coach/components/QuickBaselineDrawer";
-import { GuidedEmptyState } from "@/components/GuidedEmptyState";
-import { PremiumBaselineFlow } from "@/coach/components/PremiumBaselineFlow";
-import { DeepAssessmentDrawer } from "@/coach/components/DeepAssessmentDrawer";
-import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
-import { useTabNavigation } from "@/components/TabNavigationContext";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { Colors, getPlayerLevelColor, getPlayerLevelTextColor } from "@/constants/theme";
+import { buildPhotoUrl } from "@/lib/query-client";
+import { formatCredits } from "@/lib/dateUtils";
 
 import { styles } from "./playersStyles";
 
-const TAB_BAR_HEIGHT = 80;
+const _TAB_BAR_HEIGHT = 80;
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const BALL_LEVELS = ["blue", "red", "orange", "green", "yellow", "glow"];
+const _BALL_LEVELS = ["blue", "red", "orange", "green", "yellow", "glow"];
 
 interface Player {
   id: string;
@@ -87,7 +52,7 @@ interface Player {
   onHoliday?: boolean;
 }
 
-interface PlayerNote {
+interface _PlayerNote {
   id: string;
   playerId: string | null;
   coachId: string | null;
@@ -99,7 +64,7 @@ interface PlayerNote {
   updatedAt: string | null;
 }
 
-interface PlayerXpData {
+interface _PlayerXpData {
   totalXp: number;
   transactions: { id: string; xpAmount: number; source: string; description: string | null; createdAt: string }[];
 }
@@ -121,7 +86,7 @@ type LevelReadiness = {
   xpNeeded: number;
 } | null;
 
-const getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelReadiness => {
+const _getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelReadiness => {
   if (!currentLevel) return null;
   const levelData = LEVEL_THRESHOLDS[currentLevel.toLowerCase() as keyof typeof LEVEL_THRESHOLDS];
   // Return null for max level (Glow) or invalid level - no progress card needed
@@ -141,7 +106,7 @@ const getLevelReadiness = (currentLevel: string | null, totalXp: number): LevelR
   };
 };
 
-const NOTE_CATEGORIES = [
+const _NOTE_CATEGORIES = [
   { value: "technique", label: "Technique", icon: "fitness-outline" as const },
   { value: "mental", label: "Mental", icon: "bulb-outline" as const },
   { value: "physical", label: "Physical", icon: "body-outline" as const },

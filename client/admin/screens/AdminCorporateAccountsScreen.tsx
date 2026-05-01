@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import * as FileSystem from "expo-file-system/legacy";
@@ -157,7 +157,7 @@ export default function AdminCorporateAccountsScreen() {
 
   const sendReportMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/corporate-accounts/${id}/send-report`, {}),
-    onSuccess: (_, id) => {
+    onSuccess: (_, _id) => {
       Alert.alert("Report Sent", "Monthly usage report emailed to the company contact.");
     },
     onError: (error: any) => {
@@ -421,7 +421,7 @@ export default function AdminCorporateAccountsScreen() {
                               Alert.alert("Exported", `CSV saved to cache as ${fileName}`);
                             }
                           }
-                        } catch (err) {
+                        } catch (_err) {
                           Alert.alert("Export failed", "Could not export CSV. Please try again.");
                         } finally {
                           setCsvExporting(false);

@@ -24,7 +24,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInDown, FadeIn, FadeInUp, useAnimatedStyle, useSharedValue, withSpring, withTiming, interpolate } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import PagerView from "react-native-pager-view";
 import { Image as ExpoImage } from "expo-image";
 import {
@@ -38,9 +38,7 @@ import {
   BallLevelColors,
   RoleColors,
 } from "@/constants/theme";
-import { apiRequest, getApiUrl, getAuthHeaders, getStaticAssetsUrl } from "@/lib/query-client";
-import { GuidedEmptyState } from "@/components/GuidedEmptyState";
-import {
+import { apiRequest, getApiUrl, getAuthHeaders, getStaticAssetsUrl } from "@/lib/query-client";import {
   useSport,
   SPORT_DEFINITIONS,
   getSportColor,
@@ -308,7 +306,7 @@ export default function PlayerScheduleScreen() {
   // Subscribe to academy theme revisions so the reactive StyleSheet proxies
   // (Colors.dark.* tokens) refresh when the academy theme switches.
   useAcademyTheme();
-  const track = useTrackFeature();
+  const _track = useTrackFeature();
   const queryClient = useQueryClient();
   const { isMultiSport, activeSports, activeSport, setActiveSport } = useSport();
   const { playerId: profilePlayerId } = usePlayer();
@@ -380,7 +378,7 @@ export default function PlayerScheduleScreen() {
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const baseWeekStart = useMemo(() => startOfWeekMonday(today), [today]);
   const initialWeekIndex = WEEKS_BEHIND;
-  const [weekIndex, setWeekIndex] = useState(initialWeekIndex);
+  const [_weekIndex, setWeekIndex] = useState(initialWeekIndex);
   const pagerRef = useRef<PagerView | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -572,7 +570,7 @@ export default function PlayerScheduleScreen() {
     return () => controller.abort();
   }, [playerLat, playerLng, rawSessions]);
 
-  const attendanceStreak = profileData?.player?.attendanceStreak || 0;
+  const _attendanceStreak = profileData?.player?.attendanceStreak || 0;
 
   const formatLocalDate = (date: Date) => {
     const year = date.getFullYear();
@@ -999,7 +997,7 @@ export default function PlayerScheduleScreen() {
     [itemsByDate, selectedDateStr],
   );
 
-  const nextSessionGlobal = useMemo(
+  const _nextSessionGlobal = useMemo(
     () => allItems.find((i) => i.status === "upcoming"),
     [allItems],
   );

@@ -20,10 +20,10 @@ import {
   playerNotifications,
   accountGraduation,
 } from "@shared/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { daysUntilEighteen } from "./lib/account-graduation";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const _DAY_MS = 24 * 60 * 60 * 1000;
 const TICK_INTERVAL_MS = 60 * 60 * 1000; // re-check hourly so a missed UTC window catches up
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 let lastRunDateKey: string | null = null;

@@ -13,7 +13,7 @@ import {
   UIManager,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Animated, {
   useSharedValue,
@@ -31,7 +31,7 @@ import * as Haptics from "expo-haptics";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import { Colors, ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { buildPhotoUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "@/player/hooks/usePlayerLevel";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 

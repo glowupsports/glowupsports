@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { StyleSheet, View, ViewStyle, StyleProp, ImageStyle } from "react-native";
+import { StyleSheet, View, StyleProp, ImageStyle } from "react-native";
 import { Image, ImageProps, ImageContentFit } from "expo-image";
 import { Colors } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

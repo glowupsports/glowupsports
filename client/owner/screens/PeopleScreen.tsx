@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -54,7 +54,7 @@ function formatCoachRole(role: string): string {
   }
 }
 
-function PersonCard({ id, name, role, status, stats, onPress, onDelete, isDeleting }: PersonCardProps) {
+function PersonCard({ id: _id, name, role, status, stats, onPress, onDelete, isDeleting }: PersonCardProps) {
   const statusColors = {
     active: Colors.dark.primary,
     paused: Colors.dark.orange,
@@ -143,7 +143,7 @@ export default function PeopleScreen() {
     queryKey: ["/api/owner/people"],
   });
 
-  const deleteCoachMutation = useMutation({
+  const _deleteCoachMutation = useMutation({
     mutationFn: async (coachId: string) => {
       return apiRequest("DELETE", `/api/owner/coaches/${coachId}`);
     },
@@ -315,7 +315,7 @@ export default function PeopleScreen() {
       // Now delete the coach
       setRemovalStep("deleting");
       await permanentDeleteCoachMutation.mutateAsync(coachToRemove.id);
-    } catch (error) {
+    } catch (_error) {
       setRemovalStep("has_sessions");
     }
   };

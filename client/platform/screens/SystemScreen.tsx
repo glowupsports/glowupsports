@@ -25,7 +25,7 @@ interface SettingRowProps {
   onPress?: () => void;
 }
 
-function SettingRow({ icon, label, description, color = Colors.dark.textMuted, danger, onPress }: SettingRowProps) {
+function SettingRow({ icon, label, description, color: _color = Colors.dark.textMuted, danger, onPress }: SettingRowProps) {
   return (
     <Pressable 
       style={styles.settingRow}
@@ -182,7 +182,7 @@ export default function SystemScreen() {
   const isMaintenanceOn = maintenanceStatus?.maintenance ?? false;
 
   const handleMaintenanceToggle = (enabled: boolean) => {
-    const action = enabled ? "enable" : "disable";
+    const _action = enabled ? "enable" : "disable";
     const message = enabled 
       ? "This will temporarily disable platform access for all users (except platform owners)."
       : "This will restore platform access for all users.";

@@ -17,7 +17,7 @@ const APP_MODE_KEY = "@app_mode";
 export function AppModeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<AppMode>("coach");
   const [availableModes, setAvailableModesState] = useState<AppMode[]>(["coach"]);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [_isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     loadMode();

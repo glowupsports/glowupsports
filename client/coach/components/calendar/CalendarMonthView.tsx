@@ -190,7 +190,7 @@ export function CalendarMonthView({
           const stats = getDayStats(selectedDate);
           const daySessions = getSessionsForDate(selectedDate);
 
-          const hasAvailability = (() => {
+          const _hasAvailability = (() => {
             for (let hour = 8; hour < 22; hour++) {
               const slotStart = new Date(selectedDate);
               slotStart.setHours(hour, 0, 0, 0);

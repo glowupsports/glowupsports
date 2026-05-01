@@ -211,7 +211,7 @@ export default function AdminSubscriptionsScreen() {
 
   const activeSubscriptions = subscriptions.filter(s => s.status === "active");
   const pausedSubscriptions = subscriptions.filter(s => s.status === "paused");
-  const cancelledSubscriptions = subscriptions.filter(s => s.status === "cancelled");
+  const _cancelledSubscriptions = subscriptions.filter(s => s.status === "cancelled");
 
   const totalMonthlyRevenue = activeSubscriptions.reduce((sum, sub) => {
     const price = parseFloat(sub.price);

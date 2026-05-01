@@ -9,14 +9,14 @@ import {
   TextInput,
   Alert,
 } from "react-native";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp, FadeOutLeft } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, GlowColors } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
 import { apiRequest } from "@/lib/query-client";
 

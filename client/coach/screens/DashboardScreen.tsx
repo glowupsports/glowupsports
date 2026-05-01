@@ -14,16 +14,7 @@ import {
  Modal, TextInput, KeyboardAvoidingView } from "react-native";
 import * as Location from "expo-location";
 import { Image } from "expo-image";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  withDelay,
-  interpolate,
-  Easing,
-} from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, interpolate, Easing } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -33,9 +24,7 @@ import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
-import MiniTimeline from "@/coach/components/MiniTimeline";
-import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
 import { FreelanceLicenseWizard } from "@/coach/components/FreelanceLicenseWizard";
 import { BurnoutRiskCard } from "@/coach/components/BurnoutRiskCard";
 import { BirthdayOverviewCard } from "@/coach/components/BirthdayOverviewCard";
@@ -44,16 +33,12 @@ import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import { filterSessionsByDate } from "@/lib/dateUtils";
-import { getApiUrl, apiRequest, buildPhotoUrl, getAuthHeaders } from "@/lib/query-client";
-import { NextSessionCountdown } from "@/coach/components/NextSessionCountdown";
-import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
+import { getApiUrl, apiRequest, buildPhotoUrl, getAuthHeaders } from "@/lib/query-client";import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import DaySessionsDrawer from "@/coach/components/DaySessionsDrawer";
 import { IntakeResult } from "@/coach/components/IntakeFlowModal";
 import { useIntakeModal } from "@/coach/context/IntakeModalContext";
-import { useAIModal } from "@/coach/context/AIModalContext";
-import { PlayersByLevelCard } from "@/coach/components/PlayersByLevelCard";
-import { useWebSocket } from "@/lib/useWebSocket";
+import { useAIModal } from "@/coach/context/AIModalContext";import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
 import { CoachInsightsPanel } from "@/coach/components/CoachInsightsPanel";
 import { RosterInsightsCard } from "@/coach/components/RosterInsightsCard";
@@ -2162,11 +2147,11 @@ export default function DashboardScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { navigateToTab } = useTabNavigation();
-  const { coach, academy, calendarData, isLoading, refetchCalendar } = useCoach();
+  const { coach, academy: _academy, calendarData, isLoading: _isLoading, refetchCalendar } = useCoach();
   const { logout } = useAuth();
   const [showStatusPanel, setShowStatusPanel] = useState(false);
   const [showFreelanceWizard, setShowFreelanceWizard] = useState(false);
-  const [sessionsCollapsed, setSessionsCollapsed] = useState(true);
+  const [_sessionsCollapsed, _setSessionsCollapsed] = useState(true);
   const [focusCollapsed, setFocusCollapsed] = useState(false);
   const [energyCollapsed, setEnergyCollapsed] = useState(false);
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
@@ -2178,7 +2163,7 @@ export default function DashboardScreen() {
   // Pending feedback flow: intake → AI chat (runs from dashboard, not SessionDetailDrawer)
   const { openIntake } = useIntakeModal();
   const { openAIChat } = useAIModal();
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [_showWelcome, _setShowWelcome] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [showDaySessions, setShowDaySessions] = useState(false);
   useEffect(() => {
@@ -2347,7 +2332,7 @@ export default function DashboardScreen() {
     transform: [{ scale: interpolate(avatarGlow.value, [0.5, 1], [1, 1.1]) }],
   }));
   const [insightsCollapsed, setInsightsCollapsed] = useState(false);
-  const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+  const [_timelineCollapsed, _setTimelineCollapsed] = useState(false);
   const [alertsCollapsed, setAlertsCollapsed] = useState(false);
 
   const today = new Date();
@@ -2378,7 +2363,7 @@ export default function DashboardScreen() {
     return upcoming[0] || null;
   }, [todaysSessions]);
 
-  const sessionForCountdown = useMemo(() => {
+  const _sessionForCountdown = useMemo(() => {
     const now = new Date();
     
     const liveSession = todaysSessions.find((s) => {
@@ -2526,7 +2511,7 @@ export default function DashboardScreen() {
     try {
       await apiRequest("PATCH", "/api/coach/me/location", { lat, lng });
       lastSentLocationRef.current = { lat, lng, ts: Date.now() };
-    } catch (err) {
+    } catch (_err) {
       // silently ignore location update errors
     }
   }, []);
@@ -2672,14 +2657,14 @@ export default function DashboardScreen() {
     });
   };
 
-  const getGreeting = () => {
+  const _getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return t("coach.dashboard.goodMorning");
     if (hour < 18) return t("coach.dashboard.goodAfternoon");
     return t("coach.dashboard.goodEvening");
   };
 
-  const dayPersonality = useMemo(() => {
+  const _dayPersonality = useMemo(() => {
     const sessionCount = todaysSessions.length;
     const totalMinutes = coachStats.totalMinutes;
     
@@ -2711,7 +2696,7 @@ export default function DashboardScreen() {
     return { label: t("coach.dashboard.heavyDay"), color: Colors.dark.orange };
   }, [selectedDaySessions, t]);
   
-  const selectedDayStats = useMemo(() => {
+  const _selectedDayStats = useMemo(() => {
     const totalMinutes = selectedDaySessions.reduce((acc, s) => acc + s.duration, 0);
     return { sessionCount: selectedDaySessions.length, totalMinutes };
   }, [selectedDaySessions]);
@@ -2843,7 +2828,7 @@ export default function DashboardScreen() {
   const [showRoleSwitchGuide, setShowRoleSwitchGuide] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
-  const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
+  const [celebrationData, _setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
 
   const coachFeatureUsage = useMemo(() => [
     { id: "sessions", name: "Session Management", icon: "calendar", isUsed: true },
@@ -3737,7 +3722,7 @@ export default function DashboardScreen() {
         
         <CoachInsightsPanel 
           insights={coachInsights}
-          onInsightPress={(insight) => {
+          onInsightPress={(_insight) => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }}
         />
@@ -3803,7 +3788,7 @@ export default function DashboardScreen() {
                 />
                 
                 <LoadForecastCard 
-                  onDayPress={(date) => {
+                  onDayPress={(_date) => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     handleNavigate("Calendar");
                   }}

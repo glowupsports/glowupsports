@@ -20,7 +20,7 @@ function isBuiltApp(): boolean {
   return !dev;
 }
 
-function getEnvVar(key: string): string {
+function _getEnvVar(key: string): string {
   // Task #1313 — This is the central env-loader; dynamic access is intentional
   // and validated by the runtime check below. The rule is meant for ad-hoc
   // EXPO_PUBLIC reads in components, not the loader itself.

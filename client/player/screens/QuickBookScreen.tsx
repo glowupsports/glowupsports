@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,19 +13,17 @@ import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Animated, { FadeIn, FadeInDown, SlideInUp, ZoomIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, SlideInUp } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";import * as Haptics from "expo-haptics";
+import { Colors, Spacing, FontSizes } from "@/constants/theme";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
 import { DateRailSelector } from "../components/DateRailSelector";
 import { TimeSlotGrid, CourtRow, TimeSlot } from "../components/TimeSlotGrid";
 import { BookingConfirmationCard } from "../components/BookingConfirmationCard";
 import FriendSelector from "../components/FriendSelector";
-import { apiRequest, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SelectedFriend {
@@ -191,7 +189,7 @@ export default function QuickBookScreen() {
   const splitPrice = bookWithFriends && selectedFriends.length > 0 
     ? totalPrice / (selectedFriends.length + 1) 
     : totalPrice;
-  const currency = selectedSlot?.currency || "AED";
+  const _currency = selectedSlot?.currency || "AED";
 
   const handleToggleBookWithFriends = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

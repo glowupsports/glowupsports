@@ -5,9 +5,7 @@
  * Sources: USTA Player Development, Tennis Australia, KNLTB, ITF, Glow methodology
  */
 
-import { db } from "../db";
-import { drills } from "../../shared/schema";
-import { sql } from "drizzle-orm";
+import { db } from "../db";import { sql } from "drizzle-orm";
 
 interface DrillEntry {
   id: string;

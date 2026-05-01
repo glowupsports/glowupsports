@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, ActivityIndicator, RefreshControl, DimensionValue } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator, RefreshControl, DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -597,10 +597,10 @@ export default function CommandCenterScreen() {
 
   const currency = platformData?.platform?.currency || "$";
 
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [_showWelcome, _setShowWelcome] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
-  const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
+  const [celebrationData, _setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
 
   const platformFeatureUsage = useMemo(() => [
     { id: "command_center", name: "Command Center", icon: "grid", isUsed: true },
@@ -788,7 +788,7 @@ export default function CommandCenterScreen() {
         <AcademyHealthCards
           academies={platformData?.academies || []}
           currency={currency}
-          onAcademyPress={(id) => navigateToTab("Academies")}
+          onAcademyPress={(_id) => navigateToTab("Academies")}
           onViewAll={() => navigateToTab("Academies")}
         />
 

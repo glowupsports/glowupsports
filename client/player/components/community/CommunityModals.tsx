@@ -22,7 +22,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, FadeInDown, SlideInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+import Animated, { FadeIn, SlideInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl, getAuthHeaders } from "@/lib/query-client";
@@ -765,7 +765,7 @@ export function PostDetailModal({ visible, post, onClose, onCheer }: PostDetailM
                       await apiRequest("POST", `/api/social/users/${post.playerId}/block`, {});
                       queryClient.invalidateQueries({ queryKey: ["/api/social/feed"] });
                       setTimeout(() => onClose(), 350);
-                    } catch (err) {
+                    } catch (_err) {
                       Alert.alert("Error", "Failed to block user. Please try again.");
                     }
                   },
@@ -785,7 +785,7 @@ export function PostDetailModal({ visible, post, onClose, onCheer }: PostDetailM
     try {
       await apiRequest("POST", `/api/social/posts/${post.id}/report`, { reason });
       Alert.alert("Report Submitted", "Thank you for helping keep the community safe. We'll review this post.");
-    } catch (err) {
+    } catch (_err) {
       Alert.alert("Error", "Failed to submit report. Please try again.");
     }
   };

@@ -131,11 +131,11 @@ export default function CoachingScreen() {
     );
   }, []);
 
-  const headerGlowStyle = useAnimatedStyle(() => ({
+  const _headerGlowStyle = useAnimatedStyle(() => ({
     opacity: headerPulse.value,
   }));
 
-  const iconPulseStyle = useAnimatedStyle(() => ({
+  const _iconPulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: iconGlow.value }],
   }));
 
@@ -649,7 +649,7 @@ const localStyles = StyleSheet.create({
   },
 });
 
-interface SessionPlayer {
+interface _SessionPlayer {
   id: string;
   playerId: string;
   player: { id: string; name: string; ballLevel: string | null };
@@ -664,7 +664,7 @@ interface SkillProgress {
 type QuickSignal = "focused" | "smart_decisions" | "good_teammate" | "took_initiative" | "showed_respect" | "listened_well" | "fair_play";
 type SocialIssue = "disruptive" | "poor_attitude" | "disrespect";
 
-interface PlayerFeedbackState {
+interface _PlayerFeedbackState {
   playerId: string;
   playerName: string;
   progressTrend: ProgressTrend;
@@ -675,7 +675,7 @@ interface PlayerFeedbackState {
   socialIssue: SocialIssue | null;
 }
 
-interface DomainImpact {
+interface _DomainImpact {
   technical: "up" | "stable" | "down";
   mental: "up" | "stable" | "down";
   physical: "up" | "stable" | "down";

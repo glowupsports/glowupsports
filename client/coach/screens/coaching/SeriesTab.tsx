@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing } from "@/constants/theme";
+import { Spacing } from "@/constants/theme";
 import { CoachingSeriesSection } from "@/coach/components/CoachingSeriesSection";
 import SeriesDetailDrawer from "@/coach/components/SeriesDetailDrawer";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";

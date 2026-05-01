@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useScheduleFocus } from "@/player/context/ScheduleFocusContext";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface UpcomingSessionItem {

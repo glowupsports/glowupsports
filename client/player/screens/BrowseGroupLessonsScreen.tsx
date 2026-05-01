@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Colors, Spacing, getPlayerLevelTextColor, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const BALL_LEVEL_FILTERS = [
@@ -109,10 +109,10 @@ interface GroupSession {
 
 export default function BrowseGroupLessonsScreen() {
   const navigation = useNavigation<any>();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
+  const _headerHeight = useHeaderHeight();
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<GroupSession | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("my_level");
@@ -177,7 +177,7 @@ export default function BrowseGroupLessonsScreen() {
     setSelectedFilter(filterId);
   };
 
-  const renderParticipantAvatar = (participant: Participant, index: number) => {
+  const renderParticipantAvatar = (participant: Participant, _index: number) => {
     const hasPhoto = participant.profilePhotoUrl;
     return (
       <View key={participant.id} style={styles.participantItem}>
@@ -342,7 +342,7 @@ export default function BrowseGroupLessonsScreen() {
               const effectiveMax = session.type === "semi_private" ? Math.min(session.maxPlayers, 2) : session.maxPlayers;
               const spotsLeft = Math.min(session.spotsLeft, effectiveMax - (session.participants?.length || 0));
               const isFull = spotsLeft <= 0;
-              const isEnrolling = enrollingId === session.id;
+              const _isEnrolling = enrollingId === session.id;
               const participantCount = session.participants?.length || 0;
               
               return (

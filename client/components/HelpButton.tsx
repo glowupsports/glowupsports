@@ -3,11 +3,7 @@ import { Pressable, StyleSheet } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import {
-  GlowColors,
-  Spacing,
-  Shadows,
-Colors, } from "@/constants/theme";
+import { GlowColors, Spacing, Shadows } from "@/constants/theme";
 import {
   HelpCenterModal,
   PLATFORM_GLOSSARY,

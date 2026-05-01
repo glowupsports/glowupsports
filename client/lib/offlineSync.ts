@@ -12,10 +12,10 @@
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { apiRequest, getApiUrl } from "./query-client";
+import { apiRequest } from "./query-client";
 
 const OFFLINE_QUEUE_KEY = "coach_offline_queue";
-const SYNC_STATUS_KEY = "coach_sync_status";
+const _SYNC_STATUS_KEY = "coach_sync_status";
 const MAX_RETRIES = 5;
 const BASE_DELAY = 1000;
 

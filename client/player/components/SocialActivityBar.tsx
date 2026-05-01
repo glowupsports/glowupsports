@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { Backgrounds, Spacing, BorderRadius, GlowColors, FunctionColors, TextColors, Colors } from "@/constants/theme";
+import { Backgrounds, Spacing, BorderRadius, FunctionColors, TextColors, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

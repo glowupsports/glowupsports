@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Alert, View, Text, Pressable, StyleSheet, Platform } from "react-native";
+import { Alert, View, Text, Pressable, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useTabNavigation } from "@/components/TabNavigationContext";

@@ -1,23 +1,7 @@
 import { Router, Response } from "express";
 import { db } from "../db";
-import { 
-  ballLevels, 
-  glowSkills, 
-  skillRubrics, 
-  levelSkills, 
-  levelTests,
-  playerBallLevels,
-  playerSkillScores,
-  playerPillarProgress,
-  levelTrials,
-  sessionSkillFeedback,
-  coachCalibration,
-  players,
-  sessions,
-  sessionPlayers,
-  sessionIntakeData,
-} from "../../shared/schema";
-import { eq, and, or, desc, sql, inArray, gte, isNull, notInArray } from "drizzle-orm";
+import { ballLevels, glowSkills, skillRubrics, levelSkills, levelTests, playerBallLevels, playerSkillScores, playerPillarProgress, levelTrials, sessionSkillFeedback, players, sessions, sessionPlayers, sessionIntakeData } from "../../shared/schema";
+import { eq, and, or, desc, sql, inArray, gte, isNull } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy } from "../auth";
 import { awardXP } from "../services/xp-service";
 import { ADULT_GLOW_SKILLS_BY_LEVEL } from "../seeds/adult-glow-skills-seed";
@@ -862,7 +846,7 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
     try {
       const playerTokens = await getPlayerPushTokens(playerId);
       if (playerTokens.length > 0) {
-        const overallLabel = overall === "improved" ? "great progress" : overall === "declined" ? "areas to work on" : "steady progress";
+        const _overallLabel = overall === "improved" ? "great progress" : overall === "declined" ? "areas to work on" : "steady progress";
         await sendPushNotification(
           playerTokens,
           "Coach Feedback Received",
@@ -1438,7 +1422,7 @@ async function processSkillScores(
 router.get("/api/glow/calibration/coach/:coachId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { coachId } = req.params;
-    const academyId = req.user!.academyId;
+    const _academyId = req.user!.academyId;
     
     // Verify coach belongs to academy (optional check, coachId might be current user's coachId)
     // Skip validation for now as coaches table structure may vary

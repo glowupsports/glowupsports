@@ -69,7 +69,7 @@ export default function ParentReportsScreen() {
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(false);
 
-  const { data: reports = [], isLoading, refetch } = useQuery<MonthlyReport[]>({
+  const { data: reports = [], isLoading, refetch: _refetch } = useQuery<MonthlyReport[]>({
     queryKey: ["/api/parent/children", playerId, "reports"],
     queryFn: async () => {
       const url = new URL(`/api/parent/children/${playerId}/reports`, getApiUrl());

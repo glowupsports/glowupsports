@@ -147,14 +147,14 @@ function TopPerformerRow({ name, level, glowScore, ballLevel, rank }: TopPerform
 
 export default function OwnerDashboardScreen() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
   const navigation = useNavigation<NavigationProp>();
   const { navigateToTab } = useTabNavigation();
   const [refreshing, setRefreshing] = useState(false);
   const [showSettingsWalkthrough, setShowSettingsWalkthrough] = useState(false);
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
-  const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
+  const [celebrationData, _setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
   const { data: dashboardData, isLoading, refetch } = useQuery<OwnerBusinessDashboardData>({
     queryKey: ["/api/owner/dashboard/business"],
   });
@@ -454,7 +454,7 @@ export default function OwnerDashboardScreen() {
         <StaffPerformancePanel
           coaches={dashboardData?.staffPerformance || []}
           currency={currency}
-          onCoachPress={(id) => navigateToTab("People")}
+          onCoachPress={(_id) => navigateToTab("People")}
           onViewAll={() => navigateToTab("People")}
         />
 

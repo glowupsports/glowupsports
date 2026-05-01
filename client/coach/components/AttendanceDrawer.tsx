@@ -1,25 +1,12 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Modal,
-  ActivityIndicator,
-  Alert,
-  ScrollView,
-  TextInput,
-  Platform,
-} from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, Modal, ActivityIndicator, Alert, ScrollView, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { invalidatePlayersList } from "@/lib/credit-cache";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
@@ -338,7 +325,7 @@ export default function AttendanceDrawer({
     { value: 999, label: ">30 min" },
   ];
 
-  const absentReasons: { value: AbsentReason; label: string; priority?: boolean }[] = [
+  const _absentReasons: { value: AbsentReason; label: string; priority?: boolean }[] = [
     { value: "no_show", label: "No Show", priority: true },
     { value: "illness", label: "Illness" },
     { value: "injury", label: "Injury" },

@@ -84,7 +84,7 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
   const [callerIsParent, setCallerIsParent] = useState<boolean>(false);
   const [activePlayerId, setActivePlayerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasFetched, setHasFetched] = useState(false);
+  const [_hasFetched, setHasFetched] = useState(false);
   const queryClient = useQueryClient();
   const mountedRef = useRef(true);
 

@@ -3,65 +3,10 @@ import crypto from "crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
   import { db, pool } from "../db";
   import { storage } from "../storage";
-  import {
-    eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
-    isNull, isNotNull, or, count, ilike, lte,
-  } from "drizzle-orm";
-  import {
-    authMiddlewareWithFreshData as authMiddleware,
-    requireRole,
-    requireAcademy,
-    requireFeatureUnlock,
-    validatePlayerOwnership,
-    validateCourtOwnership,
-    validateSessionOwnership,
-    validatePackageOwnership,
-    validateNotificationOwnership,
-    type AuthenticatedRequest,
-  } from "../auth";
+  import { eq, sql, desc, and, gte, inArray, isNull, isNotNull, or, ilike } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, type AuthenticatedRequest } from "../auth";
   import { z } from "zod";
-  import { fromZodError } from "zod-validation-error";
-  import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
-  import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
-  import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-  import {
-    users, coaches, players, academies, sessions, packages, coachingSeries, seriesPlayers,
-    creditTransactions, creditLedgerV2, creditLots, invoices, payments, sessionPlayers, sessionWaitlist,
-    locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
-    sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
-    coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
-    coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
-    courtAvailability, courtAvailabilitySnapshots,
-    bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    playerBookingPreferences,
-    courtBookings, matchLogs, playerCreditPackages, playerBallLevels,
-    playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
-    levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
-    spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
-    posts as postsTable, postReactions as postReactionsTable,
-    postComments as postCommentsTable, commentLikes as commentLikesTable,
-    communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
-    openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
-    questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
-    dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
-    badges as badgesTable, playerBadges as playerBadgesTable,
-    titles as titlesTable, playerTitles as playerTitlesTable,
-    sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
-    loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
-    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
-    insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema,
-    playerProgress, playerSkillState, playerProgressFlags, domainAssessments,
-    playerNotes, joinRequests, bookingRequests, playerSubscriptions,
-    paymentReminders, reviewPrompts, coachReviews, parentPlayerRelations,
-    academyTransferRequests, conversationParticipants, messages, messageReactions,
-    playerMatches, conversations, adultGlowMatches, playerInvites,
-    type InsertAuditLog,
-  } from "@shared/schema";
-  import { awardXP } from "../services/xp-service";
-  import { sendSessionReminderEmail } from "../emailService";
-  import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "../services/invoicePdf";
-  import { getCurrencyForCountry } from "@shared/countries";
+  import { fromZodError } from "zod-validation-error";import { users, players, sessions, coachingSeries, creditLedgerV2, creditLots, invoices, payments, sessionPlayers, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners, type InsertAuditLog } from "@shared/schema";import { getCurrencyForCountry } from "@shared/countries";
   const router = Router();
 
   function toDubaiTime(utcDate: Date): Date {
@@ -74,7 +19,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     // ==================== PLAYER APP API ENDPOINTS ====================
 
   // Middleware to require player role OR allow owners/coaches to view player mode
-  function requirePlayerOrOwner(
+  function _requirePlayerOrOwner(
     req: AuthenticatedRequest,
     res: Response,
     next: NextFunction,
@@ -107,7 +52,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   }
 
   // Helper to get demo player data for owners/coaches viewing player mode
-  function getDemoPlayerData(
+  function _getDemoPlayerData(
     user: AuthenticatedRequest["user"],
     forOnboarding = false,
   ) {
@@ -458,7 +403,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/platform/pending-owner-profiles",
     authMiddleware,
     requireRole("platform_owner"),
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const pendingProfiles = await storage.getAllPendingOwnerProfiles();
 
@@ -802,7 +747,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/platform/dashboard/enhanced",
     authMiddleware,
     requireRole("platform_owner"),
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const academies = await storage.getAllAcademies();
         const allCoaches: any[] = [];
@@ -851,7 +796,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           academies.slice(0, 10).map(async (academy: any) => {
             const players = await storage.getPlayersByAcademy(academy.id);
             const coaches = await storage.getCoachesByAcademy(academy.id);
-            const settings = await storage.getAcademySettings(academy.id);
+            const _settings = await storage.getAcademySettings(academy.id);
 
             const playerMrr = players.reduce(
               (sum: number, p: any) => sum + (p.monthlyRate || 0),
@@ -1360,7 +1305,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const thirtyDaysAgo = new Date(now);
@@ -1460,13 +1405,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         // either present at runtime via joins or treated as undefined for
         // older deployments. Cast through `any` so the route keeps working
         // exactly as before without inventing new schema columns.
-        const academies = (await storage.getAllAcademies()) as Array<
-          Awaited<ReturnType<typeof storage.getAllAcademies>>[number] & {
+        const academies = (await storage.getAllAcademies()) as (Awaited<ReturnType<typeof storage.getAllAcademies>>[number] & {
             isActive?: boolean | null;
             subscriptionStatus?: string | null;
             monthlyRevenue?: number | null;
-          }
-        >;
+          })[];
         const allPlayers: any[] = [];
         const allCoaches: any[] = [];
 
@@ -1486,7 +1429,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const thirtyDaysAgo = new Date(now);
@@ -1721,19 +1664,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const thirtyDaysAgo = new Date(now);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const academies = (await storage.getAllAcademies()) as Array<
-          Awaited<ReturnType<typeof storage.getAllAcademies>>[number] & {
+        const academies = (await storage.getAllAcademies()) as (Awaited<ReturnType<typeof storage.getAllAcademies>>[number] & {
             isActive?: boolean | null;
             subscriptionStatus?: string | null;
             monthlyRevenue?: number | null;
-          }
-        >;
+          })[];
 
         // Calculate MRR from academy monthlyRevenue (already in AED)
         const totalMrr = academies.reduce(
@@ -1862,7 +1803,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/platform/academies",
     authMiddleware,
     requireRole("platform_owner", "admin"),
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const academies = await storage.getAllAcademies();
         res.json(
@@ -2158,7 +2099,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const sevenDaysAgo = new Date(now);
@@ -2260,7 +2201,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   // Public endpoint: Get platform welcome video for onboarding
   router.get(
     "/api/public/platform/welcome-video",
-    async (req: Request, res: Response) => {
+    async (_req: Request, res: Response) => {
       try {
         const config = await storage.getPlatformConfig("welcome_video");
         if (!config || !config.value) {
@@ -2282,7 +2223,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/platform/config",
     authMiddleware,
     requireRole("platform_owner"),
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const configs = await storage.getAllPlatformConfigs();
         res.json(configs);
@@ -2408,7 +2349,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         const oldStatus = await storage.isMaintenanceMode();
-        const config = await storage.setMaintenanceMode(
+        const _config = await storage.setMaintenanceMode(
           enabled,
           req.user?.userId,
         );
@@ -2448,7 +2389,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/platform/xp-config",
     authMiddleware,
     requireRole("platform_owner"),
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const config = await storage.getXpConfig();
         res.json(config);
@@ -2477,7 +2418,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           weeklyCap: weeklyCap ?? oldConfig.weeklyCap,
         };
 
-        const config = await storage.setXpConfig(newConfig, req.user?.userId);
+        const _config = await storage.setXpConfig(newConfig, req.user?.userId);
 
         await storage.createAuditLog({
           academyId: null,
@@ -2506,7 +2447,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/platform/financials",
     authMiddleware,
     requireRole("platform_owner"),
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const academies = await storage.getAllAcademies();
 
@@ -2640,7 +2581,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/admin/players/academy-status",
     authMiddleware,
     requireRole("admin", "platform_owner"),
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         // Get all players with their academyId status
         const allPlayers = await storage.getAllPlayers();
@@ -2880,7 +2821,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     adminRepairLimiter,
     authMiddleware,
     requireRole("admin", "platform_owner"),
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         console.log(
           "[BulkRepair] Starting bulk repair of all player credits...",

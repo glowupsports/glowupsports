@@ -17,14 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import {
-  Spacing,
-  BorderRadius,
-  Colors,
-  GlowColors,
-  TextColors,
-  Backgrounds,
-} from "@/constants/theme";
+import { Spacing, Colors, GlowColors, TextColors, Backgrounds } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
@@ -452,7 +445,7 @@ function ResultModal({ match, participants, onClose, onSubmit }: {
   );
 }
 
-function TournamentList({ onCreatePress, onSelectTournament }: { onCreatePress: () => void; onSelectTournament: (id: string) => void }) {
+function TournamentList({ onCreatePress: _onCreatePress, onSelectTournament }: { onCreatePress: () => void; onSelectTournament: (id: string) => void }) {
   const { data: tournamentList, isLoading, refetch } = useQuery<Tournament[]>({
     queryKey: ["/api/tournaments"],
   });
@@ -612,7 +605,7 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
   const [americanoResultMatch, setAmericanoResultMatch] = useState<TournamentMatch | null>(null);
   const [swapSelection, setSwapSelection] = useState<{ matchId: string; slot: "player1" | "player2"; playerName: string } | null>(null);
 
-  const { data: tournament, isLoading, refetch } = useQuery<TournamentDetail>({
+  const { data: tournament, isLoading, refetch: _refetch } = useQuery<TournamentDetail>({
     queryKey: ["/api/tournaments", tournamentId],
   });
 

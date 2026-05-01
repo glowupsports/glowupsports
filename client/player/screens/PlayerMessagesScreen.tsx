@@ -11,12 +11,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
-import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
-import { getStaticAssetsUrl } from "@/lib/query-client";
-import { EmptyStateCard } from "@/components/EmptyStateCard";
+import Ionicons from "@expo/vector-icons/Ionicons";import * as Haptics from "expo-haptics";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius } from "@/constants/theme";import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { usePlayer } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
 
@@ -50,7 +46,7 @@ interface ChatRoomItem {
 export default function PlayerMessagesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const { isMinor, chatEnabled } = usePlayer();
   const [showSafetyModal, setShowSafetyModal] = useState(isMinor && !hasShownSafetyReminder());

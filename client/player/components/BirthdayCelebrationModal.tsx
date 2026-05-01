@@ -12,7 +12,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, TextColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -34,7 +34,7 @@ export function BirthdayCelebrationModal({
   const opacity = useSharedValue(0);
   const cakeScale = useSharedValue(0);
   const confettiY = useSharedValue(-100);
-  const [showContent, setShowContent] = useState(false);
+  const [_showContent, setShowContent] = useState(false);
 
   useEffect(() => {
     if (visible) {

@@ -127,7 +127,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid, onDelete
           afterShare: () => setHiddenForShare(false),
         });
       }
-    } catch (e) {
+    } catch (_e) {
       // sharePdf handles its own user-facing alerts for print/share failures.
       // Only alert here for the web path.
       if (Platform.OS === "web") {

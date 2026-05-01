@@ -1,38 +1,19 @@
-import React, { useState, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Dimensions,
-  FlatList,
-  Platform,
-  ScrollView,
-  TextInput,
-  Modal,
-} from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, Pressable, Dimensions, ScrollView, TextInput, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, { 
-  FadeIn, 
-  FadeInDown,
-  useAnimatedStyle, 
-  withSpring,
-  interpolate,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
-import { apiRequest, getApiUrl, apiFetch } from "@/lib/query-client";
+import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
+import { apiRequest, apiFetch } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
 import { TshirtSize } from "@shared/schema";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OnboardingData {
   academyId: string | null;
@@ -269,7 +250,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
         setFoundAcademy(result.academy);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-    } catch (error) {
+    } catch (_error) {
       setJoinCodeError("Connection error. Please try again.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
@@ -701,7 +682,7 @@ function DateOfBirthPicker({
   );
 }
 
-function ProfileStep({ data, setData, onNext }: StepProps) {
+function ProfileStep({ data, setData, onNext: _onNext }: StepProps) {
   return (
     <ScrollView 
       style={styles.profileScrollView}
@@ -863,7 +844,7 @@ function ProfileStep({ data, setData, onNext }: StepProps) {
   );
 }
 
-function EnjoymentStep({ data, setData, onNext }: StepProps) {
+function EnjoymentStep({ data, setData, onNext: _onNext }: StepProps) {
   const toggleEnjoyment = (id: string) => {
     setData((prev) => {
       const current = prev.enjoymentTags;
@@ -923,7 +904,7 @@ function EnjoymentStep({ data, setData, onNext }: StepProps) {
   );
 }
 
-function FocusStep({ data, setData, onNext }: StepProps) {
+function FocusStep({ data, setData, onNext: _onNext }: StepProps) {
   const toggleFocus = (id: string) => {
     setData((prev) => {
       const current = prev.focusGoals;
@@ -974,7 +955,7 @@ function FocusStep({ data, setData, onNext }: StepProps) {
   );
 }
 
-function BaselineStep({ data, setData, onNext }: StepProps) {
+function BaselineStep({ data, setData, onNext: _onNext }: StepProps) {
   const toggleConfidence = (id: string) => {
     setData((prev) => {
       const current = prev.selfConfidenceFlags;

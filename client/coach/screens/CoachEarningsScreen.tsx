@@ -13,11 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import Animated, { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withSpring,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
 interface EarningsSummary {
@@ -166,7 +162,7 @@ export default function CoachEarningsScreen() {
     queryKey: ["/api/coach/earnings/history"],
   });
 
-  const { data: analytics, isLoading: loadingAnalytics } = useQuery<Analytics>({
+  const { data: analytics, isLoading: _loadingAnalytics } = useQuery<Analytics>({
     queryKey: ["/api/coach/earnings/analytics"],
     staleTime: 5 * 60 * 1000,
   });

@@ -5,17 +5,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withTiming,
-  runOnJS 
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { apiFetch, getAuthHeaders } from "@/lib/query-client";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { apiFetch } from "@/lib/query-client";
 
 const MAX_DURATION = 10;
 
@@ -25,7 +20,7 @@ export default function EvidenceCaptureScreen() {
   const route = useRoute<any>();
   const cameraRef = useRef<CameraView>(null);
 
-  const { skillTags = [], sessionId, blockId, playerId } = route.params || {};
+  const { skillTags = [], sessionId, blockId: _blockId, playerId } = route.params || {};
 
   const [permission, requestPermission] = useCameraPermissions();
   const [isRecording, setIsRecording] = useState(false);

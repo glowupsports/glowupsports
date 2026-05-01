@@ -16,7 +16,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInRight } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
-import { Colors, Spacing, FontSizes, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import { Card } from "@/components/Card";
 import { CourtBookingPanel } from "@/components/CourtBooking";
 import { apiRequest, getApiUrl, getAuthHeaders, getEffectivePlayerId } from "@/lib/query-client";
@@ -312,7 +312,7 @@ function ChallengeInviteCard({
 
 export default function BookingInvitesScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const _navigation = useNavigation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const playerId = getEffectivePlayerId(user?.playerId);
@@ -523,7 +523,7 @@ export default function BookingInvitesScreen() {
           renderSectionHeader={({ section: { title } }) => (
             <Text style={styles.sectionTitle}>{title}</Text>
           )}
-          keyExtractor={(item, index) =>
+          keyExtractor={(item, _index) =>
             item.type === "challenge" ? `challenge-${item.data.id}` : `invite-${item.data.booking_invite_guests.id}`
           }
           contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}

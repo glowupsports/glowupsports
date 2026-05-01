@@ -1,47 +1,9 @@
-import { Router, Request, Response } from "express";
+import { Router, Response } from "express";
 import { db } from "../db";
 import { storage } from "../storage";
 import { fireQuestEvent } from "../services/quest-events";
-import {
-  eq,
-  sql,
-  desc,
-  and,
-  inArray,
-  isNotNull,
-  gte,
-  lte,
-  ne,
-  asc,
-} from "drizzle-orm";
-import {
-  conversations,
-  messages,
-  coaches,
-  players,
-  academies,
-  levelUpEvents,
-  playerXpEvents,
-  sessions,
-  sessionPlayers,
-  creditTransactions,
-  coachXpTransactions,
-  xpTransactions,
-  playerPillarProgress,
-  sessionSkillObservations,
-  sessionSkillFeedback,
-  sessionPlans,
-  playerSessionCancellations,
-  sessionWaitlist,
-  sessionFeedback,
-  inSessionFeedback,
-  coachingSeries,
-  coachSettings,
-  users,
-  bookingRequests,
-  messageReactions,
-  parentPlayerRelations,
-} from "@shared/schema";
+import { eq, sql, desc, and, inArray, isNotNull, gte } from "drizzle-orm";
+import { conversations, messages, coaches, players, academies, levelUpEvents, playerXpEvents, sessions, sessionPlayers, creditTransactions, coachXpTransactions, xpTransactions, playerPillarProgress, sessionSkillObservations, sessionSkillFeedback, sessionPlans, playerSessionCancellations, sessionWaitlist, inSessionFeedback, coachingSeries, users, bookingRequests, messageReactions, parentPlayerRelations } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireAcademy,
@@ -192,7 +154,7 @@ async function autoCancel(
 router.get(
   "/api/world-chat",
   authMiddleware,
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (_req: AuthenticatedRequest, res: Response) => {
     try {
       // Find existing world chat conversation
       let worldConv = await db
@@ -485,7 +447,7 @@ router.post(
           .json({ error: fromZodError(parsedMsg.error).message });
       }
       const { body, messageType } = parsedMsg.data;
-      const userId = req.user!.userId;
+      const _userId = req.user!.userId;
       const coachId = req.user!.coachId;
       const playerId = req.user!.playerId;
 
@@ -822,7 +784,7 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const coachId = req.user!.coachId;
-      const academyId = req.user!.academyId;
+      const _academyId = req.user!.academyId;
 
       if (!coachId) {
         return res.status(400).json({ error: "Coach ID required" });
@@ -1330,9 +1292,9 @@ router.post(
         isFlexible,
         flexibleDates,
         maxPlayers,
-        isOpenGroup,
-        visibleToPlayers,
-        notes,
+        isOpenGroup: _isOpenGroup,
+        visibleToPlayers: _visibleToPlayers,
+        notes: _notes,
         sport,
         // Task #1033 — Open By Default. New lessons default to publicly listed
         // for cross-academy drop-in unless the coach explicitly opts out.
@@ -1803,7 +1765,7 @@ router.post(
                   sessionId: newSession.id,
                   playerId: pid,
                 });
-              } catch (e) {}
+              } catch (_e) {}
             }
 
             // Send push notifications to added players
@@ -2377,8 +2339,8 @@ router.post(
         notes,
         playerIds,
         maxPlayers,
-        isOpen,
-        visibleToPlayers,
+        isOpen: _isOpen,
+        visibleToPlayers: _visibleToPlayers,
         flexibleSessions, // Array of { date, time, startTime, endTime }
         sport,
         // Task #1033 — Open By Default. Series-level visibility for cross-academy
@@ -3436,7 +3398,7 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const { playerId, isGuest, skipCreditCheck, weeks } = req.body;
+      const { playerId, isGuest, skipCreditCheck: _skipCreditCheck, weeks } = req.body;
       const academyId = req.user!.academyId;
 
       if (!playerId) {
@@ -3490,7 +3452,7 @@ router.post(
             isGuest: isGuest || false,
           });
           results.push({ sessionId, success: true, week: weekNum });
-        } catch (err) {
+        } catch (_err) {
           results.push({
             sessionId,
             success: false,
@@ -3612,7 +3574,7 @@ router.delete(
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       refundResult = await storage.refundCreditsForSession(
         playerId,
         id,
@@ -3763,7 +3725,7 @@ router.post(
 
         // BUSINESS RULE: Absent players ALWAYS get charged (they missed the lesson but it still counts)
         // Only vacation/holiday status skips credit deduction
-        const isPrivateSession =
+        const _isPrivateSession =
           session.sessionType === "private" ||
           session.sessionType === "private_adjusted";
         const chargeablePlayers = req.body.attendance.filter(

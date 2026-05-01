@@ -23,34 +23,21 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
-import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl } from "@/lib/query-client";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/coach/context/AuthContext";
-import {
-  type Achievement,
-  type NewsItem,
-  type Friend,
-  type FriendActivity,
-  type Group,
-  type GroupFilter,
-  type Post,
-  TAB_BAR_HEIGHT,
-  CONTEXT_BADGE_STYLES,
-  CONTEXT_OPTIONS,
-  GROUP_FILTERS,
-  formatTimeAgo,
-} from "./CommunityTypes";
+import { type Achievement, type NewsItem, type Friend, type FriendActivity, type Group, type GroupFilter, type Post, TAB_BAR_HEIGHT, CONTEXT_BADGE_STYLES, GROUP_FILTERS, formatTimeAgo } from "./CommunityTypes";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { SkeletonCard } from "@/components/SkeletonLoader";
 export function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (achievement: Achievement) => void }) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
 
   const { data: achievementsData, isLoading, refetch } = useQuery<{ achievements: Achievement[] }>({
     queryKey: ["/api/player/me/achievements"],
@@ -58,7 +45,7 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
 
   const achievements = achievementsData?.achievements || [];
 
-  const handleShare = async (achievement: Achievement) => {
+  const _handleShare = async (achievement: Achievement) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     const shareMessage = `${achievement.title}\n${achievement.description}\n\nAchieved on Glow Up Tennis`;
@@ -192,7 +179,7 @@ export function AchievementShowcase({ onSelectAchievement }: { onSelectAchieveme
 
 export function NewsSection() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
 
   const { data: newsData, isLoading, refetch } = useQuery<{ articles: NewsItem[] }>({
@@ -301,20 +288,20 @@ export function NewsSection() {
   );
 }
 
-export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?: (friend: Friend) => void; onSelectActivity?: (activity: FriendActivity) => void }) {
+export function FriendsSection({ onChallenge: _onChallenge, onSelectActivity }: { onChallenge?: (friend: Friend) => void; onSelectActivity?: (activity: FriendActivity) => void }) {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const [activeTab, setActiveTab] = useState<"activity" | "friends" | "requests">("activity");
 
-  const { data: friendsData, isLoading, refetch } = useQuery<{ friends: Friend[]; pendingRequests: Friend[] }>({
+  const { data: friendsData, isLoading, refetch: _refetch } = useQuery<{ friends: Friend[]; pendingRequests: Friend[] }>({
     queryKey: ["/api/player/me/friends"],
   });
 
-  const { data: friendsActivityData, isLoading: activityLoading } = useQuery<Post[]>({
+  const { data: friendsActivityData, isLoading: _activityLoading } = useQuery<Post[]>({
     queryKey: ["/api/social/feed", { filter: "friends" }],
     queryFn: async () => {
       const response = await apiFetch("/api/social/feed?filter=friends");
@@ -757,7 +744,7 @@ export function FriendsSection({ onChallenge, onSelectActivity }: { onChallenge?
 export function GroupsSection() {
   const { t } = useTranslation();
   const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets();
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
@@ -883,7 +870,7 @@ export function GroupsSection() {
 
   const renderGroupCard = (group: Group, isDiscoverable = false) => {
     const isJoining = joiningGroupIds.has(group.id);
-    const isMember = group.isMember ?? (group.isJoined !== false);
+    const _isMember = group.isMember ?? (group.isJoined !== false);
 
     return (
       <Animated.View key={group.id} entering={FadeInDown.delay(100).springify()}>

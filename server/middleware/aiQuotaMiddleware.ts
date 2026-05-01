@@ -1,7 +1,7 @@
-import { type Request, type Response, type NextFunction } from "express";
+import { type Response, type NextFunction } from "express";
 import { db } from "../db";
 import { aiUsageLogs } from "@shared/schema";
-import { and, eq, gte, count, isNotNull } from "drizzle-orm";
+import { and, eq, gte, count } from "drizzle-orm";
 import type { AuthenticatedRequest } from "../auth";
 
 const DAILY_LIMITS: Record<string, number> = {
@@ -12,7 +12,7 @@ const DAILY_LIMITS: Record<string, number> = {
   platform_owner: -1,
 };
 
-const NOTIFICATION_DAILY_LIMIT = 500;
+const _NOTIFICATION_DAILY_LIMIT = 500;
 
 function getStartOfDay(): Date {
   const now = new Date();

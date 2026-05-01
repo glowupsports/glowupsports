@@ -9,30 +9,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withDelay,
-  withSequence,
-  withTiming,
-  FadeIn,
-  SlideInUp,
-  Easing,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withDelay, withSequence, withTiming, Easing } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-import {
-  Colors,
-  Spacing,
-  BorderRadius,
-  Typography,
-  GlowColors,
-  TextColors,
-  FunctionColors,
-Backgrounds, } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, GlowColors, TextColors, Backgrounds } from "@/constants/theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface SessionSummaryModalProps {
   visible: boolean;

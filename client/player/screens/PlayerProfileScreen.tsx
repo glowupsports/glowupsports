@@ -15,9 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
-import PinEntryModal from "@/components/PinEntryModal";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { apiRequest, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import PinEntryModal from "@/components/PinEntryModal";import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { SportBadge } from "@/components/SportBadge";
@@ -960,7 +958,7 @@ export default function PlayerProfileScreen() {
     year: "numeric",
   });
 
-  const handleSwitchToCoach = () => {
+  const _handleSwitchToCoach = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setMode("coach");
   };
@@ -1587,7 +1585,7 @@ export default function PlayerProfileScreen() {
                       onPress: async () => {
                         try {
                           await Linking.openSettings();
-                        } catch (e) {
+                        } catch (_e) {
                           // Settings not available
                         }
                       }

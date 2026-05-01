@@ -21,7 +21,7 @@ interface AcademyHubCardProps {
   onBrowsePress?: () => void;
 }
 
-export function AcademyHubCard({ hasAcademy, academyName, onBrowsePress }: AcademyHubCardProps) {
+export function AcademyHubCard({ hasAcademy, academyName: _academyName, onBrowsePress }: AcademyHubCardProps) {
   const navigation = useNavigation<any>();
 
   const { data: joinRequests, isLoading } = useQuery<JoinRequest[]>({

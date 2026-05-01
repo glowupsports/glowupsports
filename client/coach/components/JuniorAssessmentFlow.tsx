@@ -8,21 +8,12 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-} from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
+} from "react-native";import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  Colors,
-  Backgrounds,
-  Spacing,
-  BorderRadius,
-  FontSizes,
-  GlowColors,
-} from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 const NEON_GREEN = "#C8FF3D";

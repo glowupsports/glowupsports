@@ -23,15 +23,8 @@
 import { Router, Response } from "express";
 import { db } from "../db";
 import { storage } from "../storage";
-import {
-  players,
-  users,
-  accountPins,
-  accountPinRecovery,
-  familyMembers,
-  familyGroups,
-} from "@shared/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { users, accountPins, accountPinRecovery, familyMembers, familyGroups } from "@shared/schema";
+import { eq, inArray } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";

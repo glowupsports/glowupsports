@@ -364,7 +364,7 @@ export function NeoTabBar({
   return (
     <View style={styles.tabBarContainer}>
       <View style={styles.tabBarInner}>
-        {tabs.map((tab, index) => {
+        {tabs.map((tab, _index) => {
           const isActive = tab.id === activeTab;
           return (
             <View key={tab.id} style={styles.tabWrapper}>

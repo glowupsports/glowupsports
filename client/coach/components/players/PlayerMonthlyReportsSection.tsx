@@ -1,15 +1,5 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  TextInput,
-  Modal,
-  ScrollView,
-  Platform,
-} from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Alert, TextInput, Modal, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -18,8 +8,6 @@ import * as Sharing from "expo-sharing";
 import { WebView } from "react-native-webview";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getApiUrl, apiRequest, getAuthHeaders } from "@/lib/query-client";
-import { styles } from "./playersStyles";
-
 interface MonthlyReport {
   id: string;
   playerId: string;
@@ -48,7 +36,7 @@ function formatMonthYear(monthYear: string): string {
   return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-function getCurrentMonthYear(): string {
+function _getCurrentMonthYear(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }

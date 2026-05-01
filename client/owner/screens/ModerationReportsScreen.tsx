@@ -85,7 +85,7 @@ function senderLabel(report: ReportItem): string {
 }
 
 export default function ModerationReportsScreen() {
-  const navigation = useNavigation<any>();
+  const _navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();

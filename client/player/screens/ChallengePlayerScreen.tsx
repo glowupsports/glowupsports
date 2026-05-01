@@ -1,29 +1,10 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TextInput,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-  Image,
-} from "react-native";
+import React, { useState, useCallback, useMemo, useEffect , useContext } from "react";
+import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Image } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
-import { useContext } from "react";
-
-// Task #1313 — Safely read tab bar height without violating Rules of Hooks.
-// useBottomTabBarHeight throws when not inside a tab navigator; reading the
-// underlying context returns undefined instead, which we substitute.
-function useBottomTabBarHeightSafe(): number {
-  const value = useContext(BottomTabBarHeightContext);
-  return typeof value === "number" ? value : 80;
-}
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Animated, { FadeInDown, FadeInRight, FadeInLeft } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeInRight } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -34,6 +15,14 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { CourtBookingPicker, CourtBookingValue } from "@/components/CourtBooking";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+
+// Task #1313 — Safely read tab bar height without violating Rules of Hooks.
+// useBottomTabBarHeight throws when not inside a tab navigator; reading the
+// underlying context returns undefined instead, which we substitute.
+function useBottomTabBarHeightSafe(): number {
+  const value = useContext(BottomTabBarHeightContext);
+  return typeof value === "number" ? value : 80;
+}
 type ChallengePlayerParams = {
   ChallengePlayer: {
     opponentId: string;
@@ -53,7 +42,7 @@ const STEPS = ["Match", "Court", "Date & Time", "Confirm"];
 export default function ChallengePlayerScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<ChallengePlayerParams, "ChallengePlayer">>();
-  const insets = useSafeAreaInsets();
+  const _insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   // Task #1313 — useBottomTabBarHeight throws when not inside a tab navigator.

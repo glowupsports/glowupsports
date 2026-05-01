@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView, ActivityIndicator } from "react-native";
-import { Feather } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import { Colors } from "@/constants/theme";
+import { Feather } from "@expo/vector-icons";import { Colors } from "@/constants/theme";
 import { styles } from "./calendarStyles";
 
 type SelectedCell = { hour: number; courtId?: string; date?: string };

@@ -42,7 +42,7 @@ export function ReportIssueModal({ visible, onClose, currentScreen }: ReportIssu
       const remaining = MAX_REPORTS_PER_HOUR - recentReports.length;
       setRemainingReports(remaining);
       setIsRateLimited(remaining <= 0);
-    } catch (e) {
+    } catch (_e) {
       setIsRateLimited(false);
       setRemainingReports(MAX_REPORTS_PER_HOUR);
     }
@@ -56,7 +56,7 @@ export function ReportIssueModal({ visible, onClose, currentScreen }: ReportIssu
       const recentReports = timestamps.filter(t => t > oneHourAgo);
       recentReports.push(Date.now());
       await AsyncStorage.setItem(RATE_LIMIT_KEY, JSON.stringify(recentReports));
-    } catch (e) {
+    } catch (_e) {
     }
   };
 

@@ -21,7 +21,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -123,7 +123,7 @@ export default function BillingScreen() {
     });
   };
 
-  const { data: account, isLoading: accountLoading } = useQuery<BillingAccount>({
+  const { data: _account, isLoading: _accountLoading } = useQuery<BillingAccount>({
     queryKey: ["/api/billing/account"],
   });
 

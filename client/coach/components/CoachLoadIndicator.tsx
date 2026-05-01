@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 
 interface Session {
   id: string;

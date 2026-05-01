@@ -1,36 +1,7 @@
 import { db } from "../db";
 import { eq, and, desc, gte, inArray, count, isNull } from "drizzle-orm";
 import OpenAI from "openai";
-import {
-  inSessionFeedback,
-  sessionSkillFeedback,
-  sessionSkillObservations,
-  sessionPlayers,
-  sessions,
-  players,
-  playerBallLevels,
-  playerSkillScores,
-  glowSkills,
-  levelSkills,
-  sessionAiSummaries,
-  sessionAiBriefs,
-  playerAiInsights,
-  playerBaselineSkillScores,
-  coaches,
-  playerNotes,
-  matchLogs,
-  playerXpEvents,
-  questTemplates,
-  playerQuests as playerQuestsTable,
-  tournamentMatches,
-  playerSessionReflections,
-  playerMonthlyAssessments,
-  playerPillarProgress,
-  playerBaselines,
-  playerAiTrainingPlans,
-  sessionIntakeData,
-  levelCoachingContext,
-} from "@shared/schema";
+import { inSessionFeedback, sessionSkillFeedback, sessionSkillObservations, sessionPlayers, sessions, players, playerBallLevels, playerSkillScores, glowSkills, levelSkills, sessionAiSummaries, playerAiInsights, playerBaselineSkillScores, coaches, playerNotes, matchLogs, playerXpEvents, tournamentMatches, playerSessionReflections, playerMonthlyAssessments, playerPillarProgress, playerBaselines, sessionIntakeData, levelCoachingContext } from "@shared/schema";
 import type { QuestTemplate } from "@shared/schema";
 import { logAiCall } from "../middleware/aiQuotaMiddleware";
 import { getAcademyBudgetState } from "./aiBudgetService";

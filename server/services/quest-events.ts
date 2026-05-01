@@ -4,7 +4,7 @@ import {
   playerQuests as playerQuestsTable,
   dailyQuestSlots as dailyQuestSlotsTable,
 } from "@shared/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { publishQuestComplete } from "./feed-publisher";
 
 export async function fireQuestEvent(

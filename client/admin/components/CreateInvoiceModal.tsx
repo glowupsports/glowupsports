@@ -1,25 +1,13 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  Pressable,
-  TextInput,
-  ScrollView,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  FlatList,
-} from "react-native";
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, ActivityIndicator, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { GLOW_UP_TENNIS_LOGO } from "./logoBase64";
 import { sharePdf, prepareImageUri } from "@/lib/sharePdf";
@@ -1216,7 +1204,7 @@ export default function CreateInvoiceModal({
                     value={issueDate}
                     mode="date"
                     display={Platform.OS === "ios" ? "spinner" : "default"}
-                    onChange={(event, selectedDate) => {
+                    onChange={(_event, selectedDate) => {
                       setShowIssueDatePicker(Platform.OS === "ios");
                       if (selectedDate) setIssueDate(selectedDate);
                     }}
@@ -1228,7 +1216,7 @@ export default function CreateInvoiceModal({
                     value={dueDate}
                     mode="date"
                     display={Platform.OS === "ios" ? "spinner" : "default"}
-                    onChange={(event, selectedDate) => {
+                    onChange={(_event, selectedDate) => {
                       setShowDueDatePicker(Platform.OS === "ios");
                       if (selectedDate) setDueDate(selectedDate);
                     }}

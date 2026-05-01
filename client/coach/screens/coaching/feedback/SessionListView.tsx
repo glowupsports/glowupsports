@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
@@ -16,12 +16,12 @@ export function SessionListView(props: FeedbackTabState) {
   const onScroll = useCoachingScroll();
   const navigation = useNavigation<any>();
   const {
-    viewPeriod, setViewPeriod,
+    viewPeriod, setViewPeriod: _setViewPeriod,
     periodOffset, setPeriodOffset,
     handlePeriodChange,
     statusFilter, setStatusFilter,
     expandedDays, setExpandedDays,
-    selectedSession, setSelectedSession,
+    selectedSession: _selectedSession, setSelectedSession,
     detailSession, setDetailSession,
     showDetailDrawer, setShowDetailDrawer,
     periodStatusCounts,
@@ -308,7 +308,7 @@ export function SessionListView(props: FeedbackTabState) {
                   <View style={styles.dayAccordionContent}>
                     {daySessions.map((session) => {
                       const needsFeedback = session.status !== "completed";
-                      const sessionXp = getSessionXp(session.sessionType);
+                      const _sessionXp = getSessionXp(session.sessionType);
                       const players = session.players || [];
                       
                       const getTypeColor = (type: string) => {

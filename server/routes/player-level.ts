@@ -86,7 +86,7 @@ function calculateLevelFromXp(totalXp: number, dbThresholds: ThresholdRow[]): { 
   return { level: currentLevel, xpUsedByPreviousLevels: cumulativeXp, xpForCurrentLevel: getXpForLevelFormula(currentLevel + 1) };
 }
 
-async function getXpForNextLevel(currentLevel: number): Promise<number> {
+async function _getXpForNextLevel(currentLevel: number): Promise<number> {
   const [threshold] = await db
     .select()
     .from(playerLevelThresholds)
@@ -537,7 +537,7 @@ router.get("/player/:playerId/xp-history", async (req: AuthenticatedRequest, res
 
 // ==================== PLATFORM OWNER: LEVEL THRESHOLDS ====================
 
-router.get("/config/thresholds", async (req: Request, res: Response) => {
+router.get("/config/thresholds", async (_req: Request, res: Response) => {
   try {
     const thresholds = await db
       .select()
@@ -591,7 +591,7 @@ router.put("/config/thresholds/:level", async (req: Request, res: Response) => {
 
 // ==================== PLATFORM OWNER: XP RULES ====================
 
-router.get("/config/xp-rules", async (req: Request, res: Response) => {
+router.get("/config/xp-rules", async (_req: Request, res: Response) => {
   try {
     const rules = await db
       .select()
@@ -649,7 +649,7 @@ router.put("/config/xp-rules/:actionSource", async (req: Request, res: Response)
 
 // ==================== PLATFORM OWNER: FEATURE UNLOCKS ====================
 
-router.get("/config/feature-unlocks", async (req: Request, res: Response) => {
+router.get("/config/feature-unlocks", async (_req: Request, res: Response) => {
   try {
     const features = await db
       .select()
@@ -720,7 +720,7 @@ router.put("/config/feature-unlocks/:featureKey", async (req: Request, res: Resp
 
 // ==================== SEED DEFAULT DATA ====================
 
-router.post("/seed-defaults", async (req: Request, res: Response) => {
+router.post("/seed-defaults", async (_req: Request, res: Response) => {
   try {
     // Seed level thresholds
     const defaultThresholds = [

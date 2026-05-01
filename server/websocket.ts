@@ -47,16 +47,16 @@ interface NewMessagePayload {
     // Task #1320 — Resolved @mentions for the message. Recipients use this
     // to badge mention-only threads in the inbox and to render highlights
     // without a follow-up fetch.
-    mentions?: Array<{
+    mentions?: {
       handle: string;
       playerId: string | null;
       coachId: string | null;
       name?: string;
-    }>;
+    }[];
   };
 }
 
-interface OnlineStatusPayload {
+interface _OnlineStatusPayload {
   coachId?: string;
   playerId?: string;
   isOnline: boolean;
@@ -159,7 +159,7 @@ export function setupWebSocket(server: Server): WebSocketServer {
         payload: { userId: socket.userId, academyId: socket.academyId },
       }));
 
-    } catch (error) {
+    } catch (_error) {
       socket.close(4003, "Invalid token");
       return;
     }

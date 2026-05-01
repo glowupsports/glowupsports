@@ -200,7 +200,7 @@ router.get(
       // their own useQuery on mount. Both are cheap; tennisIq is on the
       // 5-min slow tier, aiProStatus on the route-level 30s tier (quota
       // counters change per call).
-      const userId = req.user!.userId;
+      const _userId = req.user!.userId;
       const [
         dashboardResult,
         profileResult,

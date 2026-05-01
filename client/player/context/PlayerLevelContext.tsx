@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { usePlayerLevel, useMarkCelebrationComplete, PendingCelebration, useFeatureUnlocks } from "../hooks/usePlayerLevel";
+import { usePlayerLevel, PendingCelebration, useFeatureUnlocks } from "../hooks/usePlayerLevel";
 import { LevelUpCelebrationModal } from "../components/LevelUpCelebrationModal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";

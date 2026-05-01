@@ -35,7 +35,7 @@ const getDeviceLanguage = (): LanguageCode => {
         return deviceLang;
       }
     }
-  } catch (e) {}
+  } catch (_e) {}
   return "en";
 };
 

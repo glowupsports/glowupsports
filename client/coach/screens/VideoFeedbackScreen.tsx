@@ -1,17 +1,5 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  FlatList,
-  Modal,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator, Alert, Platform, FlatList, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +8,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent } from "expo";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
+import { Backgrounds, Spacing, BorderRadius, GlowColors, TextColors, FunctionColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -116,7 +104,7 @@ export default function VideoFeedbackScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const queryClient = useQueryClient();
-  const { coach } = useCoach();
+  const { coach: _coach } = useCoach();
 
   const [activeTab, setActiveTab] = useState<Tab>("send");
 

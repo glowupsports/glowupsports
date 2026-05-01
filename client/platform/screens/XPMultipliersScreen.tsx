@@ -6,7 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -123,7 +123,7 @@ export default function XPMultipliersScreen() {
       } else {
         Alert.alert("Success", "XP multipliers saved successfully!");
       }
-    } catch (error) {
+    } catch (_error) {
       setSavingRule(null);
       if (Platform.OS === "web") {
         window.alert("Failed to save XP multipliers");

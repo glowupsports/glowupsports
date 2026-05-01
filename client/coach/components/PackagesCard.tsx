@@ -1,23 +1,10 @@
 import React, { useState, useMemo, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Modal,
-  TextInput,
-  Alert,
-  Platform,
-  ScrollView,
-  LayoutAnimation,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, Alert, Platform, ScrollView, LayoutAnimation } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { invalidatePlayersList } from "@/lib/credit-cache";
 import { formatCredits } from "@/lib/dateUtils";
@@ -163,7 +150,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
   const [creditType, setCreditType] = useState<CreditType>("group");
   const [purchaseDate, setPurchaseDate] = useState(new Date());
   const [isPaid, setIsPaid] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [_showDatePicker, setShowDatePicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [packageToDelete, setPackageToDelete] = useState<Package | null>(null);
   const [showForceDeleteModal, setShowForceDeleteModal] = useState(false);
@@ -212,12 +199,12 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     return found ? Number(found.pricePerSession) : 0;
   }, [pricing, creditType]);
 
-  const currency = useMemo(() => {
+  const _currency = useMemo(() => {
     const found = pricing.find((p) => p.sessionType === creditType);
     return found?.currency || "AED";
   }, [pricing, creditType]);
 
-  const calculatedTotal = useMemo(() => {
+  const _calculatedTotal = useMemo(() => {
     const credits = parseInt(totalCredits, 10);
     if (isNaN(credits) || credits <= 0) return 0;
     return pricePerCredit * credits;
@@ -255,7 +242,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     (p) => p.remainingCredits <= 0 || (p.expiryDate !== null && new Date(p.expiryDate) < new Date())
   );
 
-  const totalRemaining = activePackages.reduce((sum, p) => sum + Math.max(0, p.remainingCredits), 0);
+  const _totalRemaining = activePackages.reduce((sum, p) => sum + Math.max(0, p.remainingCredits), 0);
 
   const creditsByType = useMemo(() => {
     const byType: Record<CreditType, number> = { group: 0, private: 0, semi_private: 0 };
@@ -383,7 +370,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     },
   });
 
-  const handleAddPackage = () => {
+  const _handleAddPackage = () => {
     const credits = parseInt(totalCredits, 10);
     if (isNaN(credits) || credits <= 0) {
       Alert.alert("Error", "Please enter a valid number of credits");
@@ -423,7 +410,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     setExpandedType(null);
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
+  const _handleDateChange = (_event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === "ios");
     if (selectedDate) {
       setPurchaseDate(selectedDate);
@@ -470,7 +457,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     );
   };
 
-  const formatDate = (date: Date) => {
+  const _formatDate = (date: Date) => {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
@@ -487,13 +474,13 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
     }
   };
 
-  const formatExpiryDate = (date: string | null) => {
+  const _formatExpiryDate = (date: string | null) => {
     if (!date) return "No expiry";
     const d = new Date(date);
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
-  const isExpired = (date: string | null) => {
+  const _isExpired = (date: string | null) => {
     if (!date) return false;
     return new Date(date) < new Date();
   };
@@ -892,7 +879,7 @@ export default function PackagesCard({ playerId, playerName }: PackagesCardProps
                           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                         }
                       }
-                    } catch (e) {
+                    } catch (_e) {
                       // Error handled by mutation's onError
                     }
                   }

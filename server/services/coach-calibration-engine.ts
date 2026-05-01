@@ -12,16 +12,11 @@
  */
 
 import { db } from "../db";
-import { 
-  coachCalibration,
-  sessionSkillFeedback,
-  playerSkillScores,
-  coaches,
-} from "../../shared/schema";
-import { eq, and, sql, desc, gte } from "drizzle-orm";
+import { coachCalibration, playerSkillScores, coaches } from "../../shared/schema";
+import { eq, and, sql, gte } from "drizzle-orm";
 
 const ANOMALY_THRESHOLD_STDDEV = 1.0;
-const MIN_OBSERVATIONS_FOR_CALIBRATION = 10;
+const _MIN_OBSERVATIONS_FOR_CALIBRATION = 10;
 const CALIBRATION_LOOKBACK_DAYS = 90;
 
 interface ScoringAnomaly {

@@ -131,7 +131,7 @@ export default function FeatureInterestScreen() {
         await Clipboard.setStringAsync(csv);
         setExportStatus(`Copied ${items.length} rows to clipboard`);
       }
-    } catch (e) {
+    } catch (_e) {
       setExportStatus("Export failed");
     }
   };

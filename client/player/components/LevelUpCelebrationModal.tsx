@@ -2,15 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Modal, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withSequence,
-  withDelay,
-  runOnJS,
-} from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence, withDelay } from "react-native-reanimated";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { PendingCelebration } from "../hooks/usePlayerLevel";
 
@@ -29,7 +22,7 @@ export function LevelUpCelebrationModal({
   const scale = useSharedValue(0.5);
   const opacity = useSharedValue(0);
   const badgeScale = useSharedValue(0);
-  const [showContent, setShowContent] = useState(false);
+  const [_showContent, setShowContent] = useState(false);
 
   useEffect(() => {
     if (visible && celebration) {

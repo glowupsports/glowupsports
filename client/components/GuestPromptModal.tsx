@@ -62,7 +62,7 @@ export function useGuestGuard() {
   const [showPrompt, setShowPrompt] = React.useState(false);
 
   const guardAction = React.useCallback(
-    (action: () => void, customMessage?: string) => {
+    (action: () => void, _customMessage?: string) => {
       if (isGuest) {
         setShowPrompt(true);
         return;

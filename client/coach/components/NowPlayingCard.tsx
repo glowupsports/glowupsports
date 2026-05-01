@@ -211,7 +211,7 @@ export default function NowPlayingCard({
             <Text style={styles.expandedPlayersTitle}>Players ({players.length})</Text>
           </View>
           <View style={styles.playersList}>
-            {players.map((player, index) => (
+            {players.map((player, _index) => (
               <View key={player.id} style={styles.playerItem}>
                 <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel || player.level) }]}>
                   <Text style={styles.playerInitial}>{player.name.charAt(0).toUpperCase()}</Text>

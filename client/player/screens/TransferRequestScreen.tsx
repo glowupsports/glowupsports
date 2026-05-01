@@ -15,7 +15,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
@@ -37,7 +37,7 @@ interface TransferRequest {
   toAcademyName?: string;
 }
 
-interface Academy {
+interface _Academy {
   id: string;
   name: string;
   slug: string;

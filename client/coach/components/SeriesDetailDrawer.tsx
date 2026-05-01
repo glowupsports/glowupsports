@@ -17,21 +17,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { invalidatePlayersList } from "@/lib/credit-cache";
-import { convertUTCTimeToLocal, formatCredits, getTimeInTimezone, getDayOfWeekInTimezone, getLocalDateString } from "@/lib/dateUtils";
+import { convertUTCTimeToLocal, getTimeInTimezone, getDayOfWeekInTimezone, getLocalDateString } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
-import { WebCalendarPicker } from "@/components/WebCalendarPicker";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
 import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { styles } from "./series-detail/seriesDetailStyles";
-import type { PlayerCredits, Player, FeedbackData, ProgressData, SessionInstance, SeriesDetail, SeriesDetailDrawerProps, TabId } from "./series-detail/types";
-import { TABS, DAY_NAMES, SESSION_TYPE_COLORS, BALL_LEVEL_COLORS, getSessionTypeColor, getBallLevelColor, isPlayerActiveForSession } from "./series-detail/utils";
+import type { Player, FeedbackData, ProgressData, SessionInstance, SeriesDetail, SeriesDetailDrawerProps, TabId } from "./series-detail/types";
+import { TABS, DAY_NAMES, getSessionTypeColor, getBallLevelColor, isPlayerActiveForSession } from "./series-detail/utils";
 import { SeriesTimelineTab } from "./series-detail/SeriesTimelineTab";
 import { SeriesFeedbackTab } from "./series-detail/SeriesFeedbackTab";
 import { SeriesProgressTab } from "./series-detail/SeriesProgressTab";
@@ -93,7 +90,7 @@ export default function SeriesDetailDrawer({
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [cancellingSession, setCancellingSession] = useState(false);
   const [deletingSession, setDeletingSession] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [_showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showFeedbackDrawer, setShowFeedbackDrawer] = useState(false);
   const [feedbackSessionId, setFeedbackSessionId] = useState<string | null>(null);
   const [feedbackPlayers, setFeedbackPlayers] = useState<{id: string; name: string}[]>([]);
@@ -314,7 +311,7 @@ export default function SeriesDetailDrawer({
     return acc;
   }, {} as Record<string, CreditPackage[]>);
 
-  const CREDIT_TYPE_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
+  const _CREDIT_TYPE_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
     private: { label: "Private Credits", color: Colors.dark.sessionPrivate, icon: "person" },
     semi: { label: "Semi-Private Credits", color: Colors.dark.sessionSemiPrivate, icon: "people" },
     group: { label: "Group Credits", color: Colors.dark.sessionGroup, icon: "people-circle" },
@@ -1335,7 +1332,7 @@ export default function SeriesDetailDrawer({
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
   const [selectedEndTimeSlot, setSelectedEndTimeSlot] = useState<string | null>(null);
   const [showExtraLessonDatePicker, setShowExtraLessonDatePicker] = useState(false);
-  const [showExtraLessonTimePicker, setShowExtraLessonTimePicker] = useState(false);
+  const [_showExtraLessonTimePicker, _setShowExtraLessonTimePicker] = useState(false);
   const [addingExtraLesson, setAddingExtraLesson] = useState(false);
   
   // Fetch courts for the academy
@@ -1347,7 +1344,7 @@ export default function SeriesDetailDrawer({
   // Fetch sessions for selected court and date to show busy slots
   // Use local date components to avoid UTC date shift (e.g. user picks Jan 2 in Dubai but toISOString gives Jan 1 UTC)
   const dateStr = `${extraLessonDate.getFullYear()}-${String(extraLessonDate.getMonth() + 1).padStart(2, '0')}-${String(extraLessonDate.getDate()).padStart(2, '0')}`;
-  const { data: courtAvailabilityData, isLoading: loadingAvailability } = useQuery<{
+  const { data: courtAvailabilityData, isLoading: _loadingAvailability } = useQuery<{
     courts: any[];
     slots: { courtId: string; courtName: string; time: string; available: boolean }[];
   }>({

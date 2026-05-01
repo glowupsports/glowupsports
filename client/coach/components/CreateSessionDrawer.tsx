@@ -13,14 +13,12 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
-import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { apiRequest, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -581,7 +579,7 @@ export default function CreateSessionDrawer({
     createSessionMutation.mutate(sessionData);
   };
 
-  const formatTime = (date: Date) => {
+  const _formatTime = (date: Date) => {
     return date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
@@ -589,7 +587,7 @@ export default function CreateSessionDrawer({
     });
   };
 
-  const adjustTime = (minutes: number) => {
+  const _adjustTime = (minutes: number) => {
     const newTime = new Date(startTime);
     newTime.setMinutes(newTime.getMinutes() + minutes);
     setStartTime(newTime);

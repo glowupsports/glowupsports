@@ -1,16 +1,6 @@
 import React, { useState } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  FlatList,
-  Modal,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, RefreshControl } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -207,7 +197,7 @@ export default function LadderDetailScreen() {
     },
   });
 
-  const respondMutation = useMutation({
+  const _respondMutation = useMutation({
     mutationFn: ({ challengeId, action }: { challengeId: string; action: "accept" | "decline" }) =>
       apiRequest("POST", `/api/player/ladders/challenges/${challengeId}/respond`, { action }),
     onSuccess: () => {

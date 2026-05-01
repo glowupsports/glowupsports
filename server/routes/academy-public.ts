@@ -1,62 +1,12 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Request, type Response } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
-  import {
-    eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
-    isNull, isNotNull, or, count, ilike, lte,
-  } from "drizzle-orm";
-  import {
-    authMiddlewareWithFreshData as authMiddleware,
-    requireRole,
-    requireAcademy,
-    requireFeatureUnlock,
-    validatePlayerOwnership,
-    validateCourtOwnership,
-    validateSessionOwnership,
-    validatePackageOwnership,
-    validateNotificationOwnership,
-    type AuthenticatedRequest,
-  } from "../auth";
+  import { eq, sql, desc, and, gte, asc, inArray } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, type AuthenticatedRequest } from "../auth";
   import { z } from "zod";
-  import { fromZodError } from "zod-validation-error";
-  import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
-  import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
-  import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-  import {
-    users, coaches, players, academies, sessions, coachingSeries, seriesPlayers,
-    invoices, payments, sessionPlayers, sessionWaitlist,
-    locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
-    sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
-    coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
-    coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
-    courtAvailability, courtAvailabilitySnapshots,
-    bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    playerBookingPreferences,
-    courtBookings, matchLogs, playerBallLevels,
-    playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
-    levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
-    spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
-    posts as postsTable, postReactions as postReactionsTable,
-    postComments as postCommentsTable, commentLikes as commentLikesTable,
-    communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
-    openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
-    questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
-    dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
-    badges as badgesTable, playerBadges as playerBadgesTable,
-    titles as titlesTable, playerTitles as playerTitlesTable,
-    sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
-    coachNotifications,
-    loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
-    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
-    insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema,
-  } from "@shared/schema";
-  import { authLimiter, inviteLimiter } from "../rateLimiter";
-  import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword } from "../auth";
-  import { sendCoachInviteEmail, sendWelcomeEmail } from "../emailService";
-  import { sendSessionConfirmedNotification, sendCoachNotification } from "../pushNotifications";
-  import { getCurrencyForCountry } from "@shared/countries";
-  import crypto from "crypto";
+  import { fromZodError } from "zod-validation-error";import { users, coaches, players, academies, sessions, sessionPlayers, providerInvites, serviceProviders, coachNotifications } from "@shared/schema";
+  import { authLimiter } from "../rateLimiter";
+  import { hashPassword, generateToken, generateRefreshToken, validatePassword } from "../auth";  import { sendCoachNotification } from "../pushNotifications";  import crypto from "crypto";
   import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
     // ==================== COACH INVITES (Academy Owner/Admin) ====================
@@ -522,7 +472,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   );
 
   // Get countries (and cities per country) that have at least one academy — used for location filter UI
-  router.get("/api/academies/browse/countries", async (req: Request, res: Response) => {
+  router.get("/api/academies/browse/countries", async (_req: Request, res: Response) => {
     try {
       const academies = await storage.getAllAcademies();
       const countryMap = new Map<string, Set<string>>();
@@ -1425,7 +1375,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
 
@@ -1633,7 +1583,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
 

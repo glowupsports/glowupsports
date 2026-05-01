@@ -2,7 +2,7 @@ import { db } from "../db";
 import { questTemplates } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
-const TRACKED_ACTIONS = [
+const _TRACKED_ACTIONS = [
   "complete_session",
   "daily_login",
   "give_reaction",

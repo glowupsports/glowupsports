@@ -60,7 +60,7 @@ export function SeriesRemovePlayerModal({ visible, onClose, removeDate, setRemov
                     value={removeDate}
                     mode="date"
                     display="default"
-                    onChange={(e, date) => {
+                    onChange={(_e, date) => {
                       setShowRemoveDatePicker(false);
                       if (date) setRemoveDate(date);
                     }}

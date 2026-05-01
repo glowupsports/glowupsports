@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert, Platform, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -6,7 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, CardStyles } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -64,7 +64,7 @@ export default function FeatureUnlocksScreen() {
           requiredLevel: level,
         });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } catch (error) {
+      } catch (_error) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         if (Platform.OS === "web") {
           window.alert("Failed to update feature unlock level");

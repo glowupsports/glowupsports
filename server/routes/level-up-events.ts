@@ -1,13 +1,7 @@
 import { Router, Response } from "express";
 import { db } from "../db";
-import { 
-  levelUpEvents, 
-  ballLevels, 
-  players, 
-  roleMessageTemplates,
-  levelTrials,
-} from "../../shared/schema";
-import { eq, and, desc, sql, isNull, or } from "drizzle-orm";
+import { levelUpEvents, ballLevels, players, roleMessageTemplates } from "../../shared/schema";
+import { eq, and, desc, isNull, or } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, validatePlayerOwnership } from "../auth";
 import { storage } from "../storage";
 import { publishLevelUp } from "../services/feed-publisher";

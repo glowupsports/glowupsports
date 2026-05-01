@@ -1,18 +1,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db";
-import { 
-  matchOpponents, 
-  matchPlans, 
-  matches, 
-  matchReflections, 
-  matchPillarScores,
-  coachMatchReviews,
-  pressureMoments,
-  matchTrainingSuggestions,
-  players,
-  tournamentMatches,
-} from "../../shared/schema";
-import { eq, and, desc, sql, gte, lte, or } from "drizzle-orm";
+import { matchOpponents, matchPlans, matches, matchReflections, matchPillarScores, coachMatchReviews, pressureMoments, matchTrainingSuggestions, players } from "../../shared/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { awardXP } from "../services/xp-service";
 import { updatePillarProgressFromMatch } from "../services/match-pillar-update";
 

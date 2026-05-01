@@ -5,70 +5,11 @@ import { deletePlayerWithUserWipe } from "../services/player-lifecycle";
 import { getPlayerCountryLadderRank, resolvePlayerSports } from "./tournaments-ladders";
   import { db } from "../db";
   import { storage } from "../storage";
-  import {
-    eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
-    isNull, isNotNull, or, count, ilike, lte,
-  } from "drizzle-orm";
-  import {
-    authMiddlewareWithFreshData as authMiddleware,
-    requireRole,
-    requireAcademy,
-    requireFeatureUnlock,
-    validatePlayerOwnership,
-    validateCourtOwnership,
-    validateSessionOwnership,
-    validatePackageOwnership,
-    validateNotificationOwnership,
-    generateRefreshToken,
-    generateToken,
-    type AuthenticatedRequest,
-  } from "../auth";
-  import { z } from "zod";
-  import { fromZodError } from "zod-validation-error";
-  import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
-  import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
-  import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-  import {
-    users, coaches, players, academies, sessions, coachingSeries, seriesPlayers,
-    invoices, payments, sessionPlayers, sessionWaitlist,
-    locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
-    sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
-    coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
-    coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
-    courtAvailability, courtAvailabilitySnapshots,
-    bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    playerBookingPreferences,
-    courtBookings, matchLogs, playerBallLevels, courts, locations,
-    playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
-    levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
-    spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
-    posts as postsTable, postReactions as postReactionsTable,
-    postComments as postCommentsTable, commentLikes as commentLikesTable,
-    communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
-    groupEvents as groupEventsTable, groupEventRsvps as groupEventRsvpsTable,
-    conversations as conversationsTable, conversationParticipants as conversationParticipantsTable,
-    messages as messagesTable, messageReactions as messageReactionsTable,
-    openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
-    questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
-    dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
-    parentPlayerRelations,
-    badges as badgesTable, playerBadges as playerBadgesTable,
-    titles as titlesTable, playerTitles as playerTitlesTable,
-    sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
-    coachNotifications,
-    loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
-    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema, playerSelfUpdateSchema,
-    insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema,
-    bookingRequests,
-  } from "@shared/schema";
-  import { sendSessionCancelledNotification, sendFeedbackNotification, sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
-  import { awardXP } from "../services/xp-service";
-  import { broadcastSessionUpdate, broadcastFeedbackReceived } from "../websocket";
-  import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "../services/invoicePdf";
-  import { getCurrencyForCountry } from "@shared/countries";
-  import { getBallLevelFromAge, calculateAgeFromDOB } from "@shared/ballLevel";
-  import { profilePhotoUpload, courtPhotoUpload, socialPostUpload, wrapUploadHandler } from "../upload-middleware";
+  import { eq, sql, desc, and, ne, gt, gte, asc, inArray, isNotNull, or, count, lte } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, requireFeatureUnlock, generateRefreshToken, generateToken, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";import { users, coaches, players, sessions, coachingSeries, seriesPlayers, sessionPlayers, courts, locations, playerHolidays, ballLevels, playerNotifications, posts as postsTable, postReactions as postReactionsTable, communityGroups as communityGroupsTable, groupMembers as groupMembersTable, groupEvents as groupEventsTable, groupEventRsvps as groupEventRsvpsTable, conversations as conversationsTable, conversationParticipants as conversationParticipantsTable, messages as messagesTable, messageReactions as messageReactionsTable, playerConnections, parentPlayerRelations, coachNotifications, playerSelfUpdateSchema, bookingRequests } from "@shared/schema";
+  import { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
+  import { awardXP } from "../services/xp-service";import { getBallLevelFromAge, calculateAgeFromDOB } from "@shared/ballLevel";
+  import { profilePhotoUpload, courtPhotoUpload, wrapUploadHandler } from "../upload-middleware";
   import { SupabaseStorageError } from "../utils/supabaseStorage";
 import path from "path";
 import fs from "fs";
@@ -157,7 +98,7 @@ import fs from "fs";
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         if (sessionTime <= now) {
@@ -425,7 +366,7 @@ import fs from "fs";
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         if (sessionTime <= now) {
@@ -548,7 +489,7 @@ import fs from "fs";
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const hoursUntilSession =
@@ -738,7 +679,7 @@ import fs from "fs";
         }
 
         // Check if player is part of this session (via session_players or series_players)
-        const sessionPlayer = await storage.getSessionPlayer(
+        const _sessionPlayer = await storage.getSessionPlayer(
           sessionId,
           playerId,
         );
@@ -875,7 +816,7 @@ import fs from "fs";
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
 
@@ -1418,7 +1359,7 @@ import fs from "fs";
             playerId,
             nextLevel.composite,
           );
-        } catch (e) {
+        } catch (_e) {
           // Silently fail - readiness is optional
         }
 
@@ -1874,7 +1815,7 @@ import fs from "fs";
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
 
@@ -4294,7 +4235,7 @@ import fs from "fs";
     "/api/platform/pending-bios",
     authMiddleware,
     requireRole("platform_owner"),
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const allCoaches = await storage.getAllCoaches();
         const pendingBios = allCoaches.filter(
@@ -4402,7 +4343,7 @@ import fs from "fs";
         const domains = await storage.listSkillDomains();
 
         // Get XP history for streak calculation
-        const xpHistory = await storage.getPlayerXpHistory(playerId);
+        const _xpHistory = await storage.getPlayerXpHistory(playerId);
 
         // Get session attendance for consistency badge
         const sessions = await storage.getPlayerSessionsWithDetails(
@@ -4609,7 +4550,7 @@ import fs from "fs";
           return res.status(404).json({ error: "Session not found" });
         }
 
-        const domains = await storage.listSkillDomains();
+        const _domains = await storage.listSkillDomains();
 
         let trainingType = sessionData.sessionType || "training";
         if (
@@ -4939,7 +4880,7 @@ import fs from "fs";
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         let startDate: Date;
@@ -5100,7 +5041,7 @@ import fs from "fs";
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const thisWeekStart = new Date(
@@ -5785,7 +5726,7 @@ import fs from "fs";
             const dateParam = req.query.date as string | undefined;
             const now = dateParam ? new Date(dateParam) : new Date();
             const DUBAI_OFFSET = 4;
-            const dubaiNow = new Date(
+            const _dubaiNow = new Date(
               now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
             );
             const weekStart = new Date(now);
@@ -6092,7 +6033,7 @@ import fs from "fs";
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const weekStart = new Date(now);

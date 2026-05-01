@@ -29,7 +29,7 @@ export function dimColors(colors: string[]): string[] {
   });
 }
 
-export function DraggableSessionBlock({ session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, formattedEndTime, hourHeight, courtLaneWidth, onTap, onLongPress, onDragEnd, onDragUpdate, hasConflict, onHoverIn, onHoverOut, onWebPress }: any) {
+export function DraggableSessionBlock({ session: _session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, formattedEndTime, hourHeight: _hourHeight, courtLaneWidth: _courtLaneWidth, onTap, onLongPress, onDragEnd, onDragUpdate, hasConflict, onHoverIn, onHoverOut, onWebPress }: any) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);
@@ -143,7 +143,7 @@ export function DraggableSessionBlock({ session, top, height, isPast, isActive, 
   );
 }
 
-export function WeekDraggableSessionBlock({ session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, hourHeight, dayColumnWidth, onTap, onLongPress, onDragEnd }: any) {
+export function WeekDraggableSessionBlock({ session: _session, top, height, isPast, isActive, gradientColors, sessionLabel, formattedTime, hourHeight: _hourHeight, dayColumnWidth: _dayColumnWidth, onTap, onLongPress, onDragEnd }: any) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const isDragging = useSharedValue(false);

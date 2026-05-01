@@ -27,7 +27,7 @@ import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Court {
   id: string;

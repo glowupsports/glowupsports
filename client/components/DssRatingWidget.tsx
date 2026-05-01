@@ -2,14 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable, ViewStyle, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  interpolate,
-  Extrapolation,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { useQuery } from "@tanstack/react-query";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -68,7 +61,7 @@ function MiniRatingChart({ history }: { history: DssRatingData["recentHistory"] 
   const chartHeight = 24;
   const padding = 2;
 
-  const points = ratings.map((rating, i) => {
+  const _points = ratings.map((rating, i) => {
     const x = padding + (i / (ratings.length - 1)) * (chartWidth - 2 * padding);
     const y = chartHeight - padding - ((max - rating) / range) * (chartHeight - 2 * padding);
     return `${x},${y}`;
@@ -88,7 +81,7 @@ function MiniRatingChart({ history }: { history: DssRatingData["recentHistory"] 
   );
 }
 
-function TrendIndicator({ trend, delta }: { trend: "up" | "down" | "stable"; delta?: number }) {
+function TrendIndicator({ trend, delta: _delta }: { trend: "up" | "down" | "stable"; delta?: number }) {
   const config = {
     up: { icon: "trending-up" as const, color: GlowColors.primary, label: "Improving" },
     down: { icon: "trending-down" as const, color: "#EF4444", label: "Declining" },

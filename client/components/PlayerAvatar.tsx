@@ -5,7 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, BorderRadius } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface PlayerAvatarProps {
@@ -33,7 +33,7 @@ const AVATAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 export function PlayerAvatar({
   avatar,
-  name,
+  name: _name,
   level,
   size = 40,
   showLevel = false,

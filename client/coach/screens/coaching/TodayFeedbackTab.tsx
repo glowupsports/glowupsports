@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, ActivityIndicator, Pressable, Text, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing, Typography } from "@/constants/theme";
 import type { TabProps } from "./types";
 import { useFeedbackTab } from "./feedback/useFeedbackTab";
 import { FeedbackDetailView } from "./feedback/FeedbackDetailView";

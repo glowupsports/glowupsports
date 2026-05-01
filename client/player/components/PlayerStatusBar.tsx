@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Modal, Platform, Image as RNImage } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
@@ -16,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography, ProTennisColors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
-import { getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { buildPhotoUrl } from "@/lib/query-client";
 import { usePlayerLevel } from "../hooks/usePlayerLevel";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -92,7 +92,7 @@ function getBallLevelColor(ballLevel: string | null): string {
   return Colors.dark.primary;
 }
 
-function getXpProgress(level: number, xp: number): number {
+function _getXpProgress(level: number, xp: number): number {
   const xpPerLevel = 500 + (level - 1) * 100;
   let accumulatedXp = 0;
   for (let lvl = 1; lvl < level; lvl++) {
@@ -154,7 +154,7 @@ export function PlayerStatusBar({ player, coach, lastFeedback, onAvatarPress }: 
     };
   });
 
-  const shimmerStyle = useAnimatedStyle(() => {
+  const _shimmerStyle = useAnimatedStyle(() => {
     const translateX = interpolate(
       shimmerPosition.value,
       [-1, 0, 1, 2],

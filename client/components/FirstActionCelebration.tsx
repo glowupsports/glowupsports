@@ -30,7 +30,7 @@ import {
 Backgrounds, Colors, } from "@/constants/theme";
 
 const CELEBRATIONS_KEY = "@glow_celebrations_shown";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 export interface FirstActionCelebrationProps {
   visible: boolean;

@@ -31,7 +31,7 @@ export default function ModeSwitcher({ compact = false }: ModeSwitcherProps) {
     setMode(newMode);
   };
 
-  const currentConfig = modeConfig[mode];
+  const _currentConfig = modeConfig[mode];
 
   if (compact) {
     return (

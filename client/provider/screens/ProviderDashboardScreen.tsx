@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -26,12 +26,8 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useAppMode, getDefaultModeForRole } from "@/context/AppModeContext";
 import { Colors, Spacing } from "@/constants/theme";
-import { getStaticAssetsUrl, buildPhotoUrl, apiRequest } from "@/lib/query-client";
-import {
-  getPrimarySpecialization,
-  PROVIDER_SPECIALIZATIONS,
-  ProviderSpecialization,
-} from "@/provider/constants/specializations";
+import { buildPhotoUrl, apiRequest } from "@/lib/query-client";
+import { getPrimarySpecialization } from "@/provider/constants/specializations";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 
 interface Booking {

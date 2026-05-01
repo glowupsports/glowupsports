@@ -85,7 +85,7 @@ function todayKey(): string {
   return `${STORAGE_KEY_PREFIX}${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatCountdown(dateStr: string): string | null {
+function _formatCountdown(dateStr: string): string | null {
   const now = new Date();
   const target = new Date(dateStr);
   const diffMs = target.getTime() - now.getTime();
@@ -155,7 +155,7 @@ interface DailyBriefingModalProps {
 export function DailyBriefingModal({
   player,
   nextSession,
-  coachName,
+  coachName: _coachName,
   isGuest,
 }: DailyBriefingModalProps) {
   const insets = useSafeAreaInsets();
@@ -536,7 +536,7 @@ interface FeedbackItem {
 
 function CoachNotesContent({
   nextSession,
-  player,
+  player: _player,
   activeQuest,
   visible,
   isGuest,

@@ -1,15 +1,6 @@
 import React, { useEffect } from "react";
 import { View, StyleSheet } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withSequence,
-  withDelay,
-  withTiming,
-  Easing,
-  runOnJS,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence, withDelay, withTiming } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { GlowColors } from "@/constants/theme";

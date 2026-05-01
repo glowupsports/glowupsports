@@ -3,44 +3,8 @@ import rateLimit from "express-rate-limit";
 import { db } from "../db";
 import { storage } from "../storage";
 import { awardXP } from "../services/xp-service";
-import {
-  questTemplates as questTemplatesTable,
-  playerQuests as playerQuestsTable,
-  dailyQuestSlots as dailyQuestSlotsTable,
-  playerStreaks as playerStreaksTable,
-  badges as badgesTable,
-  playerBadges as playerBadgesTable,
-  titles as titlesTable,
-  playerTitles as playerTitlesTable,
-  playerConnections,
-  spotlightNominations,
-  spotlightWeeklyWinners,
-  spotlightMonthlyWinners,
-  levelUpEvents,
-  playerXpEvents,
-  ballLevels,
-  playerNotifications,
-  players,
-  sessions,
-  sessionPlayers,
-  coachingSeries,
-  creditTransactions,
-  packages,
-  coaches,
-  users,
-  openToPlay as openToPlayTable,
-  posts as postsTable,
-  seriesPlayers,
-  academies,
-  contentReports as contentReportsTable,
-  playerBlocks as playerBlocksTable,
-  questChainBonusClaims as questChainBonusClaimsTable,
-  matchLogs,
-  openMatchSlots,
-  openMatches,
-  squadMembers,
-} from "@shared/schema";
-import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, ilike, not } from "drizzle-orm";
+import { questTemplates as questTemplatesTable, playerQuests as playerQuestsTable, dailyQuestSlots as dailyQuestSlotsTable, playerStreaks as playerStreaksTable, badges as badgesTable, playerBadges as playerBadgesTable, titles as titlesTable, playerTitles as playerTitlesTable, playerConnections, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners, playerXpEvents, playerNotifications, players, sessions, sessionPlayers, coachingSeries, creditTransactions, packages, coaches, users, openToPlay as openToPlayTable, posts as postsTable, academies, contentReports as contentReportsTable, playerBlocks as playerBlocksTable, questChainBonusClaims as questChainBonusClaimsTable, matchLogs, openMatchSlots, squadMembers } from "@shared/schema";
+import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import {
   authMiddlewareWithFreshData as authMiddleware,
@@ -359,13 +323,13 @@ router.post("/api/quests/assign-weekly", authMiddleware, async (req: AuthRequest
       
       // Get current week start (Monday)
       const dateParam = req.query.date as string | undefined;
-      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const dayOfWeek = now.getDay();
       const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() + mondayOffset);
       weekStart.setHours(0, 0, 0, 0);
-      const weekStartStr = weekStart.toISOString().split('T')[0];
+      const _weekStartStr = weekStart.toISOString().split('T')[0];
       
       // End of week (Sunday 23:59:59)
       const endOfWeek = new Date(weekStart);
@@ -457,7 +421,7 @@ router.post("/api/quests/assign-monthly", authMiddleware, async (req: AuthReques
       }
       
       const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const _monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       
       const existingMonthlyQuests = await db.select()
@@ -847,7 +811,7 @@ router.post("/api/quests/claim-chain-bonus", authMiddleware, async (req: AuthReq
   // ==================== BADGES & TITLES ENDPOINTS ====================
 
   // Get all available badges
-router.get("/api/badges", authMiddleware, async (req: AuthRequest, res: Response) => {
+router.get("/api/badges", authMiddleware, async (_req: AuthRequest, res: Response) => {
     try {
       const allBadges = await db.select()
         .from(badgesTable)
@@ -928,7 +892,7 @@ router.get("/api/player/badges", authMiddleware, async (req: AuthRequest, res: R
   });
 
   // Get all available titles
-router.get("/api/titles", authMiddleware, async (req: AuthRequest, res: Response) => {
+router.get("/api/titles", authMiddleware, async (_req: AuthRequest, res: Response) => {
     try {
       const allTitles = await db.select()
         .from(titlesTable)
@@ -1128,7 +1092,7 @@ router.post("/api/player/check-badges", authMiddleware, async (req: AuthRequest,
             sendBadgeEarnedNotification(playerId, badge.name, badge.description || "").catch(err =>
               console.error("Failed to send badge earned notification:", err)
             );
-          } catch (e) {
+          } catch (_e) {
             // Ignore duplicate key errors
           }
         }
@@ -1176,7 +1140,7 @@ router.post("/api/player/check-badges", authMiddleware, async (req: AuthRequest,
               titleId: title.id,
             });
             newlyUnlockedTitles.push(title.id);
-          } catch (e) {
+          } catch (_e) {
             // Ignore duplicate key errors
           }
         }
@@ -1195,7 +1159,7 @@ router.post("/api/player/check-badges", authMiddleware, async (req: AuthRequest,
   // Get mission control data (combines dashboard, quests, social highlights)
 router.get("/api/player/mission-control", authMiddleware, async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.user!.userId;
+      const _userId = req.user!.userId;
       const playerId = req.user!.playerId;
       const academyId = req.user!.academyId;
       
@@ -1204,9 +1168,9 @@ router.get("/api/player/mission-control", authMiddleware, async (req: AuthReques
       }
       
       const dateParam = req.query.date as string | undefined;
-      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
-      const today = now.toISOString().split('T')[0];
-      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const now = dateParam ? new Date(dateParam) : new Date(); const DUBAI_OFFSET = 4; const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _today = now.toISOString().split('T')[0];
+      const _oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
       // Get player profile
       const [player] = await db.select().from(players).where(eq(players.id, playerId));
@@ -1992,7 +1956,7 @@ router.get("/api/player/open-to-play", authMiddleware, requireFeatureUnlock("pla
         .where(and(...listingConditions))
         .orderBy(desc(openToPlayTable.createdAt))
         .limit(20);
-      } catch (e) {
+      } catch (_e) {
         // Table might not exist
       }
       
@@ -2686,7 +2650,7 @@ router.post("/api/delete-account-request", authLimiter, async (req: Request, res
   });
 
   // Admin endpoint to fix vacation attendance debts retroactively
-router.post("/api/admin/fix-vacation-debts", authMiddleware, requireRole("platform_owner"), async (req: Request, res: Response) => {
+router.post("/api/admin/fix-vacation-debts", authMiddleware, requireRole("platform_owner"), async (_req: Request, res: Response) => {
     try {
       console.log("[VacationDebtFix] Starting retroactive vacation debt cancellation...");
       
@@ -2736,7 +2700,7 @@ router.post("/api/admin/fix-vacation-debts", authMiddleware, requireRole("platfo
 
 
   // Admin endpoint to recalculate V3 debt based on actual attendance (excluding vacation)
-router.post("/api/admin/recalculate-v3-debts", authMiddleware, requireRole("platform_owner"), async (req: Request, res: Response) => {
+router.post("/api/admin/recalculate-v3-debts", authMiddleware, requireRole("platform_owner"), async (_req: Request, res: Response) => {
     try {
       console.log("[V3DebtFix] Starting recalculation of V3 debts...");
       
@@ -2844,7 +2808,7 @@ router.post("/api/admin/recalculate-v3-debts", authMiddleware, requireRole("plat
 
 
   // Admin endpoint to subtract vacation sessions from V3 debts
-router.post("/api/admin/fix-vacation-v3-debts", authMiddleware, requireRole("platform_owner"), async (req: Request, res: Response) => {
+router.post("/api/admin/fix-vacation-v3-debts", authMiddleware, requireRole("platform_owner"), async (_req: Request, res: Response) => {
     try {
       console.log("[VacationV3Fix] Starting vacation debt adjustment...");
       
@@ -2943,7 +2907,7 @@ router.post("/api/admin/fix-vacation-v3-debts", authMiddleware, requireRole("pla
 
 
   // Admin endpoint to recalculate all player debts from scratch based on actual session attendance
-router.post("/api/admin/recalculate-all-debts", authMiddleware, requireRole("platform_owner"), async (req: Request, res: Response) => {
+router.post("/api/admin/recalculate-all-debts", authMiddleware, requireRole("platform_owner"), async (_req: Request, res: Response) => {
     try {
       console.log("[RecalculateDebts] Starting full recalculation of all player debts...");
       
@@ -3202,7 +3166,7 @@ router.get("/api/admin/dashboard/operations", authMiddleware, requireRole("admin
   });
 
   // Demo data seed endpoint for TheLaw (Play Store mockups)
-router.post("/api/admin/seed-demo-data", adminRepairLimiter, authMiddleware, requireRole("platform_owner"), async (req: AuthRequest, res: Response) => {
+router.post("/api/admin/seed-demo-data", adminRepairLimiter, authMiddleware, requireRole("platform_owner"), async (_req: AuthRequest, res: Response) => {
     try {
 
       const { seedDemoDataForTheLaw } = await import("../seeds/demo-data-seed");
@@ -3220,7 +3184,7 @@ router.post("/api/admin/seed-demo-data", adminRepairLimiter, authMiddleware, req
   });
 
 
-router.post("/api/admin/repair-private-adjusted", adminRepairLimiter, authMiddleware, requireRole("admin", "platform_owner"), async (req: Request, res: Response) => {
+router.post("/api/admin/repair-private-adjusted", adminRepairLimiter, authMiddleware, requireRole("admin", "platform_owner"), async (_req: Request, res: Response) => {
     try {
       console.log('[RepairPrivateAdjusted] Starting repair of wrongly charged absent players in private_adjusted sessions...');
 
@@ -3294,7 +3258,7 @@ router.post("/api/admin/repair-private-adjusted", adminRepairLimiter, authMiddle
   });
 
   // One-time fix: repair series titles with "undefined" and merge duplicate flexible series
-router.post("/api/admin/fix-series-titles-and-merge", adminRepairLimiter, authMiddleware, requireRole("admin", "platform_owner"), async (req: Request, res: Response) => {
+router.post("/api/admin/fix-series-titles-and-merge", adminRepairLimiter, authMiddleware, requireRole("admin", "platform_owner"), async (_req: Request, res: Response) => {
     try {
       console.log("[SeriesFix] Starting series title repair and merge...");
       const fixes: string[] = [];
@@ -3345,7 +3309,7 @@ router.post("/api/admin/fix-series-titles-and-merge", adminRepairLimiter, authMi
         seriesByKey[key].push(s);
       }
       
-      for (const [key, group] of Object.entries(seriesByKey)) {
+      for (const [_key, group] of Object.entries(seriesByKey)) {
         if (group.length <= 1) continue;
         
         // For each pair, check if they share the same players

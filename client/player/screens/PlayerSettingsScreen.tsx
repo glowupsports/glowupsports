@@ -8,7 +8,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { secureGet, secureDelete } from "@/lib/auth";
 import Constants from "expo-constants";
 import { useTranslation } from "react-i18next";
-import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
@@ -41,7 +41,7 @@ export default function PlayerSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { logout, loginWithToken, user } = useAuth();
-  const { isRegistered } = usePushNotifications();
+  const { isRegistered: _isRegistered } = usePushNotifications();
   const queryClient = useQueryClient();
   const { refreshFamily } = useFamily();
   const { t, i18n } = useTranslation();
@@ -259,7 +259,7 @@ export default function PlayerSettingsScreen() {
       } else {
         Alert.alert("Error", data.error || "Failed to unlink Apple ID");
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert("Error", "Failed to unlink Apple ID");
     } finally {
       setAppleLoading(false);

@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, TextInput, StyleSheet, Linking, Platform } from "react-native";
+import { View, Text, Pressable, TextInput, StyleSheet, Linking } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Colors, Spacing, BorderRadius, FontSizes, ProTennisColors, TextColors } from "@/constants/theme";

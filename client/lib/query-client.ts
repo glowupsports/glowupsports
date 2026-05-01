@@ -1,10 +1,7 @@
 import logger from "./logger";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { getAuthToken, triggerUnauthorized, getCurrentAcademyId, getRefreshedToken } from "./auth";
-import { validateEnv, isDevelopment, logEnvStatus } from "./env";
-
-import { Platform } from "react-native";
-
+import { validateEnv, logEnvStatus } from "./env";
 if (__DEV__) {
   logEnvStatus();
 }

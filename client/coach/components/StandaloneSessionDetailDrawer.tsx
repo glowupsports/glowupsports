@@ -14,7 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 
 interface Player {
@@ -117,11 +117,11 @@ export default function StandaloneSessionDetailDrawer({
   onOpenFeedback,
 }: StandaloneSessionDetailDrawerProps) {
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
-  const { academy } = useCoach();
+  const _queryClient = useQueryClient();
+  const { academy: _academy } = useCoach();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
-  const { data: sessionPlayers = [], isLoading: playersLoading } = useQuery<SessionPlayer[]>({
+  const { data: sessionPlayers = [], isLoading: _playersLoading } = useQuery<SessionPlayer[]>({
     queryKey: [`/api/coach/sessions/${session?.id}/players`],
     enabled: !!session?.id && visible,
   });

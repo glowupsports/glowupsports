@@ -18,14 +18,7 @@ import Animated, {
 import Svg, { Circle } from "react-native-svg";
 import { getApiUrl } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-import {
-  Spacing,
-  BorderRadius,
-  Typography,
-  GlowColors,
-  TextColors,
-  FunctionColors,
-Backgrounds, } from "@/constants/theme";
+import { Spacing, BorderRadius, Typography, GlowColors, TextColors, Backgrounds } from "@/constants/theme";
 
 if (
   Platform.OS === "android" &&

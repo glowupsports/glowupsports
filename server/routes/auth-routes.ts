@@ -1,60 +1,15 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Request, type Response } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
-  import {
-    eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
-    isNull, isNotNull, or, count, ilike, lte,
-  } from "drizzle-orm";
-  import {
-    authMiddlewareWithFreshData as authMiddleware,
-    requireRole,
-    requireAcademy,
-    requireFeatureUnlock,
-    validatePlayerOwnership,
-    validateCourtOwnership,
-    validateSessionOwnership,
-    validatePackageOwnership,
-    validateNotificationOwnership,
-    type AuthenticatedRequest,
-  } from "../auth";
+  import { eq, and, isNotNull } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
   import { z } from "zod";
-  import { fromZodError } from "zod-validation-error";
-  import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
-  import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
-  import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-  import {
-    users, coaches, players, academies, sessions, coachingSeries, seriesPlayers,
-    invoices, payments, sessionPlayers, sessionWaitlist,
-    locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
-    sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
-    coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
-    coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
-    courtAvailability, courtAvailabilitySnapshots,
-    bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    playerBookingPreferences,
-    courtBookings, matchLogs, playerBallLevels,
-    playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
-    levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
-    spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
-    posts as postsTable, postReactions as postReactionsTable,
-    postComments as postCommentsTable, commentLikes as commentLikesTable,
-    communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
-    openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
-    questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
-    dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
-    badges as badgesTable, playerBadges as playerBadgesTable,
-    titles as titlesTable, playerTitles as playerTitlesTable,
-    sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
-    loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
-    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
-    insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema,
-  } from "@shared/schema";
+  import { fromZodError } from "zod-validation-error";import { users, loginSchema, playerRegisterSchema, coachInviteRegisterSchema, academyApplicationInputSchema } from "@shared/schema";
   import { calculateAgeFromDOB, getBallLevelFromAge, isValidDOB } from "@shared/ballLevel";
   import { authLimiter, inviteLimiter } from "../rateLimiter";
-  import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword, JWT_SECRET, refreshAuthMiddleware } from "../auth";
+  import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword, refreshAuthMiddleware } from "../auth";
   import { writeAuditLog } from "../lib/account-audit";
-  import { sendWelcomeEmail, sendPlayerInviteEmail, sendCoachInviteEmail, sendOTPEmail, verifyOTPCode, hasValidOTP, markEmailVerified, isEmailVerified, clearEmailVerified, sendPasswordResetEmail } from "../emailService";
+  import { sendOTPEmail, verifyOTPCode, markEmailVerified, isEmailVerified, clearEmailVerified, sendPasswordResetEmail } from "../emailService";
   import crypto from "crypto";
   import { verifyAppleIdentityToken } from "../utils/appleAuth";
 
@@ -76,7 +31,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     return true;
   }
   const router = Router();
-  function generateShortInviteCode(): string {
+  function _generateShortInviteCode(): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let code = "";
     for (let i = 0; i < 6; i++) {
@@ -1798,7 +1753,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   router.post(
     "/auth/logout",
     authMiddleware,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       res.json({ success: true, message: "Logged out successfully" });
     },
   );

@@ -1,16 +1,5 @@
 import React, { useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Modal,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  ScrollView,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator, Alert, Platform, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";

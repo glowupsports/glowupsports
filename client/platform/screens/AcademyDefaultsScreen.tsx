@@ -108,7 +108,7 @@ export default function AcademyDefaultsScreen() {
       } else {
         Alert.alert("Success", "Academy defaults saved successfully!");
       }
-    } catch (error) {
+    } catch (_error) {
       setSavingKey(null);
       if (Platform.OS === "web") {
         window.alert("Failed to save academy defaults");

@@ -24,7 +24,7 @@ import { useTranslation } from "react-i18next";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 

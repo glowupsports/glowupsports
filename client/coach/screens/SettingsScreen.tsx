@@ -1,54 +1,29 @@
 import logger from "@/lib/logger";
 import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
-import React, { useState, useCallback, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TouchableOpacity,
-  ScrollView,
-  Switch,
-  Alert,
-  TextInput,
-  Modal,
-  Platform,
-  ActivityIndicator,
-  Dimensions,
-  Linking,
-} from "react-native";
-import * as AppleAuthentication from "expo-apple-authentication";
+import React, { useState, useMemo } from "react";
+import { View, Text, StyleSheet, Pressable, TouchableOpacity, ScrollView, Alert, TextInput, Modal, Platform, ActivityIndicator, Dimensions, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  interpolate,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useCoach } from "@/coach/context/CoachContext";
-import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors, FunctionColors } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
-import { useNetwork } from "@/context/NetworkContext";
-import { showOfflineAlert } from "@/hooks/useOfflineGuard";
 import { useTranslation } from "react-i18next";
-import { SUPPORTED_LANGUAGES, setStoredLanguage, type LanguageCode } from "@/i18n";
+import { SUPPORTED_LANGUAGES, type LanguageCode } from "@/i18n";
 
-const TAB_BAR_HEIGHT = 80;
+const _TAB_BAR_HEIGHT = 80;
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
-interface Court {
+interface _Court {
   id: string;
   name: string;
   color: string | null;
@@ -80,20 +55,20 @@ interface CoachSettings {
   offlineSyncAuto: boolean;
 }
 
-interface Location {
+interface _Location {
   id: string;
   name: string;
   academyId: string | null;
 }
 
-interface TravelTimeConfig {
+interface _TravelTimeConfig {
   id: string;
   fromLocationId: string;
   toLocationId: string;
   travelTimeMinutes: number;
 }
 
-interface PushPreferences {
+interface _PushPreferences {
   sessionReminders: boolean;
   feedbackRequests: boolean;
   packageExpiry: boolean;
@@ -234,17 +209,17 @@ function LessonRecapSettingSection({ navigation }: { navigation: any }) {
 }
 
 export default function SettingsScreen() {
-  const { coach, academy, calendarData } = useCoach();
+  const { coach, academy: _academy, calendarData } = useCoach();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const { t, i18n } = useTranslation();
   const { logout } = useAuth();
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [_hasChanges, setHasChanges] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const [testPushLoading, setTestPushLoading] = useState(false);
-  const [testBookingLoading, setTestBookingLoading] = useState(false);
+  const [_testPushLoading, setTestPushLoading] = useState(false);
+  const [_testBookingLoading, setTestBookingLoading] = useState(false);
   const [showCourtModal, setShowCourtModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showTravelTimeModal, setShowTravelTimeModal] = useState(false);
@@ -267,7 +242,7 @@ export default function SettingsScreen() {
   const [appleSignInCollapsed, setAppleSignInCollapsed] = useState(true);
   const [selectedTravelTime, setSelectedTravelTime] = useState<any>(null);
   const [travelTimeToDelete, setTravelTimeToDelete] = useState<any>(null);
-  const [storedLanguage, setStoredLanguage] = useState('en');
+  const [_storedLanguage, setStoredLanguage] = useState('en');
   const [editingCourt, setEditingCourt] = useState<any>(null);
   const [editingLocation, setEditingLocation] = useState<any>(null);
   const [pushPreferences, setPushPreferences] = useState({ sessionReminders: true, feedbackRequests: true, packageExpiry: true, loadWarnings: true, chatMessages: true });
@@ -385,7 +360,7 @@ export default function SettingsScreen() {
       i18n.changeLanguage(lang);
       await AsyncStorage.setItem('language', lang);
       setStoredLanguage(lang);
-    } catch (e) {}
+    } catch (_e) {}
   };
 
   const handleDeleteAccount = () => {
@@ -448,7 +423,7 @@ export default function SettingsScreen() {
   const handleLinkApple = async () => { setAppleLoading(true); try { /* stub */ } finally { setAppleLoading(false); } };
   const handleUnlinkApple = async () => { setAppleLoading(true); try { setAppleLinked(false); } finally { setAppleLoading(false); } };
 
-  const loadSettings = async () => {
+  const _loadSettings = async () => {
     try {
       const stored = await AsyncStorage.getItem(SETTINGS_KEY);
       if (stored) {
@@ -482,7 +457,7 @@ export default function SettingsScreen() {
     saveSettings(newSettings);
   };
 
-  const handleTestPushNotification = async () => {
+  const _handleTestPushNotification = async () => {
     setTestPushLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
@@ -507,7 +482,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleTestBookingRequest = async () => {
+  const _handleTestBookingRequest = async () => {
     setTestBookingLoading(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
@@ -845,7 +820,7 @@ export default function SettingsScreen() {
                 <Text style={styles.emptyStateSubtext}>Add your first court to get started</Text>
               </View>
             ) : (
-              courtsGroupedByLocation.map((group, groupIndex) => (
+              courtsGroupedByLocation.map((group, _groupIndex) => (
                 <View key={group.location?.id || "unassigned"} style={styles.locationGroup}>
                   <View style={styles.locationGroupHeader}>
                     <Ionicons 
@@ -861,7 +836,7 @@ export default function SettingsScreen() {
                     </Text>
                     <Text style={styles.locationGroupCount}>({group.courts.length})</Text>
                   </View>
-                  {group.courts.map((court, index) => {
+                  {group.courts.map((court, _index) => {
                     const globalIndex = sortedCourts.findIndex(c => c.id === court.id);
                     return (
                       <View key={court.id} style={styles.courtCard}>

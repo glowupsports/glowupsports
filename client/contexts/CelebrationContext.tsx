@@ -1,9 +1,7 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { FirstActionCelebration, hasCelebrationBeenShown } from "@/components/FirstActionCelebration";
+import React, { createContext, useContext, useState, useCallback } from "react";import { FirstActionCelebration, hasCelebrationBeenShown } from "@/components/FirstActionCelebration";
 import { GlowColors, FunctionColors } from "@/constants/theme";
 
-const CELEBRATIONS_KEY = "@glow_celebrations_shown";
+const _CELEBRATIONS_KEY = "@glow_celebrations_shown";
 
 interface CelebrationConfig {
   title: string;

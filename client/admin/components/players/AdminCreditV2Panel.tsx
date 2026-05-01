@@ -67,7 +67,7 @@ function fmtNumber(n: string | number | null | undefined): string {
   return v % 1 === 0 ? v.toFixed(0) : v.toFixed(1);
 }
 
-function fmtDate(iso: string | null | undefined): string {
+function _fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleDateString("en-GB", {
@@ -211,7 +211,7 @@ export function AdminCreditV2Panel({ playerId }: Props) {
     },
   });
 
-  const totalActive = useMemo(() => {
+  const _totalActive = useMemo(() => {
     const b = walletQuery.data?.balance;
     if (!b) return 0;
     return (b.group || 0) + (b.semi_private || 0) + (b.private || 0);

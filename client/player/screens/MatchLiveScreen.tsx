@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Alert,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,7 +14,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Backgrounds, Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
-import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 
@@ -86,16 +78,16 @@ export default function MatchLiveScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<{ MatchLive: MatchLiveParams }, "MatchLive">>();
   const insets = useSafeAreaInsets();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const _queryClient = useQueryClient();
+  const { user: _user } = useAuth();
 
   const {
     matchId,
     opponentName,
     opponentId,
-    sport,
-    matchFormat = "best_of_3",
-    scoringMode = "standard",
+    sport: _sport,
+    matchFormat: _matchFormat = "best_of_3",
+    scoringMode: _scoringMode = "standard",
   } = route.params;
 
   const [match, setMatch] = useState<MatchData | null>(null);

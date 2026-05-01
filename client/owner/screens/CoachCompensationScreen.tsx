@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
@@ -228,7 +228,7 @@ export default function CoachCompensationScreen() {
     return COMPENSATION_TYPES.find((t) => t.value === type)?.label || type;
   };
 
-  const getCompensationIcon = (type: string): keyof typeof Ionicons.glyphMap => {
+  const _getCompensationIcon = (type: string): keyof typeof Ionicons.glyphMap => {
     const found = COMPENSATION_TYPES.find((t) => t.value === type);
     return (found?.icon as keyof typeof Ionicons.glyphMap) || "cash";
   };
@@ -551,7 +551,7 @@ export default function CoachCompensationScreen() {
                     value={new Date(effectiveFrom)}
                     mode="date"
                     display={Platform.OS === "ios" ? "spinner" : "default"}
-                    onChange={(event, selectedDate) => {
+                    onChange={(_event, selectedDate) => {
                       if (Platform.OS === "android") {
                         setShowDatePicker(false);
                       }

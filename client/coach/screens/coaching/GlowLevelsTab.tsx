@@ -9,9 +9,9 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { glowLevelsStyles } from "./glowLevelsStyles";
-import type { TabProps, BallLevel, LevelSkill } from "./types";
+import type { TabProps, BallLevel } from "./types";
 import { useCoachingScroll } from "./CoachingScrollContext";
 
 const STAGES = ["RED", "ORANGE", "GREEN", "YELLOW"] as const;

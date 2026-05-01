@@ -288,7 +288,7 @@ function UpcomingMatchCard({ challenge, playerId }: { challenge: Challenge; play
 
 export function ChallengeCard() {
   const { user } = useAuth();
-  const navigation = useNavigation<any>();
+  const _navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
 
   const { data: challenges = [] } = useQuery<Challenge[]>({

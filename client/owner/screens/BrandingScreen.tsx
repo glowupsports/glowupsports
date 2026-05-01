@@ -17,14 +17,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import {
-  AcademyTheme,
-  AcademyThemeColors,
-  contrastRatio,
-  defaultAcademyTheme,
-  isReadable,
-  themePresets,
-} from "@shared/theme";
+import { AcademyTheme, AcademyThemeColors, contrastRatio, isReadable, themePresets } from "@shared/theme";
 import {
   resolveTheme,
 } from "@/contexts/AcademyThemeContext";
@@ -194,7 +187,7 @@ export default function BrandingScreen() {
 
   const [draft, setDraft] = useState<AcademyTheme | null>(null);
   const [mode, setMode] = useState<"light" | "dark">("dark");
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [_showAdvanced, _setShowAdvanced] = useState(false);
 
   // Once the theme loads, seed the draft with current values (or defaults).
   React.useEffect(() => {

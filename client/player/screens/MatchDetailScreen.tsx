@@ -173,7 +173,7 @@ function ChipSelector({
   options,
   selected,
   onToggle,
-  single = false,
+  single: _single = false,
   color = MIRROR_ACCENT,
 }: {
   options: string[];
@@ -217,7 +217,7 @@ const chipStyles = makeReactiveStyles(() => StyleSheet.create({
   chipText: { ...Typography.small, color: Colors.dark?.textMuted || "#888" },
 }));
 
-function GlowMirrorMatchCard({ matchId, matchDate }: { matchId: string; matchDate: string }) {
+function GlowMirrorMatchCard({ matchId, matchDate: _matchDate }: { matchId: string; matchDate: string }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
 
@@ -767,7 +767,7 @@ function GoalOutcomeCheck({ matchId, playerId, preMatchGoal }: {
   playerId: string;
   preMatchGoal?: string;
 }) {
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   const [goalAchieved, setGoalAchieved] = useState<"yes" | "partially" | "no" | null>(null);
   const [whatHappened, setWhatHappened] = useState("");
   const [saved, setSaved] = useState(false);
@@ -863,7 +863,7 @@ function GoalOutcomeCheck({ matchId, playerId, preMatchGoal }: {
   );
 }
 
-function PressureMomentLogger({ matchId, playerId, existingMoments }: {
+function PressureMomentLogger({ matchId, playerId: _playerId, existingMoments }: {
   matchId: string;
   playerId: string;
   existingMoments?: MatchDetail["pressureMoments"];
@@ -1063,7 +1063,7 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
   result: string;
   trainingSuggestions?: { focusArea: string; pillar: string; priority: number; suggestedWeeks: number }[];
 }) {
-  const [retryCount, setRetryCount] = useState(0);
+  const [retryCount, _setRetryCount] = useState(0);
   const { data: freshMatch } = useQuery<MatchDetail>({
     queryKey: [`/api/match-intelligence/matches/${matchId}`],
     enabled: !!matchId && (!trainingSuggestions || trainingSuggestions.length === 0) && retryCount < 3,

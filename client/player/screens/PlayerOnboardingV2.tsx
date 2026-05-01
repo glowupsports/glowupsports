@@ -21,22 +21,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image as ExpoImage } from "expo-image";
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-  FadeOut,
-  ZoomIn,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withRepeat,
-  withSequence,
-  useSharedValue,
-  runOnJS,
-} from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeInUp, ZoomIn, useAnimatedStyle, withSpring, withTiming, withRepeat, withSequence, useSharedValue } from "react-native-reanimated";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Colors, Spacing, Typography, BorderRadius, FontSizes, CardStyles, GlowColors, BallLevelColors, Shadows, Backgrounds, TextColors } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, FontSizes, GlowColors, BallLevelColors, Shadows, Backgrounds, TextColors } from "@/constants/theme";
 import { apiRequest, getApiUrl, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { saveAuthState, setAuthToken, AuthUser } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -798,7 +785,7 @@ function BirthdayStep({ data, setData, onNext, playerName }: StepProps) {
 }
 
 function PhotoUploadStep({ data, setData, onNext, playerName }: StepProps) {
-  const [uploading, setUploading] = useState(false);
+  const [_uploading, _setUploading] = useState(false);
 
   const pickImage = async (useCamera: boolean) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -929,7 +916,7 @@ function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: 
   const isAdult = age >= 18;
   
   // Use the data.ballLevel if already set (user adjusted), otherwise use calculated
-  const currentBallLevelId = data.ballLevel || (isAdult ? "glow" : calculatedBallLevel.level.toLowerCase());
+  const _currentBallLevelId = data.ballLevel || (isAdult ? "glow" : calculatedBallLevel.level.toLowerCase());
   const ballLevel = data.ballLevel 
     ? { level: data.ballLevel.charAt(0).toUpperCase() + data.ballLevel.slice(1), color: getBallLevelColor(data.ballLevel), description: calculatedBallLevel.description, isGlowLevel: data.ballLevel === "glow" }
     : calculatedBallLevel;
@@ -1368,7 +1355,7 @@ function ExperienceStep({ data, setData, onNext, age }: StepProps & { age?: numb
   );
 }
 
-function AboutYourselfStep({ data, setData, onNext, ageGroup }: StepProps) {
+function AboutYourselfStep({ data, setData, onNext: _onNext, ageGroup }: StepProps) {
   const [height, setHeight] = useState(data.height?.toString() || "");
 
   const tshirtOptions = ageGroup === "kid" || ageGroup === "teen" 
@@ -1553,7 +1540,7 @@ function PlayStyleStep({ data, setData, onNext }: StepProps) {
 
       <Animated.View entering={FadeInDown.delay(200).duration(500)}>
         <View style={styles.archetypeGrid}>
-          {PLAY_STYLE_ARCHETYPES.map((archetype, idx) => {
+          {PLAY_STYLE_ARCHETYPES.map((archetype, _idx) => {
             const isSelected = selected === archetype.key;
             return (
               <Pressable
@@ -1703,7 +1690,7 @@ function TennisIdolStep({ data, setData, onNext, ageGroup }: StepProps) {
   );
 }
 
-function EnjoymentStep({ data, setData, onNext }: StepProps) {
+function EnjoymentStep({ data, setData, onNext: _onNext }: StepProps) {
   const options: { id: string; label: string; icon: IoniconName }[] = [
     { id: "rallies", label: "Rallying", icon: "repeat-outline" },
     { id: "winning", label: "Winning points", icon: "star-outline" },
@@ -1759,7 +1746,7 @@ function EnjoymentStep({ data, setData, onNext }: StepProps) {
   );
 }
 
-function FocusGoalsStep({ data, setData, onNext }: StepProps) {
+function FocusGoalsStep({ data, setData, onNext: _onNext }: StepProps) {
   const options: { id: string; label: string; icon: IoniconName }[] = [
     { id: "technique", label: "Technique", icon: "construct-outline" },
     { id: "confidence", label: "Confidence", icon: "shield-checkmark-outline" },
@@ -1806,7 +1793,7 @@ function FocusGoalsStep({ data, setData, onNext }: StepProps) {
   );
 }
 
-function AvailabilityStep({ data, setData, onNext }: StepProps) {
+function AvailabilityStep({ data, setData, onNext: _onNext }: StepProps) {
   const options: { id: string; label: string; icon: IoniconName }[] = [
     { id: "morning", label: "Morning", icon: "sunny-outline" },
     { id: "afternoon", label: "Afternoon", icon: "partly-sunny-outline" },
@@ -2208,7 +2195,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
   );
 }
 
-function SportSelectionStep({ data, setData, onNext }: StepProps) {
+function SportSelectionStep({ data, setData, onNext: _onNext }: StepProps) {
   const toggleSport = (sportKey: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setData(prev => {
@@ -2257,7 +2244,7 @@ function SportSelectionStep({ data, setData, onNext }: StepProps) {
   );
 }
 
-function GoalSettingStep({ data, setData, onNext }: StepProps) {
+function GoalSettingStep({ data, setData, onNext: _onNext }: StepProps) {
   const [selectedGoals, setSelectedGoals] = useState<string[]>(data.shortTermGoals || []);
   const [longTermDream, setLongTermDream] = useState(data.longTermDream || "");
 
@@ -2368,7 +2355,7 @@ interface OnboardingQuizQuestion {
   explanation: string;
 }
 
-function TennisQuizStep({ data, setData, onNext }: StepProps) {
+function TennisQuizStep({ data: _data, setData, onNext }: StepProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);

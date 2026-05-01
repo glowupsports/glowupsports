@@ -1,22 +1,12 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  interpolate,
-  Extrapolate,
-  runOnJS,
-} from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from "react-native-reanimated";import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: _SCREEN_HEIGHT } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - Spacing.lg * 2;
-const CARD_HEIGHT = undefined; // Use flex: 1 instead of fixed height
+const _CARD_HEIGHT = undefined; // Use flex: 1 instead of fixed height
 
 interface BaselineFlowCardProps {
   children: React.ReactNode;
@@ -275,7 +265,7 @@ export function ProgressRing({
 }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - progress);
+  const _strokeDashoffset = circumference * (1 - progress);
 
   return (
     <View style={[styles.progressRingContainer, { width: size, height: size }]}>

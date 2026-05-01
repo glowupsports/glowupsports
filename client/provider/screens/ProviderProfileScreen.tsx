@@ -18,7 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing } from "@/constants/theme";
-import { getStaticAssetsUrl, buildPhotoUrl, apiRequest } from "@/lib/query-client";
+import { buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import {
   PROVIDER_SPECIALIZATIONS,
   SPECIALIZATION_KEYS,
@@ -383,7 +383,7 @@ function AvailabilitySection() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {windows.sort((a, b) => (a.dayOfWeek === 0 ? 7 : a.dayOfWeek) - (b.dayOfWeek === 0 ? 7 : b.dayOfWeek)).map((w, idx) => {
+            {windows.sort((a, b) => (a.dayOfWeek === 0 ? 7 : a.dayOfWeek) - (b.dayOfWeek === 0 ? 7 : b.dayOfWeek)).map((w, _idx) => {
               const realIdx = windows.findIndex((x) => x.dayOfWeek === w.dayOfWeek);
               return (
                 <View key={w.dayOfWeek} style={availStyles.dayRow}>
@@ -693,7 +693,7 @@ export default function ProviderProfileScreen() {
   const [showEditSpecs, setShowEditSpecs] = useState(false);
   const [badgeTooltip, setBadgeTooltip] = useState<typeof CLIENT_BADGES[0] | null>(null);
 
-  const { data: provider, isLoading } = useQuery<ProviderProfile>({
+  const { data: provider, isLoading: _isLoading } = useQuery<ProviderProfile>({
     queryKey: ["/api/provider/me"],
   });
 

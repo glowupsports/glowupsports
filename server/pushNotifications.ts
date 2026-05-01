@@ -1,9 +1,9 @@
 import { db, pool } from "./db";
-import { eq, and, gte, lte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
-import { pushDeviceTokens, notificationPreferences, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, creditTransactions, coachNotifications, sessionWaitlist, playerNotifications, locations, locationTravelTimes, tournaments, tournamentMatches, tournamentParticipants, playerSessionReflections, playerMatchReadiness, communityGroups, coachingSeries } from "@shared/schema";
+import { eq, and, gte, lte, inArray, lt, ne, sql } from "drizzle-orm";
+import { pushDeviceTokens, users, players, coaches, sessions, sessionPlayers, seriesPlayers, coachXpTransactions, coachNotifications, sessionWaitlist, playerNotifications, tournaments, tournamentMatches, playerSessionReflections, playerMatchReadiness, communityGroups, coachingSeries } from "@shared/schema";
 import { buildMatchReadinessScore } from "./services/ai-progress-engine";
 import { storage, ensureCreditProcessed as _ensureCreditProcessed, normalizeSessionTypeToCreditType } from "./storage";
-import { sendSessionReminderEmail, sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
+import { sendOnboardingDay3Email, sendOnboardingDay7Email } from "./emailService";
 import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotification, getChannelIdForNotificationType } from "./fcm";
 import { isAPNsToken, isAPNsConfigured, sendAPNsNotification } from "./apns";
 import * as Sentry from "@sentry/node";
@@ -1291,7 +1291,7 @@ async function processDepartureAlerts(): Promise<void> {
   }
 }
 
-const AUTO_ATTENDANCE_GRACE_PERIOD = 0; // No grace period - mark attendance immediately after session ends
+const _AUTO_ATTENDANCE_GRACE_PERIOD = 0; // No grace period - mark attendance immediately after session ends
 const AUTO_ATTENDANCE_XP_REWARD = 25; // XP for marking attendance during class
 
 // Auto-complete sessions that have passed their end time
@@ -1951,7 +1951,7 @@ export async function fixHolidayOvercharges(): Promise<void> {
 
             if (pkgResult.rows.length > 0) {
               const currentBalance = Number(pkgResult.rows[0].remaining_credits);
-              const newBalance = currentBalance + refundAmount;
+              const _newBalance = currentBalance + refundAmount;
               const pkgStatus = pkgResult.rows[0].status;
 
               // Task #685 Phase 4 — V1 retired. The V2 engine owns refunds;
@@ -2438,7 +2438,7 @@ async function processSessionAiBriefs(): Promise<void> {
     const { sessionAiBriefs } = await import("@shared/schema");
     const { generateSessionBrief } = await import("./services/ai-progress-engine");
 
-    const nowUtc = now.toISOString();
+    const _nowUtc = now.toISOString();
     const startUtc = windowStart.toISOString();
     const endUtc = windowEnd.toISOString();
 
@@ -2924,8 +2924,8 @@ let autoSessionInterval: ReturnType<typeof setInterval> | null = null;
 async function processAutoSessionCompletion(): Promise<void> {
   try {
     const { db } = await import("./db");
-    const { sessions, sessionPlayers, players, packages } = await import("@shared/schema");
-    const { eq, and, lt, isNull, inArray } = await import("drizzle-orm");
+    const { sessions, sessionPlayers, players: _players, packages: _packages } = await import("@shared/schema");
+    const { eq, and: _and, lt: _lt, isNull: _isNull, inArray: _inArray } = await import("drizzle-orm");
     const { storage } = await import("./storage");
     
     const now = new Date();
@@ -3388,7 +3388,7 @@ async function processDailyScheduleNotifications(): Promise<void> {
       const tz = coach.timezone || "UTC";
       const localNow = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
       const localHour = localNow.getHours();
-      const localMinute = localNow.getMinutes();
+      const _localMinute = localNow.getMinutes();
 
       if (localHour < 7 || localHour >= 12) continue;
 
@@ -4550,7 +4550,7 @@ async function processBirthdayNotificationsForTimezone(timezone: string): Promis
       const coachId = row.coach_id as string;
       const playerName = row.player_name as string;
       const dob = new Date(row.date_of_birth);
-      const turningAge = new Date().getFullYear() - dob.getFullYear();
+      const _turningAge = new Date().getFullYear() - dob.getFullYear();
 
       const tokens = await getCoachPushTokens(coachId);
       if (tokens.length === 0) {

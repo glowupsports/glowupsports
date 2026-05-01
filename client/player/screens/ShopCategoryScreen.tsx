@@ -16,7 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, GlowColors, TextColors } from "@/constants/theme";
+import { Colors, Spacing, TextColors } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

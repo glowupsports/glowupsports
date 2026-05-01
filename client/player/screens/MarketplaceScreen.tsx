@@ -21,7 +21,7 @@ import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Spacing, GlowColors } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 
@@ -70,7 +70,7 @@ const CONDITIONS = [
 export default function MarketplaceScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");

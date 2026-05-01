@@ -10,20 +10,8 @@
  */
 
 import { db } from "../db";
-import {
-  ballLevels,
-  levelSkills,
-  levelTests,
-  glowSkills,
-  skillRubrics,
-  playerSkillScores,
-  playerBallLevels,
-  playerPillarProgress,
-  skillEvidence,
-  matchLogs,
-  players,
-} from "../../shared/schema";
-import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
+import { ballLevels, levelSkills, levelTests, playerSkillScores, playerBallLevels, playerPillarProgress, skillEvidence, matchLogs, players } from "../../shared/schema";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
 const MIN_OBSERVATIONS_FOR_STABLE_SCORE = 3;
 const SKILL_MOVING_AVERAGE_THRESHOLD = 1.7;

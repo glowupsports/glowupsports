@@ -1,66 +1,12 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Response } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
-  import {
-    eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
-    isNull, isNotNull, or, count, ilike, lte,
-  } from "drizzle-orm";
-  import {
-    authMiddlewareWithFreshData as authMiddleware,
-    requireRole,
-    requireAcademy,
-    requireFeatureUnlock,
-    validatePlayerOwnership,
-    validateCourtOwnership,
-    validateSessionOwnership,
-    validatePackageOwnership,
-    validateNotificationOwnership,
-    type AuthenticatedRequest,
-  } from "../auth";
+  import { eq, sql, desc, and, asc, inArray, count, ilike } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateSessionOwnership, type AuthenticatedRequest } from "../auth";
   import { z } from "zod";
   import { fromZodError } from "zod-validation-error";
-  import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
-  import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
-  import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-  import {
-    users, coaches, players, academies, sessions, coachingSeries, seriesPlayers,
-    invoices, payments, sessionPlayers, sessionWaitlist,
-    locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
-    sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
-    coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
-    coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
-    courtAvailability, courtAvailabilitySnapshots,
-    bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    playerBookingPreferences,
-    courtBookings, matchLogs, playerBallLevels,
-    playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
-    levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
-    spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
-    posts as postsTable, postReactions as postReactionsTable,
-    postComments as postCommentsTable, commentLikes as commentLikesTable,
-    communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
-    openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
-    questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
-    dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
-    badges as badgesTable, playerBadges as playerBadgesTable,
-    titles as titlesTable, playerTitles as playerTitlesTable,
-    sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
-    loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
-    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
-    insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema,
-    sessionAiSummaries, playerAiInsights,
-    glowSkills, playerSkillScores,
-    playerSessionReflections,
-    playerMonthlyAssessments,
-    matchReflections,
-    matches,
-    aiCoachConversations,
-    playerAiTrainingPlans,
-    deepAssessmentPillarSummaries,
-  } from "@shared/schema";
-  import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotification, sendLevelUpNotification, getPlayerPushTokens } from "../pushNotifications";
-  import { awardXP } from "../services/xp-service";
+  import { sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
+  import { getFirstSessionDate, addDaysToLocalDate, ensureResolvableLocalTime } from "../utils/timezone";  import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, inSessionFeedback, sessionSkillFeedback, ballLevels, playerNotifications, questTemplates as questTemplatesTable, playerQuests as playerQuestsTable, sessionPlans, sessionAiSummaries, playerAiInsights, glowSkills, playerSkillScores, playerSessionReflections, playerMonthlyAssessments, matchReflections, matches, aiCoachConversations, playerAiTrainingPlans, deepAssessmentPillarSummaries } from "@shared/schema";  import { awardXP } from "../services/xp-service";
   import { aiQuotaMiddleware, logAiCall } from "../middleware/aiQuotaMiddleware";
   import { broadcastSessionUpdate } from "../websocket";
   const router = Router();
@@ -145,7 +91,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const player = await storage.getPlayer(id);
         const academy = academyId ? await storage.getAcademy(academyId) : null;
         const coach = coachId ? await storage.getCoach(coachId) : null;
-        const progressRecords = await storage.getPlayerProgress(
+        const _progressRecords = await storage.getPlayerProgress(
           id,
           academyId || undefined,
         );
@@ -157,7 +103,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const threeMonthsAgo = new Date(
@@ -317,7 +263,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
         const { generateAttendanceReportHtml } =
           await import("../services/attendanceReportPdf");
-        type AttendanceReportData = import("../services/attendanceReportPdf").AttendanceReportData;
+        type _AttendanceReportData = import("../services/attendanceReportPdf").AttendanceReportData;
 
         const academy = academyId ? await storage.getAcademy(academyId) : null;
 
@@ -440,7 +386,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         console.log(
@@ -650,7 +596,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/coach/players/progress",
     authMiddleware,
     requireAcademy,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const allPlayers = await storage.getAllPlayers();
         const playersWithProgress = await Promise.all(
@@ -1237,7 +1183,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         // Semi-private style types: original semi-private OR the auto-converted
@@ -2211,7 +2157,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const futureSessions = allSessions.filter(
@@ -4026,7 +3972,7 @@ router.get(
         .limit(1);
 
       res.json(reflection || null);
-    } catch (error) {
+    } catch (_error) {
       res.status(500).json({ error: "Failed to fetch reflection" });
     }
   }
@@ -4041,7 +3987,7 @@ router.post(
       const playerId = req.user!.playerId;
       if (!playerId) return res.status(403).json({ error: "Player only" });
       await saveSessionReflection(playerId, req.user!.academyId, req.params.sessionId, req.body, res);
-    } catch (error) {
+    } catch (_error) {
       res.status(500).json({ error: "Failed to save reflection" });
     }
   }

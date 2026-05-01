@@ -430,7 +430,7 @@ export default function ServiceDetailScreen() {
                 value={selectedDate}
                 mode="date"
                 display={Platform.OS === "ios" ? "spinner" : "default"}
-                onChange={(event, date) => {
+                onChange={(_event, date) => {
                   setShowDatePicker(Platform.OS === "ios");
                   if (date) setSelectedDate(date);
                 }}
@@ -544,7 +544,7 @@ export default function ServiceDetailScreen() {
                       })()}
                       mode="time"
                       display={Platform.OS === "ios" ? "spinner" : "default"}
-                      onChange={(event, date) => {
+                      onChange={(_event, date) => {
                         if (date) {
                           const h = String(date.getHours()).padStart(2, "0");
                           const m = String(date.getMinutes()).padStart(2, "0");

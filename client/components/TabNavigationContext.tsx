@@ -169,7 +169,7 @@ export function useTabNavigation(): TabNavigationContextType {
   const context = useContext(TabNavigationContext);
   if (!context) {
     return {
-      navigateToTab: (tabKey: string, screenParams?: { screen: string; params?: any }) => {
+      navigateToTab: (_tabKey: string, _screenParams?: { screen: string; params?: any }) => {
         console.warn("[TabNavigation] useTabNavigation called outside provider");
       },
       registerPager: () => {},

@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from "react";
-import { View, StyleSheet, Platform } from "react-native";
+import React from "react";
+import { View, StyleSheet } from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
 import DesktopAdminSidebar, { type DesktopAdminRoute } from "./DesktopAdminSidebar";
 import { Colors } from "@/constants/theme";

@@ -19,8 +19,8 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
-import { apiFetch, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerCountry } from "@/player/hooks/usePlayerCountry";
 

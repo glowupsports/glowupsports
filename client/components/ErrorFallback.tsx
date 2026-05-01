@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { reloadAppAsync } from "expo";
 import {
   StyleSheet,
@@ -33,7 +33,7 @@ function generateErrorId(): string {
 }
 
 export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
-  const { theme } = useTheme();
+  const { theme: _theme } = useTheme();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);

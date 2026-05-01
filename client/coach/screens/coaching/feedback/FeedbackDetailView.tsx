@@ -2,9 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import StandaloneSessionDetailDrawer from "@/coach/components/StandaloneSessionDetailDrawer";
+import { Colors, Spacing } from "@/constants/theme";
 import { styles } from "../coachingStyles";
 import type { FeedbackTabState } from "./useFeedbackTab";
 import type { QuickSignal, SocialIssue } from "../types";
@@ -14,19 +12,19 @@ export function FeedbackDetailView(props: FeedbackTabState) {
   const onScroll = useCoachingScroll();
   const {
     selectedSession, setSelectedSession,
-    detailSession, setDetailSession,
-    showDetailDrawer, setShowDetailDrawer,
+    detailSession: _detailSession, setDetailSession: _setDetailSession,
+    showDetailDrawer: _showDetailDrawer, setShowDetailDrawer: _setShowDetailDrawer,
     intensity, setIntensity,
     mood, setMood,
-    focusTags, setFocusTags,
+    focusTags, setFocusTags: _setFocusTags,
     generalNote, setGeneralNote,
     playerFeedback,
     expandedPlayers,
     showSuccess,
-    showSkillSelector, setShowSkillSelector,
-    sessionPlayers,
-    isPrivateSession,
-    skillChips,
+    showSkillSelector: _showSkillSelector, setShowSkillSelector: _setShowSkillSelector,
+    sessionPlayers: _sessionPlayers,
+    isPrivateSession: _isPrivateSession,
+    skillChips: _skillChips,
     skillGroups,
     saveFeedbackMutation,
     tabBarHeight,
@@ -43,7 +41,7 @@ export function FeedbackDetailView(props: FeedbackTabState) {
     getSkillChipIcon,
     getSkillChipColor,
     updatePlayerFeedback,
-    getSessionXp,
+    getSessionXp: _getSessionXp,
     availableTags,
     toggleTag,
     formatTime,

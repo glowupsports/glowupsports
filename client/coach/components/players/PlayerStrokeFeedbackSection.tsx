@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { Colors, GlowColors, Spacing, BorderRadius } from "@/constants/theme";
+import { Colors, GlowColors, Spacing } from "@/constants/theme";
 import { styles , strokeTimelineStyles } from "./playersStyles";
 
 interface StrokeFeedbackEntry {

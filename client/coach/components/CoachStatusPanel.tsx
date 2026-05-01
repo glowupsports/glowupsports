@@ -25,8 +25,8 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
-import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
+import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const PANEL_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 340);
@@ -37,7 +37,7 @@ interface CoachStatusPanelProps {
   onNavigate?: (screen: string) => void;
 }
 
-interface Academy {
+interface _Academy {
   id: string;
   name: string;
 }

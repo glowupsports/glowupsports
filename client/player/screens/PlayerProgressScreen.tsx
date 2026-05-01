@@ -1,6 +1,5 @@
-import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
@@ -13,9 +12,7 @@ import Svg, { Polygon, Circle, Text as SvgText, Line, Defs, LinearGradient as Sv
 import { LinearGradient } from "expo-linear-gradient";
 import BallLevelBadge from "@/components/BallLevelBadge";
 import { XPProgressBar } from "@/components/XPProgressBar";
-import PillarProgressRings from "@/components/PillarProgressRings";
-import { EmptyStateCard } from "@/components/EmptyStateCard";
-import { getStageFromLevel, type BallStage } from "@shared/language-switch";
+import PillarProgressRings from "@/components/PillarProgressRings";import { getStageFromLevel } from "@shared/language-switch";
 import { useSport, SPORT_DEFINITIONS, getSportColor, getSportLabel, getSportIcon } from "@/player/context/SportContext";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -289,7 +286,7 @@ function getBallLevelDisplay(level: string | null): string {
   return map[level] || level;
 }
 
-function getBallLevelColor(level: string | null): string {
+function _getBallLevelColor(level: string | null): string {
   if (!level) return Colors.dark.textMuted;
   const levelLower = level.toLowerCase();
   if (levelLower.startsWith("blue")) return "#3B82F6";
@@ -313,7 +310,7 @@ function getStatusDisplay(status: string): string {
 
 function LevelReadinessSection({ 
   readiness, 
-  currentLevel, 
+  currentLevel: _currentLevel, 
   nextLevel 
 }: { 
   readiness: LevelReadiness; 
@@ -492,7 +489,7 @@ function LevelExplanationModal({
 
             <View style={modalStyles.milestonesSection}>
               <Text style={modalStyles.sectionTitle}>Level Milestones</Text>
-              {levelMilestones.map((milestone, index) => (
+              {levelMilestones.map((milestone, _index) => (
                 <View 
                   key={milestone.level} 
                   style={[
@@ -1012,7 +1009,7 @@ function BallLevelModal({
   );
 }
 
-interface SkillCategory {
+interface _SkillCategory {
   name: string;
   skills: {
     id: string;
@@ -1110,7 +1107,7 @@ function PillarDetailModal({
   visible, 
   onClose, 
   domain,
-  playerId,
+  playerId: _playerId,
   currentLevel,
 }: { 
   visible: boolean; 
@@ -1407,7 +1404,7 @@ interface AttendanceData {
   };
 }
 
-function getSessionTypeIcon(type: string): string {
+function _getSessionTypeIcon(type: string): string {
   const map: Record<string, string> = {
     private: "person",
     semi_private: "people",
@@ -1416,7 +1413,7 @@ function getSessionTypeIcon(type: string): string {
   return map[type] || "tennisball";
 }
 
-function getSessionTypeColor(type: string): string {
+function _getSessionTypeColor(type: string): string {
   const map: Record<string, string> = {
     private: Colors.dark.sessionPrivate,
     semi_private: Colors.dark.sessionSemiPrivate,

@@ -1,15 +1,6 @@
 import React, { useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withDelay,
-  withTiming,
-  withSequence,
-  runOnJS,
-  Easing,
-} from "react-native-reanimated";
+import { Text, StyleSheet, Dimensions } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming, withSequence } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,7 +14,7 @@ import {
   TextColors,
 } from "@/constants/theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 type ToastVariant = "success" | "error" | "info" | "warning";
 

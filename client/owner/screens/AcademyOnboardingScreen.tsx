@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -15,19 +15,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, { 
-  FadeIn, 
-  FadeInDown,
-} from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { countries, getCitiesForCountry } from "@shared/countries";
-import { useAuth } from "@/coach/context/AuthContext";
-import { SPORTS, getSportConfig, type Sport } from "@shared/sportConfig";
-import { SportMultiSelector } from "@/components/SportBadge";
+import { useAuth } from "@/coach/context/AuthContext";import { SportMultiSelector } from "@/components/SportBadge";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OnboardingData {
   academyName: string;
@@ -639,7 +634,7 @@ function Step4Type({ data, setData, onNext, onBack }: StepProps) {
   );
 }
 
-function Step5Walkthrough({ data, setData, onNext, onBack }: StepProps) {
+function Step5Walkthrough({ data: _data, setData: _setData, onNext, onBack }: StepProps) {
   const insets = useSafeAreaInsets();
   const [activeStep, setActiveStep] = useState(0);
   
@@ -769,7 +764,7 @@ function Step6Feedback({ data, setData, onNext, onBack }: StepProps) {
   );
 }
 
-function Step7Finish({ data, onComplete, onBack }: StepProps & { onComplete: () => void }) {
+function Step7Finish({ data, onComplete, onBack: _onBack }: StepProps & { onComplete: () => void }) {
   const insets = useSafeAreaInsets();
   
   return (
@@ -831,8 +826,8 @@ export default function AcademyOnboardingScreen({ navigation }: any) {
   });
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showCityPicker, setShowCityPicker] = useState(false);
-  const [countrySearch, setCountrySearch] = useState("");
-  const [citySearch, setCitySearch] = useState("");
+  const [_countrySearch, _setCountrySearch] = useState("");
+  const [_citySearch, _setCitySearch] = useState("");
   
   const completeMutation = useMutation({
     mutationFn: async () => {

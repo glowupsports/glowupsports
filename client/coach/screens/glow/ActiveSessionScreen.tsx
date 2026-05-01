@@ -6,16 +6,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring,
-  withTiming 
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 
 interface DrillBlock {
@@ -46,7 +41,7 @@ export default function ActiveSessionScreen() {
   const route = useRoute<any>();
   const queryClient = useQueryClient();
 
-  const { sessionId, planId } = route.params || {};
+  const { sessionId, planId: _planId } = route.params || {};
 
   const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
   const [blockStatuses, setBlockStatuses] = useState<Record<string, BlockStatus>>({});

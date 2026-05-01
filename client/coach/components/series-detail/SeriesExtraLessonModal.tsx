@@ -199,7 +199,7 @@ export function SeriesExtraLessonModal({
                       value={extraLessonDate}
                       mode="date"
                       display="default"
-                      onChange={(event, selectedDate) => {
+                      onChange={(_event, selectedDate) => {
                         setShowExtraLessonDatePicker(false);
                         if (selectedDate) setExtraLessonDate(selectedDate);
                       }}

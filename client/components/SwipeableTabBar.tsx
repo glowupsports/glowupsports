@@ -232,7 +232,7 @@ export function SwipeableTabBar({
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const [currentIndex, setCurrentIndex] = useState(initialPage);
-  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([initialPage]));
+  const [_visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([initialPage]));
   // Task #1417 — Replaces the PagerView ref. Same imperative `setPage`
   // contract so TabNavigationContext can still drive the pager from
   // outside without code changes.

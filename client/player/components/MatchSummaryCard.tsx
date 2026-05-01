@@ -10,15 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import {
-  Spacing,
-  BorderRadius,
-  FontSizes,
-  Typography,
-  GlowColors,
-  FunctionColors,
-  Backgrounds,
-  TextColors, Colors } from "@/constants/theme";
+import { Spacing, BorderRadius, FontSizes, GlowColors, FunctionColors, Backgrounds, TextColors, Colors } from "@/constants/theme";
 import { buildPhotoUrl } from "@/lib/query-client";
 import {
   getSportLabel,

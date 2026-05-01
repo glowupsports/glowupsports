@@ -2,7 +2,7 @@ import logger from "@/lib/logger";
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
-import { getStaticAssetsUrl, buildPhotoUrl, getApiUrl, apiRequest } from "@/lib/query-client";
+import { buildPhotoUrl, getApiUrl, apiRequest } from "@/lib/query-client";
 import * as Location from "expo-location";
 
 type TimeOfDay = "morning" | "afternoon" | "evening" | "night";

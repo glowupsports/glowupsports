@@ -113,7 +113,7 @@ export function AdminPlayerDetailModal({
   setShowReportIssueModal,
   setEditingPlayer,
   setFormData,
-  closeDetailModal,
+  closeDetailModal: _closeDetailModal,
   setShowAddModal,
   setShowCreditStoreModal,
   progressExpanded,

@@ -16,10 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
-import * as ImagePicker from "expo-image-picker";
-import { Colors, Backgrounds, Spacing, GlowColors } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import * as Haptics from "expo-haptics";import { Colors, Backgrounds, Spacing, GlowColors } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
 
 interface Product {
@@ -69,7 +67,7 @@ type TabType = "products" | "services" | "categories" | "orders";
 export default function ShopManagementScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>("products");
   const [refreshing, setRefreshing] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
@@ -442,7 +440,7 @@ export default function ShopManagementScreen() {
   );
 }
 
-function ProductModal({ visible, onClose, editingProduct, categories, onSuccess }: {
+function ProductModal({ visible, onClose, editingProduct, categories: _categories, onSuccess }: {
   visible: boolean;
   onClose: () => void;
   editingProduct: Product | null;
@@ -635,7 +633,7 @@ function ProductModal({ visible, onClose, editingProduct, categories, onSuccess 
   );
 }
 
-function ServiceModal({ visible, onClose, editingService, categories, onSuccess }: {
+function ServiceModal({ visible, onClose, editingService, categories: _categories, onSuccess }: {
   visible: boolean;
   onClose: () => void;
   editingService: Service | null;
@@ -801,7 +799,7 @@ function CategoryModal({ visible, onClose, onSuccess }: {
   onSuccess: () => void;
 }) {
   const [name, setName] = useState("");
-  const [iconName, setIconName] = useState("pricetag");
+  const [iconName, _setIconName] = useState("pricetag");
   const [type, setType] = useState<"product" | "service">("product");
   const [isSubmitting, setIsSubmitting] = useState(false);
 

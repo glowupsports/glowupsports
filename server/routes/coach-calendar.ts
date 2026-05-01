@@ -1,23 +1,9 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Response, type NextFunction } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
   import { fireQuestEvent } from "../services/quest-events";
-  import {
-    eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
-    isNull, isNotNull, or, count, ilike, lte,
-  } from "drizzle-orm";
-  import {
-    authMiddlewareWithFreshData as authMiddleware,
-    requireRole,
-    requireAcademy,
-    requireFeatureUnlock,
-    validatePlayerOwnership,
-    validateCourtOwnership,
-    validateSessionOwnership,
-    validatePackageOwnership,
-    validateNotificationOwnership,
-    type AuthenticatedRequest,
-  } from "../auth";
+  import { eq, sql, desc, and, gt, gte, inArray, isNotNull, count, lte } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validateSessionOwnership, type AuthenticatedRequest } from "../auth";
   import { z } from "zod";
   import { fromZodError } from "zod-validation-error";
   import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
@@ -541,7 +527,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
               isCoachBlock: true,
             };
           });
-        } catch (e) {
+        } catch (_e) {
           // Table might not exist yet
         }
 
@@ -1514,7 +1500,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
 
@@ -1657,7 +1643,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const sessionStart = new Date(session.startTime);
@@ -1936,7 +1922,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
     requireAcademy,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const coachId = req.user!.coachId;
+        const _coachId = req.user!.coachId;
         const { actions } = req.body;
 
         const results = [];

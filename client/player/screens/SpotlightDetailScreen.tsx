@@ -1,13 +1,13 @@
 import logger from "@/lib/logger";
 import React, { useState, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Share } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Share } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Spacing, Backgrounds, GlowColors, Colors, BorderRadius, TextColors, FunctionColors } from "@/constants/theme";
+import { Spacing, Backgrounds, GlowColors, Colors, BorderRadius, TextColors } from "@/constants/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { getStaticAssetsUrl } from "@/lib/query-client";
@@ -40,7 +40,7 @@ function PodiumSection({ nominees }: { nominees: any[] }) {
   const second = top3[1];
   const third = top3[2];
 
-  const podiumOrder = [second, first, third].filter(Boolean);
+  const _podiumOrder = [second, first, third].filter(Boolean);
 
   return (
     <Animated.View entering={FadeInUp.delay(200).duration(600)} style={podiumStyles.container}>

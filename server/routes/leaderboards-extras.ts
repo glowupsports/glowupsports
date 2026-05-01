@@ -5,27 +5,7 @@
 // `/api/adult-glow/leaderboard` (adult-glow-rank) endpoints — both untouched.
 import { Router, Request, Response, NextFunction } from "express";
 import { db } from "../db";
-import {
-  academies,
-  players,
-  squads,
-  squadMembers,
-  lessonGroups,
-  lessonGroupMembers,
-  playerXpEvents,
-  playerStreaks,
-  adultGlowMatches,
-  playerMatches,
-  matches as matchesTable,
-  tournaments,
-  tournamentParticipants,
-  sessionPlayers,
-  sessions,
-  posts as postsTable,
-  playerOfWeek,
-  weeklySkillChallenges,
-  users,
-} from "@shared/schema";
+import { academies, players, squads, squadMembers, playerXpEvents, playerStreaks, adultGlowMatches, playerMatches, matches as matchesTable, tournaments, sessionPlayers, sessions, posts as postsTable, playerOfWeek, weeklySkillChallenges, users } from "@shared/schema";
 import { and, eq, gte, inArray, sql, desc, isNotNull, lte, lt } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,

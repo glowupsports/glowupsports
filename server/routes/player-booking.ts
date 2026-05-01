@@ -1,78 +1,9 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { Router, Request, Response } from "express";
 import { db, pool } from "../db";
-import { storage } from "../storage";
-import https from "https";
-import {
-  players,
-  coaches,
-  users,
-  sessions,
-  packages,
-  coachingSeries,
-  seriesPlayers,
-  creditTransactions,
-  invoices,
-  payments,
-  sessionPlayers,
-  sessionWaitlist,
-  leaderboardSnapshots,
-  locationTravelTimes,
-  coachSettings,
-  coachAvailability,
-  availabilityExceptions,
-  coachTimeBlocks,
-  courtAvailability,
-  courtAvailabilitySnapshots,
-  courtBookings,
-  courts,
-  bookingInvites,
-  bookingInviteGuests,
-  openMatches,
-  openMatchSlots,
-  playerBookingPreferences,
-  bookingRequests,
-  academyPricing,
-  submitReviewSchema,
-  inSessionFeedback,
-  sessionSkillObservations,
-  xpTransactions,
-  playerSkillScores,
-  glowSkills,
-  sessionRatings,
-  sessionRatingInputSchema,
-  academies,
-  coachReviewStats,
-  locations,
-  parentPlayerRelations,
-  type Coach,
-  type InsertInvoice,
-  type InsertPayment,
-} from "@shared/schema";
-import {
-  eq,
-  sql,
-  desc,
-  and,
-  ne,
-  gt,
-  gte,
-  asc,
-  inArray,
-  lte,
-  or,
-  count,
-  isNull,
-  isNotNull,
-  not,
-} from "drizzle-orm";
+import { storage } from "../storage";import { players, coaches, users, sessions, coachingSeries, seriesPlayers, creditTransactions, payments, sessionPlayers, sessionWaitlist, leaderboardSnapshots, locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions, coachTimeBlocks, courtAvailability, courtBookings, courts, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, bookingRequests, academyPricing, submitReviewSchema, inSessionFeedback, sessionSkillObservations, xpTransactions, playerSkillScores, glowSkills, sessionRatings, sessionRatingInputSchema, academies, coachReviewStats, locations, parentPlayerRelations, type Coach, type InsertInvoice, type InsertPayment } from "@shared/schema";
+import { eq, sql, desc, and, ne, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
-import {
-  authMiddlewareWithFreshData as authMiddleware,
-  requireRole,
-  requireAcademy,
-  requireFeatureUnlock,
-  type JWTPayload,
-} from "../auth";
+import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, type JWTPayload } from "../auth";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeMessage } from "../utils/sanitize";
@@ -199,7 +130,7 @@ interface AuthRequest extends Request {
   user?: JWTPayload;
 }
 
-function toDubaiTime(utcDate: Date): Date {
+function _toDubaiTime(utcDate: Date): Date {
   const dubaiOffset = 4 * 60;
   const utcTime = utcDate.getTime();
   return new Date(utcTime + dubaiOffset * 60 * 1000);
@@ -1161,7 +1092,7 @@ router.get(
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
 
       // Filter joinable sessions
       const joinable = await Promise.all(
@@ -1534,19 +1465,19 @@ router.get(
       console.log("[PlaySessions] Player:", playerId, "Academy:", academyId);
 
       // scope param: 'mine' (default) = own academy only, 'all' = cross-academy
-      const scope = (req.query.scope as string) || "mine";
+      const _scope = (req.query.scope as string) || "mine";
 
       // Get upcoming group/semi sessions from player's academy + public sessions
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 14); // Next 2 weeks
 
       // Always fetch own-academy sessions (or sessions with no academy if player has no academy)
       const ownAcademySessions = await db.query.sessions.findMany({
-        where: (s, { and, or, eq, gte, lte, inArray }) =>
+        where: (s, { and, or: _or, eq, gte, lte, inArray }) =>
           and(
             academyId
               ? eq(s.academyId, academyId)
@@ -1632,7 +1563,7 @@ router.get(
             for (const row of rows) {
               if (row.name) academyNameCache.set(row.id, row.name);
             }
-          } catch (e) {}
+          } catch (_e) {}
         }
       }
 
@@ -1675,7 +1606,7 @@ router.get(
             if (series.locationId)
               seriesLocationMap.set(series.id, series.locationId);
           }
-        } catch (e) {}
+        } catch (_e) {}
       }
       const levelFilteredSessions =
         targetLevel === "all"
@@ -2176,7 +2107,7 @@ router.get(
           for (const row of otpRows.rows as { player_id: string }[]) {
             if (row.player_id) openToPlaySet.add(row.player_id);
           }
-        } catch (e) {
+        } catch (_e) {
           // Table might not exist; fall back to player field below
         }
       }
@@ -2433,7 +2364,7 @@ router.post(
     try {
       const playerId = req.user?.playerId;
       const { sessionId } = req.params;
-      const { useMakeUpCredit } = req.body || {};
+      const { useMakeUpCredit: _useMakeUpCredit } = req.body || {};
 
       if (!playerId) {
         return res.status(403).json({ error: "Player access required" });
@@ -3037,7 +2968,7 @@ router.post(
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const sessionStart = new Date(session.startTime);
       const hoursUntilSession =
         (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60);
@@ -5616,7 +5547,7 @@ router.get(
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const lessonSummary = await storage.getPlayerLessonSummary(
         playerId,
         now.getMonth() + 1,
@@ -6183,7 +6114,7 @@ router.post(
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const expiresAt = new Date(now);
       expiresAt.setDate(expiresAt.getDate() + templateData.validityDays);
 
@@ -7886,7 +7817,7 @@ router.post(
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
-      const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+      const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
       const hoursUntilBooking =
         (bookingDateTime.getTime() - now.getTime()) / 3600000;
 

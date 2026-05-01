@@ -23,11 +23,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInUp, FadeInRight, ZoomIn } from "react-native-reanimated";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getStaticAssetsUrl, getApiUrl } from "@/lib/query-client";
-import { getAuthToken, secureSet, clearAuthState } from "@/lib/auth";
+import { secureSet } from "@/lib/auth";
 import CreateFamilyMemberFlow from "@/player/components/CreateFamilyMemberFlow";
 import GraduationFlow from "@/player/components/GraduationFlow";
 import { PinPadModal } from "@/components/PinPadModal";
@@ -905,7 +905,7 @@ export default function FamilyLobbyScreen() {
     },
   });
 
-  const handleOpenAddChildModal = () => {
+  const _handleOpenAddChildModal = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setChildEmail("");
     setInviteCode(null);

@@ -1,7 +1,7 @@
-import { Router, Request, Response } from "express";
+import { Router, Response } from "express";
 import { db } from "../db";
 import { lessonGroups, lessonGroupMembers, players, playerLevelEvents } from "../../shared/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 
 const router = Router();

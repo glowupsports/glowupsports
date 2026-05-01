@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,14 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
 } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  FadeIn,
-  FadeOut,
-} from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -23,7 +16,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { apiRequest, queryClient } from "@/lib/query-client";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface GlowAssessmentFlowProps {
   playerId: string;
@@ -104,7 +97,7 @@ export function GlowAssessmentFlow({
   const [selectedLevel, setSelectedLevel] = useState(currentLevel);
   const [currentPillarIndex, setCurrentPillarIndex] = useState(0);
   const [skillScores, setSkillScores] = useState<Record<string, number>>({});
-  const [notes, setNotes] = useState("");
+  const [notes, _setNotes] = useState("");
 
   const { data: levelData, isLoading: loadingLevel } = useQuery<LevelData>({
     queryKey: ["/api/glow/adult-levels", selectedLevel],
@@ -169,7 +162,7 @@ export function GlowAssessmentFlow({
 
   const totalSkillsScored = Object.keys(skillScores).length;
   const totalSkills = levelData?.totalSkills || 0;
-  const allScored = totalSkillsScored === totalSkills && totalSkills > 0;
+  const _allScored = totalSkillsScored === totalSkills && totalSkills > 0;
 
   if (step === 0) {
     return (

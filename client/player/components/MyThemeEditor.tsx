@@ -188,7 +188,7 @@ export default function MyThemeEditor({
   const panelHex = activePreview.panel;
   const surfaceHex = activePreview.surface;
   const textHex = activePreview.text;
-  const primaryHex = activePreview.primary;
+  const _primaryHex = activePreview.primary;
   // Show both previews side-by-side once the player has actually configured a
   // dark variant. Otherwise just show the active mode's preview.
   const hasDarkOverride = !!override?.dark && Object.keys(override.dark).length > 0;

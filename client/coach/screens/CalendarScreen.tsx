@@ -1,42 +1,17 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  useWindowDimensions,
-  ActivityIndicator,
-  Alert,
-  Platform,
-  Modal,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions, ActivityIndicator, Alert, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSpring,
-  withDelay,
-  withSequence,
-  Easing,
-  runOnJS,
-  FadeIn,
-} from "react-native-reanimated";
-import { BlurView } from "expo-blur";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useMutation, useQueryClient , useQuery } from "@tanstack/react-query";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useRoute, RouteProp } from "@react-navigation/native";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { 
   getLocalDateString, 
   formatLocalDateToString, 
@@ -59,9 +34,8 @@ import { CalendarWeekViewSlots } from "@/coach/components/calendar/CalendarWeekV
 import { CalendarDayViewSlots } from "@/coach/components/calendar/CalendarDayViewSlots";
 import { AddPlayerToSessionModal, type CalendarSessionForAdd } from "@/coach/components/calendar/AddPlayerToSessionModal";
 import { TIME_COLUMN_WIDTH, MIN_COURT_LANE_WIDTH, HOUR_HEIGHT_60, HOUR_HEIGHT_30, START_HOUR, END_HOUR } from "@/coach/components/calendar/calendarConstants";
-import { dimColors, DraggableSessionBlock, WeekDraggableSessionBlock, PulsingDot } from "@/coach/components/calendar/SessionBlocks";
 import { styles } from "@/coach/components/calendar/calendarStyles";
-type CalendarRouteParams = {
+type _CalendarRouteParams = {
   Calendar: {
     openSessionId?: string;
     action?: "attendance" | "detail" | "extend" | "end";
@@ -130,7 +104,7 @@ export default function CalendarScreen() {
   const [dayMode, setDayMode] = useState<"overview" | "slots">("slots");
   const [weekMode, setWeekMode] = useState<"overview" | "availability">("availability");
   const [monthMode, setMonthMode] = useState<"load" | "availability">("load");
-  const [draggingSession, setDraggingSession] = useState<string | null>(null);
+  const [_draggingSession, _setDraggingSession] = useState<string | null>(null);
   const [lastMove, setLastMove] = useState<{
     sessionId: string;
     originalStart: string;
@@ -157,13 +131,13 @@ export default function CalendarScreen() {
   const [selectedCells, setSelectedCells] = useState<{ courtId: string; courtName: string; hour: number }[]>([]);
   const [selectionStart, setSelectionStart] = useState<{ courtIndex: number; hour: number } | null>(null);
   const [showBlockActionModal, setShowBlockActionModal] = useState(false);
-  const [blockReason, setBlockReason] = useState<string>("training");
-  const [blockMode, setBlockMode] = useState<"coach" | "court">("coach");
-  const [blockDateFrom, setBlockDateFrom] = useState<Date>(new Date());
-  const [blockDateTo, setBlockDateTo] = useState<Date>(new Date());
-  const [blockWeekdays, setBlockWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const [showFromPicker, setShowFromPicker] = useState(false);
-  const [showToPicker, setShowToPicker] = useState(false);
+  const [blockReason, _setBlockReason] = useState<string>("training");
+  const [_blockMode, setBlockMode] = useState<"coach" | "court">("coach");
+  const [_blockDateFrom, setBlockDateFrom] = useState<Date>(new Date());
+  const [_blockDateTo, setBlockDateTo] = useState<Date>(new Date());
+  const [_blockWeekdays, setBlockWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [_showFromPicker, _setShowFromPicker] = useState(false);
+  const [_showToPicker, _setShowToPicker] = useState(false);
 
   // Refs for synchronized horizontal scrolling between court headers and lanes
   const courtHeaderScrollRef = useRef<ScrollView>(null);
@@ -276,7 +250,7 @@ export default function CalendarScreen() {
     : locationFilteredCourts;
   
   // Group courts by location for visual separators
-  const getLocationForCourt = (courtId: string) => {
+  const _getLocationForCourt = (courtId: string) => {
     const court = allCourts.find(c => c.id === courtId);
     return court?.locationId || null;
   };
@@ -284,7 +258,7 @@ export default function CalendarScreen() {
   // Returns true if this is the first court in a new location group
   // For index 0: true only if it has a locationId (to show header for first group)
   // For other indices: true if locationId differs from previous court
-  const isFirstCourtInNewLocation = (index: number) => {
+  const _isFirstCourtInNewLocation = (index: number) => {
     const currentLocationId = courts[index]?.locationId;
     if (index === 0) {
       // Show location header for first court only if it has a location
@@ -706,7 +680,7 @@ export default function CalendarScreen() {
     return { top, height };
   };
 
-  const getCourtIndex = (courtId: string | null) => {
+  const _getCourtIndex = (courtId: string | null) => {
     if (!courtId) return -1;
     return courts.findIndex((c) => c.id === courtId);
   };
@@ -741,7 +715,7 @@ export default function CalendarScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const extendSelection = (courtId: string, courtName: string, hour: number, courtIndex: number) => {
+  const _extendSelection = (_courtId: string, _courtName: string, hour: number, courtIndex: number) => {
     if (!selectionStart) return;
     const minCourtIdx = Math.min(selectionStart.courtIndex, courtIndex);
     const maxCourtIdx = Math.max(selectionStart.courtIndex, courtIndex);
@@ -781,7 +755,7 @@ export default function CalendarScreen() {
     return selectedCells.some(c => c.courtId === courtId && c.hour === hour);
   };
 
-  const blockCourtMutation = useMutation({
+  const _blockCourtMutation = useMutation({
     mutationFn: async (cells: { courtId: string; hour: number }[]) => {
       const dateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
       const promises = cells.map(cell => {
@@ -824,7 +798,7 @@ export default function CalendarScreen() {
     },
   });
 
-  const deleteCoachBlockMutation = useMutation({
+  const _deleteCoachBlockMutation = useMutation({
     mutationFn: async (blockId: string) => {
       return apiRequest("DELETE", `/api/coach/time-blocks/${blockId}`);
     },
@@ -1075,7 +1049,7 @@ export default function CalendarScreen() {
     };
   };
 
-  const getEnergyColor = (level: "green" | "orange" | "red") => {
+  const _getEnergyColor = (level: "green" | "orange" | "red") => {
     switch (level) {
       case "green": return Colors.dark.primary;
       case "orange": return Colors.dark.gold;
@@ -1211,7 +1185,7 @@ export default function CalendarScreen() {
 
   const nowPosition = getCurrentTimePosition();
 
-  const getSessionTypeColor = (type: string) => {
+  const _getSessionTypeColor = (type: string) => {
     switch (type) {
       case "private":
       case "private_adjusted":

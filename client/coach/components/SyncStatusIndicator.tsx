@@ -19,7 +19,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { useEffect } from "react";
-import { Colors, Backgrounds, Spacing, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
+import { Backgrounds, Spacing, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
 import { useOfflineSync } from "@/lib/useOfflineSync";
 
 export default function SyncStatusIndicator() {

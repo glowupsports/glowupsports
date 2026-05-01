@@ -7,385 +7,7 @@ import { eq, and, gte, lte, lt, ne, or, inArray, ilike, sql, count, gt, isNull, 
 import { sanitizeName } from "../shared/textSanitize";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import { desc, asc } from "drizzle-orm";
-import {
-  // Auth tables
-  users,
-  type User,
-  type InsertUser,
-  // Corporate accounts (imported near top to avoid circular issues)
-  corporateAccounts,
-  corporateMembers,
-  corporateCreditTransactions,
-  type CorporateAccount,
-  type InsertCorporateAccount,
-  type CorporateMember,
-  type InsertCorporateMember,
-  type CorporateCreditTransaction,
-  type InsertCorporateCreditTransaction,
-  // Multi-academy structure
-  academies,
-  academyApplications,
-  invites,
-  joinRequests,
-  academyTransferRequests,
-  coachInvitations,
-  type Academy,
-  type AcademyApplication,
-  type InsertAcademyApplication,
-  type Invite,
-  type InsertInvite,
-  type JoinRequest,
-  type InsertJoinRequest,
-  type AcademyTransferRequest,
-  type InsertAcademyTransferRequest,
-  type CoachInvitation,
-  type InsertCoachInvitation,
-  // Core tables
-  coaches,
-  locations,
-  courts,
-  players,
-  packages,
-  sessions,
-  sessionPlayers,
-  playerHolidays,
-  sessionFeedback,
-  auditLogs,
-  offlineQueue,
-  playerNotes,
-  playerProgress,
-  sessionTemplates,
-  coachNotifications,
-  recurringSeries,
-  coachingSeries,
-  seriesPlayers,
-  type CoachingSeries,
-  type InsertCoachingSeries,
-  type SeriesPlayer,
-  type InsertSeriesPlayer,
-  playerSessionCancellations,
-  type PlayerSessionCancellation,
-  type InsertPlayerSessionCancellation,
-  // Progress Engine V2
-  skillDomains,
-  playerSkillState,
-  sessionSkillObservations,
-  levelRequirements,
-  coachStatsRollup,
-  playerProgressFlags,
-  domainAssessments,
-  xpTransactions,
-  // Coach XP System
-  coachXpTransactions,
-  // Glow Chat System
-  conversations,
-  conversationParticipants,
-  messages,
-  messageReactions,
-  // Community Groups (Discord-style)
-  communityGroups,
-  groupMembers,
-  // Family groups (Task #1132 / #1135)
-  familyGroups,
-  familyMembers,
-  // Court Preferences System
-  coachCourtPreferences,
-  coachCourtRules,
-  // Location Travel Times
-  locationTravelTimes,
-  // Player Booking System
-  coachAvailability,
-  availabilityExceptions,
-  coachSettings,
-  bookingRequests,
-  // Coach Time Blocks
-  coachTimeBlocks,
-  // Player Social & Matches
-  playerMatches,
-  playerConnections,
-  type PlayerConnection,
-  // Player Invites
-  playerInvites,
-  type PlayerInvite,
-  type InsertPlayerInvite,
-  // Phase 3: Academy Management
-  academySettings,
-  academyInvites,
-  coachAcademyMemberships,
-  coachFreelanceProfiles,
-  type CoachFreelanceProfile,
-  type InsertCoachFreelanceProfile,
-  academyOwnerProfiles,
-  // Phase 3: Push Notifications
-  pushDeviceTokens,
-  notificationPreferences,
-  scheduledNotifications,
-  // Phase 3: Billing & Payments
-  billingAccounts,
-  subscriptionPlans,
-  subscriptions,
-  invoices,
-  payments,
-  refunds,
-  playerSubscriptions,
-  packageTemplates,
-  creditPackageTemplates,
-  type PackageTemplate,
-  type InsertPackageTemplate,
-  // Session Ratings
-  sessionRatings,
-  // Coach Review System
-  coachReviews,
-  reviewResponses,
-  reviewFlags,
-  reviewPrompts,
-  coachReviewStats,
-  type CoachReview,
-  type InsertCoachReview,
-  type ReviewResponse,
-  type InsertReviewResponse,
-  type ReviewFlag,
-  type InsertReviewFlag,
-  type ReviewPrompt,
-  type InsertReviewPrompt,
-  type CoachReviewStats,
-  // 3-Layer Pricing System
-  academyPricing,
-  coachContracts,
-  type AcademyPricing,
-  type InsertAcademyPricing,
-  type CoachContract,
-  type InsertCoachContract,
-  type InsertCoachReviewStats,
-  // Court Booking Marketplace
-  courtAvailability,
-  courtAvailabilitySnapshots,
-  courtBookings,
-  type CourtAvailability,
-  type InsertCourtAvailability,
-  type CourtBooking,
-  type InsertCourtBooking,
-  // Academy types (Academy already imported above)
-  type InsertAcademy,
-  type Coach,
-  type InsertCoach,
-  type Location,
-  type InsertLocation,
-  type Court,
-  type InsertCourt,
-  type Player,
-  type InsertPlayer,
-  type Session,
-  type InsertSession,
-  type SessionPlayer,
-  type InsertSessionPlayer,
-  type PlayerHoliday,
-  type InsertPlayerHoliday,
-  type SessionFeedback,
-  type InsertSessionFeedback,
-  type AuditLog,
-  type InsertAuditLog,
-  type OfflineQueue,
-  type InsertOfflineQueue,
-  type PlayerNote,
-  type InsertPlayerNote,
-  type PlayerProgress,
-  type InsertPlayerProgress,
-  type Package,
-  type InsertPackage,
-  type SessionTemplate,
-  type InsertSessionTemplate,
-  type CoachNotification,
-  type InsertCoachNotification,
-  // Progress Engine V2 types
-  type SkillDomain,
-  type InsertSkillDomain,
-  type PlayerSkillState,
-  type InsertPlayerSkillState,
-  type SessionSkillObservation,
-  type InsertSessionSkillObservation,
-  type LevelRequirement,
-  type InsertLevelRequirement,
-  type CoachStatsRollup,
-  type InsertCoachStatsRollup,
-  type PlayerProgressFlag,
-  type InsertPlayerProgressFlag,
-  type DomainAssessment,
-  type InsertDomainAssessment,
-  type XpTransaction,
-  type InsertXpTransaction,
-  type CoachXpTransaction,
-  type InsertCoachXpTransaction,
-  // Recurring Series types
-  type RecurringSeries,
-  type InsertRecurringSeries,
-  // Glow Chat types
-  type Conversation,
-  type InsertConversation,
-  type ConversationParticipant,
-  type InsertConversationParticipant,
-  type Message,
-  type InsertMessage,
-  type MessageReaction,
-  type InsertMessageReaction,
-  // Court Preferences types
-  type CoachCourtPreference,
-  type InsertCoachCourtPreference,
-  type CoachCourtRules,
-  type InsertCoachCourtRules,
-  // Player Booking System types
-  type CoachAvailability,
-  type InsertCoachAvailability,
-  type BookingRequest,
-  type InsertBookingRequest,
-  // Phase 3 types
-  type AcademySettings,
-  type InsertAcademySettings,
-  type AcademyInvite,
-  type InsertAcademyInvite,
-  type AcademyOwnerProfile,
-  type InsertAcademyOwnerProfile,
-  type CoachAcademyMembership,
-  type InsertCoachAcademyMembership,
-  type PushDeviceToken,
-  type InsertPushDeviceToken,
-  type NotificationPreference,
-  type InsertNotificationPreference,
-  type ScheduledNotification,
-  type InsertScheduledNotification,
-  type BillingAccount,
-  type InsertBillingAccount,
-  type SubscriptionPlan,
-  type InsertSubscriptionPlan,
-  type Subscription,
-  type InsertSubscription,
-  type Invoice,
-  type InsertInvoice,
-  type Payment,
-  type InsertPayment,
-  type Refund,
-  type InsertRefund,
-  type PlayerSubscription,
-  type InsertPlayerSubscription,
-  // Coach Payouts
-  coachPayouts,
-  type CoachPayout,
-  type InsertCoachPayout,
-  // Platform Config
-  platformConfig,
-  type PlatformConfig,
-  type InsertPlatformConfig,
-  // Diagnostics
-  diagnosticReports,
-  type DiagnosticReport,
-  type InsertDiagnosticReport,
-  // Parent Portal
-  parentPlayerRelations,
-  parentSettings,
-  paymentReminders,
-  coachPaymentRules,
-  coachEarnings,
-  type ParentPlayerRelation,
-  type InsertParentPlayerRelation,
-  type ParentSettings,
-  type InsertParentSettings,
-  type PaymentReminder,
-  type InsertPaymentReminder,
-  // Credit Transactions
-  creditTransactions,
-  type CreditTransaction,
-  type InsertCreditTransaction,
-  // Credit V2 (Task #681 Phase 3 — V1 reads switched to V2)
-  creditLots,
-  creditLedgerV2,
-  playerCreditBalance,
-  playerMoneyWallet,
-  // In-Session Feedback
-  inSessionFeedback,
-  // Player Baselines
-  playerBaselines,
-  playerBaselineSkillScores,
-  playerPillarProgress,
-  ballLevels,
-  type PlayerBaseline,
-  type InsertPlayerBaseline,
-  // Deep Assessment
-  deepAssessmentSkills,
-  playerDeepAssessments,
-  type DeepAssessmentSkill,
-  type InsertDeepAssessmentSkill,
-  type PlayerDeepAssessment,
-  type InsertPlayerDeepAssessment,
-  // Glow Skills
-  glowSkills,
-  levelSkills,
-  // Booking invites
-  bookingInvites,
-  bookingInviteGuests,
-  // Open matches
-  openMatches,
-  openMatchSlots,
-  playerBookingPreferences,
-  // Lesson groups
-  lessonGroupMembers,
-  // Player level events
-  playerLevelEvents,
-  // Adult glow matches
-  adultGlowMatches,
-  adultSkillAssessments,
-  // Session waitlist & squads
-  sessionWaitlist,
-  squadMembers,
-  // Player gamification
-  playerBadges,
-  playerTitles,
-  playerQuests,
-  dailyQuestSlots,
-  playerStreaks,
-  // Shop
-  shopOrders,
-  shopOrderItems,
-  shopWishlist,
-  // Marketplace
-  marketplaceListings,
-  sellerProfiles,
-  // Ball levels & skill scoring
-  playerBallLevels,
-  playerSkillScores,
-  levelTrials,
-  sessionSkillFeedback,
-  // Match intelligence
-  matchLogs,
-  skillEvidence,
-  levelUpEvents,
-  matches,
-  matchOpponents,
-  matchPlans,
-  matchChallenges,
-  matchReflections,
-  matchPillarScores,
-  coachMatchReviews,
-  matchTrainingSuggestions,
-  // Player XP / level up
-  playerXpEvents,
-  playerLevelUpCelebrations,
-  playerFeatureUnlockHistory,
-  // Deep assessment
-  deepAssessmentPillarSummaries,
-  // Tournaments & ladders
-  tournaments,
-  tournamentParticipants,
-  tournamentMatches,
-  ladderPlayers,
-  ladderChallenges,
-  // Play requests
-  playRequests,
-  playRequestParticipants,
-  // Live matches
-  liveMatches,
-  // Player notifications
-  playerNotifications,
-} from "@shared/schema";
+import { users, type User, type InsertUser, corporateAccounts, corporateMembers, corporateCreditTransactions, type CorporateAccount, type InsertCorporateAccount, type CorporateMember, type InsertCorporateMember, type CorporateCreditTransaction, academies, academyApplications, invites, joinRequests, academyTransferRequests, coachInvitations, type Academy, type AcademyApplication, type InsertAcademyApplication, type Invite, type InsertInvite, type JoinRequest, type InsertJoinRequest, type AcademyTransferRequest, type InsertAcademyTransferRequest, type CoachInvitation, type InsertCoachInvitation, coaches, locations, courts, players, packages, sessions, sessionPlayers, playerHolidays, sessionFeedback, auditLogs, offlineQueue, playerNotes, playerProgress, sessionTemplates, coachNotifications, recurringSeries, coachingSeries, seriesPlayers, type CoachingSeries, type InsertCoachingSeries, type SeriesPlayer, type InsertSeriesPlayer, playerSessionCancellations, type PlayerSessionCancellation, type InsertPlayerSessionCancellation, skillDomains, playerSkillState, sessionSkillObservations, levelRequirements, coachStatsRollup, playerProgressFlags, domainAssessments, xpTransactions, coachXpTransactions, conversations, conversationParticipants, messages, messageReactions, communityGroups, groupMembers, familyGroups, familyMembers, coachCourtPreferences, coachCourtRules, locationTravelTimes, coachAvailability, availabilityExceptions, coachSettings, bookingRequests, coachTimeBlocks, playerMatches, playerConnections, type PlayerConnection, playerInvites, type PlayerInvite, type InsertPlayerInvite, academySettings, academyInvites, coachAcademyMemberships, coachFreelanceProfiles, type CoachFreelanceProfile, type InsertCoachFreelanceProfile, academyOwnerProfiles, pushDeviceTokens, notificationPreferences, scheduledNotifications, billingAccounts, subscriptionPlans, subscriptions, invoices, payments, refunds, playerSubscriptions, creditPackageTemplates, type PackageTemplate, type InsertPackageTemplate, sessionRatings, coachReviews, reviewResponses, reviewFlags, reviewPrompts, coachReviewStats, type CoachReview, type ReviewResponse, type ReviewFlag, type ReviewPrompt, type CoachReviewStats, academyPricing, coachContracts, type AcademyPricing, type InsertAcademyPricing, type CoachContract, type InsertCoachContract, courtAvailability, courtAvailabilitySnapshots, courtBookings, type CourtAvailability, type CourtBooking, type InsertCourtBooking, type InsertAcademy, type Coach, type InsertCoach, type Location, type InsertLocation, type Court, type InsertCourt, type Player, type InsertPlayer, type Session, type InsertSession, type SessionPlayer, type InsertSessionPlayer, type PlayerHoliday, type InsertPlayerHoliday, type SessionFeedback, type InsertSessionFeedback, type AuditLog, type InsertAuditLog, type OfflineQueue, type InsertOfflineQueue, type PlayerNote, type InsertPlayerNote, type PlayerProgress, type InsertPlayerProgress, type Package, type InsertPackage, type SessionTemplate, type InsertSessionTemplate, type CoachNotification, type InsertCoachNotification, type SkillDomain, type InsertSkillDomain, type PlayerSkillState, type InsertPlayerSkillState, type SessionSkillObservation, type InsertSessionSkillObservation, type LevelRequirement, type InsertLevelRequirement, type CoachStatsRollup, type InsertCoachStatsRollup, type PlayerProgressFlag, type InsertPlayerProgressFlag, type DomainAssessment, type InsertDomainAssessment, type XpTransaction, type InsertXpTransaction, type CoachXpTransaction, type InsertCoachXpTransaction, type RecurringSeries, type InsertRecurringSeries, type Conversation, type InsertConversation, type ConversationParticipant, type InsertConversationParticipant, type Message, type InsertMessage, type MessageReaction, type InsertMessageReaction, type CoachCourtPreference, type CoachCourtRules, type CoachAvailability, type InsertCoachAvailability, type BookingRequest, type InsertBookingRequest, type AcademySettings, type InsertAcademySettings, type AcademyInvite, type InsertAcademyInvite, type AcademyOwnerProfile, type InsertAcademyOwnerProfile, type CoachAcademyMembership, type InsertCoachAcademyMembership, type PushDeviceToken, type InsertPushDeviceToken, type NotificationPreference, type InsertNotificationPreference, type ScheduledNotification, type InsertScheduledNotification, type BillingAccount, type InsertBillingAccount, type SubscriptionPlan, type Subscription, type InsertSubscription, type Invoice, type InsertInvoice, type Payment, type InsertPayment, type Refund, type InsertRefund, type PlayerSubscription, type InsertPlayerSubscription, coachPayouts, type CoachPayout, type InsertCoachPayout, platformConfig, type PlatformConfig, diagnosticReports, type DiagnosticReport, type InsertDiagnosticReport, parentPlayerRelations, parentSettings, paymentReminders, coachPaymentRules, coachEarnings, type ParentPlayerRelation, type InsertParentPlayerRelation, type ParentSettings, type InsertParentSettings, type PaymentReminder, type InsertPaymentReminder, creditTransactions, type CreditTransaction, type InsertCreditTransaction, creditLots, creditLedgerV2, playerCreditBalance, playerMoneyWallet, inSessionFeedback, playerBaselines, playerBaselineSkillScores, playerPillarProgress, ballLevels, type PlayerBaseline, type InsertPlayerBaseline, deepAssessmentSkills, playerDeepAssessments, type DeepAssessmentSkill, type PlayerDeepAssessment, type InsertPlayerDeepAssessment, glowSkills, levelSkills, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, lessonGroupMembers, playerLevelEvents, adultGlowMatches, adultSkillAssessments, sessionWaitlist, squadMembers, playerBadges, playerTitles, playerQuests, dailyQuestSlots, playerStreaks, shopOrders, shopOrderItems, shopWishlist, marketplaceListings, sellerProfiles, playerBallLevels, playerSkillScores, levelTrials, sessionSkillFeedback, matchLogs, skillEvidence, levelUpEvents, matches, matchOpponents, matchPlans, matchChallenges, matchReflections, matchPillarScores, coachMatchReviews, matchTrainingSuggestions, playerXpEvents, playerLevelUpCelebrations, playerFeatureUnlockHistory, deepAssessmentPillarSummaries, tournaments, tournamentParticipants, tournamentMatches, ladderPlayers, ladderChallenges, playRequests, playRequestParticipants, liveMatches, playerNotifications } from "@shared/schema";
 
 // ==================== VIDEO FEEDBACK ====================
 import { videoFeedback, type VideoFeedback, type InsertVideoFeedback } from "@shared/schema";
@@ -1985,7 +1607,7 @@ export const storage = {
           WHERE coach_id IN (${coachIdList})
           GROUP BY coach_id
         `);
-        for (const row of ballLevelRows.rows as Array<{ coachId: string; levels: string[] | null }>) {
+        for (const row of ballLevelRows.rows as { coachId: string; levels: string[] | null }[]) {
           ballLevelsByCoach.set(row.coachId, row.levels || []);
         }
       }
@@ -4988,7 +4610,7 @@ export const storage = {
 
   // UNIFIED SESSION ROSTER - Single source of truth for session players
   // Combines series players (members) with session-specific overrides (attendance, guests)
-  async getSessionRoster(sessionId: string, seriesId: string | null, academyId?: string): Promise<{
+  async getSessionRoster(sessionId: string, seriesId: string | null, _academyId?: string): Promise<{
     id: string;
     name: string;
     level: string | null;
@@ -5250,7 +4872,7 @@ export const storage = {
     sessionId: string,
     playerId: string,
     attended: boolean,
-    academyId?: string
+    _academyId?: string
   ): Promise<{ record: SessionPlayer; isNewAttendance: boolean } | null> {
     // Check if player already has attendance status for this session
     const existing = await db.select().from(sessionPlayers)
@@ -6954,7 +6576,7 @@ export const storage = {
   },
 
   // Batch fetch participants for multiple conversations (optimized)
-  async getConversationParticipantsBatch(conversationIds: string[], coachId?: string): Promise<(ConversationParticipant & { conversationId: string })[]> {
+  async getConversationParticipantsBatch(conversationIds: string[], _coachId?: string): Promise<(ConversationParticipant & { conversationId: string })[]> {
     if (conversationIds.length === 0) return [];
     return db.select().from(conversationParticipants).where(inArray(conversationParticipants.conversationId, conversationIds));
   },
@@ -7341,7 +6963,7 @@ export const storage = {
       .limit(limit);
   },
 
-  async getMessageReactionsForPlayer(messageId: string, playerId: string, academyId: string): Promise<MessageReaction[]> {
+  async getMessageReactionsForPlayer(messageId: string, _playerId: string, _academyId: string): Promise<MessageReaction[]> {
     return db.select().from(messageReactions).where(eq(messageReactions.messageId, messageId));
   },
 
@@ -7377,7 +6999,7 @@ export const storage = {
     return result[0];
   },
 
-  async getPlayerUnreadCount(playerId: string, academyId: string): Promise<number> {
+  async getPlayerUnreadCount(playerId: string, _academyId: string): Promise<number> {
     // Task #736 — single grouped query instead of N+1 per conversation.
     // academyId is accepted for API compatibility but not used for filtering
     // because conversations span academy boundaries (group/player_player chats).
@@ -8504,7 +8126,7 @@ export const storage = {
   async consumeCreditsForClassSessionWithAttendance(
     seriesId: string, 
     sessionId: string, 
-    sessionDate: Date, 
+    _sessionDate: Date, 
     presentPlayerIds: string[],
     presentCount: number,
     totalPlayersInSession: number = 0
@@ -9879,8 +9501,8 @@ export const storage = {
       const completedSessions = monthSessions.length;
       const sessionFees = completedSessions > 0 ? Math.round(totalRevenue * 0.75) : 0;
       const subscriptionRevenue = Math.round(totalRevenue * 0.20);
-      const otherRevenue = totalRevenue - sessionFees - subscriptionRevenue;
-      const averageSessionRate = completedSessions > 0 ? Math.round(sessionFees / completedSessions) : 0;
+      const _otherRevenue = totalRevenue - sessionFees - subscriptionRevenue;
+      const _averageSessionRate = completedSessions > 0 ? Math.round(sessionFees / completedSessions) : 0;
 
       return {
         totalRevenue,
@@ -10461,7 +10083,7 @@ export const storage = {
   },
 
   async deletePlatformConfig(key: string): Promise<boolean> {
-    const result = await db.delete(platformConfig).where(eq(platformConfig.key, key));
+    const _result = await db.delete(platformConfig).where(eq(platformConfig.key, key));
     return true;
   },
 
@@ -11943,7 +11565,7 @@ export const storage = {
   },
 
   // Get court with full details
-  async getCourtWithDetails(courtId: string, userId?: string, userAcademyId?: string | null): Promise<(Court & { academy?: Academy; location?: Location; canBook: boolean }) | null> {
+  async getCourtWithDetails(courtId: string, _userId?: string, userAcademyId?: string | null): Promise<(Court & { academy?: Academy; location?: Location; canBook: boolean }) | null> {
     const result = await db.select()
       .from(courts)
       .leftJoin(academies, eq(courts.academyId, academies.id))
@@ -13759,7 +13381,7 @@ async function updateSeriesSessionType(
   
   // Update all future sessions in this series
   const now = new Date();
-  const result = await db.update(sessions).set({
+  const _result = await db.update(sessions).set({
     sessionType: newSessionType,
     maxPlayers: newSessionType === "private" ? 1 : newSessionType === "semi_private" ? 2 : 6,
   }).where(
@@ -14802,7 +14424,7 @@ async function auditAllPlayerCredits(): Promise<{
   // ALL existing package IDs - ghost credits are only for DELETED packages (not in DB at all)
   const existingPackageIds = new Set(allPackagesList.map(pkg => pkg.id));
   // Active package IDs - used for Phase 3 balance sync
-  const activePackageIds = new Set(
+  const _activePackageIds = new Set(
     allPackagesList
       .filter(pkg => pkg.status === "active")
       .map(pkg => pkg.id)
@@ -15356,7 +14978,7 @@ export const corporateStorage = {
     return result[0];
   },
 
-  async addCorporateCredits(corporateAccountId: string, academyId: string, amount: number, reason: string, notes?: string, actorId?: string): Promise<CorporateAccount> {
+  async addCorporateCredits(corporateAccountId: string, academyId: string, amount: number, reason: string, notes?: string, _actorId?: string): Promise<CorporateAccount> {
     const account = await this.getCorporateAccount(corporateAccountId);
     if (!account) throw new Error("Corporate account not found");
     const balanceBefore = account.creditBalance;

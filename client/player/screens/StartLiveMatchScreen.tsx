@@ -12,7 +12,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
@@ -84,7 +84,7 @@ export default function StartLiveMatchScreen() {
   const route = useRoute<RouteProp<{ StartLiveMatch: StartLiveMatchParams }, "StartLiveMatch">>();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
 
   const { opponentId, opponentName, challengeId } = route.params;
 

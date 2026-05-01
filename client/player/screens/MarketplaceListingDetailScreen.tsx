@@ -11,13 +11,11 @@ import {
   Alert,
 } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
-import { Colors, Backgrounds, Spacing, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

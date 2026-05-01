@@ -1,19 +1,7 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { 
-  FadeInUp, 
-  FadeInRight,
-  FadeIn,
-  LinearTransition,
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withSequence, 
-  withTiming,
-  withSpring,
-  cancelAnimation 
-} from "react-native-reanimated";
+import Animated, { FadeInUp, FadeInRight, LinearTransition, useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, withSpring, cancelAnimation } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,7 +29,7 @@ interface Post {
   commentCount: number;
 }
 
-const eventTypeConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+const _eventTypeConfig: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   new_member: { icon: "person-add-outline", color: ProTennisColors.electricGreen },
   new_group: { icon: "people-outline", color: ProTennisColors.electricGreen },
   tournament: { icon: "trophy-outline", color: "#FFD93D" },
@@ -311,7 +299,7 @@ export function MiniFeed() {
     navigateToTab("Community");
   };
 
-  const events = state.communityEvents.slice(0, 2);
+  const _events = state.communityEvents.slice(0, 2);
 
   // Task #1396 — render nothing until we have a real post. Previously the
   // ProPlayerHomeScreen parent ran its own duplicate `/api/social/feed` query
@@ -579,7 +567,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
 }));
 
-const collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
+const _collapsedStyles = makeReactiveStyles(() => StyleSheet.create({
   pill: {
     flexDirection: "row",
     alignItems: "center",

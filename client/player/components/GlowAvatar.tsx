@@ -10,7 +10,7 @@ import Animated, {
   withSequence,
   interpolate,
 } from "react-native-reanimated";
-import { ProTennisColors, BorderRadius, Colors, _getActiveSchemeInternal , getPlayerLevelColor } from "@/constants/theme";
+import { ProTennisColors, Colors, _getActiveSchemeInternal, getPlayerLevelColor } from "@/constants/theme";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl" | "hero";

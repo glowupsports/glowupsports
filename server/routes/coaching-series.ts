@@ -1,10 +1,5 @@
 import crypto from "crypto";
-import {
-  Router,
-  type Request,
-  type Response,
-  type NextFunction,
-} from "express";
+import { Router, type Response } from "express";
 import { db } from "../db";
 import {
   storage,
@@ -12,154 +7,12 @@ import {
   updateSeriesSessionType,
   recalculateSeriesCredits,
 } from "../storage";
-import {
-  eq,
-  sql,
-  desc,
-  and,
-  ne,
-  gt,
-  gte,
-  asc,
-  inArray,
-  notInArray,
-  isNull,
-  isNotNull,
-  or,
-  count,
-  ilike,
-  lte,
-} from "drizzle-orm";
-import {
-  authMiddlewareWithFreshData as authMiddleware,
-  requireRole,
-  requireAcademy,
-  requireFeatureUnlock,
-  validatePlayerOwnership,
-  validateCourtOwnership,
-  validateSessionOwnership,
-  validatePackageOwnership,
-  validateNotificationOwnership,
-  type AuthenticatedRequest,
-} from "../auth";
-import { z } from "zod";
-import { fromZodError } from "zod-validation-error";
-import {
-  sanitizeNote,
-  sanitizeMessage,
-  sanitizeTemplateName,
-  sanitizeTemplateContent,
-} from "../utils/sanitize";
-import {
-  localTimeToUTC,
-  utcToLocalTime,
-  getTimezoneOffset,
-  getFirstSessionDate,
-  addDaysToLocalDate,
-  getLocalDateParts,
-  resolveLocalTimeToUTC,
-  ensureResolvableLocalTime,
-} from "../utils/timezone";
+import { eq, sql, desc, and, gt, gte, asc, inArray, notInArray, isNull, isNotNull, or, lte } from "drizzle-orm";
+import { authMiddlewareWithFreshData as authMiddleware, requireAcademy, type AuthenticatedRequest } from "../auth";
+import { sanitizeTemplateName } from "../utils/sanitize";
+import { utcToLocalTime, getFirstSessionDate, addDaysToLocalDate, ensureResolvableLocalTime } from "../utils/timezone";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-import {
-  users,
-  coaches,
-  players,
-  academies,
-  sessions,
-  packages,
-  coachingSeries,
-  seriesPlayers,
-  creditTransactions,
-  invoices,
-  payments,
-  sessionPlayers,
-  sessionWaitlist,
-  locationTravelTimes,
-  sessionFeedback,
-  inSessionFeedback,
-  sessionSkillObservations,
-  sessionSkillFeedback,
-  playerSessionCancellations,
-  playerPillarProgress,
-  coachXpTransactions,
-  xpTransactions,
-  playerBaselineSkillScores,
-  playerBaselines,
-  coachAvailability,
-  availabilityExceptions,
-  coachTimeBlocks,
-  coachSettings,
-  courtAvailability,
-  courtAvailabilitySnapshots,
-  bookingInvites,
-  bookingInviteGuests,
-  openMatches,
-  openMatchSlots,
-  playerBookingPreferences,
-  courtBookings,
-  matchLogs,
-  playerCreditPackages,
-  playerBallLevels,
-  playerHolidays,
-  coachWellnessLogs,
-  insertCoachWellnessLogSchema,
-  levelUpEvents,
-  playerXpEvents,
-  ballLevels,
-  playerNotifications,
-  spotlightNominations,
-  spotlightWeeklyWinners,
-  spotlightMonthlyWinners,
-  posts as postsTable,
-  postReactions as postReactionsTable,
-  postComments as postCommentsTable,
-  commentLikes as commentLikesTable,
-  communityGroups as communityGroupsTable,
-  groupMembers as groupMembersTable,
-  openToPlay as openToPlayTable,
-  userSocialProfiles as userSocialProfilesTable,
-  questTemplates as questTemplatesTable,
-  playerQuests as playerQuestsTable,
-  dailyQuestSlots as dailyQuestSlotsTable,
-  playerConnections,
-  badges as badgesTable,
-  playerBadges as playerBadgesTable,
-  titles as titlesTable,
-  playerTitles as playerTitlesTable,
-  sessionPlans,
-  providerInvites,
-  serviceProviders,
-  platformConfig,
-  pushDeviceTokens,
-  loginSchema,
-  registerSchema,
-  playerRegisterSchema,
-  coachInviteRegisterSchema,
-  academyApplicationInputSchema,
-  insertSessionSchema,
-  insertPlayerSchema,
-  updatePlayerSchema,
-  insertPackageSchema,
-  insertPlayerNoteSchema,
-  insertMessageSchema,
-  insertMessageReactionSchema,
-  submitReviewSchema,
-} from "@shared/schema";
-import {
-  sendSessionConfirmedNotification,
-  sendSessionCancelledNotification,
-  sendFeedbackNotification,
-  getPlayerPushTokens,
-  sendPushNotification,
-} from "../pushNotifications";
-import { awardXP } from "../services/xp-service";
-import { broadcastNewSession, broadcastSessionUpdate } from "../websocket";
-import {
-  createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
-} from "../googleCalendarService";
+import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, sessionFeedback, inSessionFeedback, xpTransactions, coachTimeBlocks, playerHolidays, playerNotifications } from "@shared/schema";
 const router = Router();
 
 function toDubaiTime(utcDate: Date): Date {
@@ -443,7 +296,7 @@ router.get(
           const dateParam = req.query.date as string | undefined;
           const now = dateParam ? new Date(dateParam) : new Date();
           const DUBAI_OFFSET = 4;
-          const dubaiNow = new Date(
+          const _dubaiNow = new Date(
             now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
           );
           const nextSession = sessionsGroup.find(
@@ -2234,7 +2087,7 @@ async function processExtendSeriesBackground(
         coachPayout: String(pricing.coachPayout),
         academyMargin: String(pricing.academyMargin),
       };
-    } catch (e) {}
+    } catch (_e) {}
 
     // Step 4: Batch insert all sessions using raw SQL for speed
     const sessionInserts = validSessions.map((vs) => ({
@@ -2540,7 +2393,7 @@ router.post(
 
         // Get existing sessions for this series
         const existingSessions = await storage.getSessionsBySeriesId(series.id);
-        const existingDates = new Set(
+        const _existingDates = new Set(
           existingSessions.map((s) => {
             const d = new Date(s.startTime);
             return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
@@ -2911,7 +2764,7 @@ router.post(
               try {
                 // Get session to determine type for credit matching
                 const session = await storage.getSession(sessionId);
-                const sessionType =
+                const _sessionType =
                   session?.sessionType || existing.sessionType || "group";
 
                 // First add player to session if not already
@@ -2972,7 +2825,7 @@ router.post(
           const dateParam = req.query.date as string | undefined;
           const now = dateParam ? new Date(dateParam) : new Date();
           const DUBAI_OFFSET = 4;
-          const dubaiNow = new Date(
+          const _dubaiNow = new Date(
             now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
           );
           const guestUntilDate = guestUntil
@@ -3039,7 +2892,7 @@ router.post(
           try {
             // Get session to determine type for credit matching
             const session = await storage.getSession(sessionId);
-            const sessionType =
+            const _sessionType =
               session?.sessionType || existing.sessionType || "group";
 
             // First add player to session if not already
@@ -3959,11 +3812,11 @@ router.get(
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
-        const dubaiNow = new Date(
+        const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
         );
         const sessionDateUTC = new Date(session.startTime);
-        const sessionDateDubai = toDubaiTime(sessionDateUTC);
+        const _sessionDateDubai = toDubaiTime(sessionDateUTC);
         const isToday = sessionDateUTC.toDateString() === now.toDateString();
         const isPast = sessionDateUTC < now;
         const hasFeedback = feedbackMap[session.id] || false;
@@ -4115,7 +3968,7 @@ router.post(
 
         for (const session of groupSessions) {
           const sessionDateUTC = new Date(session.startTime);
-          const sessionDateDubai = toDubaiTime(sessionDateUTC);
+          const _sessionDateDubai = toDubaiTime(sessionDateUTC);
           sessionDateUTC.setUTCHours(0, 0, 0, 0);
 
           // Calculate weeks elapsed since first session

@@ -1,21 +1,12 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Share,
-  Platform,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Share, ActivityIndicator } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useMutation } from "@tanstack/react-query";
-import { Backgrounds, Spacing, BorderRadius, Colors, Typography, GlowColors } from "@/constants/theme";
+import { Backgrounds, Spacing, BorderRadius, Colors, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 
@@ -57,7 +48,7 @@ export default function MatchSummaryScreen() {
   const { user } = useAuth();
 
   const {
-    matchId,
+    matchId: _matchId,
     opponentName,
     opponentId,
     winnerId,

@@ -412,7 +412,7 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
   next();
 }
 
-export function optionalAuthMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export function optionalAuthMiddleware(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   
   if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -457,7 +457,7 @@ export function requireAcademy(req: AuthenticatedRequest, res: Response, next: N
 }
 
 export function createFreshUserMiddleware(storage: UserStorageInterface) {
-  return async function freshUserMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  return async function freshUserMiddleware(req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> {
     if (!req.user) {
       return next();
     }

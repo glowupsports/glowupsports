@@ -17,7 +17,7 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Svg, { Circle } from "react-native-svg";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 interface SessionPlayer {
   id: string;
@@ -347,7 +347,7 @@ export function NextSessionCountdown({
 
             {session.players && session.players.length > 0 ? (
               <View style={styles.playersSection}>
-                {session.players.slice(0, 3).map((player, index) => (
+                {session.players.slice(0, 3).map((player, _index) => (
                   <View key={player.id} style={styles.playerRow}>
                     <View style={[styles.playerDot, { backgroundColor: sessionColor }]} />
                     <Text style={styles.playerName} numberOfLines={1}>

@@ -19,8 +19,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { Colors, Backgrounds, Spacing, BorderRadius, Typography, FontSizes } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { CourtBookingPanel } from "@/components/CourtBooking";
 import { useAuth } from "@/coach/context/AuthContext";
 

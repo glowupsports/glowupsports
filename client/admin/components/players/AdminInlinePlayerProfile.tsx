@@ -52,7 +52,7 @@ export function AdminInlinePlayerProfile({
   onBack,
   onEditPlayer,
   onShowDeleteModal,
-  onShowCreditStoreModal,
+  onShowCreditStoreModal: _onShowCreditStoreModal,
   onShowMarkPaidModal,
 }: AdminInlinePlayerProfileProps) {
   const insets = useSafeAreaInsets();

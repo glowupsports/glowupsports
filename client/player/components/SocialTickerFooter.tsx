@@ -1,16 +1,16 @@
 import React, { useRef, useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Animated as RNAnimated, Dimensions, Platform } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated as RNAnimated, Dimensions, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { ProTennisColors, Backgrounds, Spacing, BorderRadius, GlowColors, Colors } from "@/constants/theme";
+import { ProTennisColors, Backgrounds, Spacing, GlowColors, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeIn, SlideInDown } from "react-native-reanimated";
+import Animated, { SlideInDown } from "react-native-reanimated";
 
-import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useGlassTint } from "@/hooks/useGlassTint";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 export type TickerItemType = "chat" | "goal" | "streak" | "news" | "achievement" | "notification";
 
@@ -85,9 +85,9 @@ const EMPTY_STATE_ITEMS: TickerItem[] = [
 
 export function SocialTickerFooter({ 
   items = [], 
-  onItemPress, 
+  onItemPress: _onItemPress, 
   onExpand,
-  isExpanded = false 
+  isExpanded: _isExpanded = false 
 }: SocialTickerFooterProps) {
   const insets = useSafeAreaInsets();
   const glassTint = useGlassTint();

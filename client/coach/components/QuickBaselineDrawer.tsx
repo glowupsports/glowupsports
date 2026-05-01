@@ -14,9 +14,9 @@ import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, getPlayerLevelColor, GlowColors } from "@/constants/theme";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { PostActionModal } from "@/components/PostActionModal";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 
@@ -622,7 +622,7 @@ export default function QuickBaselineDrawer({
     }));
   };
   
-  const setSkillNote = (skillId: string, notes: string) => {
+  const _setSkillNote = (skillId: string, notes: string) => {
     setDeepSkillScores(prev => ({
       ...prev,
       [skillId]: { ...prev[skillId], notes },

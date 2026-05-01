@@ -11,14 +11,7 @@ import Animated, {
   withTiming,
   withDelay,
 } from "react-native-reanimated";
-import {
-  Spacing,
-  BorderRadius,
-  Typography,
-  GlowColors,
-  TextColors,
-  FunctionColors,
-Backgrounds, } from "@/constants/theme";
+import { BorderRadius, Typography, GlowColors, TextColors, FunctionColors, Backgrounds } from "@/constants/theme";
 import { WhatsNewFeed, WhatsNewItem } from "@/components/WhatsNewFeed";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 

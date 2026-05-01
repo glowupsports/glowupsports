@@ -1,5 +1,5 @@
-import React, { useRef, useState, useCallback } from "react";
-import { View, StyleSheet, Pressable, Modal, ActivityIndicator, Text, Platform } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, Pressable, Modal, ActivityIndicator, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent } from "expo";

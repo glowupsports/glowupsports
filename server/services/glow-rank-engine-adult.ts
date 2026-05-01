@@ -304,7 +304,7 @@ export function getMatchStatsWindow(
  * Check if a skill rubric score meets the gate requirement
  */
 export function evaluateSkillGate(
-  gateId: string,
+  _gateId: string,
   currentScore: number,
   requiredScore: number
 ): boolean {

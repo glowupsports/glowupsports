@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, Typography, BorderRadius, GlowColors, FunctionColors, TextColors } from "@/constants/theme";
+import { Spacing, Typography, BorderRadius, FunctionColors, TextColors } from "@/constants/theme";
 import { getStageFromLevel, getStageColor, translateLevelLabel } from "@shared/language-switch";
 import { getSportConfig, formatSportSkillLevel, getSportSkillLevelColor } from "@shared/sportConfig";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

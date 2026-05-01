@@ -1,5 +1,5 @@
 import logger from "@/lib/logger";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,26 +14,11 @@ import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navig
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-  FadeOut,
-  SlideInRight,
-  SlideOutLeft,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withSequence,
-  withTiming,
-  interpolate,
-  Extrapolate,
-  runOnJS,
-} from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeInUp, FadeOut, SlideInRight, SlideOutLeft, useAnimatedStyle, useSharedValue, withSpring, withSequence, withTiming } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, FontSizes, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useSport } from "@/player/context/SportContext";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -66,7 +51,7 @@ const BALL_LEVELS = [
   { id: "glow", label: "Glow", color: Colors.dark.primary, sublevel: 6 },
 ];
 
-const GLOW_LEVELS = Array.from({ length: 9 }, (_, i) => ({
+const _GLOW_LEVELS = Array.from({ length: 9 }, (_, i) => ({
   level: i + 1,
   label: `GLOW ${i + 1}`,
 }));
@@ -75,7 +60,7 @@ export default function CreateMatchScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<CreateMatchRouteParams, "CreateMatch">>();
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
+  const _headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();
   const track = useTrackFeature();
 
@@ -141,7 +126,7 @@ export default function CreateMatchScreen() {
   }, [playerData]);
 
   // Animation values
-  const cardScale = useSharedValue(1);
+  const _cardScale = useSharedValue(1);
   const singlesScale = useSharedValue(1);
   const doublesScale = useSharedValue(1);
   const progressWidth = useSharedValue(0);

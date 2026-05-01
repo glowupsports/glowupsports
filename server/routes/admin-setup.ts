@@ -1,64 +1,8 @@
-import crypto from "crypto";
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Request, type Response } from "express";
   import { db, pool } from "../db";
   import { storage } from "../storage";
-  import {
-    eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
-    isNull, isNotNull, or, count, ilike, lte,
-  } from "drizzle-orm";
-  import {
-    authMiddlewareWithFreshData as authMiddleware,
-    requireRole,
-    requireAcademy,
-    requireFeatureUnlock,
-    validatePlayerOwnership,
-    validateCourtOwnership,
-    validateSessionOwnership,
-    validatePackageOwnership,
-    validateNotificationOwnership,
-    type AuthenticatedRequest,
-  } from "../auth";
-  import { z } from "zod";
-  import { fromZodError } from "zod-validation-error";
-  import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
-  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle";
-  import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
-  import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-  import {
-    users, coaches, players, academies, sessions, packages, coachingSeries, seriesPlayers,
-    creditTransactions, invoices, payments, sessionPlayers, sessionWaitlist,
-    locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
-    sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
-    coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
-    playerNotes, playerProgress, playerSubscriptions, playerLevelEvents,
-    coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
-    courtAvailability, courtAvailabilitySnapshots,
-    bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    playerBookingPreferences,
-    courtBookings, matchLogs, playerCreditPackages, playerBallLevels,
-    playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
-    levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
-    spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
-    posts as postsTable, postReactions as postReactionsTable,
-    postComments as postCommentsTable, commentLikes as commentLikesTable,
-    communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
-    openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
-    questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
-    dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
-    badges as badgesTable, playerBadges as playerBadgesTable,
-    titles as titlesTable, playerTitles as playerTitlesTable,
-    sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
-    playerSkillScores,
-    loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
-    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
-    insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema,
-  } from "@shared/schema";
-  import { hashPassword, verifyPassword, generateToken } from "../auth";
-  import { sendPlayerInviteEmail, sendWelcomeEmail } from "../emailService";
-  import { sendPushNotification } from "../pushNotifications";
-  import { awardXP } from "../services/xp-service";
-  import { generateShortInviteCode } from "../utils/inviteCode";
+  import { eq, sql, and, inArray, count } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
   
   function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
@@ -67,7 +11,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     const offset = query.offset ? parseInt(query.offset as string) : (page - 1) * limit;
     return { limit, offset };
   }
-  function isBirthdayToday(dateOfBirth: string | Date | null): boolean {
+  function _isBirthdayToday(dateOfBirth: string | Date | null): boolean {
     if (!dateOfBirth) return false;
     const birthDate = new Date(dateOfBirth);
     const today = new Date();
@@ -2642,7 +2586,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   router.get(
     "/api/ball-levels",
     authMiddleware,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const levels = await storage.getAllBallLevels();
         res.json(levels);

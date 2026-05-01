@@ -27,7 +27,7 @@ router.get(
   "/api/admin/ai-usage",
   authMiddleware,
   requireRole("coach", "academy_owner", "assistant", "platform_owner"),
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (_req: AuthenticatedRequest, res: Response) => {
     try {
       const startOfToday = getStartOfToday();
       const startOfMonth = getStartOfMonth();
@@ -146,7 +146,7 @@ router.get(
   "/api/admin/ai-usage/academies",
   authMiddleware,
   requireRole("platform_owner"),
-  async (req: AuthenticatedRequest, res: Response) => {
+  async (_req: AuthenticatedRequest, res: Response) => {
     try {
       const startOfMonth = getStartOfMonth();
       const monthFilter = gte(aiUsageLogs.createdAt, startOfMonth);

@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import { View, StyleSheet, Pressable, Modal } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, { FadeIn, FadeOut, ZoomIn, ZoomOut, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+import Animated, { ZoomIn, ZoomOut, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
-import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

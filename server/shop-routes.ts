@@ -6,7 +6,7 @@ import {
   insertShopCategorySchema, insertShopProductSchema, insertShopServiceSchema,
   players, users, academies, conversations, conversationParticipants, messages
 } from "../shared/schema";
-import { eq, and, desc, asc, sql, inArray, count, max, sum, or, isNotNull } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, count, max, or, isNotNull } from "drizzle-orm";
 import {
   awardXP,
   updateStreak,

@@ -16,35 +16,17 @@ import {
   Linking,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { openDirections } from "@/lib/maps";
-import { Image } from "expo-image";
-import { useNavigation } from "@react-navigation/native";
+import { openDirections } from "@/lib/maps";import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  interpolate,
-  runOnJS,
-  FadeIn,
-  FadeOut,
-  SlideInRight,
-  SlideOutLeft,
-  withSequence,
-  withRepeat,
-  withDelay,
-} from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, interpolate, runOnJS, FadeIn, withSequence, withRepeat, withDelay } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { apiRequest, apiFetch, getApiUrl, getStaticAssetsUrl } from "@/lib/query-client";
-import { AnimatedCheck } from "@/components/AnimatedCheck";
-import { SuccessToast } from "@/components/SuccessToast";
-import BookingCoachCard from "./BookingCoachCard";
+import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { apiRequest, apiFetch } from "@/lib/query-client";
+import { AnimatedCheck } from "@/components/AnimatedCheck";import BookingCoachCard from "./BookingCoachCard";
 import CoachProfileDrawer from "./CoachProfileDrawer";
 import { CourtBookingPicker } from "./CourtBookingPicker";
 import PaymentMethodPicker, { PaymentMethod } from "@/components/PaymentMethodPicker";
@@ -54,7 +36,7 @@ import { getSportLabel, getSportColor } from "@/player/context/SportContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Coach {
   id: string;
@@ -201,7 +183,7 @@ const SESSION_TYPE_CARDS: {
 
 const HOLD_STORAGE_KEY = "glowup:activeSlotReservation";
 
-const TOTAL_SLIDES = 6;
+const _TOTAL_SLIDES = 6;
 const SLIDE_TITLES = [
   "Choose Your Mode",
   "How to Browse",
@@ -218,7 +200,7 @@ export default function PlayerBookingWizard({
   onClose,
   onBookingSuccess,
   playerId,
-  playerBallLevel,
+  playerBallLevel: _playerBallLevel,
   sport = "tennis",
   preselectedCoachId,
   preselectedSessionId,
@@ -334,7 +316,7 @@ export default function PlayerBookingWizard({
 
   // Fetch available slots using default queryFn
   // Enable when on slide 2 (When & Where) or later
-  const { data: availableSlots = [], isLoading: slotsLoading, error: slotsError } = useQuery<AvailableSlot[]>({
+  const { data: availableSlots = [], isLoading: slotsLoading, error: _slotsError } = useQuery<AvailableSlot[]>({
     queryKey: [availabilityQueryUrl],
     enabled: visible && currentSlide >= 2,
   });
@@ -426,7 +408,7 @@ export default function PlayerBookingWizard({
   }, [availableCourts]);
 
   // Fetch coaches for "browse by coach" mode
-  const { data: coaches = [] } = useQuery<Coach[]>({
+  const { data: _coaches = [] } = useQuery<Coach[]>({
     queryKey: ["/api/coaches"],
     enabled: visible,
   });
@@ -1019,7 +1001,7 @@ export default function PlayerBookingWizard({
         if (data?.checkoutUrl) {
           await Linking.openURL(data.checkoutUrl);
         }
-      } catch (err) {
+      } catch (_err) {
         Alert.alert(
           "Couldn't open payment",
           "We couldn't open the secure payment page. Please try again.",

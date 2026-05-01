@@ -1,15 +1,7 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-  withSpring,
-  Easing,
-} from "react-native-reanimated";
-import { ProTennisColors, Spacing, BorderRadius, GlowColors, FunctionColors, TextColors, Colors } from "@/constants/theme";
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withSequence, withTiming, Easing } from "react-native-reanimated";
+import { BorderRadius, FunctionColors, TextColors, Colors } from "@/constants/theme";
 import { usePlayerState, BroadcastMode } from "@/player/context/PlayerStateContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

@@ -102,6 +102,47 @@ module.exports = defineConfig([
       "no-undef": "error",
     },
   },
+  // Task #1469 — Cut the unused-import noise floor.
+  //
+  // `@typescript-eslint/no-unused-vars` was firing 3000+ times across the
+  // tree, mostly from stale named imports left behind during refactors and
+  // intentional placeholder destructures (`const [_x, y] = ...`). The
+  // signal-to-noise was so bad that real warnings (a brand-new
+  // exhaustive-deps regression, say) couldn't be spotted in CI output.
+  //
+  // The fix is two-pronged:
+  //   1. Honour the conventional `_`-prefix escape hatch so intentional
+  //      placeholder vars / args / caught errors don't generate warnings.
+  //      This is the same pattern the codebase was already trying to use
+  //      (see e.g. `_ppc`, `_zeroProbe` in server/tests/...) — the rule
+  //      just wasn't configured to recognise it.
+  //   2. A one-pass cleanup of dead named imports (see commit history).
+  //
+  // We keep the rule at `warn` (not `error`) intentionally — these are
+  // hygiene issues, not correctness bugs, and we don't want lint to start
+  // gating PRs over a stale import. The new baseline is documented in
+  // `replit.md` so future agents know what "clean" looks like.
+  {
+    files: [
+      "client/**/*.{ts,tsx}",
+      "server/**/*.{ts,tsx}",
+      "shared/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          args: "all",
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrors: "all",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
   // Task #1313 — `.cjs` helper scripts are CommonJS modules and legitimately
   // use `__dirname`, `module`, `require`. Declare those globals so lint
   // doesn't flag them as undefined.

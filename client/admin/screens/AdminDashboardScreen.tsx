@@ -97,9 +97,9 @@ export default function AdminDashboardScreen() {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [_showWelcome, _setShowWelcome] = useState(false);
   const dateQueryStr = selectedDate.toISOString().split('T')[0];
-  const { data: operationsData, isLoading, isFetching, refetch } = useQuery<AdminOperationsData>({
+  const { data: operationsData, isLoading, isFetching: _isFetching, refetch } = useQuery<AdminOperationsData>({
     queryKey: [`/api/admin/dashboard/operations?date=${dateQueryStr}`],
     placeholderData: (prev) => prev,
   });
@@ -128,7 +128,7 @@ export default function AdminDashboardScreen() {
   };
 
   const adminChecklistSteps = useMemo(() => {
-    const hasData = !!operationsData;
+    const _hasData = !!operationsData;
     const hasSessions = (operationsData?.todayOperations?.totalSessions || 0) > 0;
     const hasCoaches = (operationsData?.quickStats?.todayCoaches || 0) > 0;
     const hasPlayers = (operationsData?.quickStats?.todayPlayers || 0) > 0;
@@ -193,7 +193,7 @@ export default function AdminDashboardScreen() {
 
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
-  const [celebrationData, setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
+  const [celebrationData, _setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
 
   const adminFeatureUsage = useMemo(() => [
     { id: "coaches", name: "Coach Management", icon: "people", isUsed: true },
@@ -318,8 +318,8 @@ export default function AdminDashboardScreen() {
             <Text style={styles.desktopSectionTitle}>Session Queue</Text>
             <SessionQueuePanel
               sessions={operationsData?.sessionQueue || []}
-              onSessionPress={(id) => navigateToTab("AdminSchedule")}
-              onStartSession={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+              onSessionPress={(_id) => navigateToTab("AdminSchedule")}
+              onStartSession={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
               onViewAll={() => navigateToTab("AdminSchedule")}
             />
           </View>
@@ -327,8 +327,8 @@ export default function AdminDashboardScreen() {
             <Text style={styles.desktopSectionTitle}>Check-in Stream</Text>
             <CheckInStream
               checkIns={operationsData?.checkIns || []}
-              onConfirm={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-              onViewPlayer={(id) => navigateToTab("AdminPlayers")}
+              onConfirm={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+              onViewPlayer={(_id) => navigateToTab("AdminPlayers")}
             />
           </View>
         </View>
@@ -338,8 +338,8 @@ export default function AdminDashboardScreen() {
             <Text style={styles.desktopSectionTitle}>Task Alerts</Text>
             <TaskAlertsList
               alerts={operationsData?.taskAlerts || []}
-              onAlertPress={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-              onAction={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+              onAlertPress={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+              onAction={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
             />
           </View>
           <View style={styles.desktopCol40}>
@@ -417,8 +417,8 @@ export default function AdminDashboardScreen() {
 
         <SessionQueuePanel
           sessions={operationsData?.sessionQueue || []}
-          onSessionPress={(id) => navigateToTab("AdminSchedule")}
-          onStartSession={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+          onSessionPress={(_id) => navigateToTab("AdminSchedule")}
+          onStartSession={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
           onViewAll={() => navigateToTab("AdminSchedule")}
         />
 
@@ -427,8 +427,8 @@ export default function AdminDashboardScreen() {
             <View style={styles.columnHalf}>
               <CheckInStream
                 checkIns={operationsData?.checkIns || []}
-                onConfirm={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-                onViewPlayer={(id) => navigateToTab("AdminPlayers")}
+                onConfirm={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                onViewPlayer={(_id) => navigateToTab("AdminPlayers")}
               />
             </View>
           </View>
@@ -436,8 +436,8 @@ export default function AdminDashboardScreen() {
 
         <TaskAlertsList
           alerts={operationsData?.taskAlerts || []}
-          onAlertPress={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-          onAction={(id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+          onAlertPress={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+          onAction={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
         />
 
         <View style={styles.kpiRow}>

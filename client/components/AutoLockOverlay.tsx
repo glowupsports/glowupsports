@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, StyleSheet, Pressable, BackHandler } from "react-native";
-import { Colors, Spacing, FontSizes } from "@/constants/theme";
-import { PinPadModal } from "./PinPadModal";
+import { BackHandler } from "react-native";import { PinPadModal } from "./PinPadModal";
 import { PinRecoveryModal } from "./PinRecoveryModal";
 import {
   isLocked,

@@ -25,24 +25,14 @@
 import { Router, Response } from "express";
 import { db } from "../db";
 import { storage } from "../storage";
-import {
-  accountAuditLog,
-  accountLocks,
-  accountPins,
-  familyMembers,
-  familyGroups,
-  players,
-} from "@shared/schema";
-import { and, desc, eq, gte, inArray, sql as dsql } from "drizzle-orm";
+import { accountAuditLog, accountLocks, accountPins, familyMembers, players } from "@shared/schema";
+import { and, desc, eq, gte, inArray } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   type AuthenticatedRequest,
 } from "../auth";
 import { verifyAccountPin, verifyElevationToken } from "./account-pin";
-import {
-  writeAuditLog,
-  getAccountLockState,
-} from "../lib/account-audit";
+import { writeAuditLog } from "../lib/account-audit";
 import {
   disconnectPlayerSockets,
 } from "../websocket";

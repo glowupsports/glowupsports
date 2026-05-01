@@ -1,5 +1,5 @@
 import { StyleSheet, Platform } from "react-native";
-import { Colors, Spacing, BorderRadius, GlowColors, Backgrounds, Typography, FontSizes } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors, Backgrounds, Typography } from "@/constants/theme";
 
 export const styles = StyleSheet.create({
   container: {

@@ -1,67 +1,17 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Response } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
-  import {
-    eq, sql, desc, and, ne, gt, gte, asc, inArray, notInArray,
-    isNull, isNotNull, or, count, ilike, lte,
-  } from "drizzle-orm";
-  import {
-    authMiddlewareWithFreshData as authMiddleware,
-    requireRole,
-    requireAcademy,
-    requireFeatureUnlock,
-    validatePlayerOwnership,
-    validateCourtOwnership,
-    validateSessionOwnership,
-    validatePackageOwnership,
-    validateNotificationOwnership,
-    type AuthenticatedRequest,
-  } from "../auth";
+  import { eq, sql, and, inArray, lte } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, requireAcademy, validatePlayerOwnership, validateNotificationOwnership, type AuthenticatedRequest } from "../auth";
   import { z } from "zod";
   import { fromZodError } from "zod-validation-error";
-  import { sanitizeNote, sanitizeMessage, sanitizeTemplateName, sanitizeTemplateContent } from "../utils/sanitize";
-  import { updatePillarProgress } from "../utils/pillarProgress";
-  import { localTimeToUTC, utcToLocalTime, getTimezoneOffset, getFirstSessionDate, addDaysToLocalDate, getLocalDateParts, resolveLocalTimeToUTC, ensureResolvableLocalTime } from "../utils/timezone";
-  import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-  import {
-    users, coaches, players, academies, sessions, coachingSeries, seriesPlayers,
-    conversations, conversationParticipants, messages, messageMentions,
-    invoices, payments, sessionPlayers, sessionWaitlist,
-    locationTravelTimes, sessionFeedback, inSessionFeedback, sessionSkillObservations,
-    sessionSkillFeedback, playerSessionCancellations, playerPillarProgress,
-    coachXpTransactions, xpTransactions, playerBaselineSkillScores, playerBaselines,
-    coachAvailability, availabilityExceptions, coachTimeBlocks, coachSettings,
-    courtAvailability, courtAvailabilitySnapshots,
-    bookingInvites, bookingInviteGuests, openMatches, openMatchSlots,
-    playerBookingPreferences,
-    courtBookings, matchLogs, playerBallLevels,
-    playerHolidays, coachWellnessLogs, insertCoachWellnessLogSchema,
-    levelUpEvents, playerXpEvents, ballLevels, playerNotifications,
-    spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners,
-    posts as postsTable, postReactions as postReactionsTable,
-    postComments as postCommentsTable, commentLikes as commentLikesTable,
-    communityGroups as communityGroupsTable, groupMembers as groupMembersTable,
-    openToPlay as openToPlayTable, userSocialProfiles as userSocialProfilesTable,
-    questTemplates as questTemplatesTable, playerQuests as playerQuestsTable,
-    dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
-    badges as badgesTable, playerBadges as playerBadgesTable,
-    titles as titlesTable, playerTitles as playerTitlesTable,
-    sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
-    loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
-    academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
-    insertPackageSchema, insertPlayerNoteSchema, insertMessageSchema, insertMessageReactionSchema,
-    submitReviewSchema,
-    seriesReminderLog,
-  } from "@shared/schema";
+  import { sanitizeMessage } from "../utils/sanitize";
+  import { updatePillarProgress } from "../utils/pillarProgress";  import { apiCache, CACHE_KEYS } from "../cache";
+  import { coaches, players, coachingSeries, seriesPlayers, conversations, messages, messageMentions, playerNotifications, seriesReminderLog } from "@shared/schema";
   import { broadcastNewMessage } from "../websocket";
   import { sendNewMessageNotification, getPlayerPushTokens, getCoachPushTokens, sendPushNotification } from "../pushNotifications";
-  import { resolveConversationMentions, extractMentionHandles, type ResolvedConversationMention } from "../utils/conversationMentions";
-  import { sendFeedbackNotificationEmail, sendLevelUpEmail } from "../emailService";
-  import { awardXP } from "../services/xp-service";
-  import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, checkConnection as checkCalendarConnection } from "../googleCalendarService";
-  import { filterProfanity } from "../profanityFilter";
-  import { isPlayerMinor } from "../childSafety";
-  import { chatRateLimiter } from "../rateLimiter";
+  import { resolveConversationMentions, extractMentionHandles, type ResolvedConversationMention } from "../utils/conversationMentions"; import { checkConnection as checkCalendarConnection } from "../googleCalendarService";
+  import { filterProfanity } from "../profanityFilter";  import { chatRateLimiter } from "../rateLimiter";
   import { profilePhotoUpload, wrapUploadHandler } from "../upload-middleware";
 
 const router = Router();
@@ -243,7 +193,7 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
   router.get(
     "/api/coach/calendar/status",
     authMiddleware,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const result = await checkCalendarConnection();
         res.json({
@@ -638,7 +588,7 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
     "/api/progress/domains",
     authMiddleware,
     requireAcademy,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         // Seed domains if not present
         await storage.seedSkillDomains();
@@ -1155,7 +1105,7 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
     "/api/progress/levels",
     authMiddleware,
     requireAcademy,
-    async (req: AuthenticatedRequest, res: Response) => {
+    async (_req: AuthenticatedRequest, res: Response) => {
       try {
         const requirements = await storage.getAllLevelRequirements();
         // Cache for 1 hour - level requirements rarely change
@@ -1808,7 +1758,7 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
         const messageIds = messages.map((m) => m.id).filter(Boolean);
         const mentionRowsByMessage = new Map<
           string,
-          Array<{ handle: string; playerId: string | null; coachId: string | null }>
+          { handle: string; playerId: string | null; coachId: string | null }[]
         >();
         if (messageIds.length > 0) {
           try {
@@ -1861,7 +1811,7 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
     const dateParam = req.query.date as string | undefined;
     const now = dateParam ? new Date(dateParam) : new Date();
     const DUBAI_OFFSET = 4;
-    const dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
+    const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000);
     const hour = 60 * 60 * 1000;
 
     if (conversationId === "sample-academy") {

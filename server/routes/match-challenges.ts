@@ -8,7 +8,7 @@ import {
   openMatches,
   openMatchSlots,
 } from "../../shared/schema";
-import { eq, and, or, desc, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getPlayerPushTokens, sendPushNotification } from "../pushNotifications";
 
 const router = Router();
@@ -644,7 +644,7 @@ router.get("/head-to-head/:opponentId", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "playerId is required" });
     }
 
-    const challengeResult = await pool.query(
+    const _challengeResult = await pool.query(
       `SELECT * FROM match_challenges 
       WHERE status = 'completed' 
         AND ((challenger_id = $1 AND opponent_id = $2) OR (challenger_id = $2 AND opponent_id = $1))

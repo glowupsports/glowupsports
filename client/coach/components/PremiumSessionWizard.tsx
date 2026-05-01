@@ -1,6 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Platform, Switch, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Switch, ActivityIndicator, Alert } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -138,7 +138,7 @@ const BALL_LEVELS = [
   { id: "glow" as BallLevel, label: "Glow", color: "#C8FF3D", description: "Elite", image: "yellow_tennis_ball_icon.png" },
 ];
 
-const SKILL_LEVELS = [
+const _SKILL_LEVELS = [
   { value: 1 as SkillLevel, label: "Beginner" },
   { value: 2 as SkillLevel, label: "Intermediate" },
   { value: 3 as SkillLevel, label: "Advanced" },
@@ -153,7 +153,7 @@ const DURATIONS = [
   { value: 180, label: "3 hours" },
 ];
 
-const TIME_SLOTS = [
+const _TIME_SLOTS = [
   "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
   "10:00", "10:30", "11:00", "11:30", "12:00", "12:30",
   "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
@@ -192,7 +192,7 @@ export function PremiumSessionWizard({
   adminMode = false,
   coaches = [],
   selectedCoachId,
-  onCoachIdChange,
+  onCoachIdChange: _onCoachIdChange,
   createSeriesMode = false,
 }: PremiumSessionWizardProps) {
   const insets = useSafeAreaInsets();
@@ -234,7 +234,7 @@ export function PremiumSessionWizard({
   const [maxPlayers, setMaxPlayers] = useState(6);
   const [skillLevel, setSkillLevel] = useState<SkillLevel | null>(null);
   const [sessionBallLevel, setSessionBallLevel] = useState<BallLevel | null>(null);
-  const [ballLevelOverride, setBallLevelOverride] = useState(false);
+  const [_ballLevelOverride, setBallLevelOverride] = useState(false);
   const [isOpenGroup, setIsOpenGroup] = useState(true);
   const [visibleToPlayers, setVisibleToPlayers] = useState(true);
   const [notes, setNotes] = useState("");
@@ -1706,7 +1706,7 @@ export function PremiumSessionWizard({
     );
   };
 
-  const renderSessionSetupCard = () => (
+  const _renderSessionSetupCard = () => (
     <BaselineFlowCard
       title="Session Setup"
       subtitle="Additional options"

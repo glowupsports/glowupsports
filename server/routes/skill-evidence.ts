@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { db } from "../db";
 import { skillEvidence, glowSkills, players } from "../../shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, validatePlayerOwnership } from "../auth";
 import { storage as appStorage } from "../storage";
 import multer from "multer";
@@ -18,8 +18,8 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const multerStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
     const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`;
     cb(null, uniqueName);
   },
@@ -31,7 +31,7 @@ const EVIDENCE_MAX_BYTES = 50 * 1024 * 1024; // 50MB max
 const upload = multer({
   storage: multerStorage,
   limits: { fileSize: EVIDENCE_MAX_BYTES },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (_req, file, cb) => {
     if (EVIDENCE_VIDEO_TYPES.includes(file.mimetype)) {
       cb(null, true);
     } else {

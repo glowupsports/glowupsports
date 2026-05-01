@@ -5,15 +5,7 @@ import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withSequence,
-  withTiming,
-  FadeIn,
-  FadeOut,
-} from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
@@ -78,7 +70,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
         if (skipPref === "true" && visible) {
           setStep("basic-info");
         }
-      } catch (e) {
+      } catch (_e) {
         // Ignore errors
       }
     };
@@ -91,7 +83,7 @@ export function PremiumAddPlayerFlow({ visible, onClose, onComplete }: PremiumAd
     setSkipIntroNextTime(value);
     try {
       await AsyncStorage.setItem("skipAddPlayerIntro", value ? "true" : "false");
-    } catch (e) {
+    } catch (_e) {
       // Ignore errors
     }
   };

@@ -18,12 +18,12 @@ import Animated, {
   SlideOutLeft,
 } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, Typography, Spacing, BorderRadius } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface FreelanceLicenseWizardProps {
   visible: boolean;
@@ -46,7 +46,7 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
   const [website, setWebsite] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const { data: freelanceData } = useQuery<{
+  const { data: _freelanceData } = useQuery<{
     hasFreelanceLicense: boolean;
     freelanceAcademy: { id: string; name: string } | null;
     profile: { businessName: string | null; slug: string | null } | null;

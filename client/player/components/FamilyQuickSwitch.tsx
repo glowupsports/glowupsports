@@ -1,19 +1,12 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Modal,
-  FlatList,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, SlideInUp } from "react-native-reanimated";
-import { Colors, Backgrounds, Spacing, FontSizes, BorderRadius, GlowColors } from "@/constants/theme";
+import Animated, { SlideInUp } from "react-native-reanimated";
+import { Colors, Backgrounds, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import { useFamily, FamilyMember } from "@/player/context/FamilyContext";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 

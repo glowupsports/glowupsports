@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, Alert, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors } from "@/constants/theme";
 import { GLOW_UP_TENNIS_LOGO } from "@/admin/components/logoBase64";
 import { styles } from "./adminPlayersStyles";
 import { AdminPlayerStats, AdminPlayer, AdminPlayerSessionItem } from "./adminPlayerTypes";

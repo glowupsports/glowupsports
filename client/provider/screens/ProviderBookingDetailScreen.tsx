@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp, FadeOutDown } from "react-native-reanimated";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { apiRequest, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
 
 const BADGE_LABELS: Record<string, string> = {

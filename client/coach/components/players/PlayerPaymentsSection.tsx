@@ -90,7 +90,7 @@ const getPaymentStatusColor = (status?: string) => {
 
 type CoachPaymentMethod = "cash" | "bank_transfer" | "card";
 
-export function PlayerPaymentsSection({ playerStats, playerId, playerName }: Props) {
+export function PlayerPaymentsSection({ playerStats, playerId, playerName: _playerName }: Props) {
   const queryClient = useQueryClient();
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);

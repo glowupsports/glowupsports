@@ -20,7 +20,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useCoach } from "@/coach/context/CoachContext";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useTabNavigation } from "@/components/TabNavigationContext";

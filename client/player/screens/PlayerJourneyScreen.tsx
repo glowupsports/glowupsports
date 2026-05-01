@@ -3,11 +3,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Modal, 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import * as Haptics from "expo-haptics";
-import Animated, { useAnimatedStyle, withSpring, useSharedValue } from "react-native-reanimated";
-import { Colors, Spacing, Typography, BorderRadius, CardStyles, GlowColors } from "@/constants/theme";
-import { LinearGradient } from "expo-linear-gradient";
-import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
+import * as Haptics from "expo-haptics";import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface Milestone {

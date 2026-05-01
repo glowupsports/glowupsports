@@ -9,7 +9,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { getStaticAssetsUrl, buildPhotoUrl, apiRequest } from "@/lib/query-client";
+import { buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";

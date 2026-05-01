@@ -1,19 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  FlatList,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-  Modal,
-  TextInput,
-  ScrollView,
-} from "react-native";
+import { View, Text, StyleSheet, Pressable, FlatList, ActivityIndicator, RefreshControl, Alert, TextInput, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

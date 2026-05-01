@@ -83,9 +83,7 @@ export async function getPlayerAndMessages(): Promise<{
     let messages = INITIAL_MESSAGES;
     if (messagesRaw) {
       try {
-        const parsed = JSON.parse(messagesRaw) as Array<
-          Omit<ChatMessage, "timestamp"> & { timestamp: string }
-        >;
+        const parsed = JSON.parse(messagesRaw) as (Omit<ChatMessage, "timestamp"> & { timestamp: string })[];
         messages = parsed.map((m) => ({
           ...m,
           timestamp: new Date(m.timestamp),

@@ -1,19 +1,10 @@
-import React, { useState, useMemo } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  ScrollView,
-  TextInput,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+import React, { useState } from "react";
+import { View, Text, Pressable, ScrollView, TextInput, ActivityIndicator, Alert } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
-import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { TabProps, SessionTemplate } from "./types";
@@ -25,7 +16,7 @@ export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
   const { coach, calendarData } = useCoach();
   const queryClient = useQueryClient();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<SessionTemplate | null>(null);
+  const [_editingTemplate, setEditingTemplate] = useState<SessionTemplate | null>(null);
   const [templateName, setTemplateName] = useState("");
   const [templateType, setTemplateType] = useState<string>("private");
   const [templateDuration, setTemplateDuration] = useState<number>(60);
@@ -396,7 +387,7 @@ export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
   );
 }
 
-interface BallLevel {
+interface _BallLevel {
   id: string;
   stage: string;
   rank: number;
@@ -427,17 +418,17 @@ interface LevelSkill {
   rubric?: { score: number; observable: string }[];
 }
 
-const STAGES = ["RED", "ORANGE", "GREEN", "YELLOW"] as const;
-const PILLARS = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"] as const;
+const _STAGES = ["RED", "ORANGE", "GREEN", "YELLOW"] as const;
+const _PILLARS = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"] as const;
 
-const STAGE_COLORS: Record<string, string> = {
+const _STAGE_COLORS: Record<string, string> = {
   RED: Colors.dark.ballRed,
   ORANGE: Colors.dark.ballOrange,
   GREEN: Colors.dark.ballGreen,
   YELLOW: Colors.dark.ballYellow,
 };
 
-const PILLAR_COLORS: Record<string, string> = {
+const _PILLAR_COLORS: Record<string, string> = {
   TECHNIQUE: Colors.dark.xpCyan,
   TACTICAL: Colors.dark.primary,
   PHYSICAL: Colors.dark.orange,
@@ -446,7 +437,7 @@ const PILLAR_COLORS: Record<string, string> = {
   MATCH: Colors.dark.ballRed,
 };
 
-const PILLAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+const _PILLAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   TECHNIQUE: "hand-left-outline",
   TACTICAL: "bulb-outline",
   PHYSICAL: "fitness-outline",

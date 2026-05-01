@@ -20,7 +20,7 @@ import Animated, { FadeInUp, FadeIn } from "react-native-reanimated";
 import { Image as ExpoImage } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { Spacing, BorderRadius, Backgrounds, TextColors, GlowColors } from "@/constants/theme";
-import { apiRequest, getStaticAssetsUrl, buildPhotoUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const BG = Backgrounds.root;
@@ -224,7 +224,7 @@ function SessionCard({
   onPressCard?: (session: ClassSession) => void;
 }) {
   const levelColor = getBallLevelColor(session.ballLevel);
-  const currentPlayers = (session.maxPlayers || 6) - session.spotsLeft;
+  const _currentPlayers = (session.maxPlayers || 6) - session.spotsLeft;
   const isFull = session.spotsLeft === 0;
 
   const typeLabel =
@@ -508,7 +508,7 @@ export default function ClassesDiscoveryScreen() {
       : sportFilter.charAt(0).toUpperCase() + sportFilter.slice(1);
 
   const renderItem = useCallback(
-    ({ item, index }: { item: typeof listData[0]; index: number }) => {
+    ({ item, index: _index }: { item: typeof listData[0]; index: number }) => {
       if (item.type === "header") {
         return (
           <Animated.View entering={FadeIn.duration(300)}>

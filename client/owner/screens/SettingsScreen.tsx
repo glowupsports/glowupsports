@@ -11,11 +11,9 @@ import * as Sharing from "expo-sharing";
 import * as Linking from "expo-linking";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
-import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
-import { SPORTS, getSportConfig, type Sport } from "@shared/sportConfig";
-import { SportMultiSelector } from "@/components/SportBadge";
+import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";import { SportMultiSelector } from "@/components/SportBadge";
 import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
 interface ResetOptions {
   sessions: boolean;
@@ -561,7 +559,7 @@ export default function SettingsScreen() {
           Alert.alert("Success", "Players exported successfully!");
         }
       }
-    } catch (error) {
+    } catch (_error) {
       if (Platform.OS === "web") {
         window.alert("Export failed - try again later");
       } else {
@@ -606,7 +604,7 @@ export default function SettingsScreen() {
           Alert.alert("Success", "Sessions exported successfully!");
         }
       }
-    } catch (error) {
+    } catch (_error) {
       if (Platform.OS === "web") {
         window.alert("Export failed - try again later");
       } else {

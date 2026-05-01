@@ -236,7 +236,7 @@ function PlayerReplyCard({ item, onReplied }: { item: BookingRequest; onReplied:
 function CounterProposalCard({
   item,
   onAccepted,
-  onDeclined,
+  onDeclined: _onDeclined,
 }: {
   item: BookingRequest;
   onAccepted: () => void;

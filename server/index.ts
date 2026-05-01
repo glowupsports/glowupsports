@@ -44,7 +44,7 @@ import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
-import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startOnboardingEmailScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, startGlowPlansScheduler, startBirthdayNotificationScheduler, processSessionMaintenance, fixHolidayOvercharges, fixAlmaZaleskiCredits, fixRouzbehGhostCredit } from "./pushNotifications";
+import { startReminderScheduler, startDailyTipScheduler, startMonthlyReportScheduler, startDailyScheduleNotifier, startCreditExpiryReminderScheduler, startWeeklyAIDigestScheduler, startMatchPrepNotificationScheduler, startGlowPlansScheduler, startBirthdayNotificationScheduler, processSessionMaintenance, fixHolidayOvercharges, fixAlmaZaleskiCredits, fixRouzbehGhostCredit } from "./pushNotifications";
 import { startBookingExpiryJob } from "./bookingExpiryJob";
 import { startPlayerOfWeekJob } from "./playerOfWeekJob";
 import { startFamilyGraduationJob } from "./familyGraduationJob";
@@ -102,7 +102,7 @@ function setupSecurityHeaders(app: express.Application) {
   }));
   
   // Additional custom headers
-  app.use((req, res, next) => {
+  app.use((_req, res, next) => {
     res.header("X-Content-Type-Options", "nosniff");
     // Allow iframe embedding in development (Replit canvas preview) but block in production
     if (process.env.NODE_ENV !== 'development') {
@@ -200,7 +200,7 @@ function setupRequestLogging(app: express.Application) {
       const duration = Date.now() - start;
 
       // Structured log format
-      const logEntry = {
+      const _logEntry = {
         timestamp: new Date().toISOString(),
         requestId,
         method: req.method,

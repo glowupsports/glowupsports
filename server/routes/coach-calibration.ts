@@ -1,20 +1,9 @@
 import type { Router, Response } from "express";
 import express from "express";
 import { db } from "../db";
-import { 
-  coachCalibration, 
-  coaches, 
-  players, 
-  sessionSkillFeedback,
-  playerSkillScores,
-} from "@shared/schema";
+import { players, playerSkillScores } from "@shared/schema";
 import { eq, and, sql, desc, gte, count } from "drizzle-orm";
-import { 
-  authMiddlewareWithFreshData as authMiddleware,
-  requireRole, 
-  requireAcademy,
-  type AuthenticatedRequest 
-} from "../auth";
+import { authMiddlewareWithFreshData as authMiddleware, requireRole, type AuthenticatedRequest } from "../auth";
 import { 
   getCoachCalibrationStats, 
   getAcademyCalibrationReport 
@@ -233,7 +222,7 @@ router.get("/academy-report", authMiddleware, requireRole("academy_owner", "plat
 
 router.post("/anomalies/:id/resolve", authMiddleware, requireRole("coach", "academy_owner", "platform_owner"), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id: _id } = req.params;
     return res.json({ success: true, message: "Anomaly resolved" });
   } catch (error) {
     console.error("Error resolving anomaly:", error);

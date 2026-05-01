@@ -286,7 +286,7 @@ router.get("/api/parent/children/:playerId/feedback", authMiddleware, async (req
   }
 });
 
-router.get("/api/parent/messages", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/api/parent/messages", authMiddleware, async (_req: AuthenticatedRequest, res: Response) => {
   try {
     // The messages schema is conversation-based: rows do not carry
     // sender/receiver user-id columns nor a `content` field — they

@@ -17,7 +17,7 @@ import {
 } from "@/components/UpdateController";
 
 const PLATFORM_PURPLE = "#9B59B6";
-const PLATFORM_VIOLET = "#8E44AD";
+const _PLATFORM_VIOLET = "#8E44AD";
 
 interface PlatformCommandCenterProps {
   platformName: string;

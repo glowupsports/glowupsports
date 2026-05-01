@@ -14,12 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-} from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest } from "@/lib/query-client";
@@ -113,12 +108,12 @@ export default function CourtPreferencesScreen() {
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { data: courtsData, isLoading } = useQuery({
+  const { data: courtsData, isLoading: _isLoading } = useQuery({
     queryKey: ["/api/courts"],
     enabled: true,
   });
 
-  const { data: preferencesData, isLoading: isLoadingPrefs, isFetching: isFetchingPrefs } = useQuery({
+  const { data: preferencesData, isLoading: _isLoadingPrefs, isFetching: isFetchingPrefs } = useQuery({
     queryKey: ["/api/coaches", coach?.id, "court-preferences"],
     enabled: !!coach?.id,
   });
@@ -240,7 +235,7 @@ export default function CourtPreferencesScreen() {
     }
   }, []);
 
-  const selectedCount = courts.filter((c) => c.isSelected).length;
+  const _selectedCount = courts.filter((c) => c.isSelected).length;
 
   if (!isHydrated) {
     return (

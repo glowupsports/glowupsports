@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
 import { db } from "../db";
 import { corporateStorage , storage } from "../storage";
-import { eq, and, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -11,15 +11,7 @@ import {
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import crypto from "crypto";
-import {
-  corporateAccountInputSchema,
-  addCorporateCreditsSchema,
-  players,
-  academies,
-  users,
-  corporateMembers,
-  corporateAccounts,
-} from "@shared/schema";
+import { corporateAccountInputSchema, addCorporateCreditsSchema, players, academies, users, corporateAccounts } from "@shared/schema";
 import { sendCorporateEmployeeInviteEmail, sendCorporateMonthlyReportEmail } from "../emailService";
 
 const router = Router();
@@ -322,7 +314,7 @@ router.get(
 
       // Build CSV for member usage
       const memberLines = report.memberUsage.map((u) => {
-        const member = members.find((m) => m.inviteEmail === u.inviteEmail);
+        const _member = members.find((m) => m.inviteEmail === u.inviteEmail);
         return `"${u.inviteEmail}","${u.creditsUsed}","${u.sessionCount}"`;
       });
       const csvMembers = [
@@ -437,7 +429,7 @@ router.post(
   authMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const userId = req.user!.userId;
+      const _userId = req.user!.userId;
       const playerId = req.user!.playerId;
       if (!playerId) {
         return res.status(400).json({ error: "You must have a player profile to accept a corporate invite" });

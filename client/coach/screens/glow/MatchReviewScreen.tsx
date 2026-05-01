@@ -14,7 +14,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import { Colors, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 interface MatchDetail {
@@ -95,7 +95,7 @@ const PILLAR_COLORS: Record<string, string> = {
   match: Colors.dark.orange,
 };
 
-const FEEDBACK_OPTIONS: Record<string, { label: string; options: string[] }> = {
+const _FEEDBACK_OPTIONS: Record<string, { label: string; options: string[] }> = {
   technical: {
     label: "Technical",
     options: ["Solid technique", "Need work on fundamentals", "Good progress", "Focus on consistency"],

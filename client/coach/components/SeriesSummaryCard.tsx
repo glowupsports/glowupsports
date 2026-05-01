@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -27,7 +27,7 @@ interface SeriesSummaryCardProps {
   onViewAll?: () => void;
 }
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const _DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps) {
   const { academy } = useCoach();
@@ -153,7 +153,7 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
         {todaysSeries.length > 0 ? (
           <View style={styles.todaySection}>
             <Text style={styles.todayLabel}>Today&apos;s Classes</Text>
-            {todaysSeries.slice(0, 2).map((series, index) => (
+            {todaysSeries.slice(0, 2).map((series, _index) => (
               <Pressable 
                 key={series.id} 
                 style={styles.seriesItem}

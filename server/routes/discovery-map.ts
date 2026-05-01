@@ -1,10 +1,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "../db";
 import { sql, and, eq, gte, lte, ne, inArray, isNotNull, gt } from "drizzle-orm";
-import {
-  academies, locations, sessions, openMatches, openMatchSlots,
-  courtBookings, courts, tournaments, players,
-} from "@shared/schema";
+import { academies, locations, sessions, openMatches, courtBookings, courts, tournaments, players } from "@shared/schema";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   type JWTPayload,

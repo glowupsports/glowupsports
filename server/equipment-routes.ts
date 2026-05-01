@@ -29,7 +29,7 @@ const router = Router();
 
 interface CountRow { booked: string | number }
 interface QuantityRow { quantity: string | number }
-interface PackageRow { id: string; remaining_credits: string | number }
+interface _PackageRow { id: string; remaining_credits: string | number }
 
 function parseCount(row: unknown): number {
   return Number((row as CountRow)?.booked ?? 0);

@@ -1572,7 +1572,7 @@ export default function PlayerAICoachScreen() {
   const dataMaturity = contextData?.dataMaturity;
   const hasHistory = contextData?.hasHistory ?? false;
   const sessionCount = dataMaturity?.sessionCount ?? null;
-  const maturityLevel = dataMaturity?.maturityLevel ?? null;
+  const _maturityLevel = dataMaturity?.maturityLevel ?? null;
   const glowMirrorLayers = contextData?.glowMirrorLayers ?? null;
 
   const showOnboarding = sessionCount === 0 && !onboardingDone;

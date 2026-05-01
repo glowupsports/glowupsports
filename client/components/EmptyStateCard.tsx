@@ -9,15 +9,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withSequence,
-  withDelay,
-  FadeIn,
-  SlideInUp,
-} from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence, FadeIn, SlideInUp } from "react-native-reanimated";
 import {
   Colors,
   Spacing,

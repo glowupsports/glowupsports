@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
@@ -80,7 +80,7 @@ function describeMetadata(action: string, metadata: Record<string, unknown>): st
 export default function AccountAuditLogScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const navigation = useNavigation();
+  const _navigation = useNavigation();
   const route = useRoute<RouteProp<PlayerStackParamList, "AccountAuditLog">>();
   const playerId = route.params?.playerId;
   const playerName = route.params?.playerName ?? "this account";

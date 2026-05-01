@@ -39,7 +39,7 @@ import {
 } from "@shared/schema";
 import { eq, and, inArray, isNull, gte, lte, ne, sql } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
-import { resolveOrCreateFamilyForCaller, addPlayerToFamily } from "../lib/family-groups";
+import { resolveOrCreateFamilyForCaller } from "../lib/family-groups";
 import { playerHasPin, verifyElevationToken, verifyAccountPin } from "./account-pin";
 import {
   daysUntilEighteen,

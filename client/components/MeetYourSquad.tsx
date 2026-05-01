@@ -26,18 +26,11 @@ import Animated, {
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import {
-  Colors,
-  Spacing,
-  Typography,
-  BorderRadius,
-  GlowColors,
-  BallLevelColors,
-} from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors, BallLevelColors } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 const PLAYER_CARD_WIDTH = 100;
 
 interface Player {

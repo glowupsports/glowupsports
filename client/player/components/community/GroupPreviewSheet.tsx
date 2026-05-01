@@ -11,7 +11,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Colors, Backgrounds, TextColors, GlowColors } from "@/constants/theme";
+import { Colors, Backgrounds, TextColors } from "@/constants/theme";
 import { ThemedText as Text } from "@/components/ThemedText";
 import { apiRequest } from "@/lib/query-client";
 

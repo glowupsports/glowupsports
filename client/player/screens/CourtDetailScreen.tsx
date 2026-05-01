@@ -23,7 +23,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, TextColors, Backgrounds } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { openDirections } from "@/lib/maps";
-import type { ScheduleStackParamList, PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import type { ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
 

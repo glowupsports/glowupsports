@@ -51,7 +51,7 @@ export function isFCMToken(token: string): boolean {
   return true;
 }
 
-interface FCMMessage {
+interface _FCMMessage {
   token: string;
   title: string;
   body: string;
