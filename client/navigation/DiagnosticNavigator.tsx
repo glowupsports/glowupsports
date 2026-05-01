@@ -7,6 +7,7 @@ import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerCon
 import { PlayerAppearanceProvider } from "@/player/context/PlayerAppearanceContext";
 import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
+import { SportContextProvider } from "@/player/context/SportContext";
 import { useChatState } from "@/coach/context/ChatStateContext";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { Colors } from "@/constants/theme";
@@ -182,9 +183,11 @@ export default function DiagnosticNavigator() {
     <PlayerAppearanceProvider>
       <TabNavigationProvider>
         <PlayerDataProvider>
-          <PlayerDrawerProvider>
-            <DiagnosticStackWithDrawer />
-          </PlayerDrawerProvider>
+          <SportContextProvider>
+            <PlayerDrawerProvider>
+              <DiagnosticStackWithDrawer />
+            </PlayerDrawerProvider>
+          </SportContextProvider>
         </PlayerDataProvider>
       </TabNavigationProvider>
     </PlayerAppearanceProvider>

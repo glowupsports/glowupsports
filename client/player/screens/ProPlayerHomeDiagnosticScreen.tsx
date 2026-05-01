@@ -20,12 +20,16 @@ import { useAuth } from "@/coach/context/AuthContext";
 import type { AuthPlayer } from "@/coach/context/AuthContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
+import { useSport } from "@/player/context/SportContext";
 import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import PinEntryModal from "@/components/PinEntryModal";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { Spacing, GlowColors, BorderRadius, Colors } from "@/constants/theme";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { PrimaryActionsRow } from "@/player/components/PrimaryActionsRow";
+import { HeroCarousel } from "@/player/components/HeroCarousel";
+import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
@@ -176,8 +180,8 @@ const dnaBannerStyles = StyleSheet.create({
   },
 });
 
-// ─── Main DiagnosticScreen ─────────────────────────────────────────────────
-export default function ProPlayerHomeDiagnosticScreen() {
+// ─── Inner content — wrapped by PlayerStateProvider below ─────────────────
+function DiagnosticHomeContent() {
   const { user, isGuest, patchPlayer } = useAuth();
   const playerCtx = usePlayer();
   const { openDrawer } = usePlayerDrawer();
@@ -186,8 +190,11 @@ export default function ProPlayerHomeDiagnosticScreen() {
   const insets = useSafeAreaInsets();
   const track = useTrackFeature();
   const { guardAction, promptProps } = useGuestGuard();
+  const { isMultiSport, activeSports, activeSport } = useSport();
 
   const [showPinModal, setShowPinModal] = useState(false);
+  const [showBookingWizard, setShowBookingWizard] = useState(false);
+  const [bookingWizardSport, setBookingWizardSport] = useState<string | undefined>(undefined);
 
   // ── God-route query (exact from ProPlayerHomeScreen) ─────────────────────
   const { data: homeData, refetch, isRefetching } = useQuery<{
@@ -379,13 +386,30 @@ export default function ProPlayerHomeDiagnosticScreen() {
     });
   };
 
+  const handleBookLesson = () => {
+    guardAction(() => {
+      if (isMultiSport && activeSports.length > 1) {
+        setBookingWizardSport(activeSport);
+      } else {
+        setBookingWizardSport(activeSport);
+      }
+      setShowBookingWizard(true);
+    });
+  };
+
+  const handleBookingSuccess = () => {
+    setShowBookingWizard(false);
+    queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+  };
+
   return (
     <View style={styles.root}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top, paddingBottom: insets.bottom + 120 },
+          { paddingTop: insets.top, paddingBottom: insets.bottom + 180 },
         ]}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={64}
@@ -429,17 +453,20 @@ export default function ProPlayerHomeDiagnosticScreen() {
           nextSessionEndTime={effectiveData?.nextSession?.endTime ?? null}
         />
 
-        {/* DIAGNOSTIC BOX — herkenningspunt voor testers */}
-        <View style={styles.diagnosticBox}>
-          <Text style={styles.diagnosticLabel}>Diagnostische modus — Phase 1</Text>
-          <Text style={styles.diagnosticSub}>
-            Header module geladen. Modules 2–10 volgen in volgende fases.
-          </Text>
-        </View>
+        {/* HERO CAROUSEL — exact van ProPlayerHomeScreen (Train / Glow Lessons / Open Matches / Tournaments / Friend Spotlight) */}
+        <HeroCarousel onBookSession={handleBookLesson} />
       </ScrollView>
 
       {/* MODE SWITCHER — zijknop (exact van ProPlayerHomeScreen) */}
       <CollapsibleModeSwitcher />
+
+      {/* BOOKING WIZARD — exact van ProPlayerHomeScreen */}
+      <PlayerBookingWizard
+        visible={showBookingWizard}
+        onClose={() => setShowBookingWizard(false)}
+        onSuccess={handleBookingSuccess}
+        sport={bookingWizardSport}
+      />
 
       {/* PIN MODAL — exact van ProPlayerHomeScreen */}
       <PinEntryModal
@@ -457,6 +484,15 @@ export default function ProPlayerHomeDiagnosticScreen() {
   );
 }
 
+// ─── Main DiagnosticScreen — wraps content in PlayerStateProvider ──────────
+export default function ProPlayerHomeDiagnosticScreen() {
+  return (
+    <PlayerStateProvider>
+      <DiagnosticHomeContent />
+    </PlayerStateProvider>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -470,27 +506,5 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     paddingHorizontal: 0,
-  },
-  diagnosticBox: {
-    marginTop: Spacing.xl,
-    marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: GlowColors.primary + "44",
-    backgroundColor: GlowColors.primary + "0A",
-    padding: Spacing.lg,
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  diagnosticLabel: {
-    color: GlowColors.primary,
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  diagnosticSub: {
-    color: Colors.dark.textMuted,
-    fontSize: 12,
-    textAlign: "center",
   },
 });
