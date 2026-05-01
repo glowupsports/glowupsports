@@ -374,7 +374,24 @@ export async function runWeeklyDigestOnce(now: Date = new Date()): Promise<{ gen
 // MONTHLY DIGEST
 // ---------------------------------------------------------------------------
 
+// Task #1481-hotfix — prevent concurrent runs (boot catch-up + tick overlap or
+// the setTimeout-overflow infinite-loop bug below).
+let _monthlyDigestRunning = false;
+
 export async function runMonthlyDigestOnce(now: Date = new Date()): Promise<{ generated: number }> {
+  if (_monthlyDigestRunning) {
+    console.log("[MonthlyDigest] already running — skipping concurrent invocation");
+    return { generated: 0 };
+  }
+  _monthlyDigestRunning = true;
+  try {
+    return await _runMonthlyDigestOnce(now);
+  } finally {
+    _monthlyDigestRunning = false;
+  }
+}
+
+async function _runMonthlyDigestOnce(now: Date): Promise<{ generated: number }> {
   const { monthStart, monthEnd } = lastMonthUtc(now);
   const monthStartIso = dateOnly(monthStart);
   const monthEndIso = dateOnly(monthEnd);
@@ -1138,23 +1155,26 @@ export function startDigestJobs(): void {
   }, weeklyDelay);
 
   // Monthly: first of every month 06:00 UTC.
-  const monthlyDelay = msUntilNextFirstOfMonth(6);
-  console.log(
-    `[DigestJobs] Next monthly digest in ${Math.round(monthlyDelay / 60_000)} min`,
-  );
-  setTimeout(() => {
-    void runMonthlyDigestOnce().catch((err) => console.error("[DigestJobs] monthly tick failed:", err));
-    // Schedule the next one at the first of the next month — recompute each
-    // time because months have variable lengths.
-    const reschedule = () => {
-      const next = msUntilNextFirstOfMonth(6);
-      setTimeout(() => {
-        void runMonthlyDigestOnce().catch((err) => console.error("[DigestJobs] monthly tick failed:", err));
-        reschedule();
-      }, next);
-    };
-    reschedule();
-  }, monthlyDelay);
+  //
+  // Task #1481-hotfix — the old `setTimeout(reschedule, msUntilNextFirstOfMonth())`
+  // pattern overflows the 32-bit setTimeout limit (~24.85 days) for any month
+  // with ≥25 remaining days (Jan, Mar, May, Jul, Aug, Oct, Dec). The overflow
+  // causes setTimeout to fire immediately, creating an infinite spin-loop that
+  // exhausts the DB connection pool and blocks every login/API call.
+  //
+  // We now use the same safe daily-poll approach already in use for the yearly
+  // recap (see below). The poll fires once per hour; if it's the 1st of the
+  // month and the hour is ≥06 UTC, `runMonthlyDigestOnce` is called — its
+  // idempotent unique-index guard (`onConflictDoNothing`) ensures at-most-once
+  // generation even if the poll fires multiple times in the same hour.
+  const monthlyPoll = () => {
+    const n = new Date();
+    if (n.getUTCDate() === 1 && n.getUTCHours() >= 6) {
+      void runMonthlyDigestOnce().catch((err) => console.error("[DigestJobs] monthly tick failed:", err));
+    }
+  };
+  setInterval(monthlyPoll, HOUR_MS);
+  console.log("[DigestJobs] Monthly digest scheduled via hourly poll (overflow-safe)");
 
   // Yearly: Dec 1 at 09:00 UTC. After that runs daily through end of Jan to
   // pick up late activity (idempotent upsert).
