@@ -350,10 +350,13 @@ else
     CHANGED_FILES="$(
       {
         # Uncommitted working-tree changes
-        git diff --name-only HEAD -- 'client/*' 'server/*' 2>/dev/null
+        # --diff-filter=ACMRT excludes deletions: a file that no longer exists
+        # on disk cannot be linted (ESLint aborts with "No files matching the
+        # pattern …"), and it can't regress lint on its own either.
+        git diff --name-only --diff-filter=ACMRT HEAD -- 'client/*' 'server/*' 2>/dev/null
         # Full diff base..HEAD (every commit in this push)
         if [[ -n "$LINT_BASE_REF" ]]; then
-          git diff --name-only "$LINT_BASE_REF" HEAD -- 'client/*' 'server/*' 2>/dev/null
+          git diff --name-only --diff-filter=ACMRT "$LINT_BASE_REF" HEAD -- 'client/*' 'server/*' 2>/dev/null
         fi
       } \
         | grep -E '\.(ts|tsx|js|jsx)$' \
