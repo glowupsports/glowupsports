@@ -13,6 +13,7 @@ import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { useChatState } from "@/coach/context/ChatStateContext";
 import ProPlayerHomeScreen from "@/player/screens/ProPlayerHomeScreen";
+import ProPlayerHomeDiagnosticScreen from "@/player/screens/ProPlayerHomeDiagnosticScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import PlayScreen from "@/player/screens/PlayScreen";
 import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
@@ -906,7 +907,7 @@ function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwip
   const hasCommunityUnread = (communityUnread?.count ?? 0) > 0;
 
   const playerTabs: TabConfig[] = useMemo(() => [
-    { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
+    { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeDiagnosticScreen },
     { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen, badge: hasCommunityUnread },
     { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
     { key: "Growth", label: "Growth", icon: "trending-up-outline", iconFocused: "trending-up", component: ProgressStackNavigator },
