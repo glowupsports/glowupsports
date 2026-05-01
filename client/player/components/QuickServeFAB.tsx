@@ -94,7 +94,7 @@ export function QuickServeFAB({ bottomOffset = 70 }: QuickServeFABProps) {
       color: tournamentsAccent,
       onPress: () => {
         track("action:tournaments");
-        navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Play", params: { initialTab: "Tournaments" } } });
+        navigateToTab("PlayStack", { screen: "Play", params: { initialTab: "Tournaments" } });
       },
     },
     {

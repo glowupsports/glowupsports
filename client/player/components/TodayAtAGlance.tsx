@@ -5,6 +5,7 @@ import Animated, { FadeInDown, FadeIn, LinearTransition } from "react-native-rea
 import { ProTennisColors, Backgrounds, Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { usePlayerState } from "@/player/context/PlayerStateContext";
 import { useNavigation } from "@react-navigation/native";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import * as Haptics from "expo-haptics";
 import { GlassCard } from "./GlassCard";
 
@@ -21,6 +22,7 @@ interface GlanceItem {
 export function TodayAtAGlance() {
   const { state } = usePlayerState();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
 
   const nearbyAvailable = state.nearbyPlayers.filter((p) => p.status === "available").length;
   const isEmpty =
@@ -45,7 +47,7 @@ export function TodayAtAGlance() {
           style={collapsedStyles.ctaButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("Schedule");
+            navigateToTab("Growth", { screen: "ScheduleMain" });
           }}
         >
           <Text style={collapsedStyles.ctaText}>View</Text>
@@ -92,8 +94,11 @@ export function TodayAtAGlance() {
 
   const handlePress = (item: GlanceItem) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (item.route) {
-      navigation.navigate(item.route);
+    if (!item.route) return;
+    if (item.route === "Schedule") {
+      navigateToTab("Growth", { screen: "ScheduleMain" });
+    } else {
+      navigation.navigate(item.route as never);
     }
   };
 

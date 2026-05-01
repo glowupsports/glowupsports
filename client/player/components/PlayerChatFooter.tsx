@@ -37,6 +37,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 
@@ -256,6 +257,7 @@ export function PlayerChatFooter() {
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const { user } = useAuth();
   const { isMinor, chatEnabled } = usePlayer();
   const { setChatExpanded } = useChatState();
@@ -1158,10 +1160,7 @@ export function PlayerChatFooter() {
                 style={styles.inviteBtn}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("PlayerTabs", {
-                    screen: "PlayStack",
-                    params: { screen: "CreateMatch" },
-                  });
+                  navigateToTab("PlayStack", { screen: "CreateMatch" });
                 }}
               >
                 <Text style={styles.inviteBtnTxt}>I&apos;m in</Text>

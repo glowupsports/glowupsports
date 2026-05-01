@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Location from "expo-location";
@@ -295,6 +296,7 @@ export default function DiscoveryMapScreen() {
 function DiscoveryMapScreenInner() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<DiscoveryMapNav>>();
+  const { navigateToTab } = useTabNavigation();
   const route = useRoute<RouteProp<DiscoveryMapNav, "DiscoveryMap">>();
   const [filter, setFilter] = useState<FilterKey>(route.params?.initialFilter ?? "all");
   const [region, setRegion] = useState<Region>(WORLD_REGION);
@@ -489,22 +491,16 @@ function DiscoveryMapScreenInner() {
         navigation.navigate("ClassesDiscovery", m.sessionId ? { sessionId: m.sessionId } : undefined);
         break;
       case "match":
-        // OpenMatches lives inside the Play tab stack — navigate via PlayerTabs
-        // and pass the matchId for deep-linking.
-        navigation.navigate("PlayerTabs", {
-          screen: "PlayStack",
-          params: {
-            screen: "OpenMatches",
-            params: m.matchId ? { matchId: m.matchId } : undefined,
-          },
+        navigateToTab("PlayStack", {
+          screen: "OpenMatches",
+          params: m.matchId ? { matchId: m.matchId } : undefined,
         });
         break;
       case "tournament":
         if (m.tournamentId) {
-          // TournamentDetail lives inside the Growth tab stack.
-          navigation.navigate("PlayerTabs", {
-            screen: "Growth",
-            params: { screen: "TournamentDetail", params: { tournamentId: m.tournamentId } },
+          navigateToTab("Growth", {
+            screen: "TournamentDetail",
+            params: { tournamentId: m.tournamentId },
           });
         }
         break;

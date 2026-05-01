@@ -72,10 +72,11 @@ export function AcademyThemeProvider({ children, scheme, override }: ProviderPro
   const { user } = useAuth();
   const { mode } = useAppMode();
   const userId = user?.id ?? null;
-  // Player override only applies in player mode. When the same user switches
-  // to coach/admin/owner/platform/service_provider, they always see the
+  // Player override applies in player mode AND diagnostic mode (new player
+  // dashboard under development). When the same user switches to
+  // coach/admin/owner/platform/service_provider, they always see the
   // academy's branding so staff tools stay on-brand.
-  const playerOverrideActive = mode === "player";
+  const playerOverrideActive = mode === "player" || mode === "diagnostic";
   const overrideKey = buildOverrideKey(userId);
   const [cached, setCached] = useState<AcademyTheme | null>(null);
   const [playerOverride, setPlayerOverrideState] = useState<AcademyTheme | null>(null);

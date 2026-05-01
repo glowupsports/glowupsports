@@ -13,6 +13,7 @@ import {
   Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -109,6 +110,7 @@ interface GroupSession {
 
 export default function BrowseGroupLessonsScreen() {
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const { user: _user } = useAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -324,7 +326,7 @@ export default function BrowseGroupLessonsScreen() {
               style={styles.inviteFriendsButton}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("PlayerTabs", { screen: "PlayStack", params: { screen: "Players" } });
+                navigateToTab("PlayStack", { screen: "Players" });
               }}
             >
               <Feather name="user-plus" size={18} color={ProTennisColors.electricGreen} />

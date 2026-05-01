@@ -28,6 +28,7 @@ import {
   Backgrounds,
 } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -134,44 +135,44 @@ const GLOSSARY_KEYS: { key: string; icon: keyof typeof Ionicons.glyphMap }[] = [
 interface ExploreEntryDef {
   key: string;
   icon: keyof typeof Ionicons.glyphMap;
-  onPress: (nav: any) => void;
+  onPress: (nav: any, gotoTab?: (key: string, params?: any) => void) => void;
 }
 
 const EXPLORE_GROUPS: { groupKey: string; entries: ExploreEntryDef[] }[] = [
   {
     groupKey: "train",
     entries: [
-      { key: "bookLesson", icon: "calendar", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Schedule" }) },
-      { key: "trackProgress", icon: "trending-up", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Growth" }) },
-      { key: "aiCoach", icon: "sparkles", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Growth", params: { screen: "AICoach" } }) },
+      { key: "bookLesson", icon: "calendar", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("Growth", { screen: "ScheduleMain" }) : _nav.navigate("PlayerTabs", { screen: "Schedule" }) },
+      { key: "trackProgress", icon: "trending-up", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("Growth") : _nav.navigate("PlayerTabs", { screen: "Growth" }) },
+      { key: "aiCoach", icon: "sparkles", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("Growth", { screen: "AICoach" }) : _nav.navigate("PlayerTabs", { screen: "Growth", params: { screen: "AICoach" } }) },
       { key: "tennisDna", icon: "fitness", onPress: (nav) => nav.navigate("PlayerDNAWizard") },
-      { key: "dailyQuests", icon: "flag", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Growth", params: { screen: "QuestsMain" } }) },
+      { key: "dailyQuests", icon: "flag", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("Growth", { screen: "QuestsMain" }) : _nav.navigate("PlayerTabs", { screen: "Growth", params: { screen: "QuestsMain" } }) },
     ],
   },
   {
     groupKey: "play",
     entries: [
-      { key: "findPlayers", icon: "people", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Play" }) },
+      { key: "findPlayers", icon: "people", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("PlayStack") : _nav.navigate("PlayerTabs", { screen: "Play" }) },
       { key: "bookCourt", icon: "tennisball", onPress: (nav) => nav.navigate("CourtBooking") },
-      { key: "tournaments", icon: "trophy", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Play", params: { initialTab: "Tournaments" } }) },
-      { key: "groupEvents", icon: "calendar-number", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Play" }) },
+      { key: "tournaments", icon: "trophy", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("PlayStack", { initialTab: "Tournaments" }) : _nav.navigate("PlayerTabs", { screen: "Play", params: { initialTab: "Tournaments" } }) },
+      { key: "groupEvents", icon: "calendar-number", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("PlayStack") : _nav.navigate("PlayerTabs", { screen: "Play" }) },
     ],
   },
   {
     groupKey: "connect",
     entries: [
-      { key: "communityFeed", icon: "chatbubbles", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }) },
-      { key: "friends", icon: "person-add", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }) },
-      { key: "spotlight", icon: "star", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Community" }) },
+      { key: "communityFeed", icon: "chatbubbles", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("Community") : _nav.navigate("PlayerTabs", { screen: "Community" }) },
+      { key: "friends", icon: "person-add", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("Community") : _nav.navigate("PlayerTabs", { screen: "Community" }) },
+      { key: "spotlight", icon: "star", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("Community") : _nav.navigate("PlayerTabs", { screen: "Community" }) },
       { key: "messages", icon: "mail", onPress: (nav) => nav.navigate("PlayerMessages") },
     ],
   },
   {
     groupKey: "account",
     entries: [
-      { key: "wallet", icon: "wallet", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Profile" }) },
+      { key: "wallet", icon: "wallet", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("Profile") : _nav.navigate("PlayerTabs", { screen: "Profile" }) },
       { key: "glowMarket", icon: "cart", onPress: (nav) => nav.navigate("Shop") },
-      { key: "notifications", icon: "notifications", onPress: (nav) => nav.navigate("PlayerTabs", { screen: "Profile" }) },
+      { key: "notifications", icon: "notifications", onPress: (_nav, gotoTab) => gotoTab ? gotoTab("Profile") : _nav.navigate("PlayerTabs", { screen: "Profile" }) },
       { key: "settings", icon: "settings", onPress: (nav) => nav.navigate("Settings") },
     ],
   },
@@ -215,6 +216,7 @@ export default function PlayerGuideScreen() {
   const route = useRoute<any>();
   const { user, isGuest } = useAuth();
   const { t, i18n } = useTranslation();
+  const { navigateToTab } = useTabNavigation();
   const initialTab: TabKey = (route.params?.initialTab as TabKey) || "start";
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [faqQuery, setFaqQuery] = useState("");
@@ -279,7 +281,7 @@ export default function PlayerGuideScreen() {
         description: t("playerGuide.steps.profile.desc"),
         actionLabel: t("playerGuide.steps.profile.action"),
         done: hasProfile,
-        onPress: () => navigation.navigate("PlayerTabs", { screen: "Profile" }),
+        onPress: () => navigateToTab("Profile"),
       },
       isFree
         ? {
@@ -298,7 +300,7 @@ export default function PlayerGuideScreen() {
             description: t("playerGuide.steps.session.desc"),
             actionLabel: t("playerGuide.steps.session.action"),
             done: hasNextSession,
-            onPress: () => navigation.navigate("PlayerTabs", { screen: "Schedule" }),
+            onPress: () => navigateToTab("Growth", { screen: "ScheduleMain" }),
           },
       {
         id: "academy",
@@ -315,7 +317,7 @@ export default function PlayerGuideScreen() {
         done: hasAcademy,
         onPress: () =>
           hasAcademy
-            ? navigation.navigate("PlayerTabs", { screen: "Schedule" })
+            ? navigateToTab("Growth", { screen: "ScheduleMain" })
             : navigation.navigate("AcademyBrowser"),
       },
       {
@@ -325,7 +327,7 @@ export default function PlayerGuideScreen() {
         description: t("playerGuide.steps.progressCheck.desc"),
         actionLabel: t("playerGuide.steps.progressCheck.action"),
         done: hasProgressActivity,
-        onPress: () => navigation.navigate("PlayerTabs", { screen: "Growth" }),
+        onPress: () => navigateToTab("Growth"),
       },
       {
         id: "community",
@@ -334,7 +336,7 @@ export default function PlayerGuideScreen() {
         description: t("playerGuide.steps.community.desc"),
         actionLabel: t("playerGuide.steps.community.action"),
         done: hasFriends,
-        onPress: () => navigation.navigate("PlayerTabs", { screen: "Community" }),
+        onPress: () => navigateToTab("Community"),
       },
       {
         id: "notifications",
@@ -343,11 +345,11 @@ export default function PlayerGuideScreen() {
         description: t("playerGuide.steps.notifications.desc"),
         actionLabel: t("playerGuide.steps.notifications.action"),
         done: hasNotifications,
-        onPress: () => navigation.navigate("PlayerTabs", { screen: "Profile" }),
+        onPress: () => navigateToTab("Profile"),
       },
     ];
     return steps;
-  }, [dashboard, profile, friends, notificationPrefs, navigation, t]);
+  }, [dashboard, profile, friends, notificationPrefs, navigation, navigateToTab, t]);
 
   const completedCount = checklistSteps.filter((s) => s.done).length;
   const progressPercent = Math.round((completedCount / checklistSteps.length) * 100);
@@ -493,7 +495,7 @@ export default function PlayerGuideScreen() {
                     style={styles.exploreCard}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      entry.onPress(navigation);
+                      entry.onPress(navigation, navigateToTab);
                     }}
                   >
                     <View style={styles.exploreIcon}>
