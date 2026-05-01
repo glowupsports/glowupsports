@@ -254,9 +254,7 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
         // gesture or AppState event flushes the pending React commit. Disable
         // on iOS only; Android keeps the default freeze behavior to save CPU.
         // (Note: `detachInactiveScreens` is NOT a native-stack screen option
-        // and is silently ignored if added here. The companion fix that
-        // actually flushes the pending iOS commit lives in App.tsx — search
-        // for `iosPaintTick`.)
+        // and is silently ignored if added here.)
         freezeOnBlur: Platform.OS !== "ios",
       }}
       initialRouteName={getInitialRoute()}

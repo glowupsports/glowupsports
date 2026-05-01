@@ -91,10 +91,9 @@ function OwnerStackNavigator({ onboardingCompleted }: { onboardingCompleted: boo
       screenOptions={{
         headerShown: false,
         // Task #1417 — Mirror the player stacks: don't freeze inactive
-        // screens on iOS Fabric. Freezing contributes to the cold-start
-        // commit-stall the paint-tick (client/lib/iosPaintTick.tsx) is
-        // already working to defeat. Android keeps the default freeze
-        // behaviour to save CPU.
+        // screens on iOS Fabric to avoid the cold-start commit-stall.
+        // See RootStackNavigator for the full rationale. Android keeps
+        // the default freeze behaviour to save CPU.
         freezeOnBlur: Platform.OS !== "ios",
       }}
       initialRouteName={onboardingCompleted ? "OwnerTabs" : "AcademyOnboarding"}

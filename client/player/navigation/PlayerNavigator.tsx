@@ -356,9 +356,8 @@ function PlayStackNavigator() {
     <PlayStack.Navigator screenOptions={{
       headerShown: false,
       // Task #1407 — iOS keeps inactive screens unfrozen so player tabs paint
-      // immediately after splash dismiss. See comment in RootStackNavigator
-      // for the full rationale, and App.tsx (`iosPaintTick`) for the companion
-      // commit-flush mechanism.
+      // immediately after splash dismiss. See RootStackNavigator for the full
+      // rationale.
       freezeOnBlur: Platform.OS !== "ios",
     }}>
       <PlayStack.Screen name="Play" component={PlayScreenWithCallback} />
@@ -464,7 +463,7 @@ function ScheduleStackNavigator() {
   return (
     <ScheduleStack.Navigator screenOptions={{
       headerShown: false,
-      // Task #1407 — see RootStackNavigator + App.tsx (`iosPaintTick`).
+      // Task #1407 — see RootStackNavigator.
       freezeOnBlur: Platform.OS !== "ios",
     }}>
       <ScheduleStack.Screen name="ScheduleMain" component={ScheduleMainWithCallback} />
@@ -591,7 +590,7 @@ function ProgressStackNavigator() {
   return (
     <ProgressStack.Navigator screenOptions={{
       headerShown: false,
-      // Task #1407 — see RootStackNavigator + App.tsx (`iosPaintTick`).
+      // Task #1407 — see RootStackNavigator.
       freezeOnBlur: Platform.OS !== "ios",
     }}>
       <ProgressStack.Screen name="ProgressMain" component={GrowthMainWithCallback} />
@@ -1105,7 +1104,7 @@ function PlayerStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{
       headerShown: false,
-      // Task #1407 — see RootStackNavigator + App.tsx (`iosPaintTick`).
+      // Task #1407 — see RootStackNavigator.
       freezeOnBlur: Platform.OS !== "ios",
     }}>
       <Stack.Screen name="PlayerTabs" component={PlayerTabs} />
