@@ -161,7 +161,7 @@ export function MomentCard({
   const contextLabel = useMemo(() => {
     switch (post.contextType) {
       case "training": return t('player.community.training');
-      case "match": return "Match";
+      case "match": return "Match result";
       case "event": return t('player.community.events');
       case "group": return t('player.community.groups');
       case "achievement": return "Achievement";
@@ -171,6 +171,8 @@ export function MomentCard({
       case "badge_earned": return "Badge";
       case "streak": return "Streak";
       case "milestone": return "Milestone";
+      case "question": return "Question";
+      case "other": return "Other";
       default: return "";
     }
   }, [post.contextType, t]);
@@ -182,12 +184,13 @@ export function MomentCard({
   const isCoachOrAcademyPost = !!templateMeta || !!post.author?.isCoach;
   const hasMedia = post.mediaUrls && post.mediaUrls.length > 0 && !!post.mediaUrls[0];
   const isVideo = hasMedia && post.mediaTypes && post.mediaTypes[0] === "video";
-  const rawMediaUrl = hasMedia ? post.mediaUrls[0] : "";
-  const mediaUrl = rawMediaUrl
-    ? rawMediaUrl.startsWith("http")
-      ? rawMediaUrl
-      : `${getApiUrl()}${rawMediaUrl.startsWith("/") ? rawMediaUrl : `/${rawMediaUrl}`}`
-    : "";
+
+  const resolveMediaUrl = (raw: string) =>
+    raw.startsWith("http") ? raw : `${getApiUrl()}${raw.startsWith("/") ? raw : `/${raw}`}`;
+
+  const mediaUrls = hasMedia
+    ? post.mediaUrls.map(resolveMediaUrl)
+    : [];
 
   return (
     <Animated.View entering={FadeInDown.delay(100).springify()}>
@@ -195,19 +198,36 @@ export function MomentCard({
         {hasMedia ? (
           <View style={styles.mediaSection}>
             {isVideo ? (
-              <VideoPostMedia uri={mediaUrl} />
+              <VideoPostMedia uri={mediaUrls[0]} />
             ) : imageError ? (
               <MediaUnavailable />
             ) : (
-              <View style={styles.momentImageContainer}>
-                <Image
-                  source={{ uri: mediaUrl }}
-                  style={styles.momentImage}
-                  contentFit="cover"
-                  placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
-                  transition={200}
-                  onError={() => setImageError(true)}
-                />
+              <View style={styles.photoGrid}>
+                {mediaUrls.slice(0, 4).map((url, idx) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.photoGridItem,
+                      mediaUrls.length === 1 && styles.photoGridItemFull,
+                      mediaUrls.length === 2 && styles.photoGridItemHalf,
+                      mediaUrls.length >= 3 && styles.photoGridItemQuarter,
+                    ]}
+                  >
+                    <Image
+                      source={{ uri: url }}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="cover"
+                      placeholder={{ blurhash: "L6PZfSi_.AyE_3t7t7R**0o#DgR4" }}
+                      transition={200}
+                      onError={idx === 0 ? () => setImageError(true) : undefined}
+                    />
+                    {idx === 3 && post.mediaUrls.length > 4 ? (
+                      <View style={styles.moreOverlay}>
+                        <ThemedText style={styles.moreOverlayText}>+{post.mediaUrls.length - 4}</ThemedText>
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
               </View>
             )}
             <View style={[styles.contextBadgeOverlay, { backgroundColor: contextStyle.bg }]}>
@@ -216,11 +236,6 @@ export function MomentCard({
                 {contextLabel}
               </ThemedText>
             </View>
-            {post.mediaUrls.length > 1 ? (
-              <View style={styles.mediaCountBadge}>
-                <ThemedText style={styles.mediaCountText}>+{post.mediaUrls.length - 1}</ThemedText>
-              </View>
-            ) : null}
           </View>
         ) : (
           <View style={styles.noMediaHeader}>
@@ -992,6 +1007,40 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     height: 200,
     backgroundColor: "rgba(0,0,0,0.3)",
     overflow: "hidden",
+  },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 2,
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  photoGridItem: {
+    position: "relative",
+    backgroundColor: Colors.dark.backgroundTertiary,
+    overflow: "hidden",
+  },
+  photoGridItemFull: {
+    width: "100%",
+    height: 220,
+  },
+  photoGridItemHalf: {
+    width: "49.5%",
+    height: 160,
+  },
+  photoGridItemQuarter: {
+    width: "49.5%",
+    height: 130,
+  },
+  moreOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  moreOverlayText: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#fff",
   },
   contextBadgeOverlay: {
     position: "absolute",

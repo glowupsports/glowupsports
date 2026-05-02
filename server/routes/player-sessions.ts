@@ -9102,7 +9102,7 @@ router.get(
       console.error("[SessionHistory] Error:", error);
       res.status(500).json({ error: "Failed to fetch session history" });
     }
-  }
+  },
 );
 
 // GET /api/player/me/checkin-insight

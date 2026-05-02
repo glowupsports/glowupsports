@@ -246,7 +246,7 @@ export const POST_TEMPLATE_META: Record<PostTemplate, PostTemplateMeta> = {
   },
 };
 
-export type ContextType = "training" | "match" | "event" | "group" | "achievement" | "free_play";
+export type ContextType = "training" | "match" | "event" | "group" | "achievement" | "free_play" | "question" | "other";
 
 export interface ContextOption {
   type: ContextType;
@@ -257,10 +257,12 @@ export interface ContextOption {
 
 export const CONTEXT_OPTIONS: ContextOption[] = [
   { type: "training", label: "Training", icon: "tennisball", color: "#9AE66E" },
-  { type: "match", label: "Match", icon: "trophy", color: "#FFD700" },
+  { type: "match", label: "Match result", icon: "trophy", color: "#FFD700" },
+  { type: "achievement", label: "Achievement", icon: "ribbon", color: "#E040FB" },
+  { type: "question", label: "Question", icon: "help-circle", color: "#00D9FF" },
+  { type: "other", label: "Other", icon: "ellipsis-horizontal-circle", color: "#8E8E93" },
   { type: "event", label: "At Event", icon: "calendar", color: "#FF6B35" },
   { type: "group", label: "Group", icon: "people", color: "#4ECDC4" },
-  { type: "achievement", label: "Achievement", icon: "ribbon", color: "#E040FB" },
   { type: "free_play", label: "Free Play", icon: "basketball", color: "#00D9FF" },
 ];
 
@@ -279,6 +281,8 @@ export const CONTEXT_BADGE_STYLES: Record<string, { bg: string; text: string; ic
   group: { bg: "#4ECDC420", text: "#4ECDC4", icon: "people" },
   achievement: { bg: "#E040FB20", text: "#E040FB", icon: "ribbon" },
   free_play: { bg: "#00D9FF20", text: "#00D9FF", icon: "basketball" },
+  question: { bg: "#00D9FF20", text: "#00D9FF", icon: "help-circle" },
+  other: { bg: "#8E8E9320", text: "#8E8E93", icon: "ellipsis-horizontal-circle" },
   session_completed: { bg: "#9AE66E20", text: "#9AE66E", icon: "checkmark-circle" },
   level_up: { bg: "#FFD70020", text: "#FFD700", icon: "arrow-up-circle" },
   badge_earned: { bg: "#E040FB20", text: "#E040FB", icon: "ribbon" },

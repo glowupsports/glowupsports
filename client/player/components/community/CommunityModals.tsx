@@ -20,15 +20,13 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
-import Animated, { FadeIn, SlideInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Backgrounds, GlowColors } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiRequest, apiFetch, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import {
   appendMediaToFormData,
   compressImageForMoment,
-  formatMediaSize,
-  getMediaSizeBytes,
   MediaPrepareError,
   MOMENT_MAX_UPLOAD_BYTES,
   UploadNetworkError,
@@ -39,8 +37,8 @@ import {
   type Achievement,
   type FriendActivity,
   type ContextType,
+  type ContextOption,
   type FeedPreferences,
-  CONTEXT_OPTIONS,
   CONTEXT_BADGE_STYLES,
   DRAWER_HEIGHT,
   FEED_CATEGORY_DEFINITIONS,
@@ -1019,92 +1017,90 @@ interface SelectedMedia {
   preparing: boolean;
 }
 
+const MAX_PHOTOS = 4;
+
+const PLAYER_TAG_OPTIONS: ContextOption[] = [
+  { type: "training", label: "Training", icon: "tennisball", color: "#9AE66E" },
+  { type: "match", label: "Match result", icon: "trophy", color: "#FFD700" },
+  { type: "achievement", label: "Achievement", icon: "ribbon", color: "#E040FB" },
+  { type: "question", label: "Question", icon: "help-circle", color: "#00D9FF" },
+  { type: "other", label: "Other", icon: "ellipsis-horizontal-circle", color: "#8E8E93" },
+];
+
 export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, userRole, userGroups }: CreateMomentModalProps) {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<"context" | "group_select" | "content">("context");
   const [selectedContext, setSelectedContext] = useState<ContextType | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [selectedGroupName, setSelectedGroupName] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
-  const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(null);
+  const [selectedMediaList, setSelectedMediaList] = useState<SelectedMedia[]>([]);
 
   const isAdminOrCoach = userRole === "admin" || userRole === "coach" || userRole === "platform_owner" || userRole === "academy_owner";
-  const availableContextOptions = CONTEXT_OPTIONS.filter(option => {
-    if (option.type === "event") return isAdminOrCoach;
-    return true;
-  });
+  const tagOptions = isAdminOrCoach
+    ? [
+        ...PLAYER_TAG_OPTIONS,
+        { type: "event" as ContextType, label: "At Event", icon: "calendar", color: "#FF6B35" },
+        { type: "group" as ContextType, label: "Group", icon: "people", color: "#4ECDC4" },
+      ]
+    : PLAYER_TAG_OPTIONS;
 
-  // Monotonically increasing token so a slow `prepareSelectedMedia` from an
-  // earlier pick can't overwrite the result of a newer one (rare in
-  // practice, but cheap to guard against). Bumped synchronously by every
-  // pick/capture handler before the async compression starts.
-  const prepareTokenRef = React.useRef(0);
-
-  // Re-encodes photos through expo-image-manipulator and measures videos so we
-  // can show a size hint (and block submit) before the upload would 413. Sets
-  // a "preparing" state on selectedMedia while compression runs so the post
-  // button stays disabled and the preview shows a spinner.
-  const prepareSelectedMedia = async (
+  // Compress a single image and append it to the list (up to MAX_PHOTOS).
+  const addPhotoToList = async (
     uri: string,
-    type: "image" | "video",
     sourceWidth?: number,
     sourceHeight?: number,
   ) => {
-    const myToken = ++prepareTokenRef.current;
-    setSelectedMedia({ uri, type, size: null, preparing: true });
-    const commit = (next: SelectedMedia) => {
-      // Drop the result if the user has since picked another asset (or
-      // cleared the selection).
-      if (prepareTokenRef.current !== myToken) return;
-      setSelectedMedia(next);
-    };
+    if (selectedMediaList.length >= MAX_PHOTOS) {
+      Alert.alert("Photo limit", `You can attach up to ${MAX_PHOTOS} photos per post.`);
+      return;
+    }
+    const placeholderIndex = selectedMediaList.length;
+    setSelectedMediaList((prev) => [
+      ...prev,
+      { uri, type: "image", size: null, preparing: true },
+    ]);
     try {
-      if (type === "image") {
-        const compressed = await compressImageForMoment(uri, {
-          width: sourceWidth,
-          height: sourceHeight,
-        });
-        commit({
-          uri: compressed.uri,
-          type: "image",
-          size: compressed.size,
-          preparing: false,
-        });
-      } else {
-        const size = await getMediaSizeBytes(uri);
-        commit({ uri, type: "video", size, preparing: false });
-      }
+      const compressed = await compressImageForMoment(uri, {
+        width: sourceWidth,
+        height: sourceHeight,
+      });
+      setSelectedMediaList((prev) =>
+        prev.map((m, i) =>
+          i === placeholderIndex
+            ? { ...m, uri: compressed.uri, size: compressed.size, preparing: false }
+            : m,
+        ),
+      );
     } catch (error) {
       logger.log("[Social] Media prepare error:", error);
-      // Even if compression / sizing fails we still keep the original URI so
-      // the user can attempt to post; the 50 MB server cap remains the
-      // safety net.
-      commit({ uri, type, size: null, preparing: false });
+      setSelectedMediaList((prev) =>
+        prev.map((m, i) =>
+          i === placeholderIndex ? { ...m, size: null, preparing: false } : m,
+        ),
+      );
     }
   };
 
-  const handlePickMedia = async () => {
+  const handlePickPhotos = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Please allow access to your photos and videos to share moments.");
+      Alert.alert("Permission needed", "Please allow access to your photos to share moments.");
       return;
     }
-
+    const remaining = MAX_PHOTOS - selectedMediaList.length;
+    if (remaining <= 0) {
+      Alert.alert("Photo limit", `You can attach up to ${MAX_PHOTOS} photos per post.`);
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
+      mediaTypes: ['images'],
       quality: 0.5,
-      videoMaxDuration: 30,
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
     });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      const isVideo = asset.type === "video" || asset.uri.includes(".mp4") || asset.uri.includes(".mov");
-      await prepareSelectedMedia(
-        asset.uri,
-        isVideo ? "video" : "image",
-        asset.width,
-        asset.height,
-      );
+    if (!result.canceled) {
+      for (const asset of result.assets) {
+        await addPhotoToList(asset.uri, asset.width, asset.height);
+      }
     }
   };
 
@@ -1114,65 +1110,44 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
       Alert.alert("Permission needed", "Please allow access to your camera to take photos.");
       return;
     }
-
+    if (selectedMediaList.length >= MAX_PHOTOS) {
+      Alert.alert("Photo limit", `You can attach up to ${MAX_PHOTOS} photos per post.`);
+      return;
+    }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      aspect: [16, 9],
       quality: 0.5,
     });
-
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      await prepareSelectedMedia(asset.uri, "image", asset.width, asset.height);
+      await addPhotoToList(asset.uri, asset.width, asset.height);
     }
   };
 
-  const handleRecordVideo = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission needed", "Please allow access to your camera to record videos.");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['videos'],
-      videoMaxDuration: 30,
-      quality: 0.5,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      await prepareSelectedMedia(asset.uri, "video", asset.width, asset.height);
-    }
+  const removePhoto = (index: number) => {
+    setSelectedMediaList((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // True once we know the asset is over the server's 50 MB cap. Used to
-  // disable Post and surface an inline warning instead of letting the upload
-  // 413. Compressed photos basically never trip this; videos longer than
-  // ~25–30 s shot at 4K can.
-  const mediaTooLarge =
-    !!selectedMedia &&
-    selectedMedia.size != null &&
-    selectedMedia.size > MOMENT_MAX_UPLOAD_BYTES;
-  const mediaSizeLabel = formatMediaSize(selectedMedia?.size ?? null);
+  const anyPreparing = selectedMediaList.some((m) => m.preparing);
+  const anyTooLarge = selectedMediaList.some(
+    (m) => m.size != null && m.size > MOMENT_MAX_UPLOAD_BYTES,
+  );
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Map an upload HTTP status (or thrown error) to a friendly user-facing
-  // message. Kept in sync with the previous Alert-based copy from Task #1253.
   const messageForUploadStatus = (
     status: number,
     serverError?: { error?: string; code?: string },
   ): string => {
     switch (status) {
       case 413:
-        return "This file is too large — please pick something under 50 MB.";
+        return "A file is too large — please pick something under 50 MB.";
       case 415:
-        return "We can't upload this file type. Try a JPG, PNG, or MP4.";
+        return "We can't upload this file type. Try a JPG or PNG.";
       case 502:
         return "Couldn't reach storage right now. Please try again in a moment.";
       case 401:
@@ -1184,13 +1159,10 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     }
   };
 
-  // Upload the currently-selected media via XHR so we can surface real upload
-  // progress to the user. Returns the uploaded URLs on success, `null` if the
-  // upload failed (in which case `uploadError` is set and the modal stays
-  // open with caption / context / media preserved for a retry), or `null` if
-  // the user cancelled mid-flight.
+  // Upload all selected photos sequentially, tracking combined progress.
+  // Returns the uploaded URLs on success, or null if any failed / were cancelled.
   const runUpload = async (): Promise<string[] | null> => {
-    if (!selectedMedia) return [];
+    if (selectedMediaList.length === 0) return [];
 
     setUploadError(null);
     setUploadProgress(0);
@@ -1199,43 +1171,40 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    const uploadedUrls: string[] = [];
+    const total = selectedMediaList.length;
+
     try {
-      const formData = new FormData();
-      // Use the project's standard cross-platform helper. This builds a real
-      // `File` (web) or RN FormData `{ uri, name, type }` part (native) so
-      // the server sees a proper `originalname` + `mimetype` and multer's
-      // fileFilter doesn't reject the upload as `application/octet-stream`.
-      // Throws a `MediaPrepareError` if the picker URI can't be materialized
-      // — distinct from a network failure, so we surface a different banner.
-      await appendMediaToFormData(formData, "images", selectedMedia.uri, selectedMedia.type);
+      for (let i = 0; i < total; i++) {
+        const media = selectedMediaList[i];
+        const formData = new FormData();
+        await appendMediaToFormData(formData, "images", media.uri, media.type);
 
-      const result = await uploadWithProgress({
-        url: `${getApiUrl()}/api/social/posts/upload-images`,
-        formData,
-        // Do NOT set Content-Type — let XHR set the multipart boundary.
-        headers: getAuthHeaders(),
-        signal: controller.signal,
-        onProgress: (event) => setUploadProgress(event.percent),
-      });
+        const result = await uploadWithProgress({
+          url: `${getApiUrl()}/api/social/posts/upload-images`,
+          formData,
+          headers: getAuthHeaders(),
+          signal: controller.signal,
+          onProgress: (event) => {
+            const overall = Math.round(((i + event.percent / 100) / total) * 100);
+            setUploadProgress(overall);
+          },
+        });
 
-      if (result.ok) {
-        const uploaded: string[] = result.body?.images || [];
-        logger.log("[Social] Uploaded media:", uploaded);
-        setUploadProgress(100);
-        return uploaded;
+        if (result.ok) {
+          const uploaded: string[] = result.body?.images || [];
+          uploadedUrls.push(...uploaded);
+        } else {
+          const serverError = (result.body || {}) as { error?: string; code?: string };
+          console.error("[Social] Upload failed", { status: result.status, code: serverError.code });
+          setUploadError(messageForUploadStatus(result.status, serverError));
+          setIsUploading(false);
+          return null;
+        }
       }
-
-      const serverError = (result.body || {}) as { error?: string; code?: string };
-      console.error("[Social] Upload failed", {
-        status: result.status,
-        code: serverError.code,
-        error: serverError.error,
-      });
-      setUploadError(messageForUploadStatus(result.status, serverError));
-      setIsUploading(false);
-      return null;
+      setUploadProgress(100);
+      return uploadedUrls;
     } catch (error: any) {
-      // User-initiated cancel — silently reset upload state.
       const aborted =
         controller.signal.aborted ||
         error?.name === "AbortError" ||
@@ -1247,10 +1216,6 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
         return null;
       }
 
-      // Build a structured diagnostic payload so the console line is actually
-      // useful (was previously logging an empty `{}` because Error props are
-      // non-enumerable). Includes upload-kind so future regressions are
-      // bisectable from a single screenshot.
       const diagnostic: Record<string, unknown> = {
         kind: "unknown",
         name: error?.name,
@@ -1258,26 +1223,16 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
         aborted,
       };
 
-      let userMessage =
-        "We couldn't reach the server. Please check your connection and try again.";
+      let userMessage = "We couldn't reach the server. Please check your connection and try again.";
 
       if (error instanceof MediaPrepareError) {
         diagnostic.kind = "media-prepare";
-        diagnostic.scheme = error.scheme;
-        diagnostic.uriPreview = error.uriPreview;
-        diagnostic.originalName = error.originalName;
-        diagnostic.originalMessage = error.originalMessage;
-        // Keep copy media-neutral — Moments support both photos and videos.
-        const mediaNoun = selectedMedia?.type === "video" ? "video" : "photo";
-        userMessage = `We couldn't prepare that ${mediaNoun} on this device. Try picking it again or choose a different one.`;
+        userMessage = "We couldn't prepare that photo on this device. Try picking it again or choose a different one.";
       } else if (error instanceof UploadNetworkError) {
-        diagnostic.kind = error.kind; // "network" | "timeout" | "abort"
+        diagnostic.kind = error.kind;
         diagnostic.status = error.status;
-        diagnostic.readyState = error.readyState;
-        diagnostic.responseSnippet = error.responseSnippet;
         if (error.kind === "timeout") {
-          userMessage =
-            "Upload timed out. Check your connection and try again.";
+          userMessage = "Upload timed out. Check your connection and try again.";
         }
       } else {
         diagnostic.stack =
@@ -1295,15 +1250,11 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
 
   const finishPost = (uploadedMediaUrls: string[]) => {
     if (!selectedContext) return;
-    const uploadedMediaTypes = selectedMedia
-      ? uploadedMediaUrls.map(() => selectedMedia.type)
-      : [];
+    const uploadedMediaTypes = uploadedMediaUrls.map(() => "image");
 
-    let visibility = "friends";
+    let visibility = "academy";
     if (selectedContext === "group") {
       visibility = "group";
-    } else if (selectedContext === "event" || selectedContext === "achievement") {
-      visibility = "academy";
     }
 
     onSubmit({
@@ -1318,19 +1269,11 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
 
   const handleSubmit = async () => {
     if (!selectedContext || isSubmitting || isUploading) return;
-    // Defensive: if a stale "too large" media somehow makes it past the
-    // disabled Post button (e.g. tap mid-prepare), surface the same inline
-    // hint instead of silently relying on the 413 path.
-    if (selectedMedia && (selectedMedia.preparing || mediaTooLarge)) {
-      return;
-    }
+    if (anyPreparing || anyTooLarge) return;
 
-    if (selectedMedia) {
+    if (selectedMediaList.length > 0) {
       const uploaded = await runUpload();
-      if (uploaded == null) {
-        // Upload failed (banner shown) or was cancelled — keep modal open.
-        return;
-      }
+      if (uploaded == null) return;
       finishPost(uploaded);
       setIsUploading(false);
       setUploadProgress(0);
@@ -1355,43 +1298,29 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
 
   const handleClose = () => {
     abortControllerRef.current?.abort();
-    setStep("context");
     setSelectedContext(null);
     setSelectedGroupId(null);
-    setSelectedGroupName(null);
     setCaption("");
-    setSelectedMedia(null);
+    setSelectedMediaList([]);
     setIsUploading(false);
     setUploadProgress(0);
     setUploadError(null);
     onClose();
   };
 
-  // Abort any in-flight upload if the modal is closed externally (e.g. parent
-  // toggled `visible` to false) so we never resume an upload against a stale
-  // modal session.
   useEffect(() => {
     if (!visible) {
       abortControllerRef.current?.abort();
     }
   }, [visible]);
 
-  const handleSelectContext = (context: ContextType) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedContext(context);
-    if (context === "group" && userGroups && userGroups.length > 0) {
-      setStep("group_select");
-    } else {
-      setStep("content");
-    }
-  };
-
-  const handleSelectGroup = (groupId: string, groupName: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedGroupId(groupId);
-    setSelectedGroupName(groupName);
-    setStep("content");
-  };
+  const canPost =
+    !!selectedContext &&
+    caption.trim().length > 0 &&
+    !isSubmitting &&
+    !isUploading &&
+    !anyPreparing &&
+    !anyTooLarge;
 
   return (
     <Modal
@@ -1409,250 +1338,208 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
           style={StyleSheet.absoluteFill}
         />
 
+
         <View style={[createStyles.modalHeader, { paddingTop: insets.top + Spacing.sm }]}>
           <Pressable onPress={handleClose} style={createStyles.modalCloseButton}>
             <Ionicons name="close" size={24} color={Colors.dark.text} />
           </Pressable>
-          <ThemedText style={createStyles.modalTitle}>
-            {step === "context" ? "New Moment" : step === "group_select" ? "Select Group" : "Share Your Moment"}
-          </ThemedText>
-          {step === "content" ? (
-            <Pressable
-              onPress={handleSubmit}
-              disabled={
-                isSubmitting ||
-                isUploading ||
-                !caption.trim() ||
-                !!selectedMedia?.preparing ||
-                mediaTooLarge
-              }
-              style={[
-                createStyles.postButton,
-                (!caption.trim() ||
-                  isSubmitting ||
-                  isUploading ||
-                  selectedMedia?.preparing ||
-                  mediaTooLarge) && createStyles.postButtonDisabled
-              ]}
-            >
-              {isUploading ? (
-                <ThemedText style={createStyles.postButtonText}>{uploadProgress}%</ThemedText>
-              ) : isSubmitting ? (
-                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
-              ) : (
-                <ThemedText style={createStyles.postButtonText}>Post</ThemedText>
-              )}
-            </Pressable>
-          ) : (
-            <View style={{ width: 60 }} />
-          )}
+          <ThemedText style={createStyles.modalTitle}>New Post</ThemedText>
+          <Pressable
+            onPress={handleSubmit}
+            disabled={!canPost}
+            style={[createStyles.postButton, !canPost && createStyles.postButtonDisabled]}
+          >
+            {isUploading ? (
+              <ThemedText style={createStyles.postButtonText}>{uploadProgress}%</ThemedText>
+            ) : isSubmitting ? (
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
+            ) : (
+              <ThemedText style={createStyles.postButtonText}>Post</ThemedText>
+            )}
+          </Pressable>
         </View>
-
-        {step === "context" ? (
-          <Animated.View entering={FadeIn} style={createStyles.contextStep}>
-            <ThemedText style={createStyles.contextPrompt}>What are you sharing?</ThemedText>
-            <View style={createStyles.contextGrid}>
-              {availableContextOptions.map((option) => (
+        <ScrollView
+          style={createStyles.contentStep}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <ThemedText style={createStyles.tagLabel}>Tag (required)</ThemedText>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={createStyles.tagChipRow}
+          >
+            {tagOptions.map((option) => {
+              const isSelected = selectedContext === option.type;
+              return (
                 <Pressable
                   key={option.type}
-                  style={createStyles.contextOption}
-                  onPress={() => handleSelectContext(option.type)}
+                  style={[
+                    createStyles.tagChip,
+                    isSelected && { backgroundColor: option.color + "30", borderColor: option.color },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedContext(isSelected ? null : option.type);
+                  }}
                 >
-                  <View style={[createStyles.contextIconContainer, { backgroundColor: option.color + "20" }]}>
-                    <Ionicons name={option.icon as any} size={32} color={option.color} />
-                  </View>
-                  <ThemedText style={createStyles.contextOptionLabel}>{option.label}</ThemedText>
-                </Pressable>
-              ))}
-            </View>
-          </Animated.View>
-        ) : step === "group_select" ? (
-          <Animated.View entering={FadeIn} style={createStyles.contextStep}>
-            <ThemedText style={createStyles.contextPrompt}>Which group are you posting to?</ThemedText>
-            <ScrollView style={createStyles.groupList} showsVerticalScrollIndicator={false}>
-              {userGroups && userGroups.length > 0 ? (
-                userGroups.map((group) => (
-                  <Pressable
-                    key={group.id}
-                    style={createStyles.groupOption}
-                    onPress={() => handleSelectGroup(group.id, group.name)}
-                  >
-                    <View style={[createStyles.groupIconContainer, { backgroundColor: "#4ECDC420" }]}>
-                      <Ionicons name="people" size={24} color="#4ECDC4" />
-                    </View>
-                    <View style={createStyles.groupInfo}>
-                      <ThemedText style={createStyles.groupName}>{group.name}</ThemedText>
-                      <ThemedText style={createStyles.groupType}>
-                        {group.type === "training" ? "Training Group" : "Community Group"}
-                      </ThemedText>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-                  </Pressable>
-                ))
-              ) : (
-                <View style={createStyles.noGroupsMessage}>
-                  <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
-                  <ThemedText style={createStyles.noGroupsText}>You’re not in any groups yet</ThemedText>
-                </View>
-              )}
-            </ScrollView>
-            <Pressable style={createStyles.backButton} onPress={() => setStep("context")}>
-              <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
-              <ThemedText style={createStyles.backButtonText}>Back</ThemedText>
-            </Pressable>
-          </Animated.View>
-        ) : (
-          <Animated.View entering={SlideInUp} style={createStyles.contentStep}>
-            <View style={createStyles.selectedContextBadge}>
-              {selectedContext ? (
-                <>
                   <Ionicons
-                    name={CONTEXT_OPTIONS.find(c => c.type === selectedContext)?.icon as any}
-                    size={16}
-                    color={CONTEXT_OPTIONS.find(c => c.type === selectedContext)?.color}
+                    name={option.icon as any}
+                    size={14}
+                    color={isSelected ? option.color : Colors.dark.textSecondary}
                   />
-                  <ThemedText style={createStyles.selectedContextText}>
-                    {CONTEXT_OPTIONS.find(c => c.type === selectedContext)?.label}
-                    {selectedGroupName ? ` \u2192 ${selectedGroupName}` : ""}
+                  <ThemedText
+                    style={[
+                      createStyles.tagChipText,
+                      isSelected && { color: option.color, fontWeight: "700" },
+                    ]}
+                  >
+                    {option.label}
                   </ThemedText>
-                  <Pressable onPress={() => setStep("context")}>
-                    <Ionicons name="pencil" size={14} color={Colors.dark.textSecondary} />
-                  </Pressable>
-                </>
-              ) : null}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <TextInput
+            style={createStyles.captionInput}
+            placeholder="What's on your mind?"
+            placeholderTextColor={Colors.dark.textSecondary}
+            value={caption}
+            onChangeText={setCaption}
+            maxLength={500}
+            multiline
+            autoFocus
+          />
+
+          <ThemedText style={createStyles.charCount}>{caption.length}/500</ThemedText>
+
+          {anyTooLarge ? (
+            <View style={createStyles.mediaSizeWarning}>
+              <Ionicons name="alert-circle" size={16} color="#EF4444" />
+              <ThemedText style={createStyles.mediaSizeWarningText}>
+                One or more photos exceed the 50 MB limit. Please remove it and try a smaller image.
+              </ThemedText>
             </View>
+          ) : null}
 
-            <TextInput
-              style={createStyles.captionInput}
-              placeholder="What's happening on court?"
-              placeholderTextColor={Colors.dark.textSecondary}
-              value={caption}
-              onChangeText={setCaption}
-              maxLength={280}
-              multiline
-              autoFocus
-            />
-
-            <ThemedText style={createStyles.charCount}>{caption.length}/280</ThemedText>
-
-            {selectedMedia ? (
-              <>
-                <View style={createStyles.imagePreviewContainer}>
-                  {selectedMedia.type === "video" ? (
-                    <View style={[createStyles.imagePreview, createStyles.videoPreview]}>
-                      <Ionicons name="videocam" size={48} color={Colors.dark.primary} />
-                      <ThemedText style={createStyles.videoLabel}>Video Selected</ThemedText>
-                    </View>
-                  ) : (
-                    <Image source={{ uri: selectedMedia.uri }} style={createStyles.imagePreview} />
-                  )}
-                  {selectedMedia.preparing ? (
+          {selectedMediaList.length > 0 ? (
+            <View style={createStyles.photoGrid}>
+              {selectedMediaList.map((media, index) => (
+                <View
+                  key={index}
+                  style={[
+                    createStyles.photoGridItem,
+                    selectedMediaList.length === 1 && createStyles.photoGridItemFull,
+                    selectedMediaList.length === 2 && createStyles.photoGridItemHalf,
+                    selectedMediaList.length >= 3 && createStyles.photoGridItemQuarter,
+                  ]}
+                >
+                  <Image
+                    source={{ uri: media.uri }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                  />
+                  {media.preparing ? (
                     <View style={createStyles.preparingOverlay}>
-                      <TennisBallSpinner color={Colors.dark.primary} />
-                      <ThemedText style={createStyles.preparingLabel}>
-                        {selectedMedia.type === "video" ? "Checking video size\u2026" : "Optimizing photo\u2026"}
-                      </ThemedText>
+                      <TennisBallSpinner color={Colors.dark.primary} size="small" />
                     </View>
                   ) : null}
                   {!isUploading ? (
                     <Pressable
                       style={createStyles.removeImageButton}
-                      onPress={() => setSelectedMedia(null)}
+                      onPress={() => removePhoto(index)}
+                      hitSlop={4}
                     >
-                      <Ionicons name="close-circle" size={28} color={Colors.dark.text} />
+                      <Ionicons name="close-circle" size={22} color="#fff" />
                     </Pressable>
                   ) : null}
                 </View>
-                {mediaTooLarge ? (
-                  <View style={createStyles.mediaSizeWarning}>
-                    <Ionicons name="alert-circle" size={16} color="#EF4444" />
-                    <ThemedText style={createStyles.mediaSizeWarningText}>
-                      {`This ${selectedMedia.type === "video" ? "video" : "photo"} is ${mediaSizeLabel ?? "too large"} \u2014 the limit is 50 MB. ${selectedMedia.type === "video" ? "Try a shorter clip or lower the camera resolution." : "Pick a smaller image."}`}
-                    </ThemedText>
-                  </View>
-                ) : mediaSizeLabel && !selectedMedia.preparing ? (
-                  <ThemedText style={createStyles.mediaSizeHint}>
-                    {`${selectedMedia.type === "video" ? "Video" : "Photo"} \u00b7 ${mediaSizeLabel}`}
+              ))}
+              {selectedMediaList.length < MAX_PHOTOS && !isUploading ? (
+                <Pressable
+                  style={[
+                    createStyles.photoGridItem,
+                    createStyles.addMorePhotoCell,
+                    selectedMediaList.length === 1 && createStyles.photoGridItemHalf,
+                    selectedMediaList.length === 2 && createStyles.photoGridItemQuarter,
+                    selectedMediaList.length >= 3 && createStyles.photoGridItemQuarter,
+                  ]}
+                  onPress={handlePickPhotos}
+                >
+                  <Ionicons name="add" size={28} color={Colors.dark.primary} />
+                  <ThemedText style={createStyles.addMoreText}>
+                    {MAX_PHOTOS - selectedMediaList.length} left
                   </ThemedText>
-                ) : null}
-              </>
-            ) : null}
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
 
-            {isUploading ? (
-              <View style={createStyles.uploadProgressContainer}>
-                <View style={createStyles.uploadProgressHeader}>
-                  <View style={createStyles.uploadProgressLabelRow}>
-                    <TennisBallSpinner size="small" color={Colors.dark.primary} />
-                    <ThemedText style={createStyles.uploadProgressLabel}>
-                      Uploading… {uploadProgress}%
-                    </ThemedText>
-                  </View>
-                  <Pressable onPress={handleCancelUpload} hitSlop={8}>
-                    <ThemedText style={createStyles.uploadCancelText}>Cancel</ThemedText>
+          {isUploading ? (
+            <View style={createStyles.uploadProgressContainer}>
+              <View style={createStyles.uploadProgressHeader}>
+                <View style={createStyles.uploadProgressLabelRow}>
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} />
+                  <ThemedText style={createStyles.uploadProgressLabel}>
+                    Uploading photos… {uploadProgress}%
+                  </ThemedText>
+                </View>
+                <Pressable onPress={handleCancelUpload} hitSlop={8}>
+                  <ThemedText style={createStyles.uploadCancelText}>Cancel</ThemedText>
+                </Pressable>
+              </View>
+              <View style={createStyles.uploadProgressTrack}>
+                <View
+                  style={[
+                    createStyles.uploadProgressFill,
+                    { width: `${Math.max(2, uploadProgress)}%` },
+                  ]}
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {uploadError && !isUploading ? (
+            <View style={createStyles.uploadErrorBanner}>
+              <Ionicons name="alert-circle" size={20} color="#EF4444" style={{ marginTop: 1 }} />
+              <View style={createStyles.uploadErrorBody}>
+                <ThemedText style={createStyles.uploadErrorTitle}>Upload failed</ThemedText>
+                <ThemedText style={createStyles.uploadErrorMessage}>{uploadError}</ThemedText>
+                <View style={createStyles.uploadErrorActions}>
+                  <Pressable onPress={handleRetryUpload} style={createStyles.uploadRetryButton}>
+                    <Ionicons name="refresh" size={14} color={Colors.dark.buttonText} />
+                    <ThemedText style={createStyles.uploadRetryText}>Try again</ThemedText>
+                  </Pressable>
+                  <Pressable onPress={handleDismissUploadError} style={createStyles.uploadDismissButton} hitSlop={8}>
+                    <ThemedText style={createStyles.uploadDismissText}>Dismiss</ThemedText>
                   </Pressable>
                 </View>
-                <View style={createStyles.uploadProgressTrack}>
-                  <View
-                    style={[
-                      createStyles.uploadProgressFill,
-                      { width: `${Math.max(2, uploadProgress)}%` },
-                    ]}
-                  />
-                </View>
               </View>
-            ) : null}
-
-            {uploadError && !isUploading ? (
-              <View style={createStyles.uploadErrorBanner}>
-                <Ionicons
-                  name="alert-circle"
-                  size={20}
-                  color="#EF4444"
-                  style={{ marginTop: 1 }}
-                />
-                <View style={createStyles.uploadErrorBody}>
-                  <ThemedText style={createStyles.uploadErrorTitle}>
-                    Upload failed
-                  </ThemedText>
-                  <ThemedText style={createStyles.uploadErrorMessage}>
-                    {uploadError}
-                  </ThemedText>
-                  <View style={createStyles.uploadErrorActions}>
-                    <Pressable
-                      onPress={handleRetryUpload}
-                      style={createStyles.uploadRetryButton}
-                    >
-                      <Ionicons name="refresh" size={14} color={Colors.dark.buttonText} />
-                      <ThemedText style={createStyles.uploadRetryText}>Try again</ThemedText>
-                    </Pressable>
-                    <Pressable
-                      onPress={handleDismissUploadError}
-                      style={createStyles.uploadDismissButton}
-                      hitSlop={8}
-                    >
-                      <ThemedText style={createStyles.uploadDismissText}>Dismiss</ThemedText>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            ) : null}
-
-            <View style={createStyles.mediaButtons}>
-              <Pressable style={createStyles.mediaButton} onPress={handlePickMedia}>
-                <Ionicons name="images" size={24} color={Colors.dark.primary} />
-                <ThemedText style={createStyles.mediaButtonText}>Gallery</ThemedText>
-              </Pressable>
-              <Pressable style={createStyles.mediaButton} onPress={handleTakePhoto}>
-                <Ionicons name="camera" size={24} color={Colors.dark.primary} />
-                <ThemedText style={createStyles.mediaButtonText}>Photo</ThemedText>
-              </Pressable>
-              <Pressable style={createStyles.mediaButton} onPress={handleRecordVideo}>
-                <Ionicons name="videocam" size={24} color={Colors.dark.primary} />
-                <ThemedText style={createStyles.mediaButtonText}>Video</ThemedText>
-              </Pressable>
             </View>
-          </Animated.View>
-        )}
+          ) : null}
+
+          <View style={[createStyles.mediaButtons, { marginBottom: Spacing.xl }]}>
+            <Pressable
+              style={[createStyles.mediaButton, selectedMediaList.length >= MAX_PHOTOS && { opacity: 0.4 }]}
+              onPress={handlePickPhotos}
+              disabled={selectedMediaList.length >= MAX_PHOTOS}
+            >
+              <Ionicons name="images" size={20} color={Colors.dark.primary} />
+              <ThemedText style={createStyles.mediaButtonText}>
+                {selectedMediaList.length > 0 ? `Photos (${selectedMediaList.length}/${MAX_PHOTOS})` : "Add Photos"}
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={[createStyles.mediaButton, selectedMediaList.length >= MAX_PHOTOS && { opacity: 0.4 }]}
+              onPress={handleTakePhoto}
+              disabled={selectedMediaList.length >= MAX_PHOTOS}
+            >
+              <Ionicons name="camera" size={20} color={Colors.dark.primary} />
+              <ThemedText style={createStyles.mediaButtonText}>Camera</ThemedText>
+            </Pressable>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -2690,6 +2577,76 @@ const createStyles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.textSecondary,
     fontWeight: "500",
+  },
+  tagLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  tagChipRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
+  },
+  tagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.backgroundSecondary,
+  },
+  tagChipText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+  },
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: Spacing.md,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  photoGridItem: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    overflow: "hidden",
+    borderRadius: 8,
+    position: "relative",
+  },
+  photoGridItemFull: {
+    width: "100%",
+    aspectRatio: 4 / 3,
+  },
+  photoGridItemHalf: {
+    width: "48.5%",
+    aspectRatio: 1,
+  },
+  photoGridItemQuarter: {
+    width: "48.5%",
+    aspectRatio: 1,
+  },
+  addMorePhotoCell: {
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: Colors.dark.primary + "70",
+    backgroundColor: Colors.dark.primary + "10",
+  },
+  addMoreText: {
+    fontSize: 11,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+    marginTop: 2,
   },
 }));
 
