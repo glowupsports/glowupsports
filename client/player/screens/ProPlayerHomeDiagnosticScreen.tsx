@@ -73,6 +73,7 @@ import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 import PinEntryModal from "@/components/PinEntryModal";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
+import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import { TodaysFocusCard } from "@/player/components/TodaysFocusCard";
 import type { FocusCard } from "@/player/components/TodaysFocusCard";
@@ -208,7 +209,7 @@ const QuestsCard = React.memo(function QuestsCard({ onQuestPress }: { onQuestPre
   );
 });
 
-const qc = StyleSheet.create({
+const qc = makeReactiveStyles(() => StyleSheet.create({
   card: { marginHorizontal: Spacing.lg, backgroundColor: "rgba(255,133,27,0.06)", borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: "rgba(255,133,27,0.18)", padding: Spacing.md, gap: 8 },
   pressed: { opacity: 0.82 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -222,7 +223,7 @@ const qc = StyleSheet.create({
   progressText: { fontSize: 11, color: Colors.dark.textSubtle, fontWeight: "700" },
   xpRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   xpText: { fontSize: 11, color: Colors.dark.gold, fontWeight: "700" },
-});
+}));
 
 // ─── PlayerDNABanner (exact copy from ProPlayerHomeScreen) ─────────────────
 const PlayerDNABanner = React.memo(function PlayerDNABanner({ playerId }: { playerId: string }) {
@@ -285,7 +286,7 @@ const PlayerDNABanner = React.memo(function PlayerDNABanner({ playerId }: { play
   );
 });
 
-const dnaBannerStyles = StyleSheet.create({
+const dnaBannerStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
@@ -316,7 +317,7 @@ const dnaBannerStyles = StyleSheet.create({
   },
   progressFill: { height: "100%", backgroundColor: GlowColors.primary, borderRadius: 2 },
   cta: { fontSize: 12, fontWeight: "600", color: Colors.dark.accentText },
-});
+}));
 
 // ─── Inner content — wrapped by PlayerStateProvider below ─────────────────
 const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
@@ -1164,7 +1165,7 @@ export default function ProPlayerHomeDiagnosticScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = makeReactiveStyles(() => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
@@ -1273,5 +1274,5 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
   },
-});
+}));
 

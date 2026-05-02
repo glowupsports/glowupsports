@@ -3361,7 +3361,7 @@ const profileStyles = makeReactiveStyles(() => StyleSheet.create({
   },
 }));
 
-const achievementStyles = StyleSheet.create({
+const achievementStyles = makeReactiveStyles(() => StyleSheet.create({
   pbScroll: {
     marginHorizontal: -Spacing.xl,
     marginBottom: Spacing.lg,
@@ -3625,9 +3625,9 @@ const achievementStyles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
-});
+}));
 
-const healthStyles = StyleSheet.create({
+const healthStyles = makeReactiveStyles(() => StyleSheet.create({
   dataTypesCard: {
     marginHorizontal: Spacing.xl,
     backgroundColor: Colors.dark.backgroundDefault,
@@ -3749,4 +3749,4 @@ const healthStyles = StyleSheet.create({
     fontSize: 15,
     color: Colors.dark.textMuted,
   },
-});
+}));

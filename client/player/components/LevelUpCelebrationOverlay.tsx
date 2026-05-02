@@ -247,7 +247,7 @@ export function LevelUpCelebrationOverlay({
           <Animated.View style={[s.bannerWrap, bannerStyle]}>
             <Text style={s.levelUpLabel}>LEVEL UP</Text>
             <Text style={s.youreNow}>
-              You're now{" "}
+              You&apos;re now{" "}
               <Text style={s.titleHighlight}>Level {celebration.level}</Text>
             </Text>
             {celebration.title ? (

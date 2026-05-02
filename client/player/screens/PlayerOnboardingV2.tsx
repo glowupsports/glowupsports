@@ -13,6 +13,7 @@ import {
   Platform,
   Alert,
   Share} from "react-native";
+import * as Notifications from "expo-notifications";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -34,6 +35,7 @@ import * as Location from "expo-location";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { usePlayerAppearance } from "@/player/context/PlayerAppearanceContext";
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 const SPORT_LABELS: Record<string, string> = {
@@ -178,7 +180,7 @@ interface StepProps {
   ageGroup?: AgeGroup;
 }
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 8;
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
   return (
@@ -2464,6 +2466,184 @@ function TennisQuizStep({ data: _data, setData, onNext }: StepProps) {
   );
 }
 
+function ThemePickerStep({ onNext }: StepProps) {
+  const { preference, setPreference } = usePlayerAppearance();
+  const selectedScheme = preference === "light" ? "light" : "dark";
+
+  const handleSelect = async (scheme: "dark" | "light") => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await setPreference(scheme);
+  };
+
+  const THEMES: { id: "dark" | "light"; label: string; icon: IoniconName; bg: string; card: string; text: string; muted: string; accent: string }[] = [
+    {
+      id: "dark",
+      label: "Dark",
+      icon: "moon",
+      bg: "#0B0D10",
+      card: "#11141A",
+      text: "#FFFFFF",
+      muted: "#7C8290",
+      accent: "#C8FF3D",
+    },
+    {
+      id: "light",
+      label: "Light",
+      icon: "sunny",
+      bg: "#F5F6F8",
+      card: "#FFFFFF",
+      text: "#0B0D10",
+      muted: "#6B7280",
+      accent: "#3F6B0F",
+    },
+  ];
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Text style={styles.stepTitle}>Choose Your Look</Text>
+        <Text style={styles.stepSubtitle}>Pick a theme that feels right. You can change it any time in settings.</Text>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.themePickerRow}>
+        {THEMES.map((theme, idx) => {
+          const isSelected = selectedScheme === theme.id;
+          return (
+            <Animated.View key={theme.id} entering={FadeInDown.delay(300 + idx * 100).duration(500)} style={styles.themePickerColWrapper}>
+              <Pressable
+                style={[styles.themePickerCard, isSelected ? styles.themePickerCardActive : null]}
+                onPress={() => handleSelect(theme.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`${theme.label} theme`}
+              >
+                <View style={[styles.themePreviewBox, { backgroundColor: theme.bg }]}>
+                  <View style={[styles.themePreviewCard, { backgroundColor: theme.card }]}>
+                    <View style={[styles.themePreviewLine, { backgroundColor: theme.text, opacity: 0.9, width: "70%" }]} />
+                    <View style={[styles.themePreviewLine, { backgroundColor: theme.muted, opacity: 0.6, width: "50%", marginTop: 5 }]} />
+                    <View style={[styles.themePreviewPill, { backgroundColor: theme.accent }]} />
+                  </View>
+                  <View style={[styles.themePreviewNavBar, { backgroundColor: theme.card, borderTopColor: theme.muted + "20" }]}>
+                    {[0, 1, 2].map(i => (
+                      <View key={i} style={[styles.themePreviewNavDot, { backgroundColor: i === 1 ? theme.accent : theme.muted + "60" }]} />
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.themePickerLabelRow}>
+                  <Ionicons name={theme.icon} size={18} color={isSelected ? Colors.dark.accentText : Colors.dark.textMuted} />
+                  <Text style={[styles.themePickerLabel, isSelected ? styles.themePickerLabelActive : null]}>
+                    {theme.label}
+                  </Text>
+                  {isSelected ? (
+                    <View style={styles.themePickerCheck}>
+                      <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
+                    </View>
+                  ) : null}
+                </View>
+              </Pressable>
+            </Animated.View>
+          );
+        })}
+      </Animated.View>
+
+      <Animated.View entering={FadeInUp.delay(500).duration(500)} style={{ marginTop: Spacing.xl }}>
+        <Pressable
+          style={styles.primaryButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onNext();
+          }}
+        >
+          <Text style={styles.primaryButtonText}>Continue</Text>
+          <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
+        </Pressable>
+      </Animated.View>
+    </ScrollView>
+  );
+}
+
+function NotificationsStep({ onNext }: StepProps) {
+  const [requesting, setRequesting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleEnable = async () => {
+    if (requesting || done) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setRequesting(true);
+    try {
+      if (Platform.OS !== "web") {
+        await Notifications.requestPermissionsAsync();
+      }
+    } catch {
+      /* non-fatal */
+    } finally {
+      setRequesting(false);
+      setDone(true);
+      setTimeout(() => onNext(), 600);
+    }
+  };
+
+  const handleSkip = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onNext();
+  };
+
+  const BULLETS: { icon: IoniconName; title: string; desc: string }[] = [
+    { icon: "calendar-outline", title: "Lesson reminders", desc: "Never miss a session with timely alerts" },
+    { icon: "chatbubble-outline", title: "Coach feedback", desc: "Get notified when your coach leaves notes" },
+    { icon: "tennisball-outline", title: "Match updates", desc: "Know instantly when a match is confirmed" },
+    { icon: "flash-outline", title: "Level-up alerts", desc: "Celebrate every milestone as it happens" },
+  ];
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
+      <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Text style={styles.stepTitle}>Stay in the Loop</Text>
+        <Text style={styles.stepSubtitle}>Enable notifications to get the most out of your tennis journey.</Text>
+      </Animated.View>
+
+      <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.notifBulletList}>
+        {BULLETS.map((b, i) => (
+          <Animated.View key={b.title} entering={FadeInDown.delay(300 + i * 80).duration(400)} style={styles.notifBulletRow}>
+            <View style={styles.notifBulletIcon}>
+              <Ionicons name={b.icon} size={20} color={Colors.dark.accentText} />
+            </View>
+            <View style={styles.notifBulletText}>
+              <Text style={styles.notifBulletTitle}>{b.title}</Text>
+              <Text style={styles.notifBulletDesc}>{b.desc}</Text>
+            </View>
+          </Animated.View>
+        ))}
+      </Animated.View>
+
+      <Animated.View entering={FadeInUp.delay(700).duration(500)} style={styles.notifActions}>
+        {done ? (
+          <Animated.View entering={ZoomIn} style={[styles.primaryButton, { justifyContent: "center" }]}>
+            <Ionicons name="checkmark-circle" size={22} color={Colors.dark.buttonText} />
+            <Text style={styles.primaryButtonText}>Done</Text>
+          </Animated.View>
+        ) : (
+          <Pressable
+            style={styles.primaryButton}
+            onPress={handleEnable}
+            disabled={requesting}
+          >
+            <Ionicons name="notifications-outline" size={20} color={Colors.dark.buttonText} />
+            <Text style={styles.primaryButtonText}>{requesting ? "Enabling..." : "Enable Notifications"}</Text>
+          </Pressable>
+        )}
+
+        {!done ? (
+          <Pressable style={styles.skipLink} onPress={handleSkip}>
+            <Text style={styles.skipLinkText}>Maybe later</Text>
+          </Pressable>
+        ) : null}
+      </Animated.View>
+    </ScrollView>
+  );
+}
+
 const SAVE_MESSAGES = [
   "BUILDING YOUR PLAYER PROFILE...",
   "CALIBRATING GLOW RANK...",
@@ -2860,7 +3040,9 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 2: return true; // Photo (optional, has its own Skip button)
       case 3: return data.selectedSports.length > 0 && !!data.experienceLevel; // Sport + Skill
       case 4: return true; // Academy (optional)
-      case 5: return true; // Completion
+      case 5: return true; // Theme picker (has its own Continue button)
+      case 6: return true; // Notifications (has its own buttons)
+      case 7: return true; // Completion
       default: return false;
     }
   };
@@ -2874,15 +3056,17 @@ export default function PlayerOnboardingV2Screen({ onComplete }: Props) {
       case 2: return <PhotoUploadStep {...stepProps} />;
       case 3: return <SportAndSkillStep {...stepProps} />;
       case 4: return <AcademySelectionStep {...stepProps} />;
-      case 5: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
+      case 5: return <ThemePickerStep {...stepProps} />;
+      case 6: return <NotificationsStep {...stepProps} />;
+      case 7: return <CompletionStep {...stepProps} onComplete={handleComplete} isSaving={completionSaving} />;
       default: return null;
     }
   };
 
-  const isCompletionStep = currentStep === 5;
-  // Hide global footer on the photo step (currentStep === 2) — that step has
-  // its own Continue/Skip button so a second Next would be a duplicate control.
-  const showFooter = currentStep > 0 && currentStep < 5 && currentStep !== 2;
+  const isCompletionStep = currentStep === 7;
+  // Hide global footer on the photo step (currentStep === 2), the theme picker (5),
+  // the notifications step (6), and the completion step — they have their own controls.
+  const showFooter = currentStep > 0 && currentStep < 7 && currentStep !== 2 && currentStep !== 5 && currentStep !== 6;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.lg }]}>
@@ -4199,6 +4383,120 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   nextStepText: {
     ...Typography.body,
     color: Colors.dark.text,
+  },
+  themePickerRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  themePickerColWrapper: {
+    flex: 1,
+  },
+  themePickerCard: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: Colors.dark.chipBackgroundStrong,
+    backgroundColor: Colors.dark.chipBackground,
+    overflow: "hidden",
+  },
+  themePickerCardActive: {
+    borderColor: Colors.dark.accentText,
+  },
+  themePreviewBox: {
+    height: 160,
+    padding: Spacing.md,
+    justifyContent: "space-between",
+  },
+  themePreviewCard: {
+    flex: 1,
+    borderRadius: BorderRadius.xs,
+    padding: Spacing.sm,
+    marginBottom: Spacing.xs,
+    gap: 4,
+  },
+  themePreviewLine: {
+    height: 6,
+    borderRadius: 3,
+  },
+  themePreviewPill: {
+    marginTop: Spacing.sm,
+    height: 18,
+    width: "60%",
+    borderRadius: 9,
+  },
+  themePreviewNavBar: {
+    height: 28,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+  },
+  themePreviewNavDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  themePickerLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+  },
+  themePickerLabel: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  themePickerLabelActive: {
+    color: Colors.dark.accentText,
+  },
+  themePickerCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: GlowColors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notifBulletList: {
+    gap: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  notifBulletRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+  },
+  notifBulletIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.accentTextSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  notifBulletText: {
+    flex: 1,
+    gap: 2,
+  },
+  notifBulletTitle: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  notifBulletDesc: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    lineHeight: 18,
+  },
+  notifActions: {
+    gap: Spacing.sm,
   },
   birthdayNextContainer: {
     marginTop: Spacing.xl,
