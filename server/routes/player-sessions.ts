@@ -5735,7 +5735,7 @@ import fs from "fs";
               coach.id,
               weekStart,
               weekEnd,
-              academyId ?? undefined,
+              academyId: academyId ?? undefined,
             );
             const weeklySessionCount = sessions.length;
 
