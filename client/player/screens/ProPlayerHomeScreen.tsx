@@ -717,6 +717,16 @@ function PlayerHomeContent() {
 
   const isFreePlayer = effectiveData?.isFreePlayer ?? !effectiveData?.academy;
 
+  type ChecklistStep = {
+    id: string;
+    icon: React.ComponentProps<typeof Ionicons>["name"];
+    title: string;
+    description: string;
+    actionLabel: string;
+    onAction: () => void;
+    isCompleted: boolean;
+  };
+
   const playerChecklistSteps = useMemo(() => {
     const hasAcademy = !!effectiveData?.academy;
     const hasCoach = !!effectiveData?.coach;
@@ -746,10 +756,10 @@ function PlayerHomeContent() {
       ];
     }
 
-    const steps = [
+    const steps: ChecklistStep[] = [
       {
         id: "complete_profile",
-        icon: "person-circle" as const,
+        icon: "person-circle",
         title: t("player.home.completeProfile"),
         description: t("player.home.completeProfileDesc"),
         actionLabel: t("player.home.goToProfile"),
@@ -761,7 +771,7 @@ function PlayerHomeContent() {
     if (isFreePlayer) {
       steps.push({
         id: "book_court",
-        icon: "tennisball" as const,
+        icon: "tennisball",
         title: "Book a Court",
         description: "Find and book a court near you",
         actionLabel: "Browse Courts",
@@ -770,7 +780,7 @@ function PlayerHomeContent() {
       });
       steps.push({
         id: "join_academy",
-        icon: "business" as const,
+        icon: "business",
         title: t("player.home.joinAcademy"),
         description: "Optional - join an academy for coaching and training sessions",
         actionLabel: t("player.home.browseAcademies"),
@@ -780,7 +790,7 @@ function PlayerHomeContent() {
     } else {
       steps.push({
         id: "join_academy",
-        icon: "business" as const,
+        icon: "business",
         title: t("player.home.joinAcademy"),
         description: t("player.home.joinAcademyDesc"),
         actionLabel: t("player.home.browseAcademies"),
@@ -789,7 +799,7 @@ function PlayerHomeContent() {
       });
       steps.push({
         id: "book_session",
-        icon: "calendar" as const,
+        icon: "calendar",
         title: t("player.home.bookFirstSession"),
         description: t("player.home.bookFirstSessionDesc"),
         actionLabel: t("player.home.bookSession"),
@@ -800,7 +810,7 @@ function PlayerHomeContent() {
 
     steps.push({
       id: "check_progress",
-      icon: "trending-up" as const,
+      icon: "trending-up",
       title: t("player.home.checkProgress"),
       description: t("player.home.checkProgressDesc"),
       actionLabel: t("player.home.viewProgress"),
