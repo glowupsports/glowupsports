@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   LayoutAnimation,
   UIManager,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -217,10 +218,19 @@ export default function PlayerGuideScreen() {
   const { user, isGuest } = useAuth();
   const { t, i18n } = useTranslation();
   const { navigateToTab } = useTabNavigation();
-  const initialTab: TabKey = (route.params?.initialTab as TabKey) || "start";
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+  const routeInitialTab = route.params?.initialTab as TabKey | undefined;
+  const [activeTab, setActiveTab] = useState<TabKey>(routeInitialTab ?? "start");
   const [faqQuery, setFaqQuery] = useState("");
   const [faqCategory, setFaqCategory] = useState<FAQCategory>("All");
+
+  useEffect(() => {
+    if (routeInitialTab) return;
+    AsyncStorage.getItem("@playerGuide/lastTab").then((saved) => {
+      if (saved === "start" || saved === "explore" || saved === "faq" || saved === "whatsnew") {
+        setActiveTab(saved);
+      }
+    }).catch(() => {});
+  }, []);
 
   const enabled = !!user?.playerId && !isGuest;
 
@@ -252,6 +262,7 @@ export default function PlayerGuideScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setActiveTab(tab);
+    AsyncStorage.setItem("@playerGuide/lastTab", tab).catch(() => {});
   }, []);
 
   const handleBack = useCallback(() => {
