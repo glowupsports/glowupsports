@@ -57,7 +57,6 @@ const FEATURE_LABEL_MAP: Record<string, string> = {
   "progress:video_feedback": "Video Feedback",
   "progress:coach_notes_all": "Coach Notes (All)",
   "quests:tab_daily": "Quests - Daily Tab",
-  "quests:tab_weekly": "Quests - Weekly Tab",
   "quests:tab_monthly": "Quests - Monthly Tab",
   "quests:claim": "Quest Claim Reward",
   "quests:upload_proof": "Quest Upload Proof",

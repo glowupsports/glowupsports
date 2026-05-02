@@ -144,20 +144,18 @@ function QuestsCard({ onQuestPress }: { onQuestPress: () => void }) {
   const { user } = useAuth();
   const { data: questsData } = useQuests(!!user?.playerId);
   const { quest, questType } = useMemo(() => {
-    if (!questsData) return { quest: null as Quest | null, questType: null as "daily" | "weekly" | null };
+    if (!questsData) return { quest: null as Quest | null, questType: null as "daily" | null };
     const dailyActive = questsData.daily.filter((q) => q.status === "active" || q.status === "in_progress");
-    const weeklyActive = questsData.weekly.filter((q) => q.status === "active" || q.status === "in_progress");
-    const tagged: { quest: Quest; type: "daily" | "weekly" }[] = [
+    const tagged: { quest: Quest; type: "daily" }[] = [
       ...dailyActive.map((q) => ({ quest: q, type: "daily" as const })),
-      ...weeklyActive.map((q) => ({ quest: q, type: "weekly" as const })),
     ];
-    if (tagged.length === 0) return { quest: null as Quest | null, questType: null as "daily" | "weekly" | null };
+    if (tagged.length === 0) return { quest: null as Quest | null, questType: null as "daily" | null };
     const sorted = tagged.sort((a, b) => {
       const aRatio = a.quest.targetProgress > 0 ? a.quest.currentProgress / a.quest.targetProgress : 0;
       const bRatio = b.quest.targetProgress > 0 ? b.quest.currentProgress / b.quest.targetProgress : 0;
       return bRatio - aRatio;
     });
-    return { quest: sorted[0].quest as Quest | null, questType: sorted[0].type as "daily" | "weekly" | null };
+    return { quest: sorted[0].quest as Quest | null, questType: sorted[0].type as "daily" | null };
   }, [questsData]);
 
   const questProgress = quest && quest.targetProgress > 0 ? Math.min(quest.currentProgress / quest.targetProgress, 1) : 0;
@@ -173,7 +171,7 @@ function QuestsCard({ onQuestPress }: { onQuestPress: () => void }) {
         <View style={qc.headerLeft}>
           <Ionicons name={quest ? "flame" : "flame-outline"} size={14} color={GlowColors.orange} />
           <Text style={qc.label} numberOfLines={1}>
-            {quest ? (questType === "weekly" ? "WEEKLY QUEST" : "DAILY QUEST") : "QUESTS"}
+            {quest ? "DAILY QUEST" : "QUESTS"}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={15} color={Colors.dark.textMuted} />

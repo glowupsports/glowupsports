@@ -101,11 +101,10 @@ export default function QuestScreen() {
   };
 
   const dailyQuests = quests.filter(q => q.type === "daily");
-  const weeklyQuests = quests.filter(q => q.type === "weekly");
 
   return (
     <FlatList
-      data={[...dailyQuests, ...weeklyQuests]}
+      data={dailyQuests}
       keyExtractor={(item) => item.id}
       renderItem={renderQuest}
       style={styles.container}

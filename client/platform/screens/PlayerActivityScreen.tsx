@@ -46,7 +46,6 @@ const KNOWN_FEATURES: { key: string; label: string; category: string }[] = [
   { key: "progress:video_feedback", label: "Video Feedback", category: "Progress" },
   { key: "progress:coach_notes_all", label: "All Coach Notes", category: "Progress" },
   { key: "quests:tab_daily", label: "Daily Quests", category: "Training" },
-  { key: "quests:tab_weekly", label: "Weekly Quests", category: "Training" },
   { key: "quests:tab_monthly", label: "Monthly Quests", category: "Training" },
   { key: "quests:claim", label: "Quest Claim", category: "Training" },
   { key: "quests:upload_proof", label: "Quest Proof Upload", category: "Training" },

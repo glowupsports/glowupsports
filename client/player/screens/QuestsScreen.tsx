@@ -27,7 +27,6 @@ import {
   useClaimQuestReward,
   useClaimChainBonus,
   useAssignDailyQuests,
-  useAssignWeeklyQuests,
   useAssignMonthlyQuests,
   Quest,
   StreakData,
@@ -37,7 +36,7 @@ import {
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
-type QuestType = "daily" | "weekly" | "monthly";
+type QuestType = "daily" | "monthly";
 
 const CATEGORY_COLORS: Record<string, string> = {
   training: "#00FF88",
@@ -237,7 +236,6 @@ function ChainCompleteCelebration({ visible, type, onDone }: { visible: boolean;
 
   const labels: Record<QuestType, string> = {
     daily: "Daily Chain Complete",
-    weekly: "Weekly Chain Complete",
     monthly: "Monthly Chain Complete",
   };
 
@@ -669,12 +667,10 @@ const infoToastStyles = makeReactiveStyles(() => StyleSheet.create({
 function EmptyState({ type }: { type: QuestType }) {
   const icons: Record<QuestType, string> = {
     daily: "sunny-outline",
-    weekly: "calendar-outline",
     monthly: "trophy-outline",
   };
   const messages: Record<QuestType, { title: string; subtitle: string }> = {
     daily: { title: "All caught up!", subtitle: "New daily quests arrive each morning" },
-    weekly: { title: "Weekly quests loading", subtitle: "Check back — new challenges every Monday" },
     monthly: { title: "Monthly missions incoming", subtitle: "Epic challenges reset on the 1st" },
   };
 
@@ -694,7 +690,6 @@ function EmptyState({ type }: { type: QuestType }) {
 
 const TAB_CONFIG: { key: QuestType; label: string; icon: string }[] = [
   { key: "daily", label: "Daily", icon: "sunny" },
-  { key: "weekly", label: "Weekly", icon: "calendar" },
   { key: "monthly", label: "Monthly", icon: "trophy" },
 ];
 
@@ -710,51 +705,31 @@ export default function QuestsScreen() {
   const [showChainCelebration, setShowChainCelebration] = useState(false);
   const [claimingQuestId, setClaimingQuestId] = useState<string | null>(null);
   const [infoToast, setInfoToast] = useState<string | null>(null);
-  const prevAllDoneRef = useRef<Record<QuestType, boolean>>({ daily: false, weekly: false, monthly: false });
+  const prevAllDoneRef = useRef<Record<QuestType, boolean>>({ daily: false, monthly: false });
 
   const { data: questsData } = useQuests();
   const claimReward = useClaimQuestReward();
   const claimChainBonus = useClaimChainBonus();
   const assignDailyQuests = useAssignDailyQuests();
-  const assignWeeklyQuests = useAssignWeeklyQuests();
   const assignMonthlyQuests = useAssignMonthlyQuests();
 
   // Task #1390 — Cold start used to look slow on Quests because every
   // focus also called `queryClient.invalidateQueries(["/api/quests"])`,
   // which marked the persisted god-cache stale and triggered a full
-  // refetch alongside three assign POSTs whose `onSuccess` ALSO
-  // invalidated `["/api/quests"]`. Combined with the screen gating on
-  // `isLoading`, the hydrated payload from disk never got a chance to
-  // paint before the spinner re-took the screen.
-  //
-  // We still need the three assign mutations on focus — they are the
-  // only path that creates today's daily slot / this week's weekly
-  // bucket / this month's monthly bucket, and the cached `daily` array
-  // can be non-empty across a period rollover (yesterday's quests are
-  // still in the cache until the background refetch evicts them via
-  // server-side `expiresAt` filtering). The mutations are idempotent
-  // server-side (they short-circuit with `alreadyAssigned: true` when
-  // the period is already populated), and their own `onSuccess` will
-  // invalidate `/api/quests` if a brand-new period was actually
-  // bootstrapped, which then refreshes via stale-while-revalidate
-  // without hiding the cached payload.
-  //
-  // What we drop here is only the unconditional pre-mutation
-  // `invalidateQueries`. The hook's `staleTime: 30s` plus react-query's
-  // refetch-on-mount semantics already keep things fresh.
+  // refetch alongside assign POSTs whose `onSuccess` ALSO invalidated
+  // `["/api/quests"]`. Combined with the screen gating on `isLoading`,
+  // the hydrated payload from disk never got a chance to paint before
+  // the spinner re-took the screen.
   const assignDailyMutate = assignDailyQuests.mutate;
-  const assignWeeklyMutate = assignWeeklyQuests.mutate;
   const assignMonthlyMutate = assignMonthlyQuests.mutate;
   useFocusEffect(
     useCallback(() => {
       assignDailyMutate();
-      assignWeeklyMutate();
       assignMonthlyMutate();
-    }, [assignDailyMutate, assignWeeklyMutate, assignMonthlyMutate])
+    }, [assignDailyMutate, assignMonthlyMutate])
   );
 
   const dailyQuests = questsData?.daily || [];
-  const weeklyQuests = questsData?.weekly || [];
   const monthlyQuests = questsData?.monthly || [];
   const streak = questsData?.streak || {
     currentStreak: 0,
@@ -772,7 +747,6 @@ export default function QuestsScreen() {
 
   const questsByTab: Record<QuestType, Quest[]> = {
     daily: sortQuests(dailyQuests),
-    weekly: sortQuests(weeklyQuests),
     monthly: sortQuests(monthlyQuests),
   };
 
