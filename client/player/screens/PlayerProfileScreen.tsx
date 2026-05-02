@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList, DimensionValue } from "react-native";
@@ -29,6 +29,12 @@ import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles"
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import AchievementCelebrationModal from "@/player/components/AchievementCelebrationModal";
 import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
+import {
+  getHealthConnectionState,
+  setHealthConnected,
+  requestHealthPermissions,
+  type HealthConnectionState,
+} from "@/player/services/healthService";
 type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
 
 interface AchievementItem {
@@ -471,6 +477,50 @@ export default function PlayerProfileScreen() {
   const [achievementsExpanded, setAchievementsExpanded] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<AchievementItem | null>(null);
   const queryClient = useQueryClient();
+
+  const [healthState, setHealthState] = useState<HealthConnectionState | null>(null);
+  const [healthConnecting, setHealthConnecting] = useState(false);
+  const [showHealthDisclaimer, setShowHealthDisclaimer] = useState(false);
+
+  const loadHealthState = useCallback(async () => {
+    const state = await getHealthConnectionState();
+    setHealthState(state);
+  }, []);
+
+  useEffect(() => {
+    loadHealthState();
+  }, [loadHealthState]);
+
+  const handleHealthToggle = useCallback(async (value: boolean) => {
+    if (!value) {
+      await setHealthConnected(false);
+      setHealthState((prev) => prev ? { ...prev, connected: false, lastSyncedAt: null } : prev);
+      return;
+    }
+    setShowHealthDisclaimer(true);
+  }, []);
+
+  const handleHealthConnect = useCallback(async () => {
+    setShowHealthDisclaimer(false);
+    setHealthConnecting(true);
+    try {
+      const granted = await requestHealthPermissions();
+      if (granted) {
+        await setHealthConnected(true);
+        setHealthState((prev) => prev ? { ...prev, connected: true } : prev);
+      } else {
+        Alert.alert(
+          "Not Available",
+          Platform.OS === "ios"
+            ? "Apple Health requires the full Glow app (not Expo Go). Download the app to connect."
+            : "Google Health Connect requires the full Glow app (not Expo Go). Download the app to connect.",
+          [{ text: "OK" }],
+        );
+      }
+    } finally {
+      setHealthConnecting(false);
+    }
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Data queries — god-endpoint pattern (Task #1387)
@@ -1775,6 +1825,63 @@ export default function PlayerProfileScreen() {
           <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
         </Pressable>
 
+        {/* Connected Apps — Health */}
+        {healthState?.available ? (
+          <>
+            <Text style={styles.sectionGroupHeader}>Connected Apps</Text>
+            <View style={styles.settingsSection}>
+              <View style={[styles.settingsItem, { borderBottomWidth: 0 }]}>
+                <View style={[styles.settingsIcon, {
+                  backgroundColor: Platform.OS === "ios"
+                    ? "rgba(255,59,48,0.12)"
+                    : "rgba(52,199,89,0.12)",
+                }]}>
+                  <Ionicons
+                    name={Platform.OS === "ios" ? "heart" : "fitness"}
+                    size={20}
+                    color={Platform.OS === "ios" ? "#FF3B30" : "#34C759"}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.settingsLabel}>
+                    {Platform.OS === "ios" ? "Apple Health" : "Google Health Connect"}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: Colors.dark.textMuted, marginTop: 2 }}>
+                    {healthState.connected
+                      ? `Steps, Sleep, Heart Rate, Workouts${healthState.lastSyncedAt ? ` · Synced ${new Date(healthState.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}`
+                      : "Steps, Sleep, Heart Rate, Workouts"}
+                  </Text>
+                </View>
+                {healthConnecting ? (
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} />
+                ) : (
+                  <Switch
+                    value={healthState.connected}
+                    onValueChange={handleHealthToggle}
+                    trackColor={{ false: Colors.dark.chipBackground, true: (Platform.OS === "ios" ? "#FF3B30" : "#34C759") + "80" }}
+                    thumbColor={healthState.connected ? (Platform.OS === "ios" ? "#FF3B30" : "#34C759") : Colors.dark.textMuted}
+                  />
+                )}
+              </View>
+            </View>
+
+            {healthState.connected ? (
+              <View style={healthStyles.dataTypesCard}>
+                <Text style={healthStyles.dataTypesTitle}>Data being read</Text>
+                {(["Steps", "Active Energy", "Sleep Analysis", "Resting Heart Rate", "Workouts"] as const).map((item) => (
+                  <View key={item} style={healthStyles.dataTypeRow}>
+                    <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
+                    <Text style={healthStyles.dataTypeText}>{item}</Text>
+                  </View>
+                ))}
+                <Text style={healthStyles.privacyNote}>
+                  Only computed insights are shared — raw biometric readings never leave your device.
+                </Text>
+              </View>
+            ) : null}
+          </>
+        ) : null}
+
         {/* Settings grouped list */}
         <Text style={styles.sectionGroupHeader}>{t("player.profile.settings")}</Text>
         <View style={styles.settingsSection}>
@@ -2029,6 +2136,62 @@ export default function PlayerProfileScreen() {
               </Pressable>
             </View>
           ) : null}
+        </View>
+      </Modal>
+
+      {/* Health disclaimer modal */}
+      <Modal
+        visible={showHealthDisclaimer}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowHealthDisclaimer(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowHealthDisclaimer(false)} />
+          <View style={healthStyles.disclaimerSheet}>
+            <View style={healthStyles.disclaimerHeader}>
+              <View style={healthStyles.disclaimerIconCircle}>
+                <Ionicons
+                  name={Platform.OS === "ios" ? "heart" : "fitness"}
+                  size={28}
+                  color={Platform.OS === "ios" ? "#FF3B30" : "#34C759"}
+                />
+              </View>
+              <Text style={healthStyles.disclaimerTitle}>
+                {Platform.OS === "ios" ? "Connect Apple Health" : "Connect Google Health"}
+              </Text>
+              <Text style={healthStyles.disclaimerSub}>
+                Glow will read the following data to personalise your coaching experience
+              </Text>
+            </View>
+
+            {(["Steps", "Active Energy Burned", "Sleep Analysis", "Resting Heart Rate", "Workouts"] as const).map((item) => (
+              <View key={item} style={healthStyles.disclaimerRow}>
+                <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                <Text style={healthStyles.disclaimerItem}>{item}</Text>
+              </View>
+            ))}
+
+            <View style={healthStyles.privacyBox}>
+              <Ionicons name="shield-checkmark" size={16} color="#6366F1" />
+              <Text style={healthStyles.privacyBoxText}>
+                Only computed insights (e.g. &quot;Light day recommended&quot;) are shared with the server. Raw biometric readings never leave your device.
+              </Text>
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [healthStyles.connectBtn, pressed && { opacity: 0.85 }]}
+              onPress={handleHealthConnect}
+            >
+              <Text style={healthStyles.connectBtnText}>Allow Access</Text>
+            </Pressable>
+            <Pressable
+              style={healthStyles.cancelBtn}
+              onPress={() => setShowHealthDisclaimer(false)}
+            >
+              <Text style={healthStyles.cancelBtnText}>Cancel</Text>
+            </Pressable>
+          </View>
         </View>
       </Modal>
 
@@ -3461,5 +3624,129 @@ const achievementStyles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+});
+
+const healthStyles = StyleSheet.create({
+  dataTypesCard: {
+    marginHorizontal: Spacing.xl,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.xs,
+  },
+  dataTypesTitle: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  dataTypeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 3,
+  },
+  dataTypeText: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  privacyNote: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+    marginTop: Spacing.xs,
+    lineHeight: 16,
+  },
+  disclaimerSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#141920",
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    paddingBottom: Spacing["2xl"],
+    gap: Spacing.sm,
+  },
+  disclaimerHeader: {
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  disclaimerIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.dark.card,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  disclaimerTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  disclaimerSub: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  disclaimerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 4,
+  },
+  disclaimerItem: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  privacyBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "rgba(99,102,241,0.08)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  privacyBoxText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    lineHeight: 17,
+  },
+  connectBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: Spacing.sm,
+  },
+  connectBtnText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0d0d0d",
+  },
+  cancelBtn: {
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  cancelBtnText: {
+    fontSize: 15,
+    color: Colors.dark.textMuted,
   },
 });

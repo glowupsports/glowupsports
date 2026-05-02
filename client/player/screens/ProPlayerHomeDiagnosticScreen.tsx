@@ -115,6 +115,7 @@ import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import { GlowAssessmentCard } from "@/player/components/GlowAssessmentCard";
 import AchievementCelebrationModal from "@/player/components/AchievementCelebrationModal";
 import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
+import { WellnessSnapshotCard } from "@/player/components/WellnessSnapshotCard";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -327,6 +328,19 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   const { guardAction, promptProps } = useGuestGuard();
   const { isMultiSport, activeSports, activeSport } = useSport();
   const { navigateToTab } = useTabNavigation();
+
+  // ── Health recovery status (Task #1571) ───────────────────────────────────
+  const [healthRecoveryStatus, setHealthRecoveryStatus] = useState<"fully_recovered" | "light_day" | "rest_today" | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    import("@/player/services/healthService").then(async ({ getHealthConnectionState, readHealthSnapshot }) => {
+      const state = await getHealthConnectionState();
+      if (!state.connected || cancelled) return;
+      const snap = await readHealthSnapshot();
+      if (!cancelled && snap?.recoveryStatus) setHealthRecoveryStatus(snap.recoveryStatus);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // ── State (exact from ProPlayerHomeScreen) ────────────────────────────────
   const [showPinModal, setShowPinModal] = useState(false);
@@ -907,6 +921,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
                 aiCoachContext={homeData?.aiCoachContext ?? null}
                 weeklyDigest={(homeData?.weeklyDigest ?? null) as any}
                 energyInsight={checkinInsightData?.insight ?? null}
+                recoveryStatus={healthRecoveryStatus}
               />
 
               <View style={styles.improveCardGap} />
@@ -935,6 +950,14 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
                   <UpcomingAppointmentCard />
                 </>
               ) : null}
+            </LazyOnScroll>
+          ) : null}
+
+          {/* WELLNESS SNAPSHOT — Task #1571 */}
+          {!isGuest ? (
+            <LazyOnScroll minHeight={1}>
+              <View style={styles.improveCardGap} />
+              <WellnessSnapshotCard />
             </LazyOnScroll>
           ) : null}
 

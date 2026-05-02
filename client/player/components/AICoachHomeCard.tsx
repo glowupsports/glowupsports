@@ -19,15 +19,23 @@ interface AICoachHomeCardProps {
   } | null;
   weeklyDigest: { data: { focusArea?: string } | null } | null;
   energyInsight?: string | null;
+  recoveryStatus?: "fully_recovered" | "light_day" | "rest_today" | null;
 }
 
 const LAYER_LABELS = ["Session Check-ins", "Monthly Voice", "Perception Gaps"] as const;
+
+const RECOVERY_LABELS: Record<string, { label: string; color: string; icon: "heart-outline" | "flash-outline" | "bed-outline" }> = {
+  fully_recovered: { label: "Fully recovered today", color: "#22C55E", icon: "heart-outline" },
+  light_day: { label: "Light day recommended", color: "#F59E0B", icon: "flash-outline" },
+  rest_today: { label: "Rest day recommended", color: "#EF4444", icon: "bed-outline" },
+};
 
 export const AICoachHomeCard = React.memo(function AICoachHomeCard({
   aiStatus,
   aiCoachContext,
   weeklyDigest,
   energyInsight,
+  recoveryStatus,
 }: AICoachHomeCardProps) {
   useThemeReactivity();
   const navigation = useNavigation<any>();
@@ -128,6 +136,19 @@ export const AICoachHomeCard = React.memo(function AICoachHomeCard({
             <View style={s.insightRow}>
               <Ionicons name="flame-outline" size={12} color="#F97316" />
               <Text style={s.insightText} numberOfLines={2}>{energyInsight}</Text>
+            </View>
+          ) : null}
+
+          {recoveryStatus && RECOVERY_LABELS[recoveryStatus] ? (
+            <View style={s.insightRow}>
+              <Ionicons
+                name={RECOVERY_LABELS[recoveryStatus].icon}
+                size={12}
+                color={RECOVERY_LABELS[recoveryStatus].color}
+              />
+              <Text style={[s.insightText, { color: RECOVERY_LABELS[recoveryStatus].color }]} numberOfLines={1}>
+                {RECOVERY_LABELS[recoveryStatus].label}
+              </Text>
             </View>
           ) : null}
 

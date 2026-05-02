@@ -118,6 +118,7 @@ The platform features a dark-themed premium sports aesthetic with Neon Green, Wh
 - **Player Journey — Session History Tab**: New "Sessions" tab on the PlayerJourneyScreen timeline showing all past sessions with color-coded energy dots and mood/notes from check-ins.
 - **My Journey Shortcut**: Tappable chip on ProPlayerCard bottom row navigating to the Journey screen.
 - **AI Coach Energy Trend Insight**: AICoachHomeCard displays an orange energy trend insight from `/api/player/me/checkin-insight` based on 30 days of check-in history.
+- **Apple Health / Google Health Connect Integration (Task #1571)**: Player can connect their health app from Profile screen ("Connected Apps" section). `WellnessSnapshotCard` on home screen (between Quests and MiniFeed) shows sleep quality, step progress arc, resting heart rate, and recovery status badge. AI Coach card shows recovery status inline. Backend stores only computed labels via `POST/GET /api/player/me/health-snapshot` (never raw biometrics). Full Expo Go / web graceful fallback — card hidden, toggle shows informative Alert. Service: `client/player/services/healthService.ts`. Components: `client/player/components/WellnessSnapshotCard.tsx`. Backend: `server/routes/player-health.ts`.
 - **Updates**: What's New Modal (role and locale-aware carousel).
 
 ## External Dependencies
