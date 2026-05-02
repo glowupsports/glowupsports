@@ -17,6 +17,7 @@ import * as Clipboard from "expo-clipboard";
 import { useTranslation } from "react-i18next";
 import { usePlayer } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
+import LogMatchModal from "@/player/components/LogMatchModal";
 
 import {
   type FeedFilter,
@@ -72,6 +73,7 @@ export default function CommunityScreen() {
   const [showPostDetailModal, setShowPostDetailModal] = useState(false);
   const [selectedFriendActivity, setSelectedFriendActivity] = useState<FriendActivity | null>(null);
   const [showFeedFilterModal, setShowFeedFilterModal] = useState(false);
+  const [showLogMatchModal, setShowLogMatchModal] = useState(false);
   const chatFooterHeight = 70;
 
   // Task #1384 — Per-user category preferences for the unified feed.
@@ -535,6 +537,20 @@ export default function CommunityScreen() {
               <Ionicons name="map" size={20} color={Colors.dark.buttonText} />
             </View>
           </Pressable>
+          {canInteract ? (
+            <Pressable
+              style={styles.headerButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowLogMatchModal(true);
+              }}
+              testID="button-log-match"
+            >
+              <View style={styles.addButton}>
+                <Ionicons name="tennisball-outline" size={20} color={Colors.dark.buttonText} />
+              </View>
+            </Pressable>
+          ) : null}
           {mainTab === "feed" && canInteract ? (
               <Pressable
                 style={styles.headerButton}
@@ -700,6 +716,11 @@ export default function CommunityScreen() {
       <OnlineSafetyModal
         visible={showSafetyModal}
         onAccept={() => setShowSafetyModal(false)}
+      />
+
+      <LogMatchModal
+        visible={showLogMatchModal}
+        onClose={() => setShowLogMatchModal(false)}
       />
       </ThemedView>
     </LockedScreen>

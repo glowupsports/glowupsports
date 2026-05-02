@@ -35,6 +35,7 @@ import {
   requestHealthPermissions,
   type HealthConnectionState,
 } from "@/player/services/healthService";
+import LogMatchModal from "@/player/components/LogMatchModal";
 type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
 
 interface AchievementItem {
@@ -210,7 +211,7 @@ const PLAY_STYLE_META: Record<PlayStyleKey, { name: string; color: string; icon:
 
 const ALL_ARCHETYPES: PlayStyleKey[] = ["baseline_warrior", "net_ninja", "serve_machine", "all_court_ace", "counter_puncher", "tactical_mastermind"];
 
-type ProfileTab = "moments" | "friends" | "groups";
+type ProfileTab = "moments" | "friends" | "groups" | "matches";
 
 interface SportProfilesSectionProps {
   sportProfiles: SportProfileRecord | null;
@@ -471,6 +472,7 @@ export default function PlayerProfileScreen() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
+  const [showLogMatchModal, setShowLogMatchModal] = useState(false);
   const [showTitlesModal, setShowTitlesModal] = useState(false);
   const [showPlayStyleModal, setShowPlayStyleModal] = useState(false);
   const { celebrationAchievement, onCloseCelebration, enqueueNewlyEarned } = useAchievementCelebration(playerCtx.playerId ?? "");
@@ -1502,7 +1504,8 @@ export default function PlayerProfileScreen() {
               { tab: "moments" as ProfileTab, label: t("player.profile.moments"), icon: "grid-outline" },
               { tab: "friends" as ProfileTab, label: `${t("player.profile.friends")} (${connectionsData?.friends?.length || 0})`, icon: "people-outline" },
               { tab: "groups" as ProfileTab, label: `${t("player.profile.groups")} (${groupsData?.myGroups?.length || 0})`, icon: "people-circle-outline" },
-            ] as { tab: ProfileTab; label: string; icon: "grid-outline" | "people-outline" | "people-circle-outline" }[]).map(({ tab, label, icon }) => {
+              { tab: "matches" as ProfileTab, label: "Matches", icon: "tennisball-outline" },
+            ] as { tab: ProfileTab; label: string; icon: string }[]).map(({ tab, label, icon }) => {
               const isActive = activeTab === tab;
               return (
                 <Pressable
@@ -1520,7 +1523,7 @@ export default function PlayerProfileScreen() {
                     setActiveTab(tab);
                   }}
                 >
-                  <Ionicons name={icon} size={16} color={isActive ? Colors.dark.primary : Colors.dark.textMuted} />
+                  <Ionicons name={icon as any} size={16} color={isActive ? Colors.dark.primary : Colors.dark.textMuted} />
                   <Text style={[styles.profileTabText, isActive && styles.profileTabTextActive]}>
                     {label}
                   </Text>
@@ -1579,6 +1582,46 @@ export default function PlayerProfileScreen() {
                   />
                 </View>
               )}
+            </View>
+          ) : null}
+
+          {activeTab === "matches" ? (
+            <View style={styles.tabContent}>
+              <Pressable
+                style={[styles.emptyTabContent, { gap: Spacing.md }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("MatchHistory");
+                }}
+              >
+                <Ionicons name="tennisball-outline" size={40} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyTabText}>View Match History</Text>
+                <Text style={styles.emptyTabSubtext}>Log results and track your wins</Text>
+                <View style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                  backgroundColor: Colors.dark.primary,
+                  borderRadius: BorderRadius.lg,
+                  paddingVertical: 10,
+                  paddingHorizontal: Spacing.xl,
+                  marginTop: Spacing.xs,
+                }}>
+                  <Ionicons name="add" size={16} color="#fff" />
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>Open Match History</Text>
+                </View>
+              </Pressable>
+              <Pressable
+                style={[styles.emptyTabContent, { marginTop: Spacing.sm }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowLogMatchModal(true);
+                }}
+              >
+                <Text style={[styles.emptyTabSubtext, { color: Colors.dark.primary }]}>
+                  + Log a match now
+                </Text>
+              </Pressable>
             </View>
           ) : null}
 
@@ -2051,6 +2094,11 @@ export default function PlayerProfileScreen() {
           onClose={onCloseCelebration}
         />
       ) : null}
+
+      <LogMatchModal
+        visible={showLogMatchModal}
+        onClose={() => setShowLogMatchModal(false)}
+      />
 
       {/* Badge detail sheet */}
       <Modal

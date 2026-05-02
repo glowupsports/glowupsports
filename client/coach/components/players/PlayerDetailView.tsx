@@ -52,6 +52,115 @@ const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const BALL_LEVELS = ["blue", "red", "orange", "green", "yellow", "glow"];
 
+// ---------- Task #1583: Coach match history section ----------
+interface CoachMatchResult {
+  id: string;
+  opponentName: string;
+  playedAt: string;
+  scoreDisplay: string;
+  didWin: boolean;
+  status: string;
+  isOwner: boolean;
+}
+
+function CoachMatchHistorySection({ playerId }: { playerId: string }) {
+  const { data, isLoading } = useQuery<{
+    results: CoachMatchResult[];
+    stats: { wins: number; losses: number; total: number };
+  }>({
+    queryKey: [`/api/coach/players/${playerId}/match-results`],
+    staleTime: 60000,
+  });
+
+  if (isLoading) {
+    return (
+      <View style={{ paddingVertical: 20, alignItems: "center" }}>
+        <TennisBallSpinner color={Colors.dark.primary} size="small" />
+      </View>
+    );
+  }
+
+  const results = data?.results ?? [];
+  const stats = data?.stats;
+
+  if (results.length === 0) {
+    return (
+      <View style={{ paddingVertical: 16, alignItems: "center", gap: 6 }}>
+        <Ionicons name="tennisball-outline" size={32} color={Colors.dark.textMuted} />
+        <Text style={{ color: Colors.dark.textMuted, fontSize: 13 }}>No matches logged yet</Text>
+      </View>
+    );
+  }
+
+  const winColor = "#22c55e";
+  const lossColor = "#ef4444";
+
+  return (
+    <View style={{ gap: 8 }}>
+      {stats && (stats.wins + stats.losses > 0) ? (
+        <View style={{ flexDirection: "row", gap: 16, paddingVertical: 8, paddingHorizontal: 4 }}>
+          <View style={{ alignItems: "center", flex: 1 }}>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: Colors.dark.text }}>{stats.wins}</Text>
+            <Text style={{ fontSize: 11, color: Colors.dark.textMuted, fontWeight: "600" }}>WINS</Text>
+          </View>
+          <View style={{ width: 1, backgroundColor: "rgba(255,255,255,0.1)" }} />
+          <View style={{ alignItems: "center", flex: 1 }}>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: Colors.dark.text }}>{stats.losses}</Text>
+            <Text style={{ fontSize: 11, color: Colors.dark.textMuted, fontWeight: "600" }}>LOSSES</Text>
+          </View>
+          <View style={{ width: 1, backgroundColor: "rgba(255,255,255,0.1)" }} />
+          <View style={{ alignItems: "center", flex: 1 }}>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: Colors.dark.text }}>
+              {stats.wins + stats.losses > 0 ? Math.round((stats.wins / (stats.wins + stats.losses)) * 100) : 0}%
+            </Text>
+            <Text style={{ fontSize: 11, color: Colors.dark.textMuted, fontWeight: "600" }}>WIN RATE</Text>
+          </View>
+        </View>
+      ) : null}
+      {results.slice(0, 10).map((r) => {
+        const rc = r.didWin ? winColor : lossColor;
+        let statusLabel = r.status === "pending" ? "Pending" : r.status === "confirmed" ? "Confirmed" : r.status === "auto_confirmed" ? "Auto-confirmed" : "Disputed";
+        let statusColor = r.status === "pending" ? "#facc15" : r.status === "confirmed" ? winColor : r.status === "auto_confirmed" ? Colors.dark.textMuted : lossColor;
+        return (
+          <View
+            key={r.id}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              backgroundColor: Colors.dark.backgroundDefault,
+              borderRadius: 10,
+              padding: 10,
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.06)",
+            }}
+          >
+            <View style={{
+              width: 30, height: 30, borderRadius: 15,
+              backgroundColor: rc + "20", borderWidth: 1.5, borderColor: rc + "50",
+              alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}>
+              <Text style={{ fontSize: 12, fontWeight: "800", color: rc }}>{r.didWin ? "W" : "L"}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: Colors.dark.text }} numberOfLines={1}>
+                vs {r.opponentName}
+              </Text>
+              {r.scoreDisplay ? (
+                <Text style={{ fontSize: 12, color: Colors.dark.textSecondary, fontWeight: "600" }}>{r.scoreDisplay}</Text>
+              ) : null}
+              <Text style={{ fontSize: 11, color: statusColor, fontWeight: "600", marginTop: 1 }}>{statusLabel}</Text>
+            </View>
+            <Text style={{ fontSize: 11, color: Colors.dark.textMuted }}>
+              {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(r.playedAt))}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 interface Player {
   id: string;
   name: string;
@@ -1727,6 +1836,10 @@ export function PlayerDetailView({
 
         <CollapsibleSection title="Monthly Reports" icon="mail-unread-outline" iconColor="#a855f7">
           <PlayerMonthlyReportsSection playerId={player.id} playerName={localPlayer.name} />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Match History" icon="tennisball-outline" iconColor="#f97316">
+          <CoachMatchHistorySection playerId={player.id} />
         </CollapsibleSection>
 
       </ScrollView>

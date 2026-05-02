@@ -1259,6 +1259,7 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] USTA assessment seed skipped:', e.message);
   }
 
+<<<<<<< HEAD
   // ── Glow Arena Tables (Phase 1) ──────────────────────────────────────────────
   try {
     await pool.query(`
@@ -1574,6 +1575,31 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] Glow Arena tables created/verified');
   } catch (e: any) {
     console.warn('[Database] Arena table migration warning:', e.message);
+  }
+
+  // Task #1583 — Player-logged match results with peer confirmation
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS match_results (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        opponent_id VARCHAR REFERENCES players(id),
+        opponent_name TEXT NOT NULL,
+        played_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        score_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+        logged_player_won BOOLEAN NOT NULL DEFAULT TRUE,
+        status TEXT NOT NULL DEFAULT 'pending',
+        confirmed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS mr_player_idx ON match_results(player_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS mr_opponent_idx ON match_results(opponent_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS mr_status_idx ON match_results(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS mr_played_at_idx ON match_results(played_at DESC)`);
+    console.log('[Database] match_results migration applied');
+  } catch (e: any) {
+    console.log('[Database] match_results migration skipped:', e.message);
   }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);

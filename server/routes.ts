@@ -88,6 +88,7 @@ import communityDataRouter from "./routes/community-data";
 import playerAiCoachDataRouter from "./routes/player-ai-coach-data";
 import quizRouter from "./routes/quiz";
 import arenaRouter from "./routes/arena";
+import matchResultsRouter from "./routes/match-results";
 import { diagnosticsLimiter } from "./rateLimiter";
 
 const _authLimiter = rateLimit({
@@ -369,6 +370,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Session Plans, Match Logs, Evidence, Level-Up Events
   app.use(sessionPlansRoutes);
   app.use(matchLogsRoutes);
+  // Task #1583 — Player-logged match results
+  app.use(matchResultsRouter);
   // Task #1126 — Year-in-Tennis recap (JSON + share SVG).
   app.use(yearInTennisRoutes);
   app.use(skillEvidenceRoutes);

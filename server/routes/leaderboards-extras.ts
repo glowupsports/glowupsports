@@ -4,7 +4,7 @@
 // collide with the existing `/api/player/leaderboard` (player-social) or
 // `/api/adult-glow/leaderboard` (adult-glow-rank) endpoints — both untouched.
 import { Router, Request, Response, NextFunction } from "express";
-import { db } from "../db";
+import { db, pool } from "../db";
 import { academies, players, squads, squadMembers, playerXpEvents, playerStreaks, adultGlowMatches, playerMatches, matches as matchesTable, tournaments, sessionPlayers, sessions, posts as postsTable, playerOfWeek, weeklySkillChallenges, users } from "@shared/schema";
 import { and, eq, gte, inArray, sql, desc, isNotNull, lte, lt } from "drizzle-orm";
 import {
@@ -36,7 +36,7 @@ export function startOfMonthUTC(date: Date): Date {
 // ---------- unified match aggregation ----------
 //
 // Phase 5 leaderboards must rank by activity across ALL canonical match
-// sources, not just adult MMR. We aggregate from three tables:
+// sources, not just adult MMR. We aggregate from four tables:
 //   - `matches`             — primary match results (result='win'|'loss',
 //                             matchDate is a YYYY-MM-DD `date` column).
 //                             Available to free players, juniors, adults.
@@ -45,7 +45,10 @@ export function startOfMonthUTC(date: Date): Date {
 //   - `player_matches`      — peer challenges; counted as "played" only when
 //                             resultStatus='played'. No winner field, so they
 //                             contribute to matchesPlayed but not wins.
-// Both legs are summed per player; we don't dedupe across tables because each
+//   - `match_results`       — Task #1583: player-self-logged results.
+//                             Confirmed/auto-confirmed rows count toward wins
+//                             for both the logging player and their opponent.
+// All legs are summed per player; we don't dedupe across tables because each
 // table represents a distinct logging surface (a real-world match can be
 // recorded in more than one if the player chose to log in both flows; that's
 // rare in practice and the over-count is symmetric across players).
@@ -153,6 +156,106 @@ export async function aggregatePlayerMatches(
     const cur = result.get(r.playerId) ?? { played: 0, won: 0 };
     cur.played += Number(r.played);
     result.set(r.playerId, cur);
+  }
+
+  // Task #1583 — match_results (player-self-logged, confirmed/auto-confirmed).
+  // A win is credited to the logging player when logged_player_won=TRUE, and
+  // to the opponent (by opponent_id) when logged_player_won=FALSE. Only
+  // rows with status IN ('confirmed','auto_confirmed') count.
+  try {
+    const idList = playerIds.map((_, i) => `$${i + 1}`).join(",");
+    const baseParams: unknown[] = [...playerIds];
+    let afterParam = playerIds.length + 1;
+
+    let dateFilter = `AND played_at >= $${afterParam++}`;
+    baseParams.push(windowStart.toISOString());
+    if (windowEnd) {
+      dateFilter += ` AND played_at < $${afterParam++}`;
+      baseParams.push(windowEnd.toISOString());
+    }
+
+    // Logging-player leg: wins where logged_player_won=TRUE
+    const loggerWinsSQL = `
+      SELECT player_id AS pid, COUNT(*)::int AS won, COUNT(*)::int AS played
+        FROM match_results
+       WHERE player_id IN (${idList})
+         AND status IN ('confirmed','auto_confirmed')
+         AND logged_player_won = TRUE
+         ${dateFilter}
+       GROUP BY player_id`;
+    const loggerWinRows = await pool.query<{ pid: string; won: number; played: number }>(
+      loggerWinsSQL,
+      baseParams,
+    );
+    for (const r of loggerWinRows.rows) {
+      const cur = result.get(r.pid) ?? { played: 0, won: 0 };
+      cur.played += Number(r.played);
+      cur.won += Number(r.won);
+      result.set(r.pid, cur);
+    }
+
+    // Logging-player leg: losses (played but didn't win)
+    const loggerLossSQL = `
+      SELECT player_id AS pid, COUNT(*)::int AS played
+        FROM match_results
+       WHERE player_id IN (${idList})
+         AND status IN ('confirmed','auto_confirmed')
+         AND logged_player_won = FALSE
+         ${dateFilter}
+       GROUP BY player_id`;
+    const loggerLossRows = await pool.query<{ pid: string; played: number }>(
+      loggerLossSQL,
+      baseParams,
+    );
+    for (const r of loggerLossRows.rows) {
+      const cur = result.get(r.pid) ?? { played: 0, won: 0 };
+      cur.played += Number(r.played);
+      result.set(r.pid, cur);
+    }
+
+    // Opponent leg: in-app opponents who appear in opponent_id; a win for
+    // them means logged_player_won=FALSE.
+    const oppWinSQL = `
+      SELECT opponent_id AS pid, COUNT(*)::int AS won, COUNT(*)::int AS played
+        FROM match_results
+       WHERE opponent_id IN (${idList})
+         AND status IN ('confirmed','auto_confirmed')
+         AND logged_player_won = FALSE
+         ${dateFilter}
+       GROUP BY opponent_id`;
+    const oppWinRows = await pool.query<{ pid: string; won: number; played: number }>(
+      oppWinSQL,
+      baseParams,
+    );
+    for (const r of oppWinRows.rows) {
+      if (!r.pid) continue;
+      const cur = result.get(r.pid) ?? { played: 0, won: 0 };
+      cur.played += Number(r.played);
+      cur.won += Number(r.won);
+      result.set(r.pid, cur);
+    }
+
+    // Opponent leg: losses
+    const oppLossSQL = `
+      SELECT opponent_id AS pid, COUNT(*)::int AS played
+        FROM match_results
+       WHERE opponent_id IN (${idList})
+         AND status IN ('confirmed','auto_confirmed')
+         AND logged_player_won = TRUE
+         ${dateFilter}
+       GROUP BY opponent_id`;
+    const oppLossRows = await pool.query<{ pid: string; played: number }>(
+      oppLossSQL,
+      baseParams,
+    );
+    for (const r of oppLossRows.rows) {
+      if (!r.pid) continue;
+      const cur = result.get(r.pid) ?? { played: 0, won: 0 };
+      cur.played += Number(r.played);
+      result.set(r.pid, cur);
+    }
+  } catch {
+    // match_results table may not exist on older deploys — safe to skip
   }
 
   return result;
