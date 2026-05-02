@@ -646,10 +646,7 @@ function NoOpScreen() {
 }
 
 // ─── Inner root — has access to PlayerDataProvider's query cache for playerId ──
-function PlayerV2Inner() {
-  const { user } = useAuth();
-  const playerId = user?.playerId ?? null;
-
+function PlayerV2Inner({ playerId }: { playerId: string | null }) {
   return (
     <SportContextProvider>
       <ScheduleFocusProvider>
@@ -769,12 +766,14 @@ export default function PlayerV2Navigator() {
     );
   }
 
+  const playerId = user?.playerId || dashboard?.player?.id || null;
+
   return (
     <PlayerAppearanceProvider>
       <TabNavigationProvider>
         <PlayerDataProvider>
           <StatusBar style="light" />
-          <PlayerV2Inner />
+          <PlayerV2Inner playerId={playerId} />
         </PlayerDataProvider>
       </TabNavigationProvider>
     </PlayerAppearanceProvider>
