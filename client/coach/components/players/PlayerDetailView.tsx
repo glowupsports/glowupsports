@@ -147,7 +147,8 @@ function PlayerQuestsSection({ playerId }: { playerId: string }) {
   const { data, isLoading } = useQuery<{ quests: PlayerQuestItem[] }>({
     queryKey: ["/api/coach/players", playerId, "quests"],
     queryFn: async () => {
-      return apiRequest("GET", `/api/coach/players/${playerId}/quests`);
+      const res = await apiRequest("GET", `/api/coach/players/${playerId}/quests`);
+      return res.json();
     },
   });
 
