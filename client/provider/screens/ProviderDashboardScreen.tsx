@@ -465,7 +465,7 @@ export default function ProviderDashboardScreen() {
   const primary = getPrimarySpecialization(profile?.specializations ?? []);
   const extraSpecs = (profile?.specializations ?? []).length - 1;
 
-  const firstName = profile?.displayName?.split(" ")[0] ?? user?.name?.split(" ")[0] ?? "Provider";
+  const firstName = profile?.displayName?.split(" ")[0] ?? user?.displayName?.split(" ")[0] ?? user?.username?.split(" ")[0] ?? "Provider";
 
   const showToast = (data: ToastData) => {
     setToast(data);

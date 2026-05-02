@@ -80,7 +80,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const base64Data = req.file.buffer.toString("base64");
         const logoUrl = `data:${mimeType};base64,${base64Data}`;
 
-        await storage.updateAcademy(academyId, { logoUrl } as any);
+        await storage.updateAcademy(academyId, { logoUrl });
         res.json({ success: true, logoUrl });
       } catch (error) {
         console.error("[AcademyLogo] Upload academy logo error:", error);
@@ -102,7 +102,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             : undefined;
         const academyId = overrideAcademyId ?? req.user?.academyId;
         if (!academyId) return res.status(400).json({ error: "Academy ID required" });
-        await storage.updateAcademy(academyId, { logoUrl: null } as any);
+        await storage.updateAcademy(academyId, { logoUrl: null });
         res.json({ success: true, logoUrl: null });
       } catch (error) {
         console.error("Delete academy logo error:", error);
@@ -137,7 +137,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
               .json({ error: "Invalid theme", details: err?.message ?? String(err) });
           }
         }
-        const updated = await storage.updateAcademy(academyId, { theme: parsed } as any);
+        const updated = await storage.updateAcademy(academyId, { theme: parsed });
         res.json({ theme: (updated as any)?.theme ?? null });
       } catch (error) {
         console.error("Update academy theme error:", error);

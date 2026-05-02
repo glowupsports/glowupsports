@@ -152,7 +152,7 @@ router.post("/api/sessions/:sessionId/plan/generate", authMiddleware, requireAca
         status: "draft",
         blocks: blocks,
         generatedBy: coachId,
-      } as any)
+      })
       .returning();
     
     res.status(201).json({ ...plan, blocks });
@@ -281,7 +281,7 @@ router.patch("/api/sessions/:sessionId/plan/blocks/:blockIndex", authMiddleware,
         blocks: blocks,
         currentBlockIndex: newCurrentIndex,
         updatedAt: new Date(),
-      } as any)
+      })
       .where(eq(sessionPlans.id, plan.id));
     
     res.json({ success: true, blocks, currentBlockIndex: newCurrentIndex });

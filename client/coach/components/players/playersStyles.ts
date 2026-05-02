@@ -3400,6 +3400,20 @@ export const styles = StyleSheet.create({
     color: "#000000",
     fontWeight: "700",
   },
+  ustaAssessedBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  ustaAssessedBadgeText: {
+    fontSize: 9,
+    fontWeight: "700" as const,
+    letterSpacing: 0.3,
+  },
 });
 
 export const strokeTimelineStyles = StyleSheet.create({

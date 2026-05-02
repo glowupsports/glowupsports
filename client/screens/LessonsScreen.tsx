@@ -62,7 +62,7 @@ export default function LessonsScreen() {
 
   const renderLesson = ({ item }: { item: Lesson }) => (
     <Card
-      style={[styles.lessonCard, item.status === "locked" && styles.lockedCard]}
+      style={[styles.lessonCard, item.status === "locked" ? styles.lockedCard : undefined] as any}
       onPress={() => handleCompleteLesson(item)}
     >
       <View style={styles.lessonHeader}>

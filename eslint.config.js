@@ -155,4 +155,22 @@ module.exports = defineConfig([
       },
     },
   },
+  // Task #1535 — Disable `import/namespace` for server TypeScript files.
+  //
+  // `eslint-plugin-import`'s `import/namespace` rule re-parses imported
+  // modules using its own internal resolver which does NOT use the full
+  // `@typescript-eslint/parser` project context. This causes false-positive
+  // "Parse error in imported module" errors on perfectly valid TypeScript
+  // files (shop-routes.ts, storage.ts, xp-service.ts) even though
+  // `@typescript-eslint/parser` in the main lint pass accepts them without
+  // issue.  The TypeScript compiler is the authoritative source for
+  // namespace/export correctness in `.ts` files — `import/namespace` adds
+  // no signal there. Disabling it for `server/**/*.ts` eliminates the 6
+  // spurious errors without losing any real safety net.
+  {
+    files: ["server/**/*.ts"],
+    rules: {
+      "import/namespace": "off",
+    },
+  },
 ]);

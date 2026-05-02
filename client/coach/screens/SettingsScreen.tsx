@@ -841,11 +841,11 @@ export default function SettingsScreen() {
                     const globalIndex = sortedCourts.findIndex(c => c.id === court.id);
                     return (
                       <View key={court.id} style={styles.courtCard}>
-                        <View style={[styles.courtColorBar, { backgroundColor: court.color || Colors.dark.primary }]} />
+                        <View style={[styles.courtColorBar, { backgroundColor: (court as any).color || Colors.dark.primary }]} />
                         <View style={styles.courtCardContent}>
                           <View style={styles.courtInfo}>
-                            <View style={[styles.courtColorDot, { backgroundColor: court.color || Colors.dark.primary }]}>
-                              <View style={[styles.courtColorDotGlow, { backgroundColor: court.color || Colors.dark.primary }]} />
+                            <View style={[styles.courtColorDot, { backgroundColor: (court as any).color || Colors.dark.primary }]}>
+                              <View style={[styles.courtColorDotGlow, { backgroundColor: (court as any).color || Colors.dark.primary }]} />
                             </View>
                             <Text style={styles.courtName}>{court.name}</Text>
                           </View>
@@ -1539,7 +1539,7 @@ export default function SettingsScreen() {
               </View>
               <Ionicons name="open-outline" size={20} color={Colors.dark.xpCyan} />
             </Pressable>
-            <View style={styles.settingDivider} />
+            <View style={styles.settingRowDivider} />
             <Pressable
               style={styles.settingRow}
               onPress={() => Linking.openURL("https://glowupsports.com/terms")}
@@ -1725,7 +1725,7 @@ export default function SettingsScreen() {
                     !newCourtLocationId && styles.locationOptionSelected,
                   ]}
                   onPress={() => {
-                    setNewCourtLocationId(null);
+                    setNewCourtLocationId('');
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
                 >
@@ -1862,7 +1862,7 @@ export default function SettingsScreen() {
                       ]}
                       onPress={() => handleSelectFromCourt(court)}
                     >
-                      <View style={[styles.drawerOptionDot, { backgroundColor: court.color || Colors.dark.primary }]} />
+                      <View style={[styles.drawerOptionDot, { backgroundColor: (court as any).color || Colors.dark.primary }]} />
                       <Text style={[
                         styles.drawerOptionText,
                         fromCourtId === court.id && styles.drawerOptionTextSelected,
@@ -1903,7 +1903,7 @@ export default function SettingsScreen() {
                       ]}
                       onPress={() => handleSelectToCourt(court)}
                     >
-                      <View style={[styles.drawerOptionDot, { backgroundColor: court.color || Colors.dark.primary }]} />
+                      <View style={[styles.drawerOptionDot, { backgroundColor: (court as any).color || Colors.dark.primary }]} />
                       <Text style={[
                         styles.drawerOptionText,
                         toCourtId === court.id && styles.drawerOptionTextSelected,
@@ -3127,5 +3127,10 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: GlowColors.primary,
+  },
+  card: {
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: 12,
+    overflow: "hidden",
   },
 });

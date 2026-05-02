@@ -164,7 +164,7 @@ export default function SettingsScreen() {
         </Button>
       ) : null}
 
-      <Card style={[styles.section, styles.dangerSection]}>
+      <Card style={[styles.section, styles.dangerSection] as any}>
         <ThemedText style={styles.sectionTitle}>Account</ThemedText>
         <Pressable
           onPress={handleDeleteAccount}

@@ -186,10 +186,8 @@ import { Router, type Request, type Response } from "express";
         const academyId = req.user!.academyId;
         // Whitelist allowed fields — academyId is always forced from auth context
         const { name, address, city, country, mapUrl, notes, isActive } = req.body;
-        const location = await storage.createLocation({
-          name, address, country, mapUrl, notes, isActive,
-          academyId,
-        });
+        const locationData: any = { name, address, country, mapUrl, notes, isActive, academyId };
+        const location = await storage.createLocation(locationData);
         res.status(201).json(location);
       } catch (error) {
         console.error("Error creating location:", error);
@@ -2302,15 +2300,9 @@ import { Router, type Request, type Response } from "express";
 
               if (existing.length === 0) {
                 // Create initial skill score with score 2 (Meets expectations) as baseline achievement
-                await db.insert(playerSkillScores).values(({
-                  playerId: id,
-                  skillId,
-                  score: 2, // "Meets" level as confirmed during baseline
-                  movingAverage: 2,
-                  observationType: "baseline",
-                  coachId: coachId || null,
-                  notes: "Confirmed during baseline assessment",
-                } as any) as any);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const skillRow1: any = { playerId: id, skillId, score: 2, movingAverage: 2, observationType: "baseline", coachId: coachId || null, notes: "Confirmed during baseline assessment" };
+                await db.insert(playerSkillScores).values(skillRow1);
               }
             }
           }
@@ -2409,15 +2401,9 @@ import { Router, type Request, type Response } from "express";
 
               if (existing.length === 0) {
                 // Create initial skill score with score 2 (Meets expectations) as baseline achievement
-                await db.insert(playerSkillScores).values(({
-                  playerId: id,
-                  skillId,
-                  score: 2, // "Meets" level as confirmed during baseline
-                  movingAverage: 2,
-                  observationType: "baseline",
-                  coachId: coachId || null,
-                  notes: "Confirmed during baseline assessment",
-                } as any) as any);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const skillRow2: any = { playerId: id, skillId, score: 2, movingAverage: 2, observationType: "baseline", coachId: coachId || null, notes: "Confirmed during baseline assessment" };
+                await db.insert(playerSkillScores).values(skillRow2);
               }
             }
           }

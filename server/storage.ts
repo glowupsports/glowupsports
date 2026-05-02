@@ -10409,11 +10409,8 @@ export const storage = {
       const createdSession = sessionResult[0];
       
       if (bookingData.playerId) {
-        await tx.insert(sessionPlayers).values({
-          sessionId: createdSession.id,
-          playerId: bookingData.playerId,
-          status: "confirmed",
-        } as any);
+        const spRow: any = { sessionId: createdSession.id, playerId: bookingData.playerId, status: "confirmed" };
+        await tx.insert(sessionPlayers).values(spRow);
       }
       
       const updatedRequest = await tx.update(bookingRequests)
@@ -13291,7 +13288,7 @@ export const storage = {
             const newRemaining = currentRemaining - reduction;
             
             await db.update(packages).set({
-              remainingCredits: newRemaining,
+              remainingCredits: String(newRemaining),
               status: newRemaining <= 0 ? "depleted" : "active",
             }).where(eq(packages.id, pkg.id));
             

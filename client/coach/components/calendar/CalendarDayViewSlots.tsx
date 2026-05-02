@@ -368,7 +368,7 @@ export function CalendarDayViewSlots({
 
                 {coachBlocks
                   .filter((block) => {
-                    const blockDateStr = getLocalDateString(block.startTime, academyTimezone);
+                    const blockDateStr = getLocalDateString((typeof block.startTime === 'string' ? block.startTime : (block.startTime as any).toISOString()) as string, academyTimezone);
                     const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
                     return blockDateStr === selectedDateStr;
                   })

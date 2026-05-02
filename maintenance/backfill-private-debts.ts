@@ -63,7 +63,7 @@ async function main() {
     ORDER BY s.start_time ASC
   `);
 
-  const rows = unprocessedResult.rows as IdRow[];
+  const rows = unprocessedResult.rows as unknown as IdRow[];
   console.log(`  Found ${rows.length} unprocessed session_player row(s)`);
 
   if (rows.length === 0) {
@@ -108,7 +108,7 @@ async function main() {
       AND s.status != 'cancelled'
       AND s.start_time < NOW()
   `);
-  const remainingCount = Number((remainingResult.rows[0] as CountRow).count);
+  const remainingCount = Number((remainingResult.rows[0] as unknown as CountRow).count);
   console.log(`  Unprocessed private sessions remaining: ${remainingCount} ${remainingCount === 0 ? "✓" : "⚠"}`);
 
   const mismatchResult = await db.execute(sql`
@@ -121,7 +121,7 @@ async function main() {
       AND s.session_type IN ('private', 'private_adjusted')
       AND ct.credit_type = 'group'
   `);
-  const mismatchCount = Number((mismatchResult.rows[0] as CountRow).count);
+  const mismatchCount = Number((mismatchResult.rows[0] as unknown as CountRow).count);
   console.log(`  credit_type mismatches remaining: ${mismatchCount} ${mismatchCount === 0 ? "✓" : "⚠"}`);
 
   if (remainingCount > 0 || mismatchCount > 0) {

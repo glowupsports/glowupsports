@@ -205,8 +205,8 @@ export function CalendarWeekViewSlots({
 
                   {coachBlocks
                     .filter((block) => {
-                      const blockDateStr = getLocalDateString(new Date(block.startTime), academyTimezone);
-                      const dateStr = formatDateObjectInTimezone(date.toISOString(), academyTimezone);
+                      const blockDateStr = getLocalDateString(typeof block.startTime === 'string' ? block.startTime : new Date(block.startTime).toISOString(), academyTimezone);
+                      const dateStr = formatDateObjectInTimezone(date, academyTimezone);
                       return blockDateStr === dateStr;
                     })
                     .map((block) => {

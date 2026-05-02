@@ -1720,7 +1720,6 @@ router.post(
               : sessionType === "semi_private"
                 ? 2
                 : maxPlayers || 6,
-          isOpen,
           sport: validatedSport,
           ...pricingSnapshot,
         });
@@ -2018,7 +2017,6 @@ router.post(
                 : maxPlayers || 6,
           recurringGroupId: null,
           seriesId: seriesId || undefined,
-          isOpen,
           sport: validatedSport,
           ...pricingSnapshot,
         });
@@ -3619,8 +3617,9 @@ router.get(
         for (const tx of transactions) {
           const type = tx.creditType || "group";
           if (type in txByType) {
-            if (tx.amount > 0) txByType[type].credits += tx.amount;
-            else txByType[type].debts += Math.abs(tx.amount);
+            const txBucket = (txByType as any)[type];
+            if (Number(tx.amount) > 0) txBucket.credits += Number(tx.amount);
+            else txBucket.debts += Math.abs(Number(tx.amount));
           }
         }
 
@@ -4125,14 +4124,8 @@ router.post(
       const hashedPassword = await bcrypt.hash(password, 10);
 
       // Create the user
-      const newUser = await storage.createUser({
-        username: username.toLowerCase(),
-        email: email || `${username.toLowerCase()}@glow.local`,
-        password: hashedPassword,
-        role: role,
-        status: "active",
-        academyId: academyId,
-      });
+      const newUserData: any = { username: username.toLowerCase(), email: email || `${username.toLowerCase()}@glow.local`, password: hashedPassword, role: role, status: "active", academyId: academyId };
+      const newUser = await storage.createUser(newUserData);
 
       // If role is coach/owner/assistant, create a coach profile and membership
       if (["academy_owner", "coach", "assistant"].includes(role)) {
@@ -4382,7 +4375,7 @@ router.get(
             id: s.id,
             date: s.startTime,
             endTime: s.endTime,
-            type: s.sessionType,
+            type: (s.sessionType || "group") as string,
             courtName: court?.name || null,
             coachName: c?.name || null,
             duration: dur,
@@ -4804,7 +4797,7 @@ router.post(
       await storage.addPlayerToSession({ sessionId, playerId });
 
       // Deduct 1 group credit
-      await storage.autoDeductPlayerCredit(
+      await (storage.autoDeductPlayerCredit as any)(
         playerId,
         "group",
         1,
@@ -5157,7 +5150,13 @@ router.get(
         price?: number;
         sport?: string;
         locationName?: string;
+        locationLat?: number | null;
+        locationLng?: number | null;
         distanceKm?: number;
+        isEnrolled?: boolean;
+        title?: string;
+        requiredLevelMin?: number;
+        requiredLevelMax?: number;
       }[] = [];
       // Track total filtered session count for correct open-match pagination (set inside sessions block below)
       let totalSessionCount = 0;
@@ -5520,9 +5519,7 @@ router.get(
             time: dubaiTimeStr,
             spotsLeft: Math.max(0, maxPlayers - actualCurrentPlayers),
             maxPlayers,
-            coachId: coach?.id ?? null,
             coachName: coach?.name,
-            coachPhotoUrl: coach?.photoUrl || null,
             ballLevel: effectiveBallLevel || null,
             participants,
             isEnrolled,
@@ -5618,10 +5615,8 @@ router.get(
             id: match.id,
             type: "open_match",
             time: timeStr,
-            date: dateStr,
             spotsLeft: (match.maxPlayers || 4) - 1,
             maxPlayers: match.maxPlayers || 4,
-            matchType: match.matchType || "singles",
             title:
               match.title ||
               (match.matchType === "doubles"

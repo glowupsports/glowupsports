@@ -735,7 +735,7 @@ import fs from "fs";
         if (issueType === "coach" && session.academyId) {
           const academy = await storage.getAcademy(session.academyId);
           if (academy?.ownerId) {
-            await storage.createNotification({
+            const coachIssueNotif: any = {
               coachId: undefined,
               ownerId: academy.ownerId,
               type: "coach_issue_reported",
@@ -748,7 +748,8 @@ import fs from "fs";
                 coachId: session.coachId,
                 description,
               }),
-            });
+            };
+            await storage.createNotification(coachIssueNotif);
           }
         }
 
@@ -4290,11 +4291,8 @@ import fs from "fs";
           return res.status(404).json({ error: "Coach not found" });
         }
 
-        const updatedCoach = await storage.updateCoach(coachId, {
-          bioStatus: action === "approve" ? "approved" : "rejected",
-          bioReviewedBy: req.user!.userId,
-          bioRejectionReason: action === "reject" ? rejectionReason : null,
-        });
+        const coachBioUpdate: any = { bioStatus: action === "approve" ? "approved" : "rejected", bioReviewedBy: req.user!.userId, bioRejectionReason: action === "reject" ? rejectionReason : null };
+        const updatedCoach = await storage.updateCoach(coachId, coachBioUpdate);
 
         res.json({ success: true, coach: updatedCoach });
       } catch (error) {
@@ -5735,7 +5733,7 @@ import fs from "fs";
               coach.id,
               weekStart,
               weekEnd,
-              academyId: academyId ?? undefined,
+              academyId ?? undefined,
             );
             const weeklySessionCount = sessions.length;
 

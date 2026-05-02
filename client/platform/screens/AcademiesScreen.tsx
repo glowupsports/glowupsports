@@ -102,7 +102,7 @@ function AcademyCard({ name, coaches, players, mrr, status, lastActivity, tier, 
               </Text>
             </View>
           </View>
-          <Text style={styles.academyActivity}>Last active: {formatLastActivity(lastActivity)}</Text>
+          <Text style={styles.academyActivity}>Last active: {formatLastActivity(lastActivity ?? '')}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: `${config.color}20` }]}>
           <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>

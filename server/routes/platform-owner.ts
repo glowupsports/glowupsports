@@ -1847,9 +1847,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const newAcademy = await storage.createAcademy({
           name: name.trim(),
           slug,
-          subscriptionStatus: "trial",
-          currency: "AED",
-        });
+        } as any);
 
         if (city) {
           await storage.upsertAcademySettings(newAcademy.id, {

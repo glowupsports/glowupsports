@@ -249,9 +249,9 @@ function AccordionSection({
                 key={item.id}
                 style={({ pressed }) => [
                   styles.menuItem,
-                  pressed && !isLocked && styles.menuItemPressed,
-                  isLocked && styles.menuItemLocked,
-                ]}
+                  pressed && !isLocked ? styles.menuItemPressed : undefined,
+                  isLocked ? styles.menuItemLocked : undefined,
+                ] as any}
                 onPress={() => {
                   if (isLocked || item.comingSoon) {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -261,15 +261,15 @@ function AccordionSection({
                   onNavigate(item.screen, item.params);
                 }}
               >
-                <View style={[styles.itemIconWrap, isLocked && styles.itemIconLocked]}>
+                <View style={[styles.itemIconWrap, isLocked ? styles.itemIconLocked : undefined]}>
                   <Ionicons 
-                    name={isLocked ? "lock-closed" : item.icon} 
+                    name={isLocked ? "lock-closed" : item.icon as any} 
                     size={18} 
                     color={isLocked ? ProTennisColors.textMuted : ProTennisColors.neonCyan} 
                   />
                 </View>
                 <View style={styles.itemContent}>
-                  <Text style={[styles.itemTitle, isLocked && styles.itemTitleLocked]}>
+                  <Text style={[styles.itemTitle, isLocked ? styles.itemTitleLocked : undefined] as any}>
                     {item.title}
                   </Text>
                   <Text style={styles.itemSubtitle}>

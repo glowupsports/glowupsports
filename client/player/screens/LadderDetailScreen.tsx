@@ -19,11 +19,12 @@ import {
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import type { PlayerV2StackParamList } from "@/navigation/PlayerV2Navigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
-type RouteProps = RouteProp<PlayerStackParamList, "LadderDetail">;
+type RouteProps = RouteProp<PlayerV2StackParamList, "LadderDetail">;
 
 interface LadderPlayer {
   id: string;
@@ -174,7 +175,7 @@ export default function LadderDetailScreen() {
   const [selectedPlayer, setSelectedPlayer] = useState<LadderPlayer | null>(null);
   const [showRules, setShowRules] = useState(false);
 
-  const ladderId = route.params.ladderId;
+  const ladderId = route.params?.ladderId ?? '';
 
   const { data, isLoading, refetch } = useQuery<LadderDetailData>({
     queryKey: ["/api/player/ladders", ladderId],

@@ -353,8 +353,7 @@ router.get(
               totalReviews: 0,
               availableForPrivate: true,
               availableForGroup: true,
-              isExternalPublicCoach: true as any,
-            },
+            } as any,
           ];
         }
       }
@@ -419,7 +418,7 @@ router.get(
       if (locationId) {
         allCourts = await storage.getCourtsByLocation(
           locationId as string,
-          academyId,
+          academyId ?? undefined,
         );
       } else if (academyId) {
         allCourts = await storage.getAllCourts(academyId);
@@ -3017,14 +3016,15 @@ router.post(
         );
 
       // Log the cancellation
-      await storage.createPlayerSessionCancellation({
+      const cancellationData: any = {
         sessionType: session.sessionType,
         playerId,
         sessionId,
         reason: reason || "player_left_session",
         hoursBeforeSession: Math.round(Math.max(0, hoursUntilSession)),
         makeUpEligibility: isLateCancel ? "not_eligible" : "eligible",
-      });
+      };
+      await storage.createPlayerSessionCancellation(cancellationData);
 
       let creditRefunded = false;
       let makeUpRefunded = false;
@@ -4883,14 +4883,7 @@ router.post(
 
       const exception = await db
         .insert(availabilityExceptions)
-        .values({
-          id: crypto.randomUUID(),
-          coachId,
-          startDate: new Date(startDate),
-          endDate: endDate ? new Date(endDate) : new Date(startDate),
-          reason: reason || "Not available",
-          createdAt: new Date(),
-        } as any)
+        .values({ id: crypto.randomUUID(), coachId, startDate: new Date(startDate), endDate: endDate ? new Date(endDate) : new Date(startDate), reason: reason || "Not available", createdAt: new Date() } as any)
         .returning();
 
       res.json(exception[0]);
@@ -6120,13 +6113,12 @@ router.post(
 
       const pkg = await storage.createPackage({
         playerId,
-        academyId: player.academyId,
+        academyId: player.academyId ?? "",
         name: templateData.name,
         creditType: templateData.creditType,
         totalCredits: String(templateData.credits),
         remainingCredits: String(templateData.credits),
-        purchasedAt: now,
-        expiresAt,
+        purchaseDate: now,
         pricePerCredit: templateData.pricePerCredit,
         currency: templateData.currency,
         status: "active",
@@ -6150,9 +6142,9 @@ router.post(
       const invoiceNumber = await storage.generateInvoiceNumber(
         player.academyId!,
       );
-      const invoice = await storage.createInvoice({
+      const invoiceInput: any = {
         playerId,
-        academyId: player.academyId,
+        academyId: player.academyId ?? "",
         packageId: pkg.id,
         invoiceNumber,
         type: "package_purchase",
@@ -6160,16 +6152,10 @@ router.post(
         currency: templateData.currency,
         status: "pending",
         dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        lineItems: [
-          {
-            description: templateData.name,
-            quantity: templateData.credits,
-            unitPrice: templateData.pricePerCredit,
-            total: totalAmount,
-          },
-        ],
+        lineItems: [{ description: templateData.name, quantity: templateData.credits, unitPrice: templateData.pricePerCredit, total: totalAmount }],
         paymentMethod: paymentMethod || "cash",
-      } as any);
+      };
+      const invoice = await storage.createInvoice(invoiceInput);
 
       res.json({
         success: true,
@@ -6242,7 +6228,7 @@ router.post(
         currency: pkg.currency ?? "AED",
         invoiceId: invoice.id,
         sourcePackageId: pkg.id,
-        purchaseDate: pkg.purchaseDate ?? new Date(),
+        purchasedAt: pkg.purchaseDate ?? new Date(),
         expiresAt: pkg.expiryDate ? new Date(pkg.expiryDate) : null,
         actorRole: "system",
       });
@@ -6321,7 +6307,7 @@ router.post(
         role === "platform_owner" || reqAcademyId === player.academyId;
       if (!allowed && coachId) {
         const coachesInAcademy: Coach[] = await storage
-          .getCoachesByAcademy(player.academyId)
+          .getCoachesByAcademy(player.academyId ?? "")
           .catch(() => [] as Coach[]);
         allowed = coachesInAcademy.some((c) => c.id === coachId);
       }
@@ -6377,13 +6363,12 @@ router.post(
 
       const pkg = await storage.createPackage({
         playerId,
-        academyId: player.academyId,
+        academyId: player.academyId ?? "",
         name: packageName,
         creditType,
         totalCredits: String(creditsInt),
         remainingCredits: String(creditsInt),
-        purchasedAt: now,
-        expiresAt,
+        purchaseDate: now,
         pricePerCredit: resolvedPrice,
         currency: resolvedCurrency,
         status: "active",
@@ -6418,10 +6403,10 @@ router.post(
       // billing without phantom "paid" state.
       const invoiceInput: InsertInvoice = {
         playerId,
-        academyId: player.academyId,
+        academyId: player.academyId ?? "",
         packageId: pkg.id,
         invoiceNumber,
-        type: "package_purchase",
+        invoiceType: "package_purchase",
         amount: String(totalAmount),
         currency: resolvedCurrency,
         status: "pending",
@@ -6452,7 +6437,7 @@ router.post(
           // shows up in the player Payments tab and is deduplicated by the
           // partial unique index from migration 0026.
           const paymentInput: InsertPayment = {
-            academyId: player.academyId,
+            academyId: player.academyId ?? "",
             playerId,
             invoiceId: invoice.id,
             packageId: pkg.id,
@@ -7671,14 +7656,8 @@ router.post(
 
             const friend = await storage.getPlayer(friendId);
             if (friend) {
-              await storage.createNotification({
-                type: "booking_invite",
-                title: "Court Booking Invite",
-                message: `You've been invited to play on ${date} at ${startTime}`,
-                playerId: friendId,
-                academyId: court.academyId,
-                data: { bookingId: booking.id, inviteId: invite.id },
-              });
+              const bookingInviteNotif: any = { type: "booking_invite", title: "Court Booking Invite", message: `You've been invited to play on ${date} at ${startTime}`, playerId: friendId, academyId: court.academyId, data: { bookingId: booking.id, inviteId: invite.id } };
+              await storage.createNotification(bookingInviteNotif);
             }
           }
         } catch (inviteError) {
@@ -8369,7 +8348,7 @@ router.get(
         ...r,
         preferredDate:
           (r.preferredDate as any) instanceof Date
-            ? r.preferredDate.toISOString().slice(0, 10)
+            ? (r.preferredDate as any as Date).toISOString().slice(0, 10)
             : (r.preferredDate as string | null),
       }));
 
@@ -9169,14 +9148,8 @@ router.post(
     // roll back the join.
     try {
       if (hostPlayerId) {
-        await storage.createNotification({
-          type: "open_match_join",
-          title: "Player Joined",
-          message: `Someone joined your open match!`,
-          playerId: hostPlayerId,
-          academyId: hostAcademyId,
-          data: { matchId },
-        });
+        const joinNotif: any = { type: "open_match_join", title: "Player Joined", message: `Someone joined your open match!`, playerId: hostPlayerId, academyId: hostAcademyId, data: { matchId } };
+        await storage.createNotification(joinNotif);
       }
       await emitOpenMatchUpdate(matchId, [], "join");
 
@@ -9372,15 +9345,8 @@ router.post(
       // open-match events. Earlier this was an `db.insert(notifications)`
       // call against an undefined symbol, which made every invite throw
       // and silently 500 — pinned by the open-match-flow regression test.
-      await storage.createNotification({
-        type: "match_invite",
-        title: "Match Invitation",
-        message: `${hostPlayer?.name || "A player"} invited you to join their ${match.matchType} match`,
-        userId: null,
-        playerId,
-        academyId: match.academyId,
-        data: { matchId, hostPlayerId, matchType: match.matchType },
-      });
+      const matchInviteNotif2: any = { type: "match_invite", title: "Match Invitation", message: `${hostPlayer?.name || "A player"} invited you to join their ${match.matchType} match`, userId: null, playerId, academyId: match.academyId, data: { matchId, hostPlayerId, matchType: match.matchType } };
+      await storage.createNotification(matchInviteNotif2);
 
       // Real-time push to participants (so the host's own ManageMatch screen
       // doesn't have to wait for a refetch to reflect any side-effects).
@@ -9465,14 +9431,8 @@ router.post(
       const hostPlayer = await storage.getPlayer(hostPlayerId);
       const hostName = hostPlayer?.name || "The host";
       try {
-        await storage.createNotification({
-          type: "open_match_kick",
-          title: "Removed from match",
-          message: `${hostName} removed you from the open match.`,
-          playerId: targetPlayerId,
-          academyId: match.academyId,
-          data: { matchId },
-        });
+        const kickNotif: any = { type: "open_match_kick", title: "Removed from match", message: `${hostName} removed you from the open match.`, playerId: targetPlayerId, academyId: match.academyId, data: { matchId } };
+        await storage.createNotification(kickNotif);
       } catch (notifyErr) {
         console.error("[OpenMatch] kick notification failed:", notifyErr);
       }

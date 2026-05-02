@@ -21,13 +21,14 @@ import { Spacing, GlowColors, TextColors, Backgrounds, Colors } from "@/constant
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import type { PlayerV2StackParamList } from "@/navigation/PlayerV2Navigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
-type RouteProps = RouteProp<PlayerStackParamList, "TournamentDetail">;
+type RouteProps = RouteProp<PlayerV2StackParamList, "TournamentDetail">;
 
 type ViewMode = "draw" | "groups" | "schedule" | "participants" | "standings";
 
@@ -509,7 +510,7 @@ export default function TournamentDetailScreen() {
   const [regPartner, setRegPartner] = useState("");
   const [regCategory, setRegCategory] = useState("");
 
-  const tournamentId = route.params.tournamentId;
+  const tournamentId = route.params?.tournamentId ?? '';
 
   const { data: tournament, isLoading: tournamentLoading, error: tournamentError } = useQuery<TournamentDetail>({
     queryKey: ["/api/player/tournaments", tournamentId],

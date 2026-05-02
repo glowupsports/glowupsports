@@ -910,9 +910,9 @@ function PressureMomentLogger({ matchId, playerId: _playerId, existingMoments }:
         <Text style={deepStyles.sectionTitle}>Pressure Moments</Text>
       </View>
 
-      {moments.length > 0 ? (
+      {(moments ?? []).length > 0 ? (
         <View style={deepStyles.momentsRow}>
-          {moments.map((m, i) => (
+          {(moments ?? []).map((m, i) => (
             <View key={i} style={[
               deepStyles.momentChip,
               { borderColor: m.outcome === "won" ? Colors.success + "60" : Colors.error + "60" },

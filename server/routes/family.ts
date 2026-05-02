@@ -1141,7 +1141,7 @@ router.post(
             isCallerSelf,
           }),
           ipAddress: (req.ip || (req.headers["x-forwarded-for"] as string) || null) as string | null,
-        } as any);
+        });
       } catch (err) {
         console.warn("[family/graduate] audit log failed (non-fatal):", err);
       }

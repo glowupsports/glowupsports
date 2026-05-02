@@ -81,6 +81,7 @@ interface UseWebSocketOptions {
   onSessionUpdate?: SessionUpdateHandler;
   onWorldMessage?: WorldMessageHandler;
   onNewConversation?: (payload: { conversationId: string; type: string }) => void;
+  onMessageRead?: () => void;
   onMessageDeleted?: (payload: { conversationId: string; messageId: string }) => void;
   onReactionUpdated?: (payload: { conversationId: string; messageId: string; reactions: unknown[] }) => void;
   onOpenMatchUpdate?: (payload: { matchId: string; reason?: string }) => void;

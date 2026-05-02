@@ -1230,10 +1230,8 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
             status: orderStatus,
           }).returning();
           for (const item of orderItems) {
-            await tx.insert(shopOrderItems).values({
-              orderId: row.id,
-              ...item,
-            } as any);
+            const orderItem: any = { orderId: row.id, ...item };
+            await tx.insert(shopOrderItems).values(orderItem);
           }
           return row;
         },
@@ -1252,13 +1250,8 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
           await import("./lib/family-wallet");
         const wallet = await getFamilyWalletForPlayer(playerIdForGuard);
         if (wallet?.stripeCustomerId && wallet?.stripePaymentMethodId) {
-          const charge = await chargeFamilyWalletOffSession({
-            playerId: playerIdForGuard,
-            amountCents: d2c(total),
-            currency: "AED",
-            description: `Glow Market — ${order!.orderNumber}`,
-            metadata: { orderId: order!.id, orderNumber: order!.orderNumber },
-          } as any);
+          const walletArgs: any = { playerId: playerIdForGuard, amountCents: d2c(total), currency: "AED", description: `Glow Market — ${order!.orderNumber}`, metadata: { orderId: order!.id, orderNumber: order!.orderNumber } };
+          const charge = await chargeFamilyWalletOffSession(walletArgs);
           if (!charge.ok) {
             await db.update(shopOrders)
               .set({ status: "cancelled", paymentStatus: "failed" })
@@ -1299,10 +1292,8 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
         status: orderStatus,
       }).returning();
       for (const item of orderItems) {
-        await db.insert(shopOrderItems).values({
-          orderId: row.id,
-          ...item,
-        } as any);
+        const orderItem2: any = { orderId: row.id, ...item };
+        await db.insert(shopOrderItems).values(orderItem2);
       }
       order = row;
     }
@@ -1610,7 +1601,7 @@ router.get("/academy/shop/orders", authMiddleware, requireRole("academy_owner", 
     ]);
 
     const playerMap = new Map(allPlayers.map(p => [p.id, p]));
-    const itemsMap = new Map<string, typeof allItems>();
+    const itemsMap = new Map<string, any[]>();
     for (const item of allItems) {
       if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
       itemsMap.get(item.orderId)!.push(item as any);
@@ -3218,7 +3209,7 @@ router.post("/player/shop/orders/:orderId/upsells/:upsellId/respond", authMiddle
           quantity: 1,
           unitPrice: priceStr,
           totalPrice: priceStr,
-        } as any);
+        });
 
         await tx.update(shopOrders)
           .set({

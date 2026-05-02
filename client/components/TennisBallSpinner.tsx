@@ -16,6 +16,7 @@ const SIZE_MAP = {
 interface TennisBallSpinnerProps {
   size?: "small" | "large";
   style?: StyleProp<ViewStyle>;
+  color?: string;
 }
 
 export function TennisBallSpinner({

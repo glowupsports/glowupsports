@@ -1681,7 +1681,7 @@ function socialPostUploadHandler(
             const rawGroups = await db.execute(sql`
               SELECT group_id FROM group_members WHERE user_id = ${userId}
             `);
-            forYouGroupIds = (rawGroups.rows || []).map(r => r.group_id);
+            forYouGroupIds = (rawGroups.rows || []).map(r => r.group_id as string);
           } catch (err) {
             console.log("Error fetching for_you context:", err);
           }

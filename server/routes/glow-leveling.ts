@@ -1241,7 +1241,7 @@ router.post("/api/glow/trials/:trialId/complete", authMiddleware, requireAcademy
         evaluatedBy: coachId,
         evaluationNotes,
         updatedAt: new Date(),
-      } as any)
+      })
       .where(eq(levelTrials.id, trialId));
     
     // Update player's level based on result
@@ -1605,7 +1605,7 @@ router.post("/api/glow/trials/:trialId/tests/:testId", authMiddleware, requireAc
       .set({
         testResults: currentResults,
         updatedAt: new Date(),
-      } as any)
+      })
       .where(eq(levelTrials.id, trialId));
     
     res.json({ success: true, testId, result: currentResults[testId] });
@@ -1960,7 +1960,7 @@ router.post("/api/glow/players/:playerId/assessment", authMiddleware, requireAca
           movingAverage: score, // Initial moving average
           observedByCoachId: coachId || undefined,
           confidence: 1.0,
-        } as any).onConflictDoNothing();
+        } as unknown as any).onConflictDoNothing();
       }
     }
     
@@ -1976,17 +1976,13 @@ router.post("/api/glow/players/:playerId/assessment", authMiddleware, requireAca
             currentScore: String(scores.percentage),
             trend: scores.percentage > Number(existing[0].currentScore || 0) ? "up" : 
                    scores.percentage < Number(existing[0].currentScore ?? 0) ? "down" : "stable",
-            lastUpdated: new Date(),
+            lastUpdatedAt: new Date(),
           })
           .where(and(eq(playerPillarProgress.playerId, playerId), eq(playerPillarProgress.pillar, pillar)));
       } else {
-        await db.insert(playerPillarProgress).values({
-          id: `${playerId}_${pillar}`,
-          playerId,
-          pillar,
-          currentScore: String(scores.percentage),
-          trend: "stable",
-        } as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pillarRow: any = { id: `${playerId}_${pillar}`, playerId, pillar, currentScore: String(scores.percentage), trend: "stable" };
+        await db.insert(playerPillarProgress).values(pillarRow);
       }
     }
     

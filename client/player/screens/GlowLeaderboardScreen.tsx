@@ -290,7 +290,7 @@ export default function GlowLeaderboardScreen() {
 
   const mappedRolling: LeaderboardData | null = useMemo(() => {
     if (!(rollingData as any)?.rows) return null;
-    const rankings: RankedPlayer[] = (rollingData as any).rows.map((r) => ({
+    const rankings: RankedPlayer[] = (rollingData as any).rows.map((r: any) => ({
       rank: r.rank,
       id: r.playerId,
       name: r.name,
@@ -311,7 +311,9 @@ export default function GlowLeaderboardScreen() {
       myRank: 0,
       totalPlayers: rankings.length,
       currentPlayer: null,
-    };
+      scope: "academy" as const,
+      category: category || "overall",
+    } as unknown as LeaderboardData;
   }, [rollingData, category]);
 
   const effectiveData = (isRollingMetric ? mappedRolling : data ?? null) as LeaderboardData | null;

@@ -1536,9 +1536,9 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
             const refundResult = await storage.refundCreditsForSession(
               sp.playerId!,
               id,
-              academyId,
+              academyId ?? undefined,
             );
-            const player = await storage.getPlayer(sp.playerId!, academyId);
+            const player = await storage.getPlayer(sp.playerId!, academyId ?? undefined);
             refundResults.push({
               playerId: sp.playerId!,
               playerName: player?.name,

@@ -94,7 +94,7 @@ export default function AdultRanksListScreen() {
     return (
       <Card
         elevation={isCurrent ? 2 : 1}
-        style={[styles.rankCard, isCurrent && styles.currentRankCard]}
+        style={[styles.rankCard, isCurrent ? styles.currentRankCard : undefined] as any}
         onPress={() => toggleRank(item.rank)}
       >
         <View style={styles.rankHeader}>

@@ -1881,8 +1881,9 @@ router.post(
           if (playerIds && Array.isArray(playerIds)) {
             for (const playerId of playerIds) {
               await storage.addPlayerToSeries({
+                playerId,
                 seriesId: series.id,
-                    status: "active",
+                status: "active",
                 joinedAt: start,
               });
             }
@@ -2458,7 +2459,7 @@ router.post(
 
       // If no existing series, create a flexible series
       if (!seriesId && academyId) {
-        let seriesTitle: string = "" = `Flexible ${sessionType === "private" ? "Private" : sessionType === "semi_private" ? "Semi-Private" : "Group"}`;
+        let seriesTitle: string = `Flexible ${sessionType === "private" ? "Private" : sessionType === "semi_private" ? "Semi-Private" : "Group"}`;
         if (playerIds && playerIds.length > 0) {
           const playerNames: string[] = [];
           for (const pid of playerIds.slice(0, 2)) {
@@ -2845,7 +2846,7 @@ router.post(
           const refundResult = await storage.refundCreditsForSession(
             sp.playerId!,
             id,
-            academyId,
+            academyId ?? undefined,
           );
           if (refundResult.success) {
             refundedCount++;
@@ -3118,12 +3119,8 @@ router.post(
 
       // Broadcast update to both coaches
       if (academyId) {
-        broadcastSessionUpdate(academyId, {
-          sessionId: id,
-          type: "updated",
-          fromCoachId: currentCoachId,
-          toCoachId: targetCoachId,
-        });
+        const broadcastPayload: any = { sessionId: id, type: "updated", fromCoachId: currentCoachId, toCoachId: targetCoachId };
+        broadcastSessionUpdate(academyId, broadcastPayload);
       }
 
       res.json({
@@ -3304,7 +3301,7 @@ router.post(
             "-",
           );
 
-          await storage.createNotification({
+          const creditsNeededNotif: any = {
             playerId,
             type: "credits_needed",
             title: "Credits Required",
@@ -3315,7 +3312,8 @@ router.post(
               requiredCreditType: creditCheck.creditType,
               sessionDate: session.startTime.toISOString(),
             }),
-          });
+          };
+          await storage.createNotification(creditsNeededNotif);
 
           // Notify EVERY parent user explicitly linked to this player via
           // parent_player_relations. Email-based lookup would be wrong:
@@ -3476,7 +3474,7 @@ router.post(
           const candidateSessions = await storage.getSessionsByDateRange(
             rangeStart,
             rangeEnd,
-            academyId,
+            academyId ?? undefined,
           );
 
           const sorted = candidateSessions
@@ -3572,7 +3570,7 @@ router.delete(
       refundResult = await storage.refundCreditsForSession(
         playerId,
         id,
-        academyId,
+        academyId ?? undefined,
       ); // Always refund
 
       await storage.removePlayerFromSession(id, playerId);
@@ -4123,13 +4121,8 @@ router.post(
             );
 
             if (sessionCount >= 3 && !hasExistingReview && !hasPendingPrompt) {
-              await storage.createReviewPrompt({
-                playerId,
-                coachId: session.coachId,
-                triggerType: "session_milestone",
-                sessionId: id,
-                isDismissed: false,
-              });
+              const reviewPromptData: any = { playerId, coachId: session.coachId, triggerType: "session_milestone", sessionId: id, isDismissed: false };
+              await storage.createReviewPrompt(reviewPromptData);
               console.log(
                 `[ReviewPrompt] Created review prompt for player ${playerId} after ${sessionCount} sessions with coach ${session.coachId}`,
               );
@@ -4220,7 +4213,7 @@ router.patch(
           const refundResult = await storage.refundCreditsForSession(
             sp.playerId!,
             id,
-            academyId,
+            academyId ?? undefined,
           );
           if (refundResult.success) {
             refundedCount++;

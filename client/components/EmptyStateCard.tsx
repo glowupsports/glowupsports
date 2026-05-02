@@ -22,9 +22,10 @@ Backgrounds, } from "@/constants/theme";
 interface EmptyStateCardProps {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
-  description: string;
-  ctaText: string;
-  onPress: () => void;
+  description?: string;
+  message?: string;
+  ctaText?: string;
+  onPress?: () => void;
   variant?: "default" | "success" | "info" | "warning";
   style?: ViewStyle;
 }
@@ -35,6 +36,7 @@ export function EmptyStateCard({
   icon,
   title,
   description,
+  message,
   ctaText,
   onPress,
   variant = "default",
@@ -72,7 +74,7 @@ export function EmptyStateCard({
 
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onPress();
+    onPress?.();
   };
 
   const containerStyle = useAnimatedStyle(() => ({
@@ -101,12 +103,14 @@ export function EmptyStateCard({
       </Animated.View>
 
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      <Text style={styles.description}>{description ?? message}</Text>
 
-      <View style={[styles.ctaButton, { backgroundColor: colors.accent }]}>
-        <Text style={styles.ctaText}>{ctaText}</Text>
-        <Ionicons name="arrow-forward" size={16} color={"rgba(255, 255, 255, 0.06)"} />
-      </View>
+      {ctaText ? (
+        <View style={[styles.ctaButton, { backgroundColor: colors.accent }]}>
+          <Text style={styles.ctaText}>{ctaText}</Text>
+          <Ionicons name="arrow-forward" size={16} color={"rgba(255, 255, 255, 0.06)"} />
+        </View>
+      ) : null}
     </AnimatedPressable>
   );
 }

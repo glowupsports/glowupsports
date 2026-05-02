@@ -809,14 +809,11 @@ async function getSessionPlayersForReminder(session: any) {
       .from(seriesPlayers)
       .where(eq(seriesPlayers.seriesId, session.seriesId));
     
-    sessionPlayersList = seriesPlayersList.map(sp => ({
-      id: sp.id,
-      sessionId: session.id,
-      playerId: sp.playerId,
-      status: 'enrolled' as const,
-      bookingSource: 'series' as const,
-      createdAt: sp.joinedAt,
-    } as any));
+    sessionPlayersList = seriesPlayersList.map(sp => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapped: any = { id: sp.id, sessionId: session.id, playerId: sp.playerId, status: 'enrolled' as const, bookingSource: 'series' as const, createdAt: sp.joinedAt };
+      return mapped;
+    });
   }
   return sessionPlayersList;
 }

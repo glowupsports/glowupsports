@@ -1952,7 +1952,6 @@ export default function PlayerAICoachScreen() {
                   placeholderTextColor={Colors.dark.textMuted}
                   multiline
                   maxLength={500}
-                  showsVerticalScrollIndicator={false}
                   onSubmitEditing={() => sendMessage()}
                   blurOnSubmit={false}
                 />

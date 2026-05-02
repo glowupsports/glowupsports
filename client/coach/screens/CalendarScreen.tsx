@@ -1641,7 +1641,7 @@ export default function CalendarScreen() {
       {/* Session Detail Drawer */}
       <SessionDetailDrawer
         visible={!!selectedSessionForDetail}
-        session={selectedSessionForDetail}
+        session={selectedSessionForDetail as any}
         courts={courts}
         onClose={() => {
           setSelectedSessionForDetail(null);
@@ -1664,7 +1664,7 @@ export default function CalendarScreen() {
       {/* Attendance Drawer */}
       <AttendanceDrawer
         visible={!!selectedSessionForAttendance}
-        session={selectedSessionForAttendance}
+        session={selectedSessionForAttendance as any}
         onClose={() => setSelectedSessionForAttendance(null)}
         onSave={() => {
           setSelectedSessionForAttendance(null);
@@ -1682,7 +1682,7 @@ export default function CalendarScreen() {
       {/* Quick Feedback Modal */}
       <QuickFeedbackModal
         visible={!!selectedSessionForFeedback}
-        session={selectedSessionForFeedback}
+        session={selectedSessionForFeedback as any}
         onClose={() => setSelectedSessionForFeedback(null)}
         onComplete={() => {
           setSelectedSessionForFeedback(null);
@@ -1691,7 +1691,7 @@ export default function CalendarScreen() {
 
       {/* Drag Confirm Modal */}
       <CalendarDragModal
-        pendingDrag={pendingDrag}
+        pendingDrag={pendingDrag as any}
         onCancel={cancelPendingDrag}
         onConfirm={confirmPendingDrag}
         courts={courts}

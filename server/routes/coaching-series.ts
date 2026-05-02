@@ -1038,11 +1038,11 @@ router.post(
             ...series,
             seriesStartDate:
               (series.seriesStartDate as any) instanceof Date
-                ? series.seriesStartDate.toISOString()
+                ? (series.seriesStartDate as any as Date).toISOString()
                 : series.seriesStartDate,
             seriesEndDate:
               (series.seriesEndDate as any) instanceof Date
-                ? series.seriesEndDate?.toISOString()
+                ? (series.seriesEndDate as any as Date | undefined)?.toISOString()
                 : series.seriesEndDate,
             createdAt:
               series.createdAt instanceof Date
@@ -1287,7 +1287,6 @@ router.post(
             await storage.addPlayerToSession({
               sessionId: session.id,
               playerId,
-              status: "confirmed",
             });
           }
         }
@@ -2624,8 +2623,8 @@ router.post(
                 playerId,
                 templateId: packageTemplateId,
                 name: template.name,
-                totalCredits: Number(template.credits),
-                remainingCredits: Number(template.credits),
+                totalCredits: String(template.credits),
+                remainingCredits: String(template.credits),
                 price: template.price,
                 currency: template.currency || "AED",
                 expiryDate: expiryDate.toISOString().split("T")[0],
@@ -3944,7 +3943,6 @@ router.post(
           dayOfWeek,
           startTime: startTimeStr,
           duration,
-          maxSessions: groupSessions.length,
           seriesStartDate: typeof startDate === "string" ? startDate : (startDate as Date).toISOString(),
           seriesEndDate: typeof endDate === "string" ? endDate : (endDate as Date).toISOString(),
           courtId: firstSession.courtId || null,

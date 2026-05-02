@@ -255,7 +255,7 @@ export default function RecordAdultMatchScreen() {
           )}
 
           <View style={styles.resultActions}>
-            <Button title="Record Another Match" onPress={handleNewMatch} />
+            <Pressable style={styles.recordAnotherBtn} onPress={handleNewMatch}><ThemedText style={styles.recordAnotherBtnText}>Record Another Match</ThemedText></Pressable>
             <Pressable style={styles.backLink} onPress={() => navigation.goBack()}>
               <ThemedText style={styles.backLinkText}>Back to Glow Rank</ThemedText>
             </Pressable>
@@ -410,7 +410,7 @@ export default function RecordAdultMatchScreen() {
           {isSubmitting || recordMatchMutation.isPending ? (
             <TennisBallSpinner size="large" color={Colors.dark.primary} />
           ) : (
-            <Button title="Record Match" onPress={handleSubmit} disabled={!playerId} />
+            <Pressable style={[styles.recordMatchBtn, !playerId && { opacity: 0.5 }]} onPress={handleSubmit} disabled={!playerId}><ThemedText style={styles.recordMatchBtnText}>Record Match</ThemedText></Pressable>
           )}
         </View>
       </KeyboardAwareScrollViewCompat>
@@ -621,5 +621,29 @@ const styles = StyleSheet.create({
   backLinkText: {
     fontSize: 14,
     color: Colors.dark.xpCyan,
+  },
+  recordAnotherBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  recordAnotherBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
+  },
+  recordMatchBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 8,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  recordMatchBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
   },
 });

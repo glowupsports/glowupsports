@@ -94,7 +94,7 @@ function VideoPlayerView({ feedback }: { feedback: VideoFeedback }) {
     : `${getStaticAssetsUrl()}${feedback.videoUrl}`;
 
   const player = useVideoPlayer(videoUrl, (p) => { p.loop = false; });
-  const eventState = useEvent(player, "timeUpdate", { currentTime: player.currentTime });
+  const eventState = useEvent(player, "timeUpdate", { currentTime: player.currentTime } as any);
   const currentTime = (eventState as any)?.currentTime ?? 0;
 
   React.useEffect(() => {

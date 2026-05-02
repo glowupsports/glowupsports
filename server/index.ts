@@ -979,7 +979,8 @@ function setupErrorHandler(app: express.Application) {
       const { runMigrations } = await import('stripe-replit-sync');
       const databaseUrl = process.env.DATABASE_URL;
       if (databaseUrl) {
-        await runMigrations({ databaseUrl, schema: 'stripe' } as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await runMigrations({ databaseUrl, schema: 'stripe' } as unknown as any);
         log('[Stripe] Schema ready');
 
         const { getStripeSync } = await import('./stripeClient');

@@ -240,6 +240,8 @@ export type PlayerV2StackParamList = {
   Schedule: undefined;
   Quests: undefined;
   Progress: undefined;
+  TournamentDetail: { tournamentId: string };
+  LadderDetail: { ladderId: string };
 };
 
 const Stack = createNativeStackNavigator<PlayerV2StackParamList>();

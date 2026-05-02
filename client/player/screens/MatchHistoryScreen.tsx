@@ -137,7 +137,7 @@ export default function MatchHistoryScreen() {
         <FlatList
           data={matches}
           keyExtractor={(m) => m.id}
-          renderItem={({ item }) => <MatchCard match={item} myId={targetPlayerId} />}
+          renderItem={({ item }) => <MatchCard match={item} myId={targetPlayerId ?? undefined} />}
           contentContainerStyle={{
             paddingTop: headerHeight + Spacing.md,
             paddingHorizontal: Spacing.lg,

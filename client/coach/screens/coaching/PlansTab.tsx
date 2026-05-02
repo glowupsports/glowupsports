@@ -78,14 +78,15 @@ export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    createTemplateMutation.mutate({
-      coachId: coachId as any,
+    const templateData: any = {
+      coachId,
       name: templateName,
       sessionType: templateType,
       duration: templateDuration,
       ballLevel: templateBallLevel || null,
       notes: templateNotes || null,
-    });
+    };
+    createTemplateMutation.mutate(templateData);
   };
 
   const handleDeleteTemplate = (template: SessionTemplate) => {

@@ -153,7 +153,7 @@ export default function ProviderClientsScreen() {
           <View style={styles.iconCircle}>
             <Ionicons name="book-outline" size={40} color={Colors.dark.primary} />
           </View>
-          <Text style={styles.emptyTitle}>{emptyTitle(spec)}</Text>
+          <Text style={styles.emptyTitle}>{emptyTitle((profile?.specializations?.[0] ?? 'stringing') as string)}</Text>
           <Text style={styles.emptySubtitle}>
             Clients appear here after their first booking with you.
           </Text>
