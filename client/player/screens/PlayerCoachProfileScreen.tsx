@@ -11,6 +11,8 @@ import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius, GlowColors, Typography } from "@/constants/theme";
 import { buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
+import { useAuth } from "@/coach/context/AuthContext";
+import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface UpcomingSession {
@@ -93,10 +95,26 @@ export default function PlayerCoachProfileScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { coachId, previewMode } = route.params || {};
+  const { isGuest } = useAuth();
+  const { guardAction, promptProps } = useGuestGuard();
 
   const queryClient = useQueryClient();
+  // Task #1580 — guests use the public (unauthenticated) coach profile
+  // endpoint instead of the player-specific one, so the screen loads
+  // correctly without a valid token.
   const { data: coach, isLoading } = useQuery<CoachDetails>({
-    queryKey: ["/api/player/coach", coachId],
+    queryKey: isGuest
+      ? ["/api/coaches", coachId, "profile"]
+      : ["/api/player/coach", coachId],
+    queryFn: isGuest
+      ? async () => {
+          const { getApiUrl } = await import("@/lib/query-client");
+          const url = new URL(`/api/coaches/${coachId}/profile`, getApiUrl()).toString();
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("Coach not found");
+          return res.json();
+        }
+      : undefined,
     enabled: !!coachId,
   });
 
@@ -146,8 +164,10 @@ export default function PlayerCoachProfileScreen() {
       showPreviewBlockedAlert("follow you to see your tips and drills in their feed");
       return;
     }
-    if (!coach) return;
-    followMutation.mutate(!coach.isFollowing);
+    guardAction(() => {
+      if (!coach) return;
+      followMutation.mutate(!coach.isFollowing);
+    });
   };
 
   const handleBack = () => {
@@ -167,9 +187,11 @@ export default function PlayerCoachProfileScreen() {
       showPreviewBlockedAlert("email you about lessons");
       return;
     }
-    if (coach?.email) {
-      Linking.openURL(`mailto:${coach.email}?subject=Private Lesson Request`);
-    }
+    guardAction(() => {
+      if (coach?.email) {
+        Linking.openURL(`mailto:${coach.email}?subject=Private Lesson Request`);
+      }
+    });
   };
 
   const handleCall = () => {
@@ -177,9 +199,11 @@ export default function PlayerCoachProfileScreen() {
       showPreviewBlockedAlert("call you");
       return;
     }
-    if (coach?.phone && Platform.OS !== "web") {
-      Linking.openURL(`tel:${coach.phone}`);
-    }
+    guardAction(() => {
+      if (coach?.phone && Platform.OS !== "web") {
+        Linking.openURL(`tel:${coach.phone}`);
+      }
+    });
   };
 
   // Task #1037: Use the in-app drop-in lesson booking flow instead of mailto.
@@ -190,7 +214,10 @@ export default function PlayerCoachProfileScreen() {
       showPreviewBlockedAlert("book a lesson with you");
       return;
     }
-    navigation.navigate("LessonBooking", { coachId: coach.id, coachName: coach.name });
+    guardAction(
+      () => { navigation.navigate("LessonBooking", { coachId: coach.id, coachName: coach.name }); },
+      { routeName: "LessonBooking", routeParams: { coachId: coach.id, coachName: coach.name } },
+    );
   };
 
   const handleBookSession = (sessionId: string) => {
@@ -199,7 +226,10 @@ export default function PlayerCoachProfileScreen() {
       showPreviewBlockedAlert("book this group session");
       return;
     }
-    navigation.navigate("LessonBooking", { coachId: coach.id, sessionId, coachName: coach.name });
+    guardAction(
+      () => { navigation.navigate("LessonBooking", { coachId: coach.id, sessionId, coachName: coach.name }); },
+      { routeName: "LessonBooking", routeParams: { coachId: coach.id, sessionId, coachName: coach.name } },
+    );
   };
 
   const handleAcademyPress = () => {
@@ -207,9 +237,11 @@ export default function PlayerCoachProfileScreen() {
       showPreviewBlockedAlert("open your academy page");
       return;
     }
-    if (coach?.academyId) {
-      navigation.navigate("AcademyPublicProfile", { academyId: coach.academyId });
-    }
+    guardAction(() => {
+      if (coach?.academyId) {
+        navigation.navigate("AcademyPublicProfile", { academyId: coach.academyId });
+      }
+    });
   };
 
   if (isLoading) {
@@ -549,6 +581,8 @@ export default function PlayerCoachProfileScreen() {
           </Pressable>
         ) : null}
       </ScrollView>
+
+      <GuestPromptModal {...promptProps} message="Sign in to book lessons, follow coaches, and more." />
     </ThemedView>
   );
 }

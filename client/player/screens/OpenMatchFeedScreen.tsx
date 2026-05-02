@@ -26,6 +26,7 @@ import { MatchSummaryCard, COMPETE_ACCENT } from "@/player/components/MatchSumma
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useTranslation } from "react-i18next";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OpenMatch {
@@ -470,6 +471,7 @@ function EmptyState({ onCreateMatch }: { onCreateMatch: () => void }) {
 export default function OpenMatchFeedScreen() {
   const { user } = useAuth();
   const { t } = useTranslation();
+  const { guardAction, promptProps } = useGuestGuard();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -536,7 +538,10 @@ export default function OpenMatchFeedScreen() {
   }, [matches, activeFilter]);
 
   const handleCreateMatch = () => {
-    navigation.navigate("CreateMatch");
+    guardAction(
+      () => { navigation.navigate("CreateMatch"); },
+      { routeName: "CreateMatch" },
+    );
   };
 
   // Task #1362 — when an open match is the public twin of a direct
@@ -545,6 +550,13 @@ export default function OpenMatchFeedScreen() {
   // the slot, but we surface a confirm dialog so they understand they're
   // overriding the host's preferred opponent.
   const handleJoinWithPriorityCheck = (item: OpenMatch) => {
+    guardAction(
+      () => _doJoinWithPriorityCheck(item),
+      { routeName: "OpenMatchFeed" },
+    );
+  };
+
+  const _doJoinWithPriorityCheck = (item: OpenMatch) => {
     const myPlayerId = user?.playerId;
     const invitedId = item.invitedPlayerId;
     const priorityUntilRaw = item.priorityUntil;
@@ -689,6 +701,7 @@ export default function OpenMatchFeedScreen() {
             }
           />
         )}
+      <GuestPromptModal {...promptProps} message="Sign in to join or create open matches." />
       </View>
     </LockedScreen>
   );

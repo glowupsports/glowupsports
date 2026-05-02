@@ -22,6 +22,7 @@ import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiFetch } from "@/lib/query-client";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
+import { consumePendingGuestIntent, hasPendingGuestIntent } from "@/lib/guestIntent";
 
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
@@ -478,6 +479,34 @@ function PlayerV2TabView() {
 }
 
 // ─── Stack + Drawer ───────────────────────────────────────────────────────────
+// Task #1580 — return-to-intent consumer.
+// Lives inside the navigator so it has access to useNavigation.
+// Detects when playerId transitions from null → non-null (login completed)
+// and navigates to any stored guest intent route. Using prevUserIdRef instead
+// of a guest-flag ref avoids the intermediate logged-out state where isGuest
+// is already false but playerId is still null.
+function GuestIntentConsumer() {
+  const { user } = useAuth();
+  const navigation = useNavigation<any>();
+  const prevUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const currentId = user?.playerId ?? null;
+    if (prevUserIdRef.current === null && currentId !== null && hasPendingGuestIntent()) {
+      const intent = consumePendingGuestIntent();
+      if (intent) {
+        const timer = setTimeout(() => {
+          navigation.navigate(intent.routeName as never, (intent.routeParams ?? {}) as never);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }
+    prevUserIdRef.current = currentId;
+  }, [user?.playerId, navigation]);
+
+  return null;
+}
+
 function PlayerV2StackWithDrawer() {
   const { t } = useTranslation();
   const [drawerVisible, setDrawerVisible] = useState(false);
@@ -519,6 +548,7 @@ function PlayerV2StackWithDrawer() {
 
   return (
     <View style={styles.flex}>
+      <GuestIntentConsumer />
       <Stack.Navigator screenOptions={{ headerShown: false, animation: "none", gestureEnabled: false }}>
         {/* ── Home tab view (full SwipeableTabBar) ── */}
         <Stack.Screen name="PlayerV2Home" component={PlayerV2TabView} />

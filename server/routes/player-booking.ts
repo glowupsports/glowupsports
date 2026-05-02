@@ -3,7 +3,7 @@ import { db, pool } from "../db";
 import { storage } from "../storage";import { players, coaches, users, sessions, coachingSeries, seriesPlayers, creditTransactions, payments, sessionPlayers, sessionWaitlist, leaderboardSnapshots, locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions, coachTimeBlocks, courtAvailability, courtBookings, courts, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, bookingRequests, academyPricing, submitReviewSchema, inSessionFeedback, sessionSkillObservations, xpTransactions, playerSkillScores, glowSkills, sessionRatings, sessionRatingInputSchema, academies, coachReviewStats, locations, parentPlayerRelations, type Coach, type InsertInvoice, type InsertPayment } from "@shared/schema";
 import { eq, sql, desc, and, ne, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
-import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, type JWTPayload } from "../auth";
+import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, optionalAuthMiddleware, type JWTPayload } from "../auth";
 import { fromZodError } from "zod-validation-error";
 import { z } from "zod";
 import { sanitizeMessage } from "../utils/sanitize";
@@ -8389,7 +8389,9 @@ router.post(
 // table here was the root cause of the "404 Match not found" join error.
 router.get(
   "/api/open-matches",
-  authMiddleware,
+  // Task #1580 — guests and unauthenticated browsers can view open matches;
+  // only write operations (join, create) require a real account.
+  optionalAuthMiddleware,
   async (req: AuthRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;
@@ -8401,8 +8403,9 @@ router.get(
       // Task #1033 — discovery scope chip parity with Players row.
       // mine = same academy (default if academy member), country = caller's
       // country, all = worldwide (everyone). Free players default to "country".
+      // Unauthenticated/guest callers default to "all" (worldwide public).
       const matchScope =
-        (req.query.scope as string) || (academyId ? "mine" : "country");
+        (req.query.scope as string) || (academyId ? "mine" : playerId ? "country" : "all");
 
       // Look up caller's own ball level for default filtering
       let callerBallLevel: string | null = null;

@@ -133,6 +133,25 @@ vi.mock("../auth", () => ({
     };
     next();
   },
+  // Task #1580 — optional auth: attach user when headers are present but
+  // don't reject unauthenticated callers (guests can hit the endpoint).
+  optionalAuthMiddleware: (
+    req: express.Request & { user?: Record<string, unknown> },
+    _res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    const playerId = req.headers["x-test-player-id"] as string | undefined;
+    const academyId = req.headers["x-test-academy-id"] as string | undefined;
+    if (playerId) {
+      req.user = {
+        userId: `user_${playerId}`,
+        playerId,
+        academyId,
+        role: "player",
+      };
+    }
+    next();
+  },
   requireRole: () =>
     (_req: express.Request, _res: express.Response, next: express.NextFunction) =>
       next(),

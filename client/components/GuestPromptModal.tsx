@@ -4,6 +4,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import {
+  storePendingGuestIntent,
+  clearPendingGuestIntent,
+  type GuestIntent,
+} from "@/lib/guestIntent";
 
 interface GuestPromptModalProps {
   visible: boolean;
@@ -15,8 +20,16 @@ export function GuestPromptModal({ visible, onClose, message }: GuestPromptModal
   const { logout } = useAuth();
 
   const handleSignIn = async () => {
+    // Intent was already stored by guardAction before this modal opened.
+    // GuestIntentConsumer in the root navigator will replay it after login.
     onClose();
     await logout();
+  };
+
+  const handleDismiss = () => {
+    // User chose to keep browsing — discard any stored intent.
+    clearPendingGuestIntent();
+    onClose();
   };
 
   return (
@@ -24,9 +37,9 @@ export function GuestPromptModal({ visible, onClose, message }: GuestPromptModal
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleDismiss}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable style={styles.overlay} onPress={handleDismiss}>
         <Pressable style={styles.container} onPress={(e) => e.stopPropagation()}>
           <View style={styles.iconContainer}>
             <Ionicons name="lock-closed" size={32} color={Colors.dark.primary} />
@@ -47,7 +60,7 @@ export function GuestPromptModal({ visible, onClose, message }: GuestPromptModal
 
           <Pressable
             style={({ pressed }) => [styles.secondaryButton, { opacity: pressed ? 0.7 : 1 }]}
-            onPress={onClose}
+            onPress={handleDismiss}
           >
             <Text style={styles.secondaryButtonText}>Continue Browsing</Text>
           </Pressable>
@@ -61,9 +74,16 @@ export function useGuestGuard() {
   const { isGuest } = useAuth();
   const [showPrompt, setShowPrompt] = React.useState(false);
 
+  // action: called immediately when not a guest.
+  // intent: serializable route destination stored so the navigator can replay
+  //   it after the user completes sign-in. Passing undefined skips replay
+  //   (user must navigate manually after login).
   const guardAction = React.useCallback(
-    (action: () => void, _customMessage?: string) => {
+    (action: () => void, intent?: GuestIntent) => {
       if (isGuest) {
+        if (intent) {
+          storePendingGuestIntent(intent);
+        }
         setShowPrompt(true);
         return;
       }

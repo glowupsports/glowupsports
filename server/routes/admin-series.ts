@@ -18,6 +18,7 @@ import {
   isNotNull,
   or,
   gte,
+  lte,
   gt,
 } from "drizzle-orm";
 import { sanitizeTemplateName } from "../utils/sanitize";
@@ -28,6 +29,7 @@ import {
 } from "../utils/timezone";
 import {
   authMiddlewareWithFreshData as authMiddleware,
+  optionalAuthMiddleware,
   requireRole,
   requireAcademy,
   requireFeatureUnlock,
@@ -4622,16 +4624,17 @@ router.get(
   },
 );
 
-// Get available group sessions for player to browse and join
+// Get available group sessions for player to browse and join.
+// Task #1580 — optional auth allows guests to hit this endpoint;
+// they'll receive an empty list since they have no academy association.
 router.get(
   "/api/player/available-group-sessions",
-  authMiddleware,
-  requirePlayerOrOwner,
+  optionalAuthMiddleware,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const playerId = req.user!.playerId;
+      const playerId = req.user?.playerId;
       if (!playerId) {
-        return res.status(400).json({ error: "Player ID required" });
+        return res.json({ sessions: [] });
       }
 
       const player = await storage.getPlayer(playerId);
@@ -4738,6 +4741,90 @@ router.get(
       res.status(500).json({ error: "Failed to fetch sessions" });
     }
   },
+);
+
+// Task #1580 — public guest-readable group sessions feed.
+// Returns upcoming group sessions across all academies so guests can browse
+// the schedule without an account. Enrolled/isEnrolled is always false since
+// there is no authenticated player.
+router.get(
+  "/api/public/group-sessions",
+  async (_req, res: Response) => {
+    try {
+      const now = new Date();
+      const cutoff = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      const rows = await db
+        .select({
+          id: sessions.id,
+          sessionType: sessions.sessionType,
+          startTime: sessions.startTime,
+          endTime: sessions.endTime,
+          coachId: sessions.coachId,
+          courtId: sessions.courtId,
+          maxPlayers: sessions.maxPlayers,
+          ballLevel: sessions.ballLevel,
+          academyId: sessions.academyId,
+          status: sessions.status,
+        })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.sessionType, "group"),
+            gte(sessions.startTime, now),
+            lte(sessions.startTime, cutoff),
+            eq(sessions.status, "scheduled"),
+          )
+        )
+        .orderBy(asc(sessions.startTime))
+        .limit(50);
+
+      const sessionsWithDetails = await Promise.all(
+        rows.map(async (session) => {
+          const coach = session.coachId ? await storage.getCoach(session.coachId) : null;
+          const court = session.courtId ? await storage.getCourt(session.courtId) : null;
+          let locationName: string | null = null;
+          if (court && court.locationId) {
+            const location = await storage.getLocation(court.locationId);
+            locationName = location?.name ?? null;
+          }
+          const startTime = new Date(session.startTime);
+          const endTime = new Date(session.endTime);
+          const sessionPlayers = await storage.getSessionPlayers(session.id);
+          const currentPlayers = sessionPlayers.length;
+          const maxPlayers = session.maxPlayers ?? 8;
+          const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
+
+          return {
+            id: session.id,
+            type: session.sessionType ?? "group",
+            date: startTime.toLocaleDateString("en-GB", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            }),
+            time: `${startTime.getHours().toString().padStart(2, "0")}:${startTime.getMinutes().toString().padStart(2, "0")}`,
+            endTime: `${endTime.getHours().toString().padStart(2, "0")}:${endTime.getMinutes().toString().padStart(2, "0")}`,
+            spotsLeft,
+            maxPlayers,
+            currentPlayers,
+            coachName: coach?.name ?? null,
+            coachId: session.coachId,
+            courtName: court?.name ?? null,
+            ballLevel: (session.ballLevel ?? "").toUpperCase() || null,
+            isEnrolled: false,
+            locationName,
+            participants: [],
+          };
+        })
+      );
+
+      res.json({ sessions: sessionsWithDetails });
+    } catch (error) {
+      console.error("Error fetching public group sessions:", error);
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  }
 );
 
 // Enroll player in a group session

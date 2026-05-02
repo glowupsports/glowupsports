@@ -22,6 +22,8 @@ import {
   AuthUser,
   GUEST_USER,
   clearGuestMode,
+  saveGuestMode,
+  isGuestMode,
 } from "@/lib/auth";
 import { useAppMode, getModesForRole, getDefaultModeForRole } from "@/context/AppModeContext";
 import { TshirtSize } from "@shared/schema";
@@ -260,6 +262,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setImpersonatedAcademyName(impersonationAcademy);
         }
 
+        // Task #1580 — restore guest session for returning guests. If the
+        // guest flag is set but there's no real auth token, re-enter guest
+        // mode so the login screen is skipped, just like a logged-in user.
+        const guestFlag = await isGuestMode();
+        if (guestFlag) {
+          // Keep the flag in place so each subsequent cold-start also restores
+          // guest mode automatically, until the user explicitly signs in/out.
+          logger.log("[AuthContext] Restoring guest session");
+          setUser(GUEST_USER);
+          setIsGuest(true);
+          const guestModes = getModesForRole("player");
+          const guestDefault = getDefaultModeForRole("player");
+          setAvailableModesRef.current(guestModes, guestDefault);
+          setModeRef.current(guestDefault);
+          setIsAuthenticated(true);
+          if (isMounted) setIsLoading(false);
+          return;
+        }
+
         await clearGuestMode();
 
         const authState = await loadAuthState();
@@ -319,6 +340,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const defaultMode = getDefaultModeForRole("player");
     setAvailableModesRef.current(availableModes, defaultMode);
     setModeRef.current(defaultMode);
+    // Task #1580 — persist guest flag so returning guests skip the login
+    // screen until they explicitly sign in or out.
+    await saveGuestMode();
     setIsAuthenticated(true);
   };
 

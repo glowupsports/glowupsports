@@ -24,6 +24,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 const BALL_LEVEL_FILTERS = [
   { id: "my_level", label: "My Level", color: "dynamic" },
   { id: "all", label: "All Levels", color: "#A0A8B8" },
@@ -110,7 +111,8 @@ interface GroupSession {
 export default function BrowseGroupLessonsScreen() {
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
-  const { user: _user } = useAuth();
+  const { isGuest } = useAuth();
+  const { guardAction, promptProps } = useGuestGuard();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const _headerHeight = useHeaderHeight();
@@ -118,8 +120,12 @@ export default function BrowseGroupLessonsScreen() {
   const [selectedSession, setSelectedSession] = useState<GroupSession | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("my_level");
 
+  // Task #1580 — guests use the public sessions feed so they see real
+  // upcoming sessions across all academies rather than an empty list.
   const { data, isLoading, refetch, isRefetching } = useQuery<{ sessions: GroupSession[] }>({
-    queryKey: ["/api/player/available-group-sessions"],
+    queryKey: isGuest
+      ? ["/api/public/group-sessions"]
+      : ["/api/player/available-group-sessions"],
   });
 
   const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
@@ -155,9 +161,14 @@ export default function BrowseGroupLessonsScreen() {
   };
 
   const handleEnroll = (session: GroupSession) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setEnrollingId(session.id);
-    enrollMutation.mutate(session.id);
+    guardAction(
+      () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setEnrollingId(session.id);
+        enrollMutation.mutate(session.id);
+      },
+      { routeName: "BrowseGroupLessons" },
+    );
   };
 
   const sessions = data?.sessions || [];
@@ -293,27 +304,32 @@ export default function BrowseGroupLessonsScreen() {
             <TouchableOpacity
               style={styles.requestGroupButton}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                Alert.alert(
-                  "Request Group Lesson",
-                  `Would you like to request a ${selectedFilter === "my_level" ? playerBallLevel : selectedFilter} level group lesson from your coach?`,
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { 
-                      text: "Send Request", 
-                      onPress: () => {
-                        apiRequest("POST", "/api/player/request-group-lesson", {
-                          ballLevel: selectedFilter === "my_level" ? playerBallLevel : selectedFilter,
-                          sessionType: "group"
-                        }).then(() => {
-                          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                          Alert.alert("Request Sent!", "Your coach will be notified about your interest in a group lesson.");
-                        }).catch((err: any) => {
-                          Alert.alert("Error", err.message || "Failed to send request");
-                        });
-                      }
-                    }
-                  ]
+                guardAction(
+                  () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    Alert.alert(
+                      "Request Group Lesson",
+                      `Would you like to request a ${selectedFilter === "my_level" ? playerBallLevel : selectedFilter} level group lesson from your coach?`,
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Send Request",
+                          onPress: () => {
+                            apiRequest("POST", "/api/player/request-group-lesson", {
+                              ballLevel: selectedFilter === "my_level" ? playerBallLevel : selectedFilter,
+                              sessionType: "group"
+                            }).then(() => {
+                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                              Alert.alert("Request Sent!", "Your coach will be notified about your interest in a group lesson.");
+                            }).catch((err: any) => {
+                              Alert.alert("Error", err.message || "Failed to send request");
+                            });
+                          }
+                        }
+                      ]
+                    );
+                  },
+                  { routeName: "BrowseGroupLessons" },
                 );
               }}
             >
@@ -565,6 +581,8 @@ export default function BrowseGroupLessonsScreen() {
           </Animated.View>
         </View>
       </Modal>
+
+      <GuestPromptModal {...promptProps} message="Sign in to enroll in group sessions and request lessons." />
     </View>
   );
 }
