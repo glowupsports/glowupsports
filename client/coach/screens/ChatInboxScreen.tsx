@@ -520,7 +520,7 @@ export default function ChatInboxScreen() {
       ) : filteredConversations.length === 0 ? (
         <View style={styles.emptyState}>
           <EmptyStateCard
-            icon="message-circle"
+            icon="chatbubble-outline"
             title="No messages yet"
             description="Start a conversation with your coach or teammates"
             ctaText="New Message"

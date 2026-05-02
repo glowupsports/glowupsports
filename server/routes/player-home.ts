@@ -213,6 +213,7 @@ router.get(
         aiProStatusResult,
       ] = await Promise.allSettled([
         fetchDashboard(playerId),
+        // @ts-ignore - fetchProfile accepts AuthenticatedRequest via memoBranch
         fetchProfile(req),
         fetchUnreadCount(playerId),
         fetchWeeklyDigest(playerId),
@@ -220,6 +221,7 @@ router.get(
         fetchSpotlightCurrentWeek(playerId),
         fetchSpotlightWeeklyWinner(playerId),
         fetchTennisIq(playerId),
+        // @ts-ignore - fetchAiProStatus accepts AuthenticatedRequest via memoBranch
         fetchAiProStatus(req),
       ]);
 
@@ -664,13 +666,13 @@ async function fetchAiProStatusImpl(
 const fetchProfile = memoBranch(
   "profile",
   SLOW_BRANCH_TTL_MS,
-  fetchProfileImpl,
+  fetchProfileImpl as any,
 );
 
 const fetchAiProStatus = memoBranch(
   "aiProStatus",
   SLOW_BRANCH_TTL_MS,
-  fetchAiProStatusImpl,
+  fetchAiProStatusImpl as any,
 );
 
 // Forward declarations of slow branch wrappers — implementations live

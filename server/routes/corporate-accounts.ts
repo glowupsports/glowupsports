@@ -23,7 +23,7 @@ router.get(
   "/api/corporate-accounts",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner", "coach"]),
+  requireRole("academy_owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -41,7 +41,7 @@ router.post(
   "/api/corporate-accounts",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner", "coach"]),
+  requireRole("academy_owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -87,7 +87,7 @@ router.get(
   "/api/corporate-accounts/:id",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner", "coach"]),
+  requireRole("academy_owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -124,7 +124,7 @@ router.patch(
   "/api/corporate-accounts/:id",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner", "coach"]),
+  requireRole("academy_owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -158,7 +158,7 @@ router.post(
   "/api/corporate-accounts/:id/top-up",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner", "coach"]),
+  requireRole("academy_owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -192,7 +192,7 @@ router.post(
   "/api/corporate-accounts/:id/invite",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner", "coach"]),
+  requireRole("academy_owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -275,7 +275,7 @@ router.get(
   "/api/corporate-accounts/:id/report",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner", "coach"]),
+  requireRole("academy_owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -299,7 +299,7 @@ router.get(
   "/api/corporate-accounts/:id/export-csv",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner", "coach"]),
+  requireRole("academy_owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -349,7 +349,7 @@ router.post(
   "/api/corporate-accounts/:id/send-report",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner", "coach"]),
+  requireRole("academy_owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;
@@ -403,7 +403,7 @@ router.delete(
   "/api/corporate-accounts/:id",
   authMiddleware,
   requireAcademy,
-  requireRole(["academy_owner"]),
+  requireRole("academy_owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user!.academyId!;

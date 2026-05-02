@@ -165,7 +165,7 @@ const premiumInputStyles = StyleSheet.create({
     color: Colors.dark.text,
     paddingVertical: 0,
     // @ts-ignore — web-only property to suppress focus outline
-    outlineStyle: Platform.OS === 'web' ? 'none' : undefined,
+    outlineStyle: Platform.OS === 'web' ? 'none' as 'solid' : undefined,
   },
   toggleButton: {
     padding: 4,
@@ -2801,7 +2801,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontSize: 16,
     // @ts-ignore — web-only property to suppress focus outline
-    outlineStyle: Platform.OS === 'web' ? 'none' : undefined,
+    outlineStyle: Platform.OS === 'web' ? 'none' as 'solid' : undefined,
   },
   usernameInput: {
     paddingRight: 40,

@@ -60,7 +60,7 @@ export async function seedDemoDataForTheLaw() {
     // Find a coach for assessments
     const coachResult = await db.select()
       .from(coaches)
-      .where(eq(coaches.academyId, academyId))
+      .where(eq(coaches.academyId, academyId!))
       .limit(1);
     
     const coachId = coachResult.length > 0 ? coachResult[0].id : null;
@@ -190,7 +190,7 @@ export async function seedDemoDataForTheLaw() {
     const otherPlayers = await db.select()
       .from(players)
       .where(and(
-        eq(players.academyId, academyId),
+        eq(players.academyId, academyId!),
         ne(players.id, playerId)
       ))
       .limit(5);
@@ -227,7 +227,7 @@ export async function seedDemoDataForTheLaw() {
     const existingGroup = await db.select()
       .from(communityGroups)
       .where(and(
-        eq(communityGroups.academyId, academyId),
+        eq(communityGroups.academyId, academyId!),
         ilike(communityGroups.name, '%Yellow Ball%')
       ))
       .limit(1);
@@ -322,8 +322,8 @@ export async function seedDemoDataForTheLaw() {
         ];
 
         for (let i = 0; i < postTexts.length; i++) {
-          await db.insert(posts).values({
-            id: `post-${userId}-${i}`,
+          await db.insert(posts).values(({
+            id: `post-${userId} as any-${i}`,
             authorId: userId,
             academyId,
             contextType: i === 1 ? "match" : "training",
@@ -333,7 +333,7 @@ export async function seedDemoDataForTheLaw() {
             commentsCount: Math.floor(Math.random() * 5),
             createdAt: new Date(Date.now() - i * 2 * 24 * 60 * 60 * 1000),
             updatedAt: new Date(Date.now() - i * 2 * 24 * 60 * 60 * 1000),
-          });
+          } as any));
         }
       }
     }

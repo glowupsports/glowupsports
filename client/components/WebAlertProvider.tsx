@@ -86,7 +86,7 @@ export function WebAlertProvider({ children }: { children: React.ReactNode }) {
       return false;
     };
 
-    RNAlert.alert = (title: string, message?: string, buttons?: AlertButton[]) => {
+    (RNAlert as any).alert = (title: string, message?: string, buttons?: AlertButton[]) => {
       show(title || "", message || "", buttons && buttons.length > 0 ? buttons : [{ text: "OK" }]);
     };
 

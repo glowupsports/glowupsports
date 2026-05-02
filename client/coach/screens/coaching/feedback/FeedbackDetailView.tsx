@@ -53,8 +53,8 @@ export function FeedbackDetailView(props: FeedbackTabState) {
 
   const STEPS = ["Intensity", "Mood", "Players", "Note"];
   const stepsDone = [
-    intensity !== null && intensity !== undefined && intensity !== "",
-    mood !== null && mood !== undefined && mood !== "",
+    intensity !== null && intensity !== undefined && (intensity as string) !== "",
+    mood !== null && mood !== undefined && (mood as string) !== "",
     playerFeedback.some(pf => pf.progressTrend !== "stable" || pf.effortLevel !== "normal" || pf.note),
     generalNote.trim().length > 0,
   ];

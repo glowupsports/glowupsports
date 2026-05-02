@@ -309,7 +309,7 @@ export default function ActiveSessionScreen() {
                   styles.blockCard,
                   isCurrent ? styles.currentBlockCard : null,
                   status === "completed" ? styles.completedBlockCard : null,
-                ].filter(Boolean)}
+                ].filter(Boolean) as any}
               >
                 <View style={styles.blockHeader}>
                   <View style={[styles.blockIndicator, { backgroundColor: getStatusColor(status) }]}>

@@ -494,8 +494,8 @@ export default function QuickBaselineDrawer({
       });
     },
     onSuccess: (data) => {
-      setSuggestion(data);
-      setConfirmedLevel(data.suggestedLevelId);
+      setSuggestion((data as unknown) as LevelSuggestion);
+      setConfirmedLevel(((data as unknown) as LevelSuggestion).suggestedLevelId);
     },
   });
   

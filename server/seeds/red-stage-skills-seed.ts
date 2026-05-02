@@ -478,7 +478,6 @@ export const RED_STAGE_SKILLS_BY_LEVEL: Record<string, RedLevelConfig> = {
     },
     promotionRequirements: {
       techniqueMinPercent: 70,
-      tacticalMinPercent: 60,
       matchMinPercent: 60,
       coachConfirmation: true,
       minSessions: 12,
@@ -892,7 +891,6 @@ export const RED_STAGE_SKILLS_BY_LEVEL: Record<string, RedLevelConfig> = {
     },
     promotionRequirements: {
       techniqueMinPercent: 80,
-      tacticalMinPercent: 70,
       matchMinPercent: 70,
       coachConfirmation: true,
       minSessions: 16,

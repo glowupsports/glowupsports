@@ -168,12 +168,12 @@ router.get(
       }
 
       // Create lookup maps for O(1) access
-      const playersBySeriesMap = new Map<string, typeof allSeriesPlayers>();
+      const playersBySeriesMap = new Map<string, any[]>();
       for (const p of allSeriesPlayers) {
         if (!p.seriesId) continue;
         if (!playersBySeriesMap.has(p.seriesId))
           playersBySeriesMap.set(p.seriesId, []);
-        playersBySeriesMap.get(p.seriesId)!.push(p);
+        playersBySeriesMap.get(p.seriesId)!.push(p as any);
       }
 
       const completedCountMap = new Map<string, number>();
@@ -256,7 +256,7 @@ router.get(
 
         .where(
           and(
-            eq(sessions.coachId, coachId),
+            eq(sessions.coachId, coachId!),
             or(
               // Sessions with a seriesId not in this coach's series
               ownSeriesIds.length > 0
@@ -311,7 +311,7 @@ router.get(
 
           const playerDetails = await Promise.all(
             sessionPlayersList.slice(0, 4).map(async (sp) => {
-              const player = await storage.getPlayer(sp.playerId);
+              const player = await storage.getPlayer(sp.playerId!);
               return {
                 id: sp.playerId,
                 name: player?.name || "Unknown",
@@ -416,7 +416,7 @@ router.get(
       // Get player details with full membership data for frontend consumption
       const playerDetails = await Promise.all(
         seriesPlayersList.map(async (sp) => {
-          const player = await storage.getPlayer(sp.playerId);
+          const player = await storage.getPlayer(sp.playerId!);
           const credits = creditBalances[sp.playerId] || {
             group: 0,
             semi_private: 0,
@@ -452,7 +452,7 @@ router.get(
       const seriesSessions = await db
         .select()
         .from(sessions)
-        .where(and(eq(sessions.seriesId, id), eq(sessions.coachId, coachId)))
+        .where(and(eq(sessions.seriesId, id), eq(sessions.coachId, coachId as string)))
         .orderBy(asc(sessions.startTime));
 
       // Auto-heal: ensure all active series players are enrolled in every session
@@ -980,7 +980,6 @@ router.post(
               await storage.addPlayerToSession({
                 sessionId: session.id,
                 playerId,
-                status: "confirmed",
               });
             }
           }
@@ -1038,11 +1037,11 @@ router.post(
           series: {
             ...series,
             seriesStartDate:
-              series.seriesStartDate instanceof Date
+              (series.seriesStartDate as any) instanceof Date
                 ? series.seriesStartDate.toISOString()
                 : series.seriesStartDate,
             seriesEndDate:
-              series.seriesEndDate instanceof Date
+              (series.seriesEndDate as any) instanceof Date
                 ? series.seriesEndDate?.toISOString()
                 : series.seriesEndDate,
             createdAt:
@@ -2370,11 +2369,11 @@ router.post(
       const academyTimezone = academy?.timezone || "Europe/Amsterdam";
 
       // Get all active series for this coach
-      const allSeries = await storage.getCoachingSeriesByCoach(
+      const allSeries = await storage.getCoachingSeries(
         coachId,
         academyId,
       );
-      const activeSeries = allSeries.filter((s) => s.status === "active");
+      const activeSeries = allSeries.filter((s: any) => s.status === "active");
 
       const syncResults: {
         seriesId: string;
@@ -2533,8 +2532,7 @@ router.post(
                           await storage.addPlayerToSession({
                             sessionId: session.id,
                             playerId: sp.playerId,
-                            status: "confirmed",
-                          });
+                                      });
                         }
                       }
 
@@ -2626,8 +2624,8 @@ router.post(
                 playerId,
                 templateId: packageTemplateId,
                 name: template.name,
-                totalCredits: template.credits,
-                remainingCredits: template.credits,
+                totalCredits: Number(template.credits),
+                remainingCredits: Number(template.credits),
                 price: template.price,
                 currency: template.currency || "AED",
                 expiryDate: expiryDate.toISOString().split("T")[0],
@@ -2877,7 +2875,6 @@ router.post(
 
       const seriesPlayer = await storage.addPlayerToSeries({
         seriesId: id,
-        courtId: existing.courtId || undefined,
         playerId,
         status: "active",
         joinedAt: effectiveJoinDate ? new Date(effectiveJoinDate) : new Date(),
@@ -3374,7 +3371,7 @@ router.get(
         .from(coachingSeries)
         .where(
           and(
-            eq(coachingSeries.coachId, coachId),
+            eq(coachingSeries.coachId, coachId as string),
             eq(coachingSeries.status, "active"),
             sql`${coachingSeries.id} != ${id}`,
           ),
@@ -3396,7 +3393,7 @@ router.get(
       for (const sp of pausedPlayers) {
         if (targetPlayerIds.has(sp.playerId)) continue;
 
-        const player = await storage.getPlayer(sp.playerId);
+        const player = await storage.getPlayer(sp.playerId!);
         if (!player) continue;
 
         const homeSeries = allCoachSeries.find((s) => s.id === sp.seriesId);
@@ -3551,7 +3548,7 @@ router.get(
       // Enrich with player details
       const playerDetails = await Promise.all(
         activePlayers.map(async (sp) => {
-          const player = await storage.getPlayer(sp.playerId);
+          const player = await storage.getPlayer(sp.playerId!);
           return { ...sp, player };
         }),
       );
@@ -3789,7 +3786,7 @@ router.get(
       const seriesSessions = await db
         .select()
         .from(sessions)
-        .where(and(eq(sessions.seriesId, id), eq(sessions.coachId, coachId)))
+        .where(and(eq(sessions.seriesId, id), eq(sessions.coachId, coachId as string)))
         .orderBy(asc(sessions.weekNumber), asc(sessions.startTime));
 
       // Get feedback for these sessions
@@ -3881,7 +3878,7 @@ router.post(
 
         .where(
           and(
-            eq(sessions.coachId, coachId),
+            eq(sessions.coachId, coachId!),
             eq(sessions.isRecurring, true),
             isNotNull(sessions.recurringGroupId),
             isNull(sessions.seriesId),
@@ -3948,8 +3945,8 @@ router.post(
           startTime: startTimeStr,
           duration,
           maxSessions: groupSessions.length,
-          seriesStartDate: startDate,
-          seriesEndDate: endDate,
+          seriesStartDate: typeof startDate === "string" ? startDate : (startDate as Date).toISOString(),
+          seriesEndDate: typeof endDate === "string" ? endDate : (endDate as Date).toISOString(),
           courtId: firstSession.courtId || null,
           locationId: firstSession.locationId || null,
           ballLevel: firstSession.ballLevel || null,

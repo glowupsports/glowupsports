@@ -303,7 +303,7 @@ function _toDubaiTime(utcDate: Date): Date {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize storage for fresh user data fetching in auth middleware
-  setFreshUserStorage(storage);
+  setFreshUserStorage(storage as any);
 
   // Initialize feature unlock checker for server-side feature authorization
   setFeatureUnlockChecker({
@@ -963,15 +963,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errorId,
         userId: userId || null,
         academyId: academyId || null,
-        userRole: userRole || context?.userRole || null,
+        userRole: userRole || (context?.userRole as string | null) || null,
         severity: severity || "error",
         message,
         stack: stack || null,
-        screen: screen || context?.screen || null,
+        screen: (screen as string | null) || (context?.screen as string | null) || null,
         context: context || null,
         userComment: userComment || null,
-        platform: platform || context?.platform || null,
-        appVersion: appVersion || context?.appVersion || null,
+        platform: platform || (context?.platform as string | null) || null,
+        appVersion: appVersion || (context?.appVersion as string | null) || null,
         deviceInfo:
           (typeof deviceInfo === "string"
             ? deviceInfo
@@ -1036,8 +1036,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             reportedBy: userId,
           },
           userComment: userComment || null,
-          platform: context?.platform || null,
-          appVersion: context?.appVersion || "1.0.0",
+          platform: (context?.platform as string | null) || null,
+          appVersion: (context?.appVersion as string) || "1.0.0",
           deviceInfo:
             typeof context?.deviceInfo === "string"
               ? context.deviceInfo

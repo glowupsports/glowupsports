@@ -154,7 +154,7 @@ router.get("/api/discovery/map", authMiddleware, async (req: AuthRequest, res: R
         ORDER BY a.id, l.created_at ASC
         LIMIT ${limit}
       `);
-      const academyRows = (rows as { rows?: {
+      const academyRows = (rows as unknown as { rows?: {
         id: string; name: string; city: string | null; country: string | null;
         rating: string | number | null; lat: number | string | null; lng: number | string | null;
       }[] }).rows ?? [];
@@ -208,7 +208,7 @@ router.get("/api/discovery/map", authMiddleware, async (req: AuthRequest, res: R
               WHERE sp.session_id = ${sessions.id}
                 AND (sp.attendance_status IS NULL OR sp.attendance_status <> 'absent')
             ) < ${sessions.maxPlayers}`,
-            inBboxSql(locations.lat, locations.lng, bbox),
+            inBboxSql(locations.lat as any, locations.lng as any, bbox),
           )
         )
         .limit(limit);
@@ -265,7 +265,7 @@ router.get("/api/discovery/map", authMiddleware, async (req: AuthRequest, res: R
           and(
             eq(openMatches.status, "open"),
             ne(openMatches.visibility, "friends_only"),
-            inBboxSql(locations.lat, locations.lng, bbox),
+            inBboxSql(locations.lat as any, locations.lng as any, bbox),
           )
         )
         .limit(limit);

@@ -75,7 +75,7 @@ export function calculateMarginFactor(gamesDiff: number): number {
  * Get trust factor based on verification level
  */
 export function getTrustFactor(verification: MatchResult["verification"]): number {
-  return MMR_CONFIG.trustFactors[verification] || MMR_CONFIG.trustFactors.selfReported;
+  return MMR_CONFIG.trustFactors[verification as keyof typeof MMR_CONFIG.trustFactors] || MMR_CONFIG.trustFactors.selfReported;
 }
 
 /**
@@ -325,7 +325,7 @@ export function getUnlockedSkillGates(
       if ("min" in gate) {
         // Threshold-based gate
         const playerScore = playerSkillScores.find(s => s.skillId === gate.metric);
-        if (playerScore && playerScore.score >= gate.min) {
+        if (playerScore && gate.min != null && playerScore.score >= (gate.min ?? 0)) {
           unlocked.push(gate.id);
         }
       } else if ("required" in gate && gate.required) {

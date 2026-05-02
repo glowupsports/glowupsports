@@ -688,7 +688,7 @@ export async function seedGlowLevelingOS() {
     // 3. Insert levels
     console.log("Inserting levels...");
     for (const level of levels) {
-      await db.insert(ballLevels).values(level).onConflictDoNothing();
+      await db.insert(ballLevels).values(level as any).onConflictDoNothing();
     }
     console.log(`Inserted ${levels.length} levels`);
     

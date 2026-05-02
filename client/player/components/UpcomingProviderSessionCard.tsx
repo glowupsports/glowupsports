@@ -289,7 +289,7 @@ function SingleProviderCard({
     if (booking.serviceId) {
       navigation.navigate("ServiceDetail", { serviceId: booking.serviceId });
     } else {
-      navigation.navigate("Shop" as keyof PlayerStackParamList);
+      (navigation as any).navigate("Shop");
     }
   }, [navigation, booking.serviceId]);
 

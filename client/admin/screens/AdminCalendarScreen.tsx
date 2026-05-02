@@ -749,8 +749,7 @@ export default function AdminCalendarScreen() {
             visible={showCreateSession}
             onClose={handleCloseWizard}
             initialDate={selectedSlot?.date || selectedDate}
-            initialHour={selectedSlot?.hour}
-            initialCoachId={wizardCoachId}
+            selectedCoachId={wizardCoachId}
           />
         ) : null}
       </View>

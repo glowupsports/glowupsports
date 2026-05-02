@@ -973,7 +973,7 @@ export async function seedGlowLevelingData() {
         promotionRequirements: level.promotionRequirements,
         trialEnabled: level.trialEnabled,
         trialDays: level.trialDays
-      }).onConflictDoUpdate({
+      } as any).onConflictDoUpdate({
         target: ballLevels.id,
         set: {
           stage: level.stage,
@@ -985,7 +985,7 @@ export async function seedGlowLevelingData() {
           courtType: level.courtType,
           ballType: level.ballType,
           promotionToLevelId: level.promotionTo,
-          promotionRequirements: level.promotionRequirements,
+          promotionRequirements: level.promotionRequirements as any,
           trialEnabled: level.trialEnabled,
           trialDays: level.trialDays
         }

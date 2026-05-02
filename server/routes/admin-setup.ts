@@ -67,7 +67,7 @@ import { Router, type Request, type Response } from "express";
           return res.status(403).json({ error: "Academy membership required" });
         }
 
-        let allSessions;
+        let allSessions: any[] = [];
         if (academyId) {
           allSessions = await storage.getSessionsByAcademy(academyId);
         } else {
@@ -187,7 +187,7 @@ import { Router, type Request, type Response } from "express";
         // Whitelist allowed fields — academyId is always forced from auth context
         const { name, address, city, country, mapUrl, notes, isActive } = req.body;
         const location = await storage.createLocation({
-          name, address, city, country, mapUrl, notes, isActive,
+          name, address, country, mapUrl, notes, isActive,
           academyId,
         });
         res.status(201).json(location);
@@ -2302,7 +2302,7 @@ import { Router, type Request, type Response } from "express";
 
               if (existing.length === 0) {
                 // Create initial skill score with score 2 (Meets expectations) as baseline achievement
-                await db.insert(playerSkillScores).values({
+                await db.insert(playerSkillScores).values(({
                   playerId: id,
                   skillId,
                   score: 2, // "Meets" level as confirmed during baseline
@@ -2310,7 +2310,7 @@ import { Router, type Request, type Response } from "express";
                   observationType: "baseline",
                   coachId: coachId || null,
                   notes: "Confirmed during baseline assessment",
-                });
+                } as any) as any);
               }
             }
           }
@@ -2409,7 +2409,7 @@ import { Router, type Request, type Response } from "express";
 
               if (existing.length === 0) {
                 // Create initial skill score with score 2 (Meets expectations) as baseline achievement
-                await db.insert(playerSkillScores).values({
+                await db.insert(playerSkillScores).values(({
                   playerId: id,
                   skillId,
                   score: 2, // "Meets" level as confirmed during baseline
@@ -2417,7 +2417,7 @@ import { Router, type Request, type Response } from "express";
                   observationType: "baseline",
                   coachId: coachId || null,
                   notes: "Confirmed during baseline assessment",
-                });
+                } as any) as any);
               }
             }
           }

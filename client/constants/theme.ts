@@ -41,6 +41,7 @@ export const Backgrounds = {
   surface: "#1F2430",     // Borders, dividers, subtle surfaces
   overlay: "rgba(0, 0, 0, 0.6)", // Modal overlays
   glass: "rgba(17, 20, 26, 0.85)", // Glass effect base
+  surfaceLight: "#171B22", // alias of elevated — used by older components
 };
 
 // Premium Text Hierarchy (mutable for the same reason as Backgrounds).
@@ -85,6 +86,10 @@ export const GlowColors = {
   secondary: "#A6E92A",   // alias of soft
   tertiary: "#7FB300",    // alias of dark
   orange: "#FF851B",      // RoleColors.admin
+  primaryDark: "#7FB300", // alias of dark — used by older gradient components
+  // Neon legacy aliases used by components/WelcomeVideoPlayer.tsx and older screens
+  neonGreen: "#C8FF3D",   // alias of primary
+  neonCyan: "#00D4FF",    // alias of FunctionColors.info
 };
 
 // Function Colors (1 meaning = 1 color)
@@ -99,6 +104,7 @@ export const FunctionColors = {
   successMuted: "#00B85C",
   info: "#00D4FF",          // Neutral stats
   infoMuted: "#00A8CC",
+  warning: "#FFB020",       // alias of social — used by older admin components
 };
 
 // Role-specific Accents
@@ -313,6 +319,9 @@ export const Colors = {
     panel: LightBackgrounds.card,
     panelBorder: "rgba(11, 13, 16, 0.10)",
     errorNeon: FunctionColors.error,
+    // Legacy aliases used by older admin/coach components
+    cardAlt: LightBackgrounds.elevated,
+    backgroundCard: LightBackgrounds.card,
   },
   dark: {
     text: TextColors.primary,
@@ -435,6 +444,10 @@ export const Colors = {
     panel: Backgrounds.card,
     panelBorder: "rgba(255, 255, 255, 0.06)",
     errorNeon: FunctionColors.error,
+    // Legacy aliases used by older admin/coach components
+    cardAlt: Backgrounds.elevated,
+    backgroundCard: Backgrounds.card,
+    surfaceElevated: Backgrounds.elevated,
   },
   // Top-level legacy aliases — older screens still reference Colors.warning,
   // Colors.text, Colors.textSecondary, Colors.primary, etc. directly without
@@ -761,6 +774,7 @@ export const FontSizes = {
   "3xl": 24,
   "4xl": 28,
   "5xl": 32,
+  xxl: 20 + webFontBump, // alias of "2xl" — used by older components
 };
 
 export const BorderRadius = {
@@ -874,6 +888,12 @@ export const Typography = {
     fontSize: 18,
     fontWeight: "600" as const,
   },
+  // iOS-style typography aliases used by older admin/coach screens
+  title2: { fontSize: 22, fontWeight: "700" as const },
+  title3: { fontSize: 20, fontWeight: "600" as const },
+  headline: { fontSize: 17, fontWeight: "600" as const },
+  callout: { fontSize: 16, fontWeight: "400" as const },
+  tiny: { fontSize: 10, fontWeight: "400" as const },
 };
 
 // Premium Card Styles

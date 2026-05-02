@@ -482,9 +482,9 @@ export default function PlayerEditProfileScreen() {
         {/* Profile Photo */}
         <View style={styles.photoSection}>
           <Pressable onPress={pickPhoto} style={styles.photoContainer}>
-            {(photoUri || buildPhotoUrl(player?.profilePhotoUrl)) ? (
+            {(photoUri || buildPhotoUrl((player as any)?.profilePhotoUrl)) ? (
               <Image
-                source={{ uri: photoUri || buildPhotoUrl(player?.profilePhotoUrl)! }}
+                source={{ uri: photoUri || buildPhotoUrl((player as any)?.profilePhotoUrl)! }}
                 style={styles.photoAvatar}
                 contentFit="cover"
               />

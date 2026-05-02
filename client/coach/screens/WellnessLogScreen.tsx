@@ -91,9 +91,7 @@ export default function WellnessLogScreen() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/coaches/${coach?.id}/wellness`, {
-        method: "POST",
-        body: JSON.stringify({
+      return apiRequest("POST", `/api/coaches/${coach?.id}/wellness`, {
           date: selectedDate,
           sleepHours: sleepHours.toString(),
           sleepQuality,
@@ -106,8 +104,7 @@ export default function WellnessLogScreen() {
           physicalPain,
           painNotes: physicalPain ? painNotes : null,
           notes: notes || null,
-        }),
-      });
+        });
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

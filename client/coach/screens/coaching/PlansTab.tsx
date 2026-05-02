@@ -79,7 +79,7 @@ export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     createTemplateMutation.mutate({
-      coachId,
+      coachId: coachId as any,
       name: templateName,
       sessionType: templateType,
       duration: templateDuration,

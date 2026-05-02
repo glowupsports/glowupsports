@@ -1230,10 +1230,10 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
             status: orderStatus,
           }).returning();
           for (const item of orderItems) {
-            await tx.insert(shopOrderItems).values({
+            await tx.insert(shopOrderItems).values(({
               orderId: row.id,
               ...item,
-            });
+            } as any);
           }
           return row;
         },
@@ -1258,7 +1258,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
             currency: "AED",
             description: `Glow Market — ${order!.orderNumber}`,
             metadata: { orderId: order!.id, orderNumber: order!.orderNumber },
-          });
+          } as any));
           if (!charge.ok) {
             await db.update(shopOrders)
               .set({ status: "cancelled", paymentStatus: "failed" })
@@ -1299,10 +1299,10 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
         status: orderStatus,
       }).returning();
       for (const item of orderItems) {
-        await db.insert(shopOrderItems).values({
+        await db.insert(shopOrderItems).values(({
           orderId: row.id,
           ...item,
-        });
+        } as any);
       }
       order = row;
     }
@@ -1328,7 +1328,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
     console.error("[Shop] Error creating order:", error);
     res.status(500).json({ error: "Failed to create order" });
   }
-});
+} as any));
 
 // ==================== ACADEMY OWNER SHOP MANAGEMENT ====================
 
@@ -1613,7 +1613,7 @@ router.get("/academy/shop/orders", authMiddleware, requireRole("academy_owner", 
     const itemsMap = new Map<string, typeof allItems>();
     for (const item of allItems) {
       if (!itemsMap.has(item.orderId)) itemsMap.set(item.orderId, []);
-      itemsMap.get(item.orderId)!.push(item);
+      itemsMap.get(item.orderId)!.push(item as any);
     }
 
     const enriched = orders
@@ -2109,7 +2109,7 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
       cancelled: [],
     };
 
-    const allowedNext = VALID_TRANSITIONS[existingOrder.status] ?? [];
+    const allowedNext = existingOrder.status ? (VALID_TRANSITIONS[existingOrder.status!] ?? []) : [];
     if (!allowedNext.includes(status)) {
       return res.status(409).json({
         error: `Cannot transition from '${existingOrder.status}' to '${status}'`,
@@ -2130,7 +2130,7 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
         .set(updateData)
         .where(and(
           eq(shopOrders.id, orderId),
-          eq(shopOrders.status, existingOrder.status),
+          eq(shopOrders.status, existingOrder.status!),
         ))
         .returning();
 
@@ -2457,7 +2457,7 @@ router.get("/provider/clients/:playerId", authMiddleware, requireServiceProvider
 
     res.json({
       player: { ...playerRow[0], xp: Number(playerRow[0].totalXp) },
-      totalSessions: bookingRows.filter((b) => ["completed", "confirmed"].includes(b.status)).length,
+      totalSessions: bookingRows.filter((b) => ["completed", "confirmed"].includes(b.status!)).length,
       lifetimeSpend: `AED ${lifetimeSpend.toFixed(2)}`,
       bookingHistory: bookingRows.map((b) => ({
         id: b.id,
@@ -3210,7 +3210,7 @@ router.post("/player/shop/orders/:orderId/upsells/:upsellId/respond", authMiddle
       if (action === "approve") {
         const priceStr = upsell.price;
 
-        await tx.insert(shopOrderItems).values({
+        await tx.insert(shopOrderItems).values(({
           orderId,
           itemType: "service",
           name: upsell.label,
@@ -3218,7 +3218,7 @@ router.post("/player/shop/orders/:orderId/upsells/:upsellId/respond", authMiddle
           quantity: 1,
           unitPrice: priceStr,
           totalPrice: priceStr,
-        });
+        } as any);
 
         await tx.update(shopOrders)
           .set({
@@ -3228,7 +3228,7 @@ router.post("/player/shop/orders/:orderId/upsells/:upsellId/respond", authMiddle
           })
           .where(eq(shopOrders.id, orderId));
       }
-    });
+    } as any));
 
     const [updatedOrder] = await db.select().from(shopOrders).where(eq(shopOrders.id, orderId)).limit(1);
     const items = await db.select().from(shopOrderItems).where(eq(shopOrderItems.orderId, orderId));

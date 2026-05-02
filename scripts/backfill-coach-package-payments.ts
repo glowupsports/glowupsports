@@ -41,7 +41,7 @@ const APPLY = process.argv.includes("--apply");
 const DRY_RUN = !APPLY;
 const TAG = `[backfill-coach-package-payments]${DRY_RUN ? " [dry-run]" : ""}`;
 
-interface OrphanRow {
+interface OrphanRow extends Record<string, unknown> {
   id: string;
   invoice_id: string | null;
   invoice_player_id: string | null;

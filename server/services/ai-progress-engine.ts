@@ -1038,7 +1038,7 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
           const gaps: string[] = [];
           for (const [key, label] of Object.entries(PILLAR_MAP)) {
             const selfRating = m.pillarSelfRatings[key];
-            const coachAvg = (pillarAverages as Record<string, number>)[label];
+            const coachAvg = (pillarAverages as unknown as Record<string, number>)[label];
             if (selfRating !== undefined && coachAvg !== undefined && coachAvg > 0) {
               // Self-rating is 1-10, coach avg is 0-2 → scale coach to 1-10 (×5)
               const coachScaled = Math.round(coachAvg * 5);
@@ -1387,7 +1387,7 @@ export async function buildPlayerSelfAIContext(
         if (!pillarSums[pillar]) pillarSums[pillar] = { total: 0, count: 0 };
         const scoreVal = s.movingAverage !== null ? s.movingAverage : s.score;
         // Convert 0-2 scale to 0-10 scale
-        pillarSums[pillar].total += (scoreVal / 2) * 10;
+        pillarSums[pillar].total += (Number(scoreVal) / 2) * 10;
         pillarSums[pillar].count += 1;
       }
       for (const [pillar, selfRating] of Object.entries(selfRatings)) {
@@ -2953,7 +2953,7 @@ export async function generateSessionBrief(sessionId: string): Promise<SessionBr
           const pillar = s.pillar.toLowerCase();
           if (!pillarSums[pillar]) pillarSums[pillar] = { total: 0, count: 0 };
           const scoreVal = s.movingAverage !== null ? s.movingAverage : s.score;
-          pillarSums[pillar].total += (scoreVal / 2) * 10;
+          pillarSums[pillar].total += (Number(scoreVal) / 2) * 10;
           pillarSums[pillar].count += 1;
         }
         for (const [pillar, selfRating] of Object.entries(selfRatings)) {

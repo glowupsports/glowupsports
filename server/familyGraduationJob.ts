@@ -46,8 +46,7 @@ async function existingNotification(recipientPlayerId: string, key: string): Pro
     LIMIT 1
   `);
   // drizzle's execute returns a `pg.QueryResult`-like shape; rows live on .rows.
-  // @ts-expect-error untyped result
-  return Array.isArray(rows?.rows) ? rows.rows.length > 0 : false;
+  return Array.isArray((rows as any)?.rows) ? (rows as any).rows.length > 0 : false;
 }
 
 async function notifyForGraduate(graduatePlayerId: string, dateKey: string, daysUntil: number): Promise<void> {

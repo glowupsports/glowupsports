@@ -1702,7 +1702,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           (inv) => inv.status === "pending" || inv.status === "sent",
         );
         const pendingPayments = pendingInvoices.reduce(
-          (sum, inv) => sum + Number(inv.amountDue || 0),
+          (sum, inv) => sum + Number(inv.amount || 0),
           0,
         );
 
@@ -1743,7 +1743,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           const academy = academies.find((a) => a.id === inv.academyId);
           transactions.push({
             academy: academy?.name || "Unknown Academy",
-            amount: Number(inv.amountDue || 0),
+            amount: Number(inv.amount || 0),
             type:
               inv.status === "paid"
                 ? "payment"
@@ -1847,7 +1847,6 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const newAcademy = await storage.createAcademy({
           name: name.trim(),
           slug,
-          isActive: true,
           subscriptionStatus: "trial",
           currency: "AED",
         });
@@ -2320,7 +2319,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           action: "delete",
           performedBy: req.user?.userId,
           performedByRole: req.user?.role,
-          beforeState: oldConfig.value,
+          beforeState: oldConfig.value as any,
           afterState: null,
           metadata: JSON.stringify({ key }),
         });
@@ -2701,7 +2700,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             duration: sessions.duration,
             status: sessions.status,
           }).from(sessions)
-            .where(inArray(sessions.id, sessionIds));
+            .where(inArray(sessions.id, sessionIds.filter((id): id is string => id !== null)));
           for (const s of sessRows) {
             sessionDetails[s.id] = s;
           }
@@ -2734,11 +2733,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             .map(row => row.sessionId!)
         );
         const missingSessions = attendedSessions
-          .filter(sp => !debitSessionIds.has(sp.sessionId))
-          .filter(sp => sessionDetails[sp.sessionId]?.status !== "cancelled")
+          .filter(sp => !debitSessionIds.has(sp.sessionId!))
+          .filter(sp => sessionDetails[sp.sessionId!]?.status !== "cancelled")
           .map(sp => ({
             sessionId: sp.sessionId,
-            sessionDetails: sessionDetails[sp.sessionId] || null,
+            sessionDetails: sessionDetails[sp.sessionId as string] || null,
           }));
 
         res.json({
@@ -2758,8 +2757,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             sessionPlayerId: sp.id,
             sessionId: sp.sessionId,
             attendanceStatus: sp.attendanceStatus,
-            sessionDetails: sessionDetails[sp.sessionId] || null,
-            hasDebitTransaction: debitSessionIds.has(sp.sessionId),
+            sessionDetails: sessionDetails[sp.sessionId!] || null,
+            hasDebitTransaction: debitSessionIds.has(sp.sessionId!),
           })),
           missingSessions,
           summary: {
@@ -3136,7 +3135,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const settings = (await storage.getAcademySettings(academyId)) || {};
         const updatedSettings = { ...settings, roles };
-        await storage.updateAcademySettings(academyId, updatedSettings);
+        await storage.updateAcademySettings(academyId, updatedSettings as any);
 
         res.json({ success: true, roles });
       } catch (error) {

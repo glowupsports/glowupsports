@@ -659,7 +659,8 @@ async function buildTodayPayload(groupId: string, callerPlayerId: string): Promi
   for (const row of sessionRows) {
     if (row.status === "cancelled") continue;
     if (!row.startTime || !row.endTime) continue;
-    const list = sessionsByPlayer.get(row.playerId) ?? [];
+    if (!row.playerId) continue;
+    const list = sessionsByPlayer.get(row.playerId!) ?? [];
     list.push({
       id: row.sessionId,
       startTime: new Date(row.startTime).toISOString(),
@@ -673,7 +674,7 @@ async function buildTodayPayload(groupId: string, callerPlayerId: string): Promi
       courtName: row.courtName ?? null,
       coachName: row.coachName ?? null,
     });
-    sessionsByPlayer.set(row.playerId, list);
+    sessionsByPlayer.set(row.playerId!, list);
   }
   for (const list of sessionsByPlayer.values()) {
     list.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());

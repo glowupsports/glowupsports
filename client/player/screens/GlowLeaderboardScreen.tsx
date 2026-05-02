@@ -314,7 +314,7 @@ export default function GlowLeaderboardScreen() {
     };
   }, [rollingData, category]);
 
-  const effectiveData = isRollingMetric ? mappedRolling : data ?? null;
+  const effectiveData = (isRollingMetric ? mappedRolling : data ?? null) as LeaderboardData | null;
   const effectiveLoading = isRollingMetric ? rollingLoading : isLoading;
   const effectiveError = isRollingMetric ? rollingError : isError;
   const effectiveRefetching = isRollingMetric ? rollingRefetching : isRefetching;

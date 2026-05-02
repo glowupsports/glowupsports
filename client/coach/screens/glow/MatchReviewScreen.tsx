@@ -133,15 +133,12 @@ export default function MatchReviewScreen() {
 
   const submitReviewMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest(`/api/match-intelligence/matches/${matchId}/review`, {
-        method: "POST",
-        body: JSON.stringify({
+      return apiRequest("POST", `/api/match-intelligence/matches/${matchId}/review`, {
           pillarRatings,
           strengthToReinforce,
           topImprovements,
           comment,
-        }),
-      });
+        });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/match-intelligence/matches/${matchId}`] });
@@ -165,7 +162,7 @@ export default function MatchReviewScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPillarRatings((prev) => ({
       ...prev,
-      [pillar]: prev[pillar] === rating ? undefined : rating,
+      [pillar]: prev[pillar] === rating ? (undefined as unknown as "good" | "neutral" | "poor") : rating,
     }));
   };
 
@@ -469,7 +466,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   playerName: {
-    ...Typography.title,
+    ...Typography.title2,
     color: Colors.text,
   },
   matchOpponent: {
@@ -558,7 +555,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   takeawayRow: {
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: Colors.dark.backgroundElevated,
     padding: Spacing.sm,
     borderRadius: BorderRadius.sm,
     marginTop: Spacing.sm,
@@ -603,7 +600,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: Colors.dark.backgroundElevated,
   },
   goodRating: {
     backgroundColor: Colors.success + "20",
@@ -621,7 +618,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.error,
   },
   textInput: {
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: Colors.dark.backgroundElevated,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     color: Colors.text,
@@ -668,7 +665,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceLight,
+    borderTopColor: Colors.dark.backgroundSecondary,
     backgroundColor: Colors.background,
   },
   submitButton: {

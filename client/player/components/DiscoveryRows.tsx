@@ -213,7 +213,7 @@ export function PlayersNearYouRow({
   const { navigateToTab } = useTabNavigation();
 
   // Get player's ball level
-  const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
+  const playerBallLevel = (state as any).player?.ballLevel?.toLowerCase() || "glow";
 
   const nearbyPlayers = (playersOverride ?? state.nearbyPlayers ?? []) as typeof state.nearbyPlayers;
   const availablePlayers = filterByLevel
@@ -307,7 +307,7 @@ export function PlayersNearYouRow({
                   <View style={[styles.levelBadge, { backgroundColor: `${levelColor}30` }]}>
                     <View style={[styles.levelDot, { backgroundColor: levelColor }]} />
                     <Text style={[styles.levelText, { color: getPlayerLevelTextColor(player.level) }]}>
-                      {(player.ballLevel || player.level || "").toUpperCase()}{player.skillLevel ? ` ${player.skillLevel}` : ""}
+                      {(player.ballLevel || player.level || "").toUpperCase()}{(player as any).skillLevel ? ` ${(player as any).skillLevel}` : ""}
                     </Text>
                   </View>
                   {player.distanceKm != null ? (
@@ -392,7 +392,7 @@ export function GroupLessonsRow() {
   const [travelTimeMap, setTravelTimeMap] = useState<Map<string, number>>(new Map());
 
   // Get player's ball level from state
-  const playerBallLevel = state.player?.ballLevel?.toLowerCase() || "glow";
+  const playerBallLevel = (state as any).player?.ballLevel?.toLowerCase() || "glow";
 
   const allGroupLessons = (state.openSessions ?? []).filter(s => s.type === "group");
   const groupLessons = allGroupLessons.filter(s => {
@@ -1578,7 +1578,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: ProTennisColors.border,
+    borderColor: ProTennisColors.borderSubtle,
     borderStyle: "dashed",
   },
   emptyText: {
@@ -1603,7 +1603,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: ProTennisColors.surfaceCard,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: ProTennisColors.border,
+    borderColor: ProTennisColors.borderSubtle,
     padding: Spacing.md,
     gap: Spacing.sm,
   },
@@ -2119,7 +2119,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
-    borderColor: ProTennisColors.border,
+    borderColor: ProTennisColors.borderSubtle,
     overflow: "hidden",
   },
   communityEventItem: {
@@ -2130,7 +2130,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   communityDivider: {
     height: 1,
-    backgroundColor: ProTennisColors.border,
+    backgroundColor: ProTennisColors.borderSubtle,
     marginHorizontal: Spacing.md,
   },
   communityIcon: {

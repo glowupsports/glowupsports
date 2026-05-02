@@ -199,8 +199,8 @@ router.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthReques
     
     const sessionPlayersMap = new Map<string, number>();
     for (const sp of sessionPlayersData) {
-      const count = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count + 1);
+      const count = sessionPlayersMap.get(sp.sessionId!) || 0;
+      sessionPlayersMap.set(sp.sessionId!, count + 1);
     }
     
     const seriesPlayersMap = new Map<string, number>();
@@ -313,11 +313,11 @@ router.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthReques
         isDefault: false,
       };
       if (primaryContract.payType === "hourly") {
-        paymentRuleDisplay.hourlyRate = primaryContract.hourlyRate;
+        paymentRuleDisplay.hourlyRate = primaryContract.hourlyRate ?? undefined;
       } else if (primaryContract.payType === "percentage") {
-        paymentRuleDisplay.percentageRate = primaryContract.percentageRate;
+        paymentRuleDisplay.percentageRate = primaryContract.percentageRate ?? undefined;
       } else if (primaryContract.payType === "per_session") {
-        paymentRuleDisplay.hourlyRate = primaryContract.sessionRate;
+        paymentRuleDisplay.hourlyRate = primaryContract.sessionRate ?? undefined;
       }
     } else {
       paymentRuleDisplay = { type: "hourly", currency: "AED", isDefault: true };
@@ -395,8 +395,8 @@ router.get("/api/coach/earnings/breakdown", authMiddleware, async (req: AuthRequ
     
     const sessionPlayersMap = new Map<string, number>();
     for (const sp of sessionPlayersData) {
-      const count = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count + 1);
+      const count = sessionPlayersMap.get(sp.sessionId!) || 0;
+      sessionPlayersMap.set(sp.sessionId!, count + 1);
     }
     const seriesPlayersMap = new Map<string, number>();
     for (const sp of seriesPlayersData) {
@@ -483,11 +483,11 @@ router.get("/api/coach/earnings/breakdown", authMiddleware, async (req: AuthRequ
         isDefault: false,
       };
       if (primaryContract.payType === "hourly") {
-        paymentRuleDisplay.hourlyRate = primaryContract.hourlyRate;
+        paymentRuleDisplay.hourlyRate = primaryContract.hourlyRate ?? undefined;
       } else if (primaryContract.payType === "percentage") {
-        paymentRuleDisplay.percentageRate = primaryContract.percentageRate;
+        paymentRuleDisplay.percentageRate = primaryContract.percentageRate ?? undefined;
       } else if (primaryContract.payType === "per_session") {
-        paymentRuleDisplay.hourlyRate = primaryContract.sessionRate;
+        paymentRuleDisplay.hourlyRate = primaryContract.sessionRate ?? undefined;
       }
     } else {
       paymentRuleDisplay = { type: "hourly", hourlyRate: "150", currency: "AED", isDefault: true };
@@ -550,8 +550,8 @@ router.get("/api/coach/earnings/history", authMiddleware, async (req: AuthReques
     
     const sessionPlayersMap = new Map<string, number>();
     for (const sp of sessionPlayersData) {
-      const count = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count + 1);
+      const count = sessionPlayersMap.get(sp.sessionId!) || 0;
+      sessionPlayersMap.set(sp.sessionId!, count + 1);
     }
     const seriesPlayersMap = new Map<string, number>();
     for (const sp of seriesPlayersData) {
@@ -673,8 +673,8 @@ router.get("/api/coach/earnings/analytics", authMiddleware, async (req: AuthRequ
 
     const sessionPlayersMap = new Map<string, number>();
     for (const sp of sessionPlayersData) {
-      const count = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count + 1);
+      const count = sessionPlayersMap.get(sp.sessionId!) || 0;
+      sessionPlayersMap.set(sp.sessionId!, count + 1);
     }
     const seriesPlayersMap = new Map<string, number>();
     for (const sp of seriesPlayersData) {
@@ -756,15 +756,15 @@ router.get("/api/coach/earnings/analytics", authMiddleware, async (req: AuthRequ
     }
 
     for (const sp of sessionPlayersData) {
-      if (!completedSessionIds.has(sp.sessionId)) continue;
+      if (!completedSessionIds.has(sp.sessionId!)) continue;
       const matchingEarning = completedEarnings.find(e => e.session.id === sp.sessionId);
       if (!matchingEarning) continue;
-      const playerCount = sessionPlayersMap.get(sp.sessionId) || 1;
+      const playerCount = sessionPlayersMap.get(sp.sessionId!) || 1;
       const perPlayerEarning = matchingEarning.earning.amount / playerCount;
-      const existing = playerEarningsMap.get(sp.playerId) || { earnings: 0, sessions: 0 };
+      const existing = playerEarningsMap.get(sp.playerId!) || { earnings: 0, sessions: 0 };
       existing.earnings += perPlayerEarning;
       existing.sessions += 1;
-      playerEarningsMap.set(sp.playerId, existing);
+      playerEarningsMap.set(sp.playerId!, existing);
     }
 
     const sortedPlayers = Array.from(playerEarningsMap.entries())

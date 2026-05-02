@@ -917,12 +917,12 @@ export const storage = {
   },
 
   async createAcademy(data: InsertAcademy): Promise<Academy> {
-    const result = await db.insert(academies).values(data).returning();
+    const result = await db.insert(academies).values(data as any).returning();
     return result[0];
   },
 
   async updateAcademy(id: string, data: Partial<InsertAcademy>): Promise<Academy | undefined> {
-    const result = await db.update(academies).set(data).where(eq(academies.id, id)).returning();
+    const result = await db.update(academies).set(data as any).where(eq(academies.id, id)).returning();
     return result[0];
   },
 
@@ -1458,7 +1458,7 @@ export const storage = {
         ORDER BY start_date ASC
         LIMIT 5
       `);
-      upcomingTournaments = (rows.rows ?? []) as TournamentRow[];
+      upcomingTournaments = (rows.rows ?? []) as unknown as TournamentRow[];
     } catch {
       // is_public column or table issue — skip tournaments gracefully
       upcomingTournaments = [];
@@ -3684,7 +3684,7 @@ export const storage = {
       packageId: packageToUse.id,
       type: "debit",
       creditType: requiredCreditType,
-      amount: -creditCost,
+      amount: String(-creditCost),
       reason: "session_booking",
       sessionId,
       balanceBefore,
@@ -3728,7 +3728,7 @@ export const storage = {
       success: true, 
       package: updatedPackage, 
       creditType: requiredCreditType,
-      transactionId: transaction?.id ?? null,
+      transactionId: transaction?.id ?? undefined,
     };
   },
 
@@ -3758,7 +3758,7 @@ export const storage = {
       packageId: null,
       type: "debit",
       creditType,
-      amount: -creditCost,
+      amount: String(-creditCost),
       reason: "session_join_debt",
       sessionId,
       balanceBefore: 0,
@@ -3928,7 +3928,7 @@ export const storage = {
           if (pkg) {
             const debtRefundAmount = Math.abs(Number(debtTransaction.amount)) || 1;
             await db.update(packages)
-              .set({ remainingCredits: Number(pkg.remainingCredits) + debtRefundAmount })
+              .set({ remainingCredits: String(Number(pkg.remainingCredits) + debtRefundAmount) })
               .where(eq(packages.id, pkg.id));
             
             // Also undo the debt_settlement transaction if exists
@@ -3987,7 +3987,7 @@ export const storage = {
       }
       // Parse metadata JSON to check originalTransactionId
       try {
-        const meta = t.metadata ? JSON.parse(t.metadata) : {};
+        const meta = t.metadata ? JSON.parse(t.metadata as string) : {};
         return meta.originalTransactionId === originalDebit.id;
       } catch {
         return false;
@@ -4021,7 +4021,7 @@ export const storage = {
     
     await db
       .update(packages)
-      .set({ remainingCredits: balanceAfter })
+      .set({ remainingCredits: String(balanceAfter) })
       .where(eq(packages.id, pkg.id));
     
     // Log the refund transaction
@@ -4031,7 +4031,7 @@ export const storage = {
       packageId: pkg.id,
       type: "credit",
       creditType: originalDebit.creditType || "group",
-      amount: refundAmount,
+      amount: String(refundAmount),
       reason: "session_removal_refund",
       sessionId,
       balanceBefore,
@@ -4245,7 +4245,7 @@ export const storage = {
       .where(eq(sessionPlayers.sessionId, id));
 
     for (const sp of players) {
-      await this.cancelSessionDebt(sp.playerId, id, "session_cancelled");
+      await this.cancelSessionDebt(sp.playerId!, id, "session_cancelled");
     }
 
     // Task #1338 — V2 ledger refund. The legacy `cancelSessionDebt` path
@@ -8105,7 +8105,7 @@ export const storage = {
           // STEP 2: Ledger entry claimed successfully, now decrement the package credits
           await tx.update(packages)
             .set({ 
-              remainingCredits: balanceAfter,
+              remainingCredits: String(balanceAfter),
               status: balanceAfter <= 0 ? "depleted" : "active",
             })
             .where(eq(packages.id, packageToUse.id));
@@ -8295,7 +8295,7 @@ export const storage = {
           // STEP 2: Ledger entry claimed successfully, now decrement the package credits
           await tx.update(packages)
             .set({ 
-              remainingCredits: balanceAfter,
+              remainingCredits: String(balanceAfter),
               status: balanceAfter <= 0 ? "depleted" : "active",
             })
             .where(eq(packages.id, packageToUse.id));
@@ -8691,7 +8691,7 @@ export const storage = {
         packageId,
         type: "debit",
         creditType,
-        amount: -creditCost,
+        amount: String(-creditCost),
         reason: "retrospective_settlement",
         sessionId: session.sessionId,
         balanceBefore,
@@ -8879,7 +8879,7 @@ export const storage = {
     const glowScore = Math.round(pillars.reduce((s, p) => s + p.masteryPct, 0) / pillars.length);
     
     return {
-      pillars,
+      pillars: pillars as any,
       overallReadiness,
       trialGateReady,
       recentFeedbackCount: Number(recentFeedback[0]?.count || 0),
@@ -9110,7 +9110,7 @@ export const storage = {
         // Decrement package credits
         await tx.update(packages)
           .set({ 
-            remainingCredits: balanceAfter,
+            remainingCredits: String(balanceAfter),
             status: balanceAfter <= 0 ? "depleted" : "active",
           })
           .where(eq(packages.id, packageToUse.id));
@@ -10403,7 +10403,6 @@ export const storage = {
         duration: durationMinutes > 0 ? durationMinutes : 60,
         sessionType: bookingData.sessionType,
         status: "scheduled",
-        notes: bookingData.playerNote,
       };
       
       const sessionResult = await tx.insert(sessions).values(sessionData).returning();
@@ -10414,7 +10413,7 @@ export const storage = {
           sessionId: createdSession.id,
           playerId: bookingData.playerId,
           status: "confirmed",
-        });
+        } as any);
       }
       
       const updatedRequest = await tx.update(bookingRequests)
@@ -11924,7 +11923,7 @@ export const storage = {
     if (settings.xpRewardPerHour !== undefined) updateData.xpRewardPerHour = settings.xpRewardPerHour;
 
     const result = await db.update(courts)
-      .set(updateData)
+      .set(updateData as any)
       .where(eq(courts.id, courtId))
       .returning();
 
@@ -13195,7 +13194,7 @@ export const storage = {
         if (correctRemaining < Number(pkg.remainingCredits)) {
           details.push(`Package ${pkg.id}: ${pkg.remainingCredits} -> ${correctRemaining} (debited ${totalDebited} of ${pkg.totalCredits})`);
           await db.update(packages).set({
-            remainingCredits: correctRemaining,
+            remainingCredits: String(correctRemaining),
             status: correctRemaining <= 0 ? "depleted" : "active",
           }).where(eq(packages.id, pkg.id));
           packagesRepaired++;
@@ -13444,7 +13443,7 @@ async function recalculateSeriesCredits(
       playerId: sp.playerId,
       academyId,
       type: "credit",
-      amount: 0, // Net zero - this is informational
+      amount: "0", // Net zero - this is informational
       reason: "session_type_change",
       metadata: JSON.stringify({
         seriesId,
@@ -14673,7 +14672,7 @@ async function _legacyReconcilePackageCreditsDeleteInPhase4(): Promise<{ checked
   }
 
   for (const row of drifted.rows) {
-    const r = row as ReconcileRow;
+    const r = row as unknown as ReconcileRow;
     const expected = Math.max(0, Number(r.expected_remaining));
     const current = Number(r.current_remaining);
 
@@ -14734,7 +14733,7 @@ async function repairOrphanedSessionPlayers(): Promise<{ created: number; failur
   `);
 
   for (const row of memberships.rows) {
-    const m = row as OrphanedSPMembership;
+    const m = row as unknown as OrphanedSPMembership;
 
     const orphaned = await db.execute(sql`
       SELECT s.id, s.session_type, s.duration, s.academy_id
@@ -14749,7 +14748,7 @@ async function repairOrphanedSessionPlayers(): Promise<{ created: number; failur
     `);
 
     for (const sess of orphaned.rows) {
-      const s = sess as OrphanedSPSession;
+      const s = sess as unknown as OrphanedSPSession;
       // Insert as 'present'; ON CONFLICT DO NOTHING ensures idempotency
       const inserted = await db.execute(sql`
         INSERT INTO session_players (id, session_id, player_id, attendance_status)
@@ -14759,7 +14758,7 @@ async function repairOrphanedSessionPlayers(): Promise<{ created: number; failur
       `);
 
       if ((inserted as { rowCount: number }).rowCount > 0) {
-        const newSpId = (inserted.rows[0] as OrphanedSPInsertResult).id;
+        const newSpId = (inserted.rows[0] as unknown as OrphanedSPInsertResult).id;
         created++;
         console.log(`[OrphanedSPRepair] Created session_player ${newSpId}: player=${m.player_id} session=${s.id}`);
 
@@ -14899,7 +14898,7 @@ async function fullCreditRebuildForAcademy(academyId: string): Promise<{
 
   // --- Step (e): Call ensureCreditProcessed for each record in chronological order ---
   for (const row of attendanceRows.rows) {
-    const sp = row as RebuildAttendanceRow;
+    const sp = row as unknown as RebuildAttendanceRow;
     playerIds.add(sp.player_id);
     try {
       const creditResult = await ensureCreditProcessed(sp.id);

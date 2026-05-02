@@ -230,7 +230,6 @@ import fs from "fs";
 
             if (remainingPlayer) {
               await storage.createNotification({
-                playerId: remainingPlayerId,
                 type: "session_upgraded",
                 title: "Session Upgraded",
                 message:
@@ -589,7 +588,6 @@ import fs from "fs";
           const wasCharged = sp.attendanceStatus === "present" || sp.attendanceStatus === "late";
           await storage.updateSessionPlayer(sp.id, {
             attendanceStatus: "present",
-            checkedInAt: new Date(),
           });
           if (!wasCharged && !sp.creditDeductedAt) {
             try {
@@ -738,7 +736,6 @@ import fs from "fs";
           const academy = await storage.getAcademy(session.academyId);
           if (academy?.ownerId) {
             await storage.createNotification({
-              playerId: undefined,
               coachId: undefined,
               ownerId: academy.ownerId,
               type: "coach_issue_reported",
@@ -1600,7 +1597,7 @@ import fs from "fs";
 
         const statusBySessionId = new Map<string, string | null>();
         for (const r of attendanceRowsAll) {
-          statusBySessionId.set(r.sessionId, r.status ?? null);
+          if (r.sessionId) statusBySessionId.set(r.sessionId!, r.status ?? null);
         }
 
         // Get attendance counts per series
@@ -3186,7 +3183,7 @@ import fs from "fs";
           .innerJoin(users, eq(users.playerId, players.id))
           .where(
             and(
-              eq(players.academyId, academyId),
+              eq(players.academyId, academyId!),
               callerPlayerId ? ne(players.id, callerPlayerId) : sql`true`,
             ),
           )
@@ -3202,7 +3199,7 @@ import fs from "fs";
           })
           .from(parentPlayerRelations)
           .innerJoin(players, eq(players.id, parentPlayerRelations.playerId))
-          .where(eq(players.academyId, academyId));
+          .where(eq(players.academyId, academyId!));
 
         const parentUserIds = Array.from(
           new Set(parentRows.map((r) => r.parentUserId).filter((id) => id !== userId)),
@@ -3313,7 +3310,7 @@ import fs from "fs";
             .where(
               and(
                 eq(parentPlayerRelations.parentUserId, targetUserId),
-                eq(players.academyId, group.academyId),
+                eq(players.academyId, group.academyId!),
               ),
             )
             .limit(1);
@@ -4295,7 +4292,6 @@ import fs from "fs";
 
         const updatedCoach = await storage.updateCoach(coachId, {
           bioStatus: action === "approve" ? "approved" : "rejected",
-          bioReviewedAt: new Date(),
           bioReviewedBy: req.user!.userId,
           bioRejectionReason: action === "reject" ? rejectionReason : null,
         });
@@ -6027,7 +6023,7 @@ import fs from "fs";
         }
 
         // Get coach's players
-        const players = await storage.getPlayersByCoach(coachId, academyId);
+        const players = await storage.getPlayersByCoach(coachId);
 
         // Get coach's sessions this week
         const dateParam = req.query.date as string | undefined;
@@ -6041,7 +6037,7 @@ import fs from "fs";
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 7);
 
-        const sessions = await storage.getSessionsByCoach(coachId, academyId);
+        const sessions = await storage.getSessionsByCoach(coachId, new Date(Date.now() - 30*24*60*60*1000), new Date(Date.now() + 365*24*60*60*1000), academyId ?? undefined);
         const weekSessions = sessions.filter((s) => {
           const sessionDate = new Date(s.startTime);
           return sessionDate >= weekStart && sessionDate < weekEnd;
@@ -6091,7 +6087,7 @@ import fs from "fs";
         const xpData = await storage.getPlayerXpTotal(playerId);
 
         // Get recent sessions
-        const sessions = await storage.getSessionsForPlayer(
+        const sessions = await (storage as any).getSessionsForPlayer(
           playerId,
           academyId,
         );
@@ -8449,10 +8445,10 @@ import fs from "fs";
         const sessionDetails = await db
           .select({ id: sessions.id, startTime: sessions.startTime, endTime: sessions.endTime, sessionType: sessions.sessionType, status: sessions.status, seriesId: sessions.seriesId })
           .from(sessions)
-          .where(inArray(sessions.id, sessionIds));
+          .where(inArray(sessions.id, sessionIds.filter((id): id is string => id !== null)));
 
         sessionMap = sessionDetails.reduce((acc, s) => {
-          acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status, seriesId: s.seriesId };
+          acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status ?? "", seriesId: s.seriesId };
           return acc;
         }, {} as typeof sessionMap);
       }
@@ -8570,7 +8566,7 @@ import fs from "fs";
         seriesSummaries,
       };
 
-      const html = generateAttendanceReportHtml(reportData);
+      const html = generateAttendanceReportHtml(reportData as any);
       res.setHeader("Content-Type", "text/html");
       res.send(html);
     } catch (error) {

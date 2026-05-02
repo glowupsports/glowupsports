@@ -354,7 +354,7 @@ router.get("/player/:playerId/status", async (req: AuthenticatedRequest, res: Re
     const currentLevel = calculatedLevel;
 
     if (currentLevel !== (player.level || 1)) {
-      await db.update(players).set({ level: currentLevel, updatedAt: new Date() }).where(eq(players.id, playerId));
+      await db.update(players).set({ level: currentLevel }).where(eq(players.id, playerId));
     }
 
     const xpInCurrentLevel = totalXp - xpUsedByPreviousLevels;

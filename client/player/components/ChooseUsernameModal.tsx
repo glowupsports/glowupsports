@@ -12,7 +12,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, GlowColors, Spacing } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
-import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";

@@ -589,7 +589,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   captureButtonText: {
-    ...Typography.buttonMedium,
+    ...Typography.body,
     color: Colors.dark.buttonText,
   },
   captureButtonTextDisabled: {
@@ -817,7 +817,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   permissionButtonText: {
-    ...Typography.buttonMedium,
+    ...Typography.body,
     color: Colors.dark.buttonText,
   },
 }));

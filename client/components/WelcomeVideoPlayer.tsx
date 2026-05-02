@@ -14,7 +14,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors, ProTennisColors } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 const { width: _SCREEN_WIDTH, height: _SCREEN_HEIGHT } = Dimensions.get("window");
@@ -196,7 +196,7 @@ export default function WelcomeVideoPlayer({
             <Pressable onPress={handlePlayPause}>
               <Animated.View style={[styles.playButtonOuter, pulseStyle]}>
                 <LinearGradient
-                  colors={[GlowColors.neonGreen, GlowColors.neonCyan]}
+                  colors={[ProTennisColors.neonGreen, ProTennisColors.neonCyan]}
                   style={styles.playButton}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -260,7 +260,7 @@ export default function WelcomeVideoPlayer({
           <Animated.View entering={FadeInUp}>
             <Pressable style={styles.continueButton} onPress={handleContinue}>
               <LinearGradient
-                colors={[GlowColors.neonGreen, GlowColors.neonCyan]}
+                colors={[ProTennisColors.neonGreen, ProTennisColors.neonCyan]}
                 style={styles.continueGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -351,10 +351,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: GlowColors.neonGreen,
+    borderColor: ProTennisColors.neonGreen,
   },
   speakerName: {
-    color: Colors.textPrimary,
+    color: Colors.dark.textPrimary,
     fontSize: 14,
     fontWeight: "600",
   },
@@ -363,7 +363,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 12,
   },
   title: {
-    color: Colors.textPrimary,
+    color: Colors.dark.textPrimary,
     fontSize: 28,
     fontWeight: "bold",
     letterSpacing: -0.5,
@@ -384,7 +384,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   progressFill: {
     height: "100%",
-    backgroundColor: GlowColors.neonGreen,
+    backgroundColor: ProTennisColors.neonGreen,
     borderRadius: 2,
   },
   timeContainer: {

@@ -156,7 +156,7 @@ import { Router, type Response } from "express";
             : 0;
 
         const pillars = (
-          (summary as {
+          (summary as unknown as {
             skillArea: string;
             latestRating: number;
             trend: string;
@@ -304,7 +304,7 @@ import { Router, type Response } from "express";
               seriesId: sessions.seriesId,
             })
             .from(sessions)
-            .where(inArray(sessions.id, sessionIds));
+            .where(inArray(sessions.id, sessionIds.filter(Boolean) as string[]));
 
           sessionMap = sessionDetails.reduce(
             (acc, s) => {
@@ -312,7 +312,7 @@ import { Router, type Response } from "express";
                 startTime: s.startTime,
                 endTime: s.endTime,
                 sessionType: s.sessionType,
-                status: s.status,
+                status: s.status ?? "",
                 seriesId: s.seriesId,
               };
               return acc;
@@ -721,7 +721,7 @@ import { Router, type Response } from "express";
                 eq(sessions.status, "completed"),
               ),
             );
-          orphanedCompletedSessions = seriesSessions
+          orphanedCompletedSessions = (seriesSessions as any[])
             .filter((s) => {
               if (existingSessionIds.has(s.id)) return false;
               const joinDate = s.seriesId
@@ -779,7 +779,7 @@ import { Router, type Response } from "express";
         // auto-converted to private_adjusted for the remaining player).
         const happenedRecords = nonCancelledRecords.filter(
           (r) =>
-            isSessionInPast(r) &&
+            isSessionInPast(r as any) &&
             !(isSemiOrConverted(r.sessionType) && r.attendanceStatus === "absent"),
         );
 
@@ -2648,7 +2648,7 @@ import { Router, type Response } from "express";
         const coachAcademyId = req.user!.academyId ?? null;
         const { getAcademyBudgetState } = await import("../services/aiBudgetService");
         const budgetState = coachAcademyId ? await getAcademyBudgetState(coachAcademyId) : null;
-        if (budgetState === "exhausted") {
+        if ((budgetState as string | null) === "exhausted") {
           return res.status(200).json({ reply: "AI coaching is temporarily paused while your academy's monthly usage is being reviewed. Your coach will be in touch shortly." });
         }
 
@@ -2660,7 +2660,7 @@ import { Router, type Response } from "express";
               { role: "system", content: systemPrompt },
               ...safeMessages,
             ],
-            max_tokens: budgetState === "warning" ? 400 : 600,
+            max_tokens: (budgetState as string | null) === "warning" ? 400 : 600,
             temperature: 0.6,
           });
           reply = response.choices?.[0]?.message?.content || null;
@@ -2871,12 +2871,12 @@ import { Router, type Response } from "express";
             understanding: clamp(structured.understanding),
             overall: overallValue,
             pillarRatings: {
-              TECHNIQUE: structured.techniquePillar !== undefined ? clamp(structured.techniquePillar) : undefined,
-              TACTICAL:  structured.tacticalPillar  !== undefined ? clamp(structured.tacticalPillar)  : undefined,
-              PHYSICAL:  structured.physicalPillar  !== undefined ? clamp(structured.physicalPillar)  : undefined,
-              MENTAL:    structured.mentalPillar    !== undefined ? clamp(structured.mentalPillar)    : undefined,
-              SOCIAL:    structured.socialPillar    !== undefined ? clamp(structured.socialPillar)    : undefined,
-              MATCH:     structured.matchPillar     !== undefined ? clamp(structured.matchPillar)     : undefined,
+              TECHNIQUE: clamp(structured.techniquePillar ?? 0),
+              TACTICAL:  clamp(structured.tacticalPillar ?? 0),
+              PHYSICAL:  clamp(structured.physicalPillar ?? 0),
+              MENTAL:    clamp(structured.mentalPillar ?? 0),
+              SOCIAL:    clamp(structured.socialPillar ?? 0),
+              MATCH:     clamp(structured.matchPillar ?? 0),
             },
           });
         } catch (pillarErr) {
@@ -3128,7 +3128,7 @@ import { Router, type Response } from "express";
         const playerAcademyId = req.user!.academyId ?? null;
         const { getAcademyBudgetState: getPlayerBudgetState } = await import("../services/aiBudgetService");
         const playerBudgetState = playerAcademyId ? await getPlayerBudgetState(playerAcademyId) : null;
-        if (playerBudgetState === "exhausted") {
+        if ((playerBudgetState as string | null) === "exhausted") {
           return res.status(200).json({ reply: "AI coaching is temporarily paused for your academy this month. Please check back soon." });
         }
 
@@ -3144,7 +3144,7 @@ import { Router, type Response } from "express";
             { role: "system", content: systemPrompt },
             ...safeMessages,
           ],
-          max_tokens: playerBudgetState === "warning" ? 280 : 400,
+          max_tokens: (playerBudgetState as string | null) === "warning" ? 280 : 400,
           temperature: 0.7,
         });
 

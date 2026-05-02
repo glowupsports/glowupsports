@@ -65,11 +65,11 @@ export function CalendarDragModal({ pendingDrag, onCancel, onConfirm, courts }: 
                   <Text style={dragModalStyles.changeLabel}>Time</Text>
                   <View style={dragModalStyles.changeValues}>
                     <Text style={dragModalStyles.oldValue}>
-                      {pendingDrag?.session ? formatTimeInTimezone(parseUTCTimestamp(pendingDrag.session.startTime)) : ""}
+                      {pendingDrag?.session ? formatTimeInTimezone(parseUTCTimestamp(pendingDrag.session.startTime).toISOString(), "UTC") : ""}
                     </Text>
                     <Ionicons name="arrow-forward" size={16} color={GlowColors.primary} />
                     <Text style={dragModalStyles.newValue}>
-                      {pendingDrag?.newStart ? formatTimeInTimezone(pendingDrag.newStart) : ""}
+                      {pendingDrag?.newStart ? formatTimeInTimezone(pendingDrag.newStart.toISOString(), "UTC") : ""}
                     </Text>
                   </View>
                 </View>

@@ -335,11 +335,11 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: Colors.dark.panel,
-    borderTopLeftRadius: BorderRadius.large,
-    borderTopRightRadius: BorderRadius.large,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
     padding: Spacing.xl,
     gap: Spacing.md,
-    ...(Platform.OS === "web" ? { maxWidth: 520, alignSelf: "center", width: "100%", borderRadius: BorderRadius.large, marginBottom: Spacing.xl } : null),
+    ...(Platform.OS === "web" ? { maxWidth: 520, alignSelf: "center", width: "100%", borderRadius: BorderRadius.xl, marginBottom: Spacing.xl } : null),
   },
   headerRow: {
     flexDirection: "row",
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.surface,
     borderWidth: 1,
     borderColor: Colors.dark.panelBorder,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
     color: Colors.dark.textPrimary,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     backgroundColor: Colors.dark.primary,
-    borderRadius: BorderRadius.medium,
+    borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
     alignItems: "center",
     marginTop: Spacing.sm,

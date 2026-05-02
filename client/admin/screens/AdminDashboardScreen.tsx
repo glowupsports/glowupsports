@@ -262,7 +262,7 @@ export default function AdminDashboardScreen() {
     const today = new Date();
     const greetingHour = today.getHours();
     const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 18 ? "Good afternoon" : "Good evening";
-    const displayName = user?.name?.split(" ")[0] ?? "Admin";
+    const displayName = (user?.displayName ?? user?.username ?? "Admin").split(" ")[0];
     const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
     return (
@@ -299,7 +299,7 @@ export default function AdminDashboardScreen() {
           {[
             { icon: "play-circle-outline" as const, label: "Active Sessions", value: liveStats.activeSessions, color: Colors.dark.orange },
             { icon: "people-outline" as const, label: "Players Today", value: operationsData?.quickStats?.todayPlayers || 0, color: Colors.dark.xpCyan },
-            { icon: "cash-outline" as const, label: "Revenue MTD", value: `AED ${(operationsData?.quickStats?.revenueMTD || 0).toLocaleString()}`, color: "#22c55e" },
+            { icon: "cash-outline" as const, label: "Revenue MTD", value: `AED ${((operationsData?.quickStats as any)?.revenueMTD || 0).toLocaleString()}`, color: "#22c55e" },
             { icon: "people-circle-outline" as const, label: "Coaches On Court", value: liveStats.activeCoaches, color: Colors.dark.gold },
           ].map((kpi) => (
             <View key={kpi.label} style={styles.desktopKpiCard}>

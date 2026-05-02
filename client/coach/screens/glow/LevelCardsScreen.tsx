@@ -89,7 +89,7 @@ const PILLAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   TECHNIQUE: "hand-left-outline",
   TACTICAL: "bulb-outline",
   PHYSICAL: "fitness-outline",
-  MENTAL: "brain-outline",
+  MENTAL: "happy-outline",
   SOCIAL: "people-outline",
   MATCH: "trophy-outline",
 };

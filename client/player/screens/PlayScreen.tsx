@@ -6703,5 +6703,18 @@ const styles = makeReactiveStyles(() =>
       minWidth: 50,
       textAlign: "right",
     },
+    sessionInfoButton: {
+      padding: 4,
+    },
+    centered: {
+      flex: 1,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    errorText: {
+      fontSize: 16,
+      fontWeight: "600" as const,
+      color: Colors.dark.text,
+    },
   }),
 );

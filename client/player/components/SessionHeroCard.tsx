@@ -2117,7 +2117,7 @@ export function SessionHeroCard({
                       </View>
                     </View>
                     
-                    {minutesToNextSession !== undefined && minutesToNextSession < 120 && (
+                    {minutesToNextSession !== undefined && minutesToNextSession !== null && minutesToNextSession < 120 && (
                       <View style={styles.currentPenaltyNotice}>
                         <Feather name="alert-triangle" size={16} color={ProTennisColors.danger} />
                         <Text style={styles.currentPenaltyText}>
@@ -2125,7 +2125,7 @@ export function SessionHeroCard({
                         </Text>
                       </View>
                     )}
-                    {minutesToNextSession !== undefined && minutesToNextSession >= 120 && minutesToNextSession < 1440 && (
+                    {minutesToNextSession !== undefined && minutesToNextSession !== null && minutesToNextSession >= 120 && minutesToNextSession < 1440 && (
                       <View style={styles.partialPenaltyNotice}>
                         <Feather name="alert-circle" size={16} color={ProTennisColors.warning} />
                         <Text style={styles.partialPenaltyText}>
@@ -2477,7 +2477,7 @@ export function SessionHeroCard({
                       </View>
                     </View>
                     
-                    {minutesToNextSession !== undefined && minutesToNextSession < 120 && (
+                    {minutesToNextSession !== undefined && minutesToNextSession !== null && minutesToNextSession < 120 && (
                       <View style={styles.currentPenaltyNotice}>
                         <Feather name="alert-triangle" size={16} color={ProTennisColors.danger} />
                         <Text style={styles.currentPenaltyText}>
@@ -2485,7 +2485,7 @@ export function SessionHeroCard({
                         </Text>
                       </View>
                     )}
-                    {minutesToNextSession !== undefined && minutesToNextSession >= 120 && minutesToNextSession < 1440 && (
+                    {minutesToNextSession !== undefined && minutesToNextSession !== null && minutesToNextSession >= 120 && minutesToNextSession < 1440 && (
                       <View style={styles.partialPenaltyNotice}>
                         <Feather name="alert-circle" size={16} color={ProTennisColors.warning} />
                         <Text style={styles.partialPenaltyText}>
@@ -3896,5 +3896,14 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "600",
     fontSize: 12,
     letterSpacing: 0.3,
+  },
+  cancelReasonInput: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    padding: Spacing.md,
+    color: Colors.dark.text,
+    fontSize: 14,
   },
 }));

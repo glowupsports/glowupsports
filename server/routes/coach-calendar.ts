@@ -281,25 +281,26 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
           if (!pp.seriesId) continue;
           if (!pausedPlayersBySeriesMap.has(pp.seriesId))
             pausedPlayersBySeriesMap.set(pp.seriesId, []);
-          const pFrom = typeof pp.pauseFrom === 'string' ? pp.pauseFrom : pp.pauseFrom!.toISOString().split('T')[0];
-          const pUntil = typeof pp.pauseUntil === 'string' ? pp.pauseUntil : pp.pauseUntil!.toISOString().split('T')[0];
+          const pFrom = pp.pauseFrom ?? "";
+          const pUntil = pp.pauseUntil ?? "";
           pausedPlayersBySeriesMap.get(pp.seriesId)!.push({ playerId: pp.playerId, pauseFrom: pFrom, pauseUntil: pUntil });
         }
 
         // Create lookup maps
-        const sessionPlayersMap = new Map<string, typeof allSessionPlayers>();
+        const sessionPlayersMap = new Map<string, any[]>();
         for (const p of allSessionPlayers) {
-          if (!sessionPlayersMap.has(p.sessionId))
-            sessionPlayersMap.set(p.sessionId, []);
-          sessionPlayersMap.get(p.sessionId)!.push(p);
+          if (!p.sessionId) continue;
+          if (!sessionPlayersMap.has(p.sessionId!))
+            sessionPlayersMap.set(p.sessionId!, []);
+          sessionPlayersMap.get(p.sessionId!)!.push(p as any);
         }
 
-        const seriesPlayersMap = new Map<string, typeof allSeriesPlayers>();
+        const seriesPlayersMap = new Map<string, any[]>();
         for (const p of allSeriesPlayers) {
           if (!p.seriesId) continue;
           if (!seriesPlayersMap.has(p.seriesId))
             seriesPlayersMap.set(p.seriesId, []);
-          seriesPlayersMap.get(p.seriesId)!.push(p);
+          seriesPlayersMap.get(p.seriesId)!.push(p as any);
         }
 
         // Build roster for each session using cached data (no await in loop)
@@ -336,10 +337,10 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
             sessionSpecificPlayers.map((p) => p.playerId),
           );
           const filteredSessionPlayers = sessionSpecificPlayers.filter((p) => {
-            if (pausedPlayerIdsForSession.has(p.playerId)) return false;
+            if (pausedPlayerIdsForSession.has(p.playerId!)) return false;
             if (isCompleted) return true;
             if (p.isGuest) return true;
-            if (leftPlayerIdsForSession.has(p.playerId)) return false;
+            if (leftPlayerIdsForSession.has(p.playerId!)) return false;
             return true;
           });
 
@@ -1410,7 +1411,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
             .where(
               and(
                 eq(playerNotifications.playerId, playerId),
-                inArray(playerNotifications.id, notificationIds),
+                inArray(playerNotifications.id, (notificationIds as number[]).map(String)),
               ),
             );
         } else {
@@ -1533,13 +1534,13 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
           // Only refund if credits were actually deducted (creditDeductedAt is set)
           if (sp.creditDeductedAt) {
             const refundResult = await storage.refundCreditsForSession(
-              sp.playerId,
+              sp.playerId!,
               id,
               academyId,
             );
-            const player = await storage.getPlayer(sp.playerId, academyId);
+            const player = await storage.getPlayer(sp.playerId!, academyId);
             refundResults.push({
-              playerId: sp.playerId,
+              playerId: sp.playerId!,
               playerName: player?.name,
               success: refundResult.success,
               reason: refundResult.reason,
@@ -1556,7 +1557,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
         // Cancel any unsettled debt for ALL players — including those whose debt was created by
         // ensureCreditProcessed (which sets creditDeductedAt). cancelSessionDebt is idempotent.
         for (const sp of sessionPlayersForRefund) {
-          const debtResult = await storage.cancelSessionDebt(sp.playerId, id, "session_cancelled_by_coach");
+          const debtResult = await storage.cancelSessionDebt(sp.playerId!, id, "session_cancelled_by_coach");
           if (debtResult.cancelled) {
             console.log(`[Cancel] Cancelled debt for player ${sp.playerId}, session ${id}`);
           }
@@ -1568,7 +1569,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
           entityId: id,
           action: "cancelled",
           performedBy: coachId || req.user!.userId,
-          details: JSON.stringify({
+          metadata: JSON.stringify({
             reason: reason || "Cancelled by coach",
             cancelledBy: "coach",
             noCharge: true,
@@ -1714,7 +1715,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
         // Cancel any unsettled debt for ALL players — including those processed by ensureCreditProcessed.
         const lastMinutePlayers = await storage.getSessionPlayers(id);
         for (const sp of lastMinutePlayers) {
-          const debtResult = await storage.cancelSessionDebt(sp.playerId, id, "session_cancelled_last_minute");
+          const debtResult = await storage.cancelSessionDebt(sp.playerId!, id, "session_cancelled_last_minute");
           if (debtResult.cancelled) {
             console.log(`[LastMinuteCancel] Cancelled debt for player ${sp.playerId}, session ${id}`);
           }
@@ -1983,7 +1984,7 @@ router.get(
   "/api/coach/sessions/:sessionId/brief",
   authMiddleware,
   requireAcademy,
-  requireRole(["coach", "assistant", "academy_owner", "platform_owner"]),
+  requireRole("coach", "assistant", "academy_owner", "platform_owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { sessionId } = req.params;

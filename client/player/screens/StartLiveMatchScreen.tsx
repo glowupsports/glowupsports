@@ -93,7 +93,7 @@ export default function StartLiveMatchScreen() {
 
   const createMatch = useMutation({
     mutationFn: async () => {
-      const result = await apiRequest<{ match: { id: string } }>(
+      const result = await (apiRequest as any)(
         "POST",
         "/api/live-scoring/matches",
         {
@@ -110,7 +110,7 @@ export default function StartLiveMatchScreen() {
     onSuccess: (data) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.replace("MatchLive", {
-        matchId: data.match.id,
+        matchId: (data as any).match.id,
         opponentName,
         opponentId,
         sport,

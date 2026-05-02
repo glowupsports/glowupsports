@@ -294,14 +294,14 @@ export async function awardXP(
       
       await db.insert(playerLevelUpCelebrations).values({
         playerId,
-        level,
+        toLevel: level,
         title,
         xpReward: 0,
         badgeUnlock: threshold?.badgeUnlock || null,
         titleUnlock: threshold?.titleUnlock || null,
         featuresUnlocked: levelFeatures,
         celebrationShown: false,
-      });
+      } as any));
 
       for (const featureKey of levelFeatures) {
         await db.insert(playerFeatureUnlockHistory).values({
@@ -320,14 +320,13 @@ export async function awardXP(
     xpAmount: xpToAward,
     contextType: contextType || null,
     contextId: contextId || null,
-    levelAtTime: currentLevel,
-  });
+    newLevel: currentLevel,
+  } as any);
 
   await db.update(players).set({
     totalXp: newTotalXp,
     level: newLevel,
-    updatedAt: new Date(),
-  }).where(eq(players.id, playerId));
+  } as any).where(eq(players.id, playerId));
 
   const { xpUsedByPreviousLevels: xpUsedByCompletedLevels, xpForCurrentLevel: xpNeededForNextLevel } = calculateLevelFromXp(newTotalXp, allThresholds);
   const xpProgressInLevel = newTotalXp - xpUsedByCompletedLevels;
@@ -363,7 +362,7 @@ export async function getPlayerLevelStatus(playerId: string) {
   const { level: currentLevel, xpUsedByPreviousLevels, xpForCurrentLevel } = calculateLevelFromXp(totalXp, allThresholds);
 
   if (currentLevel !== (player.level || 1)) {
-    await db.update(players).set({ level: currentLevel, updatedAt: new Date() }).where(eq(players.id, playerId));
+    await db.update(players).set({ level: currentLevel }).where(eq(players.id, playerId));
   }
 
   const xpProgressInLevel = totalXp - xpUsedByPreviousLevels;

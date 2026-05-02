@@ -250,13 +250,14 @@ async function fetchPendingFeedback(
       { id: string; name: string; attendanceStatus: string }[]
     >();
     for (const p of presentPlayers) {
-      if (!playersBySession.has(p.sessionId)) {
-        playersBySession.set(p.sessionId, []);
+      if (!p.sessionId || !p.playerId) continue;
+      if (!playersBySession.has(p.sessionId!)) {
+        playersBySession.set(p.sessionId!, []);
       }
       playersBySession
-        .get(p.sessionId)!
+        .get(p.sessionId!)!
         .push({
-          id: p.playerId,
+          id: p.playerId!,
           name: p.playerName,
           attendanceStatus: p.attendanceStatus ?? "present",
         });

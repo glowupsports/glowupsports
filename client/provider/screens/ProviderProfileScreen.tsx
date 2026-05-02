@@ -686,7 +686,7 @@ function ServiceMenuSection() {
 
 export default function ProviderProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { signOut, user } = useAuth();
+  const { logout: signOut, user } = useAuth();
   const queryClient = useQueryClient();
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showEditSpecs, setShowEditSpecs] = useState(false);
@@ -733,7 +733,7 @@ export default function ProviderProfileScreen() {
     }
   };
 
-  const displayName = provider?.displayName ?? user?.name ?? "Provider";
+  const displayName = provider?.displayName ?? user?.displayName ?? user?.username ?? "Provider";
   const photoUrl = provider?.profilePhotoUrl ?? null;
   const specs = provider?.specializations ?? [];
   const primary = getPrimarySpecialization(specs);

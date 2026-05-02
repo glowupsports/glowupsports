@@ -16,7 +16,7 @@ import { Router, type Response } from "express";
 
         // For coaches without direct academyId, get their primary academy from memberships
         if (!academyId && coachId) {
-          const memberships = await storage.getCoachAcademyMemberships(coachId);
+          const memberships = await (storage as any).getCoachAcademyMemberships(coachId);
           if (memberships.length > 0) {
             academyId = memberships[0].academyId;
           }
@@ -54,7 +54,7 @@ import { Router, type Response } from "express";
 
         // For coaches without direct academyId, get their primary academy from memberships
         if (!academyId && coachId) {
-          const memberships = await storage.getCoachAcademyMemberships(coachId);
+          const memberships = await (storage as any).getCoachAcademyMemberships(coachId);
           if (memberships.length > 0) {
             academyId = memberships[0].academyId;
           }
@@ -351,12 +351,7 @@ import { Router, type Response } from "express";
             entityId: pkg.id,
             action: "create",
             performedBy: coachId,
-            metadata: {
-              creditType,
-              totalCredits,
-              totalPrice,
-              invoiceId: invoice.id,
-            },
+            metadata: JSON.stringify({ creditType, totalCredits, totalPrice, invoiceId: invoice.id }),
           });
         }
 

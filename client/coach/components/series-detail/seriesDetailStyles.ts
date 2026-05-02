@@ -2121,4 +2121,19 @@ export const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
   },
+  endedSeriesBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.warning + "18",
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  endedSeriesBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.warning,
+    lineHeight: 18,
+  },
 });

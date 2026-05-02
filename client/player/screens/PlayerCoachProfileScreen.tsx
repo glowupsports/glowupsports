@@ -8,7 +8,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
-import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors, Typography } from "@/constants/theme";
 import { buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 
@@ -27,19 +27,13 @@ interface UpcomingSession {
 }
 
 interface RecentReview {
-  id: string;
+  id?: string;
   overallScore?: number | null;
   comment?: string | null;
-  playerFirstName: string;
+  playerFirstName?: string;
   reviewerLevel?: string | null;
   createdAt?: string | null;
-}
-
-interface RecentReview {
-  rating: number;
-  comment: string | null;
-  playerFirstName: string;
-  createdAt: string | null;
+  rating?: number;
 }
 
 interface CoachDetails {
@@ -318,16 +312,16 @@ export default function PlayerCoachProfileScreen() {
         ) : null}
 
         <View style={styles.profileHeader}>
-          {coach.photoUrl ? (
+          {(coach as any).profilePhotoUrl ? (
             Platform.OS === "web" ? (
               <RNImage
-                source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
+                source={{ uri: buildPhotoUrl((coach as any).profilePhotoUrl)! }}
                 style={styles.avatarLargeImage}
                 resizeMode="cover"
               />
             ) : (
               <Image
-                source={{ uri: buildPhotoUrl(coach.photoUrl)! }}
+                source={{ uri: buildPhotoUrl((coach as any).profilePhotoUrl)! }}
                 style={styles.avatarLargeImage}
                 contentFit="cover"
               />
@@ -969,5 +963,24 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.primary,
+  },
+  specsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  specChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.dark.backgroundElevated,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  specChipText: {
+    ...Typography.caption,
+    color: Colors.dark.text,
   },
 }));

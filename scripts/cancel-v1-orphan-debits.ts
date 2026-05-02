@@ -46,7 +46,7 @@ const APPLY = process.argv.includes("--apply");
 const DRY_RUN = !APPLY;
 const TAG = `[cancel-v1-orphan-debits]${DRY_RUN ? " [dry-run]" : ""}`;
 
-interface OrphanRow {
+interface OrphanRow extends Record<string, unknown> {
   id: string;
   player_id: string;
   player_name: string | null;

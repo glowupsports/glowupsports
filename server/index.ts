@@ -365,7 +365,7 @@ function setupExpoDevProxy(app: express.Application) {
         ws: true,
         logger: console,
         on: {
-          error: (err: Error, _req: http.IncomingMessage, res: http.ServerResponse) => {
+          error: ((err: Error, _req: http.IncomingMessage, res: http.ServerResponse) => {
             log(`Expo proxy error (port ${port}): ${err.message} - Metro may still be starting`);
             cachedExpoPort = null;
             portCacheExpiry = 0;
@@ -373,9 +373,9 @@ function setupExpoDevProxy(app: express.Application) {
               res.writeHead(503);
               res.end('Metro bundler is starting up, please refresh in a moment...');
             }
-          }
+          }) as any,
         }
-      }));
+      }) as any);
     }
     return proxyCache.get(port)!;
   }
@@ -979,7 +979,7 @@ function setupErrorHandler(app: express.Application) {
       const { runMigrations } = await import('stripe-replit-sync');
       const databaseUrl = process.env.DATABASE_URL;
       if (databaseUrl) {
-        await runMigrations({ databaseUrl, schema: 'stripe' });
+        await runMigrations({ databaseUrl, schema: 'stripe' } as any);
         log('[Stripe] Schema ready');
 
         const { getStripeSync } = await import('./stripeClient');
@@ -1119,7 +1119,7 @@ function setupErrorHandler(app: express.Application) {
         }
         // Postgres regex character class matching the same set as
         // shared/textSanitize.ts plus standard whitespace at either end.
-        const dirtyRows = await dbInstance.execute<PlayerNameRow>(sqlTag`
+        const dirtyRows = await dbInstance.execute<PlayerNameRow & Record<string, unknown>>(sqlTag`
           SELECT id, name, display_name
           FROM players
           WHERE

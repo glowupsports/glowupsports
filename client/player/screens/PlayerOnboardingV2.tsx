@@ -1008,7 +1008,7 @@ function BallLevelRevealStep({ data, setData, onNext, age }: StepProps & { age: 
               {ballOptions.map((option) => (
                 <Pressable
                   key={option.id}
-                  style={[styles.adjustOption, data.ballLevel === option.id && styles.adjustOptionSelected]}
+                  style={[styles.adjustOption, data.ballLevel === option.id && (styles as any).adjustOptionSelected]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     setData(prev => ({ ...prev, ballLevel: option.id }));
@@ -2423,7 +2423,7 @@ function TennisQuizStep({ data: _data, setData, onNext }: StepProps) {
               const isSelected = selectedAnswer === option;
               const revealed = selectedAnswer !== null;
               const isCorrect = option === currentQ.correct;
-              let cardStyle = styles.selectableCard;
+              let cardStyle: any = styles.selectableCard;
               if (revealed && isCorrect) cardStyle = styles.quizOptionCorrect;
               else if (revealed && isSelected && !isCorrect) cardStyle = styles.quizOptionWrong;
               else if (revealed) cardStyle = styles.quizOptionLocked;

@@ -1810,9 +1810,9 @@ export default function SeriesDetailDrawer({
         visible={showSmartFill}
         onClose={() => setShowSmartFill(false)}
         loadingSuggestions={loadingSuggestions}
-        mergeSuggestions={mergeSuggestions}
+        mergeSuggestions={mergeSuggestions as any}
         getBallLevelColor={getBallLevelColor}
-        formatDate={formatDate}
+        formatDate={formatDate as any}
         getDefaultGuestUntil={getDefaultGuestUntil}
         onSelectSuggestion={(playerId, guestEnd) => {
           setIsGuestAdd(true);
@@ -1897,7 +1897,7 @@ export default function SeriesDetailDrawer({
         handlePlayerSelect={handlePlayerSelect}
         handleContinueToPackage={handleContinueToPackage}
         getBallLevelColor={getBallLevelColor}
-        formatDate={formatDate}
+        formatDate={formatDate as any}
       />
 
       {/* Attendance Modal (also contains Transfer view) */}
@@ -1916,12 +1916,12 @@ export default function SeriesDetailDrawer({
         setSelectedTargetCoachId={setSelectedTargetCoachId}
         loadingAttendance={loadingAttendance}
         selectedSession={selectedSession}
-        series={series}
+        series={series as any}
         sessionAttendance={sessionAttendance}
         isPlayerActiveForSession={isPlayerActiveForSession}
         coaches={coaches}
         currentCoachId={currentCoach?.id}
-        handleSetAttendance={handleSetAttendance}
+        handleSetAttendance={handleSetAttendance as any}
         handleSaveAttendance={handleSaveAttendance}
         handleCancelSession={handleCancelSession}
         handleDeleteSession={handleDeleteSession}
@@ -1931,14 +1931,14 @@ export default function SeriesDetailDrawer({
         deletingSession={deletingSession}
         transferringSession={transferringSession}
         setTransferringSession={setTransferringSession}
-        formatDate={formatDate}
+        formatDate={formatDate as any}
       />
 
       <SeriesRestoreSessionModal
         visible={showRestoreModal}
         onClose={() => setShowRestoreModal(false)}
         selectedSession={selectedSession}
-        series={series}
+        series={series as any}
         onRestore={handleRestoreSession}
         restoringSession={restoringSession}
         bottomInset={insets.bottom}

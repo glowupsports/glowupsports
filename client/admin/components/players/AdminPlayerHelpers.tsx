@@ -35,7 +35,7 @@ export const generateAttendanceReportPDF = (stats: AdminPlayerStats, player: Adm
   // Group sessions by month
   const sessionsByMonth: { [key: string]: AdminPlayerSessionItem[] } = {};
   pastSessions.forEach((session: AdminPlayerSessionItem) => {
-    const sessionDate = new Date(session.startTime);
+    const sessionDate = new Date(session.startTime!);
     const monthKey = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}`;
     if (!sessionsByMonth[monthKey]) {
       sessionsByMonth[monthKey] = [];
@@ -61,7 +61,7 @@ export const generateAttendanceReportPDF = (stats: AdminPlayerStats, player: Adm
     const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     
     const rowsHtml = sessions.map((session: AdminPlayerSessionItem) => {
-      const sessionDate = new Date(session.startTime);
+      const sessionDate = new Date(session.startTime!);
       const isAttended = session.attended === "present";
       const isAbsent = session.attended === "absent" || session.attended === "no_show";
       const statusLabel = isAttended ? "Present" : isAbsent ? "Absent" : "Pending";
@@ -301,7 +301,7 @@ export const generateAttendanceReportPDF = (stats: AdminPlayerStats, player: Adm
       const { uri } = await printToFileAsync({ html: htmlContent });
       const FileSystem = await import("expo-file-system");
       const Sharing = await import("expo-sharing");
-      const newUri = `${FileSystem.cacheDirectory}${safeName}_Attendance_Report_${Date.now()}.pdf`;
+      const newUri = `${(FileSystem as any).cacheDirectory}${safeName}_Attendance_Report_${Date.now()}.pdf`;
       await FileSystem.moveAsync({ from: uri, to: newUri });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(newUri, {

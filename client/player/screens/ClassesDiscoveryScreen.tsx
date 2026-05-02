@@ -145,7 +145,7 @@ function SportFilterBottomSheet({
     { id: "all", label: "All Sports", icon: "globe-outline" },
     { id: "tennis", label: "Tennis", icon: "tennisball-outline" },
     { id: "padel", label: "Padel", icon: "square-outline" },
-    { id: "pickleball", label: "Pickleball", icon: "oval-outline" },
+    { id: "pickleball", label: "Pickleball", icon: "ellipse-outline" },
   ];
 
   return (

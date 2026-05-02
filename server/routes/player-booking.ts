@@ -353,7 +353,7 @@ router.get(
               totalReviews: 0,
               availableForPrivate: true,
               availableForGroup: true,
-              isExternalPublicCoach: true,
+              isExternalPublicCoach: true as any,
             },
           ];
         }
@@ -1818,7 +1818,7 @@ router.get(
           const list = waitlistBySessionId.get(w.sessionId) || [];
           list.push({
             playerId: w.playerId,
-            status: w.status,
+            status: w.status ?? "",
             offeredAt: w.offeredAt,
             claimWindowMinutes: w.claimWindowMinutes,
             createdAt: w.createdAt,
@@ -2407,10 +2407,10 @@ router.post(
       // Get current credit info for display (no deduction)
       const activePackages = await storage.getActivePlayerPackages(
         playerId,
-        session.academyId || player.academyId,
+        (session.academyId || player.academyId) ?? undefined,
       );
       const remainingCredits = activePackages.reduce(
-        (sum, pkg) => sum + pkg.remainingCredits,
+        (sum, pkg) => sum + Number(pkg.remainingCredits),
         0,
       );
       const matchingPackage = activePackages.find(
@@ -3023,7 +3023,6 @@ router.post(
         sessionId,
         reason: reason || "player_left_session",
         hoursBeforeSession: Math.round(Math.max(0, hoursUntilSession)),
-        isLateNotice: isLateCancel,
         makeUpEligibility: isLateCancel ? "not_eligible" : "eligible",
       });
 
@@ -3043,7 +3042,7 @@ router.post(
             playerId,
             academyId: session.academyId || player.academyId,
             type: "refund",
-            amount: 0,
+            amount: String(0),
             reason: "make_up_credit_refund",
             sessionId,
             metadata: JSON.stringify({
@@ -3054,14 +3053,14 @@ router.post(
           });
         } else {
           // Refund regular credit - use the amount from the original transaction
-          const originalAmount = Math.abs(playerJoinTx.amount || 1);
+          const originalAmount = Math.abs(Number(playerJoinTx.amount) || 1);
           creditRefunded = true;
 
           await storage.createCreditTransaction({
             playerId,
             academyId: session.academyId || player.academyId,
             type: "refund",
-            amount: originalAmount,
+            amount: String(originalAmount),
             reason: "session_cancel_early",
             sessionId,
             metadata: JSON.stringify({
@@ -4891,7 +4890,7 @@ router.post(
           endDate: endDate ? new Date(endDate) : new Date(startDate),
           reason: reason || "Not available",
           createdAt: new Date(),
-        })
+        } as any)
         .returning();
 
       res.json(exception[0]);
@@ -5317,7 +5316,7 @@ router.post(
         : new Date();
       const notes = (req.body?.notes || "").toString().slice(0, 1000) || null;
       const academySettings = await storage.getAcademySettings(
-        player.academyId,
+        player.academyId!,
       );
       const currency = academySettings?.currency || "AED";
 
@@ -5528,7 +5527,7 @@ router.get(
       }
 
       const academy = player.academyId
-        ? await storage.getAcademy(player.academyId)
+        ? await storage.getAcademy(player.academyId!)
         : null;
 
       // Get pending and overdue invoices
@@ -5707,7 +5706,7 @@ router.get(
         ? await storage.getAcademySettings(invoice.academyId)
         : null;
 
-      const lineItems = parseLineItems(invoice.lineItems);
+      const lineItems = parseLineItems(invoice.lineItems as string | null);
       const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
 
       const invoiceData = {
@@ -5792,7 +5791,7 @@ router.get(
       const COURT_CREDIT_VALUE_AED = 5;
       const COURT_CREDIT_QUANTITIES = [10, 25, 50, 100];
 
-      const pricing = await storage.getAcademyPricing(player.academyId);
+      const pricing = await storage.getAcademyPricing(player.academyId!);
 
       const packages: {
         id: string;
@@ -5886,12 +5885,12 @@ router.get(
         return res.status(403).json({ error: "Access denied" });
       }
 
-      const academy = await storage.getAcademy(player.academyId);
+      const academy = await storage.getAcademy(player.academyId!);
       if (!academy) {
         return res.status(404).json({ error: "Academy not found" });
       }
 
-      const settings = await storage.getAcademySettings(player.academyId);
+      const settings = await storage.getAcademySettings(player.academyId!);
       const currency = settings?.currency || "AED";
       const defaultLessonPrice = settings?.defaultLessonPrice
         ? parseFloat(settings.defaultLessonPrice)
@@ -5907,7 +5906,7 @@ router.get(
         .from(academyPricing)
         .where(
           and(
-            eq(academyPricing.academyId, player.academyId),
+            eq(academyPricing.academyId, player.academyId!),
             eq(academyPricing.isActive, true),
             lte(academyPricing.effectiveFrom, today),
             or(
@@ -5988,7 +5987,7 @@ router.post(
 
       // Get the academy owner's PIN for verification
       // Uses the same PIN as Parent Dashboard access
-      const academy = await storage.getAcademy(player.academyId);
+      const academy = await storage.getAcademy(player.academyId!);
       if (!academy) {
         return res.status(404).json({ error: "Academy not found" });
       }
@@ -6000,7 +5999,7 @@ router.post(
 
       // Fallback: if no owner set, get first coach of academy
       if (!ownerCoach) {
-        const coaches = await storage.getCoachesByAcademy(player.academyId);
+        const coaches = await storage.getCoachesByAcademy(player.academyId!);
         ownerCoach = coaches[0] || null;
       }
 
@@ -6054,7 +6053,7 @@ router.post(
           pricePerCredit = "5.00";
         } else {
           // Get current pricing from academy for session types
-          const pricing = await storage.getAcademyPricing(player.academyId);
+          const pricing = await storage.getAcademyPricing(player.academyId!);
           const sessionPricing = pricing.find(
             (p) => p.sessionType === sessionType,
           );
@@ -6100,14 +6099,15 @@ router.post(
         }
         templateData = {
           name: template.name,
-          creditType: template.sessionType,
+          creditType: template.sessionType ?? "",
           credits: template.credits,
-          pricePerCredit:
+          pricePerCredit: String(
             template.credits > 0
               ? Number(template.price) / template.credits
-              : Number(template.price),
-          currency: template.currency,
-          validityDays: template.validityDays,
+              : Number(template.price)
+          ),
+          currency: template.currency ?? "",
+          validityDays: template.validityDays ?? 0,
         };
       }
 
@@ -6123,8 +6123,8 @@ router.post(
         academyId: player.academyId,
         name: templateData.name,
         creditType: templateData.creditType,
-        totalCredits: templateData.credits,
-        remainingCredits: templateData.credits,
+        totalCredits: String(templateData.credits),
+        remainingCredits: String(templateData.credits),
         purchasedAt: now,
         expiresAt,
         pricePerCredit: templateData.pricePerCredit,
@@ -6148,7 +6148,7 @@ router.post(
         parseFloat(templateData.pricePerCredit) * templateData.credits
       ).toFixed(2);
       const invoiceNumber = await storage.generateInvoiceNumber(
-        player.academyId,
+        player.academyId!,
       );
       const invoice = await storage.createInvoice({
         playerId,
@@ -6159,7 +6159,7 @@ router.post(
         amount: totalAmount,
         currency: templateData.currency,
         status: "pending",
-        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         lineItems: [
           {
             description: templateData.name,
@@ -6234,15 +6234,15 @@ router.post(
         await import("../services/credit-engine");
       const type = normalizeSessionTypeToCreditType(pkg.creditType);
       const result = await purchasePackage({
-        playerId: pkg.playerId,
-        academyId: pkg.academyId,
+        playerId: pkg.playerId!,
+        academyId: pkg.academyId!,
         type,
         qty: Number(pkg.totalCredits),
         pricePerCredit: parseFloat(String(pkg.pricePerCredit ?? "0")),
         currency: pkg.currency ?? "AED",
         invoiceId: invoice.id,
         sourcePackageId: pkg.id,
-        purchasedAt: pkg.purchasedAt ?? new Date(),
+        purchaseDate: pkg.purchaseDate ?? new Date(),
         expiresAt: pkg.expiryDate ? new Date(pkg.expiryDate) : null,
         actorRole: "system",
       });
@@ -6344,7 +6344,7 @@ router.post(
         resolvedPrice = "5.00";
       } else {
         const lookupType = creditType === "semi_private" ? "semi" : creditType;
-        const pricing = await storage.getAcademyPricing(player.academyId);
+        const pricing = await storage.getAcademyPricing(player.academyId!);
         const sessionPricing = pricing.find(
           (p) => p.sessionType === lookupType,
         );
@@ -6380,8 +6380,8 @@ router.post(
         academyId: player.academyId,
         name: packageName,
         creditType,
-        totalCredits: creditsInt,
-        remainingCredits: creditsInt,
+        totalCredits: String(creditsInt),
+        remainingCredits: String(creditsInt),
         purchasedAt: now,
         expiresAt,
         pricePerCredit: resolvedPrice,
@@ -6402,7 +6402,7 @@ router.post(
 
       const totalAmount = (parseFloat(resolvedPrice) * creditsInt).toFixed(2);
       const invoiceNumber = await storage.generateInvoiceNumber(
-        player.academyId,
+        player.academyId!,
       );
 
       const alreadyPaid = paymentMethod === "already_paid";
@@ -6425,7 +6425,7 @@ router.post(
         amount: totalAmount,
         currency: resolvedCurrency,
         status: "pending",
-        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+        dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         paidAt: null,
         lineItems: [
           {
@@ -6533,7 +6533,7 @@ router.get(
           .where(
             and(
               eq(parentPlayerRelations.playerId, playerId),
-              eq(parentPlayerRelations.parentUserId, userId),
+              eq(parentPlayerRelations.parentUserId, userId!),
             ),
           )
           .limit(1);
@@ -6743,7 +6743,7 @@ router.post(
           ? sanitizeMessage(bestForPlayerType)
           : null,
         reviewerAgeCategory,
-        reviewerLevel,
+        reviewerLevel: reviewerLevel != null ? String(reviewerLevel) : undefined,
         sessionCountAtReview: sessionCount,
       });
 
@@ -7234,7 +7234,7 @@ router.get(
             time,
             available: !isBlockedBySession && !isBlockedByAvailability,
             coachBusy: coachBusySlots.has(time),
-            price: court.pricePerHour,
+            price: court.pricePerHour ?? undefined,
             currency: court.currency || "AED",
           });
         }
@@ -7675,7 +7675,6 @@ router.post(
                 type: "booking_invite",
                 title: "Court Booking Invite",
                 message: `You've been invited to play on ${date} at ${startTime}`,
-                userId: null,
                 playerId: friendId,
                 academyId: court.academyId,
                 data: { bookingId: booking.id, inviteId: invite.id },
@@ -8369,7 +8368,7 @@ router.get(
       const matches = rows.map((r) => ({
         ...r,
         preferredDate:
-          r.preferredDate instanceof Date
+          (r.preferredDate as any) instanceof Date
             ? r.preferredDate.toISOString().slice(0, 10)
             : (r.preferredDate as string | null),
       }));
@@ -9174,7 +9173,6 @@ router.post(
           type: "open_match_join",
           title: "Player Joined",
           message: `Someone joined your open match!`,
-          userId: null,
           playerId: hostPlayerId,
           academyId: hostAcademyId,
           data: { matchId },
@@ -9336,7 +9334,7 @@ router.post(
           .json({ error: "Only the host can invite players" });
       }
 
-      if (match.currentPlayers >= match.maxPlayers) {
+      if ((match.currentPlayers ?? 0) >= (match.maxPlayers ?? 0)) {
         return res.status(400).json({ error: "Match is already full" });
       }
 
@@ -9471,7 +9469,6 @@ router.post(
           type: "open_match_kick",
           title: "Removed from match",
           message: `${hostName} removed you from the open match.`,
-          userId: null,
           playerId: targetPlayerId,
           academyId: match.academyId,
           data: { matchId },

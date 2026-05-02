@@ -171,7 +171,7 @@ function PadKeyIcon({ onPress, disabled }: { onPress: () => void; disabled?: boo
         disabled && styles.padKeyDisabled,
       ]}
     >
-      <Feather name="delete" size={24} color={Colors.textPrimary} />
+      <Feather name="delete" size={24} color={Colors.dark.textPrimary} />
     </Pressable>
   );
 }

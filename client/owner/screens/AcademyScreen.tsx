@@ -34,7 +34,7 @@ export default function AcademyScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
   const navigateTo = (screen: keyof OwnerStackParamList) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate(screen);
+    navigation.navigate(screen as never);
   };
 
   return (

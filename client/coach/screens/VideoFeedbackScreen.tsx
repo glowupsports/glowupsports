@@ -70,7 +70,7 @@ function VideoPreview({
   duration: number;
 }) {
   const player = useVideoPlayer(uri, (p) => { p.loop = false; });
-  const { currentTime } = useEvent(player, "timeUpdate", { currentTime: player.currentTime });
+  const { currentTime } = useEvent(player, "timeUpdate", { currentTime: player.currentTime } as any);
 
   React.useEffect(() => {
     onPositionChange(currentTime ?? 0, player.duration ?? 0);
@@ -422,7 +422,7 @@ export default function VideoFeedbackScreen() {
         <EmptyStateCard
           icon="videocam-outline"
           title="No video feedback sent yet"
-          message="Send your first video feedback from the Send tab"
+          description="Send your first video feedback from the Send tab"
         />
       ) : (
         <FlatList

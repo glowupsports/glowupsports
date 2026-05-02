@@ -176,7 +176,7 @@ export async function computeCreditDrift(
   const key = (pid: string, aid: string) => `${pid}::${aid}`;
 
   for (const raw of candidates.rows) {
-    const r = raw as CandidateRow;
+    const r = raw as unknown as CandidateRow;
     let isOriginallyPrivate = r.session_type === "private";
     if (r.session_type === "private_adjusted") {
       if (r.series_id) {
@@ -238,7 +238,7 @@ export async function computeCreditDrift(
   type Actual = { actual: number; chargedSpIds: Set<string> };
   const actuals = new Map<string, Actual>();
   for (const raw of consumes.rows) {
-    const r = raw as ConsumeRow;
+    const r = raw as unknown as ConsumeRow;
     const k = key(r.player_id, r.academy_id);
     let a = actuals.get(k);
     if (!a) {
@@ -430,7 +430,7 @@ export async function computeMissingAttendanceDrift(
   `);
 
   const rows: MissingAttendanceRow[] = result.rows.map((raw) => {
-    const r = raw as MissingRowRaw;
+    const r = raw as unknown as MissingRowRaw;
     return {
       playerId: r.player_id,
       playerName: r.player_name || "(unknown)",

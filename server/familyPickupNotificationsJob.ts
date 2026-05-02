@@ -86,7 +86,7 @@ async function runPickupReminders(): Promise<void> {
     // Restrict to players that belong to a family group (single-member groups
     // count — solo players still get their own pickup nudge to whichever
     // device they're signed in on).
-    const enrolledPlayerIds = Array.from(new Set(enrolments.map((e) => e.playerId)));
+    const enrolledPlayerIds = Array.from(new Set(enrolments.map((e) => e.playerId).filter((id): id is string => id !== null)));
     const familyRows = await db
       .select({
         playerId: familyMembers.playerId,
@@ -156,10 +156,10 @@ async function runPickupReminders(): Promise<void> {
     }
 
     const candidates: PickupCandidate[] = enrolments
-      .filter((e) => familyGroupByPlayer.has(e.playerId) && e.endTime)
+      .filter((e) => familyGroupByPlayer.has(e.playerId!) && e.endTime && e.sessionId && e.playerId)
       .map((e) => ({
-        sessionId: e.sessionId,
-        playerId: e.playerId,
+        sessionId: e.sessionId!,
+        playerId: e.playerId!,
         playerName: e.playerName,
         endTime: e.endTime!,
       }));

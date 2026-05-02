@@ -1707,7 +1707,6 @@ import { Router, type Request, type Response } from "express";
             academyId,
             message: message || null,
             status: "approved",
-            reviewedAt: new Date(),
           });
 
           await storage.updatePlayer(playerId, { academyId });

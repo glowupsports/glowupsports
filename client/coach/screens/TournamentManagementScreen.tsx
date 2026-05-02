@@ -19,7 +19,7 @@ import { Spacing, Colors, GlowColors, TextColors, Backgrounds } from "@/constant
 import { apiRequest } from "@/lib/query-client";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
-import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type NavigationProp = NativeStackNavigationProp<CoachStackParamList>;

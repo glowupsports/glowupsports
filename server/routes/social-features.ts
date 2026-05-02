@@ -1651,7 +1651,7 @@ function socialPostUploadHandler(
           // Default: for_you - aggregate friends + groups + academy posts
           // Get user's friends and groups for proper filtering
           let forYouFriendIds = [];
-          let forYouGroupIds = [];
+          let forYouGroupIds: string[] = [];
           
           try {
             // Get friend user IDs
@@ -1874,7 +1874,7 @@ function socialPostUploadHandler(
             eq(postReactionsTable.userId, userId),
             inArray(postReactionsTable.postId, postIds)
           ));
-          userReactions.forEach(r => reactionMap.set(r.postId, r.reactionType));
+          userReactions.forEach(r => reactionMap.set(r.postId!, r.reactionType));
         } catch (reactionError) {
           console.error("Error fetching reactions:", reactionError);
         }

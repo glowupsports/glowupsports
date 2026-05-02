@@ -42,10 +42,7 @@ export default function CourtsManagementScreen() {
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<Court>) => {
-      return apiRequest("/api/courts", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/courts", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });
@@ -57,10 +54,7 @@ export default function CourtsManagementScreen() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Court> }) => {
-      return apiRequest(`/api/courts/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("PATCH", `/api/courts/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courts"] });

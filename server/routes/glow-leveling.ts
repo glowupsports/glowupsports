@@ -830,7 +830,7 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
         playerNote: playerNote || null,
         trialReady: trialReady || false,
         note,
-      })
+      } as any)
       .returning();
     
     // Update pillar progress based on feedback
@@ -860,7 +860,7 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
     
     // Process individual skill scores if provided
     if (skillRatings && Object.keys(skillRatings).length > 0) {
-      await processSkillScores(playerId, sessionId, coachId, skillRatings);
+      await processSkillScores(playerId, sessionId, coachId ?? undefined, skillRatings);
     }
     
     // Award XP to player for receiving feedback (session attendance)
@@ -1237,11 +1237,11 @@ router.post("/api/glow/trials/:trialId/complete", authMiddleware, requireAcademy
       .set({
         status: newStatus,
         completedAt: new Date(),
-        testResults: testResults ? JSON.stringify(testResults) : null,
+        testResults: testResults ?? null,
         evaluatedBy: coachId,
         evaluationNotes,
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(levelTrials.id, trialId));
     
     // Update player's level based on result
@@ -1603,9 +1603,9 @@ router.post("/api/glow/trials/:trialId/tests/:testId", authMiddleware, requireAc
     await db
       .update(levelTrials)
       .set({
-        testResults: JSON.stringify(currentResults),
+        testResults: currentResults,
         updatedAt: new Date(),
-      })
+      } as any)
       .where(eq(levelTrials.id, trialId));
     
     res.json({ success: true, testId, result: currentResults[testId] });
@@ -1960,7 +1960,7 @@ router.post("/api/glow/players/:playerId/assessment", authMiddleware, requireAca
           movingAverage: score, // Initial moving average
           observedByCoachId: coachId || undefined,
           confidence: 1.0,
-        }).onConflictDoNothing();
+        } as any).onConflictDoNothing();
       }
     }
     
@@ -1973,9 +1973,9 @@ router.post("/api/glow/players/:playerId/assessment", authMiddleware, requireAca
       if (existing.length > 0) {
         await db.update(playerPillarProgress)
           .set({
-            currentScore: scores.percentage,
-            trend: scores.percentage > (existing[0].currentScore || 0) ? "up" : 
-                   scores.percentage < (existing[0].currentScore || 0) ? "down" : "stable",
+            currentScore: String(scores.percentage),
+            trend: scores.percentage > Number(existing[0].currentScore || 0) ? "up" : 
+                   scores.percentage < Number(existing[0].currentScore ?? 0) ? "down" : "stable",
             lastUpdated: new Date(),
           })
           .where(and(eq(playerPillarProgress.playerId, playerId), eq(playerPillarProgress.pillar, pillar)));
@@ -1984,9 +1984,9 @@ router.post("/api/glow/players/:playerId/assessment", authMiddleware, requireAca
           id: `${playerId}_${pillar}`,
           playerId,
           pillar,
-          currentScore: scores.percentage,
+          currentScore: String(scores.percentage),
           trend: "stable",
-        });
+        } as any);
       }
     }
     
@@ -2215,10 +2215,10 @@ router.get("/api/coach/sessions/pending-feedback", authMiddleware, requireAcadem
     // Build per-session player map
     const playersBySession = new Map<string, { id: string; name: string; attendanceStatus: string }[]>();
     for (const p of presentPlayers) {
-      if (!playersBySession.has(p.sessionId)) {
-        playersBySession.set(p.sessionId, []);
+      if (!playersBySession.has(p.sessionId!)) {
+        playersBySession.set(p.sessionId!, []);
       }
-      playersBySession.get(p.sessionId)!.push({ id: p.playerId, name: p.playerName, attendanceStatus: p.attendanceStatus ?? "present" });
+      playersBySession.get(p.sessionId!)!.push({ id: p.playerId!, name: p.playerName, attendanceStatus: p.attendanceStatus ?? "present" });
     }
 
     const pending = [];

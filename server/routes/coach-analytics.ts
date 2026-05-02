@@ -73,7 +73,7 @@ import { Router, type Response } from "express";
     "/api/players/:id/observation-trends",
     authMiddleware,
     requireAcademy,
-    validatePlayerOwnership,
+    (validatePlayerOwnership as any),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id: playerId } = req.params;
@@ -101,7 +101,7 @@ import { Router, type Response } from "express";
     "/api/players/:id/domain-xp",
     authMiddleware,
     requireAcademy,
-    validatePlayerOwnership,
+    (validatePlayerOwnership as any),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id: playerId } = req.params;

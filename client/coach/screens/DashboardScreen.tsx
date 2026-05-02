@@ -2273,7 +2273,7 @@ export default function DashboardScreen() {
     }
   }, [refetchCalendar, refetchWeeklyCalendar, queryClient]);
   
-  const allSessions = weeklyCalendarData?.ownSessions || calendarData?.ownSessions || [];
+  const allSessions = (weeklyCalendarData?.ownSessions || calendarData?.ownSessions || []) as NonNullable<typeof calendarData>["ownSessions"];
 
   // Pulse animation for live indicator
   const pulseScale = useSharedValue(1);
@@ -2596,7 +2596,7 @@ export default function DashboardScreen() {
     const pendingSessions = todaysSessions.filter(
       (s) => new Date(s.endTime) < now && s.status !== "completed"
     );
-    return pendingSessions.reduce((total, s) => total + (s.players?.length || 0), 0);
+    return pendingSessions.reduce((total, s) => total + ((s as any).players?.length || 0), 0);
   }, [todaysSessions]);
 
   const currentSession = useMemo(() => {
@@ -2755,7 +2755,7 @@ export default function DashboardScreen() {
   };
 
   const coachChecklistSteps: ChecklistStep[] = useMemo(() => {
-    const hasPlayers = (calendarData?.ownSessions || []).some(s => s.players && s.players.length > 0);
+    const hasPlayers = (calendarData?.ownSessions || []).some(s => (s as any).players && (s as any).players.length > 0);
     const hasSessions = (calendarData?.ownSessions || []).length > 0;
     const hasProfile = !!coach?.name;
     
@@ -3116,7 +3116,7 @@ export default function DashboardScreen() {
             style={dashReviewStyles.reviewsCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              navigation.navigate("MyReviews");
+              navigation.navigate("MyReviews" as never);
             }}
           >
             <View style={dashReviewStyles.reviewsLeft}>
@@ -3150,7 +3150,7 @@ export default function DashboardScreen() {
             style={dashCommunityStyles.actionCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("CoachPostComposer", { mode: "coach" });
+              navigation.navigate("CoachPostComposer" as never, { mode: "coach" } as never);
             }}
           >
             <Ionicons name="megaphone" size={20} color={Colors.dark.primary} />
@@ -3161,7 +3161,7 @@ export default function DashboardScreen() {
             style={dashCommunityStyles.actionCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("LessonRecapDrafts");
+              navigation.navigate("LessonRecapDrafts" as never);
             }}
           >
             <Ionicons name="clipboard" size={20} color={"#9AE66E"} />
@@ -3522,8 +3522,8 @@ export default function DashboardScreen() {
                 id: sess.sessionId,
                 coachId: coach?.id ?? null,
                 courtId: null,
-                startTime: sess.startTime,
-                endTime: sess.endTime,
+                startTime: String(sess.startTime),
+                endTime: String(sess.endTime),
                 duration: Math.round(
                   (new Date(sess.endTime).getTime() - new Date(sess.startTime).getTime()) / 60000
                 ),
@@ -3947,7 +3947,7 @@ export default function DashboardScreen() {
 
       <AttendanceDrawer
         visible={!!selectedSessionForAttendance}
-        session={selectedSessionForAttendance}
+        session={selectedSessionForAttendance as any}
         onClose={() => setSelectedSessionForAttendance(null)}
         onSave={() => {
           setSelectedSessionForAttendance(null);

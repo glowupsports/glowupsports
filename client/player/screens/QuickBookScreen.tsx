@@ -97,17 +97,14 @@ export default function QuickBookScreen() {
 
   const bookMutation = useMutation({
     mutationFn: async (data: { courtId: string; date: string; time: string; inviteFriends?: string[]; openMatch?: boolean; matchType?: "singles" | "doubles" }) => {
-      const response = await apiRequest(`${getApiUrl()}/api/courts/${data.courtId}/book`, {
-        method: "POST",
-        body: JSON.stringify({
+      const response = await apiRequest("POST", `/api/courts/${data.courtId}/book`, {
           date: data.date,
           startTime: data.time,
           endTime: calculateEndTime(data.time),
           inviteFriendIds: data.inviteFriends,
           createOpenMatch: data.openMatch,
           matchType: data.matchType,
-        }),
-      });
+        });
       return response;
     },
     onSuccess: () => {

@@ -10,6 +10,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   interpolate,
+  SharedValue,
   Extrapolation,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
@@ -58,7 +59,7 @@ function ActionRow({
 }: {
   action: QuickAction;
   index: number;
-  progress: Animated.SharedValue<number>;
+  progress: SharedValue<number>;
   primaryColor: string;
   isOpen: boolean;
   onPress: () => void;

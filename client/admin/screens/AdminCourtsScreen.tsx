@@ -161,7 +161,7 @@ export default function AdminCourtsScreen() {
         lat: result.lat,
         lng: result.lng,
         timezone: "Asia/Dubai",
-      }) as { id: string };
+      }) as unknown as { id: string };
       queryClient.invalidateQueries({ queryKey: ["/api/admin/locations"] });
       setFormData(prev => ({ ...prev, locationId: newLoc.id }));
       setCourtAddressSearch(prev =>
@@ -778,7 +778,7 @@ export default function AdminCourtsScreen() {
                 <Text style={styles.label}>Court Photo</Text>
                 <Pressable 
                   style={styles.photoUploadButton}
-                  onPress={pickAndUploadPhoto}
+                  onPress={() => { void pickAndUploadPhoto(); }}
                   disabled={uploadingPhoto}
                 >
                   {uploadingPhoto ? (
@@ -995,7 +995,7 @@ export default function AdminCourtsScreen() {
                 <Text style={styles.label}>Court Photo</Text>
                 <Pressable 
                   style={styles.photoUploadButton}
-                  onPress={pickAndUploadPhoto}
+                  onPress={() => { void pickAndUploadPhoto(); }}
                   disabled={uploadingPhoto}
                 >
                   {uploadingPhoto ? (

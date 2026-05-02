@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   },
   levelName: {
     fontWeight: "600",
-    color: Colors.textPrimary,
+    color: Colors.dark.textPrimary,
   },
   ballIndicator: {
     width: 12,

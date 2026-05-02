@@ -108,7 +108,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: Spacing.md,
   },
   title: {
-    ...Typography.title,
+    ...Typography.title2,
     color: Colors.dark.text,
     fontSize: 20,
     fontWeight: "700",

@@ -90,7 +90,7 @@ async function autoCancel(
 
   for (const sp of allSessionPlayers) {
     const cancelResult = await storageArg.cancelSessionDebt(
-      sp.playerId,
+      sp.playerId!,
       sessionId,
     );
     if (cancelResult.cancelled) {
@@ -1087,7 +1087,7 @@ router.get(
             start,
             end,
             excludeSessionId as string | undefined,
-            academyId,
+            academyId ?? undefined,
           );
           if (playerConflict) {
             conflicts.push(`Player is already booked for this time`);
@@ -1566,11 +1566,11 @@ router.post(
 
       if (academyId && coachId) {
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        let seriesTitle: string;
-        let effectiveDayOfWeek: number;
-        let seriesStartDateStr: string;
-        let seriesEndDateStr: string;
-        let effectiveWeekCount: number;
+        let seriesTitle: string = "";
+        let effectiveDayOfWeek: number = 0;
+        let seriesStartDateStr: string = "";
+        let seriesEndDateStr: string = "";
+        let effectiveWeekCount: number = 0;
 
         if (isFlexibleSession) {
           // FLEXIBLE: Smart merge - check if existing flexible series matches these players
@@ -1721,7 +1721,7 @@ router.post(
               // of forcing the academy to keep 100% of the revenue.
               try {
                 const pricing = await storage.calculateSessionPricing(
-                  academyId,
+                  academyId ?? undefined,
                   coachId,
                   sessionType,
                   duration,
@@ -1753,7 +1753,6 @@ router.post(
               duration,
               status: "scheduled",
               maxPlayers: matchingSeries.maxPlayers,
-              xpValue: matchingSeries.xpPerSession || 20,
               ...sessionPricing,
               ...courtBookingPayload,
             });
@@ -1779,7 +1778,7 @@ router.post(
                     sessionType,
                     newSession.startTime || start,
                     coachNameSmart,
-                    academyId,
+                    academyId ?? undefined,
                   ).catch((err) =>
                     console.error(
                       "[PushNotification] SmartSession one-off notification failed:",
@@ -1838,7 +1837,7 @@ router.post(
 
         if (!seriesId) {
           const series = await storage.createCoachingSeries({
-            academyId,
+            academyId: academyId ?? undefined,
             coachId,
             courtId: courtId || null,
             locationId: locationId || null,
@@ -1883,8 +1882,7 @@ router.post(
             for (const playerId of playerIds) {
               await storage.addPlayerToSeries({
                 seriesId: series.id,
-                playerId,
-                status: "active",
+                    status: "active",
                 joinedAt: start,
               });
             }
@@ -1967,7 +1965,7 @@ router.post(
           if (academyId && coachId) {
             try {
               const pricing = await storage.calculateSessionPricing(
-                academyId,
+                academyId ?? undefined,
                 coachId,
                 sessionType,
                 duration,
@@ -2237,8 +2235,7 @@ router.post(
             if (result.success && result.eventId) {
               await storage.updateSession(
                 session.id,
-                { googleCalendarEventId: result.eventId },
-                academyId!,
+                { googleCalendarEventId: result.eventId }
               );
             }
           })
@@ -2461,7 +2458,7 @@ router.post(
 
       // If no existing series, create a flexible series
       if (!seriesId && academyId) {
-        let seriesTitle = `Flexible ${sessionType === "private" ? "Private" : sessionType === "semi_private" ? "Semi-Private" : "Group"}`;
+        let seriesTitle: string = "" = `Flexible ${sessionType === "private" ? "Private" : sessionType === "semi_private" ? "Semi-Private" : "Group"}`;
         if (playerIds && playerIds.length > 0) {
           const playerNames: string[] = [];
           for (const pid of playerIds.slice(0, 2)) {
@@ -2561,7 +2558,7 @@ router.post(
           endTime: end,
           sessionType,
           status: "scheduled",
-          name: notes || null,
+          title: notes || null,
           ballLevel: primaryBallLevel,
           ballLevels: ballLevelsArr ?? undefined,
           skillLevel: skillLevel || null,
@@ -2596,7 +2593,6 @@ router.post(
             await storage.addPlayerToSession({
               sessionId: session.id,
               playerId,
-              status: "confirmed",
             });
           }
         }
@@ -2847,7 +2843,7 @@ router.post(
 
         try {
           const refundResult = await storage.refundCreditsForSession(
-            sp.playerId,
+            sp.playerId!,
             id,
             academyId,
           );
@@ -2861,7 +2857,7 @@ router.post(
             console.warn(
               `[DeleteSession] refundCreditsForSession returned no-op for ${sp.playerId}: ${reason}`,
             );
-            refundFailures.push({ playerId: sp.playerId, reason });
+            refundFailures.push({ playerId: sp.playerId!, reason });
           }
         } catch (err) {
           const reason = err instanceof Error ? err.message : "refund_threw";
@@ -2869,7 +2865,7 @@ router.post(
             `[DeleteSession] refundCreditsForSession threw for ${sp.playerId}:`,
             err,
           );
-          refundFailures.push({ playerId: sp.playerId, reason });
+          refundFailures.push({ playerId: sp.playerId!, reason });
         }
       }
       if (refundedCount > 0) {
@@ -2993,7 +2989,7 @@ router.post(
       if (academyId) {
         broadcastSessionUpdate(academyId, {
           sessionId: id,
-          type: "deleted",
+          type: "cancelled",
         });
       }
 
@@ -3102,7 +3098,6 @@ router.post(
             await storage.addPlayerToSession({
               sessionId: id,
               playerId: sp.playerId,
-              status: "enrolled",
             });
           }
         }
@@ -3114,18 +3109,18 @@ router.post(
         entityId: id,
         action: "transfer",
         performedBy: currentCoachId!,
-        details: {
+        metadata: JSON.stringify({
           fromCoachId: currentCoachId,
           toCoachId: targetCoachId,
           reason: reason || "Session transferred to another coach",
-        },
+        }),
       });
 
       // Broadcast update to both coaches
       if (academyId) {
         broadcastSessionUpdate(academyId, {
           sessionId: id,
-          type: "transferred",
+          type: "updated",
           fromCoachId: currentCoachId,
           toCoachId: targetCoachId,
         });
@@ -3247,11 +3242,11 @@ router.post(
           const creditCheck = await storage.checkPlayerCreditsForSessionType(
             playerId,
             session.sessionType,
-            academyId,
+            academyId ?? undefined,
           );
 
           if (!creditCheck.hasCredits) {
-            const player = await storage.getPlayer(playerId, academyId);
+            const player = await storage.getPlayer(playerId, academyId ?? undefined);
 
             return res.status(200).json({
               warning: "credit_mismatch",
@@ -3299,11 +3294,11 @@ router.post(
         const creditCheck = await storage.checkPlayerCreditsForSessionType(
           playerId,
           session.sessionType,
-          academyId,
+          academyId ?? undefined,
         );
 
         if (!creditCheck.hasCredits) {
-          const player = await storage.getPlayer(playerId, academyId);
+          const player = await storage.getPlayer(playerId, academyId ?? undefined);
           const creditTypeLabel = (creditCheck.creditType || "").replace(
             "_",
             "-",
@@ -3343,13 +3338,12 @@ router.post(
 
           for (const { parentUserId: parentUserIdResolved } of linkedParents) {
             await storage.createNotification({
-              userId: parentUserIdResolved,
               type: "credits_needed",
               title: "Credits Required",
-              message: `${player.name} has been added to a ${creditTypeLabel} lesson but needs ${creditTypeLabel} credits.`,
+              message: `${player?.name ?? "Player"} has been added to a ${creditTypeLabel} lesson but needs ${creditTypeLabel} credits.`,
               metadata: JSON.stringify({
                 playerId,
-                playerName: player.name,
+                playerName: player?.name ?? "Player",
                 sessionId: id,
                 sessionType: session.sessionType,
                 requiredCreditType: creditCheck.creditType,
@@ -4132,7 +4126,6 @@ router.post(
               await storage.createReviewPrompt({
                 playerId,
                 coachId: session.coachId,
-                academyId: session.academyId || req.user?.academyId || "",
                 triggerType: "session_milestone",
                 sessionId: id,
                 isDismissed: false,
@@ -4216,7 +4209,6 @@ router.patch(
       // Mark session as cancelled - no credits consumed
       await storage.updateSession(id, {
         status: "cancelled",
-        notes: reason || "Session cancelled",
       });
 
       // Refund credits for any players who had credits deducted for this session
@@ -4226,7 +4218,7 @@ router.patch(
       for (const sp of sessionPlayersForRefund) {
         if (sp.creditDeductedAt) {
           const refundResult = await storage.refundCreditsForSession(
-            sp.playerId,
+            sp.playerId!,
             id,
             academyId,
           );
@@ -4242,7 +4234,7 @@ router.patch(
       // Cancel any unsettled debt for ALL players — including those processed by ensureCreditProcessed.
       for (const sp of sessionPlayersForRefund) {
         const debtResult = await storage.cancelSessionDebt(
-          sp.playerId,
+          sp.playerId!,
           id,
           "session_cancelled_by_admin",
         );
@@ -4489,7 +4481,7 @@ router.post(
               if (player.email) {
                 sendLevelUpEmail({
                   to: player.email,
-                  playerName: player.name,
+                  playerName: player?.name ?? "Player",
                   newLevel: levelName,
                   totalXP: newTotalXp,
                 }).catch((err) =>
@@ -4513,7 +4505,7 @@ router.post(
       for (const sp of sessionPlayersList) {
         if (sp.playerId && sp.attendanceStatus === "present") {
           sendFeedbackNotification(
-            sp.playerId,
+            sp.playerId!,
             coachName,
             session.name || "Training session",
           ).catch((err) =>

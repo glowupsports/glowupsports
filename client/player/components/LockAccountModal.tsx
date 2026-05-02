@@ -181,14 +181,15 @@ export function LockAccountModal({
     setPinModalOpen(true);
   };
 
-  const handlePinSubmit = (pin: string) => {
-    if (!chosenPreset) return;
+  const handlePinSubmit = async (pin: string): Promise<string | null> => {
+    if (!chosenPreset) return null;
     setPinError(null);
     lockMutation.mutate({
       until: chosenPreset.computeUntil(),
       pin,
       reason: chosenPreset.label,
     });
+    return null;
   };
 
   const presetLabels = useMemo(

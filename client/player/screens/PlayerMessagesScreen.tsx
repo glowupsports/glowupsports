@@ -160,7 +160,7 @@ export default function PlayerMessagesScreen() {
   const renderEmpty = () => (
     <View style={styles.emptyState}>
       <EmptyStateCard
-        icon="message-circle"
+        icon="chatbubbles-outline"
         title="No messages yet"
         description="Start a conversation with your coach or teammates"
         ctaText="New Message"

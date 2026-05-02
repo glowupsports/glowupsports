@@ -505,7 +505,7 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
       if (!coachId) {
         return res.status(400).json({ error: "coachId required for coach_player conversation" });
       }
-      const conversation = await storage.getOrCreateCoachPlayerConversation(coachId, playerId, academyId);
+      const conversation = await storage.getOrCreateCoachPlayerConversation(coachId, playerId, academyId ?? undefined);
       return res.json(conversation);
     }
 
@@ -520,7 +520,7 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
           and(
             eq(conversations.type, "squad"),
             eq(conversations.title, squadId),
-            eq(conversations.academyId, academyId)
+            eq(conversations.academyId, academyId!)
           )
         );
       if (existing.length > 0) {
@@ -625,11 +625,11 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
     }
 
     if (type === "player_player" && otherPlayerId) {
-      const otherPlayer = await storage.getPlayer(otherPlayerId, academyId);
+      const otherPlayer = await storage.getPlayer(otherPlayerId, academyId ?? undefined);
       if (!otherPlayer) {
         return res.status(404).json({ error: "Other player not found" });
       }
-      const existing = await storage.getPlayerToPlayerConversation(playerId, otherPlayerId, academyId);
+      const existing = await storage.getPlayerToPlayerConversation(playerId, otherPlayerId, academyId ?? "");
       if (existing) {
         return res.json(existing);
       }
@@ -671,11 +671,11 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
     }
 
     if (type === "academy") {
-      const existing = await storage.getAcademyConversationForPlayer(playerId, academyId);
+      const existing = await storage.getAcademyConversationForPlayer(playerId, academyId ?? "");
       if (existing) {
         return res.json(existing);
       }
-      const coach = await storage.getFirstCoachForAcademy(academyId);
+      const coach = await storage.getFirstCoachForAcademy(academyId ?? "");
       const conversation = await storage.createConversation({
         type: "academy",
         playerId,
@@ -763,7 +763,7 @@ router.get("/api/player/me/conversations/:id/messages", authMiddleware, requireP
 
     const enriched = await Promise.all(
       messages.map(async (msg) => {
-        const reactions = await storage.getMessageReactionsForPlayer(msg.id, playerId, academyId);
+        const reactions = await storage.getMessageReactionsForPlayer(msg.id, playerId, academyId ?? "");
         const mentions = mentionRowsByMessage.get(msg.id) ?? [];
         return { ...msg, reactions, mentions };
       })
@@ -866,7 +866,7 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
       }
     }
 
-    const participants = await storage.getConversationParticipants(id, undefined, academyId);
+    const participants = await storage.getConversationParticipants(id, undefined, academyId ?? undefined);
 
     // For provider_player conversations: scoped broadcast to avoid academy-wide content leak
     if (conversation.type === "provider_player" && conversation.providerId && academyId) {
@@ -877,15 +877,15 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
       broadcastProviderPlayerMessage(academyId, participantUserIds, {
         conversationId: id,
         message: {
-          id: message.id,
+          id: message!.id,
           content: filteredBody,
-          messageType: message.messageType ?? "text",
+          messageType: message!.messageType ?? "text",
           senderType: "player",
           senderId: playerId,
           senderName: player.name || undefined,
           senderPhotoUrl: player.profilePhotoUrl || null,
           senderBallLevel: player.ballLevel || null,
-          createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
+          createdAt: message!.createdAt?.toISOString() ?? new Date().toISOString(),
         },
       });
     }
@@ -956,15 +956,15 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
     const wsPayload = {
       conversationId: id,
       message: {
-        id: message.id,
+        id: message!.id,
         content: filteredBody,
-        messageType: message.messageType ?? "text",
+        messageType: message!.messageType ?? "text",
         senderType: "player" as const,
         senderId: playerId,
         senderName: player.name || undefined,
         senderPhotoUrl: player.profilePhotoUrl || null,
         senderBallLevel: player.ballLevel || null,
-        createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
+        createdAt: message!.createdAt?.toISOString() ?? new Date().toISOString(),
         mentions: mentionsPayload,
       },
     };
@@ -1211,7 +1211,7 @@ router.get("/api/player/me/lesson-group-chats", authMiddleware, requirePlayerOrO
         and(
           eq(conversations.type, "series_group"),
           eq(conversations.title, series.id),
-          eq(conversations.academyId, academyId),
+          eq(conversations.academyId, academyId!),
         )
       ).limit(1);
 

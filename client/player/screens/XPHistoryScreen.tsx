@@ -57,7 +57,7 @@ export default function XPHistoryScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { playerId } = usePlayer();
-  const { level, currentXp, xpForNextLevel } = usePlayerLevelContext();
+  const { level, xpInCurrentLevel: currentXp, xpNeededForNextLevel: xpForNextLevel } = usePlayerLevelContext();
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 

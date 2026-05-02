@@ -39,7 +39,7 @@ interface SessionTemplate {
 }
 
 type SessionType = "private" | "semi_private" | "group" | "physical" | "activity";
-type BallLevel = "red" | "orange" | "green" | "yellow" | "glow";
+type BallLevel = "red" | "orange" | "green" | "yellow" | "glow" | "blue" | "adult";
 
 const SESSION_TYPES: { value: SessionType; label: string; color: string }[] = [
   { value: "private", label: "Private", color: Colors.dark.primary },

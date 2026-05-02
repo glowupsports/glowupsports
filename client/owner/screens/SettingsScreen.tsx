@@ -547,7 +547,7 @@ export default function SettingsScreen() {
       } else {
         // Native: write to file and share
         // eslint-disable-next-line import/namespace
-        const fileUri = FileSystem.documentDirectory + (response.filename || "players.csv");
+        const fileUri = (FileSystem as any).documentDirectory + (response.filename || "players.csv");
         await FileSystem.writeAsStringAsync(fileUri, csvData);
         
         const canShare = await Sharing.isAvailableAsync();
@@ -592,7 +592,7 @@ export default function SettingsScreen() {
       } else {
         // Native: write to file and share
         // eslint-disable-next-line import/namespace
-        const fileUri = FileSystem.documentDirectory + (response.filename || "sessions.csv");
+        const fileUri = (FileSystem as any).documentDirectory + (response.filename || "sessions.csv");
         await FileSystem.writeAsStringAsync(fileUri, csvData);
         
         const canShare = await Sharing.isAvailableAsync();
@@ -867,7 +867,7 @@ export default function SettingsScreen() {
               icon="person-add"
               title="Coach Invites"
               subtitle="Invite new coaches to your academy"
-              onPress={() => navigation.navigate("InviteManagement")}
+              onPress={() => navigation.navigate("InviteManagement" as never)}
             />
             <SettingRow
               icon="shield-checkmark"

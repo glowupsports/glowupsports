@@ -105,8 +105,9 @@ export default function DesktopAdminSidebar({ activeRoute, onNavigate, academyNa
   const isOwner = user?.role === "academy_owner";
   const [portalMode, setPortalMode] = useState<PortalMode>("admin");
 
-  const initials = user?.name
-    ? user.name
+  const _userDisplayName = user?.displayName ?? user?.username ?? "";
+  const initials = _userDisplayName
+    ? _userDisplayName
         .split(" ")
         .slice(0, 2)
         .map((w: string) => w[0]?.toUpperCase() ?? "")
@@ -178,7 +179,7 @@ export default function DesktopAdminSidebar({ activeRoute, onNavigate, academyNa
           </View>
           <View style={styles.userInfo}>
             <Text style={styles.userName} numberOfLines={1}>
-              {user?.name ?? "Admin"}
+              {user?.displayName ?? user?.username ?? "Admin"}
             </Text>
             <Text style={styles.userRole} numberOfLines={1}>
               {user?.role === "academy_owner" ? "Owner" : "Admin"}

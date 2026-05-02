@@ -284,10 +284,7 @@ export default function RulesAndPoliciesScreen() {
               </View>
               <Switch
                 value={displaySettings.requireConfirmation}
-                onValueChange={(value) => isEditing && setFormData(prev => ({ 
-                  ...prev, 
-                  requireConfirmation: value 
-                }))}
+                onValueChange={(value) => { if (isEditing) setFormData(prev => ({ ...prev, requireConfirmation: value })); }}
                 disabled={!isEditing}
                 trackColor={{ false: Colors.dark.backgroundRoot, true: Colors.dark.gold }}
                 thumbColor={Colors.dark.text}
@@ -375,10 +372,7 @@ export default function RulesAndPoliciesScreen() {
               </View>
               <Switch
                 value={displaySettings.allowWaitlist}
-                onValueChange={(value) => isEditing && setFormData(prev => ({ 
-                  ...prev, 
-                  allowWaitlist: value 
-                }))}
+                onValueChange={(value) => { if (isEditing) setFormData(prev => ({ ...prev, allowWaitlist: value })); }}
                 disabled={!isEditing}
                 trackColor={{ false: Colors.dark.backgroundRoot, true: Colors.dark.gold }}
                 thumbColor={Colors.dark.text}

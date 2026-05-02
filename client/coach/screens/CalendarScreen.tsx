@@ -149,7 +149,7 @@ export default function CalendarScreen() {
   // Sort courts by user-defined position (set in Settings)
   const allCourts = useMemo(() => {
     const courts = calendarData?.courts || [];
-    return [...courts].sort((a, b) => (a.position || 0) - (b.position || 0));
+    return [...courts].sort((a, b) => ((a as any).position || 0) - ((b as any).position || 0));
   }, [calendarData?.courts]);
 
   const exportCalendarToICS = useCallback(async () => {
@@ -501,7 +501,7 @@ export default function CalendarScreen() {
   const hours = displayHours;
   const ownSessions = calendarData?.ownSessions || [];
   const blockedSessions = calendarData?.blockedSessions || [];
-  const coachBlocks = calendarData?.coachBlocks || [];
+  const coachBlocks = (calendarData as any)?.coachBlocks || [];
   const slotReservations = calendarData?.slotReservations || [];
 
   // Compute cross-location busy blocks - show "Busy Elsewhere" on courts where coach is unavailable
@@ -1496,11 +1496,11 @@ export default function CalendarScreen() {
           ownSessions={ownSessions}
           selectedDate={selectedDate}
           academyTimezone={academyTimezone}
-          getSessionPosition={getSessionPosition}
-          handleSessionTap={handleSessionTap}
-          handleSessionLongPress={handleSessionLongPress}
-          handleSessionDragEnd={handleSessionDragEnd}
-          checkDragConflict={checkDragConflict}
+          getSessionPosition={getSessionPosition as any}
+          handleSessionTap={handleSessionTap as any}
+          handleSessionLongPress={handleSessionLongPress as any}
+          handleSessionDragEnd={handleSessionDragEnd as any}
+          checkDragConflict={checkDragConflict as any}
           dragConflict={dragConflict}
           setHoveredSession={setHoveredSession}
           setPressedSession={setPressedSession}
@@ -1552,9 +1552,9 @@ export default function CalendarScreen() {
           allLocations={allLocations}
           screenWidth={screenWidth}
           TIME_COLUMN_WIDTH={TIME_COLUMN_WIDTH}
-          handleSessionTap={handleSessionTap}
-          handleSessionLongPress={handleSessionLongPress}
-          handleWeekSessionDragEnd={handleWeekSessionDragEnd}
+          handleSessionTap={handleSessionTap as any}
+          handleSessionLongPress={handleSessionLongPress as any}
+          handleWeekSessionDragEnd={handleWeekSessionDragEnd as any}
           setSelectedSlot={setSelectedSlot}
           setShowCreateDrawer={setShowCreateDrawer}
           coachBlocks={coachBlocks}

@@ -679,8 +679,8 @@ export function PlayerChatFooter() {
   // we can apply immediately because we synthesize a placeholder room.
   useEffect(() => {
     if (!chatTarget) return;
-    if (chatTarget.conversationId) {
-      const conv = conversations.find((c) => c.id === chatTarget.conversationId);
+    if ((chatTarget as any).conversationId) {
+      const conv = conversations.find((c) => c.id === (chatTarget as any).conversationId);
       if (!conv) {
         // Wait for conversations query to populate before consuming.
         return;

@@ -1605,8 +1605,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           playerId,
           templateId,
           name: template.name,
-          totalCredits: template.credits,
-          remainingCredits: template.credits,
+          totalCredits: String(template.credits),
+          remainingCredits: String(template.credits),
           price: customPrice ? String(customPrice) : template.price,
           currency: template.currency || "AED",
           expiryDate: expiryDate.toISOString().split("T")[0],
@@ -1743,7 +1743,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           playerId,
           packageId,
           invoiceNumber,
-          amount,
+          amount: String(amount),
           currency: currency || "AED",
           dueDate,
           lineItems: enrichedLineItems,
@@ -1844,8 +1844,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           ? await storage.getPlayer(invoice.playerId)
           : null;
 
-        const lineItems = parseLineItems(invoice.lineItems);
-        const metadata = parseInvoiceMetadata(invoice.lineItems);
+        const lineItems = parseLineItems(invoice.lineItems as string | null);
+        const metadata = parseInvoiceMetadata(invoice.lineItems as string | null);
         const subtotal = metadata.subtotal || lineItems.reduce((sum, item) => sum + item.total, 0);
 
         const invoiceData = {
@@ -1931,7 +1931,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const payment = await storage.createPayment({
           academyId,
           invoiceId,
-          amount,
+          amount: String(amount),
           currency: currency || "AED",
           paymentMethod: paymentMethod || "cash",
           status: "succeeded",
@@ -2000,7 +2000,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         // Validate refund amount doesn't exceed payment
-        if (amount > payment.amount) {
+        if (amount > Number(payment.amount)) {
           return res
             .status(400)
             .json({ error: "Refund amount cannot exceed payment amount" });
@@ -2008,7 +2008,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 
         const refund = await storage.createRefund({
           paymentId,
-          amount,
+          amount: String(amount),
           reason,
           notes,
           processedBy: coachId,

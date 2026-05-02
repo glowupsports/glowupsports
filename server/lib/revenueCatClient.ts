@@ -86,7 +86,7 @@ export async function hasActiveEntitlement(
     });
 
     if (error) {
-      if (typeof error === 'object' && 'type' in error && error.type === 'customer_not_found') {
+      if (typeof error === 'object' && 'type' in error && (error as any).type === 'customer_not_found') {
         return false;
       }
       console.error('[RevenueCat] Error fetching entitlements:', error);

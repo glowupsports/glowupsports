@@ -224,7 +224,7 @@ async function getPlayerSkillScores(playerId: string, levelId: string): Promise<
   const skillScoresMap: Record<string, { scores: number[]; movingAverage: number }> = {};
   for (const score of scores) {
     if (!skillScoresMap[score.skillId]) {
-      skillScoresMap[score.skillId] = { scores: [], movingAverage: score.movingAverage || 0 };
+      skillScoresMap[score.skillId] = { scores: [], movingAverage: Number(score.movingAverage) || 0 };
     }
     skillScoresMap[score.skillId].scores.push(score.score);
   }

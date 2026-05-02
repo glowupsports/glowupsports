@@ -816,7 +816,7 @@ async function getSessionPlayersForReminder(session: any) {
       status: 'enrolled' as const,
       bookingSource: 'series' as const,
       createdAt: sp.joinedAt,
-    }));
+    } as any));
   }
   return sessionPlayersList;
 }
@@ -2992,7 +2992,6 @@ async function processAutoSessionCompletion(): Promise<void> {
           await db.update(sessionPlayers)
             .set({ 
               attendanceStatus: "present",
-              attended: true,
             })
             .where(eq(sessionPlayers.id, sp.id));
           
@@ -3000,7 +2999,7 @@ async function processAutoSessionCompletion(): Promise<void> {
           
           // Deduct credits
           const creditResult = await storage.deductTypedCreditsForSession(
-            sp.playerId,
+            sp.playerId!,
             session.sessionType,
             session.id,
             session.academyId || undefined,

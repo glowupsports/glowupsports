@@ -37,9 +37,7 @@ export function useMarkCelebrationComplete() {
   
   return useMutation({
     mutationFn: async (celebrationId: string) => {
-      return apiRequest(`/api/player-level/celebrations/${celebrationId}/complete`, {
-        method: "POST",
-      });
+      return apiRequest("POST", `/api/player-level/celebrations/${celebrationId}/complete`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player-level/status"] });

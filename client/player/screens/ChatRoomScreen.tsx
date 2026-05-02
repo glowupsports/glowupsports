@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignItems: "center",
   },
-  inviteBtnTxt: { color: "#000", fontWeight: "700", ...Typography.body },
+  inviteBtnTxt: { color: "#000", ...Typography.body, fontWeight: "700" },
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",

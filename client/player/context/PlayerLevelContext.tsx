@@ -44,9 +44,7 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
   const markCelebrationShown = useMutation({
     mutationFn: async (celebrationId: string) => {
       if (!playerId) return;
-      return apiRequest(`/api/player-level/player/${playerId}/celebration/${celebrationId}/shown`, {
-        method: "POST",
-      });
+      return apiRequest("POST", `/api/player-level/player/${playerId}/celebration/${celebrationId}/shown`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/player-level/player", playerId, "status"] });

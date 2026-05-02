@@ -222,7 +222,7 @@ router.get(
 
             const playerDetails = await Promise.all(
               sessionPlayersList.slice(0, 4).map(async (sp) => {
-                const player = await storage.getPlayer(sp.playerId);
+                const player = await storage.getPlayer(sp.playerId!);
                 return { id: sp.playerId, name: player?.name || "Unknown" };
               }),
             );
@@ -296,7 +296,7 @@ router.get(
       }
 
       // Get coach info
-      const coach = await storage.getCoach(series.coachId);
+      const coach = await storage.getCoach(series.coachId!);
 
       // Get players in this series
       const seriesPlayers = await storage.getSeriesPlayers(id);
@@ -310,7 +310,7 @@ router.get(
 
       const playerDetails = await Promise.all(
         seriesPlayers.map(async (sp) => {
-          const player = await storage.getPlayer(sp.playerId);
+          const player = await storage.getPlayer(sp.playerId!);
           const credits = creditBalances[sp.playerId] || {
             group: 0,
             semi_private: 0,
@@ -1218,13 +1218,13 @@ router.get(
 
       const playerProgress = await Promise.all(
         seriesPlayers.map(async (sp) => {
-          const player = await storage.getPlayer(sp.playerId);
-          const xpTransactions = await storage.getPlayerXPTransactions(
+          const player = await storage.getPlayer(sp.playerId!);
+          const xpTransactions = await storage.getPlayerXpTransactions(
             sp.playerId,
             30,
           );
           const recentXP = xpTransactions.reduce(
-            (sum, t) => sum + (t.amount || 0),
+            (sum: number, t: any) => sum + (t.amount || 0),
             0,
           );
 
@@ -1720,8 +1720,6 @@ router.post(
               : sessionType === "semi_private"
                 ? 2
                 : maxPlayers || 6,
-          visibleToPlayers,
-          enableWaitlist,
           isOpen,
           sport: validatedSport,
           ...pricingSnapshot,
@@ -2009,7 +2007,7 @@ router.post(
           endTime: end,
           sessionType,
           status: "scheduled",
-          name: notes || null,
+          title: notes || null,
           ballLevel: ballLevel || null,
           skillLevel: skillLevel || null,
           maxPlayers:
@@ -2020,7 +2018,6 @@ router.post(
                 : maxPlayers || 6,
           recurringGroupId: null,
           seriesId: seriesId || undefined,
-          visibleToPlayers,
           isOpen,
           sport: validatedSport,
           ...pricingSnapshot,
@@ -2612,7 +2609,7 @@ router.get(
           ? Math.round((feedbackCount / completedSessions.length) * 100)
           : 0;
 
-      const hourlyRate = coach.hourlyRate || 100;
+      const hourlyRate = Number(coach.hourlyRate || 100);
       const totalHours = sessionsThisMonth.reduce((sum: number, s: any) => {
         const start = new Date(s.startTime);
         const end = new Date(s.endTime);
@@ -2621,7 +2618,7 @@ router.get(
 
       const monthlyHours = await storage.getCoachMonthlyHoursSummary(
         coachId,
-        academyId,
+        academyId ?? undefined,
       );
       const payoutRecords = await storage.getCoachPayouts(coachId, 12);
 
@@ -2726,7 +2723,7 @@ router.post(
       if (!payout) {
         const monthlyHours = await storage.getCoachMonthlyHoursSummary(
           coachId,
-          academyId,
+          academyId ?? undefined,
         );
         const monthData = monthlyHours.find(
           (m) => m.month === parseInt(month) && m.year === parseInt(year),
@@ -2735,7 +2732,7 @@ router.post(
         const hourlyRate = Number(coach.hourlyRate || 100);
 
         payout = await storage.createCoachPayout({
-          academyId: academyId!,
+          academyId: academyId ?? "",
           coachId,
           month: parseInt(month),
           year: parseInt(year),
@@ -2787,7 +2784,7 @@ router.post(
       if (!payout) {
         const monthlyHours = await storage.getCoachMonthlyHoursSummary(
           coachId,
-          academyId,
+          academyId ?? undefined,
         );
         const monthData = monthlyHours.find(
           (m) => m.month === parseInt(month) && m.year === parseInt(year),
@@ -2796,7 +2793,7 @@ router.post(
         const hourlyRate = Number(coach.hourlyRate || 100);
 
         payout = await storage.createCoachPayout({
-          academyId: academyId!,
+          academyId: academyId ?? "",
           coachId,
           month: parseInt(month),
           year: parseInt(year),
@@ -3479,10 +3476,10 @@ router.get(
       for (const tx of transactions) {
         const type = (tx.creditType as keyof typeof summary) || "group";
         if (type in summary) {
-          if (tx.amount > 0) {
-            summary[type].credits += tx.amount;
+          if (Number(tx.amount) > 0) {
+            summary[type].credits += Number(tx.amount);
           } else {
-            summary[type].debts += Math.abs(tx.amount);
+            summary[type].debts += Math.abs(Number(tx.amount));
           }
         }
       }
@@ -4037,7 +4034,6 @@ router.post(
           name: user.username,
           email: user.email,
           academyId: academyId,
-          status: "active",
         });
         coachId = newCoach.id;
 
@@ -4144,7 +4140,6 @@ router.post(
           name: name || username,
           email: newUser.email,
           academyId: academyId,
-          status: "active",
         });
 
         // Update user with coach reference
@@ -4694,7 +4689,7 @@ router.get(
           // Get participant details
           const participants = await Promise.all(
             sessionPlayers.slice(0, 10).map(async (sp) => {
-              const p = await storage.getPlayer(sp.playerId);
+              const p = await storage.getPlayer(sp.playerId!);
               return p
                 ? {
                     id: p.id,
@@ -4809,7 +4804,7 @@ router.post(
       await storage.addPlayerToSession({ sessionId, playerId });
 
       // Deduct 1 group credit
-      await storage.deductPlayerCredit(
+      await storage.autoDeductPlayerCredit(
         playerId,
         "group",
         1,
@@ -4957,7 +4952,7 @@ router.get(
           and(
             eq(players.academyId, academyId),
             eq(players.status, "active"),
-            eq(players.ballLevel, ballLevel),
+            eq(players.ballLevel, ballLevel!),
             req.user?.playerId ? ne(players.id, req.user.playerId) : sql`1=1`,
           ),
         )
@@ -5346,7 +5341,7 @@ router.get(
           : [];
         const _spBySession = new Map<string, string[]>();
         for (const r of _spRows) {
-          if (!r.playerId) continue;
+          if (!r.playerId || !r.sessionId) continue;
           const arr = _spBySession.get(r.sessionId) || [];
           arr.push(r.playerId);
           _spBySession.set(r.sessionId, arr);
@@ -5523,7 +5518,6 @@ router.get(
             id: session.id,
             type: session.sessionType || "group",
             time: dubaiTimeStr,
-            date: session.startTime.toISOString(),
             spotsLeft: Math.max(0, maxPlayers - actualCurrentPlayers),
             maxPlayers,
             coachId: coach?.id ?? null,
@@ -5583,7 +5577,7 @@ router.get(
                 .where(
                   and(
                     eq(openMatches.status, "open"),
-                    eq(players.ballLevel, player.ballLevel),
+                    eq(players.ballLevel, player.ballLevel ?? ""),
                     or(
                       eq(openMatches.academyId, player.academyId),
                       isNull(openMatches.academyId),
@@ -5639,7 +5633,7 @@ router.get(
               {
                 id: match.playerId,
                 name: match.playerName || "Player",
-                profilePhotoUrl: match.playerAvatar || null,
+                profilePhotoUrl: match.playerAvatar ?? undefined,
                 level: 1,
               },
             ],
@@ -5667,7 +5661,7 @@ router.get(
           .limit(3);
 
         for (const post of recentPosts) {
-          const created = new Date(post.createdAt);
+          const created = post.createdAt ? new Date(post.createdAt) : new Date();
           const dateParam = req.query.date as string | undefined;
           const now = dateParam ? new Date(dateParam) : new Date();
           const DUBAI_OFFSET = 4;
@@ -6624,7 +6618,7 @@ router.get(
             endTime: booking.endTime,
             durationMinutes: booking.durationMinutes,
             courtName: court?.name || "Court",
-            courtLocation: court?.location || null,
+            courtLocation: court?.locationId || null,
             status: booking.status,
             bookingType: booking.bookingType,
             price: booking.price,

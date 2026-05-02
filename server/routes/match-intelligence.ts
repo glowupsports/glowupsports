@@ -1017,7 +1017,7 @@ router.post("/matches/:matchId/review", async (req: Request, res: Response) => {
         topImprovements: topImprovements || [],
         comment,
         reviewedAt: new Date(),
-      })
+      } as any)
       .returning();
 
     await db

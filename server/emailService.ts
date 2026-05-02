@@ -89,7 +89,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
     const result = await client.emails.send({
       from: fromEmail,
       to: options.to,
-      reply_to: 'support@glowupsports.com',
+      replyTo: 'support@glowupsports.com',
       subject: options.subject,
       html: options.html,
       text: options.text

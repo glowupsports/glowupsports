@@ -2726,7 +2726,7 @@ router.post("/api/admin/recalculate-v3-debts", authMiddleware, requireRole("plat
         if (!debt.playerId) continue;
         
         const creditType = debt.creditType || "group";
-        const oldDebtAmount = Math.abs(debt.amount);
+        const oldDebtAmount = Math.abs(Number(debt.amount));
         
         const sessionTypesForCredit = creditType === "group" 
           ? ["group"]
@@ -2762,7 +2762,7 @@ router.post("/api/admin/recalculate-v3-debts", authMiddleware, requireRole("plat
           if (newDebtAmount === 0) {
             await db.update(creditTransactions)
               .set({
-                amount: 0,
+                amount: "0",
                 metadata: {
                   ...(debt.metadata as Record<string, unknown> || {}),
                   cancelled: true,
@@ -2775,7 +2775,7 @@ router.post("/api/admin/recalculate-v3-debts", authMiddleware, requireRole("plat
           } else {
             await db.update(creditTransactions)
               .set({
-                amount: -newDebtAmount,
+                amount: String(-newDebtAmount),
                 metadata: {
                   ...(debt.metadata as Record<string, unknown> || {}),
                   recalculatedAt: new Date().toISOString(),
@@ -2837,7 +2837,7 @@ router.post("/api/admin/fix-vacation-v3-debts", authMiddleware, requireRole("pla
         if (meta?.cancelled) continue;
         
         const creditType = debt.creditType || "group";
-        const oldDebtAmount = Math.abs(debt.amount);
+        const oldDebtAmount = Math.abs(Number(debt.amount));
         
         const sessionTypesForCredit = creditType === "group" 
           ? ["group"]
@@ -2864,7 +2864,7 @@ router.post("/api/admin/fix-vacation-v3-debts", authMiddleware, requireRole("pla
         if (newDebtAmount === 0) {
           await db.update(creditTransactions)
             .set({
-              amount: 0,
+              amount: "0",
               metadata: {
                 ...(meta || {}),
                 cancelled: true,
@@ -2877,7 +2877,7 @@ router.post("/api/admin/fix-vacation-v3-debts", authMiddleware, requireRole("pla
         } else {
           await db.update(creditTransactions)
             .set({
-              amount: -newDebtAmount,
+              amount: String(-newDebtAmount),
               metadata: {
                 ...(meta || {}),
                 vacationAdjustment: vacationCount,

@@ -1026,7 +1026,7 @@ export default function AdminPlayersScreen() {
           onShowDeleteModal={() => setShowDeleteModal(true)}
           onShowCreditStoreModal={() => setShowCreditStoreModal(true)}
           onShowMarkPaidModal={(pkg) => {
-            setSelectedPackageForPayment(pkg);
+            setSelectedPackageForPayment(pkg as any);
             setPaymentMethod("cash");
             setPaymentDate(new Date());
             setShowMarkPaidModal(true);
@@ -1375,7 +1375,7 @@ export default function AdminPlayersScreen() {
         showReportIssueModal={showReportIssueModal}
         showMarkPaidModal={showMarkPaidModal}
         selectedPackageForPayment={selectedPackageForPayment}
-        setSelectedPackageForPayment={setSelectedPackageForPayment}
+        setSelectedPackageForPayment={setSelectedPackageForPayment as any}
         setShowMarkPaidModal={setShowMarkPaidModal}
         showRecordPaymentModal={showRecordPaymentModal}
         setShowRecordPaymentModal={setShowRecordPaymentModal}

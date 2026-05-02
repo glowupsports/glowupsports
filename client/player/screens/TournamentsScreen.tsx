@@ -744,17 +744,17 @@ export default function TournamentsScreen() {
 
   const handlePublicTournamentPress = (tournament: PublicTournament) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("TournamentDetail", { tournamentId: tournament.id });
+    (navigation as any).navigate("TournamentDetail", { tournamentId: tournament.id });
   };
 
   const handleTournamentPress = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("TournamentDetail", { tournamentId: id });
+    (navigation as any).navigate("TournamentDetail", { tournamentId: id });
   };
 
   const handleLadderPress = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("LadderDetail", { ladderId: id });
+    (navigation as any).navigate("LadderDetail", { ladderId: id });
   };
 
   const handleRegister = (tournament: Tournament) => {

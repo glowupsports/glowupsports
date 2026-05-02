@@ -113,8 +113,8 @@ export default function CreateMatchScreen() {
   });
 
   useEffect(() => {
-    if (playerData?.player) {
-      const ballLevel = playerData.player.ballLevel?.toLowerCase() || "";
+    if ((playerData as any)?.player) {
+      const ballLevel = (playerData as any).player.ballLevel?.toLowerCase() || "";
       const isPlayerAdult = ballLevel.includes("glow") || ballLevel.includes("adult");
       setIsAdult(isPlayerAdult);
       
@@ -443,7 +443,7 @@ export default function CreateMatchScreen() {
   );
 
   const renderPartnerStep = () => {
-    const friends = friendsData?.friends || [];
+    const friends = (friendsData as any)?.friends || [];
     
     return (
       <Animated.View 
@@ -1076,7 +1076,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginTop: Spacing.lg,
   },
   intentLabel: {
-    ...Typography.label,
+    ...Typography.labelLarge,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
     textAlign: "center",
@@ -1132,7 +1132,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "600",
   },
   sectionLabel: {
-    ...Typography.label,
+    ...Typography.labelLarge,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.sm,
     marginTop: Spacing.md,
@@ -1318,7 +1318,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   inputLabel: {
-    ...Typography.label,
+    ...Typography.labelLarge,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.xs,
   },
@@ -1343,7 +1343,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: Colors.dark.border,
   },
   summaryTitle: {
-    ...Typography.label,
+    ...Typography.labelLarge,
     color: Colors.dark.textMuted,
     marginBottom: Spacing.md,
   },

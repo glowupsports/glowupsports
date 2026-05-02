@@ -26,7 +26,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { Colors, Spacing, BorderRadius, GlowColors, BallLevelColors } from "@/constants/theme";
+import { Colors, Spacing, BorderRadius, GlowColors, BallLevelColors, ProTennisColors } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
@@ -258,7 +258,7 @@ export default function MeetYourSquad({
         >
           <Pressable style={styles.continueButton} onPress={handleContinue}>
             <LinearGradient
-              colors={[GlowColors.neonGreen, GlowColors.neonCyan]}
+              colors={[ProTennisColors.neonGreen, ProTennisColors.neonCyan]}
               style={styles.continueGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
@@ -347,7 +347,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: Spacing.md,
   },
   title: {
-    color: Colors.textPrimary,
+    color: Colors.dark.textPrimary,
     fontSize: 28,
     fontWeight: "bold",
     textAlign: "center",
@@ -436,7 +436,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderColor: "#0a0a0a",
   },
   playerName: {
-    color: Colors.textPrimary,
+    color: Colors.dark.textPrimary,
     fontSize: 13,
     fontWeight: "600",
     textAlign: "center",
@@ -461,7 +461,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   emptyTitle: {
-    color: Colors.textPrimary,
+    color: Colors.dark.textPrimary,
     fontSize: 24,
     fontWeight: "bold",
   },

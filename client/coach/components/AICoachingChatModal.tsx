@@ -782,7 +782,6 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                   multiline
                   maxLength={500}
                   returnKeyType="default"
-                  showsVerticalScrollIndicator={false}
                 />
                 <Pressable
                   style={[styles.sendButton, (!inputText.trim() || chatMutation.isPending) && styles.sendButtonDisabled]}

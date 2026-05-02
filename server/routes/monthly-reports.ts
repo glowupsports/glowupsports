@@ -184,7 +184,7 @@ router.get(
         if (academy) academyName = academy.name;
       }
 
-      const html = generateReportHtml(report, playerName, academyName);
+      const html = generateReportHtml({...report, pillarHighlights: report.pillarHighlights ?? undefined}, playerName, academyName);
       res.setHeader("Content-Type", "text/html");
       res.send(html);
     } catch (error) {
@@ -257,7 +257,7 @@ router.get(
         if (academy) academyName = academy.name;
       }
 
-      const pdfBuffer = await generateReportPdf(report, playerName, academyName);
+      const pdfBuffer = await generateReportPdf({...report, pillarHighlights: report.pillarHighlights ?? undefined}, playerName, academyName);
       const filename = `monthly-report-${report.monthYear}-${playerName.replace(/\s+/g, "-")}.pdf`;
 
       res.setHeader("Content-Type", "application/pdf");
@@ -540,7 +540,7 @@ router.get(
       const [academy] = await db.select({ name: academies.name }).from(academies).where(eq(academies.id, academyId));
       if (academy) academyName = academy.name;
 
-      const html = generateReportHtml(report, playerName, academyName);
+      const html = generateReportHtml(report as any, playerName, academyName);
       res.setHeader("Content-Type", "text/html");
       res.send(html);
     } catch (error) {

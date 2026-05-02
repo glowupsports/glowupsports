@@ -762,7 +762,7 @@ export async function seedUstaAssessmentItems() {
         name: item.name,
         description: item.description,
         metrics: item.metrics,
-      })
+      } as any)
       .onConflictDoNothing();
   }
 

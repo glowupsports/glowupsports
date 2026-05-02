@@ -85,7 +85,7 @@ const PILLAR_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   TECHNIQUE: "construct",
   TACTICAL: "bulb",
   PHYSICAL: "barbell",
-  MENTAL: "brain",
+  MENTAL: "analytics-outline",
   SOCIAL: "people",
   MATCH: "trophy",
 };

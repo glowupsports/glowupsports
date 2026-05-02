@@ -194,7 +194,7 @@ export default function MatchScreen() {
       style={styles.historyCard}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        navigation.navigate("MatchDetail", { matchId: match.id });
+        (navigation as any).navigate("MatchDetail", { matchId: match.id });
       }}
     >
       <View style={styles.historyLeft}>
@@ -319,7 +319,7 @@ export default function MatchScreen() {
         onSuccess={(matchId) => {
           setShowResultModal(false);
           setSelectedPlan(null);
-          navigation.navigate("MatchDetail", { matchId });
+          (navigation as any).navigate("MatchDetail", { matchId });
         }}
       />
       </View>
@@ -349,17 +349,14 @@ function MatchPrepareModal({ visible, onClose, playerId, opponents }: MatchPrepa
 
   const createPlanMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("/api/match-intelligence/plans", {
-        method: "POST",
-        body: JSON.stringify({
-          playerId,
-          opponentId: selectedOpponent?.id,
-          scheduledDate,
-          venue,
-          primaryTactic,
-          mentalCue,
-          energyFocus,
-        }),
+      return apiRequest("POST", "/api/match-intelligence/plans", {
+        playerId,
+        opponentId: selectedOpponent?.id,
+        scheduledDate,
+        venue,
+        primaryTactic,
+        mentalCue,
+        energyFocus,
       });
     },
     onSuccess: () => {
@@ -643,22 +640,19 @@ function MatchResultModal({ visible, onClose, playerId, plan, onSuccess }: Match
 
   const createMatchMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("/api/match-intelligence/matches", {
-        method: "POST",
-        body: JSON.stringify({
-          playerId,
-          planId: plan?.id,
-          opponentId: plan?.opponent?.id,
-          matchDate: new Date().toISOString(),
-          result,
-          score,
-          whatWorked,
-          whatDidntWork,
-          biggestChallenge,
-          postMatchEnergy: postEnergy,
-          postMatchMood: postMood,
-          keyTakeaway,
-        }),
+      return apiRequest("POST", "/api/match-intelligence/matches", {
+        playerId,
+        planId: plan?.id,
+        opponentId: plan?.opponent?.id,
+        matchDate: new Date().toISOString(),
+        result,
+        score,
+        whatWorked,
+        whatDidntWork,
+        biggestChallenge,
+        postMatchEnergy: postEnergy,
+        postMatchMood: postMood,
+        keyTakeaway,
       });
     },
     onSuccess: (data: any) => {
@@ -911,7 +905,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   title: {
-    ...Typography.title,
+    ...Typography.title2,
     color: ProTennisColors.white,
   },
   addButton: {
@@ -995,7 +989,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.textSecondary,
   },
   opponentName: {
-    ...Typography.title,
+    ...Typography.title2,
     color: Colors.text,
   },
   opponentClub: {
@@ -1011,7 +1005,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   playstyleTagText: {
     ...Typography.small,
@@ -1109,7 +1103,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "flex-end",
   },
   historyResult: {
-    ...Typography.title,
+    ...Typography.title2,
     fontWeight: "700",
   },
   winText: {
@@ -1186,7 +1180,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   stepContent: {},
   stepTitle: {
-    ...Typography.title,
+    ...Typography.title2,
     color: ProTennisColors.white,
     marginBottom: Spacing.xs,
   },
@@ -1243,7 +1237,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   tacticChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
   },
   selectedTacticChip: {
@@ -1264,7 +1258,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
     paddingVertical: Spacing.md,
     alignItems: "center",
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
   },
   selectedOption: {
@@ -1287,7 +1281,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
   confidenceDotFilled: {
     backgroundColor: Colors.primary,
@@ -1297,7 +1291,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.lg,
     gap: Spacing.md,
     borderTopWidth: 1,
-    borderTopColor: Colors.surfaceLight,
+    borderTopColor: Colors.dark.backgroundSecondary,
   },
   backButton: {
     flex: 1,
@@ -1331,7 +1325,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.lg,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     gap: Spacing.sm,
   },
@@ -1365,7 +1359,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   reflectionChip: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: Colors.surfaceLight,
+    backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     borderColor: "transparent",

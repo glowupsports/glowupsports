@@ -216,7 +216,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   retryButtonText: {
-    ...Typography.button,
+    ...Typography.body,
     color: Colors.dark.buttonText,
   },
   controls: {

@@ -598,14 +598,14 @@ export function AdminPlayerDetailModal({
                 {stats.packages && stats.packages.length > 0 ? (
                   <View style={styles.packageCardsList}>
                     {stats.packages.map((pkg) => {
-                      const isDepleted = pkg.remainingCredits <= 0;
+                      const isDepleted = Number(pkg.remainingCredits ?? 0) <= 0;
                       const isExpired = pkg.expiryDate && new Date(pkg.expiryDate) < new Date();
                       const typeColor = pkg.creditType === "private" ? Colors.dark.orange : 
                                        pkg.creditType === "semi_private" ? Colors.dark.primary : Colors.dark.xpCyan;
                       const typeLabel = pkg.creditType === "private" ? "Private" : 
                                        pkg.creditType === "semi_private" ? "Semi-Private" : "Group";
                       const expiryDate = pkg.expiryDate ? new Date(pkg.expiryDate) : null;
-                      const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * pkg.totalCredits);
+                      const pkgPrice = Number(pkg.price) || (Number(pkg.pricePerCredit || 0) * Number(pkg.totalCredits ?? 0));
                       
                       return (
                         <View key={pkg.id} style={[styles.packageCard, { borderColor: `${typeColor}40` }]}>
@@ -650,7 +650,7 @@ export function AdminPlayerDetailModal({
                               <View>
                                 <Text style={styles.packageCreditsLabel}>Credits</Text>
                                 <Text style={[styles.packageCreditsValue, { color: typeColor }]}>
-                                  {formatCredits(pkg.remainingCredits)} / {formatCredits(pkg.totalCredits)}
+                                  {formatCredits(pkg.remainingCredits ?? 0)} / {formatCredits(pkg.totalCredits ?? 0)}
                                 </Text>
                               </View>
                               {pkgPrice > 0 && (
@@ -857,7 +857,7 @@ export function AdminPlayerDetailModal({
                 {filteredSessions && filteredSessions.length > 0 ? (
                   <View style={styles.attendanceList}>
                     {filteredSessions.slice(0, 10).map((session: AdminPlayerSessionItem, index: number) => {
-                      const sessionDate = new Date(session.startTime);
+                      const sessionDate = new Date(session.startTime!);
                       const currentStatus = session.attended || session.attendanceStatus || "pending";
                       const isAttended = currentStatus === "present";
                       const isAbsent = currentStatus === "absent" || currentStatus === "no_show";

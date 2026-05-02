@@ -605,7 +605,7 @@ export function AdminInlinePlayerProfile({
                         <View style={styles.packageExpiryRow}>
                           <Ionicons name="calendar-outline" size={12} color={Colors.dark.textMuted} />
                           <Text style={styles.premiumPackageExpiry}>
-                            Expires {new Date(pkg.expiresAt || pkg.expiryDate).toLocaleDateString()}
+                            Expires {new Date((pkg.expiresAt || pkg.expiryDate) as string).toLocaleDateString()}
                           </Text>
                         </View>
                       ) : null}
@@ -741,7 +741,7 @@ export function AdminInlinePlayerProfile({
               <TennisBallSpinner size="small" color={Colors.dark.orange} />
               <Text style={{ color: Colors.dark.textMuted, marginTop: 8, fontSize: 13 }}>Loading invite code...</Text>
             </View>
-          ) : playerInvite?.inviteCode && playerInvite?.status === "pending" ? (
+          ) : playerInvite?.inviteCode && (playerInvite as any)?.status === "pending" ? (
             <View style={{
               backgroundColor: Colors.dark.backgroundTertiary,
               borderRadius: BorderRadius.lg,
