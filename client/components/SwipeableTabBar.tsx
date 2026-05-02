@@ -316,6 +316,14 @@ export function SwipeableTabBar({
     registerPager(pagerRef, tabs);
   }, [registerPager, tabs]);
 
+  // Recovery guard: called after every snap spring (whether or not the page
+  // changed) so JS `currentIndex` stays in sync with the Reanimated shared
+  // value even when a gesture is cancelled mid-flight on Android and
+  // `handleSwipeSettled` is skipped.
+  const reconcileCurrentIndex = useCallback((target: number) => {
+    setCurrentIndex(prev => (prev !== target ? target : prev));
+  }, []);
+
   // Worklet-friendly callback fired when a swipe lands on a new page.
   // Mirrors the previous PagerView `onPageSelected` behaviour: tracks
   // visited tabs, fires the Light haptic, and invokes `onPageChange`.
@@ -355,7 +363,7 @@ export function SwipeableTabBar({
       // Require some horizontal motion before activating so vertical
       // scrolls inside tab content still work.
       .activeOffsetX([-12, 12])
-      .failOffsetY([-15, 15])
+      .failOffsetY([-20, 20])
       .onStart(() => {
         "worklet";
         startOffset.value = scrollOffset.value;
@@ -393,8 +401,12 @@ export function SwipeableTabBar({
         "worklet";
         // Snap to the nearest page, optionally projecting velocity to
         // bias toward the next/previous page on a fast flick.
+        // When the gesture was cancelled (success=false) always snap back to
+        // the page the gesture STARTED from (startOffset) rather than wherever
+        // scrollOffset currently sits — which can be a fractional value between
+        // pages and would expose the grey backgroundRoot gap on Android.
         const projected = scrollOffset.value + (-e.velocityX / containerWidth) * 0.15;
-        let target = success ? Math.round(projected) : Math.round(scrollOffset.value);
+        let target = success ? Math.round(projected) : Math.round(startOffset.value);
         if (target < 0) target = 0;
         if (target > tabsLength - 1) target = tabsLength - 1;
         scrollOffset.value = withSpring(target, {
@@ -406,6 +418,9 @@ export function SwipeableTabBar({
         if (target !== startOffset.value) {
           runOnJS(handleSwipeSettled)(target);
         }
+        // Recovery guard: always reconcile JS currentIndex with the resolved
+        // target so a cancelled gesture can never leave the two out of sync.
+        runOnJS(reconcileCurrentIndex)(target);
         edgeSwipeTriggeredSV.value = false;
       });
   }, [
@@ -418,6 +433,7 @@ export function SwipeableTabBar({
     startOffset,
     edgeSwipeTriggeredSV,
     handleSwipeSettled,
+    reconcileCurrentIndex,
     triggerEdgeSwipeLeft,
   ]);
 
@@ -601,6 +617,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   pagerView: {
     flex: 1,
     overflow: "hidden",
+    // Prevent the dark-grey backgroundRoot from showing through the gap
+    // between page views when scrollOffset is briefly fractional (e.g. a
+    // cancelled gesture on Android). Match the typical screen background so
+    // any momentary exposure is invisible rather than a jarring grey flash.
+    backgroundColor: Colors.dark.backgroundDefault,
   },
   pageContainer: {
     flex: 1,

@@ -1258,7 +1258,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
             currency: "AED",
             description: `Glow Market — ${order!.orderNumber}`,
             metadata: { orderId: order!.id, orderNumber: order!.orderNumber },
-          } as any));
+          } as any);
           if (!charge.ok) {
             await db.update(shopOrders)
               .set({ status: "cancelled", paymentStatus: "failed" })
@@ -3228,7 +3228,7 @@ router.post("/player/shop/orders/:orderId/upsells/:upsellId/respond", authMiddle
           })
           .where(eq(shopOrders.id, orderId));
       }
-    } as any));
+    });
 
     const [updatedOrder] = await db.select().from(shopOrders).where(eq(shopOrders.id, orderId)).limit(1);
     const items = await db.select().from(shopOrderItems).where(eq(shopOrderItems.orderId, orderId));

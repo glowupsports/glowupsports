@@ -1299,7 +1299,7 @@ export function HeroCarousel({
     () =>
       Gesture.Pan()
         .activeOffsetX([-10, 10])
-        .failOffsetY([-12, 12])
+        .failOffsetY([-8, 8])
         .onStart(() => {
           dragging.value = true;
           runOnJS(onSwipeStart)();
