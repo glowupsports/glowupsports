@@ -544,7 +544,7 @@ export default function OwnerDashboardScreen() {
                 style={styles.quickAction}
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("CoachPostComposer" as never, { mode: "academy" } as never);
+                  (navigation as any).navigate("CoachPostComposer", { mode: "academy" });
                 }}
               >
                 <View style={[styles.quickActionIcon, { backgroundColor: `${Colors.dark.primary}15` }]}>

@@ -1534,7 +1534,7 @@ export default function MatchDetailScreen() {
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("OpponentProfile", { opponentId: match.opponent!.id });
+                (navigation as any).navigate("OpponentProfile", { opponentId: match.opponent!.id });
               }}
             >
               <Text style={[styles.opponentText, { textDecorationLine: "underline" }]}>

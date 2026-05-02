@@ -35,7 +35,7 @@ export default function ParentSettingsScreen() {
 
   const updateMutation = useMutation({
     mutationFn: (updates: Partial<ParentSettings>) =>
-      apiRequest("/api/parent/settings", { method: "PATCH", body: JSON.stringify(updates) }),
+      apiRequest("PATCH", "/api/parent/settings", updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/parent/settings"] });
     },

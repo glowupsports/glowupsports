@@ -118,7 +118,7 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
               return (
                 <Pressable
                   key={item.key}
-                  style={({ hovered }) => [
+                  style={({ pressed: hovered } : any) => [
                     styles.navItem,
                     focused && styles.navItemActive,
                     !focused && (hovered as boolean) && styles.navItemHovered,
@@ -139,7 +139,7 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
             })}
 
             <Pressable
-              style={({ hovered }) => [
+              style={({ pressed: hovered } : any) => [
                 styles.navItem,
                 (hovered as boolean) && styles.navItemHovered,
               ]}
@@ -178,7 +178,7 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
               </View>
             </View>
             <Pressable
-              style={({ hovered }) => [
+              style={({ pressed: hovered } : any) => [
                 styles.logoutBtn,
                 (hovered as boolean) && styles.logoutBtnHovered,
               ]}

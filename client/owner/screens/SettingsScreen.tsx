@@ -520,7 +520,7 @@ export default function SettingsScreen() {
   };
 
   const handleSaveWelcomeVideo = () => {
-    updateSettingsMutation.mutate({ welcomeVideoUrl: welcomeVideoInput.trim() || null });
+    updateSettingsMutation.mutate({ welcomeVideoUrl: welcomeVideoInput.trim() || undefined });
     setShowWelcomeVideoModal(false);
   };
 
@@ -1035,7 +1035,7 @@ export default function SettingsScreen() {
                 <Pressable
                   style={styles.clearVideoButton}
                   onPress={() => {
-                    updateSettingsMutation.mutate({ welcomeVideoUrl: null });
+                    updateSettingsMutation.mutate({ welcomeVideoUrl: undefined });
                     setShowWelcomeVideoModal(false);
                   }}
                 >

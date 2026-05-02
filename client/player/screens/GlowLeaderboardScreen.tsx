@@ -269,7 +269,7 @@ export default function GlowLeaderboardScreen() {
   const { data, isLoading, refetch, isRefetching, isError } = useQuery<LeaderboardData>({
     queryKey: ["/api/player/leaderboard", scope, category],
     enabled: !isRollingMetric,
-    queryFn: () => apiFetch(`/api/player/leaderboard?scope=${scope}&category=${category}`),
+    queryFn: () => apiFetch(`/api/player/leaderboard?scope=${scope}&category=${category}`) as any,
   });
 
   // Canonical rolling-window metric endpoint (xp_weekly | wins_monthly | streak_current).
@@ -285,12 +285,12 @@ export default function GlowLeaderboardScreen() {
     queryKey: ["/api/leaderboards", scope, category],
     enabled: isRollingMetric,
     staleTime: 60_000,
-    queryFn: () => apiFetch(`/api/leaderboards/${scope}/${category}?limit=50`),
+    queryFn: () => apiFetch(`/api/leaderboards/${scope}/${category}?limit=50`) as any,
   });
 
   const mappedRolling: LeaderboardData | null = useMemo(() => {
-    if (!rollingData?.rows) return null;
-    const rankings: RankedPlayer[] = rollingData.rows.map((r) => ({
+    if (!(rollingData as any)?.rows) return null;
+    const rankings: RankedPlayer[] = (rollingData as any).rows.map((r) => ({
       rank: r.rank,
       id: r.playerId,
       name: r.name,

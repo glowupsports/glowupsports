@@ -669,8 +669,8 @@ export default function ProviderDashboardScreen() {
                   booking={booking}
                   isUpdating={updatingId === booking.id}
                   hasClientData={Boolean(booking.player?.id && clientDataMap.get(booking.player.id))}
-                  onPress={() => navigation.navigate("ProviderBookingDetail", { orderId: booking.id })}
-                  onClientPress={booking.player?.id ? () => navigation.navigate("ProviderClientDetail", { playerId: booking.player!.id }) : undefined}
+                  onPress={() => (navigation as any).navigate("ProviderBookingDetail", { orderId: booking.id })}
+                  onClientPress={booking.player?.id ? () => (navigation as any).navigate("ProviderClientDetail", { playerId: booking.player!.id }) : undefined}
                   onConfirm={() => updateBookingStatus(booking.id, "confirmed")}
                   onDecline={() => handleDecline(booking)}
                 />
@@ -699,8 +699,8 @@ export default function ProviderDashboardScreen() {
                 key={booking.id}
                 booking={booking}
                 hasClientData={Boolean(booking.player?.id && clientDataMap.get(booking.player.id))}
-                onPress={() => navigation.navigate("ProviderBookingDetail", { orderId: booking.id })}
-                onClientPress={booking.player?.id ? () => navigation.navigate("ProviderClientDetail", { playerId: booking.player!.id }) : undefined}
+                onPress={() => (navigation as any).navigate("ProviderBookingDetail", { orderId: booking.id })}
+                onClientPress={booking.player?.id ? () => (navigation as any).navigate("ProviderClientDetail", { playerId: booking.player!.id }) : undefined}
               />
             ))
           )}

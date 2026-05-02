@@ -520,7 +520,7 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
           and(
             eq(conversations.type, "squad"),
             eq(conversations.title, squadId),
-            eq(conversations.academyId, academyId!)
+            eq(conversations.academyId, academyId ?? "")
           )
         );
       if (existing.length > 0) {
@@ -1211,7 +1211,7 @@ router.get("/api/player/me/lesson-group-chats", authMiddleware, requirePlayerOrO
         and(
           eq(conversations.type, "series_group"),
           eq(conversations.title, series.id),
-          eq(conversations.academyId, academyId!),
+          eq(conversations.academyId, academyId ?? ""),
         )
       ).limit(1);
 

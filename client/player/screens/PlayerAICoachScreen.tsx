@@ -638,7 +638,7 @@ function MyMirrorTab({
 
   const handleSessionPress = (sessionId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    navigation.navigate("TrainingDetail", { sessionId });
+    (navigation as any).navigate("TrainingDetail", { sessionId });
   };
 
   return (

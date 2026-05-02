@@ -916,7 +916,7 @@ export default function CreateMatchScreen() {
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             if (createdMatchId) {
-              navigation.navigate("ManageMatch" as never, { matchId: createdMatchId } as never);
+              (navigation as any).navigate("ManageMatch", { matchId: createdMatchId });
             } else {
               navigation.navigate("OpenMatches" as never);
             }

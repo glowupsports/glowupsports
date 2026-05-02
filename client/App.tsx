@@ -358,7 +358,7 @@ function NavigationContainerWithRef() {
       onStateChange={handleStateChange}
       linking={linking}
     >
-      <RootStackNavigator navigationRef={navReady ? navigationRef : null} />
+      <RootStackNavigator navigationRef={navReady ? navigationRef : null as any} />
       <AutoLockHost />
     </NavigationContainer>
   );

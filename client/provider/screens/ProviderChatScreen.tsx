@@ -73,7 +73,7 @@ export default function ProviderChatScreen() {
 
   // Real-time WebSocket: invalidate query on incoming message for this conversation
   useWebSocket({
-    onNewMessage: useCallback((payload) => {
+    onNewMessage: useCallback((payload: any) => {
       if (conversation?.id && payload.conversationId === conversation.id) {
         queryClient.invalidateQueries({
           queryKey: ["/api/provider/conversations", conversation.id, "messages"],

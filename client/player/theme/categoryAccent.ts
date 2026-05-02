@@ -204,7 +204,7 @@ function memoKey(primary: string, category: CardCategory, mode: Mode): string {
 function compute(primary: string, category: CardCategory, mode: Mode): string {
   const hsl = hexToHsl(primary);
   if (!hsl) return primary;
-  const tint = TINTS[CATEGORY_TINT[category]];
+  const tint = TINTS[CATEGORY_TINT[category]] as { dh?: number; ds?: number; dl: number };
   let dh = tint.dh ?? 0;
   let ds = tint.ds ?? 0;
   let dl = tint.dl;

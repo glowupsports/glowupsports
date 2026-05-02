@@ -254,7 +254,7 @@ function PlayerDNABanner({ playerId }: { playerId: string }) {
       style={dnaBannerStyles.card}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        navigation.navigate("PlayerDNAWizard");
+        (navigation as any).navigate("PlayerDNAWizard");
       }}
       accessibilityLabel="Complete your player DNA profile"
     >
@@ -549,7 +549,7 @@ function DiagnosticHomeContent() {
   const handleAvatarPress = () => { guardAction(() => openDrawer()); };
   const handleWalletPress = () => { guardAction(() => setShowPinModal(true)); };
   const handleSquadPress = () => {
-    guardAction(() => { track("home:family_lobby"); navigation.navigate("FamilyLobby"); });
+    guardAction(() => { track("home:family_lobby"); (navigation as any).navigate("FamilyLobby"); });
   };
 
   const handleBookLesson = () => {
@@ -603,7 +603,7 @@ function DiagnosticHomeContent() {
               onNotificationPress={() => {
                 guardAction(() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("PlayerNotifications");
+                  (navigation as any).navigate("PlayerNotifications");
                 });
               }}
               unreadNotificationCount={unreadCount}
@@ -692,7 +692,7 @@ function DiagnosticHomeContent() {
               <AICoachHomeCard
                 aiStatus={homeData?.aiProStatus ?? null}
                 aiCoachContext={homeData?.aiCoachContext ?? null}
-                weeklyDigest={homeData?.weeklyDigest ?? null}
+                weeklyDigest={(homeData?.weeklyDigest ?? null) as any}
               />
 
               <View style={styles.improveCardGap} />
@@ -831,7 +831,7 @@ function DiagnosticHomeContent() {
           onClose={() => setShowPinModal(false)}
           onSuccess={() => {
             setShowPinModal(false);
-            navigation.navigate("ParentCreditStore", { playerId: player?.id });
+            (navigation as any).navigate("ParentCreditStore", { playerId: player?.id });
           }}
         />
 

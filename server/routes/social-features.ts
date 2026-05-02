@@ -1650,7 +1650,7 @@ function socialPostUploadHandler(
         } else {
           // Default: for_you - aggregate friends + groups + academy posts
           // Get user's friends and groups for proper filtering
-          let forYouFriendIds = [];
+          let forYouFriendIds: string[] = [];
           let forYouGroupIds: string[] = [];
           
           try {

@@ -479,7 +479,7 @@ export default function CalendarScreen() {
   // Auto-select first coach if none selected
   useEffect(() => {
     if (!coach && coaches.length > 0) {
-      setCoach(coaches[0]);
+      setCoach(coaches[0] as any);
     }
   }, [coach, coaches, setCoach]);
 
@@ -1249,7 +1249,7 @@ export default function CalendarScreen() {
                   <Pressable
                     key={c.id}
                     style={styles.coachItem}
-                    onPress={() => setCoach(c)}
+                    onPress={() => setCoach(c as any)}
                   >
                     <Ionicons name="person-circle" size={40} color={Colors.dark.primary} />
                     <View style={styles.coachInfo}>
@@ -1473,8 +1473,8 @@ export default function CalendarScreen() {
       {/* DAY VIEW - SLOTS MODE */}
       {viewMode === "day" && dayMode === "slots" && (
         <CalendarDayViewSlots
-          courtHeaderScrollRef={courtHeaderScrollRef}
-          courtLanesScrollRef={courtLanesScrollRef}
+          courtHeaderScrollRef={courtHeaderScrollRef as any}
+          courtLanesScrollRef={courtLanesScrollRef as any}
           showFilterOverlay={showFilterOverlay}
           setShowFilterOverlay={setShowFilterOverlay}
           allLocations={allLocations}

@@ -404,7 +404,7 @@ export default function PlayerAcademyProfileScreen() {
                 <CoachMiniCard
                   key={coach.id}
                   coach={coach}
-                  onPress={() => navigation.navigate("CoachProfile", { coachId: coach.id })}
+                  onPress={() => (navigation as any).navigate("CoachProfile", { coachId: coach.id })}
                 />
               ))}
             </ScrollView>
@@ -419,7 +419,7 @@ export default function PlayerAcademyProfileScreen() {
               <GroupCard
                 key={group.id}
                 group={group}
-                onViewSessions={() => navigation.navigate("BrowseGroupLessons")}
+                onViewSessions={() => (navigation as any).navigate("BrowseGroupLessons")}
               />
             ))}
           </View>
@@ -433,7 +433,7 @@ export default function PlayerAcademyProfileScreen() {
               <TournamentCard
                 key={t.id}
                 tournament={t}
-                onViewRegister={() => navigation.navigate("TournamentDetail", { tournamentId: t.id })}
+                onViewRegister={() => (navigation as any).navigate("TournamentDetail", { tournamentId: t.id })}
               />
             ))}
           </View>
@@ -451,7 +451,7 @@ export default function PlayerAcademyProfileScreen() {
           <View style={styles.ctaButtons}>
             <Pressable
               style={styles.ctaPrimaryBtn}
-              onPress={() => navigation.navigate("AcademyBrowser")}
+              onPress={() => (navigation as any).navigate("AcademyBrowser")}
             >
               <Ionicons name="key-outline" size={18} color="#000" />
               <Text style={styles.ctaPrimaryBtnText}>Enter Invite Code</Text>

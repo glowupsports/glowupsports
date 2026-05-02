@@ -2741,7 +2741,7 @@ router.post("/api/admin/recalculate-v3-debts", authMiddleware, requireRole("plat
           .where(and(
             eq(sessionPlayers.playerId, debt.playerId),
             eq(sessionPlayers.attendanceStatus, "present"),
-            inArray(sessions.sessionType, sessionTypesForCredit)
+            inArray(sessions.sessionType, sessionTypesForCredit as any[])
           ));
         
         const presentCount = Number(presentSessions[0]?.count || 0);
@@ -2852,7 +2852,7 @@ router.post("/api/admin/fix-vacation-v3-debts", authMiddleware, requireRole("pla
           .where(and(
             eq(sessionPlayers.playerId, debt.playerId),
             eq(sessionPlayers.attendanceStatus, "vacation"),
-            inArray(sessions.sessionType, sessionTypesForCredit)
+            inArray(sessions.sessionType, sessionTypesForCredit as any[])
           ));
         
         const vacationCount = Number(vacationSessions[0]?.count || 0);

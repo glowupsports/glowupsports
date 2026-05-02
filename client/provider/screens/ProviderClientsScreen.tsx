@@ -167,7 +167,7 @@ export default function ProviderClientsScreen() {
               <ClientCard
                 item={item}
                 onPress={() =>
-                  navigation.navigate("ProviderClientDetail", { playerId: item.player.id })
+                  (navigation as any).navigate("ProviderClientDetail", { playerId: item.player.id })
                 }
               />
             </Animated.View>

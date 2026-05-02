@@ -262,7 +262,7 @@ export function CalendarDayViewSlots({
                 {ownSessions
                   .filter((s) => {
                     const sessionDateStr = getLocalDateString(s.startTime, academyTimezone);
-                    const selectedDateStr = formatDateObjectInTimezone(selectedDate.toISOString(), academyTimezone);
+                    const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
                     if (sessionDateStr !== selectedDateStr) return false;
                     return s.courtId === court.id || (s.courtId === null && courtIndex === 0);
                   })
@@ -368,8 +368,8 @@ export function CalendarDayViewSlots({
 
                 {coachBlocks
                   .filter((block) => {
-                    const blockDateStr = getLocalDateString(new Date(block.startTime), academyTimezone);
-                    const selectedDateStr = formatDateObjectInTimezone(selectedDate.toISOString(), academyTimezone);
+                    const blockDateStr = getLocalDateString(block.startTime, academyTimezone);
+                    const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
                     return blockDateStr === selectedDateStr;
                   })
                   .map((block) => {
@@ -393,7 +393,7 @@ export function CalendarDayViewSlots({
                 {courtIndex === 0 && slotReservations
                   .filter((r) => {
                     const rDateStr = getLocalDateString(r.startTime, academyTimezone);
-                    const selectedDateStr = formatDateObjectInTimezone(selectedDate.toISOString(), academyTimezone);
+                    const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
                     return rDateStr === selectedDateStr;
                   })
                   .map((r) => {
@@ -412,7 +412,7 @@ export function CalendarDayViewSlots({
                 {crossLocationBusyBlocks
                   .filter((block) => {
                     const blockDateStr = getLocalDateString(block.startTime, academyTimezone);
-                    const selectedDateStr = formatDateObjectInTimezone(selectedDate.toISOString(), academyTimezone);
+                    const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
                     if (blockDateStr !== selectedDateStr) return false;
                     return block.courtId === court.id;
                   })
@@ -434,7 +434,7 @@ export function CalendarDayViewSlots({
                 {courtIndex === 0 && travelTimeBlocks
                   .filter((block) => {
                     const blockDateStr = getLocalDateString(block.startTime, academyTimezone);
-                    const selectedDateStr = formatDateObjectInTimezone(selectedDate.toISOString(), academyTimezone);
+                    const selectedDateStr = formatDateObjectInTimezone(selectedDate, academyTimezone);
                     return blockDateStr === selectedDateStr;
                   })
                   .map((block) => {

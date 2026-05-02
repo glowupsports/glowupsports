@@ -594,7 +594,7 @@ export default function CoachProfileScreen() {
             onPress={() => {
               if (!coach?.id) return;
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("CoachPublicPreview" as never, { coachId: coach.id, previewMode: true } as never);
+              (navigation as any).navigate("CoachPublicPreview", { coachId: coach.id, previewMode: true });
             }}
           >
             <Ionicons name="eye-outline" size={18} color={Colors.dark.xpCyan} />

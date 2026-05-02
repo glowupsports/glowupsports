@@ -5735,7 +5735,7 @@ import fs from "fs";
               coach.id,
               weekStart,
               weekEnd,
-              academyId,
+              academyId ?? undefined,
             );
             const weeklySessionCount = sessions.length;
 
@@ -8445,7 +8445,7 @@ import fs from "fs";
         const sessionDetails = await db
           .select({ id: sessions.id, startTime: sessions.startTime, endTime: sessions.endTime, sessionType: sessions.sessionType, status: sessions.status, seriesId: sessions.seriesId })
           .from(sessions)
-          .where(inArray(sessions.id, sessionIds.filter((id): id is string => id !== null)));
+          .where(inArray(sessions.id, (sessionIds.filter((id): id is string => id !== null)) as any[]));
 
         sessionMap = sessionDetails.reduce((acc, s) => {
           acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status ?? "", seriesId: s.seriesId };

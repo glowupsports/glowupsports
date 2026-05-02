@@ -83,7 +83,7 @@ function SwipeableTabItem({
 
   return (
     <Pressable 
-      style={({ hovered }) => [
+      style={({ pressed: hovered } : any) => [
         styles.swipeTabItem,
         Platform.OS === "web" && { cursor: "pointer" as any },
         Platform.OS === "web" && hovered && !focused && styles.tabItemHovered,

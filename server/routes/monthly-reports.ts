@@ -184,7 +184,7 @@ router.get(
         if (academy) academyName = academy.name;
       }
 
-      const html = generateReportHtml({...report, pillarHighlights: report.pillarHighlights ?? undefined}, playerName, academyName);
+      const html = generateReportHtml({...report, pillarHighlights: report.pillarHighlights ?? undefined} as any, playerName, academyName);
       res.setHeader("Content-Type", "text/html");
       res.send(html);
     } catch (error) {

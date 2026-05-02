@@ -2283,7 +2283,7 @@ export default function PlayerProgressScreen() {
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   track("progress:open_ai_coach");
-                  navigation.navigate("PlayerAICoach");
+                  (navigation as any).navigate("PlayerAICoach");
                 }}
               >
                 <Ionicons name="sparkles" size={14} color={Colors.dark.buttonText} />
@@ -2522,7 +2522,7 @@ export default function PlayerProgressScreen() {
             style={styles.feedbackCenterLink}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("FeedbackCenter");
+              (navigation as any).navigate("FeedbackCenter");
             }}
           >
             <View style={styles.feedbackCenterIcon}>
@@ -2538,7 +2538,7 @@ export default function PlayerProgressScreen() {
             style={styles.feedbackCenterLink}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("Tournaments");
+              (navigation as any).navigate("Tournaments");
             }}
           >
             <View style={[styles.feedbackCenterIcon, { backgroundColor: "rgba(224, 64, 251, 0.15)" }]}>
@@ -2724,7 +2724,7 @@ export default function PlayerProgressScreen() {
                 onPress={() => {
                   track("progress:coach_notes_all");
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigation.navigate("CoachFeedbackHistory");
+                  (navigation as any).navigate("CoachFeedbackHistory");
                 }}
               >
                 <Text style={styles.seeAllText}>See all</Text>
@@ -2760,7 +2760,7 @@ export default function PlayerProgressScreen() {
               onPress={() => {
                 track("progress:video_feedback");
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                navigation.navigate("VideoFeedbackPlayer");
+                (navigation as any).navigate("VideoFeedbackPlayer");
               }}
             >
               <View style={styles.videoCardIcon}>

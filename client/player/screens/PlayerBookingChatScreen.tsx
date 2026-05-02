@@ -81,7 +81,7 @@ export default function PlayerBookingChatScreen() {
 
   // Real-time WebSocket: invalidate on new messages for this conversation
   useWebSocket({
-    onNewMessage: useCallback((payload) => {
+    onNewMessage: useCallback((payload: any) => {
       if (activeConvId && payload.conversationId === activeConvId) {
         queryClient.invalidateQueries({
           queryKey: ["/api/player/me/conversations", activeConvId, "messages"],

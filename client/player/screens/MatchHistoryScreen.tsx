@@ -58,7 +58,7 @@ function MatchCard({ match, myId: _myId }: { match: HistoryMatch; myId?: string 
     <Pressable
       style={({ pressed }) => [styles.matchCard, pressed && { opacity: 0.75 }]}
       onPress={() =>
-        navigation.navigate("LiveMatchViewer", { matchId: match.id, playerName: match.creator?.name })
+        (navigation as any).navigate("LiveMatchViewer", { matchId: match.id, playerName: match.creator?.name })
       }
     >
       <View style={[styles.resultBadge, { backgroundColor: resultColor + "20", borderColor: resultColor + "50" }]}>

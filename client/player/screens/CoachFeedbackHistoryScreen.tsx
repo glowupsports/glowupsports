@@ -168,7 +168,7 @@ export default function CoachFeedbackHistoryScreen() {
       {/* Video Feedback Banner */}
       <Pressable
         style={styles.videoFeedbackBanner}
-        onPress={() => navigation.navigate("VideoFeedbackPlayer")}
+        onPress={() => (navigation as any).navigate("VideoFeedbackPlayer")}
       >
         <View style={styles.videoFeedbackBannerIcon}>
           <Ionicons name="videocam" size={20} color={FunctionColors.planning} />

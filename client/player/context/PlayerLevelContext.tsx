@@ -72,7 +72,7 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
   }, [levelStatus?.unlockedFeatures]);
 
   const getFeatureInfo = useCallback((featureKey: string): FeatureUnlockConfig | null => {
-    return featureUnlocks.find((f: FeatureUnlockConfig) => f.featureKey === featureKey) ?? null;
+    return (featureUnlocks as FeatureUnlockConfig[]).find((f: FeatureUnlockConfig) => f.featureKey === featureKey) ?? null;
   }, [featureUnlocks]);
 
   const value: PlayerLevelContextValue = {

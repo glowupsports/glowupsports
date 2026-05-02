@@ -180,7 +180,7 @@ function MemberGridCell({
   // members (who are in the group because they're enrolled in the underlying
   // class) would just be re-added on the next sync, so removing them here
   // would be confusing — those should be removed via the class roster.
-  const isRemovable = canManage && member.role !== "admin" && !!member.addedManually;
+  const isRemovable = canManage && member.role !== "admin" && !!(member as any).addedManually;
   return (
     <Animated.View entering={FadeInDown.duration(200)} style={styles.memberCell}>
       <Pressable

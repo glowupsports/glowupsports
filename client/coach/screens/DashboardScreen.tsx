@@ -482,7 +482,7 @@ function CoachMatchReviewsCard({ coachId, navigation, pending }: { coachId: stri
           style={matchReviewStyles.row}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("MatchReview", { matchId: item.id });
+            (navigation as any).navigate("MatchReview", { matchId: item.id });
           }}
         >
           <View style={{ flex: 1 }}>
@@ -505,7 +505,7 @@ function CoachMatchReviewsCard({ coachId, navigation, pending }: { coachId: stri
           style={matchReviewStyles.seeAllRow}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.navigate("MatchReview", { matchId: pending[0].id });
+            (navigation as any).navigate("MatchReview", { matchId: pending[0].id });
           }}
         >
           <Text style={matchReviewStyles.seeAllText}>
@@ -3150,7 +3150,7 @@ export default function DashboardScreen() {
             style={dashCommunityStyles.actionCard}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("CoachPostComposer" as never, { mode: "coach" } as never);
+              (navigation as any).navigate("CoachPostComposer", { mode: "coach" });
             }}
           >
             <Ionicons name="megaphone" size={20} color={Colors.dark.primary} />

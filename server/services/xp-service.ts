@@ -301,7 +301,7 @@ export async function awardXP(
         titleUnlock: threshold?.titleUnlock || null,
         featuresUnlocked: levelFeatures,
         celebrationShown: false,
-      } as any));
+      } as any);
 
       for (const featureKey of levelFeatures) {
         await db.insert(playerFeatureUnlockHistory).values({

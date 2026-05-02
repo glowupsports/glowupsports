@@ -1890,7 +1890,6 @@ export default function PlayerBookingWizard({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={slideScrollPadding}
-          bottomOffset={120}
         >
           <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
 

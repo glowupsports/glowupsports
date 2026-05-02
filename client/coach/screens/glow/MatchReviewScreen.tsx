@@ -424,7 +424,7 @@ export default function MatchReviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.dark.background,
   },
   loadingContainer: {
     justifyContent: "center",
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     borderTopWidth: 1,
     borderTopColor: Colors.dark.backgroundSecondary,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.dark.background,
   },
   submitButton: {
     flexDirection: "row",
