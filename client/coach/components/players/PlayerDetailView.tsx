@@ -34,6 +34,7 @@ import { CollapsibleSection } from "./CollapsibleSection";
 import { PlayerMonthlyReportsSection } from "./PlayerMonthlyReportsSection";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { JuniorAssessmentFlow } from "@/coach/components/JuniorAssessmentFlow";
+import { GlowAssessmentFlow } from "@/coach/components/GlowAssessmentFlow";
 import { ActionSheet } from "@/components/ActionSheet";
 import { ScheduleExtraLessonModal } from "./ScheduleExtraLessonModal";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
@@ -391,6 +392,7 @@ export function PlayerDetailView({
   const [_showDeepAssessment, setShowDeepAssessment] = useState(false);
   const [showJuniorAssessment, setShowJuniorAssessment] = useState(false);
   const [lastJuniorAssessmentResult, setLastJuniorAssessmentResult] = useState<JuniorAssessmentResult | null>(null);
+  const [showGlowAssessment, setShowGlowAssessment] = useState(false);
   const [showEditPlayer, setShowEditPlayer] = useState(false);
   const [editName, setEditName] = useState(player.name);
   const [editEmail, setEditEmail] = useState(player.email ?? "");
@@ -1152,6 +1154,22 @@ export function PlayerDetailView({
             </View>
           </View>
 
+          {/* Glow Assessment Card - visible for adult/yellow/glow ball level players */}
+          {!localPlayer.ballLevel || ["yellow", "glow", ""].includes((localPlayer.ballLevel ?? "").toLowerCase()) ? (
+            <View style={[styles.levelReadinessCard, { borderColor: "#8B5CF655", marginTop: Spacing.md }]}>
+              <Pressable
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowGlowAssessment(true); }}
+                style={[styles.levelReadinessHeader, { marginBottom: 0 }]}
+              >
+                <View style={[styles.levelReadinessIcon, { backgroundColor: "#8B5CF625", borderColor: "#8B5CF650" }]}>
+                  <Ionicons name="trophy" size={18} color="#8B5CF6" />
+                </View>
+                <Text style={styles.levelReadinessTitle}>Glow Level Assessment</Text>
+                <Ionicons name="chevron-forward" size={18} color={Colors.dark.tabIconDefault} style={{ marginLeft: 4 }} />
+              </Pressable>
+            </View>
+          ) : null}
+
           {/* Junior Assessment Card - visible for red/orange/green ball level players */}
           {localPlayer.ballLevel && ["red", "orange", "green"].includes(localPlayer.ballLevel.toLowerCase()) ? (() => {
             const bl = localPlayer.ballLevel!.toLowerCase();
@@ -1848,6 +1866,20 @@ export function PlayerDetailView({
           onAssessmentComplete?.(result);
         }}
       />
+
+      {showGlowAssessment ? (
+        <GlowAssessmentFlow
+          playerId={localPlayer.id}
+          playerName={localPlayer.name}
+          currentLevel={localPlayer.ballLevel ?? "GLOW_9"}
+          onComplete={(_result) => {
+            setShowGlowAssessment(false);
+            queryClient.invalidateQueries({ queryKey: ["/api/players"] });
+            queryClient.invalidateQueries({ queryKey: [`/api/adult-glow/player/${localPlayer.id}/rank`] });
+          }}
+          onCancel={() => setShowGlowAssessment(false)}
+        />
+      ) : null}
 
       <ActionSheet
         visible={showActionSheet}

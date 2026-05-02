@@ -106,6 +106,7 @@ import { PlayerOfTheWeekCard } from "@/player/components/PlayerOfTheWeekCard";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
+import { GlowAssessmentCard } from "@/player/components/GlowAssessmentCard";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -679,6 +680,14 @@ function DiagnosticHomeContent() {
                 <Ionicons name="trending-up" size={12} color={Colors.dark.accentText} />
                 <Text style={styles.sectionDividerText}>IMPROVE</Text>
               </View>
+
+              {/* GLOW ASSESSMENT CARD — shown for beginner/default rank players */}
+              <GlowAssessmentCard
+                glowRank={playerCtx.glowRank ?? 9}
+                playerId={player.id}
+              />
+
+              <View style={styles.improveCardGap} />
 
               <AICoachHomeCard
                 aiStatus={homeData?.aiProStatus ?? null}

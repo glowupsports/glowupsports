@@ -77,6 +77,7 @@ import aiProRouter from "./routes/ai-pro";
 import drillsRouter from "./routes/drills";
 import coachHomeRouter from "./routes/coach-home";
 import playerHomeRouter from "./routes/player-home";
+import playerGlowAssessmentRouter from "./routes/player-glow-assessment";
 import playerProgressDataRouter from "./routes/player-progress-data";
 import playerPlayDataRouter from "./routes/player-play-data";
 import playerScheduleDataRouter from "./routes/player-schedule-data";
@@ -430,6 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(drillsRouter);
   app.use(coachHomeRouter);
   app.use(playerHomeRouter);
+  app.use(playerGlowAssessmentRouter);
   app.use(playerProgressDataRouter);
   app.use(playerPlayDataRouter);
   app.use(playerScheduleDataRouter);
