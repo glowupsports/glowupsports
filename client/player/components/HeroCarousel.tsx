@@ -47,6 +47,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useCategoryAccent } from "@/player/theme/useCategoryAccent";
+import ScoutingCardSheet from "@/player/components/ScoutingCardSheet";
 const ROTATE_MS = 6000;
 const PAUSE_RESUME_MS = 8000;
 const PRIORITY_LOCK_MIN = 120;
@@ -284,15 +285,22 @@ function CompeteCard() {
     enabled: !!playerId,
   });
 
+  const [scoutSheetOpponentId, setScoutSheetOpponentId] = useState<string | null>(null);
+
   const respondMutation = useMutation({
-    mutationFn: async ({ id, accepted }: { id: string | number; accepted: boolean }) =>
+    mutationFn: async ({ id, accepted, opponentId: _opponentId }: { id: string | number; accepted: boolean; opponentId?: string }) =>
       apiRequest("POST", `/api/matches/challenge/${id}/respond`, {
         response: accepted ? "accepted" : "declined",
         playerId,
       }),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/matches/challenge"] });
       queryClient.invalidateQueries({ queryKey: ["/api/matches/challenges"] });
+      if (variables.accepted && variables.opponentId) {
+        setTimeout(() => {
+          setScoutSheetOpponentId(variables.opponentId!);
+        }, 600);
+      }
     },
     onError: (err: any) => {
       Alert.alert("Could not respond", err?.message || "Please try again.");
@@ -374,6 +382,49 @@ function CompeteCard() {
     }
   };
 
+  const COUNTER_DRILL_MAP: Record<string, string> = {
+    "Deep Groundstrokes": "approach",
+    "Consistency": "approach",
+    "Endurance": "short ball",
+    "Net Play": "passing",
+    "Volleys": "lob",
+    "Approach Shots": "passing",
+    "Strong Serve": "return",
+    "First Strike": "return",
+    "Power": "return",
+    "Versatility": "passing",
+    "All-Court": "passing",
+    "Adaptability": "baseline",
+    "Defense": "aggressive",
+    "Counter Punching": "aggressive",
+    "Speed": "net",
+    "Placement": "movement",
+    "Strategy": "consistency",
+    "Spin Variation": "flat",
+  };
+
+  const handleScoutPrepare = async (skillTags: string[]) => {
+    const counterSearch = skillTags[0]
+      ? (COUNTER_DRILL_MAP[skillTags[0]] ?? skillTags[0])
+      : "";
+    if (counterSearch) {
+      try {
+        await AsyncStorage.setItem("@drills:pending_search", counterSearch);
+      } catch {}
+    }
+    setScoutSheetOpponentId(null);
+    navigateToTab("Growth", { screen: "Drills" });
+  };
+
+  const sharedScoutSheet = (
+    <ScoutingCardSheet
+      visible={!!scoutSheetOpponentId}
+      opponentId={scoutSheetOpponentId}
+      onClose={() => setScoutSheetOpponentId(null)}
+      onPrepare={handleScoutPrepare}
+    />
+  );
+
   const incomingChallenge = challenges.find(
     (c) =>
       c.status === "pending" && String(c.opponentId) === String(playerId)
@@ -429,6 +480,7 @@ function CompeteCard() {
   if (incomingChallenge) {
     const target = challengeToDate(incomingChallenge);
     return (
+      <>
       <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Matches" onAction={goOpenMatches}>
         <View style={styles.chipRow}>
           <MatchTypeChip matchType={incomingChallenge.matchType} accent={COMPETE_ACCENT} />
@@ -449,7 +501,11 @@ function CompeteCard() {
             disabled={respondMutation.isPending}
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
-              respondMutation.mutate({ id: incomingChallenge.id, accepted: true });
+              respondMutation.mutate({
+                id: incomingChallenge.id,
+                accepted: true,
+                opponentId: String(incomingChallenge.challengerId),
+              });
             }}
           >
             <Text style={styles.ctaPrimaryText}>
@@ -470,6 +526,8 @@ function CompeteCard() {
           </Pressable>
         </View>
       </LensShell>
+      {sharedScoutSheet}
+    </>
     );
   }
 
@@ -480,30 +538,50 @@ function CompeteCard() {
     const oppName = isChallenger
       ? acceptedChallenge.opponentName
       : acceptedChallenge.challengerName;
+    const oppId = isChallenger
+      ? String(acceptedChallenge.opponentId)
+      : String(acceptedChallenge.challengerId);
     const target = challengeToDate(acceptedChallenge);
     return (
-      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Matches" onAction={goOpenMatches}>
-        <View style={styles.chipRow}>
-          <MatchTypeChip matchType={acceptedChallenge.matchType} accent={COMPETE_ACCENT} />
-          {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
-          <XpChip amount={50} accent={COMPETE_ACCENT} />
-        </View>
-        <Text style={styles.lensTitle}>Match vs {oppName || "Opponent"}</Text>
-        <Text style={styles.lensSubtitle}>
-          {formatShortDate(acceptedChallenge.scheduledDate)} ·{" "}
-          {formatTime(acceptedChallenge.scheduledTime)}
-          {acceptedChallenge.courtName ? ` · ${acceptedChallenge.courtName}` : ""}
-        </Text>
-        <Pressable
-          style={[styles.ctaSecondary, { borderColor: COMPETE_ACCENT }]}
-          onPress={goPlayers}
-        >
-          <Text style={[styles.ctaSecondaryText, { color: COMPETE_ACCENT }]}>
-            View Match
+      <>
+        <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Matches" onAction={goOpenMatches}>
+          <View style={styles.chipRow}>
+            <MatchTypeChip matchType={acceptedChallenge.matchType} accent={COMPETE_ACCENT} />
+            {target ? <TimeLeftChip target={target} accent={COMPETE_ACCENT} /> : null}
+            <XpChip amount={50} accent={COMPETE_ACCENT} />
+          </View>
+          <Text style={styles.lensTitle}>Match vs {oppName || "Opponent"}</Text>
+          <Text style={styles.lensSubtitle}>
+            {formatShortDate(acceptedChallenge.scheduledDate)} ·{" "}
+            {formatTime(acceptedChallenge.scheduledTime)}
+            {acceptedChallenge.courtName ? ` · ${acceptedChallenge.courtName}` : ""}
           </Text>
-          <Ionicons name="chevron-forward" size={14} color={COMPETE_ACCENT} />
-        </Pressable>
-      </LensShell>
+          <View style={styles.carouselCtaRow}>
+            <Pressable
+              style={[styles.ctaSecondary, { borderColor: COMPETE_ACCENT, flex: 1, marginTop: 0 }]}
+              onPress={goPlayers}
+            >
+              <Text style={[styles.ctaSecondaryText, { color: COMPETE_ACCENT }]}>
+                View Match
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={COMPETE_ACCENT} />
+            </Pressable>
+            <Pressable
+              style={[styles.ctaSecondary, { borderColor: Colors.dark.chipBorder, marginTop: 0 }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                setScoutSheetOpponentId(oppId);
+              }}
+            >
+              <Ionicons name="binoculars-outline" size={14} color={Colors.dark.textMuted} />
+              <Text style={[styles.ctaSecondaryText, { color: Colors.dark.textMuted }]}>
+                Scout
+              </Text>
+            </Pressable>
+          </View>
+        </LensShell>
+        {sharedScoutSheet}
+      </>
     );
   }
 
@@ -1822,6 +1900,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: FontSizes.sm,
     fontWeight: "700",
     color: Backgrounds.root,
+  },
+  carouselCtaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
   },
   ctaSecondary: {
     marginTop: Spacing.md,

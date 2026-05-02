@@ -30,6 +30,7 @@ import { Colors, Spacing, Typography, BorderRadius, TextColors, Backgrounds, Fun
 import { openDirections as openMapsDirections } from "@/lib/maps";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useFamily } from "@/player/context/FamilyContext";
 import FamilyQuickSwitch from "@/player/components/FamilyQuickSwitch";
 import { useSport, getSportLabel, getSportIcon, SPORT_DEFINITIONS } from "@/player/context/SportContext";
@@ -46,6 +47,7 @@ import {
   useThemeReactivity,
 } from "@/hooks/useThemedStyles";
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
+import ScoutingCardSheet from "@/player/components/ScoutingCardSheet";
 import { SkeletonSessionCard } from "@/components/SkeletonLoader";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import AvailableSlotsStrip from "@/player/components/AvailableSlotsStrip";
@@ -337,6 +339,7 @@ export default function PlayScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<PlayStackParamList, "Play">>();
   const queryClient = useQueryClient();
+  const { navigateToTab } = useTabNavigation();
   const { isFamily, familyData, activePlayerId } = useFamily();
   const { isMultiSport, activeSports, activeSport, setActiveSport } =
     useSport();
@@ -371,6 +374,7 @@ export default function PlayScreen() {
   );
   const [friendRequestPlayer, setFriendRequestPlayer] =
     useState<NearbyPlayer | null>(null);
+  const [scoutPlayerId, setScoutPlayerId] = useState<string | null>(null);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
   const [friendRequestPushDelivered, setFriendRequestPushDelivered] = useState<
     boolean | null
@@ -2525,6 +2529,17 @@ export default function PlayScreen() {
         </View>
 
         <View style={styles.compactActions}>
+          <Pressable
+            style={styles.compactScoutBtn}
+            onPress={(e) => {
+              e.stopPropagation();
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              setScoutPlayerId(player.id);
+            }}
+            accessibilityLabel="Scout player"
+          >
+            <Ionicons name="binoculars-outline" size={14} color={Colors.dark.textMuted} />
+          </Pressable>
           {(() => {
             const status = player.friendStatus ?? "none";
             const openModal = () => {
@@ -4596,6 +4611,22 @@ export default function PlayScreen() {
           </View>
         </Pressable>
       </Modal>
+
+      <ScoutingCardSheet
+        visible={!!scoutPlayerId}
+        opponentId={scoutPlayerId}
+        onClose={() => setScoutPlayerId(null)}
+        onPrepare={async (skillTags) => {
+          const tag = skillTags[0] ?? "";
+          if (tag) {
+            try {
+              await AsyncStorage.setItem("@drills:pending_search", tag);
+            } catch {}
+          }
+          setScoutPlayerId(null);
+          navigateToTab("Growth", { screen: "Drills" });
+        }}
+      />
     </View>
   );
 }
@@ -5830,6 +5861,16 @@ const styles = makeReactiveStyles(() =>
       flexDirection: "row",
       alignItems: "center",
       gap: Spacing.sm,
+    },
+    compactScoutBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: Colors.dark.backgroundTertiary,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: Colors.dark.border,
     },
     compactFriendBtn: {
       minWidth: 36,

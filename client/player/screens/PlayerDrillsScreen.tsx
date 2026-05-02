@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,8 +13,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-
 import { DrillDetailSheet } from "@/player/components/DrillDetailSheet";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -263,6 +263,15 @@ export default function PlayerDrillsScreen() {
   const [search, setSearch] = useState("");
   const [selectedDrill, setSelectedDrill] = useState<DrillItem | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem("@drills:pending_search").then((val) => {
+      if (val) {
+        setSearch(val);
+        AsyncStorage.removeItem("@drills:pending_search").catch(() => {});
+      }
+    }).catch(() => {});
+  }, []);
 
   const { data, isLoading, refetch } = useQuery<DrillsData>({
     queryKey: ["/api/player/me/drills", search],
