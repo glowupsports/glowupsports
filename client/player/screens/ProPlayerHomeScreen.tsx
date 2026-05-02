@@ -27,7 +27,6 @@ import { PlayersNearYouRow, CountryLeaderboardsEntry } from "@/player/components
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { HeroCarousel } from "@/player/components/HeroCarousel";
-import { TennisNewsStrip } from "@/player/components/TennisNewsStrip";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
@@ -1885,13 +1884,6 @@ function PlayerHomeContent() {
                 <UpcomingAppointmentCard />
               </>
             ) : null}
-          </LazyOnScroll>
-        ) : null}
-
-        {/* ── TENNIS NEWS ── horizontal strip after IMPROVE, before COMMUNITY */}
-        {!isGuest ? (
-          <LazyOnScroll minHeight={140}>
-            <TennisNewsStrip />
           </LazyOnScroll>
         ) : null}
 

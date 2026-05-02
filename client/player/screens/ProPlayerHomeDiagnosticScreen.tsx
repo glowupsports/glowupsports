@@ -67,7 +67,6 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
-import { TennisNewsStrip } from "@/player/components/TennisNewsStrip";
 import StreakRail from "@/components/StreakRail";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { MiniFeed } from "@/player/components/MiniFeed";
@@ -943,13 +942,6 @@ function DiagnosticHomeContent() {
                   <UpcomingAppointmentCard />
                 </>
               ) : null}
-            </LazyOnScroll>
-          ) : null}
-
-          {/* TENNIS NEWS */}
-          {!isGuest ? (
-            <LazyOnScroll minHeight={140}>
-              <TennisNewsStrip />
             </LazyOnScroll>
           ) : null}
 
