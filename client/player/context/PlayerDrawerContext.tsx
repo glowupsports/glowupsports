@@ -5,6 +5,7 @@ type DrawerContextType = {
   closeDrawer: () => void;
   isOpen: boolean;
   setOpenDrawer: (fn: () => void) => void;
+  syncDrawerOpen: (open: boolean) => void;
 };
 
 const DrawerContext = createContext<DrawerContextType>({
@@ -12,6 +13,7 @@ const DrawerContext = createContext<DrawerContextType>({
   closeDrawer: () => {},
   isOpen: false,
   setOpenDrawer: () => {},
+  syncDrawerOpen: () => {},
 });
 
 export const usePlayerDrawer = () => useContext(DrawerContext);
@@ -33,8 +35,12 @@ export function PlayerDrawerProvider({ children }: { children: ReactNode }) {
     setOpenDrawerFn(() => fn);
   };
 
+  const syncDrawerOpen = (open: boolean) => {
+    setIsOpen(open);
+  };
+
   return (
-    <DrawerContext.Provider value={{ openDrawer, closeDrawer, isOpen, setOpenDrawer }}>
+    <DrawerContext.Provider value={{ openDrawer, closeDrawer, isOpen, setOpenDrawer, syncDrawerOpen }}>
       {children}
     </DrawerContext.Provider>
   );

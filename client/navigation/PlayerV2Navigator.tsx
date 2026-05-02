@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { View, StyleSheet, Platform, ActivityIndicator } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -347,7 +348,7 @@ function PlayerV2TabView() {
   const { user } = useAuth();
   const { isChatExpanded } = useChatState();
   const { navigateToTab } = useTabNavigation();
-  const { openDrawer } = usePlayerDrawer();
+  const { openDrawer, isOpen: drawerOpen } = usePlayerDrawer();
 
   // Gap 5: feature tracking
   const track = useTrackFeature();
@@ -387,7 +388,7 @@ function PlayerV2TabView() {
   const { initialTabKey, isResolved } = useResolvedInitialTab(
     isFreePlayer,
     isPlayerStatusReady,
-    user?.playerId,
+    user?.playerId ?? undefined,
     validTabKeys,
   );
   const initialPage = tabs.findIndex((tab) => tab.key === initialTabKey);
@@ -436,15 +437,16 @@ function PlayerV2TabView() {
       const role: PlayerRole = isFreePlayer ? "free" : "academy";
       AsyncStorage.setItem(
         TAB_STORAGE_KEY,
-        JSON.stringify({ role, tab: key, userId: user?.playerId } satisfies StoredTabState),
+        JSON.stringify({ role, tab: key, userId: user?.playerId ?? undefined } satisfies StoredTabState),
       ).catch(() => {});
     }
   }, [track, isResolved, isFreePlayer, user?.playerId]);
 
   const renderOverlay = useCallback((tabKey: string) => {
+    if (drawerOpen) return null;
     if (!SHOW_CHAT_TABS.includes(tabKey)) return null;
     return <CoachChatFooter mode="player" onChallenge={handleChallenge} />;
-  }, [handleChallenge]);
+  }, [drawerOpen, handleChallenge]);
 
   // Gap 4: edge-swipe opens the drawer via context
   const handleEdgeSwipeLeft = useCallback(() => {
@@ -460,7 +462,7 @@ function PlayerV2TabView() {
       onEdgeSwipeLeft={handleEdgeSwipeLeft}
       onPageChange={handlePageChange}
       renderOverlay={renderOverlay}
-      centerButtonConfig={playCenterButton}
+      centerButtonConfig={drawerOpen ? undefined : playCenterButton}
       hideTabBar={isChatExpanded}
     />
   );
@@ -471,7 +473,8 @@ function PlayerV2StackWithDrawer() {
   const { t } = useTranslation();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const navigation = useNavigation<any>();
-  const { setOpenDrawer } = usePlayerDrawer();
+  const { setOpenDrawer, syncDrawerOpen } = usePlayerDrawer();
+  const { navigateToTab } = useTabNavigation();
 
   // Register the drawer-open callback so PlayerV2TabView's edge-swipe
   // and the drawer icon both work correctly.
@@ -480,12 +483,29 @@ function PlayerV2StackWithDrawer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Sync local drawerVisible into context so PlayerV2TabView can read isOpen
+  // for Gap C (overlay) and Gap D (center button).
+  React.useEffect(() => {
+    syncDrawerOpen(drawerVisible);
+  }, [drawerVisible, syncDrawerOpen]);
+
+  // Gap A: mirror V1's handleDrawerNavigate — intercept "PlayerTabs" navigations
+  // so every drawer menu item (Dashboard, Sessions, Plan, Quests, etc.) works.
   const handleDrawerNavigate = useCallback(
     (screen: string, params?: Record<string, unknown>) => {
-      navigation.navigate(screen as never, params as never);
+      if (screen === "PlayerTabs" && params?.screen) {
+        navigateToTab(
+          params.screen as string,
+          params.params
+            ? (params.params as { screen: string; params?: any })
+            : undefined,
+        );
+      } else {
+        navigation.navigate(screen as never, params as never);
+      }
       setTimeout(() => setDrawerVisible(false), 100);
     },
-    [navigation],
+    [navigation, navigateToTab],
   );
 
   return (
@@ -588,7 +608,7 @@ function PlayerV2StackWithDrawer() {
         {/* ── AI / Media ── */}
         <Stack.Screen name="VideoFeedbackPlayer" component={VideoFeedbackPlayerScreen} options={{ presentation: "card", headerShown: false }} />
         <Stack.Screen name="PlayerAICoach" component={PlayerAICoachScreen} options={{ presentation: "card", headerShown: false }} />
-        <Stack.Screen name="YearInTennis" component={YearInTennisScreen} options={{ presentation: "fullScreenModal", headerShown: false, animation: "slide_from_bottom" }} />
+        <Stack.Screen name="YearInTennis" component={YearInTennisScreen} options={{ presentation: "fullScreenModal", headerShown: false, animation: "fade" }} />
 
         {/* ── Training ── */}
         <Stack.Screen name="Training" component={PlayerTrainingScreen} options={{ presentation: "modal" }} />
@@ -608,7 +628,10 @@ function PlayerV2StackWithDrawer() {
       <PlayerIdentityDrawer
         visible={drawerVisible}
         onClose={() => setDrawerVisible(false)}
-        onNavigateToProfile={() => setDrawerVisible(false)}
+        onNavigateToProfile={() => {
+          setDrawerVisible(false);
+          setTimeout(() => navigateToTab("Profile"), 100);
+        }}
         onNavigate={handleDrawerNavigate}
       />
     </View>
@@ -749,6 +772,7 @@ export default function PlayerV2Navigator() {
     <PlayerAppearanceProvider>
       <TabNavigationProvider>
         <PlayerDataProvider>
+          <StatusBar style="light" />
           <PlayerV2Inner />
         </PlayerDataProvider>
       </TabNavigationProvider>
