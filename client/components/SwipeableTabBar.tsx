@@ -35,6 +35,11 @@ export interface TabConfig {
   // When true, render a small unread indicator dot on the tab icon. Number values
   // are reserved for future count badges; today the renderer only shows a dot.
   badge?: boolean | number;
+  // When false, the tab unmounts when leaving it (no keep-alive). Defaults to
+  // true. Set to false for tabs whose component contains its own React Navigation
+  // Stack Navigator — React Navigation cannot have two child navigators mounted
+  // simultaneously under the same container, which crashes Android.
+  keepAlive?: boolean;
 }
 
 export interface CenterButtonConfig {
@@ -426,7 +431,7 @@ export function SwipeableTabBar({
   const screens = useMemo(() => 
     tabs.map((tab, index) => {
       const TabComponent = tab.component;
-      const shouldRender = visitedTabs.has(index);
+      const shouldRender = tab.keepAlive === false ? index === currentIndex : visitedTabs.has(index);
       return (
         <View
           key={tab.key}
