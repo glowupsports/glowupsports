@@ -190,7 +190,7 @@ function TabIndicator({ scrollOffset, tabCount, primaryColor, secondaryColor, co
     const opacity = isCenterActive ? 0 : 1;
     return {
       opacity,
-      transform: [{ translateX: withSpring(scrollOffset.value * tabWidth, { damping: 20, stiffness: 200 }) }],
+      transform: [{ translateX: scrollOffset.value * tabWidth }],
     };
   });
 
@@ -287,11 +287,11 @@ export function SwipeableTabBar({
   }, [isWeb, registerWebTabSetter, webSetTab]);
 
   // Task #1417 — Programmatic page change. Replaces PagerView's native
-  // `setPage`. Animates `scrollOffset` with the same spring used for
-  // gesture snaps so the indicator and tab-item scaling animate too.
+  // `setPage`. Assigns `scrollOffset` directly (no spring) so tab-bar
+  // taps switch instantly. Only swipe gesture snaps (onFinalize) animate.
   const setPage = useCallback((index: number) => {
     if (index < 0 || index >= tabs.length) return;
-    scrollOffset.value = withSpring(index, { damping: 22, stiffness: 200 });
+    scrollOffset.value = index;
     startOffset.value = index;
     setCurrentIndex(index);
     setVisitedTabs(prev => {
