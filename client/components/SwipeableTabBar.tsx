@@ -35,6 +35,11 @@ export interface TabConfig {
   // When true, render a small unread indicator dot on the tab icon. Number values
   // are reserved for future count badges; today the renderer only shows a dot.
   badge?: boolean | number;
+  // When true, the tab is pre-mounted on the first render and never unmounted.
+  // Use this for tabs that contain nested stack navigators so their
+  // registerTabCallback is always active (enabling correct deep-link handling)
+  // and their internal navigation state is preserved across tab switches.
+  keepAlive?: boolean;
 }
 
 export interface CenterButtonConfig {
@@ -232,7 +237,18 @@ export function SwipeableTabBar({
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const [currentIndex, setCurrentIndex] = useState(initialPage);
-  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([initialPage]));
+  // Pre-seed visitedTabs with the initial page AND any tab marked keepAlive=true.
+  // keepAlive tabs contain nested stack navigators: pre-mounting them ensures
+  // their registerTabCallback is active before any deep link fires, and prevents
+  // the Android "Another navigator is already registered" crash that occurs when
+  // a stack navigator is repeatedly mounted/unmounted on tab switches.
+  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => {
+    const initial = new Set([initialPage]);
+    tabs.forEach((tab, index) => {
+      if (tab.keepAlive) initial.add(index);
+    });
+    return initial;
+  });
   // Task #1417 — Replaces the PagerView ref. Same imperative `setPage`
   // contract so TabNavigationContext can still drive the pager from
   // outside without code changes.
@@ -427,7 +443,9 @@ export function SwipeableTabBar({
   const screens = useMemo(() => 
     tabs.map((tab, index) => {
       const TabComponent = tab.component;
-      const shouldRender = visitedTabs.has(index);
+      // keepAlive tabs are always rendered (pre-mounted on first render);
+      // other tabs are rendered once visited and kept alive thereafter.
+      const shouldRender = tab.keepAlive || visitedTabs.has(index);
       return (
         <View
           key={tab.key}
