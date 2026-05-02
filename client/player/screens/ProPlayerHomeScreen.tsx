@@ -10,8 +10,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NavigationProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, apiRequest, getStaticAssetsUrl } from "@/lib/query-client";
-import { Image as ExpoImage } from "expo-image";
+import { apiFetch } from "@/lib/query-client";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { Skeleton, SkeletonCard, SkeletonSessionCard } from "@/components/SkeletonLoader";
 import { useAuth, type AuthPlayer } from "@/coach/context/AuthContext";
@@ -30,8 +29,9 @@ import { HeroCarousel } from "@/player/components/HeroCarousel";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
-import StreakRail from "@/components/StreakRail";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
+import { PlayerOfTheWeekCard } from "@/player/components/PlayerOfTheWeekCard";
+import { AICoachHomeCard } from "@/player/components/AICoachHomeCard";
 import PinEntryModal from "@/components/PinEntryModal";
 import ChooseUsernameModal from "@/player/components/ChooseUsernameModal";
 import { BirthdayConfettiOverlay , BirthdayBanner, BirthdayXPBonusCard } from "@/player/components/BirthdayThemeOverlay";
@@ -91,166 +91,7 @@ interface DashboardData {
 }
 
 
-const _unusedAiCardStyles = makeReactiveStyles(() => StyleSheet.create({
-  wrapper: {
-    marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.lg + 1,
-    overflow: "hidden",
-  },
-  gradientBorder: {
-    padding: 1.5,
-    borderRadius: BorderRadius.lg + 1,
-  },
-  card: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    gap: Spacing.xs,
-  },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.sm,
-  },
-  left: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  iconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: GlowColors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  textWrap: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  sub: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    marginTop: 1,
-  },
-  right: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    flexShrink: 0,
-  },
-  layersBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: Colors.dark.chipBackground,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.dark.chipBackgroundStrong,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  layersDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  layersBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: Colors.dark.textMuted,
-  },
-  focusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(139,92,246,0.1)",
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
-  },
-  focusText: {
-    flex: 1,
-    fontSize: 11,
-    color: Colors.dark.textSubtle,
-    fontStyle: "italic",
-  },
-  limitRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  limitText: {
-    fontSize: 11,
-    color: Colors.dark.error,
-    fontWeight: "600",
-  },
-}));
 
-function QuestMiniTile({ quest, questType, onPress }: { quest: Quest | null; questType: "daily" | "weekly" | null; onPress: () => void }) {
-  if (!quest) {
-    return (
-      <MiniTile
-        label="QUEST"
-        icon="flame-outline"
-        iconColor={GlowColors.orange}
-        accentBg="rgba(255,133,27,0.06)"
-        accentBorder="rgba(255,133,27,0.2)"
-        accessibilityLabel="View quests"
-        onPress={onPress}
-        footer={<Text style={miniTileStyles.footerText} numberOfLines={1}>View all</Text>}
-      >
-        <Text style={miniTileStyles.questEmptyText} numberOfLines={2}>
-          No active quest
-        </Text>
-      </MiniTile>
-    );
-  }
-
-  const progress = quest.targetProgress > 0 ? Math.min(quest.currentProgress / quest.targetProgress, 1) : 0;
-  const typeLabel = questType === "weekly" ? "WEEKLY" : "DAILY";
-
-  return (
-    <MiniTile
-      label={typeLabel}
-      icon="flame"
-      iconColor={GlowColors.orange}
-      accentBg="rgba(255,133,27,0.06)"
-      accentBorder="rgba(255,133,27,0.2)"
-      accessibilityLabel={`Quest ${quest.name}`}
-      onPress={onPress}
-      footer={
-        <View style={miniTileStyles.footerRow}>
-          <Ionicons name="flash" size={10} color={Colors.dark.gold} />
-          <Text style={miniTileStyles.xpFooterText} numberOfLines={1}>+{quest.xpReward ?? 0} XP</Text>
-        </View>
-      }
-    >
-      <Text style={miniTileStyles.questName} numberOfLines={2}>{quest.name}</Text>
-      <View style={miniTileStyles.progressBar}>
-        <View
-          style={[
-            miniTileStyles.progressFill,
-            {
-              width: `${Math.max(progress * 100, 2)}%` as DimensionValue,
-              backgroundColor: quest.iconColor || GlowColors.primary,
-            },
-          ]}
-        />
-      </View>
-      <Text style={miniTileStyles.progressText}>{quest.currentProgress}/{quest.targetProgress}</Text>
-    </MiniTile>
-  );
-}
 
 interface SpotlightNomineeMini {
   playerId: string;
@@ -271,256 +112,13 @@ interface SpotlightWeeklyWinnerMini {
   profilePhotoUrl: string | null;
 }
 
-function SpotlightTileAvatar({ photoUrl, borderColor = Colors.dark.gold }: { photoUrl?: string | null; borderColor?: string }) {
-  const baseUrl = getStaticAssetsUrl();
-  const fullUrl = photoUrl ? (photoUrl.startsWith("http") ? photoUrl : `${baseUrl}${photoUrl}`) : null;
-  return (
-    <View style={[miniTileStyles.spotAvatar, { borderColor }]}>
-      {fullUrl ? (
-        <ExpoImage source={{ uri: fullUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
-      ) : (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <Ionicons name="person" size={14} color={Colors.dark.textMuted} />
-        </View>
-      )}
-    </View>
-  );
-}
-
-interface MiniTileProps {
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  accentBg: string;
-  accentBorder: string;
-  onPress: () => void;
-  children?: React.ReactNode;
-  footer?: React.ReactNode;
-  headerRight?: React.ReactNode;
-  accessibilityLabel?: string;
-}
-
-function MiniTile({
-  label,
-  icon,
-  iconColor,
-  accentBg,
-  accentBorder,
-  onPress,
-  children,
-  footer,
-  headerRight,
-  accessibilityLabel,
-}: MiniTileProps) {
-  // Root is a plain View so the footer slot can host its own interactive
-  // elements (e.g. Spotlight's Vote/Nominate pill) without nesting a
-  // <button> inside another <button>, which React refuses to hydrate on
-  // web and causes a fully white screen.
-  return (
-    <View
-      style={[
-        miniTileStyles.tile,
-        { backgroundColor: accentBg, borderColor: accentBorder },
-      ]}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        onPress={onPress}
-        style={({ pressed }) => [
-          miniTileStyles.tileTapArea,
-          pressed && miniTileStyles.tilePressed,
-        ]}
-      >
-        <View style={miniTileStyles.header}>
-          <View style={miniTileStyles.headerLeft}>
-            <Ionicons name={icon} size={11} color={iconColor} />
-            <Text style={[miniTileStyles.label, { color: iconColor }]} numberOfLines={1}>
-              {label}
-            </Text>
-          </View>
-          {headerRight}
-        </View>
-        <View style={miniTileStyles.body}>{children}</View>
-      </Pressable>
-      {footer ? <View style={miniTileStyles.footer}>{footer}</View> : null}
-    </View>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Unified IMPROVE card — AI Coach (top) + Tennis IQ / Quest (2 cols) + Spotlight (bottom)
-// All interactive elements are SIBLING Pressables, never nested. Replaces the
-// old AICoachEntryCard + MiniTile row, including the buggy nested-Pressable
-// inside SpotlightMiniTile that caused a "<button> cannot contain a nested
-// <button>" white screen on web.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TENNIS_IQ_SCORE_KEY_INLINE = "@glow_tennis_iq_score";
-
-interface IQQuestionInline {
-  q: string;
-  opts: string[];
-  correct: string;
-  explanation: string;
-}
-
-function IQQuizModal({
-  visible,
-  onClose,
-  onComplete,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onComplete: (score: number) => void;
-}) {
-  const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-
-  const { data: quizData, isLoading: quizLoading } = useQuery<{ questions: IQQuestionInline[] }>({
-    queryKey: ["/api/quiz/tennis-iq"],
-    staleTime: 24 * 60 * 60 * 1000,
-  });
-  const questions = quizData?.questions ?? [];
-
-  // Reset internal state whenever the modal is opened.
-  useEffect(() => {
-    if (visible) {
-      setCurrentQ(0);
-      setAnswers([]);
-      setSelectedAnswer(null);
-    }
-  }, [visible]);
-
-  const handleSelectAnswer = (answer: string) => {
-    if (selectedAnswer !== null) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedAnswer(answer);
-  };
-
-  const handleNext = () => {
-    if (selectedAnswer === null || questions.length === 0) return;
-    const newAnswers = [...answers, selectedAnswer];
-    setAnswers(newAnswers);
-    setSelectedAnswer(null);
-    if (currentQ < questions.length - 1) {
-      setCurrentQ((prev) => prev + 1);
-    } else {
-      const finalScore = newAnswers.filter((a, i) => a === questions[i].correct).length;
-      onComplete(finalScore);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-  };
-
-  const quizComplete = questions.length > 0 && answers.length === questions.length;
-  const liveScore = answers.filter((a, i) => a === questions[i]?.correct).length;
-  const currentQuestion = questions[currentQ];
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={iqCardStyles.modalOverlay}>
-        <View style={iqCardStyles.modalSheet}>
-          <View style={iqCardStyles.modalHandle} />
-          <Text style={iqCardStyles.modalTitle}>Tennis IQ Quiz</Text>
-
-          {quizLoading ? (
-            <View style={iqCardStyles.loadingWrap}>
-              <TennisBallSpinner color={Colors.dark.gold} size="small" />
-              <Text style={iqCardStyles.loadingText}>Loading questions...</Text>
-            </View>
-          ) : quizComplete ? (
-            <View style={iqCardStyles.resultWrap}>
-              <View style={iqCardStyles.resultCircle}>
-                <Text style={iqCardStyles.resultScore}>{liveScore}/{questions.length}</Text>
-              </View>
-              <Text style={iqCardStyles.resultLabel}>
-                {liveScore === questions.length
-                  ? "Perfect score!"
-                  : liveScore >= questions.length * 0.6
-                  ? "Well done!"
-                  : "Keep learning!"}
-              </Text>
-              <Pressable style={iqCardStyles.doneBtn} onPress={onClose}>
-                <Text style={iqCardStyles.doneBtnText}>Done</Text>
-              </Pressable>
-            </View>
-          ) : currentQuestion ? (
-            <View style={iqCardStyles.quizBody}>
-              <Text style={iqCardStyles.questionNum}>Question {currentQ + 1} of {questions.length}</Text>
-              <Text style={iqCardStyles.question}>{currentQuestion.q}</Text>
-              {currentQuestion.opts.map((opt) => {
-                const isSelected = selectedAnswer === opt;
-                const revealed = selectedAnswer !== null;
-                const isCorrect = opt === currentQuestion.correct;
-                let optStyle = iqCardStyles.optionBtn;
-                if (revealed && isCorrect) optStyle = iqCardStyles.optionCorrect;
-                else if (revealed && isSelected && !isCorrect) optStyle = iqCardStyles.optionWrong;
-                else if (revealed) optStyle = iqCardStyles.optionLocked;
-                return (
-                  <Pressable key={opt} style={optStyle} onPress={() => handleSelectAnswer(opt)}>
-                    <Text style={[iqCardStyles.optionText, revealed && isCorrect && { color: "#22c55e", fontWeight: "700" }, revealed && isSelected && !isCorrect && { color: "#f87171" }]}>{opt}</Text>
-                  </Pressable>
-                );
-              })}
-              {selectedAnswer !== null ? (
-                <>
-                  <Text style={iqCardStyles.explanation}>{currentQuestion.explanation}</Text>
-                  <Pressable style={iqCardStyles.nextBtn} onPress={handleNext}>
-                    <Text style={iqCardStyles.nextBtnText}>
-                      {currentQ < questions.length - 1 ? "Next Question" : "See Results"}
-                    </Text>
-                  </Pressable>
-                </>
-              ) : null}
-            </View>
-          ) : null}
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function UnifiedImproveCard({
+function QuestsCard({
   onQuestPress,
-  onSpotlightNominate,
-  onSpotlightDetails,
-  // Task #1426 — every below-the-fold piece of data this card needs is
-  // already returned by the home god-route (`/api/player/me/home-data`)
-  // and passed in via these props. The card no longer holds its own
-  // `useQuery` calls for that data, so the combined endpoint is the
-  // only fetch path. The two exceptions are:
-  //   * the quests list — its own dedicated hook (`useQuests`) which
-  //     intentionally loads when this card scrolls into view, NOT on
-  //     home mount. Moving it would re-introduce the cold-start fanout.
-  //   * the tennis-IQ quiz QUESTIONS payload — fetched lazily by
-  //     `IQQuizModal` only when the user actually opens the quiz.
-  aiStatus,
-  aiCoachContext,
-  weeklyDigest,
-  spotlightCurrentWeek,
-  spotlightWeeklyWinner,
-  serverQuizScore,
 }: {
   onQuestPress: () => void;
-  onSpotlightNominate: () => void;
-  onSpotlightDetails: () => void;
-  aiStatus: { isPro: boolean; isCoach: boolean; callCount: number; limit: number } | null;
-  aiCoachContext: {
-    glowMirrorLayers?: { sessionCheckins: boolean; monthlyVoice: boolean; perceptionGaps: boolean };
-  } | null;
-  weeklyDigest: { data: { focusArea?: string } | null } | null;
-  spotlightCurrentWeek: SpotlightCurrentWeekMini | null;
-  spotlightWeeklyWinner: { winner: SpotlightWeeklyWinnerMini | null };
-  serverQuizScore: number | null;
 }) {
-  const navigation = useNavigation<any>();
   const { user } = useAuth();
 
-  // Task #1396 — quests used to be fetched in the parent screen on mount and
-  // passed down. Moving the fetch in here means it only runs when this card
-  // (which lives below the fold) is actually mounted — i.e. when the user
-  // scrolls the IMPROVE block into view.
   const { data: questsData } = useQuests(!!user?.playerId);
   const { quest, questType } = useMemo(() => {
     if (!questsData) return { quest: null as Quest | null, questType: null as "daily" | "weekly" | null };
@@ -539,546 +137,129 @@ function UnifiedImproveCard({
     return { quest: sorted[0].quest as Quest | null, questType: sorted[0].type as "daily" | "weekly" | null };
   }, [questsData]);
 
-  // ── AI Coach derived view (data comes from the home god-route).
-  const layers = aiCoachContext?.glowMirrorLayers;
-  const activeCount = layers
-    ? [layers.sessionCheckins, layers.monthlyVoice, layers.perceptionGaps].filter(Boolean).length
-    : 0;
-  const focusPreview = weeklyDigest?.data?.focusArea;
-  const isNearLimit = aiStatus && aiStatus.limit > 0 && aiStatus.callCount / aiStatus.limit >= 0.9;
-
-  // ── Tennis IQ
-  const [iqScore, setIqScore] = useState<number | null>(null);
-  const [iqLoaded, setIqLoaded] = useState(false);
-  const [showQuiz, setShowQuiz] = useState(false);
-  // The actual quiz QUESTIONS payload is fetched by IQQuizModal only
-  // when the user opens the quiz. Until then we just need the question
-  // count for the dot row, which has always been 5 (the only quiz the
-  // server returns); the previous useQuery here only existed for that
-  // count and its `|| 5` fallback was the long-standing default.
-  const totalIQ = 5;
-
-  useEffect(() => {
-    AsyncStorage.getItem(TENNIS_IQ_SCORE_KEY_INLINE).then((val) => {
-      if (serverQuizScore !== null && serverQuizScore !== undefined) {
-        setIqScore(serverQuizScore);
-        AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY_INLINE, String(serverQuizScore));
-      } else if (val !== null) {
-        setIqScore(parseInt(val, 10));
-      }
-      setIqLoaded(true);
-    });
-  }, [serverQuizScore]);
-
-  // ── Spotlight (data from the home god-route, passed in as props).
-  const currentWeek = spotlightCurrentWeek;
-  const weeklyWinner = spotlightWeeklyWinner;
-  const hasVoted = !!currentWeek?.myNomination;
-  const topNominee = currentWeek?.nominations?.[0] ?? null;
-  const lastWinner = weeklyWinner?.winner ?? null;
-  const daysRemaining = currentWeek?.daysRemaining;
-  const chipText =
-    daysRemaining === undefined ? null : daysRemaining <= 0 ? "Ends today!" : `${daysRemaining}d left`;
-
-  const stateA = !!topNominee && !hasVoted;
-  const stateB = hasVoted;
-  const stateC = !stateA && !stateB;
-
-  const spotPlayer: { profilePhotoUrl: string | null; playerName: string } | null =
-    (stateA || stateB) && topNominee
-      ? topNominee
-      : stateC && lastWinner
-      ? lastWinner
-      : null;
-  // first-name only is intentional here for chip density
-  const spotName = spotPlayer ? spotPlayer.playerName.split(" ")[0] : null;
-  const spotSecondary = stateA && topNominee
-    ? `${topNominee.totalVotes} votes`
-    : stateB
-    ? "You voted this week"
-    : stateC && lastWinner
-    ? "Last week's winner"
-    : "Vote for your favourite player";
-  const ctaLabel = stateA ? "Vote" : stateB ? "Voted" : stateC && !lastWinner ? "Nominate" : "View";
-
-  const handleSpotlightCTA = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (stateA || (stateC && !lastWinner)) onSpotlightNominate();
-    else onSpotlightDetails();
-  };
-  const handleSpotlightRow = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (stateC && !lastWinner) onSpotlightNominate();
-    else onSpotlightDetails();
-  };
-
   const questProgress = quest && quest.targetProgress > 0 ? Math.min(quest.currentProgress / quest.targetProgress, 1) : 0;
 
   return (
-    <View style={u.wrapper}>
-      <LinearGradient
-        colors={[Colors.dark.accentTextSoft, "rgba(167,139,250,0.08)", "rgba(0,229,255,0.06)"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={u.gradientBorder}
-      >
-        <View style={u.card}>
-          {/* AI COACH TOP SECTION */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open AI Coach"
-            style={({ pressed }) => [u.aiSection, pressed && u.pressed]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigation.navigate("PlayerAICoach");
-            }}
-          >
-            <View style={u.aiTopRow}>
-              <View style={u.aiLeft}>
-                <View style={u.aiIconWrap}>
-                  <Ionicons name="sparkles" size={18} color={Colors.dark.buttonText} />
-                </View>
-                <View style={u.aiTextWrap}>
-                  <Text style={u.aiTitle}>AI Coach</Text>
-                  <Text style={u.aiSub} numberOfLines={1}>
-                    Ask about your game, progress and strategy
-                  </Text>
-                </View>
-              </View>
-              <View style={u.aiRight}>
-                <View style={u.layersBadge}>
-                  <View
-                    style={[
-                      u.layersDot,
-                      { backgroundColor: activeCount > 0 ? GlowColors.primary : Colors.dark.textMuted },
-                    ]}
-                  />
-                  <Text style={u.layersBadgeText}>{activeCount}/3</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-              </View>
-            </View>
-            {focusPreview ? (
-              <View style={u.focusRow}>
-                <Ionicons name="flag" size={11} color="#8B5CF6" />
-                <Text style={u.focusText} numberOfLines={1}>
-                  {focusPreview}
-                </Text>
-              </View>
-            ) : null}
-            {isNearLimit && aiStatus ? (
-              <View style={u.limitRow}>
-                <Ionicons name="warning-outline" size={11} color={Colors.dark.error} />
-                <Text style={u.limitText}>
-                  {Math.max(aiStatus.limit - aiStatus.callCount, 0)} messages left this month
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-
-          <View style={u.hDivider} />
-
-          {/* IQ + QUEST TWO-COLUMN ROW */}
-          <View style={u.middleRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Tennis IQ quiz"
-              style={({ pressed }) => [u.col, pressed && u.pressed]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                if (!iqLoaded) return;
-                setShowQuiz(true);
-              }}
-            >
-              <View style={u.colHeader}>
-                <Ionicons name="bulb-outline" size={11} color={Colors.dark.gold} />
-                <Text style={[u.colLabel, { color: Colors.dark.gold }]} numberOfLines={1}>
-                  TENNIS IQ
-                </Text>
-              </View>
-              <Text style={u.iqScore} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                {iqScore !== null ? `${iqScore}/${totalIQ}` : "—"}
-              </Text>
-              <View style={u.dotsRow}>
-                {Array.from({ length: totalIQ }).map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      u.dot,
-                      iqScore !== null && i < iqScore
-                        ? { backgroundColor: Colors.dark.gold }
-                        : { backgroundColor: Colors.dark.chipBackgroundStrong },
-                    ]}
-                  />
-                ))}
-              </View>
-              <Text style={u.colFooter} numberOfLines={1}>
-                {iqScore !== null ? "Tap to retake" : "Take quiz"}
-              </Text>
-            </Pressable>
-
-            <View style={u.vDivider} />
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={quest ? `Quest ${quest.name}` : "View quests"}
-              style={({ pressed }) => [u.col, pressed && u.pressed]}
-              onPress={onQuestPress}
-            >
-              <View style={u.colHeader}>
-                <Ionicons name={quest ? "flame" : "flame-outline"} size={11} color={GlowColors.orange} />
-                <Text style={[u.colLabel, { color: GlowColors.orange }]} numberOfLines={1}>
-                  {quest ? (questType === "weekly" ? "WEEKLY" : "DAILY") : "QUEST"}
-                </Text>
-              </View>
-              {quest ? (
-                <>
-                  <Text style={u.questName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
-                    {quest.name}
-                  </Text>
-                  <View style={u.progressBar}>
-                    <View
-                      style={[
-                        u.progressFill,
-                        {
-                          width: `${Math.max(questProgress * 100, 2)}%` as DimensionValue,
-                          backgroundColor: quest.iconColor || GlowColors.primary,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <View style={u.questFooterRow}>
-                    <Text style={u.progressText} numberOfLines={1}>
-                      {quest.currentProgress}/{quest.targetProgress}
-                    </Text>
-                    <View style={u.xpRow}>
-                      <Ionicons name="flash" size={10} color={Colors.dark.gold} />
-                      <Text style={u.xpText} numberOfLines={1}>
-                        +{quest.xpReward ?? 0} XP
-                      </Text>
-                    </View>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={u.questEmpty} numberOfLines={2}>
-                    No active quest
-                  </Text>
-                  <Text style={u.colFooter} numberOfLines={1}>
-                    View all
-                  </Text>
-                </>
-              )}
-            </Pressable>
-          </View>
-
-          <View style={u.hDivider} />
-
-          {/* SPOTLIGHT FULL-WIDTH ROW — main row + CTA are SIBLING Pressables */}
-          <View style={u.spotWrap}>
-            <View style={u.spotHeaderRow}>
-              <Ionicons name="trophy" size={11} color={Colors.dark.gold} />
-              <Text style={[u.colLabel, { color: Colors.dark.gold }]} numberOfLines={1}>
-                PLAYER OF THE WEEK
-              </Text>
-              {chipText ? (
-                <View style={u.urgencyChip}>
-                  <Text style={u.urgencyChipText} numberOfLines={1}>
-                    {chipText}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            <View style={u.spotRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Open spotlight details"
-                style={({ pressed }) => [u.spotMain, pressed && u.pressed]}
-                onPress={handleSpotlightRow}
-              >
-                {spotPlayer ? (
-                  <SpotlightTileAvatar photoUrl={spotPlayer.profilePhotoUrl} />
-                ) : (
-                  <View style={u.spotAvatarFallback}>
-                    <Ionicons name="person" size={14} color={Colors.dark.textMuted} />
-                  </View>
-                )}
-                <View style={u.spotTextWrap}>
-                  <Text style={u.spotName} numberOfLines={1}>
-                    {spotName ?? "Be the first to nominate"}
-                  </Text>
-                  <Text style={u.spotSecondary} numberOfLines={1}>
-                    {spotSecondary}
-                  </Text>
-                </View>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={ctaLabel}
-                style={({ pressed }) => [
-                  u.spotCTA,
-                  stateB && u.spotCTAGhost,
-                  pressed && u.pressed,
-                ]}
-                onPress={handleSpotlightCTA}
-              >
-                <Ionicons
-                  name={stateB ? "checkmark-circle" : "star"}
-                  size={12}
-                  color={stateB ? GlowColors.primary : Colors.dark.buttonText}
-                />
-                <Text style={[u.spotCTAText, stateB && { color: Colors.dark.accentText }]}>
-                  {ctaLabel}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={quest ? `Quest: ${quest.name}` : "View quests"}
+      style={({ pressed }) => [qc.card, pressed && qc.pressed]}
+      onPress={onQuestPress}
+    >
+      <View style={qc.header}>
+        <View style={qc.headerLeft}>
+          <Ionicons name={quest ? "flame" : "flame-outline"} size={14} color={GlowColors.orange} />
+          <Text style={qc.label} numberOfLines={1}>
+            {quest ? (questType === "weekly" ? "WEEKLY QUEST" : "DAILY QUEST") : "QUESTS"}
+          </Text>
         </View>
-      </LinearGradient>
+        <Ionicons name="chevron-forward" size={15} color={Colors.dark.textMuted} />
+      </View>
 
-      <IQQuizModal
-        visible={showQuiz}
-        onClose={() => setShowQuiz(false)}
-        onComplete={(s) => {
-          setIqScore(s);
-          AsyncStorage.setItem(TENNIS_IQ_SCORE_KEY_INLINE, String(s));
-          apiRequest("PATCH", "/api/player/me/info", { quizScore: s }).catch(() => {});
-        }}
-      />
-    </View>
+      {quest ? (
+        <>
+          <Text style={qc.questName} numberOfLines={2}>
+            {quest.name}
+          </Text>
+          <View style={qc.progressBar}>
+            <View
+              style={[
+                qc.progressFill,
+                {
+                  width: `${Math.max(questProgress * 100, 2)}%` as DimensionValue,
+                  backgroundColor: quest.iconColor || GlowColors.primary,
+                },
+              ]}
+            />
+          </View>
+          <View style={qc.footer}>
+            <Text style={qc.progressText}>
+              {quest.currentProgress}/{quest.targetProgress}
+            </Text>
+            <View style={qc.xpRow}>
+              <Ionicons name="flash" size={11} color={Colors.dark.gold} />
+              <Text style={qc.xpText}>+{quest.xpReward ?? 0} XP</Text>
+            </View>
+          </View>
+        </>
+      ) : (
+        <Text style={qc.emptyText}>No active quest — tap to view all</Text>
+      )}
+    </Pressable>
   );
 }
 
-const u = makeReactiveStyles(() => StyleSheet.create({
-  wrapper: {
-    marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.lg + 1,
-    overflow: "hidden",
-  },
-  gradientBorder: {
-    padding: 1.5,
-    borderRadius: BorderRadius.lg + 1,
-  },
-  card: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-  hDivider: {
-    height: 1,
-    backgroundColor: Colors.dark.chipBackground,
-    marginHorizontal: Spacing.md,
-  },
-  // AI section
-  aiSection: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    gap: Spacing.xs,
-  },
-  aiTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.sm,
-  },
-  aiLeft: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  aiIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: GlowColors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  aiTextWrap: { flex: 1 },
-  aiTitle: { fontSize: 15, fontWeight: "700", color: Colors.dark.text },
-  aiSub: { fontSize: 12, color: Colors.dark.textMuted, marginTop: 1 },
-  aiRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    flexShrink: 0,
-  },
-  layersBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: Colors.dark.chipBackground,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.dark.chipBackgroundStrong,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  layersDot: { width: 6, height: 6, borderRadius: 3 },
-  layersBadgeText: { fontSize: 10, fontWeight: "600", color: Colors.dark.textMuted },
-  focusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(139,92,246,0.1)",
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
-  },
-  focusText: { flex: 1, fontSize: 11, color: Colors.dark.textSubtle, fontStyle: "italic" },
-  limitRow: { flexDirection: "row", alignItems: "center", gap: 5 },
-  limitText: { fontSize: 11, color: Colors.dark.error, fontWeight: "600" },
-  // Middle row (IQ + Quest)
-  middleRow: {
-    flexDirection: "row",
-    alignItems: "stretch",
-  },
-  vDivider: {
-    width: 1,
-    backgroundColor: Colors.dark.chipBackground,
-    marginVertical: Spacing.sm,
-  },
-  col: {
-    flex: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    gap: 6,
-    minWidth: 0,
-  },
-  colHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  colLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    flexShrink: 1,
-  },
-  colFooter: {
-    fontSize: 10,
-    color: Colors.dark.textMuted,
-    fontWeight: "600",
-  },
-  iqScore: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    lineHeight: 26,
-  },
-  dotsRow: { flexDirection: "row", gap: 4, flexWrap: "wrap" },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  questName: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    lineHeight: 15,
-    minHeight: 30,
-  },
-  questEmpty: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
-    minHeight: 30,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: Colors.dark.chipBackgroundStrong,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressFill: { height: "100%", borderRadius: 2 },
-  progressText: {
-    fontSize: 10,
-    color: Colors.dark.textSubtle,
-    fontWeight: "700",
-  },
-  questFooterRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 4,
-  },
-  xpRow: { flexDirection: "row", alignItems: "center", gap: 3 },
-  xpText: { fontSize: 10, color: Colors.dark.gold, fontWeight: "700" },
-  // Spotlight
-  spotWrap: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    gap: 8,
-  },
-  spotHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  spotRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  spotMain: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    minWidth: 0,
-  },
-  spotAvatarFallback: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,215,0,0.4)",
-    backgroundColor: Colors.dark.chipBackground,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  spotTextWrap: { flex: 1, minWidth: 0 },
-  spotName: { fontSize: 13, fontWeight: "700", color: Colors.dark.text },
-  spotSecondary: { fontSize: 11, color: Colors.dark.textMuted, marginTop: 1 },
-  spotCTA: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: Colors.dark.gold,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: BorderRadius.full,
-    flexShrink: 0,
-  },
-  spotCTAGhost: {
-    backgroundColor: Colors.dark.accentTextSoft,
-    borderWidth: 1,
-    borderColor: Colors.dark.accentText,
-  },
-  spotCTAText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: Colors.dark.buttonText,
-  },
-  urgencyChip: {
-    backgroundColor: "rgba(255,215,0,0.18)",
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: "rgba(255,215,0,0.35)",
-    marginLeft: "auto",
-  },
-  urgencyChipText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: Colors.dark.gold,
-    letterSpacing: 0.3,
-  },
-}));
+const qc = makeReactiveStyles(() =>
+  StyleSheet.create({
+    card: {
+      marginHorizontal: Spacing.lg,
+      backgroundColor: "rgba(255,133,27,0.06)",
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1,
+      borderColor: "rgba(255,133,27,0.18)",
+      padding: Spacing.md,
+      gap: 8,
+    },
+    pressed: { opacity: 0.82 },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    headerLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+    },
+    label: {
+      fontSize: 10,
+      fontWeight: "800",
+      color: GlowColors.orange,
+      letterSpacing: 1.2,
+    },
+    questName: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: Colors.dark.text,
+      lineHeight: 18,
+    },
+    emptyText: {
+      fontSize: 13,
+      color: Colors.dark.textMuted,
+    },
+    progressBar: {
+      height: 4,
+      backgroundColor: Colors.dark.chipBackgroundStrong,
+      borderRadius: 2,
+      overflow: "hidden",
+    },
+    progressFill: {
+      height: "100%",
+      borderRadius: 2,
+    },
+    footer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    progressText: {
+      fontSize: 11,
+      color: Colors.dark.textSubtle,
+      fontWeight: "700",
+    },
+    xpRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+    },
+    xpText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: Colors.dark.gold,
+    },
+  })
+);
+
 
 function PlayerHomeContent() {
   useThemeReactivity();
@@ -1098,7 +279,7 @@ function PlayerHomeContent() {
   const { navigateToTab } = useTabNavigation();
   const { guardAction, promptProps } = useGuestGuard();
   const { isMultiSport, activeSports, activeSport } = useSport();
-  const { state: playerState } = usePlayerState();
+  usePlayerState();
   // Shares cache key with PlayScreen so the home tile counts can mirror the
   // exact scope (mine vs. all) used by the live player feed.
   // Task #1379 — Player home god-query.
@@ -1851,7 +1032,7 @@ function PlayerHomeContent() {
           </LazyOnScroll>
         ) : null}
 
-        {/* ── IMPROVE SECTION ── always shown for logged-in players (AI Coach is the entry point) */}
+        {/* ── IMPROVE SECTION ── AI Coach + Player of the Week + Quests */}
         {!isGuest ? (
           <LazyOnScroll minHeight={240}>
             <View style={styles.sectionDivider}>
@@ -1859,22 +1040,29 @@ function PlayerHomeContent() {
               <Text style={[styles.sectionDividerText, { color: Colors.dark.accentText }]}>IMPROVE</Text>
             </View>
 
-            <UnifiedImproveCard
+            <AICoachHomeCard
+              aiStatus={homeData?.aiProStatus ?? null}
+              aiCoachContext={homeData?.aiCoachContext ?? null}
+              weeklyDigest={homeData?.weeklyDigest ?? null}
+            />
+
+            <View style={styles.improveCardGap} />
+
+            <PlayerOfTheWeekCard
+              currentWeek={homeData?.spotlightCurrentWeek ?? null}
+              weeklyWinner={homeData?.spotlightWeeklyWinner ?? { winner: null }}
+              onNominate={() => setShowSpotlightNomination(true)}
+              onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
+            />
+
+            <View style={styles.improveCardGap} />
+
+            <QuestsCard
               onQuestPress={() => {
                 track("home:quest_tracker");
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 navigateToTab("Growth", { screen: "QuestsMain" });
               }}
-              onSpotlightNominate={() => setShowSpotlightNomination(true)}
-              onSpotlightDetails={() => navigation.navigate("SpotlightDetail" as never)}
-              aiStatus={homeData?.aiProStatus ?? null}
-              aiCoachContext={homeData?.aiCoachContext ?? null}
-              weeklyDigest={homeData?.weeklyDigest ?? null}
-              spotlightCurrentWeek={homeData?.spotlightCurrentWeek ?? null}
-              spotlightWeeklyWinner={homeData?.spotlightWeeklyWinner ?? { winner: null }}
-              serverQuizScore={
-                ((homeData?.profile as { player?: { quizScore?: number | null } } | null)?.player?.quizScore) ?? null
-              }
             />
 
             {/* RecentFeedback & UpcomingAppointment are academy-only — hide for free players */}
@@ -1884,13 +1072,6 @@ function PlayerHomeContent() {
                 <UpcomingAppointmentCard />
               </>
             ) : null}
-          </LazyOnScroll>
-        ) : null}
-
-        {/* ── STREAKS — show before community feed for daily motivation */}
-        {!isGuest ? (
-          <LazyOnScroll minHeight={120}>
-            <StreakRail />
           </LazyOnScroll>
         ) : null}
 
@@ -2009,87 +1190,6 @@ function PlayerHomeContent() {
   );
 }
 
-const iqCardStyles = makeReactiveStyles(() => StyleSheet.create({
-  card: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    backgroundColor: "rgba(255,215,0,0.06)",
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255,215,0,0.2)",
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  row: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
-  iconWrap: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: "rgba(255,215,0,0.12)",
-    justifyContent: "center", alignItems: "center",
-  },
-  textWrap: { flex: 1 },
-  title: { fontSize: 13, fontWeight: "700", color: Colors.dark.text },
-  sub: { fontSize: 11, color: Colors.dark.textMuted, marginTop: 2 },
-  scoreRow: { flexDirection: "row", gap: 6, paddingTop: 2 },
-  scoreDot: { width: 8, height: 8, borderRadius: 4 },
-  scoreDotFilled: { backgroundColor: Colors.dark.gold },
-  scoreDotEmpty: { backgroundColor: Colors.dark.chipBorder },
-  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: Colors.dark.modalScrim },
-  modalSheet: {
-    backgroundColor: Backgrounds.elevated, borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: Spacing.xl, paddingBottom: 48, gap: Spacing.lg,
-  },
-  modalHandle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: Colors.dark.chipBackgroundStrong, alignSelf: "center",
-  },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: Colors.dark.text, textAlign: "center" },
-  loadingWrap: { alignItems: "center", gap: Spacing.md, paddingVertical: Spacing.xl },
-  loadingText: { fontSize: 13, color: Colors.dark.textMuted },
-  resultWrap: { alignItems: "center", gap: Spacing.lg },
-  resultCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: "rgba(255,215,0,0.15)",
-    borderWidth: 2, borderColor: Colors.dark.gold,
-    justifyContent: "center", alignItems: "center",
-  },
-  resultScore: { fontSize: 22, fontWeight: "800", color: Colors.dark.gold },
-  resultLabel: { fontSize: 16, fontWeight: "700", color: Colors.dark.text },
-  doneBtn: {
-    backgroundColor: GlowColors.primary, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md, alignSelf: "stretch",
-  },
-  doneBtnText: { textAlign: "center", fontWeight: "700", fontSize: 15, color: "#000" },
-  quizBody: { gap: Spacing.md },
-  questionNum: { fontSize: 11, color: Colors.dark.textMuted, textTransform: "uppercase", letterSpacing: 1 },
-  question: { fontSize: 16, fontWeight: "700", color: Colors.dark.text, lineHeight: 22 },
-  optionBtn: {
-    backgroundColor: Colors.dark.chipBackground, borderRadius: BorderRadius.md,
-    padding: Spacing.md, borderWidth: 1, borderColor: Colors.dark.chipBackgroundStrong,
-  },
-  optionCorrect: {
-    backgroundColor: "rgba(34,197,94,0.12)", borderRadius: BorderRadius.md,
-    padding: Spacing.md, borderWidth: 1, borderColor: "#22c55e",
-  },
-  optionWrong: {
-    backgroundColor: "rgba(248,113,113,0.12)", borderRadius: BorderRadius.md,
-    padding: Spacing.md, borderWidth: 1, borderColor: "#f87171",
-  },
-  optionLocked: {
-    backgroundColor: Colors.dark.chipBackground, borderRadius: BorderRadius.md,
-    padding: Spacing.md, borderWidth: 1, borderColor: Colors.dark.chipBackground,
-  },
-  optionText: { fontSize: 14, color: Colors.dark.text, fontWeight: "500" },
-  explanation: {
-    fontSize: 13, color: Colors.dark.textMuted, lineHeight: 19,
-    backgroundColor: Colors.dark.chipBackground, borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-  },
-  nextBtn: {
-    backgroundColor: GlowColors.primary, borderRadius: BorderRadius.md,
-    padding: Spacing.md, alignItems: "center",
-  },
-  nextBtnText: { fontSize: 14, fontWeight: "700", color: "#000" },
-}));
 
 function PlayerDNABanner({ playerId }: { playerId: string }) {
   const navigation = useNavigation<NavigationProp<PlayerStackParamList>>();
@@ -2306,6 +1406,9 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     letterSpacing: 2.5,
     textTransform: "uppercase",
   },
+  improveCardGap: {
+    height: Spacing.sm,
+  },
   freePlayerCta: {
     flexDirection: "row",
     alignItems: "center",
@@ -2340,187 +1443,3 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
 }));
 
-const improveTilesRowStyles = makeReactiveStyles(() => StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    alignItems: "stretch",
-  },
-}));
-
-const MINI_TILE_HEIGHT = 138;
-
-const miniTileStyles = makeReactiveStyles(() => StyleSheet.create({
-  tile: {
-    flex: 1,
-    height: MINI_TILE_HEIGHT,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    gap: Spacing.xs,
-    justifyContent: "space-between",
-    overflow: "hidden",
-  },
-  tilePressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.92,
-  },
-  tileTapArea: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 4,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    flexShrink: 1,
-  },
-  label: {
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    flexShrink: 1,
-  },
-  body: {
-    flex: 1,
-    justifyContent: "center",
-    gap: 4,
-  },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  footerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  footerText: {
-    fontSize: 10,
-    color: Colors.dark.textMuted,
-    fontWeight: "600",
-  },
-  // Tennis IQ
-  bigScore: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: Colors.dark.text,
-    lineHeight: 26,
-  },
-  dotsRow: {
-    flexDirection: "row",
-    gap: 4,
-    flexWrap: "wrap",
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  // Quest
-  questName: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.dark.text,
-    lineHeight: 15,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: Colors.dark.chipBackgroundStrong,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 10,
-    color: Colors.dark.textSubtle,
-    fontWeight: "700",
-  },
-  questEmptyText: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
-  },
-  xpFooterText: {
-    fontSize: 10,
-    color: Colors.dark.gold,
-    fontWeight: "700",
-  },
-  // Spotlight
-  urgencyChip: {
-    backgroundColor: "rgba(255,215,0,0.18)",
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: "rgba(255,215,0,0.35)",
-    maxWidth: 70,
-  },
-  urgencyChipText: {
-    fontSize: 8,
-    fontWeight: "800",
-    color: Colors.dark.gold,
-    letterSpacing: 0.3,
-  },
-  spotAvatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1.5,
-    overflow: "hidden",
-    backgroundColor: Colors.dark.chipBackground,
-  },
-  spotName: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  starRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  starCountText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: Colors.dark.gold,
-  },
-  votePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: Colors.dark.gold,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: BorderRadius.full,
-    alignSelf: "flex-start",
-  },
-  votePillText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: Colors.dark.buttonText,
-  },
-  votedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  votedFooterText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: Colors.dark.accentText,
-  },
-}));
