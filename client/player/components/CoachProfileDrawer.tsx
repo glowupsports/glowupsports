@@ -1,10 +1,10 @@
-import React from "react";
-import { View, Text, StyleSheet, Modal, Pressable, ScrollView, Dimensions } from "react-native";
+import React, { useRef, useEffect } from "react";
+import { View, Text, StyleSheet, Modal, Pressable, ScrollView, Dimensions, Animated } from "react-native";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, { SlideInDown } from "react-native-reanimated";
 
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { buildPhotoUrl } from "@/lib/query-client";
@@ -80,6 +80,25 @@ export default function CoachProfileDrawer({
   coach,
 }: CoachProfileDrawerProps) {
   const insets = useSafeAreaInsets();
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        damping: 20,
+        stiffness: 180,
+        mass: 1,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible, slideAnim]);
 
   if (!coach) return null;
 
@@ -102,8 +121,11 @@ export default function CoachProfileDrawer({
         <Pressable style={styles.backdrop} onPress={onClose} />
         
         <Animated.View 
-          entering={SlideInDown.springify().damping(20)}
-          style={[styles.drawer, { paddingBottom: insets.bottom + Spacing.lg }]}
+          style={[
+            styles.drawer,
+            { paddingBottom: insets.bottom + Spacing.lg },
+            { transform: [{ translateY: slideAnim }] },
+          ]}
         >
           <View style={styles.handle} />
           

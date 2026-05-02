@@ -111,6 +111,9 @@ export default function BookingCoachCard({
                   source={{ uri: buildPhotoUrl(coach.profilePhotoUrl)! }}
                   style={styles.photo}
                   contentFit="cover"
+                  onError={() => {
+                    console.warn(`[BookingCoachCard] Failed to load photo for coach "${coach.name}": ${coach.profilePhotoUrl}`);
+                  }}
                 />
               ) : (
                 <LinearGradient

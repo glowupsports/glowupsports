@@ -49,7 +49,7 @@ interface Coach {
 interface DirectoryCoach {
   id: string;
   name: string;
-  photoUrl?: string | null;
+  profilePhotoUrl?: string | null;
   specialty?: string | null;
   yearsExperience?: string | null;
   specializations?: string[] | null;
@@ -1404,7 +1404,7 @@ export default function PlayerBookingWizard({
     const mapCoachForCard = (coach: DirectoryCoach) => ({
       id: coach.id,
       name: coach.name,
-      profilePhotoUrl: coach.photoUrl,
+      profilePhotoUrl: coach.profilePhotoUrl,
       specialty: coach.specialty,
       yearsExperience: coach.yearsExperience,
       specializations: coach.specializations,
@@ -1419,7 +1419,7 @@ export default function PlayerBookingWizard({
     const mapCoachForDrawer = (coach: DirectoryCoach) => ({
       id: coach.id,
       name: coach.name,
-      profilePhotoUrl: coach.photoUrl,
+      profilePhotoUrl: coach.profilePhotoUrl,
       specialty: coach.specialty,
       yearsExperience: coach.yearsExperience,
       specializations: coach.specializations,
