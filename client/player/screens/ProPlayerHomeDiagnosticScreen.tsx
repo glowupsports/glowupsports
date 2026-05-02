@@ -56,6 +56,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
+type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
+
 import { useAuth } from "@/coach/context/AuthContext";
 import type { AuthPlayer } from "@/coach/context/AuthContext";
 import { usePlayer } from "@/player/context/PlayerContext";
@@ -110,6 +112,8 @@ import { MiniFeed } from "@/player/components/MiniFeed";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import { GlowAssessmentCard } from "@/player/components/GlowAssessmentCard";
+import AchievementCelebrationModal from "@/player/components/AchievementCelebrationModal";
+import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -385,6 +389,41 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
       setIsManualRefreshing(false);
     }
   };
+
+  // ── Achievement nudge query ────────────────────────────────────────────────
+  const { data: achievementNudge } = useQuery<{
+    achievementId: string;
+    name: string;
+    sessionsAway: number;
+    iconName: string;
+    iconColor: string;
+    currentProgress: number;
+    triggerThreshold: number;
+  } | null>({
+    queryKey: ["/api/player/me/achievements/nudge"],
+    enabled: !!user?.playerId && !isGuest,
+    staleTime: 120000,
+    refetchInterval: 300000,
+  });
+
+  // ── Achievement celebration (global — fires from home tab on milestone hit) ─
+  // Uses the same AsyncStorage-backed hook as PlayerProfileScreen so each
+  // achievement triggers the celebration modal at most once, regardless of
+  // which screen evaluates the milestone first.
+  const { celebrationAchievement, onCloseCelebration, enqueueNewlyEarned } = useAchievementCelebration(user?.playerId ?? "");
+  const { data: achievementsHomeData } = useQuery<{
+    achievements: { id: string; name: string; description: string; iconName: string; iconColor: string; rewardLabel: string; rewardType: string; rarity: string; earned: boolean }[];
+    newlyEarned: string[];
+  } | null>({
+    queryKey: ["/api/player/me/achievements"],
+    enabled: !!user?.playerId && !isGuest,
+    staleTime: 60000,
+    refetchInterval: 120000,
+  });
+  useEffect(() => {
+    const newlyEarned = achievementsHomeData?.newlyEarned ?? [];
+    enqueueNewlyEarned(newlyEarned, achievementsHomeData?.achievements ?? []);
+  }, [achievementsHomeData?.newlyEarned]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived data (exact from ProPlayerHomeScreen) ─────────────────────────
   const dashboardData = homeData?.dashboard ?? undefined;
@@ -726,6 +765,43 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
             />
           </View>
 
+          {/* ACHIEVEMENT NUDGE STRIP */}
+          {!isGuest && achievementNudge ? (
+            <Pressable
+              style={styles.nudgeStrip}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                (navigation as any).navigate("PlayerProfile");
+              }}
+            >
+              <View style={[styles.nudgeIconWrap, { backgroundColor: achievementNudge.iconColor + "20" }]}>
+                <Ionicons name={achievementNudge.iconName as IoniconsName} size={18} color={achievementNudge.iconColor} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.nudgeTitle} numberOfLines={1}>
+                  {achievementNudge.sessionsAway === 1
+                    ? `1 session away from "${achievementNudge.name}"`
+                    : `${achievementNudge.sessionsAway} sessions away from "${achievementNudge.name}"`}
+                </Text>
+                <View style={styles.nudgeBarTrack}>
+                  <View
+                    style={[
+                      styles.nudgeBarFill,
+                      {
+                        width: `${Math.min(
+                          (achievementNudge.currentProgress / achievementNudge.triggerThreshold) * 100,
+                          100,
+                        )}%` as DimensionValue,
+                        backgroundColor: achievementNudge.iconColor,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color={achievementNudge.iconColor} />
+            </Pressable>
+          ) : null}
+
           {/* PLAYER DNA BANNER */}
           {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
 
@@ -995,6 +1071,15 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
         />
 
       </View>
+
+      {/* ACHIEVEMENT CELEBRATION — fires from home when a milestone is hit */}
+      {celebrationAchievement ? (
+        <AchievementCelebrationModal
+          achievement={celebrationAchievement}
+          onClose={onCloseCelebration}
+        />
+      ) : null}
+
     </ScrollPositionContext.Provider>
   );
 });
@@ -1081,6 +1166,41 @@ const styles = StyleSheet.create({
   },
   improveCardGap: {
     height: Spacing.sm,
+  },
+  nudgeStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.dark.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+  },
+  nudgeIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nudgeTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: 4,
+  },
+  nudgeBarTrack: {
+    height: 3,
+    backgroundColor: Colors.dark.chipBackground,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  nudgeBarFill: {
+    height: 3,
+    borderRadius: 2,
   },
 });
 

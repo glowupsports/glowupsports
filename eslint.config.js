@@ -143,6 +143,20 @@ module.exports = defineConfig([
       ],
     },
   },
+  // Task #1566 — The `import/namespace` rule's resolver uses an older parser
+  // that cannot handle modern TypeScript syntax (`??` nullish-coalescing,
+  // `as any` casts inside function arguments, etc.) present throughout the
+  // server directory. These cause false-positive "Parse errors in imported
+  // module" errors on perfectly valid code. Since the `no-undef` +
+  // `react/jsx-no-undef` rules above already guard against missing imports
+  // for both client and server code, disabling `import/namespace` for server
+  // files removes this noise without losing any real correctness signal.
+  {
+    files: ["server/**/*.{ts,tsx,js,jsx}"],
+    rules: {
+      "import/namespace": "off",
+    },
+  },
   // Task #1313 — `.cjs` helper scripts are CommonJS modules and legitimately
   // use `__dirname`, `module`, `require`. Declare those globals so lint
   // doesn't flag them as undefined.

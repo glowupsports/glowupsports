@@ -82,6 +82,7 @@ import playerProgressDataRouter from "./routes/player-progress-data";
 import playerPlayDataRouter from "./routes/player-play-data";
 import playerScheduleDataRouter from "./routes/player-schedule-data";
 import playerProfileDataRouter from "./routes/player-profile-data";
+import playerAchievementsRouter from "./routes/player-achievements";
 import communityDataRouter from "./routes/community-data";
 import playerAiCoachDataRouter from "./routes/player-ai-coach-data";
 import quizRouter from "./routes/quiz";
@@ -436,6 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(playerPlayDataRouter);
   app.use(playerScheduleDataRouter);
   app.use(playerProfileDataRouter);
+  app.use(playerAchievementsRouter);
   app.use(communityDataRouter);
   app.use(playerAiCoachDataRouter);
   app.use("/api/quiz", quizRouter);

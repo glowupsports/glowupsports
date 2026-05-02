@@ -163,6 +163,8 @@ router.get(
         titles,
         playerOfWeek,
         vacation,
+        achievements,
+        personalRecords,
       ] = await Promise.all([
         sub<unknown>(`/api/player/me/profile`),
         sub<unknown>(`/api/player/groups`),
@@ -174,6 +176,8 @@ router.get(
         sub<unknown>(`/api/player/titles`),
         sub<unknown>(playerOfWeekPath),
         sub<unknown>(`/api/player/me/vacation`),
+        sub<unknown>(`/api/player/me/achievements`),
+        sub<unknown>(`/api/player/me/personal-records`),
       ]);
 
       const errors: Record<string, number | null> = {};
@@ -190,6 +194,8 @@ router.get(
       note("titles", titles);
       note("playerOfWeek", playerOfWeek);
       note("vacation", vacation);
+      note("achievements", achievements);
+      note("personalRecords", personalRecords);
 
       const responseBody = {
         profile: profile.data ?? null,
@@ -202,6 +208,8 @@ router.get(
         titles: titles.data ?? [],
         playerOfWeek: playerOfWeek.data ?? { awards: [] },
         vacation: vacation.data ?? null,
+        achievements: achievements.data ?? null,
+        personalRecords: personalRecords.data ?? null,
         _keys: {
           v2Wallet: v2WalletPath,
           playerOfWeek: playerOfWeekPath,

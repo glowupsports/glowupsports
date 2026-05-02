@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList, DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
+
+type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
@@ -25,7 +27,41 @@ import { SPORTS, getSportConfig, getSportSkillLevelColor } from "@shared/sportCo
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import AchievementCelebrationModal from "@/player/components/AchievementCelebrationModal";
+import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
 type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
+
+interface AchievementItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  iconName: string;
+  iconColor: string;
+  rarity: string;
+  rewardType: string;
+  rewardLabel: string;
+  earned: boolean;
+  earnedAt: string | null;
+  rewardClaimed: boolean;
+  rewardClaimedAt: string | null;
+  currentProgress: number;
+  sessionsAway: number;
+  triggerThreshold: number;
+  triggerStat: string;
+  sortOrder: number;
+}
+
+interface PersonalRecord {
+  id: string;
+  label: string;
+  value: number;
+  unit: string;
+  icon: string;
+  color: string;
+  isNewPb: boolean;
+  isPbLowerIsBetter?: boolean;
+}
 
 interface ProfileData {
   player: {
@@ -212,7 +248,7 @@ function SportProfilesSection({ sportProfiles, onUpdateSports, isSaving }: Sport
                 }}
                 disabled={isSaving}
               >
-                <Ionicons name={cfg.icon as any} size={28} color={cfg.color} />
+                <Ionicons name={cfg.icon as IoniconsName} size={28} color={cfg.color} />
                 <Text style={[sportSectionStyles.sportToggleName, { color: cfg.color }]}>{cfg.displayName}</Text>
               </Pressable>
             );
@@ -238,7 +274,7 @@ function SportProfilesSection({ sportProfiles, onUpdateSports, isSaving }: Sport
               onPress={() => handleToggleSport(sport)}
               disabled={isSaving}
             >
-              <Ionicons name={cfg.icon as any} size={14} color={isActive ? cfg.color : Colors.dark.textMuted} />
+              <Ionicons name={cfg.icon as IoniconsName} size={14} color={isActive ? cfg.color : Colors.dark.textMuted} />
               <Text style={[sportSectionStyles.sportChipText, isActive && { color: cfg.color }]}>
                 {cfg.displayName}
               </Text>
@@ -259,7 +295,7 @@ function SportProfilesSection({ sportProfiles, onUpdateSports, isSaving }: Sport
           <View key={sport} style={sportSectionStyles.sportRow}>
             <View style={sportSectionStyles.sportRowLeft}>
               <View style={[sportSectionStyles.sportIconCircle, { backgroundColor: cfg.color + "20" }]}>
-                <Ionicons name={cfg.icon as any} size={18} color={cfg.color} />
+                <Ionicons name={cfg.icon as IoniconsName} size={18} color={cfg.color} />
               </View>
               <Text style={sportSectionStyles.sportRowName}>{cfg.displayName}</Text>
             </View>
@@ -431,6 +467,9 @@ export default function PlayerProfileScreen() {
   const [activeTab, setActiveTab] = useState<ProfileTab>("moments");
   const [showTitlesModal, setShowTitlesModal] = useState(false);
   const [showPlayStyleModal, setShowPlayStyleModal] = useState(false);
+  const { celebrationAchievement, onCloseCelebration, enqueueNewlyEarned } = useAchievementCelebration(playerCtx.playerId ?? "");
+  const [achievementsExpanded, setAchievementsExpanded] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState<AchievementItem | null>(null);
   const queryClient = useQueryClient();
 
   // ---------------------------------------------------------------------------
@@ -484,6 +523,14 @@ export default function PlayerProfileScreen() {
     vacation: {
       activeVacation?: { id: string; startDate: string; endDate: string };
       upcomingVacation?: { id: string; startDate: string; endDate: string };
+    } | null;
+    achievements: {
+      achievements: AchievementItem[];
+      newlyEarned: string[];
+      stats: Record<string, number>;
+    } | null;
+    personalRecords: {
+      records: PersonalRecord[];
     } | null;
     _keys: { v2Wallet: string; playerOfWeek: string };
     // Per-branch sub-fetch failures (key presence = failure; value is
@@ -567,6 +614,15 @@ export default function PlayerProfileScreen() {
   const unlockedTitles = titlesData || [];
 
   const vacationData = profileGodData?.vacation ?? undefined;
+  const achievementsData = profileGodData?.achievements ?? undefined;
+  const personalRecordsData = profileGodData?.personalRecords ?? undefined;
+
+  // Trigger celebration modal for newly earned achievements via the shared hook
+  // (AsyncStorage-backed so each achievement celebrates at most once across screens)
+  useEffect(() => {
+    const newlyEarned = achievementsData?.newlyEarned ?? [];
+    enqueueNewlyEarned(newlyEarned, achievementsData?.achievements ?? []);
+  }, [achievementsData?.newlyEarned]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prime each legacy queryKey so downstream consumers (PlayerOfWeekChip,
   // BadgeStrip, TitleStrip, holiday banners, child Family screens) hit
@@ -669,6 +725,25 @@ export default function PlayerProfileScreen() {
     },
     onError: () => {
       Alert.alert("Error", "Could not update sport profile. Please try again.");
+    },
+  });
+
+  // Task #1566 — Claim reward from the badge detail sheet.
+  // This ensures rewards earned via the celebration modal's "Claim Later" path
+  // (or never celebrated) always have a reachable claim action in the profile.
+  const claimAchievementMutation = useMutation({
+    mutationFn: async (achievementId: string) => {
+      return apiRequest("POST", `/api/player/achievements/${achievementId}/claim`);
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/achievements"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile-data"] });
+      setSelectedBadge(null);
+    },
+    onError: () => {
+      Alert.alert("Claim failed", "Could not claim reward. Please try again.");
     },
   });
 
@@ -1088,7 +1163,7 @@ export default function PlayerProfileScreen() {
                 }}
               >
                 <Ionicons
-                  name={PLAY_STYLE_META[player.playStyle as PlayStyleKey].icon as any}
+                  name={PLAY_STYLE_META[player.playStyle as PlayStyleKey].icon as IoniconsName}
                   size={13}
                   color={PLAY_STYLE_META[player.playStyle as PlayStyleKey].color}
                 />
@@ -1129,7 +1204,7 @@ export default function PlayerProfileScreen() {
                   >
                     <View style={[styles.badgeIconCircle, { backgroundColor: (badge.iconColor || RARITY_COLORS[badge.rarity]) + "20" }]}>
                       <Ionicons 
-                        name={badge.iconName as any || "star"} 
+                        name={(badge.iconName || "star") as IoniconsName} 
                         size={20} 
                         color={badge.iconColor || RARITY_COLORS[badge.rarity]} 
                       />
@@ -1544,6 +1619,144 @@ export default function PlayerProfileScreen() {
           isSaving={updateSportProfiles.isPending}
         />
 
+        {/* ── Achievements Section ──────────────────────────────────────── */}
+        <Text style={styles.sectionGroupHeader}>Achievements</Text>
+
+        {/* Personal Records horizontal scroll — "NEW PB" highlight for non-zero records */}
+        {personalRecordsData?.records && personalRecordsData.records.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={achievementStyles.pbScrollContent}
+            style={achievementStyles.pbScroll}
+          >
+            {personalRecordsData.records.map((rec) => {
+              const isNewPb = !!rec.isNewPb;
+              return (
+                <View
+                  key={rec.id}
+                  style={[
+                    achievementStyles.pbCard,
+                    isNewPb && { borderColor: rec.color + "60", borderWidth: 1.5 },
+                  ]}
+                >
+                  {isNewPb ? (
+                    <View style={[achievementStyles.pbNewBadge, { backgroundColor: rec.color }]}>
+                      <Text style={achievementStyles.pbNewBadgeText}>PB</Text>
+                    </View>
+                  ) : null}
+                  <View style={[achievementStyles.pbIconCircle, { backgroundColor: rec.color + "20" }]}>
+                    <Ionicons name={rec.icon as IoniconsName} size={18} color={rec.color} />
+                  </View>
+                  <Text style={[achievementStyles.pbValue, { color: rec.color }]}>
+                    {rec.value > 0 ? rec.value.toLocaleString() : "—"}{rec.value > 0 && rec.unit ? ` ${rec.unit}` : ""}
+                  </Text>
+                  <Text style={achievementStyles.pbLabel} numberOfLines={2}>{rec.label}</Text>
+                </View>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
+        {/* Achievement badge grid — FlatList with numColumns=3 for efficient rendering */}
+        {achievementsData?.achievements && achievementsData.achievements.length > 0 ? (() => {
+          const COLLAPSED_COUNT = 6;
+          const allBadges = achievementsData.achievements;
+          const visibleBadges = achievementsExpanded ? allBadges : allBadges.slice(0, COLLAPSED_COUNT);
+          const hasMore = allBadges.length > COLLAPSED_COUNT;
+          return (
+            <>
+              <FlatList
+                data={visibleBadges}
+                numColumns={3}
+                keyExtractor={(ach) => ach.id}
+                scrollEnabled={false}
+                columnWrapperStyle={achievementStyles.gridRow}
+                contentContainerStyle={achievementStyles.gridContainer}
+                renderItem={({ item: ach }) => {
+                  const earned = ach.earned;
+                  const progress = ach.triggerThreshold > 0
+                    ? Math.min(ach.currentProgress / ach.triggerThreshold, 1)
+                    : 0;
+                  return (
+                    <Pressable
+                      style={({ pressed }) => [
+                        achievementStyles.badgeCard,
+                        earned && { borderColor: ach.iconColor + "80" },
+                        !earned && achievementStyles.badgeCardUnearned,
+                        pressed && { opacity: 0.78 },
+                      ]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedBadge(ach);
+                      }}
+                    >
+                      <View style={[
+                        achievementStyles.badgeIconWrap,
+                        { backgroundColor: earned ? ach.iconColor + "20" : Colors.dark.chipBackground },
+                      ]}>
+                        <Ionicons
+                          name={ach.iconName as IoniconsName}
+                          size={24}
+                          color={earned ? ach.iconColor : Colors.dark.textMuted}
+                        />
+                        {earned && !ach.rewardClaimed ? (
+                          <View style={achievementStyles.claimDot} />
+                        ) : null}
+                      </View>
+                      {!earned ? (
+                        <View style={achievementStyles.progressBarTrack}>
+                          <View style={[achievementStyles.progressBarFill, {
+                            width: `${Math.max(progress * 100, 2)}%` as DimensionValue,
+                            backgroundColor: ach.iconColor,
+                          }]} />
+                        </View>
+                      ) : null}
+                      <Text
+                        style={[
+                          achievementStyles.badgeCardName,
+                          { color: earned ? Colors.dark.text : Colors.dark.textMuted },
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {ach.name}
+                      </Text>
+                      {earned ? (
+                        <View style={[achievementStyles.earnedPip, { backgroundColor: ach.iconColor }]} />
+                      ) : null}
+                    </Pressable>
+                  );
+                }}
+              />
+              {hasMore ? (
+                <Pressable
+                  style={({ pressed }) => [achievementStyles.showMoreBtn, pressed && { opacity: 0.7 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setAchievementsExpanded((v) => !v);
+                  }}
+                >
+                  <Text style={achievementStyles.showMoreText}>
+                    {achievementsExpanded
+                      ? "Show less"
+                      : `Show all ${allBadges.length} achievements`}
+                  </Text>
+                  <Ionicons
+                    name={achievementsExpanded ? "chevron-up" : "chevron-down"}
+                    size={14}
+                    color={Colors.dark.accentText}
+                  />
+                </Pressable>
+              ) : null}
+            </>
+          );
+        })() : (
+          <View style={achievementStyles.emptyAchievements}>
+            <Ionicons name="trophy-outline" size={32} color={Colors.dark.textMuted} />
+            <Text style={achievementStyles.emptyAchText}>Keep playing to unlock achievements</Text>
+          </View>
+        )}
+
         {/* AI Coach entry */}
         <Pressable
           style={styles.aiCoachCard}
@@ -1725,6 +1938,100 @@ export default function PlayerProfileScreen() {
         </Pressable>
       </ScrollView>
 
+      {celebrationAchievement ? (
+        <AchievementCelebrationModal
+          achievement={celebrationAchievement}
+          onClose={onCloseCelebration}
+        />
+      ) : null}
+
+      {/* Badge detail sheet */}
+      <Modal
+        visible={!!selectedBadge}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedBadge(null)}
+      >
+        <View style={achievementStyles.detailOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedBadge(null)} />
+          {selectedBadge ? (
+            <View style={achievementStyles.detailSheet}>
+              <View style={achievementStyles.detailHandle} />
+              <View style={[achievementStyles.detailIconCircle, { backgroundColor: selectedBadge.iconColor + "20" }]}>
+                <Ionicons name={selectedBadge.iconName as IoniconsName} size={36} color={selectedBadge.earned ? selectedBadge.iconColor : Colors.dark.textMuted} />
+              </View>
+              <Text style={achievementStyles.detailName}>{selectedBadge.name}</Text>
+              <View style={achievementStyles.detailRarityRow}>
+                <Text style={[achievementStyles.detailRarity, { color: selectedBadge.iconColor }]}>
+                  {selectedBadge.rarity.charAt(0).toUpperCase() + selectedBadge.rarity.slice(1)}
+                </Text>
+                <Text style={achievementStyles.detailCategory}>
+                  {" · "}{selectedBadge.category.charAt(0).toUpperCase() + selectedBadge.category.slice(1)}
+                </Text>
+              </View>
+              <Text style={achievementStyles.detailDesc}>{selectedBadge.description}</Text>
+              {selectedBadge.earned ? (
+                <View style={achievementStyles.detailEarnedBox}>
+                  <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                  <Text style={achievementStyles.detailEarnedText}>
+                    Earned {selectedBadge.earnedAt ? new Date(selectedBadge.earnedAt).toLocaleDateString() : ""}
+                  </Text>
+                </View>
+              ) : (
+                <View style={achievementStyles.detailProgressBox}>
+                  <Text style={achievementStyles.detailProgressLabel}>
+                    Progress: {selectedBadge.currentProgress} / {selectedBadge.triggerThreshold}
+                    {"  "}({selectedBadge.sessionsAway} more to go)
+                  </Text>
+                  <View style={achievementStyles.progressBarTrack}>
+                    <View style={[achievementStyles.progressBarFill, {
+                      width: `${Math.min((selectedBadge.currentProgress / selectedBadge.triggerThreshold) * 100, 100)}%` as DimensionValue,
+                      backgroundColor: selectedBadge.iconColor,
+                    }]} />
+                  </View>
+                </View>
+              )}
+              <View style={achievementStyles.detailRewardBox}>
+                <Ionicons name="gift-outline" size={16} color={Colors.dark.textMuted} />
+                <Text style={achievementStyles.detailRewardText}>
+                  {selectedBadge.rewardClaimed ? "Reward claimed" : `Reward: ${selectedBadge.rewardLabel}`}
+                </Text>
+              </View>
+              {/* "Claim Reward" is always surfaced for earned+unclaimed achievements so
+                  rewards are never stranded when the celebration modal is dismissed. */}
+              {selectedBadge.earned && !selectedBadge.rewardClaimed ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    achievementStyles.detailClaimBtn,
+                    { backgroundColor: selectedBadge.iconColor },
+                    pressed && { opacity: 0.8 },
+                    claimAchievementMutation.isPending && { opacity: 0.6 },
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    claimAchievementMutation.mutate(selectedBadge.id);
+                  }}
+                  disabled={claimAchievementMutation.isPending}
+                >
+                  <Ionicons name="gift" size={16} color="#fff" />
+                  <Text style={achievementStyles.detailClaimBtnText}>
+                    {claimAchievementMutation.isPending ? "Claiming..." : "Claim Reward"}
+                  </Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                style={achievementStyles.detailCloseBtn}
+                onPress={() => setSelectedBadge(null)}
+              >
+                <Text style={achievementStyles.detailCloseBtnText}>
+                  {selectedBadge.earned && selectedBadge.rewardClaimed ? "Close" : "Close"}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+
       <Modal
         visible={showTitlesModal}
         transparent
@@ -1846,7 +2153,7 @@ export default function PlayerProfileScreen() {
                     }}
                     disabled={updatePlayStyle.isPending}
                   >
-                    <Ionicons name={meta.icon as any} size={22} color={isSelected ? meta.color : Colors.dark.textMuted} />
+                    <Ionicons name={meta.icon as IoniconsName} size={22} color={isSelected ? meta.color : Colors.dark.textMuted} />
                     <Text style={[styles.playStylePickerName, isSelected ? { color: meta.color } : null]}>
                       {meta.name}
                     </Text>
@@ -2890,3 +3197,269 @@ const profileStyles = makeReactiveStyles(() => StyleSheet.create({
     marginLeft: Spacing.sm,
   },
 }));
+
+const achievementStyles = StyleSheet.create({
+  pbScroll: {
+    marginHorizontal: -Spacing.xl,
+    marginBottom: Spacing.lg,
+  },
+  pbScrollContent: {
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
+  },
+  pbCard: {
+    width: 90,
+    backgroundColor: Colors.dark.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+    position: "relative",
+  },
+  pbNewBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    zIndex: 1,
+  },
+  pbNewBadgeText: {
+    color: "#fff",
+    fontSize: 8,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  pbIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pbValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  pbLabel: {
+    fontSize: 9,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 12,
+  },
+  gridWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  gridContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+  gridRow: {
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  badgeCard: {
+    flex: 1,
+    maxWidth: "31%",
+    backgroundColor: Colors.dark.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.borderSubtle,
+    marginHorizontal: Spacing.xs,
+  },
+  badgeCardUnearned: {
+    opacity: 0.55,
+  },
+  badgeIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  claimDot: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FF9500",
+    borderWidth: 1.5,
+    borderColor: Colors.dark.card,
+  },
+  progressBarTrack: {
+    width: "100%",
+    height: 3,
+    backgroundColor: Colors.dark.chipBackground,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: 3,
+    borderRadius: 2,
+  },
+  badgeCardName: {
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 13,
+  },
+  earnedPip: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  emptyAchievements: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xxl,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  emptyAchText: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  showMoreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  showMoreText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.accentText,
+  },
+  detailOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  detailSheet: {
+    backgroundColor: Colors.dark.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: Spacing.xl,
+    paddingBottom: 40,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  detailHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.borderSubtle,
+    marginBottom: Spacing.sm,
+  },
+  detailIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+  },
+  detailName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  detailRarityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  detailRarity: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  detailCategory: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  detailDesc: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+    marginTop: Spacing.xs,
+  },
+  detailEarnedBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  detailEarnedText: {
+    fontSize: 13,
+    color: "#22C55E",
+    fontWeight: "600",
+  },
+  detailProgressBox: {
+    width: "100%",
+    marginTop: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  detailProgressLabel: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+  },
+  detailRewardBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.dark.chipBackground,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  detailRewardText: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    fontWeight: "600",
+  },
+  detailClaimBtn: {
+    marginTop: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.xl,
+  },
+  detailClaimBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  detailCloseBtn: {
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.dark.chipBackground,
+    borderRadius: BorderRadius.xl,
+  },
+  detailCloseBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+});

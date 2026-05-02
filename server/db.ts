@@ -1190,6 +1190,67 @@ pool.query('SELECT 1').then(async () => {
     migrationClient.release();
   }
 
+  // Task #1566 — Player achievements & personal records
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_achievements (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        achievement_id VARCHAR NOT NULL,
+        earned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        reward_claimed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE (player_id, achievement_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS pa_player_idx ON player_achievements(player_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS pa_achievement_idx ON player_achievements(achievement_id)`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS priority_booking_until TIMESTAMP`);
+    console.log('[Database] player_achievements migration applied');
+  } catch (e: any) {
+    console.log('[Database] player_achievements migration skipped:', e.message);
+  }
+
+  // Task #1566 — player_discount_codes: wallet storage for discount-code achievement rewards.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_discount_codes (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        code VARCHAR NOT NULL UNIQUE,
+        description TEXT,
+        discount_pct INTEGER NOT NULL DEFAULT 0,
+        valid_until TIMESTAMP,
+        redeemed_at TIMESTAMP,
+        source VARCHAR NOT NULL DEFAULT 'achievement',
+        source_id VARCHAR,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS pdc_player_idx ON player_discount_codes(player_id)`);
+    console.log('[Database] player_discount_codes migration applied');
+  } catch (e: any) {
+    console.log('[Database] player_discount_codes migration skipped:', e.message);
+  }
+
+  // Task #1566 — player_personal_records: tracks the best-ever value for each PB metric.
+  // Used to detect new personal bests accurately without re-computing history on every call.
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_personal_records (
+        player_id  VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        record_id  VARCHAR NOT NULL,
+        best_value INTEGER NOT NULL DEFAULT 0,
+        achieved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (player_id, record_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ppr_player_idx ON player_personal_records(player_id)`);
+    console.log('[Database] player_personal_records migration applied');
+  } catch (e: any) {
+    console.log('[Database] player_personal_records migration skipped:', e.message);
+  }
+
   // Seed USTA assessment items (idempotent — uses ON CONFLICT DO NOTHING)
   try {
     const { seedUstaAssessmentItems } = await import("./seeds/usta-assessment-items-seed");

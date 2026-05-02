@@ -8,6 +8,7 @@ import { initializeFirebase, isFirebaseInitialized, isFCMToken, sendFCMNotificat
 import { isAPNsToken, isAPNsConfigured, sendAPNsNotification } from "./apns";
 import * as Sentry from "@sentry/node";
 import { computeLedgerIntegrityReport } from "./routes/admin-credit-integrity";
+import { triggerAchievementEvaluation } from "./routes/player-achievements";
 
 // Task #1332 — emergency kill-switch for the maintenance cron's auto-charge
 // behavior. V2 `consumeCredit` is idempotent (event_key uniqueness blocks any
@@ -1354,6 +1355,8 @@ async function processAutoCompleteSession(): Promise<void> {
           } catch (creditError) {
             console.error(`[AutoComplete]   Failed credit processing for player ${sp.player_id}:`, creditError);
           }
+          // Task #1566 — fire-and-forget: evaluate achievements after attendance is confirmed.
+          triggerAchievementEvaluation(sp.player_id).catch(() => {/* non-fatal */});
         }
       }
     }
