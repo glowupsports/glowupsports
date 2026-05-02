@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { usePlayerLevel, PendingCelebration, useFeatureUnlocks } from "../hooks/usePlayerLevel";
-import { LevelUpCelebrationModal } from "../components/LevelUpCelebrationModal";
+import { LevelUpCelebrationOverlay } from "../components/LevelUpCelebrationOverlay";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 
@@ -93,7 +93,7 @@ export function PlayerLevelProvider({ playerId, children }: PlayerLevelProviderP
     <PlayerLevelContext.Provider value={value}>
       {children}
       
-      <LevelUpCelebrationModal
+      <LevelUpCelebrationOverlay
         celebration={currentCelebration}
         visible={showCelebration}
         onDismiss={handleCelebrationDismiss}

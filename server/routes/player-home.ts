@@ -32,6 +32,7 @@ import {
   spotlightNominations,
   spotlightWeeklyWinners,
   players,
+  playerQuests,
 } from "@shared/schema";
 import { and, desc, eq, isNotNull, count } from "drizzle-orm";
 import {
@@ -211,6 +212,7 @@ router.get(
         spotlightWeeklyWinnerResult,
         tennisIqResult,
         aiProStatusResult,
+        dailyFocusResult,
       ] = await Promise.allSettled([
         fetchDashboard(playerId),
         // @ts-ignore - fetchProfile accepts AuthenticatedRequest via memoBranch
@@ -223,6 +225,7 @@ router.get(
         fetchTennisIq(playerId),
         // @ts-ignore - fetchAiProStatus accepts AuthenticatedRequest via memoBranch
         fetchAiProStatus(req),
+        computeDailyFocus(playerId),
       ]);
 
       const result: Record<string, unknown> = {
@@ -256,6 +259,10 @@ router.get(
           aiProStatusResult.status === "fulfilled"
             ? aiProStatusResult.value
             : null,
+        dailyFocus:
+          dailyFocusResult.status === "fulfilled"
+            ? dailyFocusResult.value
+            : null,
       };
 
       // Log any rejected branch so we can see in production logs which
@@ -271,6 +278,7 @@ router.get(
         ["spotlightWeeklyWinner", spotlightWeeklyWinnerResult],
         ["tennisIq", tennisIqResult],
         ["aiProStatus", aiProStatusResult],
+        ["dailyFocus", dailyFocusResult],
       ] as const) {
         if (r.status === "rejected") {
           console.error(
@@ -989,5 +997,203 @@ fetchSpotlightWeeklyWinner = memoBranch(
   SLOW_BRANCH_TTL_MS,
   fetchSpotlightWeeklyWinnerImpl,
 ) as (playerId: string) => Promise<Record<string, unknown> | null>;
+
+// ============================================================================
+// Daily Focus — Task #1564
+// ============================================================================
+// Priority order:
+//   1. Session today (live or upcoming)
+//   2. Streak at risk (streak >= 2 and no session logged today)
+//   3. Quest close to completion (>= 40% done, in_progress)
+//   4. Booking nudge (has coach, nothing scheduled)
+//   5. Rest day
+
+interface FocusCardResult {
+  type: "session" | "quest" | "streak_risk" | "booking_nudge" | "rest_day";
+  title: string;
+  subtitle: string;
+  cta_label: string;
+  cta_action: string;
+  urgency_level: "high" | "medium" | "low";
+  session_time?: string | null;
+  xp_remaining?: number | null;
+  coach_name?: string | null;
+  streak_count?: number | null;
+}
+
+async function computeDailyFocus(playerId: string): Promise<FocusCardResult> {
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(now);
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const player = await storage.getPlayer(playerId).catch(() => null);
+
+  const restDay: FocusCardResult = {
+    type: "rest_day",
+    title: [0, 6].includes(now.getDay())
+      ? "Rest day — enjoy the weekend"
+      : "Rest day — great job this week",
+    subtitle: "Recovery is part of training. You're doing great.",
+    cta_label: "",
+    cta_action: "",
+    urgency_level: "low",
+  };
+
+  if (!player) return restDay;
+
+  // 1. Session today?
+  const todaySessions = await storage
+    .getPlayerSessionsWithDetails(playerId, todayStart, todayEnd)
+    .catch(() => []);
+
+  const relevantToday = todaySessions.filter((s) => {
+    const start = new Date(s.startTime);
+    const end = new Date(s.endTime);
+    return end > now || (start <= now && end > now);
+  });
+
+  if (relevantToday.length > 0) {
+    const session = relevantToday[0];
+    const start = new Date(session.startTime);
+    const isLive = start <= now;
+    const hoursAway = Math.max(
+      0,
+      Math.round((start.getTime() - now.getTime()) / (1000 * 60 * 60)),
+    );
+    const coach = session.coachId
+      ? await storage.getCoach(session.coachId).catch(() => null)
+      : null;
+    const timeStr = start.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    return {
+      type: "session",
+      title: isLive
+        ? "You have a live session right now"
+        : `Session today at ${timeStr}`,
+      subtitle: isLive
+        ? `Your ${session.sessionType} session is happening now${coach ? ` with ${coach.name}` : ""}`
+        : `${hoursAway > 0 ? `${hoursAway}h away — ` : ""}${session.sessionType}${coach ? ` with ${coach.name}` : ""}`,
+      cta_label: "View Session",
+      cta_action: "view_session",
+      urgency_level: "medium",
+      session_time: String(session.startTime),
+      coach_name: coach?.name || null,
+    };
+  }
+
+  // 2. Streak at risk?
+  const streak = Number((player as any).streak ?? 0);
+  if (streak >= 2) {
+    const todayPresent = todaySessions.filter(
+      (s) => s.attendanceStatus === "present",
+    );
+    if (todayPresent.length === 0) {
+      const coach = player.coachId
+        ? await storage.getCoach(player.coachId).catch(() => null)
+        : null;
+      return {
+        type: "streak_risk",
+        title: `Your ${streak}-day streak is at risk`,
+        subtitle:
+          "Log a session or complete a quest today to keep your streak alive",
+        cta_label: "Book a Session",
+        cta_action: "book_session",
+        urgency_level: "high",
+        streak_count: streak,
+        coach_name: coach?.name || null,
+      };
+    }
+  }
+
+  // 3. Quest near completion?
+  try {
+    const activeQuests = await db
+      .select()
+      .from(playerQuests)
+      .where(
+        and(
+          eq(playerQuests.playerId, playerId),
+          eq(playerQuests.status, "in_progress"),
+        ),
+      )
+      .limit(10);
+
+    const best = activeQuests
+      .filter((q) => q.targetProgress && q.targetProgress > 0)
+      .map((q) => ({
+        ...q,
+        ratio: (q.currentProgress ?? 0) / (q.targetProgress ?? 1),
+      }))
+      .sort((a, b) => b.ratio - a.ratio)[0];
+
+    if (best && best.ratio >= 0.4) {
+      const remaining = Math.max(
+        0,
+        (best.targetProgress ?? 0) - (best.currentProgress ?? 0),
+      );
+      return {
+        type: "quest",
+        title: "Complete your daily quest",
+        subtitle:
+          remaining === 0
+            ? "You're ready to claim your reward!"
+            : `${remaining} ${remaining === 1 ? "step" : "steps"} remaining${(best as any).xpReward ? ` — +${(best as any).xpReward} XP` : ""}`,
+        cta_label: "Open Quests",
+        cta_action: "open_quests",
+        urgency_level: "low",
+        xp_remaining: (best as any).xpReward ?? null,
+      };
+    }
+  } catch {
+    // best-effort
+  }
+
+  // 4. Booking nudge?
+  if (player.coachId) {
+    const coach = await storage.getCoach(player.coachId).catch(() => null);
+    return {
+      type: "booking_nudge",
+      title: `Book with ${coach?.name ?? "your coach"}`,
+      subtitle: "Schedule your next session to keep your progress on track",
+      cta_label: "Book Now",
+      cta_action: "book_session",
+      urgency_level: "low",
+      coach_name: coach?.name || null,
+    };
+  }
+
+  return restDay;
+}
+
+// Standalone endpoint
+router.get(
+  "/api/player/me/daily-focus",
+  authMiddleware,
+  requirePlayerOrOwner,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.json({
+          type: "rest_day",
+          title: "Welcome to Glow",
+          subtitle: "Set up your profile to get started",
+          cta_label: "",
+          cta_action: "",
+          urgency_level: "low",
+        });
+      }
+      const focus = await computeDailyFocus(playerId);
+      return res.json(focus);
+    } catch (err) {
+      console.error("[player-home] GET /api/player/me/daily-focus error:", err);
+      return res.status(500).json({ error: "Failed to compute daily focus" });
+    }
+  },
+);
 
 export default router;

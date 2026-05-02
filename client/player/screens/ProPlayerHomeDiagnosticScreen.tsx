@@ -72,7 +72,10 @@ import PinEntryModal from "@/components/PinEntryModal";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
-import { PrimaryActionsRow } from "@/player/components/PrimaryActionsRow";
+import { TodaysFocusCard } from "@/player/components/TodaysFocusCard";
+import type { FocusCard } from "@/player/components/TodaysFocusCard";
+import { StreakMilestoneBanner } from "@/player/components/StreakMilestoneBanner";
+import { NewPlayerGuideCard } from "@/player/components/NewPlayerGuideCard";
 import { HeroCarousel } from "@/player/components/HeroCarousel";
 import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
@@ -353,6 +356,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     spotlightWeeklyWinner: { winner: Record<string, unknown> | null };
     tennisIq: { score: number | null; lastQuizAt: string | null } | null;
     aiProStatus: { isPro: boolean; isCoach: boolean; callCount: number; limit: number } | null;
+    dailyFocus: FocusCard | null;
   }>({
     queryKey: ["/api/player/me/home-data"],
     enabled: !!user?.playerId && !isGuest,
@@ -640,6 +644,48 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     [insets.top, insets.bottom],
   );
 
+  const handleFocusCTA = useCallback((action: string) => {
+    if (action === "view_session" || action === "book_session") {
+      handleBookLesson();
+    } else if (action === "open_quests") {
+      track("home:focus_cta_quests");
+      navigateToTab("Growth", { screen: "QuestsMain" });
+    }
+  }, [handleBookLesson, navigateToTab, track]);
+
+  // ── DNA completion for NewPlayerGuideCard ─────────────────────────────────
+  const dnaPct = useMemo(() => {
+    const p = homeData?.profile as Record<string, unknown> | null | undefined;
+    if (!p?.player) return 0;
+    const pp = p.player as Record<string, unknown>;
+    const DNA_FIELDS = [
+      !!pp.dominantHand, !!pp.backhandType, !!pp.height, !!pp.tshirtSize,
+      !!pp.playStyle, !!pp.tennisIdol,
+      Array.isArray(pp.enjoymentTags) && (pp.enjoymentTags as unknown[]).length > 0,
+      !!pp.shortTermGoal, !!pp.longTermDream,
+      Array.isArray(pp.typicalPlayTimes) && (pp.typicalPlayTimes as unknown[]).length > 0,
+      !!pp.profilePhotoUrl,
+    ];
+    const filled = DNA_FIELDS.filter(Boolean).length;
+    return Math.round((filled / DNA_FIELDS.length) * 100);
+  }, [homeData?.profile]);
+
+  const hasGoal = useMemo(() => {
+    const p = homeData?.profile as Record<string, unknown> | null | undefined;
+    if (!p?.player) return false;
+    const pp = p.player as Record<string, unknown>;
+    return !!pp.shortTermGoal;
+  }, [homeData?.profile]);
+
+  const sessionCount = useMemo(() => {
+    const ns = effectiveData?.nextSession;
+    return ns ? 1 : 0;
+  }, [effectiveData?.nextSession]);
+
+  const isNewPlayer = useMemo(() => {
+    return !effectiveData?.academy || (player.level <= 2 && dnaPct < 40 && sessionCount === 0);
+  }, [effectiveData?.academy, player.level, dnaPct, sessionCount]);
+
   return (
     <ScrollPositionContext.Provider value={scrollController.contextValue}>
       <View style={styles.root}>
@@ -683,12 +729,28 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           {/* PLAYER DNA BANNER */}
           {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
 
-          {/* PERSONALIZED GREETING */}
-          <PrimaryActionsRow
-            firstName={player.name}
-            nextSessionDate={effectiveData?.nextSession?.date ?? null}
-            nextSessionEndTime={effectiveData?.nextSession?.endTime ?? null}
-          />
+          {/* STREAK MILESTONE BANNER */}
+          {!isGuest && player.streak > 0 ? (
+            <StreakMilestoneBanner streak={player.streak} />
+          ) : null}
+
+          {/* TODAY'S FOCUS CARD */}
+          {!isGuest && homeData?.dailyFocus ? (
+            <TodaysFocusCard
+              focus={homeData.dailyFocus}
+              onCTA={handleFocusCTA}
+            />
+          ) : null}
+
+          {/* NEW PLAYER ONBOARDING GUIDE */}
+          {!isGuest && isNewPlayer ? (
+            <NewPlayerGuideCard
+              dnaPct={dnaPct}
+              sessionCount={sessionCount}
+              hasGoal={hasGoal}
+              onBookSession={handleBookLesson}
+            />
+          ) : null}
 
           {/* BIRTHDAY BANNER */}
           {isBirthday ? (
