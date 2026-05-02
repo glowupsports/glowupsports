@@ -17,6 +17,7 @@ const modeConfig: Record<AppMode, { icon: keyof typeof Ionicons.glyphMap; label:
   coach: { icon: "tennisball", label: "Coach", color: Colors.dark.primary },
   player: { icon: "person", label: "Player", color: Colors.dark.xpCyan },
   service_provider: { icon: "construct", label: "Provider", color: Colors.dark.orange },
+  diagnostic: { icon: "layers", label: "Player V1", color: "#E74C3C" },
 };
 
 export default function ModeSwitcher({ compact = false }: ModeSwitcherProps) {

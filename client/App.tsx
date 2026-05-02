@@ -274,7 +274,7 @@ const linking: LinkingOptions<any> = {
       return {
         routes: [
           {
-            name: "Player",
+            name: "PlayerV2",
             state: {
               routes: [
                 { name: "GroupDetail", params: { groupId, groupName: "" } },

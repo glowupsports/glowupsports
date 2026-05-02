@@ -106,9 +106,9 @@ function useNavigationEffect(
         case "admin": targetRoute = "Admin"; break;
         case "coach": targetRoute = "Coach"; break;
         case "service_provider": targetRoute = "Provider"; break;
-        case "diagnostic": targetRoute = "PlayerV2"; break;
+        case "diagnostic": targetRoute = "Player"; break;
         case "player":
-        default: targetRoute = "Player"; break;
+        default: targetRoute = "PlayerV2"; break;
       }
     }
 
@@ -193,7 +193,7 @@ function usePendingGroupDeepLink(
             index: 0,
             routes: [
               {
-                name: "Player",
+                name: "PlayerV2",
                 state: {
                   index: 1,
                   routes: [
@@ -242,9 +242,9 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
       case "admin": return "Admin";
       case "coach": return "Coach";
       case "service_provider": return "Provider";
-      case "diagnostic": return "PlayerV2";
+      case "diagnostic": return "Player";
       case "player":
-      default: return "Player";
+      default: return "PlayerV2";
     }
   };
 
