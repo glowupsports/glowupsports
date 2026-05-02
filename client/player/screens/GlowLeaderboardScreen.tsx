@@ -17,7 +17,7 @@ import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
-import { getGlowCategoryInfo } from "@/components/GlowLevelBadge";
+import { getGlowCategoryInfo, GlowRankBadge } from "@/components/GlowLevelBadge";
 
 // Task #1532 — glow category section headers in leaderboard
 const CATEGORY_ORDER = ["Beginner", "Intermediate", "Advanced", "Elite"] as const;
@@ -166,7 +166,9 @@ const TopThreePlayer = memo(function TopThreePlayer({ player, position, metric }
             );
           })()}
         </View>
-        {metric !== "xp_weekly" && metric !== "wins_monthly" && metric !== "streak_current" ? (
+        {player.glowRank != null ? (
+          <GlowRankBadge glowRank={player.glowRank} size="sm" style={styles.topPlayerGlowBadge} />
+        ) : metric !== "xp_weekly" && metric !== "wins_monthly" && metric !== "streak_current" ? (
           <ThemedText style={styles.topPlayerLevel}>Lvl {player.level}</ThemedText>
         ) : null}
       </Pressable>
@@ -630,6 +632,9 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 11,
     color: Colors.dark.textMuted,
     marginTop: 2,
+  },
+  topPlayerGlowBadge: {
+    marginTop: 4,
   },
   myRankCard: {
     marginHorizontal: 0,
