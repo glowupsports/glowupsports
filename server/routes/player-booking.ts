@@ -586,6 +586,24 @@ router.post(
         academyId = coachRecord.academyId;
       }
 
+      // Migration guard — idempotent: ensure table + unique index exist before insert
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS slot_reservations (
+          id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          academy_id  VARCHAR NOT NULL,
+          coach_id    VARCHAR NOT NULL,
+          player_id   VARCHAR NOT NULL,
+          start_time  TIMESTAMPTZ NOT NULL,
+          end_time    TIMESTAMPTZ NOT NULL,
+          expires_at  TIMESTAMPTZ NOT NULL,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS slot_reservations_coach_start_uidx
+        ON slot_reservations (coach_id, start_time)
+      `);
+
       // Atomically: clean up expired reservations for this slot, then try to claim it
       const result = await pool.query(
         `

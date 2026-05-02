@@ -1178,6 +1178,7 @@ export default function PlayerBookingWizard({
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 setSessionType(type.value);
+                goNext();
               }}
               style={[
                 styles.sessionTypeCard,
@@ -1219,6 +1220,7 @@ export default function PlayerBookingWizard({
             setPresetCourtId(null);
             setPresetCourt(null);
             setSelectedLocationId(null);
+            goNext();
           }}
           style={[
             styles.browseModeCard,
@@ -1248,6 +1250,7 @@ export default function PlayerBookingWizard({
             setPresetCourtId(null);
             setPresetCourt(null);
             setSelectedLocationId(null);
+            goNext();
           }}
           style={[
             styles.browseModeCard,
@@ -1275,6 +1278,7 @@ export default function PlayerBookingWizard({
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             setBrowseMode("by_court");
             setSelectedCoachId(null);
+            goNext();
           }}
           style={[
             styles.browseModeCard,
@@ -1326,6 +1330,7 @@ export default function PlayerBookingWizard({
       // Clear any stale slot selection from prior court
       setSelectedSlot(null);
       setSelectedSession(null);
+      goNext();
     };
 
     return (
@@ -1388,6 +1393,7 @@ export default function PlayerBookingWizard({
     const handleCoachSelect = (coach: DirectoryCoach) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setSelectedCoachId(coach.id);
+      goNext();
     };
 
     const handleCoachInfoPress = (coach: DirectoryCoach) => {
