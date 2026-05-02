@@ -629,7 +629,7 @@ function PlayerV2Inner() {
   return (
     <SportContextProvider>
       <ScheduleFocusProvider>
-        <FamilyProvider>
+        <FamilyProvider playerId={playerId}>
           <PlayerLevelProvider playerId={playerId}>
             <CartProvider>
               <PlayerDrawerProvider>
