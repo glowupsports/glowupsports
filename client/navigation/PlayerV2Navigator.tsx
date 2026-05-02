@@ -378,8 +378,8 @@ function PlayerV2TabView() {
   const tabs: TabConfig[] = useMemo(() => [
     { key: "Home",      label: "Home",   icon: "home-outline",            iconFocused: "home",            component: ProPlayerHomeDiagnosticScreen },
     { key: "Community", label: "Social", icon: "people-outline",          iconFocused: "people",          component: CommunityScreen, badge: hasCommunityUnread },
-    { key: "PlayStack", label: "Play",   icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator,     keepAlive: false },
-    { key: "Growth",    label: "Growth", icon: "trending-up-outline",     iconFocused: "trending-up",     component: ProgressStackNavigator, keepAlive: false },
+    { key: "PlayStack", label: "Play",   icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
+    { key: "Growth",    label: "Growth", icon: "trending-up-outline",     iconFocused: "trending-up",     component: ProgressStackNavigator },
     { key: "Profile",   label: "Me",     icon: "person-outline",          iconFocused: "person",          component: PlayerProfileScreen },
   ], [hasCommunityUnread]);
 
