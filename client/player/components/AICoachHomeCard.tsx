@@ -5,7 +5,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
-import { Spacing, Colors, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
+import { Spacing, Colors, BorderRadius, TextColors } from "@/constants/theme";
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 
 interface AICoachHomeCardProps {
@@ -18,6 +18,7 @@ interface AICoachHomeCardProps {
     };
   } | null;
   weeklyDigest: { data: { focusArea?: string } | null } | null;
+  energyInsight?: string | null;
 }
 
 const LAYER_LABELS = ["Session Check-ins", "Monthly Voice", "Perception Gaps"] as const;
@@ -26,6 +27,7 @@ export const AICoachHomeCard = React.memo(function AICoachHomeCard({
   aiStatus,
   aiCoachContext,
   weeklyDigest,
+  energyInsight,
 }: AICoachHomeCardProps) {
   useThemeReactivity();
   const navigation = useNavigation<any>();
@@ -121,6 +123,13 @@ export const AICoachHomeCard = React.memo(function AICoachHomeCard({
               </View>
             ))}
           </View>
+
+          {energyInsight ? (
+            <View style={s.insightRow}>
+              <Ionicons name="flame-outline" size={12} color="#F97316" />
+              <Text style={s.insightText} numberOfLines={2}>{energyInsight}</Text>
+            </View>
+          ) : null}
 
           {isNearLimit && remaining !== null ? (
             <View style={s.limitRow}>
@@ -225,6 +234,22 @@ const s = makeReactiveStyles(() =>
       fontSize: 11,
       fontWeight: "700",
       color: "#818CF8",
+    },
+    insightRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 6,
+      backgroundColor: "rgba(249,115,22,0.08)",
+      borderRadius: BorderRadius.sm,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 7,
+    },
+    insightText: {
+      flex: 1,
+      fontSize: 12,
+      color: "#F97316",
+      fontStyle: "italic",
+      lineHeight: 17,
     },
     focusRow: {
       flexDirection: "row",

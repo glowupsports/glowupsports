@@ -1077,6 +1077,7 @@ interface HeroCarouselProps {
   onCancel?: () => void;
   onExtend?: () => void;
   onFindMatch?: () => void;
+  onRateSession?: () => void;
 }
 
 export function HeroCarousel({
@@ -1085,6 +1086,7 @@ export function HeroCarousel({
   onCancel,
   onExtend,
   onFindMatch,
+  onRateSession,
 }: HeroCarouselProps = {}) {
   const { state } = usePlayerState();
   // Tonal-aware accents for hero slots (Task #858). Each falls back to
@@ -1406,6 +1408,7 @@ export function HeroCarousel({
             onCancel={onCancel}
             onExtend={onExtend}
             onFindMatch={onFindMatch}
+            onRateSession={onRateSession}
           />
         </LensShell>
       );

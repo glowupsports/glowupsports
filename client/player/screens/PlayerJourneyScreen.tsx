@@ -1,12 +1,15 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable, Modal, ScrollView } from "react-native";
+import React, { useState, useMemo, useCallback } from "react";
+import { View, Text, StyleSheet, FlatList, SectionList, Pressable, Modal, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import * as Haptics from "expo-haptics";import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
+import * as Haptics from "expo-haptics";
+import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";
+import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { PostSessionCheckInModal } from "@/player/components/PostSessionCheckInModal";
 interface Milestone {
   id: string;
   type: string;
@@ -171,29 +174,6 @@ function MilestoneCard({ milestone, isFirst, isExpanded, onToggle }: {
         </View>
       </View>
     </Pressable>
-  );
-}
-
-function BadgeCard({ badge }: { badge: Badge }) {
-  return (
-    <View style={[styles.badgeCard, badge.isLocked && styles.badgeCardLocked]}>
-      <View style={[
-        styles.badgeIcon, 
-        { backgroundColor: badge.isLocked ? Colors.dark.backgroundTertiary : `${badge.color}20` }
-      ]}>
-        <Ionicons 
-          name={badge.icon as any} 
-          size={24} 
-          color={badge.isLocked ? Colors.dark.textMuted : badge.color} 
-        />
-      </View>
-      <Text style={[styles.badgeName, badge.isLocked && styles.badgeNameLocked]}>
-        {badge.name}
-      </Text>
-      {badge.isLocked ? (
-        <Ionicons name="lock-closed" size={12} color={Colors.dark.textMuted} />
-      ) : null}
-    </View>
   );
 }
 
@@ -441,12 +421,328 @@ function SkillDetailModal({
   );
 }
 
+interface SessionHistoryItem {
+  sessionId: string;
+  sessionType: string;
+  startTime: string;
+  endTime: string | null;
+  durationMinutes: number | null;
+  status: string;
+  coachName: string | null;
+  xpEarned: number;
+  levelUp: { newLevel: number } | null;
+  checkin: { energyLevel: number; mood: number; notes: string | null; createdAt: string } | null;
+}
+
+interface SessionSection {
+  title: string;
+  data: SessionHistoryItem[];
+}
+
+function sessionMonthKey(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "long" });
+}
+
+function groupSessionsByMonth(sessions: SessionHistoryItem[]): SessionSection[] {
+  const map = new Map<string, SessionHistoryItem[]>();
+  for (const s of sessions) {
+    const key = sessionMonthKey(s.startTime);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(s);
+  }
+  return Array.from(map.entries()).map(([title, data]) => ({ title, data }));
+}
+
+function sessionDotColor(sessionType: string, hasCheckin: boolean): string {
+  if (!hasCheckin) return Colors.dark.backgroundTertiary; // grey — skipped check-in
+  const t = (sessionType ?? "").toLowerCase();
+  if (t === "private" || t === "semi_private" || t === "semi") return "#3B82F6"; // blue — lesson
+  if (t === "group") return "#6366F1"; // indigo — group lesson
+  if (t === "match" || t === "physical" || t === "activity") return "#22C55E"; // green — match/activity
+  return "#3B82F6"; // default blue for unknown lesson types
+}
+
+function SessionDot({ sessionType, hasCheckin }: { sessionType: string; hasCheckin: boolean }) {
+  return (
+    <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: sessionDotColor(sessionType, hasCheckin), borderWidth: 2, borderColor: Colors.dark.backgroundDefault }} />
+  );
+}
+
+function SessionDetailModal({ item, visible, onClose, onRate }: {
+  item: SessionHistoryItem | null;
+  visible: boolean;
+  onClose: () => void;
+  onRate: (sessionId: string, sessionType: string, coachName: string | null) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const energyLabels = ["Exhausted", "Tired", "Okay", "Energized", "Peak"];
+  const moodLabels = ["Rough", "Meh", "Good", "Great", "Amazing"];
+  const moodColors = ["#EF4444", "#F97316", "#EAB308", "#22C55E", "#6366F1"];
+
+  if (!item) {
+    return <Modal visible={false} transparent />;
+  }
+
+  const date = new Date(item.startTime);
+  const dateStr = date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const timeStr = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const typeLabel = item.sessionType === "group" ? "Group"
+    : item.sessionType === "private" ? "Private"
+    : item.sessionType === "semi_private" ? "Semi-Private"
+    : item.sessionType || "Session";
+  const hasCheckin = item.checkin != null;
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={sd.overlay}>
+        <Pressable style={sd.backdrop} onPress={onClose} />
+        <View style={[sd.sheet, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={sd.handle} />
+          <View style={sd.header}>
+            <View>
+              <Text style={sd.title}>{typeLabel} Session</Text>
+              <Text style={sd.subtitle}>{dateStr} · {timeStr}</Text>
+              {item.coachName ? <Text style={sd.coach}>with {item.coachName}</Text> : null}
+            </View>
+            <Pressable onPress={onClose} hitSlop={8}>
+              <Ionicons name="close-circle" size={26} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+
+          <View style={sd.metaRow}>
+            {item.durationMinutes ? (
+              <>
+                <Ionicons name="time-outline" size={14} color={Colors.dark.textMuted} />
+                <Text style={sd.metaText}>{item.durationMinutes} min session</Text>
+              </>
+            ) : null}
+            {item.xpEarned > 0 ? (
+              <>
+                {item.durationMinutes ? <Text style={[sd.metaText, { marginHorizontal: 6 }]}>·</Text> : null}
+                <Ionicons name="star" size={13} color="#EAB308" />
+                <Text style={[sd.metaText, { color: "#EAB308", fontWeight: "700" }]}>+{item.xpEarned} XP</Text>
+              </>
+            ) : null}
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {hasCheckin ? (
+              <View style={sd.section}>
+                <Text style={sd.sectionTitle}>Check-in</Text>
+                <View style={sd.checkinGrid}>
+                  <View style={sd.checkinCell}>
+                    <Ionicons name="flame" size={22} color="#F97316" />
+                    <Text style={sd.checkinValue}>{item.checkin!.energyLevel}/5</Text>
+                    <Text style={sd.checkinLabel}>{energyLabels[(item.checkin!.energyLevel ?? 1) - 1]}</Text>
+                  </View>
+                  <View style={sd.checkinCell}>
+                    <Ionicons name="happy-outline" size={22} color={moodColors[(item.checkin!.mood ?? 1) - 1]} />
+                    <Text style={[sd.checkinValue, { color: moodColors[(item.checkin!.mood ?? 1) - 1] }]}>{item.checkin!.mood}/5</Text>
+                    <Text style={sd.checkinLabel}>{moodLabels[(item.checkin!.mood ?? 1) - 1]}</Text>
+                  </View>
+                </View>
+                {item.checkin!.notes ? (
+                  <View style={sd.notesBlock}>
+                    <Text style={sd.notesText}>{item.checkin!.notes}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <View style={sd.section}>
+                <Text style={sd.sectionTitle}>Check-in</Text>
+                <Pressable
+                  style={sd.rateFullBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onClose();
+                    setTimeout(() => onRate(item.sessionId, typeLabel, item.coachName), 300);
+                  }}
+                >
+                  <Ionicons name="star-outline" size={18} color={Colors.dark.primary} />
+                  <Text style={sd.rateFullBtnText}>Rate this session</Text>
+                </Pressable>
+              </View>
+            )}
+
+            {item.levelUp ? (
+              <View style={sd.section}>
+                <Text style={sd.sectionTitle}>Milestone</Text>
+                <View style={sd.milestoneBadge}>
+                  <Ionicons name="trophy" size={20} color="#EAB308" />
+                  <View>
+                    <Text style={sd.milestoneTitle}>Level Up!</Text>
+                    <Text style={sd.milestoneDesc}>Reached Level {item.levelUp.newLevel} after this session</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const sd = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" },
+  backdrop: { flex: 1 },
+  sheet: { backgroundColor: Colors.dark.backgroundDefault, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, minHeight: 300 },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.dark.backgroundTertiary, alignSelf: "center", marginBottom: Spacing.md },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: Spacing.md },
+  title: { fontSize: 18, fontWeight: "800", color: Colors.dark.text },
+  subtitle: { fontSize: 13, color: Colors.dark.textMuted, marginTop: 2 },
+  coach: { fontSize: 12, color: Colors.dark.primary, marginTop: 2 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: Spacing.md },
+  metaText: { fontSize: 12, color: Colors.dark.textMuted },
+  section: { marginTop: Spacing.md, marginBottom: Spacing.md },
+  sectionTitle: { fontSize: 12, fontWeight: "700", color: Colors.dark.textMuted, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: Spacing.sm },
+  checkinGrid: { flexDirection: "row", gap: Spacing.md },
+  checkinCell: { flex: 1, backgroundColor: Colors.dark.backgroundSecondary, borderRadius: 12, padding: Spacing.md, alignItems: "center", gap: 4 },
+  checkinValue: { fontSize: 20, fontWeight: "800", color: Colors.dark.text },
+  checkinLabel: { fontSize: 11, color: Colors.dark.textMuted, fontWeight: "600" },
+  notesBlock: { marginTop: Spacing.sm, backgroundColor: Colors.dark.backgroundSecondary, borderRadius: 10, padding: Spacing.md },
+  notesText: { fontSize: 13, color: Colors.dark.text, lineHeight: 20 },
+  rateFullBtn: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1.5, borderColor: Colors.dark.primary, borderRadius: 12, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, justifyContent: "center" },
+  rateFullBtnText: { fontSize: 14, fontWeight: "700", color: Colors.dark.primary },
+  milestoneBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.md, backgroundColor: "#EAB30815", borderRadius: 12, padding: Spacing.md, borderWidth: 1, borderColor: "#EAB30830" },
+  milestoneTitle: { fontSize: 14, fontWeight: "800", color: "#EAB308" },
+  milestoneDesc: { fontSize: 12, color: Colors.dark.textMuted, marginTop: 1 },
+});
+
+function SessionHistoryCard({
+  item,
+  isLast,
+  onRate,
+  onPress,
+}: {
+  item: SessionHistoryItem;
+  isLast: boolean;
+  onRate: (sessionId: string, sessionType: string, coachName: string | null) => void;
+  onPress: (item: SessionHistoryItem) => void;
+}) {
+  const date = new Date(item.startTime);
+  const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const timeStr = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const typeLabel = item.sessionType === "group" ? "Group"
+    : item.sessionType === "private" ? "Private"
+    : item.sessionType === "semi_private" ? "Semi-Private"
+    : item.sessionType || "Session";
+  const hasCheckin = item.checkin != null;
+
+  return (
+    <Pressable
+      style={sh.card}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress(item);
+      }}
+    >
+      <View style={sh.leftTrack}>
+        <SessionDot sessionType={item.sessionType} hasCheckin={item.checkin != null} />
+        {isLast ? null : <View style={sh.trackLine} />}
+      </View>
+      <View style={[sh.content, isLast && sh.contentLast]}>
+        <View style={sh.row}>
+          <Text style={sh.type}>{typeLabel}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Text style={sh.date}>{dateStr} · {timeStr}</Text>
+            <Ionicons name="chevron-forward" size={12} color={Colors.dark.textMuted} />
+          </View>
+        </View>
+        {item.coachName ? <Text style={sh.coach}>with {item.coachName}</Text> : null}
+        {hasCheckin ? (
+          <View style={sh.checkinRow}>
+            <View style={sh.pill}>
+              <Ionicons name="flame" size={11} color="#F97316" />
+              <Text style={sh.pillText}>Energy {item.checkin!.energyLevel}/5</Text>
+            </View>
+            <View style={sh.pill}>
+              <Ionicons name="happy-outline" size={11} color="#22C55E" />
+              <Text style={sh.pillText}>Mood {item.checkin!.mood}/5</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={sh.noCheckinRow}>
+            <Text style={sh.noCheckin}>No check-in recorded</Text>
+            <Pressable
+              style={sh.rateBtn}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onRate(item.sessionId, typeLabel, item.coachName);
+              }}
+            >
+              <Ionicons name="star-outline" size={11} color={Colors.dark.primary} />
+              <Text style={sh.rateBtnText}>Rate session</Text>
+            </Pressable>
+          </View>
+        )}
+        {item.checkin?.notes ? (
+          <Text style={sh.notes} numberOfLines={2}>{item.checkin.notes}</Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function SessionMonthHeader({ title }: { title: string }) {
+  return (
+    <View style={sh.monthHeader}>
+      <Text style={sh.monthText}>{title}</Text>
+    </View>
+  );
+}
+
+const sh = StyleSheet.create({
+  card: { flexDirection: "row", marginBottom: 0, paddingHorizontal: Spacing.xl },
+  leftTrack: { width: 20, alignItems: "center", paddingTop: 4 },
+  trackLine: { flex: 1, width: 1.5, backgroundColor: Colors.dark.backgroundTertiary, marginTop: 4 },
+  content: { flex: 1, marginLeft: Spacing.md, paddingBottom: Spacing.lg, borderBottomWidth: 1, borderBottomColor: Colors.dark.backgroundTertiary },
+  contentLast: { borderBottomWidth: 0 },
+  row: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  type: { fontSize: 14, fontWeight: "700", color: Colors.dark.text, flex: 1 },
+  date: { fontSize: 11, color: Colors.dark.textMuted, marginLeft: 4 },
+  coach: { fontSize: 12, color: Colors.dark.textMuted, marginTop: 1 },
+  checkinRow: { flexDirection: "row", gap: 6, marginTop: 6 },
+  noCheckinRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+  pill: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: Colors.dark.backgroundSecondary, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+  pillText: { fontSize: 11, fontWeight: "600", color: Colors.dark.text },
+  noCheckin: { fontSize: 11, color: Colors.dark.textMuted, fontStyle: "italic" },
+  rateBtn: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1, borderColor: Colors.dark.primary },
+  rateBtnText: { fontSize: 11, fontWeight: "600", color: Colors.dark.primary },
+  notes: { fontSize: 12, color: Colors.dark.textMuted, marginTop: 4 },
+  monthHeader: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  monthText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+});
+
 export default function PlayerJourneyScreen() {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<"timeline" | "achievements" | "skills">("timeline");
+  const [activeTab, setActiveTab] = useState<"timeline" | "achievements" | "skills" | "sessions">("timeline");
   const [expandedMilestone, setExpandedMilestone] = useState<string | null>(null);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<DomainBadge | null>(null);
+  const [checkinSession, setCheckinSession] = useState<{ sessionId: string; sessionTitle: string; coachName: string | null } | null>(null);
+  const [detailSession, setDetailSession] = useState<SessionHistoryItem | null>(null);
+
+  const handleRateSession = useCallback((sessionId: string, sessionType: string, coachName: string | null) => {
+    setCheckinSession({ sessionId, sessionTitle: `${sessionType} Session`, coachName });
+  }, []);
+
+  const handleSessionPress = useCallback((item: SessionHistoryItem) => {
+    setDetailSession(item);
+  }, []);
 
   const { data: journeyData, isLoading: journeyLoading, error: journeyError } = useQuery<JourneyData>({
     queryKey: ["/api/player/me/journey"],
@@ -455,14 +751,24 @@ export default function PlayerJourneyScreen() {
   const { data: recognitionData, isLoading: recognitionLoading } = useQuery<RecognitionData>({
     queryKey: ["/api/player/me/recognition"],
   });
-  
+
+  const { data: sessionHistoryData, isLoading: sessionHistoryLoading } = useQuery<{ sessions: SessionHistoryItem[]; hasMore: boolean }>({
+    queryKey: ["/api/player/me/session-history"],
+    enabled: activeTab === "sessions",
+  });
+
+  const sessionSections = useMemo(
+    () => groupSessionsByMonth(sessionHistoryData?.sessions ?? []),
+    [sessionHistoryData],
+  );
+
   const isLoading = journeyLoading;
   const error = journeyError;
 
   if (isLoading || recognitionLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <TennisBallSpinner size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" />
         <Text style={styles.loadingText}>Loading your journey...</Text>
       </View>
     );
@@ -563,6 +869,22 @@ export default function PlayerJourneyScreen() {
             Skills
           </Text>
         </Pressable>
+        <Pressable
+          style={[styles.tab, activeTab === "sessions" && styles.tabActive]}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setActiveTab("sessions");
+          }}
+        >
+          <Ionicons 
+            name="fitness-outline" 
+            size={16} 
+            color={activeTab === "sessions" ? Colors.dark.primary : Colors.dark.textMuted} 
+          />
+          <Text style={[styles.tabText, activeTab === "sessions" && styles.tabTextActive]}>
+            Sessions
+          </Text>
+        </Pressable>
       </View>
 
       {activeTab === "timeline" ? (
@@ -620,6 +942,37 @@ export default function PlayerJourneyScreen() {
             </View>
           }
         />
+      ) : activeTab === "sessions" ? (
+        sessionHistoryLoading ? (
+          <View style={[styles.centered, { flex: 1 }]}>
+            <TennisBallSpinner size="large" />
+          </View>
+        ) : sessionSections.length === 0 ? (
+          <View style={[styles.emptyState, { flex: 1 }]}>
+            <Ionicons name="fitness-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyText}>No sessions yet</Text>
+            <Text style={styles.emptySubtext}>Your session history will appear here after your first lesson</Text>
+          </View>
+        ) : (
+          <SectionList
+            sections={sessionSections}
+            keyExtractor={(item) => item.sessionId}
+            renderItem={({ item, index, section }) => (
+              <SessionHistoryCard
+                item={item}
+                isLast={index === section.data.length - 1}
+                onRate={handleRateSession}
+                onPress={handleSessionPress}
+              />
+            )}
+            renderSectionHeader={({ section }) => (
+              <SessionMonthHeader title={section.title} />
+            )}
+            stickySectionHeadersEnabled
+            contentContainerStyle={{ paddingBottom: insets.bottom + 200, paddingTop: Spacing.sm }}
+            showsVerticalScrollIndicator={false}
+          />
+        )
       ) : (
         <FlatList
           key="badges-grid-2"
@@ -659,6 +1012,23 @@ export default function PlayerJourneyScreen() {
         badge={selectedSkill}
         visible={selectedSkill !== null}
         onClose={() => setSelectedSkill(null)}
+      />
+
+      {checkinSession ? (
+        <PostSessionCheckInModal
+          visible={checkinSession !== null}
+          sessionId={checkinSession.sessionId}
+          sessionTitle={checkinSession.sessionTitle}
+          coachName={checkinSession.coachName ?? undefined}
+          onClose={() => setCheckinSession(null)}
+        />
+      ) : null}
+
+      <SessionDetailModal
+        item={detailSession}
+        visible={detailSession !== null}
+        onClose={() => setDetailSession(null)}
+        onRate={handleRateSession}
       />
     </View>
   );
@@ -826,33 +1196,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   badgesContent: {
     paddingHorizontal: Spacing.lg,
-  },
-  badgeCard: {
-    flex: 1,
-    maxWidth: "25%",
-    alignItems: "center",
-    padding: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  badgeCardLocked: {
-    opacity: 0.5,
-  },
-  badgeIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: Spacing.xs,
-  },
-  badgeName: {
-    ...Typography.caption,
-    color: Colors.dark.text,
-    textAlign: "center",
-    marginBottom: 2,
-  },
-  badgeNameLocked: {
-    color: Colors.dark.textMuted,
   },
   emptyState: {
     alignItems: "center",

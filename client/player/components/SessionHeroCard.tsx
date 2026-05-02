@@ -28,6 +28,7 @@ interface SessionHeroCardProps {
   onExtend?: () => void;
   onBookSession?: () => void;
   onFindMatch?: () => void;
+  onRateSession?: () => void;
 }
 
 const ISSUE_TYPES = [
@@ -226,6 +227,7 @@ export function SessionHeroCard({
   onExtend,
   onBookSession,
   onFindMatch,
+  onRateSession,
 }: SessionHeroCardProps) {
   const { t, i18n } = useTranslation();
   const navigation = useNavigation<any>();
@@ -1631,6 +1633,25 @@ export function SessionHeroCard({
                 </LinearGradient>
               </Pressable>
             </SwipeBlocker>
+
+            {onRateSession ? (
+              <SwipeBlocker>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.commandOutlineButton,
+                    { borderColor: GlowColors.primary },
+                    pressed && styles.buttonPressed,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onRateSession();
+                  }}
+                >
+                  <Feather name="star" size={16} color={GlowColors.primary} />
+                  <Text style={[styles.commandOutlineButtonText, { color: GlowColors.primary }]}>Rate session</Text>
+                </Pressable>
+              </SwipeBlocker>
+            ) : null}
 
             <SwipeBlocker>
               <Pressable

@@ -37,6 +37,7 @@ interface PlayerData {
   glowScore: number;
   ballLevel: string | null;
   streak: number;
+  checkinStreak?: number;
   profilePhotoUrl?: string | null;
 }
 
@@ -467,6 +468,26 @@ export function ProPlayerCard({
               ]}>{formatCredits(totalNum)} {t("player.home.credits")}</Text>
             </Pressable>
 
+            <Pressable
+              style={styles.journeyChip}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                (navigation as any).navigate("Journey");
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Open My Journey"
+            >
+              <Ionicons name="map-outline" size={12} color={Colors.dark.accentText} />
+              <Text style={styles.journeyChipText}>My Journey</Text>
+            </Pressable>
+
+            {(player.checkinStreak ?? 0) > 0 ? (
+              <View style={styles.streakChip}>
+                <Ionicons name="flame" size={13} color="#F97316" />
+                <Text style={[styles.streakText, { color: "#F97316" }]}>{player.checkinStreak}</Text>
+              </View>
+            ) : null}
+
             <View style={{ flex: 1 }} />
 
             <Pressable
@@ -891,6 +912,20 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "700",
     color: Colors.dark.accentText,
     letterSpacing: 0.5,
+  },
+  journeyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.chipBackground,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.sm,
+    gap: 4,
+  },
+  journeyChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.accentText,
   },
   themeEditorContainer: {
     flex: 1,

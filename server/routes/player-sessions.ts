@@ -8841,5 +8841,231 @@ router.get(
   },
 );
 
+// ─── POST-SESSION CHECK-IN ────────────────────────────────────────────────────
+// POST /api/player/sessions/:sessionId/checkin
+// Records energy/mood/notes after a session completes. Awards XP on success.
+router.post(
+  "/api/player/sessions/:sessionId/checkin",
+  authMiddleware,
+  requirePlayerOrOwner,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(400).json({ error: "Player profile required" });
+
+      const { energyLevel, mood, notes } = req.body;
+      if (
+        typeof energyLevel !== "number" || energyLevel < 1 || energyLevel > 5 ||
+        typeof mood !== "number" || mood < 1 || mood > 5
+      ) {
+        return res.status(400).json({ error: "energyLevel and mood must each be 1–5" });
+      }
+
+      // Verify session exists
+      const session = await storage.getSession(sessionId);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+
+      // Security: confirm this player is actually enrolled in this session
+      const enrollment = await db.execute(sql`
+        SELECT 1 FROM session_players
+        WHERE session_id = ${sessionId} AND player_id = ${playerId}
+        LIMIT 1
+      `);
+      if (!enrollment.rows.length) {
+        return res.status(403).json({ error: "Not enrolled in this session" });
+      }
+
+      // Enforce session must have ended (or started, as fallback) before accepting a check-in
+      const now = Date.now();
+      const sessionStart = session.startTime ? new Date(session.startTime).getTime() : null;
+      const sessionEnd = session.endTime ? new Date(session.endTime).getTime() : null;
+      if (sessionStart && sessionStart > now) {
+        return res.status(400).json({ error: "Session has not started yet" });
+      }
+      // Compute effective end: prefer explicit endTime, else start + duration (default 60 min)
+      const effectiveEnd = sessionEnd ?? (sessionStart ? sessionStart + (session.duration ?? 60) * 60 * 1000 : null);
+      if (effectiveEnd && effectiveEnd > now) {
+        return res.status(400).json({ error: "Session has not ended yet" });
+      }
+
+      // Upsert the checkin (idempotent per session+player unique constraint)
+      await db.execute(sql`
+        INSERT INTO session_checkins (session_id, player_id, energy_level, mood, notes)
+        VALUES (${sessionId}, ${playerId}, ${energyLevel}, ${mood}, ${notes || null})
+        ON CONFLICT (session_id, player_id)
+        DO UPDATE SET energy_level = ${energyLevel}, mood = ${mood}, notes = ${notes || null}, created_at = now()
+      `);
+
+      // Award XP for the checkin
+      let xpAwarded = 0;
+      try {
+        const xpResult = await awardXP(playerId, "session_checkin", "session", sessionId);
+        xpAwarded = xpResult.xpAwarded ?? 0;
+      } catch {
+        xpAwarded = 0;
+      }
+
+      res.json({ success: true, xpAwarded });
+    } catch (error) {
+      console.error("[PostSessionCheckin] Error:", error);
+      res.status(500).json({ error: "Failed to save check-in" });
+    }
+  },
+);
+
+// GET /api/player/me/session-history
+// Returns paginated past sessions with check-in data joined.
+router.get(
+  "/api/player/me/session-history",
+  authMiddleware,
+  requirePlayerOrOwner,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(400).json({ error: "Player profile required" });
+
+      const limit = Math.min(parseInt(String(req.query.limit ?? "30"), 10) || 30, 100);
+      const offset = parseInt(String(req.query.offset ?? "0"), 10) || 0;
+
+      const rows = await db.execute(sql`
+        SELECT
+          s.id            AS session_id,
+          s.session_type,
+          s.start_time,
+          s.end_time,
+          s.duration,
+          s.status,
+          c.name          AS coach_name,
+          sc.energy_level,
+          sc.mood,
+          sc.notes        AS checkin_notes,
+          sc.created_at   AS checkin_at,
+          COALESCE(xp.total_xp, 0) AS xp_earned,
+          lue.new_level            AS level_up_to
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        LEFT JOIN coaches c ON c.id = s.coach_id
+        LEFT JOIN session_checkins sc
+          ON sc.session_id = s.id AND sc.player_id = ${playerId}
+        LEFT JOIN (
+          SELECT source_id, SUM(amount) AS total_xp
+          FROM xp_transactions
+          WHERE player_id = ${playerId}
+            AND source = 'session'
+          GROUP BY source_id
+        ) xp ON xp.source_id = s.id
+        LEFT JOIN (
+          SELECT context_id, MAX(new_level) AS new_level
+          FROM player_xp_events
+          WHERE player_id = ${playerId}
+            AND triggered_level_up = true
+            AND context_type = 'session'
+          GROUP BY context_id
+        ) lue ON lue.context_id = s.id
+        WHERE sp.player_id = ${playerId}
+          AND s.start_time < now()
+        ORDER BY s.start_time DESC
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `);
+
+      const sessions = (rows.rows as any[]).map((r) => ({
+        sessionId: r.session_id,
+        sessionType: r.session_type,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        durationMinutes: r.duration,
+        status: r.status,
+        coachName: r.coach_name,
+        xpEarned: Number(r.xp_earned ?? 0),
+        levelUp: r.level_up_to != null ? { newLevel: Number(r.level_up_to) } : null,
+        checkin: r.energy_level != null
+          ? {
+              energyLevel: Number(r.energy_level),
+              mood: Number(r.mood),
+              notes: r.checkin_notes,
+              createdAt: r.checkin_at,
+            }
+          : null,
+      }));
+
+      res.json({ sessions, hasMore: sessions.length === limit });
+    } catch (error) {
+      console.error("[SessionHistory] Error:", error);
+      res.status(500).json({ error: "Failed to fetch session history" });
+    }
+  },
+);
+
+// GET /api/player/me/checkin-insight
+// Analyzes last 30 days of check-in data and returns a pattern insight string.
+router.get(
+  "/api/player/me/checkin-insight",
+  authMiddleware,
+  requirePlayerOrOwner,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(400).json({ insight: null });
+
+      const rows = await db.execute(sql`
+        SELECT
+          sc.energy_level,
+          sc.mood,
+          sc.created_at,
+          EXTRACT(DOW FROM s.start_time) AS dow,
+          EXTRACT(HOUR FROM s.start_time) AS hour_of_day
+        FROM session_checkins sc
+        JOIN sessions s ON s.id = sc.session_id
+        WHERE sc.player_id = ${playerId}
+          AND sc.created_at > now() - INTERVAL '30 days'
+        ORDER BY sc.created_at DESC
+      `);
+
+      const checkins = rows.rows as any[];
+      if (checkins.length < 3) {
+        return res.json({ insight: null });
+      }
+
+      // Analyse energy by day-of-week
+      const dowEnergy: Record<number, number[]> = {};
+      for (const c of checkins) {
+        const dow = Number(c.dow);
+        if (!dowEnergy[dow]) dowEnergy[dow] = [];
+        dowEnergy[dow].push(Number(c.energy_level));
+      }
+
+      const DOW_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      let lowestDow: number | null = null;
+      let lowestAvg = 99;
+      for (const [dowStr, energies] of Object.entries(dowEnergy)) {
+        if (energies.length < 2) continue;
+        const avg = energies.reduce((a, b) => a + b, 0) / energies.length;
+        if (avg < lowestAvg) { lowestAvg = avg; lowestDow = Number(dowStr); }
+      }
+
+      const avgEnergy = checkins.reduce((s, c) => s + Number(c.energy_level), 0) / checkins.length;
+      const avgMood = checkins.reduce((s, c) => s + Number(c.mood), 0) / checkins.length;
+
+      let insight: string | null = null;
+      if (lowestDow !== null && lowestAvg < 3 && lowestAvg < avgEnergy - 0.5) {
+        const hourSample = checkins.filter((c) => Number(c.dow) === lowestDow).map((c) => Number(c.hour_of_day));
+        const isAM = hourSample.length > 0 && (hourSample.reduce((a, b) => a + b, 0) / hourSample.length) < 12;
+        insight = `Your energy tends to be low on ${DOW_LABELS[lowestDow]} ${isAM ? "mornings" : "sessions"} — consider shifting those sessions or arriving earlier to warm up.`;
+      } else if (avgMood < 3) {
+        insight = "Your recent sessions show lower mood scores. Make sure you're recovering well between sessions.";
+      } else if (avgEnergy >= 4) {
+        insight = "Great energy levels lately! Keep up your current training rhythm.";
+      }
+
+      res.json({ insight });
+    } catch (error) {
+      console.error("[CheckinInsight] Error:", error);
+      res.json({ insight: null });
+    }
+  },
+);
+
 export { generateIcsToken };
 export default router;

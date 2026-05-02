@@ -8574,6 +8574,27 @@ export const outsideInvites = pgTable("outside_invites", {
 export type OutsideInvite = typeof outsideInvites.$inferSelect;
 export type InsertOutsideInvite = typeof outsideInvites.$inferInsert;
 
+// ==================== SESSION CHECK-INS ====================
+
+export const sessionCheckins = pgTable("session_checkins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),
+  playerId: varchar("player_id")
+    .references(() => players.id, { onDelete: "cascade" })
+    .notNull(),
+  energyLevel: integer("energy_level").notNull(),
+  mood: integer("mood").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  unique("session_checkins_session_player_unique").on(table.sessionId, table.playerId),
+  index("session_checkins_player_idx").on(table.playerId),
+  index("session_checkins_session_idx").on(table.sessionId),
+]);
+
+export type SessionCheckin = typeof sessionCheckins.$inferSelect;
+export type InsertSessionCheckin = typeof sessionCheckins.$inferInsert;
+
 // ==================== GLOW LEVEL CATEGORIES ====================
 // Maps glowRank (1–9) to a human-readable category + color.
 // Category mapping: 9–8 → Beginner, 7–6 → Intermediate, 5–4 → Advanced, 3–2–1 → Elite

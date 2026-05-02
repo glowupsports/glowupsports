@@ -114,6 +114,10 @@ The platform features a dark-themed premium sports aesthetic with Neon Green, Wh
 - **Player Tools**: Player Calendar Integration (ICS feed, native calendar), Venue/Club System (coaching, court rental, social clubs), Playtomic-Style Court Booking System (multi-phase, friend invites, cost splitting, smart availability), Slot Reservation System (atomic 5-minute holds).
 - **Family & Corporate**: Family Lobby System (Netflix-style multi-account, audit logs, screen-time locks), Family Wallet (Stripe payment, spend caps), Corporate/Business Accounts (session credit pools).
 - **Engagement & Planning**: Quest System (daily, weekly, monthly, streak tracking, XP multipliers), Week Planner (Coach's "Week View"), Guest Player System, Smart Fill (holidaying players as guests).
+- **Post-Session Check-In**: 3-step animated modal (energy 1–5, mood 1–5, optional 120-char notes) with confetti + XP reward. Auto-triggers 2 hours after a session ends (once per screen visit). Backed by `session_checkins` table (unique per session+player). XP awarded via `awardXP("session_checkin")`. API: `POST /api/player/sessions/:id/checkin`, `GET /api/player/me/session-history`, `GET /api/player/me/checkin-insight`.
+- **Player Journey — Session History Tab**: New "Sessions" tab on the PlayerJourneyScreen timeline showing all past sessions with color-coded energy dots and mood/notes from check-ins.
+- **My Journey Shortcut**: Tappable chip on ProPlayerCard bottom row navigating to the Journey screen.
+- **AI Coach Energy Trend Insight**: AICoachHomeCard displays an orange energy trend insight from `/api/player/me/checkin-insight` based on 30 days of check-in history.
 - **Updates**: What's New Modal (role and locale-aware carousel).
 
 ## External Dependencies

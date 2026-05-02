@@ -46,7 +46,6 @@ import {
   Pressable,
   Modal,
   DimensionValue,
-  Platform,
   NativeScrollEvent,
   NativeSyntheticEvent} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -102,6 +101,7 @@ import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { AICoachHomeCard } from "@/player/components/AICoachHomeCard";
+import { PostSessionCheckInModal } from "@/player/components/PostSessionCheckInModal";
 import { PlayerOfTheWeekCard } from "@/player/components/PlayerOfTheWeekCard";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
@@ -327,6 +327,8 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   const [showBookingSportPicker, setShowBookingSportPicker] = useState(false);
   const [ramadanDismissed, setRamadanDismissed] = useState(false);
   const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
+  const [checkinModalSession, setCheckinModalSession] = useState<{ sessionId: string; sessionTitle?: string; coachName?: string } | null>(null);
+  const checkinTriggeredRef = useRef(false);
 
   // ── Scroll position controller (drives LazyOnScroll) ─────────────────────
   const scrollController = useScrollPositionController();
@@ -358,6 +360,18 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     refetchInterval: 120 * 1000,
   });
 
+  const { data: checkinInsightData } = useQuery<{ insight: string | null }>({
+    queryKey: ["/api/player/me/checkin-insight"],
+    enabled: !!user?.playerId && !isGuest,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: sessionHistoryForTrigger } = useQuery<{ sessions: Array<{ sessionId: string; sessionType: string; startTime: string; endTime: string | null; status: string; coachName: string | null; checkin: null | object }> }>({
+    queryKey: ["/api/player/me/session-history"],
+    enabled: !!user?.playerId && !isGuest,
+    staleTime: 60 * 1000,
+  });
+
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const handleManualRefresh = async () => {
     setIsManualRefreshing(true);
@@ -383,13 +397,14 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     glowScore: dashboardPlayer?.glowScore ?? playerCtx.glowScore ?? 0,
     ballLevel: dashboardPlayer?.ballLevel ?? playerCtx.ballLevel ?? null,
     streak: dashboardPlayer?.streak ?? 0,
+    checkinStreak: dashboardPlayer?.checkinStreak ?? 0,
     profilePhotoUrl: dashboardPlayer?.profilePhotoUrl ?? user?.profilePhotoUrl ?? null,
     dateOfBirth: dashboardPlayer?.dateOfBirth ?? null,
     playStyle: dashboardPlayer?.playStyle ?? null,
   }), [
     dashboardPlayer?.id, dashboardPlayer?.name, dashboardPlayer?.level,
     dashboardPlayer?.xp, dashboardPlayer?.glowScore, dashboardPlayer?.ballLevel,
-    dashboardPlayer?.streak, dashboardPlayer?.profilePhotoUrl,
+    dashboardPlayer?.streak, dashboardPlayer?.checkinStreak, dashboardPlayer?.profilePhotoUrl,
     dashboardPlayer?.dateOfBirth, dashboardPlayer?.playStyle,
     user?.playerId, user?.displayName, user?.username, user?.profilePhotoUrl,
     playerCtx.level, playerCtx.xp, playerCtx.glowScore, playerCtx.ballLevel,
@@ -449,6 +464,37 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     const key = `@glow_ramadan_dismissed_${new Date().getFullYear()}`;
     AsyncStorage.setItem(key, "true");
   }, []);
+
+  // ── Post-session check-in trigger ─────────────────────────────────────────
+  // Fires once per screen visit: finds the most recent ended session (2–4 hrs ago)
+  // that has no check-in recorded, then shows the modal after a 2 s delay.
+  useEffect(() => {
+    if (isGuest || !sessionHistoryForTrigger?.sessions?.length) return;
+    if (checkinTriggeredRef.current) return;
+
+    const now = Date.now();
+    const FOUR_HRS = 4 * 60 * 60 * 1000;
+
+    const candidate = sessionHistoryForTrigger.sessions.find((s) => {
+      if (s.checkin != null) return false;
+      const endTime = s.endTime ? new Date(s.endTime).getTime() : new Date(s.startTime).getTime() + 60 * 60 * 1000;
+      const elapsed = now - endTime;
+      return elapsed >= 0 && elapsed <= FOUR_HRS;
+    });
+
+    if (!candidate) return;
+    checkinTriggeredRef.current = true;
+    const timer = setTimeout(() => {
+      setCheckinModalSession({
+        sessionId: candidate.sessionId,
+        sessionTitle: candidate.sessionType
+          ? candidate.sessionType.charAt(0).toUpperCase() + candidate.sessionType.slice(1).replace(/_/g, " ") + " Session"
+          : "Session",
+        coachName: candidate.coachName ?? undefined,
+      });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [sessionHistoryForTrigger, isGuest]);
 
   // ── Seed legacy query keys (exact from ProPlayerHomeScreen) ───────────────
   const seedQueryCache = useCallback(() => {
@@ -560,6 +606,28 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     });
   };
 
+  const handleRateEndedSession = useCallback(() => {
+    const now = Date.now();
+    // Only surface ended sessions (endTime or computed end <= now), most recent first
+    const candidate = sessionHistoryForTrigger?.sessions?.find((s) => {
+      if (s.checkin != null) return false;
+      const endMs = s.endTime
+        ? new Date(s.endTime).getTime()
+        : new Date(s.startTime).getTime() + 60 * 60 * 1000;
+      return endMs <= now;
+    });
+    if (candidate) {
+      setCheckinModalSession({
+        sessionId: candidate.sessionId,
+        sessionTitle: candidate.sessionType
+          ? candidate.sessionType.charAt(0).toUpperCase() + candidate.sessionType.slice(1).replace(/_/g, " ") + " Session"
+          : "Session",
+        coachName: candidate.coachName ?? undefined,
+      });
+    }
+    // No fallback to nextSession — future sessions cannot be checked in
+  }, [sessionHistoryForTrigger]);
+
   const handleBookingSuccess = () => {
     setShowBookingWizard(false);
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
@@ -641,7 +709,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           ) : null}
 
           {/* HERO CAROUSEL */}
-          <HeroCarousel onBookSession={handleBookLesson} />
+          <HeroCarousel onBookSession={handleBookLesson} onRateSession={handleRateEndedSession} />
 
           {/* UPCOMING PROVIDER SESSION */}
           {!isGuest ? (
@@ -694,6 +762,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
                 aiStatus={homeData?.aiProStatus ?? null}
                 aiCoachContext={homeData?.aiCoachContext ?? null}
                 weeklyDigest={(homeData?.weeklyDigest ?? null) as any}
+                energyInsight={checkinInsightData?.insight ?? null}
               />
 
               <View style={styles.improveCardGap} />
@@ -844,6 +913,17 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           visible={showSpotlightNomination}
           onClose={() => setShowSpotlightNomination(false)}
         />
+
+        {/* POST-SESSION CHECK-IN */}
+        {checkinModalSession ? (
+          <PostSessionCheckInModal
+            visible={checkinModalSession != null}
+            sessionId={checkinModalSession.sessionId}
+            sessionTitle={checkinModalSession.sessionTitle}
+            coachName={checkinModalSession.coachName}
+            onClose={() => setCheckinModalSession(null)}
+          />
+        ) : null}
 
         {/* BETA FEEDBACK */}
         <BetaFeedbackButton

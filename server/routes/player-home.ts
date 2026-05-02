@@ -499,6 +499,30 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
     (s) => s.attendanceStatus === "present",
   ).length;
 
+  // Consecutive check-in streak: walk most-recent sessions backward,
+  // count until the first session without a recorded check-in.
+  let checkinStreak = 0;
+  try {
+    const { sql: sqlTag } = await import("drizzle-orm");
+    const checkinRows = await db.execute(sqlTag`
+      SELECT sc.id IS NOT NULL AS has_checkin
+      FROM session_players sp
+      JOIN sessions s ON s.id = sp.session_id
+      LEFT JOIN session_checkins sc
+        ON sc.session_id = s.id AND sc.player_id = ${playerId}
+      WHERE sp.player_id = ${playerId}
+        AND s.start_time < now()
+      ORDER BY s.start_time DESC
+      LIMIT 30
+    `);
+    for (const row of checkinRows.rows as any[]) {
+      if (row.has_checkin) checkinStreak++;
+      else break;
+    }
+  } catch {
+    checkinStreak = 0;
+  }
+
   const creditsByType = {
     group: Math.max(0, v2Balance.group),
     private: Math.max(0, v2Balance.private),
@@ -580,6 +604,7 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
       glowScore,
       ballLevel: player.ballLevel,
       streak,
+      checkinStreak,
       onboardingCompleted,
       academyId: player.academyId,
       dateOfBirth: player.dateOfBirth,
