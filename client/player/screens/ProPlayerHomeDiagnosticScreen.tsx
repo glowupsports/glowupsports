@@ -140,7 +140,7 @@ interface DashboardData {
 }
 
 // ─── QuestsCard ───────────────────────────────────────────────────────────
-function QuestsCard({ onQuestPress }: { onQuestPress: () => void }) {
+const QuestsCard = React.memo(function QuestsCard({ onQuestPress }: { onQuestPress: () => void }) {
   const { user } = useAuth();
   const { data: questsData } = useQuests(!!user?.playerId);
   const { quest, questType } = useMemo(() => {
@@ -195,7 +195,7 @@ function QuestsCard({ onQuestPress }: { onQuestPress: () => void }) {
       )}
     </Pressable>
   );
-}
+});
 
 const qc = StyleSheet.create({
   card: { marginHorizontal: Spacing.lg, backgroundColor: "rgba(255,133,27,0.06)", borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: "rgba(255,133,27,0.18)", padding: Spacing.md, gap: 8 },
@@ -214,7 +214,7 @@ const qc = StyleSheet.create({
 });
 
 // ─── PlayerDNABanner (exact copy from ProPlayerHomeScreen) ─────────────────
-function PlayerDNABanner({ playerId }: { playerId: string }) {
+const PlayerDNABanner = React.memo(function PlayerDNABanner({ playerId }: { playerId: string }) {
   const navigation = useNavigation<NavigationProp<PlayerStackParamList>>();
 
   const { data: profileData } = useQuery<{ player: Record<string, unknown> | null }>({
@@ -272,7 +272,7 @@ function PlayerDNABanner({ playerId }: { playerId: string }) {
       <Text style={dnaBannerStyles.cta}>Tap to build your profile</Text>
     </Pressable>
   );
-}
+});
 
 const dnaBannerStyles = StyleSheet.create({
   card: {
@@ -308,7 +308,7 @@ const dnaBannerStyles = StyleSheet.create({
 });
 
 // ─── Inner content — wrapped by PlayerStateProvider below ─────────────────
-function DiagnosticHomeContent() {
+const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   const { user, isGuest, patchPlayer } = useAuth();
   const playerCtx = usePlayer();
   const { openDrawer } = usePlayerDrawer();
@@ -375,7 +375,7 @@ function DiagnosticHomeContent() {
 
   // ── Player shape (exact from ProPlayerHomeScreen) ─────────────────────────
   const dashboardPlayer = effectiveData?.player;
-  const player = {
+  const player = useMemo(() => ({
     id: dashboardPlayer?.id ?? user?.playerId ?? "",
     name: dashboardPlayer?.name ?? user?.displayName ?? user?.username ?? "",
     level: dashboardPlayer?.level ?? playerCtx.level ?? 1,
@@ -386,7 +386,14 @@ function DiagnosticHomeContent() {
     profilePhotoUrl: dashboardPlayer?.profilePhotoUrl ?? user?.profilePhotoUrl ?? null,
     dateOfBirth: dashboardPlayer?.dateOfBirth ?? null,
     playStyle: dashboardPlayer?.playStyle ?? null,
-  };
+  }), [
+    dashboardPlayer?.id, dashboardPlayer?.name, dashboardPlayer?.level,
+    dashboardPlayer?.xp, dashboardPlayer?.glowScore, dashboardPlayer?.ballLevel,
+    dashboardPlayer?.streak, dashboardPlayer?.profilePhotoUrl,
+    dashboardPlayer?.dateOfBirth, dashboardPlayer?.playStyle,
+    user?.playerId, user?.displayName, user?.username, user?.profilePhotoUrl,
+    playerCtx.level, playerCtx.xp, playerCtx.glowScore, playerCtx.ballLevel,
+  ]);
   const credits = effectiveData?.credits;
   const isFreePlayer = effectiveData?.isFreePlayer ?? !effectiveData?.academy;
 
@@ -444,7 +451,7 @@ function DiagnosticHomeContent() {
   }, []);
 
   // ── Seed legacy query keys (exact from ProPlayerHomeScreen) ───────────────
-  useEffect(() => {
+  const seedQueryCache = useCallback(() => {
     if (!homeData) return;
     if (homeData.dashboard) {
       queryClient.setQueryData(["/api/player/me/dashboard"], homeData.dashboard);
@@ -493,6 +500,7 @@ function DiagnosticHomeContent() {
       if (Object.keys(patch).length > 0) patchPlayer(patch);
     }
   }, [homeData, queryClient, patchPlayer]);
+  useEffect(() => { seedQueryCache(); }, [seedQueryCache]);
 
   // ── Prefetch other tabs (exact from ProPlayerHomeScreen) ──────────────────
   useEffect(() => {
@@ -533,15 +541,6 @@ function DiagnosticHomeContent() {
     });
   }, [user?.playerId, isGuest]);
 
-  // ── iOS cold-start retry timers (exact from ProPlayerHomeScreen #1491) ────
-  useEffect(() => {
-    if (Platform.OS !== "ios") return;
-    const t1 = setTimeout(() => { queryClient.refetchQueries({ queryKey: ["/api/player/me/home-data"], type: "active" }); }, 800);
-    const t2 = setTimeout(() => { queryClient.refetchQueries({ queryKey: ["/api/player/me/home-data"], type: "active" }); }, 1800);
-    const t3 = setTimeout(() => { queryClient.refetchQueries({ queryKey: ["/api/player/me/home-data"], type: "active" }); }, 3000);
-    const t4 = setTimeout(() => { queryClient.refetchQueries({ queryKey: ["/api/player/me/home-data"], type: "active" }); }, 5000);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
-  }, [queryClient]);
 
   // ── Handlers (exact from ProPlayerHomeScreen) ─────────────────────────────
   const handleAvatarPress = () => { guardAction(() => openDrawer()); };
@@ -567,17 +566,21 @@ function DiagnosticHomeContent() {
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
   };
 
+  // ── Memoized style objects ─────────────────────────────────────────────────
+  const scrollContentStyle = useMemo(
+    () => [styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + 180 }],
+    [insets.top, insets.bottom],
+  );
+
   return (
     <ScrollPositionContext.Provider value={scrollController.contextValue}>
       <View style={styles.root}>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingTop: insets.top, paddingBottom: insets.bottom + 180 },
-          ]}
+          contentContainerStyle={scrollContentStyle}
           showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
+          scrollEventThrottle={32}
+          removeClippedSubviews={true}
           onScroll={onHomeScroll}
           refreshControl={
             <RefreshControl
@@ -852,7 +855,7 @@ function DiagnosticHomeContent() {
       </View>
     </ScrollPositionContext.Provider>
   );
-}
+});
 
 // ─── Root — wraps content in PlayerStateProvider ───────────────────────────
 export default function ProPlayerHomeDiagnosticScreen() {

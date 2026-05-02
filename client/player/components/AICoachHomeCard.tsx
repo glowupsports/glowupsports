@@ -22,7 +22,7 @@ interface AICoachHomeCardProps {
 
 const LAYER_LABELS = ["Session Check-ins", "Monthly Voice", "Perception Gaps"] as const;
 
-export function AICoachHomeCard({
+export const AICoachHomeCard = React.memo(function AICoachHomeCard({
   aiStatus,
   aiCoachContext,
   weeklyDigest,
@@ -150,7 +150,7 @@ export function AICoachHomeCard({
       </LinearGradient>
     </Animated.View>
   );
-}
+});
 
 const s = makeReactiveStyles(() =>
   StyleSheet.create({
