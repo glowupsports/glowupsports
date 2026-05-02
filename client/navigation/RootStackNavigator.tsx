@@ -5,7 +5,6 @@ import { CommonActions, useNavigationContainerRef } from "@react-navigation/nati
 import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import CoachNavigator from "@/coach/navigation/CoachNavigator";
-import PlayerNavigator from "@/player/navigation/PlayerNavigator";
 import AdminNavigator from "@/admin/navigation/AdminNavigator";
 import OwnerNavigator from "@/owner/navigation/OwnerNavigator";
 import PlatformNavigator from "@/platform/navigation/PlatformNavigator";
@@ -25,7 +24,6 @@ import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export type RootStackParamList = {
   Boot: undefined;
-  Player: undefined;
   Coach: undefined;
   Admin: undefined;
   AcademyOwner: undefined;
@@ -107,8 +105,8 @@ function useNavigationEffect(
         case "admin": targetRoute = "Admin"; break;
         case "coach": targetRoute = "Coach"; break;
         case "service_provider": targetRoute = "Provider"; break;
-        case "diagnostic": targetRoute = "Player"; break;
         case "player":
+        case "diagnostic":
         default: targetRoute = "PlayerV2"; break;
       }
     }
@@ -243,8 +241,8 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
       case "admin": return "Admin";
       case "coach": return "Coach";
       case "service_provider": return "Provider";
-      case "diagnostic": return "Player";
       case "player":
+      case "diagnostic":
       default: return "PlayerV2";
     }
   };
@@ -298,11 +296,6 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
       <Stack.Screen
         name="Coach"
         component={CoachNavigator}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="Player"
-        component={PlayerNavigator}
         options={{ headerShown: false }}
       />
       <Stack.Screen

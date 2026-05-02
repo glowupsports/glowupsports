@@ -1,144 +1,43 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
-import { StyleSheet, View, Platform, Pressable, Text } from "react-native";
-import { useSafeAreaInsets , SafeAreaInsetsContext } from "react-native-safe-area-context";
+import { View, Platform, Pressable, Text } from "react-native";
+import { useSafeAreaInsets, SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { StatusBar } from "expo-status-bar";
 import * as Haptics from "expo-haptics";
-import { PlayerAppearanceProvider, usePlayerAppearance } from "@/player/context/PlayerAppearanceContext";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useTranslation } from "react-i18next";
-import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
-import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
-import { useChatState } from "@/coach/context/ChatStateContext";
-import ProPlayerHomeScreen from "@/player/screens/ProPlayerHomeScreen";
-import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import PlayScreen from "@/player/screens/PlayScreen";
-import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
 import PlayerProgressScreen from "@/player/screens/PlayerProgressScreen";
 import PlayerScheduleScreen from "@/player/screens/PlayerScheduleScreen";
-import PlayerProfileScreen from "@/player/screens/PlayerProfileScreen";
-import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
-import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
-import PlayerSettingsScreen from "@/player/screens/PlayerSettingsScreen";
-import ThemePreviewScreen from "@/player/screens/ThemePreviewScreen";
-import AcademyBrowserScreen from "@/player/screens/AcademyBrowserScreen";
-import AcademyProfileScreen from "@/player/screens/AcademyProfileScreen";
-import CoachDirectoryScreen from "@/player/screens/CoachDirectoryScreen";
-import TransferRequestScreen from "@/player/screens/TransferRequestScreen";
-import PlayerHolidaysScreen from "@/player/screens/PlayerHolidaysScreen";
-import AccountAuditLogScreen from "@/player/screens/AccountAuditLogScreen";
-import PlayerOnboardingV2 from "@/player/screens/PlayerOnboardingV2";
-import ParentDashboardScreen from "@/player/screens/ParentDashboardScreen";
-import ParentLessonsScreen from "@/player/screens/ParentLessonsScreen";
-import ParentSettingsScreen from "@/player/screens/ParentSettingsScreen";
-import ParentCreditStoreScreen from "@/player/screens/ParentCreditStoreScreen";
-import ParentReportsScreen from "@/player/screens/ParentReportsScreen";
-import CourtBookingScreen from "@/player/screens/CourtBookingScreen";
-import CourtDetailScreen from "@/player/screens/CourtDetailScreen";
-import MyCourtBookingsScreen from "@/player/screens/MyCourtBookingsScreen";
-import QuickBookScreen from "@/player/screens/QuickBookScreen";
-import LessonBookingScreen from "@/player/screens/LessonBookingScreen";
-import BrowseGroupLessonsScreen from "@/player/screens/BrowseGroupLessonsScreen";
-import MyLessonRequestsScreen from "@/player/screens/MyLessonRequestsScreen";
-import BookingConfirmedScreen from "@/player/screens/BookingConfirmedScreen";
-import PlayerFinderScreen from "@/player/screens/PlayerFinderScreen";
-import FriendsListScreen from "@/player/screens/FriendsListScreen";
-import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
-import CountryLeaderboardScreen from "@/player/screens/CountryLeaderboardScreen";
+import OpenMatchFeedScreen from "@/player/screens/OpenMatchFeedScreen";
 import CreateMatchScreen from "@/player/screens/CreateMatchScreen";
 import MatchFinderHomeScreen from "@/player/screens/MatchFinderHomeScreen";
 import InviteClaimScreen from "@/player/screens/InviteClaimScreen";
 import ChallengePlayerScreen from "@/player/screens/ChallengePlayerScreen";
-import GroupDetailScreen from "@/player/screens/GroupDetailScreen";
-import GroupsScreen from "@/player/screens/GroupsScreen";
-import PlayerMessagesScreen from "@/player/screens/PlayerMessagesScreen";
-import ChatRoomScreen from "@/player/screens/ChatRoomScreen";
-import BrowseChatRoomsScreen from "@/player/screens/BrowseChatRoomsScreen";
-import PlayerBookingChatScreen from "@/player/screens/PlayerBookingChatScreen";
-import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
-import PlayerGuideScreen from "@/player/screens/PlayerGuideScreen";
-import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
-import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
-import PlayerAcademyProfileScreen from "@/player/screens/PlayerAcademyProfileScreen";
-import CommunityScreen from "@/player/screens/CommunityScreen";
+import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
+import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
 import QuestsScreen from "@/player/screens/QuestsScreen";
-import ShopScreen from "@/player/screens/ShopScreen";
-import ProductDetailScreen from "@/player/screens/ProductDetailScreen";
-import ServiceDetailScreen from "@/player/screens/ServiceDetailScreen";
-import PlayerOrderDetailScreen from "@/player/screens/PlayerOrderDetailScreen";
-import CartScreen from "@/player/screens/CartScreen";
-import ShopCategoryScreen from "@/player/screens/ShopCategoryScreen";
-import MarketplaceScreen from "@/player/screens/MarketplaceScreen";
-import PlayerEquipmentScreen from "@/player/screens/PlayerEquipmentScreen";
-import MarketplaceListingDetailScreen from "@/player/screens/MarketplaceListingDetailScreen";
-import MyListingsScreen from "@/player/screens/MyListingsScreen";
-import MatchScreen from "@/player/screens/MatchScreen";
-import MatchDetailScreen from "@/player/screens/MatchDetailScreen";
-import MatchPrepScreen from "@/player/screens/MatchPrepScreen";
-import OpponentProfileScreen from "@/player/screens/OpponentProfileScreen";
+import GlowLeaderboardScreen from "@/player/screens/GlowLeaderboardScreen";
+import CountryLeaderboardScreen from "@/player/screens/CountryLeaderboardScreen";
+import TournamentsScreen from "@/player/screens/TournamentsScreen";
+import TournamentDetailScreen from "@/player/screens/TournamentDetailScreen";
+import LadderDetailScreen from "@/player/screens/LadderDetailScreen";
+import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
+import CoachFeedbackHistoryScreen from "@/player/screens/CoachFeedbackHistoryScreen";
 import SkillEvidenceScreen from "@/player/screens/SkillEvidenceScreen";
 import TrialGatesScreen from "@/player/screens/TrialGatesScreen";
 import CollectionScreen from "@/player/screens/CollectionScreen";
 import XPHistoryScreen from "@/player/screens/XPHistoryScreen";
 import LevelUpHistoryScreen from "@/player/screens/LevelUpHistoryScreen";
-import OpenMatchFeedScreen from "@/player/screens/OpenMatchFeedScreen";
-import ManageMatchScreen from "@/player/screens/ManageMatchScreen";
-import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
-import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
-import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
-import AddFamilyMemberPrompt from "@/player/components/AddFamilyMemberPrompt";
-import CorporateBenefitsScreen from "@/player/screens/CorporateBenefitsScreen";
-import CompanyContactDashboardScreen from "@/player/screens/CompanyContactDashboardScreen";
-import FindGameScreen from "@/player/screens/FindGameScreen";
-import CreateGameRequestScreen from "@/player/screens/CreateGameRequestScreen";
-import MyGamesScreen from "@/player/screens/MyGamesScreen";
-import NewsScreen from "@/player/screens/NewsScreen";
-import ClassesDiscoveryScreen from "@/player/screens/ClassesDiscoveryScreen";
-import ClassDetailScreen from "@/player/screens/ClassDetailScreen";
-import DiscoveryMapScreen from "@/player/screens/DiscoveryMapScreen";
-import SpotlightDetailScreen from "@/player/screens/SpotlightDetailScreen";
-import AcademyVsAcademyScreen from "@/player/screens/AcademyVsAcademyScreen";
-import SkillChallengeSubmissionsScreen from "@/player/screens/SkillChallengeSubmissionsScreen";
-import SquadGroupScreen from "@/player/screens/SquadGroupScreen";
-import MatchLiveScreen from "@/player/screens/MatchLiveScreen";
-import StartLiveMatchScreen from "@/player/screens/StartLiveMatchScreen";
-import MatchSummaryScreen from "@/player/screens/MatchSummaryScreen";
-import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
-import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
-import PlayerAICoachScreen from "@/player/screens/PlayerAICoachScreen";
-import YearInTennisScreen from "@/player/screens/YearInTennisScreen";
-import PlayerDNAWizardScreen from "@/player/screens/PlayerDNAWizard";
-import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
-import PlayerEditProfileScreen from "@/player/screens/PlayerEditProfileScreen";
-import FeedbackCenterScreen from "@/player/screens/FeedbackCenterScreen";
-import CoachFeedbackHistoryScreen from "@/player/screens/CoachFeedbackHistoryScreen";
-import VideoFeedbackPlayerScreen from "@/player/screens/VideoFeedbackPlayerScreen";
-import TournamentsScreen from "@/player/screens/TournamentsScreen";
-import TournamentDetailScreen from "@/player/screens/TournamentDetailScreen";
-import LadderDetailScreen from "@/player/screens/LadderDetailScreen";
-import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
-import { CartProvider } from "@/player/contexts/CartContext";
-import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
+import CourtBookingScreen from "@/player/screens/CourtBookingScreen";
+import CourtDetailScreen from "@/player/screens/CourtDetailScreen";
+import MyCourtBookingsScreen from "@/player/screens/MyCourtBookingsScreen";
+import MatchScreen from "@/player/screens/MatchScreen";
+import MatchDetailScreen from "@/player/screens/MatchDetailScreen";
+import MatchPrepScreen from "@/player/screens/MatchPrepScreen";
+import OpponentProfileScreen from "@/player/screens/OpponentProfileScreen";
 import { Colors, Spacing, GlowColors } from "@/constants/theme";
-import { useAuth } from "@/coach/context/AuthContext";
-import { PlayerDrawerProvider, usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
-import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
-import { FamilyProvider } from "@/player/context/FamilyContext";
-import { apiFetch } from "@/lib/query-client";
-
-import { PlayerProvider as PlayerDataProvider } from "@/player/context/PlayerContext";
-import { ScheduleFocusProvider } from "@/player/context/ScheduleFocusContext";
-import { SportContextProvider } from "@/player/context/SportContext";
-import { useTrackFeature } from "@/player/hooks/useTrackFeature";
-
-import { makeReactiveStyles } from "@/hooks/useThemedStyles";
-import { TennisBallSpinner } from "@/components/TennisBallSpinner";
-
-// Family B — the legacy "view-as" banner has been removed. Profile-switching
-// now goes through a real auth-swap (POST /api/family/switch + reboot). We
-// retain the storage key only as a transient reboot-redirect signal.
+import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 
 export { usePlayerDrawer };
 
@@ -329,9 +228,7 @@ export type PlayerStackParamList = {
   YearInTennis: { year?: number } | undefined;
 };
 
-const Stack = createNativeStackNavigator<PlayerStackParamList>();
 const PlayStack = createNativeStackNavigator<PlayStackParamList>();
-const ScheduleStack = createNativeStackNavigator<ScheduleStackParamList>();
 const ProgressStack = createNativeStackNavigator<ProgressStackParamList>();
 
 function PlayScreenWithCallback(props: any) {
@@ -363,8 +260,8 @@ export function PlayStackNavigator() {
       freezeOnBlur: Platform.OS !== "ios",
     }}>
       <PlayStack.Screen name="Play" component={PlayScreenWithCallback} />
-      <PlayStack.Screen 
-        name="OpenMatches" 
+      <PlayStack.Screen
+        name="OpenMatches"
         component={OpenMatchFeedScreen}
         options={{
           headerShown: true,
@@ -375,8 +272,8 @@ export function PlayStackNavigator() {
           headerBackVisible: true,
         }}
       />
-      <PlayStack.Screen 
-        name="CreateMatch" 
+      <PlayStack.Screen
+        name="CreateMatch"
         component={CreateMatchScreen}
         options={{
           headerShown: true,
@@ -410,8 +307,8 @@ export function PlayStackNavigator() {
           headerTintColor: Colors.dark.primary,
         }}
       />
-      <PlayStack.Screen 
-        name="ChallengePlayer" 
+      <PlayStack.Screen
+        name="ChallengePlayer"
         component={ChallengePlayerScreen}
         options={{
           headerShown: true,
@@ -421,8 +318,8 @@ export function PlayStackNavigator() {
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
-      <PlayStack.Screen 
-        name="BookingInvites" 
+      <PlayStack.Screen
+        name="BookingInvites"
         component={BookingInvitesScreen}
         options={{
           headerShown: true,
@@ -432,8 +329,8 @@ export function PlayStackNavigator() {
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
-      <PlayStack.Screen 
-        name="BookingPreferences" 
+      <PlayStack.Screen
+        name="BookingPreferences"
         component={BookingPreferencesScreen}
         options={{
           headerShown: true,
@@ -444,81 +341,6 @@ export function PlayStackNavigator() {
         }}
       />
     </PlayStack.Navigator>
-  );
-}
-
-function ScheduleMainWithCallback(props: any) {
-  const navigation = useNavigation<any>();
-  const { registerTabCallback } = useTabNavigation();
-
-  React.useEffect(() => {
-    return registerTabCallback("Schedule", (screen, params) => {
-      navigation.navigate(screen, params);
-    });
-  }, [navigation, registerTabCallback]);
-
-  return <PlayerScheduleScreen {...props} />;
-}
-
-function ScheduleStackNavigator() {
-  const { t } = useTranslation();
-  return (
-    <ScheduleStack.Navigator screenOptions={{
-      headerShown: false,
-      animation: "none",
-      // Task #1407 — see RootStackNavigator.
-      freezeOnBlur: Platform.OS !== "ios",
-    }}>
-      <ScheduleStack.Screen name="ScheduleMain" component={ScheduleMainWithCallback} />
-      <ScheduleStack.Screen name="CourtBooking" component={CourtBookingScreen} />
-      <ScheduleStack.Screen name="CourtDetail" component={CourtDetailScreen} />
-      <ScheduleStack.Screen name="MyCourtBookings" component={MyCourtBookingsScreen} />
-      <ScheduleStack.Screen name="QuickBook" component={QuickBookScreen} />
-      <ScheduleStack.Screen 
-        name="Match" 
-        component={MatchScreen}
-        options={{
-          headerShown: true,
-          headerTitle: t('nav.matches'),
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: '#00ff88',
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <ScheduleStack.Screen 
-        name="MatchDetail" 
-        component={MatchDetailScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "Match Details",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <ScheduleStack.Screen
-        name="MatchPrep"
-        component={MatchPrepScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "Match Preparation",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <ScheduleStack.Screen
-        name="OpponentProfile"
-        component={OpponentProfileScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "Opponent Profile",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: '#A78BFA',
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-    </ScheduleStack.Navigator>
   );
 }
 
@@ -598,8 +420,8 @@ export function ProgressStackNavigator() {
       freezeOnBlur: Platform.OS !== "ios",
     }}>
       <ProgressStack.Screen name="ProgressMain" component={GrowthMainWithCallback} />
-      <ProgressStack.Screen 
-        name="GlowLeaderboard" 
+      <ProgressStack.Screen
+        name="GlowLeaderboard"
         component={GlowLeaderboardScreen}
         options={{
           headerShown: true,
@@ -620,8 +442,8 @@ export function ProgressStackNavigator() {
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
-      <ProgressStack.Screen 
-        name="Quests" 
+      <ProgressStack.Screen
+        name="Quests"
         component={QuestsScreen}
         options={{
           headerShown: true,
@@ -631,33 +453,33 @@ export function ProgressStackNavigator() {
           headerBackTitle: "Back",
         }}
       />
-      <ProgressStack.Screen 
-        name="Tournaments" 
+      <ProgressStack.Screen
+        name="Tournaments"
         component={TournamentsScreen}
         options={{ headerShown: false }}
       />
-      <ProgressStack.Screen 
-        name="TournamentDetail" 
+      <ProgressStack.Screen
+        name="TournamentDetail"
         component={TournamentDetailScreen}
         options={{ headerShown: false }}
       />
-      <ProgressStack.Screen 
-        name="LadderDetail" 
+      <ProgressStack.Screen
+        name="LadderDetail"
         component={LadderDetailScreen}
         options={{ headerShown: false }}
       />
-      <ProgressStack.Screen 
-        name="FeedbackCenter" 
+      <ProgressStack.Screen
+        name="FeedbackCenter"
         component={FeedbackCenterScreen}
         options={{ headerShown: false }}
       />
-      <ProgressStack.Screen 
-        name="CoachFeedbackHistory" 
+      <ProgressStack.Screen
+        name="CoachFeedbackHistory"
         component={CoachFeedbackHistoryScreen}
         options={{ headerShown: false }}
       />
-      <ProgressStack.Screen 
-        name="SkillEvidence" 
+      <ProgressStack.Screen
+        name="SkillEvidence"
         component={SkillEvidenceScreen}
         options={{
           headerShown: true,
@@ -667,8 +489,8 @@ export function ProgressStackNavigator() {
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
-      <ProgressStack.Screen 
-        name="TrialGates" 
+      <ProgressStack.Screen
+        name="TrialGates"
         component={TrialGatesScreen}
         options={{
           headerShown: true,
@@ -678,8 +500,8 @@ export function ProgressStackNavigator() {
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
-      <ProgressStack.Screen 
-        name="Collection" 
+      <ProgressStack.Screen
+        name="Collection"
         component={CollectionScreen}
         options={{
           headerShown: true,
@@ -689,8 +511,8 @@ export function ProgressStackNavigator() {
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
-      <ProgressStack.Screen 
-        name="XPHistory" 
+      <ProgressStack.Screen
+        name="XPHistory"
         component={XPHistoryScreen}
         options={{
           headerShown: true,
@@ -700,8 +522,8 @@ export function ProgressStackNavigator() {
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
-      <ProgressStack.Screen 
-        name="LevelUpHistory" 
+      <ProgressStack.Screen
+        name="LevelUpHistory"
         component={LevelUpHistoryScreen}
         options={{
           headerShown: true,
@@ -711,23 +533,23 @@ export function ProgressStackNavigator() {
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
-      <ProgressStack.Screen 
-        name="CourtBooking" 
+      <ProgressStack.Screen
+        name="CourtBooking"
         component={CourtBookingScreen}
         options={{ headerShown: false }}
       />
-      <ProgressStack.Screen 
-        name="CourtDetail" 
+      <ProgressStack.Screen
+        name="CourtDetail"
         component={CourtDetailScreen}
         options={{ headerShown: false }}
       />
-      <ProgressStack.Screen 
-        name="MyCourtBookings" 
+      <ProgressStack.Screen
+        name="MyCourtBookings"
         component={MyCourtBookingsScreen}
         options={{ headerShown: false }}
       />
-      <ProgressStack.Screen 
-        name="Match" 
+      <ProgressStack.Screen
+        name="Match"
         component={MatchScreen}
         options={{
           headerShown: true,
@@ -737,8 +559,8 @@ export function ProgressStackNavigator() {
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />
-      <ProgressStack.Screen 
-        name="MatchDetail" 
+      <ProgressStack.Screen
+        name="MatchDetail"
         component={MatchDetailScreen}
         options={{
           headerShown: true,
@@ -773,1240 +595,3 @@ export function ProgressStackNavigator() {
     </ProgressStack.Navigator>
   );
 }
-
-const SHOW_CHAT_TABS = ["Home"];
-
-const TAB_FEATURE_KEYS: Record<string, string> = {
-  Home: "tab:home",
-  Community: "tab:social",
-  PlayStack: "tab:play",
-  Growth: "tab:growth",
-  Profile: "tab:me",
-};
-
-// All players land on Home. (Discover tab removed in Task #1086.)
-// Status hook retained because other logic still consults free-player flag.
-function useFreePlayerStatus(): { isFreePlayer: boolean; isReady: boolean } {
-  const { user } = useAuth();
-  const { data, isFetched } = useQuery<{ isFreePlayer?: boolean; academy?: unknown }>({
-    queryKey: ["/api/player/me/dashboard"],
-    enabled: !!user?.playerId,
-    staleTime: 10 * 60 * 1000,
-  });
-  if (!user?.playerId) {
-    return { isFreePlayer: false, isReady: true };
-  }
-  if (!data) {
-    return { isFreePlayer: false, isReady: isFetched };
-  }
-  const isFreePlayer = data.isFreePlayer ?? !data.academy;
-  return { isFreePlayer, isReady: true };
-}
-
-// Task #1034 — Last-used-tab persistence. Stored as { role, tab } so that
-// when a free player joins an academy (role transitions from "free" → "academy")
-// we reset the default to Home; otherwise we restore the last tab they used.
-type PlayerRole = "free" | "academy";
-const TAB_STORAGE_KEY = "player:tabs:lastUsed:v1";
-
-interface StoredTabState {
-  role: PlayerRole;
-  tab: string;
-  userId?: string;
-}
-
-function rolesDefaultTab(_role: PlayerRole): string {
-  return "Home";
-}
-
-function useResolvedInitialTab(
-  isFreePlayer: boolean,
-  isPlayerStatusReady: boolean,
-  userId: string | undefined,
-  validTabKeys: Set<string>,
-): { initialTabKey: string; isResolved: boolean } {
-  const [resolved, setResolved] = useState<{ tab: string; ready: boolean }>({
-    tab: rolesDefaultTab(isFreePlayer ? "free" : "academy"),
-    ready: false,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!isPlayerStatusReady) return;
-    const role: PlayerRole = isFreePlayer ? "free" : "academy";
-
-    AsyncStorage.getItem(TAB_STORAGE_KEY)
-      .then((raw) => {
-        if (cancelled) return;
-        let stored: StoredTabState | null = null;
-        if (raw) {
-          try { stored = JSON.parse(raw) as StoredTabState; } catch { stored = null; }
-        }
-        // Academy players: restore last tab when role+user match; otherwise
-        // reset to role default.
-        const sameContext = stored && stored.role === role && (!stored.userId || !userId || stored.userId === userId);
-        const candidate = sameContext && stored && validTabKeys.has(stored.tab)
-          ? stored.tab
-          : rolesDefaultTab(role);
-        if (!sameContext) {
-          AsyncStorage.setItem(
-            TAB_STORAGE_KEY,
-            JSON.stringify({ role, tab: candidate, userId } satisfies StoredTabState),
-          ).catch(() => { /* best-effort */ });
-        }
-        // Bail out when the resolution is unchanged. Without this guard,
-        // every refetch of validTabKeys (whenever the Community unread
-        // badge flips) would hand SwipeableTabBar a NEW key prop —
-        // forcing a full unmount/remount of every tab and feeding any
-        // child setState-in-effect a fresh deps reference. That cascade
-        // is the most likely contributor to the "Maximum update depth
-        // exceeded" warning seen on the player surface.
-        setResolved((prev) =>
-          prev.tab === candidate && prev.ready === true
-            ? prev
-            : { tab: candidate, ready: true },
-        );
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setResolved((prev) => {
-          const next = rolesDefaultTab(role);
-          return prev.tab === next && prev.ready === true
-            ? prev
-            : { tab: next, ready: true };
-        });
-      });
-    return () => { cancelled = true; };
-  }, [isFreePlayer, isPlayerStatusReady, userId, validTabKeys]);
-
-  return { initialTabKey: resolved.tab, isResolved: resolved.ready };
-}
-
-function PlayerTabsContent({ onEdgeSwipeLeft, drawerOpen = false }: { onEdgeSwipeLeft?: () => void; drawerOpen?: boolean }) {
-  const { t } = useTranslation();
-  const { user } = useAuth();
-  const { isFreePlayer, isReady: isPlayerStatusReady } = useFreePlayerStatus();
-
-  // Task #1144 — Show an unread badge on the Community tab whenever the player
-  // has any unread `community_group_join` notification, so they're nudged into
-  // the new group surface even if they never open the Notifications screen.
-  const { data: communityUnread } = useQuery<{ count: number }>({
-    queryKey: ["/api/player/me/notifications/unread-count", "community_group_join"],
-    queryFn: async () => {
-      const resp = await apiFetch(
-        "/api/player/me/notifications/unread-count?type=community_group_join",
-      );
-      if (!resp.ok) return { count: 0 };
-      return resp.json();
-    },
-    enabled: !!user?.playerId,
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
-    refetchOnWindowFocus: true,
-  });
-  const hasCommunityUnread = (communityUnread?.count ?? 0) > 0;
-
-  const playerTabs: TabConfig[] = useMemo(() => [
-    { key: "Home", label: "Home", icon: "home-outline", iconFocused: "home", component: ProPlayerHomeScreen },
-    { key: "Community", label: "Social", icon: "people-outline", iconFocused: "people", component: CommunityScreen, badge: hasCommunityUnread },
-    { key: "PlayStack", label: "Play", icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator },
-    { key: "Growth", label: "Growth", icon: "trending-up-outline", iconFocused: "trending-up", component: ProgressStackNavigator },
-    { key: "Profile", label: "Me", icon: "person-outline", iconFocused: "person", component: PlayerProfileScreen },
-  ], [t, hasCommunityUnread]);
-
-  const validTabKeys = useMemo(() => new Set(playerTabs.map(t => t.key)), [playerTabs]);
-  const { initialTabKey, isResolved } = useResolvedInitialTab(
-    isFreePlayer,
-    isPlayerStatusReady,
-    user?.playerId,
-    validTabKeys,
-  );
-  const initialPage = playerTabs.findIndex(tab => tab.key === initialTabKey);
-  const [currentTabKey, setCurrentTabKey] = useState(initialTabKey);
-  const navigation = useNavigation<any>();
-  const track = useTrackFeature();
-  const isMountedRef = useRef(false);
-  const { navigateToTab } = useTabNavigation();
-
-  // Task #1474 — last-used-tab restore. SwipeableTabBar reads `initialPage`
-  // only on its first mount (`useState(initialPage)`), so once
-  // `useResolvedInitialTab` finishes its AsyncStorage read we have to jump
-  // imperatively to the resolved tab. We deliberately do NOT remount the
-  // bar to do this — that's exactly the player-only workaround Task #1474
-  // ripped out. Coach has no per-role tab restore so this is the one bit of
-  // player-specific glue we keep, and it stays here (one-shot, behind a
-  // ref) instead of as a layout-level remount.
-  const restoredOnceRef = useRef(false);
-  useEffect(() => {
-    if (!isResolved) return;
-    if (restoredOnceRef.current) return;
-    restoredOnceRef.current = true;
-    if (initialTabKey && initialTabKey !== currentTabKey) {
-      navigateToTab(initialTabKey);
-    }
-    // currentTabKey intentionally omitted from deps: we only fire once on
-    // resolution, not on every subsequent user-driven tab change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isResolved, initialTabKey, navigateToTab]);
-
-  const playCenterButton = useMemo(() => ({
-    icon: "tennisball-outline" as const,
-    iconFocused: "tennisball" as const,
-    label: "Play",
-    color: Colors.dark.primary,
-    pagerIndex: playerTabs.findIndex(tab => tab.key === "PlayStack"),
-  }), [playerTabs]);
-  
-  const _hideChat = !SHOW_CHAT_TABS.includes(currentTabKey);
-
-  const handleChallenge = useCallback(
-    (opponentId: string, opponentName: string, opponentPhoto?: string) => {
-      navigation.navigate("PlayerTabs", {
-        screen: "PlayStack",
-        params: { screen: "ChallengePlayer", params: { opponentId, opponentName, opponentPhoto } },
-      });
-    },
-    [navigation],
-  );
-  
-  const handlePageChange = useCallback((_index: number, key: string) => {
-    setCurrentTabKey(key);
-    const featureKey = TAB_FEATURE_KEYS[key];
-    if (featureKey && isMountedRef.current) {
-      track(featureKey);
-    }
-    isMountedRef.current = true;
-    // Task #1034 — persist last-used tab so the next session restores it.
-    // Skip writes until the role-aware initial resolution finished, so we
-    // don't accidentally overwrite the stored tab with the loading default.
-    if (isResolved) {
-      const role: PlayerRole = isFreePlayer ? "free" : "academy";
-      AsyncStorage.setItem(
-        TAB_STORAGE_KEY,
-        JSON.stringify({ role, tab: key, userId: user?.playerId } satisfies StoredTabState),
-      ).catch(() => { /* best-effort */ });
-    }
-  }, [track, isResolved, isFreePlayer, user?.playerId]);
-  
-  const renderOverlay = useCallback((tabKey: string) => {
-    if (drawerOpen) return null;
-    if (!SHOW_CHAT_TABS.includes(tabKey)) return null;
-    
-    return <CoachChatFooter mode="player" onChallenge={handleChallenge} />;
-  }, [handleChallenge, drawerOpen]);
-
-  const { isChatExpanded } = useChatState();
-
-  // Task #1474 — no `key=` here. We used to remount the entire tab
-  // bar once `useResolvedInitialTab` finished its AsyncStorage read
-  // so the restored tab landed as the initial page. That cost us a
-  // full child unmount/remount on every cold start (and again on
-  // every Community-unread badge flip, until #1456 narrowed the
-  // dependency). The chrome now stays mounted; the AsyncStorage
-  // restore lands as a state update on `initialPage`/`currentTabKey`
-  // and React reconciles in place — same as the coach tab bar.
-  return (
-    <SwipeableTabBar
-      tabs={playerTabs}
-      initialPage={initialPage >= 0 ? initialPage : 0}
-      primaryColor={Colors.dark.primary}
-      secondaryColor={Colors.dark.primary}
-      onEdgeSwipeLeft={onEdgeSwipeLeft}
-      onPageChange={handlePageChange}
-      renderOverlay={renderOverlay}
-      centerButtonConfig={drawerOpen ? undefined : playCenterButton}
-      hideTabBar={isChatExpanded}
-    />
-  );
-}
-
-function PlayerTabsWithDrawer() {
-  const [drawerVisible, setDrawerVisible] = useState(false);
-  const navigation = useNavigation<any>();
-  const { setOpenDrawer } = usePlayerDrawer();
-  const { navigateToTab } = useTabNavigation();
-  
-  React.useEffect(() => {
-    setOpenDrawer(() => setDrawerVisible(true));
-  }, [setOpenDrawer]);
-  
-  const navigateToProfile = () => {
-    setDrawerVisible(false);
-    setTimeout(() => {
-      navigateToTab("Profile");
-    }, 100);
-  };
-
-  const handleDrawerNavigate = (screen: string, params?: any) => {
-    if (screen === "PlayerTabs" && params?.screen) {
-      navigateToTab(params.screen, params.params ? params.params : undefined);
-    } else {
-      navigation.navigate(screen, params);
-    }
-    setTimeout(() => {
-      setDrawerVisible(false);
-    }, 100);
-  };
-  
-  const handleEdgeSwipeLeft = useCallback(() => {
-    setDrawerVisible(true);
-  }, []);
-  
-  return (
-    <View style={{ flex: 1 }}>
-      <PlayerTabsContent onEdgeSwipeLeft={handleEdgeSwipeLeft} drawerOpen={drawerVisible} />
-      <PlayerIdentityDrawer 
-        visible={drawerVisible} 
-        onClose={() => setDrawerVisible(false)}
-        onNavigateToProfile={navigateToProfile}
-        onNavigate={handleDrawerNavigate}
-      />
-    </View>
-  );
-}
-
-function PlayerTabs() {
-  return (
-    <PlayerDrawerProvider>
-      <PlayerTabsWithDrawer />
-    </PlayerDrawerProvider>
-  );
-}
-
-function LegacyScheduleRedirect() {
-  const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
-  React.useEffect(() => {
-    navigation.goBack();
-    setTimeout(() => navigateToTab("Growth", { screen: "Schedule" }), 100);
-  }, []);
-  return null;
-}
-
-function LegacyQuestsRedirect() {
-  const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
-  React.useEffect(() => {
-    navigation.goBack();
-    setTimeout(() => navigateToTab("Growth", { screen: "Quests" }), 100);
-  }, []);
-  return null;
-}
-
-function LegacyProgressRedirect() {
-  const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
-  React.useEffect(() => {
-    navigation.goBack();
-    setTimeout(() => navigateToTab("Growth", { screen: "Progress" }), 100);
-  }, []);
-  return null;
-}
-
-function PlayerStackNavigator() {
-  const { t } = useTranslation();
-  return (
-    <Stack.Navigator screenOptions={{
-      headerShown: false,
-      // Task #1407 — see RootStackNavigator.
-      freezeOnBlur: Platform.OS !== "ios",
-    }}>
-      <Stack.Screen name="PlayerTabs" component={PlayerTabs} />
-      <Stack.Screen 
-        name="Training" 
-        component={PlayerTrainingScreen}
-        options={{
-          presentation: "modal",
-        }}
-      />
-      <Stack.Screen 
-        name="TrainingDetail" 
-        component={TrainingDetailScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="SkillDetail" 
-        component={SkillDetailScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="Journey" 
-        component={PlayerJourneyScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="Settings" 
-        component={PlayerSettingsScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen
-        name="ThemePreview"
-        component={ThemePreviewScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Theme Gallery",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-          headerBackVisible: true,
-        }}
-      />
-      <Stack.Screen
-        name="EditProfile"
-        component={PlayerEditProfileScreen}
-        options={{
-          headerTitle: "Edit Profile",
-          presentation: "modal",
-        }}
-      />
-      <Stack.Screen 
-        name="AcademyBrowser" 
-        component={AcademyBrowserScreen}
-        options={{
-          presentation: "modal",
-        }}
-      />
-      <Stack.Screen 
-        name="AcademyProfile" 
-        component={AcademyProfileScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="CoachDirectory" 
-        component={CoachDirectoryScreen}
-        options={{
-          presentation: "card",
-          headerTitle: t('player.settings.findCoaches'),
-          headerTransparent: true,
-          headerTintColor: Colors.dark.text,
-        }}
-      />
-      <Stack.Screen 
-        name="TransferRequest" 
-        component={TransferRequestScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen
-        name="PlayerHolidays"
-        component={PlayerHolidaysScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen
-        name="AccountAuditLog"
-        component={AccountAuditLogScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Activity log",
-          headerTransparent: true,
-          headerTintColor: Colors.dark.text,
-        }}
-      />
-      <Stack.Screen
-        name="ManageMatch"
-        component={ManageMatchScreen}
-        options={{
-          headerShown: true,
-          headerTitle: t('player.booking.manageMatch'),
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-          headerBackVisible: true,
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="ParentDashboard" 
-        component={ParentDashboardScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="ParentLessons" 
-        component={ParentLessonsScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="ParentSettings" 
-        component={ParentSettingsScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="ParentCreditStore" 
-        component={ParentCreditStoreScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="ParentReports" 
-        component={ParentReportsScreen}
-        options={{
-          presentation: "card",
-          headerTitle: "Monthly Reports",
-        }}
-      />
-      <Stack.Screen 
-        name="QuickBook" 
-        component={QuickBookScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="LessonBooking" 
-        component={LessonBookingScreen}
-        options={{
-          presentation: "fullScreenModal",
-          headerShown: true,
-          headerTitle: t('player.booking.bookSession'),
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="BrowseGroupLessons" 
-        component={BrowseGroupLessonsScreen}
-        options={{
-          presentation: 'transparentModal',
-          headerShown: false,
-          animation: 'slide_from_bottom',
-          contentStyle: { backgroundColor: 'transparent' },
-        }}
-      />
-      <Stack.Screen 
-        name="MyLessonRequests" 
-        component={MyLessonRequestsScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "My Requests",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.text,
-          headerBackTitle: "Back",
-        }}
-      />
-      <Stack.Screen
-        name="BookingConfirmed"
-        component={BookingConfirmedScreen}
-        options={{
-          presentation: "modal",
-          headerShown: false,
-          animation: "slide_from_bottom",
-        }}
-      />
-      <Stack.Screen 
-        name="PlayerFinder" 
-        component={PlayerFinderScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="FriendsList" 
-        component={FriendsListScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Friends",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.text,
-          headerBackTitle: "Back",
-        }}
-      />
-      <Stack.Screen 
-        name="News" 
-        component={NewsScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: t('player.home.newsFeed'),
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="SpotlightDetail" 
-        component={SpotlightDetailScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="AcademyVsAcademy"
-        component={AcademyVsAcademyScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTransparent: true,
-          headerTitle: "Academy Rankings",
-          headerTintColor: Colors.dark.text,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" },
-        }}
-      />
-      <Stack.Screen
-        name="SkillChallengeSubmissions"
-        component={SkillChallengeSubmissionsScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTransparent: true,
-          headerTitle: "Skill Challenge",
-          headerTintColor: Colors.dark.text,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" },
-        }}
-      />
-      <Stack.Screen
-        name="SquadGroup"
-        component={SquadGroupScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTransparent: true,
-          headerTitle: "Squad",
-          headerTintColor: Colors.dark.text,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" },
-        }}
-      />
-      <Stack.Screen 
-        name="MatchLive" 
-        component={MatchLiveScreen}
-        options={{
-          presentation: "fullScreenModal",
-          headerShown: false,
-          animation: "slide_from_bottom",
-        }}
-      />
-      <Stack.Screen
-        name="StartLiveMatch"
-        component={StartLiveMatchScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Start Live Match",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen
-        name="MatchSummary"
-        component={MatchSummaryScreen}
-        options={{
-          presentation: "fullScreenModal",
-          headerShown: false,
-          animation: "slide_from_bottom",
-          gestureEnabled: false,
-        }}
-      />
-      <Stack.Screen
-        name="LiveMatchViewer"
-        component={LiveMatchViewerScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="MatchHistory"
-        component={MatchHistoryScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Match History",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="VideoFeedbackPlayer" 
-        component={VideoFeedbackPlayerScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="PlayerAICoach"
-        component={PlayerAICoachScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="YearInTennis"
-        component={YearInTennisScreen}
-        options={{
-          presentation: "fullScreenModal",
-          headerShown: false,
-          animation: "fade",
-        }}
-      />
-      <Stack.Screen 
-        name="Groups" 
-        component={GroupsScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="GroupDetail" 
-        component={GroupDetailScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="PlayerMessages" 
-        component={PlayerMessagesScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen
-        name="ChatRoom"
-        component={ChatRoomScreen}
-        options={{ presentation: "card", headerShown: false }}
-      />
-      <Stack.Screen
-        name="BrowseChatRooms"
-        component={BrowseChatRoomsScreen}
-        options={{ presentation: "card", headerShown: false }}
-      />
-      <Stack.Screen 
-        name="PlayerBookingChat" 
-        component={PlayerBookingChatScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="PlayerNotifications" 
-        component={PlayerNotificationsScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="PlayerHelp" 
-        component={PlayerGuideScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="PlayerGuide" 
-        component={PlayerGuideScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="PublicProfile" 
-        component={PlayerPublicProfileScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Player Profile",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.text,
-          headerBackTitle: "Back",
-        }}
-      />
-      <Stack.Screen 
-        name="CoachProfile" 
-        component={PlayerCoachProfileScreen}
-        options={{
-          presentation: "card",
-        }}
-      />
-      <Stack.Screen 
-        name="AcademyPublicProfile" 
-        component={PlayerAcademyProfileScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="Shop" 
-        component={ShopScreen}
-        options={{
-          presentation: "card",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="ProductDetail" 
-        component={ProductDetailScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Product",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="ServiceDetail" 
-        component={ServiceDetailScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Service",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="PlayerOrderDetail" 
-        component={PlayerOrderDetailScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Booking Detail",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="Cart" 
-        component={CartScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Cart",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="ShopCategory" 
-        component={ShopCategoryScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Category",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="Marketplace" 
-        component={MarketplaceScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Marketplace",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="MarketplaceListing" 
-        component={MarketplaceListingDetailScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Listing",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="MyListings" 
-        component={MyListingsScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "My Listings",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="Equipment" 
-        component={PlayerEquipmentScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Equipment",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="BookingPreferences" 
-        component={BookingPreferencesScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: t('player.booking.preferences'),
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '700' },
-        }}
-      />
-      <Stack.Screen 
-        name="BookingInvites" 
-        component={BookingInvitesScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: t('player.booking.invites'),
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="FamilyLobby" 
-        component={FamilyLobbyScreen}
-        options={{
-          presentation: "card",
-          headerShown: true,
-          headerTitle: "Family",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen 
-        name="PrivacySettings" 
-        options={{
-          presentation: "modal",
-          headerShown: false,
-        }}
-      >
-        {(screenProps) => (
-          <PrivacySettingsScreen
-            isOnboarding={screenProps.route.params?.isOnboarding}
-            currentLevel={screenProps.route.params?.currentLevel as any}
-            onGoBack={() => screenProps.navigation.goBack()}
-          />
-        )}
-      </Stack.Screen>
-      <Stack.Screen
-        name="CorporateBenefits"
-        component={CorporateBenefitsScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="CompanyContactDashboard"
-        component={CompanyContactDashboardScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="FindGame"
-        component={FindGameScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "Find a Game",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen
-        name="CreateGameRequest"
-        component={CreateGameRequestScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "Post a Game",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen
-        name="MyGames"
-        component={MyGamesScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "My Games",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen
-        name="DiscoveryMap"
-        component={DiscoveryMapScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "Map",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen
-        name="ClassesDiscovery"
-        component={ClassesDiscoveryScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "Classes",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-          headerTransparent: false,
-        }}
-      />
-      <Stack.Screen
-        name="ClassDetail"
-        component={ClassDetailScreen}
-        options={{
-          headerShown: true,
-          headerTitle: "Class Details",
-          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
-          headerTintColor: Colors.dark.primary,
-          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
-        }}
-      />
-      <Stack.Screen name="Schedule" component={LegacyScheduleRedirect} options={{ headerShown: false }} />
-      <Stack.Screen name="Quests" component={LegacyQuestsRedirect} options={{ headerShown: false }} />
-      <Stack.Screen name="Progress" component={LegacyProgressRedirect} options={{ headerShown: false }} />
-      <Stack.Screen
-        name="PlayerDNAWizard"
-        component={PlayerDNAWizardScreen}
-        options={{
-          presentation: "fullScreenModal",
-          headerShown: false,
-          animation: "slide_from_bottom",
-        }}
-      />
-    </Stack.Navigator>
-  );
-}
-
-interface PlayerDashboard {
-  isDemo?: boolean;
-  isOnboarding?: boolean;
-  player: {
-    id: string;
-    name: string;
-    onboardingCompleted?: boolean;
-    academyId?: string | null;
-  };
-}
-
-function PlayerThemedRoot({ children }: { children: React.ReactNode }) {
-  const { resolvedScheme } = usePlayerAppearance();
-  // Task #1474 — removed the `<View key={resolvedScheme}>` remount
-  // wrapper. It existed so a Light/Dark/System toggle would force
-  // every screen to re-evaluate its `makeReactiveStyles` Proxy
-  // against the freshly mutated `Colors.*` globals. The cost was
-  // that the very first appearance resolution on cold start (the
-  // AsyncStorage read inside PlayerAppearanceProvider) ALSO
-  // counted as a scheme change and triggered a full player-tree
-  // remount mid-paint — the visible "freezes until app-switcher"
-  // symptom. The theme toggle now runs through ThemeContext's
-  // setScheme; screens that need to re-style on toggle should
-  // subscribe to that signal explicitly rather than rely on a
-  // global remount.
-  return (
-    <View style={[styles.container, { backgroundColor: Colors.dark.backgroundRoot }]}>
-      <StatusBar style={resolvedScheme === "light" ? "dark" : "light"} />
-      {children}
-    </View>
-  );
-}
-
-export default function PlayerNavigator() {
-  const { user, refreshAuth } = useAuth();
-  const queryClient = useQueryClient();
-  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
-  const [showPrivacySetup, setShowPrivacySetup] = useState(false);
-  const [showFamilyPrompt, setShowFamilyPrompt] = useState(false);
-
-
-  // Fetch dashboard for player role accounts and any account with a playerId
-  // (multi-role users like platform_owners may have player accounts needing onboarding)
-  const shouldFetchDashboard = user?.role === "player" || !!user?.playerId;
-
-  const [bootTimedOut, setBootTimedOut] = useState(false);
-
-  const { data: dashboard, isLoading } = useQuery<PlayerDashboard>({
-    queryKey: ["/api/player/me/dashboard"],
-    enabled: shouldFetchDashboard,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-
-  // iOS early retry — replicates the focus trigger that swipe-up provides.
-  // Fires at 300 ms and 1000 ms after mount so slow initial requests resolve
-  // without requiring the user to visit the app switcher.
-  useEffect(() => {
-    if (!shouldFetchDashboard || Platform.OS !== "ios") return;
-    const t1 = setTimeout(() => {
-      queryClient.refetchQueries({ queryKey: ["/api/player/me/dashboard"], type: "active" });
-    }, 300);
-    const t2 = setTimeout(() => {
-      queryClient.refetchQueries({ queryKey: ["/api/player/me/dashboard"], type: "active" });
-    }, 1000);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [shouldFetchDashboard, queryClient]);
-
-  // Boot timeout safety net (iOS only) — release the loading gate after 3 s
-  // so iOS users are never stuck indefinitely on a blank spinner.
-  useEffect(() => {
-    if (!isLoading || !shouldFetchDashboard || Platform.OS !== "ios") return;
-    const t = setTimeout(() => setBootTimedOut(true), 3000);
-    return () => clearTimeout(t);
-  }, [isLoading, shouldFetchDashboard]);
-
-  const handleOnboardingComplete = async () => {
-    // Refresh user data to get the new playerId
-    await refreshAuth();
-    setOnboardingComplete(true);
-    setShowPrivacySetup(true);
-    queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
-    queryClient.invalidateQueries({ queryKey: ["/api/me"] });
-  };
-
-  if (isLoading && shouldFetchDashboard && !bootTimedOut) {
-    return (
-      <View style={styles.loadingContainer}>
-        <TennisBallSpinner size="large" color={Colors.dark.primary} />
-      </View>
-    );
-  }
-
-  // Show onboarding for player users who haven't completed onboarding OR don't have an academy
-  // The server's isOnboarding flag now checks both onboardingCompleted and academyId
-  const needsOnboarding = dashboard?.isOnboarding === true;
-  const showOnboarding = needsOnboarding && onboardingComplete !== true;
-
-  if (showOnboarding) {
-    return <PlayerOnboardingV2 onComplete={handleOnboardingComplete} />;
-  }
-
-  // Show privacy setup modal after onboarding
-  if (showPrivacySetup) {
-    return <PrivacySettingsScreen isOnboarding onComplete={() => { setShowPrivacySetup(false); setShowFamilyPrompt(true); }} />;
-  }
-
-  // Show family prompt after onboarding + privacy setup
-  if (showFamilyPrompt) {
-    return (
-      <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
-        <AddFamilyMemberPrompt
-          visible={true}
-          onDone={() => setShowFamilyPrompt(false)}
-        />
-      </View>
-    );
-  }
-
-  const playerId = user?.playerId || dashboard?.player?.id || null;
-
-  return (
-    <PlayerAppearanceProvider>
-      <TabNavigationProvider>
-        <ScheduleFocusProvider>
-        <PlayerDataProvider>
-          <SportContextProvider>
-            <CartProvider>
-              <FamilyProvider playerId={playerId}>
-                <PlayerLevelProvider playerId={playerId}>
-                  <PlayerThemedRoot>
-                    <PlayerStackNavigator />
-                  </PlayerThemedRoot>
-                </PlayerLevelProvider>
-              </FamilyProvider>
-            </CartProvider>
-          </SportContextProvider>
-        </PlayerDataProvider>
-        </ScheduleFocusProvider>
-      </TabNavigationProvider>
-    </PlayerAppearanceProvider>
-  );
-}
-
-const styles = makeReactiveStyles(() => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
-  tabsContainer: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: Colors.dark.backgroundRoot,
-  },
-  tabBar: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.accentTextSoft,
-    elevation: 10,
-    zIndex: 999,
-    backgroundColor: Platform.OS === "web" ? "rgba(11, 13, 16, 0.95)" : "transparent",
-    height: 85,
-    paddingTop: 8,
-  },
-  tabBarBackground: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: "hidden",
-  },
-  androidTabBackground: {
-    backgroundColor: "rgba(11, 13, 16, 0.98)",
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: "500",
-    marginTop: -2,
-  },
-}));
