@@ -44,7 +44,6 @@ import SpotlightNominationModal from "@/player/components/SpotlightNominationMod
 import { WelcomeGuideCard } from "@/player/components/WelcomeGuideCard";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuests, Quest } from "@/player/hooks/useQuests";
-import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
 import { UpcomingProviderSessionCard } from "@/player/components/UpcomingProviderSessionCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
 import { CoachesRail, JoinAcademySoftCard } from "@/player/components/CoachesRail";
@@ -2005,13 +2004,6 @@ function PlayerHomeContent() {
       />
       <GuestPromptModal {...promptProps} />
 
-      {/* DAILY BRIEFING SPLASH - Cinematic daily opener (once per calendar day) */}
-      <DailyBriefingModal
-        player={isGuest ? null : (effectiveData?.player ?? null)}
-        nextSession={effectiveData?.nextSession ?? null}
-        coachName={effectiveData?.coach?.name ?? null}
-        isGuest={isGuest}
-      />
     </View>
   );
 }

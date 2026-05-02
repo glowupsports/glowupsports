@@ -71,7 +71,6 @@ import StreakRail from "@/components/StreakRail";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
-import { DailyBriefingModal } from "@/player/components/DailyBriefingModal";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
@@ -1079,13 +1078,6 @@ function DiagnosticHomeContent() {
           bottomOffset={145}
         />
 
-        {/* DAILY BRIEFING */}
-        <DailyBriefingModal
-          player={isGuest ? null : (effectiveData?.player ?? null)}
-          nextSession={effectiveData?.nextSession ?? null}
-          coachName={effectiveData?.coach?.name ?? null}
-          isGuest={isGuest}
-        />
       </View>
     </ScrollPositionContext.Provider>
   );
