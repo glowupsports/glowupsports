@@ -343,6 +343,18 @@ export default function AcademySettingsScreen() {
 
   const renderSettingsTab = () => (
     <View style={styles.tabContent}>
+      {/* My Venue shortcut — Task #1581 */}
+      <Pressable style={styles.venueCard} onPress={() => (navigation as any).navigate("VenueSetup")}>
+        <View style={styles.venueCardIcon}>
+          <Ionicons name="business-outline" size={24} color={Colors.dark.xpCyan} />
+        </View>
+        <View style={styles.venueCardInfo}>
+          <Text style={styles.venueCardTitle}>MY VENUE</Text>
+          <Text style={styles.venueCardSubtitle}>Set amenities and opening hours for your public profile</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+      </Pressable>
+
       <View style={styles.glassSection}>
         <View style={styles.joinCodeHeader}>
           <View style={styles.joinCodeIconContainer}>
@@ -1293,5 +1305,36 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     backgroundColor: `${Colors.dark.error}15`,
     borderRadius: BorderRadius.sm,
+  },
+  venueCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.xpCyan}40`,
+  },
+  venueCardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${Colors.dark.xpCyan}15`,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  venueCardInfo: {
+    flex: 1,
+  },
+  venueCardTitle: {
+    ...Typography.h4,
+    color: Colors.dark.text,
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  venueCardSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
   },
 });

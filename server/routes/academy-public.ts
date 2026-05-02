@@ -757,6 +757,7 @@ import { Router, type Request, type Response } from "express";
           country,
           city,
           address,
+          openingHours,
         } = req.body;
 
         const updated = await storage.updateAcademy(academyId, {
@@ -773,6 +774,7 @@ import { Router, type Request, type Response } from "express";
           ...(country !== undefined && { country }),
           ...(city !== undefined && { city }),
           ...(address !== undefined && { address }),
+          ...(openingHours !== undefined && { openingHours }),
         });
 
         res.json({ academy: updated });

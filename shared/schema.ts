@@ -195,6 +195,10 @@ export const academies = pgTable("academies", {
   coverImageUrl: text("cover_image_url"),
   facilities: jsonb("facilities").$type<string[]>(), // indoor_courts, outdoor_courts, gym, shop, cafe, parking, etc.
   courtCount: integer("court_count"),
+  // Venue profile — opening hours per day (Task #1581)
+  openingHours: jsonb("opening_hours").$type<{
+    [day: string]: { open: string; close: string; closed?: boolean };
+  }>(),
   ageGroups: jsonb("age_groups").$type<string[]>(), // kids, juniors, teens, adults, seniors
   programs: jsonb("programs").$type<string[]>(), // beginner, intermediate, advanced, competitive, private
   priceRange: text("price_range"), // $ | $$ | $$$ | $$$$
@@ -680,7 +684,8 @@ export const courts = pgTable("courts", {
   position: integer("position").default(0), // For drag-and-drop ordering
   
   // Court Booking Marketplace Fields
-  surface: text("surface").default("hard"), // hard | clay | grass | indoor | artificial
+  surface: text("surface").default("hard"), // hard | clay | grass | artificial
+  indoor: boolean("indoor").default(false), // true = indoor court
   description: text("description"),
   photoUrl: text("photo_url"),
   visibility: text("visibility").default("academy"), // public | academy | invite_only

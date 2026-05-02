@@ -105,7 +105,7 @@ function StatCard({
                 <Ionicons name="flame" size={16} color={accent} />
                 <Text style={[cc.statBadgeText, { color: accent }]}>
                   {data.streakCurrent}-day quest streak
-                  {data.streakIsPersonalBest ? " — Personal best!" : ""}
+                  {data.streakIsPersonalBest ? " \u2014 Personal best!" : ""}
                 </Text>
               </View>
             ) : null}
@@ -177,7 +177,7 @@ function StatCard({
               <Ionicons name="sparkles" size={32} color={accent} />
             </View>
             <Text style={[cc.eyebrow, { color: accent }]}>AI COACH</Text>
-            <Text style={[cc.aiMessage, { color: Colors.dark.text }]}>{`"${data.aiMessage}"`}</Text>
+            <Text style={[cc.aiMessage, { color: Colors.dark.text }]}>{"\u201c"}{data.aiMessage}{"\u201d"}</Text>
             <Text style={[cc.subLabel, { marginTop: Spacing.sm }]}>See you on court next week</Text>
             <View style={cc.brandingRow}>
               <Ionicons name="tennisball" size={11} color={GlowColors.primary} />

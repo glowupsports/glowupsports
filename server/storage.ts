@@ -1472,6 +1472,24 @@ export const storage = {
         eq(sessions.status, "completed")
       ));
 
+    // Task #1581 — Venue courts: fetch active courts for this academy
+    let venueCourts: { id: string; name: string; surface: string; indoor: boolean }[] = [];
+    try {
+      const courtRows = await db
+        .select({ id: courts.id, name: courts.name, surface: courts.surface, indoor: courts.indoor })
+        .from(courts)
+        .where(and(eq(courts.academyId, academyId), eq(courts.isActive, true)))
+        .orderBy(asc(courts.position));
+      venueCourts = courtRows.map(c => ({
+        id: c.id,
+        name: c.name,
+        surface: c.surface ?? "hard",
+        indoor: c.indoor ?? false,
+      }));
+    } catch {
+      venueCourts = [];
+    }
+
     return {
       ...academy[0],
       coachCount: coachResult[0]?.count || 0,
@@ -1483,6 +1501,7 @@ export const storage = {
         totalSessions: completedSessionsResult[0]?.count || 0,
         activePlayers: playerResult[0]?.count || 0,
       },
+      venueCourts,
     };
   },
 

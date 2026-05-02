@@ -16,6 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -23,6 +24,11 @@ type NavProp = NativeStackNavigationProp<PlayerStackParamList>;
 type RouteProps = RouteProp<PlayerStackParamList, "AcademyPublicProfile">;
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const ORDERED_DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const DAY_LABELS: Record<string, string> = {
+  mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday",
+  fri: "Friday", sat: "Saturday", sun: "Sunday",
+};
 
 const SPORT_LABELS: Record<string, string> = {
   tennis: "Tennis",
@@ -39,6 +45,60 @@ const BALL_LEVEL_COLORS: Record<string, string> = {
   yellow: "#FFEB3B",
   blue: "#2196F3",
   purple: "#9C27B0",
+};
+
+const SURFACE_LABELS: Record<string, string> = {
+  hard: "Hard",
+  clay: "Clay",
+  grass: "Grass",
+  indoor: "Indoor",
+  artificial: "Artificial",
+};
+
+const SURFACE_COLORS: Record<string, string> = {
+  hard: "#2196F3",
+  clay: "#FF7043",
+  grass: "#4CAF50",
+  indoor: "#9C27B0",
+  artificial: "#00BCD4",
+};
+
+const AMENITY_ICONS: Record<string, string> = {
+  lights: "flashlight-outline",
+  parking: "car-outline",
+  changing_rooms: "shirt-outline",
+  pro_shop: "storefront-outline",
+  cafe: "cafe-outline",
+  indoor_courts: "home-outline",
+  outdoor_courts: "sunny-outline",
+  gym: "barbell-outline",
+  showers: "water-outline",
+  wifi: "wifi-outline",
+  ball_machine: "radio-button-on-outline",
+  spectator_area: "people-outline",
+  // legacy facility labels
+  shop: "storefront-outline",
+  locker_rooms: "shirt-outline",
+  lighting: "flashlight-outline",
+};
+
+const AMENITY_LABELS: Record<string, string> = {
+  lights: "Lights",
+  parking: "Parking",
+  changing_rooms: "Changing Rooms",
+  pro_shop: "Pro Shop",
+  cafe: "Cafe",
+  indoor_courts: "Indoor Courts",
+  outdoor_courts: "Outdoor Courts",
+  gym: "Fitness Center",
+  showers: "Showers",
+  wifi: "Wi-Fi",
+  ball_machine: "Ball Machine",
+  spectator_area: "Spectators",
+  // legacy
+  shop: "Pro Shop",
+  locker_rooms: "Locker Rooms",
+  lighting: "Lights",
 };
 
 interface CoachInfo {
@@ -80,6 +140,13 @@ interface UpcomingTournament {
   location: string;
 }
 
+interface VenueCourt {
+  id: string;
+  name: string;
+  surface: string;
+  indoor: boolean;
+}
+
 interface AcademyPublicProfile {
   id: string;
   name: string;
@@ -104,6 +171,8 @@ interface AcademyPublicProfile {
     totalSessions?: number;
     activePlayers?: number;
   } | null;
+  openingHours?: Record<string, { open: string; close: string; closed?: boolean }> | null;
+  venueCourts?: VenueCourt[] | null;
 }
 
 function formatSchedule(dayOfWeek: number, startTime: string, duration: number): string {
@@ -124,6 +193,17 @@ function formatDate(dateStr: string): string {
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   } catch {
     return dateStr;
+  }
+}
+
+function formatTime(t: string): string {
+  try {
+    const [h, m] = t.split(":").map(Number);
+    const ampm = (h ?? 0) < 12 ? "AM" : "PM";
+    const hour = ((h ?? 0) % 12) || 12;
+    return `${hour}:${String(m ?? 0).padStart(2, "0")} ${ampm}`;
+  } catch {
+    return t;
   }
 }
 
@@ -227,6 +307,7 @@ export default function PlayerAcademyProfileScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
   const { academyId } = route.params;
+  const { user, isGuest } = useAuth();
 
   const { data: profileData, isLoading } = useQuery<{ profile: AcademyPublicProfile }>({
     queryKey: ["/api/academies", academyId, "profile"],
@@ -239,6 +320,14 @@ export default function PlayerAcademyProfileScreen() {
   });
 
   const profile = profileData?.profile;
+
+  const handleBookLesson = () => {
+    if (!user || isGuest) {
+      (navigation as any).navigate("PlayerGuide", { initialTab: "start" });
+      return;
+    }
+    (navigation as any).navigate("LessonBooking");
+  };
 
   if (isLoading) {
     return (
@@ -271,6 +360,11 @@ export default function PlayerAcademyProfileScreen() {
     totalSessions: profile.trustSignals?.totalSessions ?? 0,
   };
   const sports = profile.sports ?? [];
+
+  const amenities = profile.facilities ?? [];
+  const venueCourts = profile.venueCourts ?? [];
+  const openingHours = profile.openingHours ?? null;
+  const hasOpeningHours = openingHours && Object.keys(openingHours).length > 0;
 
   return (
     <View style={styles.container}>
@@ -330,6 +424,12 @@ export default function PlayerAcademyProfileScreen() {
           </View>
         </View>
 
+        {/* Book a Lesson CTA — prominent */}
+        <Pressable style={styles.bookLessonBtn} onPress={handleBookLesson}>
+          <Ionicons name="calendar" size={20} color="#000" />
+          <Text style={styles.bookLessonBtnText}>Book a Lesson</Text>
+        </Pressable>
+
         {/* About */}
         {profile.description != null ? (
           <View style={styles.section}>
@@ -349,23 +449,84 @@ export default function PlayerAcademyProfileScreen() {
           </View>
         ) : null}
 
-        {/* Facilities */}
-        {profile.facilities != null && profile.facilities.length > 0 ? (
+        {/* Amenities with icons */}
+        {amenities.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Facilities</Text>
-            <View style={styles.facilityGrid}>
-              {profile.facilities.map(f => (
-                <View key={f} style={styles.facilityChip}>
-                  <Ionicons name="checkmark-circle" size={13} color={Colors.dark.primary} />
-                  <Text style={styles.facilityText}>{f.replace(/_/g, " ")}</Text>
-                </View>
-              ))}
-              {profile.courtCount != null ? (
-                <View style={styles.facilityChip}>
-                  <Ionicons name="checkmark-circle" size={13} color={Colors.dark.primary} />
-                  <Text style={styles.facilityText}>{profile.courtCount} Courts</Text>
-                </View>
-              ) : null}
+            <Text style={styles.sectionTitle}>Amenities</Text>
+            <View style={styles.amenityGrid}>
+              {amenities.map(f => {
+                const icon = AMENITY_ICONS[f] ?? "checkmark-circle-outline";
+                const label = AMENITY_LABELS[f] ?? f.replace(/_/g, " ");
+                return (
+                  <View key={f} style={styles.amenityChip}>
+                    <Ionicons name={icon as any} size={16} color={Colors.dark.primary} />
+                    <Text style={styles.amenityText}>{label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Courts */}
+        {venueCourts.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Courts</Text>
+            <View style={styles.courtsGrid}>
+              {venueCourts.map(court => {
+                const surfaceColor = SURFACE_COLORS[court.surface] ?? Colors.dark.primary;
+                const surfaceLabel = SURFACE_LABELS[court.surface] ?? court.surface;
+                return (
+                  <View key={court.id} style={styles.courtCard}>
+                    <View style={[styles.courtSurfaceDot, { backgroundColor: surfaceColor }]} />
+                    <View style={styles.courtInfo}>
+                      <Text style={styles.courtName}>{court.name}</Text>
+                      <View style={styles.courtBadgeRow}>
+                        <View style={[styles.courtSurfaceBadge, { backgroundColor: surfaceColor + "22", borderColor: surfaceColor + "55" }]}>
+                          <Text style={[styles.courtSurfaceText, { color: surfaceColor }]}>{surfaceLabel}</Text>
+                        </View>
+                        <View style={styles.courtIndoorBadge}>
+                          <Ionicons
+                            name={court.indoor ? "home-outline" : "sunny-outline"}
+                            size={12}
+                            color={Colors.dark.textMuted}
+                          />
+                          <Text style={styles.courtIndoorText}>
+                            {court.indoor ? "Indoor" : "Outdoor"}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        {/* Opening Hours */}
+        {hasOpeningHours ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Opening Hours</Text>
+            <View style={styles.hoursCard}>
+              {ORDERED_DAYS.map((dayKey, idx) => {
+                const dayData = openingHours![dayKey];
+                if (!dayData) return null;
+                const isClosed = dayData.closed;
+                const isLast = idx === ORDERED_DAYS.length - 1;
+                return (
+                  <View key={dayKey} style={[styles.hoursRow, !isLast && styles.hoursRowBorder]}>
+                    <Text style={styles.hoursDay}>{DAY_LABELS[dayKey]}</Text>
+                    {isClosed ? (
+                      <Text style={styles.hoursClosed}>Closed</Text>
+                    ) : (
+                      <Text style={styles.hoursTime}>
+                        {formatTime(dayData.open)} – {formatTime(dayData.close)}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
             </View>
           </View>
         ) : null}
@@ -579,6 +740,21 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.primary,
     fontWeight: "600",
   },
+  bookLessonBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  bookLessonBtnText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#000",
+  },
   section: {
     marginTop: Spacing.xl,
   },
@@ -612,24 +788,112 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontWeight: "600",
   },
-  facilityGrid: {
+  amenityGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
   },
-  facilityChip: {
+  amenityChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 8,
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
-  facilityText: {
-    ...Typography.caption,
-    color: Colors.dark.textSecondary,
-    textTransform: "capitalize",
+  amenityText: {
+    fontSize: 13,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  courtsGrid: {
+    gap: Spacing.sm,
+  },
+  courtCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  courtSurfaceDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    flexShrink: 0,
+  },
+  courtInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  courtName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  courtBadgeRow: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+    alignItems: "center",
+  },
+  courtSurfaceBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  courtSurfaceText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  courtIndoorBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  courtIndoorText: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  hoursCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    overflow: "hidden",
+  },
+  hoursRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  hoursRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  hoursDay: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  hoursTime: {
+    fontSize: 13,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  hoursClosed: {
+    fontSize: 13,
+    color: Colors.dark.error,
+    fontWeight: "500",
+    fontStyle: "italic",
   },
   contactRow: {
     flexDirection: "row",

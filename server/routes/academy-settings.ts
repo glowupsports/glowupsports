@@ -4,7 +4,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { storage } from "../storage";
   import { eq, and } from "drizzle-orm";
   import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, type AuthenticatedRequest } from "../auth";
-  import { pushDeviceTokens } from "@shared/schema";
+  import { pushDeviceTokens, academies } from "@shared/schema";
   import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "../services/invoicePdf";
   const router = Router();
 
@@ -25,6 +25,55 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   // the academy via req.user.academyId. Returns { theme: null } when the user
   // has no academy or the academy hasn't customised its theme — the client
   // then falls back to the built-in defaults.
+  // Task #1581 — Venue profile: returns facilities + opening_hours for the coach's own academy
+  router.get(
+    "/api/academy/venue-profile",
+    authMiddleware,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) return res.json({ academy: { facilities: null, openingHours: null } });
+        const academy = await storage.getAcademy(academyId);
+        res.json({
+          academy: {
+            facilities: academy?.facilities ?? null,
+            openingHours: academy?.openingHours ?? null,
+          },
+        });
+      } catch (error) {
+        console.error("Get academy venue-profile error:", error);
+        res.status(500).json({ error: "Failed to fetch venue profile" });
+      }
+    },
+  );
+
+  router.put(
+    "/api/academy/venue-profile",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) return res.status(400).json({ error: "Academy required" });
+        const { facilities, openingHours } = req.body as {
+          facilities?: string[];
+          openingHours?: Record<string, { open: string; close: string; closed?: boolean }>;
+        };
+        await db
+          .update(academies)
+          .set({
+            ...(facilities !== undefined && { facilities }),
+            ...(openingHours !== undefined && { openingHours }),
+          })
+          .where(eq(academies.id, academyId));
+        res.json({ ok: true });
+      } catch (error) {
+        console.error("Put academy venue-profile error:", error);
+        res.status(500).json({ error: "Failed to update venue profile" });
+      }
+    },
+  );
+
   router.get(
     "/api/academy/theme",
     authMiddleware,

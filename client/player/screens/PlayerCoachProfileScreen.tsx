@@ -208,7 +208,7 @@ export default function PlayerCoachProfileScreen() {
       return;
     }
     if (coach?.academyId) {
-      navigation.navigate("AcademyProfile", { academyId: coach.academyId });
+      navigation.navigate("AcademyPublicProfile", { academyId: coach.academyId });
     }
   };
 

@@ -21,6 +21,7 @@ import AvailabilityScreen from "@/coach/screens/AvailabilityScreen";
 import CourtPreferencesScreen from "@/coach/screens/CourtPreferencesScreen";
 import TemplatesScreen from "@/coach/screens/TemplatesScreen";
 import AcademySettingsScreen from "@/coach/screens/AcademySettingsScreen";
+import VenueSetupScreen from "@/coach/screens/VenueSetupScreen";
 import BillingScreen from "@/coach/screens/BillingScreen";
 import CoachInvitationsScreen from "@/coach/screens/CoachInvitationsScreen";
 import CoachOnboardingScreen from "@/coach/screens/CoachOnboardingScreen";
@@ -87,6 +88,7 @@ export type CoachStackParamList = {
   Templates: undefined;
   LessonTemplateLibrary: undefined;
   AcademySettings: undefined;
+  VenueSetup: undefined;
   Billing: undefined;
   CoachInvitations: undefined;
   CoachEarnings: undefined;
@@ -331,6 +333,10 @@ function CoachStackNavigator() {
       <Stack.Screen 
         name="AcademySettings" 
         component={AcademySettingsScreen}
+      />
+      <Stack.Screen 
+        name="VenueSetup" 
+        component={VenueSetupScreen}
       />
       <Stack.Screen 
         name="Billing" 
