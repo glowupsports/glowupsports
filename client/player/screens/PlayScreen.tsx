@@ -26,7 +26,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
-import { Colors, Spacing, Typography, BorderRadius, TextColors, Backgrounds } from "@/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, TextColors, Backgrounds, FunctionColors } from "@/constants/theme";
 import { openDirections as openMapsDirections } from "@/lib/maps";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
@@ -1450,7 +1450,7 @@ export default function PlayScreen() {
                       styles.epicStatusBadge,
                       {
                         backgroundColor: isOffered
-                          ? "#F59E0B40"
+                          ? Colors.dark.warning + "40"
                           : statusBadge.bgColor,
                       },
                     ]}
@@ -1458,7 +1458,7 @@ export default function PlayScreen() {
                     <Text
                       style={[
                         styles.epicStatusText,
-                        { color: isOffered ? "#F59E0B" : statusBadge.color },
+                        { color: isOffered ? Colors.dark.warning : statusBadge.color },
                       ]}
                     >
                       {isOffered ? "Spot Offered!" : statusBadge.text}
@@ -1477,13 +1477,13 @@ export default function PlayScreen() {
                       }}
                     >
                       {isJoining ? (
-                        <TennisBallSpinner size="small" color="#FF6B6B" />
+                        <TennisBallSpinner size="small" color={Colors.dark.danger} />
                       ) : (
                         <>
                           <Ionicons
                             name="close-circle-outline"
                             size={18}
-                            color="#FF6B6B"
+                            color={Colors.dark.danger}
                           />
                           <Text style={styles.epicCancelButtonText}>
                             Cancel
@@ -1563,7 +1563,7 @@ export default function PlayScreen() {
                         }}
                       >
                         {isJoining ? (
-                          <TennisBallSpinner size="small" color="#FF6B6B" />
+                          <TennisBallSpinner size="small" color={Colors.dark.danger} />
                         ) : (
                           <Text style={styles.epicLeaveWaitlistText}>
                             Leave Waitlist
@@ -1683,10 +1683,10 @@ export default function PlayScreen() {
                     <Ionicons
                       name="cash-outline"
                       size={12}
-                      color="#39FF14"
+                      color={Colors.dark.primary}
                       style={{ marginRight: 2 }}
                     />
-                    <Text style={[styles.priceChipText, { color: "#39FF14" }]}>
+                    <Text style={[styles.priceChipText, { color: Colors.dark.primary }]}>
                       AED {session.publicDropInPrice!.toFixed(0)} / session
                     </Text>
                   </View>
@@ -3022,7 +3022,7 @@ export default function PlayScreen() {
                         }}
                       >
                         <LinearGradient
-                          colors={["#00E5FF", "#00A3D9"]}
+                          colors={[FunctionColors.info, FunctionColors.infoMuted]}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
                           style={styles.playModalOptionGradient}
@@ -5341,16 +5341,16 @@ const styles = makeReactiveStyles(() =>
       flexDirection: "row",
       alignItems: "center",
       gap: Spacing.xs,
-      backgroundColor: "#39FF14",
+      backgroundColor: Colors.dark.primary,
       paddingHorizontal: Spacing.lg,
       paddingVertical: Spacing.sm,
       borderRadius: BorderRadius.md,
       borderWidth: 1,
-      borderColor: "#39FF14",
+      borderColor: Colors.dark.primary,
     },
     epicDropInButtonText: {
       ...Typography.body,
-      color: "#000",
+      color: Colors.dark.buttonText,
       fontWeight: "700",
     },
     waitlistStatusContainer: {
@@ -5376,16 +5376,16 @@ const styles = makeReactiveStyles(() =>
       flexShrink: 1,
     },
     epicLeaveWaitlistButton: {
-      backgroundColor: "rgba(255, 107, 107, 0.12)",
+      backgroundColor: Colors.dark.danger + "1F",
       paddingHorizontal: Spacing.md,
       paddingVertical: 5,
       borderRadius: BorderRadius.sm,
       borderWidth: 1,
-      borderColor: "#FF6B6B60",
+      borderColor: Colors.dark.danger + "60",
     },
     epicLeaveWaitlistText: {
       ...Typography.caption,
-      color: "#FF6B6B",
+      color: Colors.dark.danger,
       fontWeight: "600",
     },
     waitlistOfferedContainer: {
@@ -5394,7 +5394,7 @@ const styles = makeReactiveStyles(() =>
     },
     waitlistClaimTimer: {
       ...Typography.caption,
-      color: "#F59E0B",
+      color: Colors.dark.warning,
       fontWeight: "700",
       fontSize: 13,
     },
@@ -5406,7 +5406,7 @@ const styles = makeReactiveStyles(() =>
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
-      backgroundColor: "#F59E0B",
+      backgroundColor: Colors.dark.warning,
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
       borderRadius: BorderRadius.md,
@@ -5434,16 +5434,16 @@ const styles = makeReactiveStyles(() =>
       flexDirection: "row",
       alignItems: "center",
       gap: Spacing.xs,
-      backgroundColor: "rgba(255, 107, 107, 0.15)",
+      backgroundColor: Colors.dark.danger + "26",
       paddingHorizontal: Spacing.lg,
       paddingVertical: Spacing.sm,
       borderRadius: BorderRadius.md,
       borderWidth: 1,
-      borderColor: "#FF6B6B",
+      borderColor: Colors.dark.danger,
     },
     epicCancelButtonText: {
       ...Typography.body,
-      color: "#FF6B6B",
+      color: Colors.dark.danger,
       fontWeight: "700",
     },
     buttonDisabled: {

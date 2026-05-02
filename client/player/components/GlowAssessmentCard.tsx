@@ -17,7 +17,7 @@ import { Spacing, Colors, BorderRadius, TextColors } from "@/constants/theme";
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 import { GlowLevelAssessment } from "@/player/components/GlowLevelAssessment";
 
-const DISMISS_KEY = "@glow_assessment_card_dismissed_v1";
+const DISMISS_KEY = "@glow_assessment_card_dismissed_v2";
 
 interface GlowAssessmentCardProps {
   glowRank?: number;
