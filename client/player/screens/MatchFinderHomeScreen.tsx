@@ -38,12 +38,15 @@ import { OutsideInviteModal } from "@/player/components/match/OutsideInviteModal
 import { SkeletonPlayerCard } from "@/components/SkeletonLoader";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
-const LEVEL_FILTERS: { id: "all" | "green" | "yellow" | "orange" | "red"; label: string }[] = [
-  { id: "all", label: "All levels" },
-  { id: "green", label: "Green" },
-  { id: "yellow", label: "Yellow" },
-  { id: "orange", label: "Orange" },
-  { id: "red", label: "Red" },
+// Task #1532 — Category filters replace the old ball-level filters.
+// Each category maps to the glowRank range used by the discovery endpoint.
+type CategoryFilter = "all" | "Beginner" | "Intermediate" | "Advanced" | "Elite";
+const LEVEL_FILTERS: { id: CategoryFilter; label: string; color?: string }[] = [
+  { id: "all",          label: "All levels" },
+  { id: "Beginner",     label: "Beginner",     color: "#22C55E" },
+  { id: "Intermediate", label: "Intermediate", color: "#3B82F6" },
+  { id: "Advanced",     label: "Advanced",     color: "#F97316" },
+  { id: "Elite",        label: "Elite",        color: "#FFD700" },
 ];
 
 const SCOPE_FILTERS: { id: "academy" | "country" | "global"; label: string }[] = [
@@ -82,7 +85,7 @@ export default function MatchFinderHomeScreen() {
       const params = new URLSearchParams();
       params.set("intent", "match");
       params.set("scope", scope);
-      if (levelFilter !== "all") params.set("ballLevel", levelFilter);
+      if (levelFilter !== "all") params.set("glowCategory", levelFilter);
       params.set("limit", "25");
       if (cursor) params.set("cursor", cursor);
       return `/api/social/discovery/players?${params.toString()}`;
@@ -200,13 +203,19 @@ export default function MatchFinderHomeScreen() {
           return (
             <Pressable
               key={f.id}
-              style={[styles.chip, active && styles.chipActive]}
+              style={[
+                styles.chip,
+                active && (f.color ? { backgroundColor: f.color + "22", borderColor: f.color } : styles.chipActive),
+              ]}
               onPress={() => {
                 Haptics.selectionAsync();
-                setLevelFilter(f.id);
+                setLevelFilter(f.id as CategoryFilter);
               }}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+              {f.color ? (
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: active ? f.color : f.color + "88" }} />
+              ) : null}
+              <Text style={[styles.chipText, active && (f.color ? { color: f.color } : styles.chipTextActive)]}>
                 {f.label}
               </Text>
             </Pressable>

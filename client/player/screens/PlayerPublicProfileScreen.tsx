@@ -23,6 +23,7 @@ import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { GlowRankBadge } from "@/components/GlowLevelBadge";
 interface PublicProfile {
   id: string;
   name: string;
@@ -31,6 +32,7 @@ interface PublicProfile {
   levelTitle: string;
   ballLevel: string;
   glowScore: number;
+  glowRank?: number | null;
   totalXp: number;
   xpToNextLevel: number;
   xpProgress: number;
@@ -472,16 +474,9 @@ export default function PlayerPublicProfileScreen() {
             </Pressable>
           ) : null}
 
-          {/* Level & Glow Score Chips */}
+          {/* Glow Rank Badge */}
           <View style={styles.chipRow}>
-            <View style={[styles.chip, styles.levelChip]}>
-              <Ionicons name="shield" size={14} color={Colors.dark.primary} />
-              <Text style={styles.chipText}>LV {profile.level}</Text>
-            </View>
-            <View style={[styles.chip, styles.glowChip]}>
-              <Ionicons name="flash" size={14} color={Colors.dark.primary} />
-              <Text style={[styles.chipText, { color: Colors.dark.primary }]}>{profile.glowScore}</Text>
-            </View>
+            <GlowRankBadge glowRank={profile.glowRank} size="md" />
           </View>
 
           {/* XP Progress Bar */}

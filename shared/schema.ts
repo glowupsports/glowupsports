@@ -8574,3 +8574,28 @@ export const outsideInvites = pgTable("outside_invites", {
 export type OutsideInvite = typeof outsideInvites.$inferSelect;
 export type InsertOutsideInvite = typeof outsideInvites.$inferInsert;
 
+// ==================== GLOW LEVEL CATEGORIES ====================
+// Maps glowRank (1–9) to a human-readable category + color.
+// Category mapping: 9–8 → Beginner, 7–6 → Intermediate, 5–4 → Advanced, 3–2–1 → Elite
+
+export type GlowCategory = "Beginner" | "Intermediate" | "Advanced" | "Elite";
+
+export interface GlowCategoryInfo {
+  label: GlowCategory;
+  color: string;
+}
+
+export function getGlowCategory(rank: number): GlowCategoryInfo {
+  if (rank >= 8) return { label: "Beginner", color: "#22C55E" };
+  if (rank >= 6) return { label: "Intermediate", color: "#3B82F6" };
+  if (rank >= 4) return { label: "Advanced", color: "#F97316" };
+  return { label: "Elite", color: "#FFD700" };
+}
+
+export const GLOW_CATEGORY_RANK_RANGES: Record<GlowCategory, { min: number; max: number }> = {
+  Beginner: { min: 8, max: 9 },
+  Intermediate: { min: 6, max: 7 },
+  Advanced: { min: 4, max: 5 },
+  Elite: { min: 1, max: 3 },
+};
+

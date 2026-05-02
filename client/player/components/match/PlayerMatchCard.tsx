@@ -12,6 +12,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import { buildPhotoUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
+import { GlowRankBadge } from "@/components/GlowLevelBadge";
 
 export interface MatchCandidate {
   id: string;
@@ -20,6 +21,7 @@ export interface MatchCandidate {
   ballLevel: string | null;
   skillLevel: number | null;
   glowMmr: number | null;
+  glowRank?: number | null;
   city: string | null;
   country: string | null;
   academyId: string | null;
@@ -117,28 +119,7 @@ function PlayerMatchCardImpl({
             {player.name || "Player"}
           </Text>
           <View style={styles.metaRow}>
-            {player.ballLevel ? (
-              <View
-                style={[
-                  styles.ballChip,
-                  {
-                    backgroundColor: ballColor + "1F",
-                    borderColor: ballColor + "55",
-                  },
-                ]}
-              >
-                <Ionicons name="tennisball" size={10} color={ballColor} />
-                <Text style={[styles.ballChipText, { color: ballColor }]}>
-                  {String(player.ballLevel).toUpperCase()}
-                </Text>
-              </View>
-            ) : null}
-            {typeof player.glowMmr === "number" ? (
-              <View style={styles.mmrChip}>
-                <Ionicons name="flash" size={10} color={Colors.dark.primary} />
-                <Text style={styles.mmrChipText}>{player.glowMmr}</Text>
-              </View>
-            ) : null}
+            <GlowRankBadge glowRank={player.glowRank ?? undefined} size="xs" />
           </View>
           <Text style={styles.locationLine} numberOfLines={1}>
             {[academyName, player.city || player.country].filter(Boolean).join(" · ") ||

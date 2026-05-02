@@ -15,7 +15,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
-import PinEntryModal from "@/components/PinEntryModal";import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
+import PinEntryModal from "@/components/PinEntryModal";
+import { GlowRankBadge } from "@/components/GlowLevelBadge";
+import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { SportBadge } from "@/components/SportBadge";
@@ -888,10 +890,7 @@ export default function PlayerProfileScreen() {
                     {shellBallLevel.charAt(0).toUpperCase() + shellBallLevel.slice(1)} Ball
                   </Text>
                 </View>
-                <View style={styles.glowBadge}>
-                  <Ionicons name="flash" size={14} color={Colors.dark.primary} />
-                  <Text style={styles.glowText}>{playerCtx.glowScore} Glow</Text>
-                </View>
+                <GlowRankBadge glowRank={playerCtx.glowRank} size="sm" />
               </View>
             </View>
           </View>
@@ -1159,10 +1158,7 @@ export default function PlayerProfileScreen() {
                 <SportBadge key={sport} sport={sport} size="sm" />
               ))
             ) : null}
-            <View style={styles.glowBadge}>
-              <Ionicons name="flash" size={14} color={Colors.dark.primary} />
-              <Text style={styles.glowText}>{player.glowScore} Glow</Text>
-            </View>
+            <GlowRankBadge glowRank={playerCtx.glowRank} size="sm" />
             {isBirthday ? (
               <View style={styles.birthdayBadge}>
                 <Text style={styles.birthdayIcon}>🎂</Text>

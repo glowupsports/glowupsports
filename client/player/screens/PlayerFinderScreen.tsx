@@ -35,12 +35,13 @@ interface OpenToPlayData {
   listings: any[];
 }
 
+// Task #1532 — Category filters replace old ball-level filters
 const SKILL_FILTERS = [
-  { id: "all", label: "All Levels" },
-  { id: "green", label: "Green" },
-  { id: "yellow", label: "Yellow" },
-  { id: "orange", label: "Orange" },
-  { id: "red", label: "Red" },
+  { id: "all",          label: "All Levels",   color: undefined },
+  { id: "Beginner",     label: "Beginner",     color: "#22C55E" },
+  { id: "Intermediate", label: "Intermediate", color: "#3B82F6" },
+  { id: "Advanced",     label: "Advanced",     color: "#F97316" },
+  { id: "Elite",        label: "Elite",        color: "#FFD700" },
 ];
 
 function PlayerCard({ player, index }: { player: PlayerResult; index: number }) {
@@ -125,7 +126,7 @@ export default function PlayerFinderScreen() {
 
   const searchParams = new URLSearchParams();
   if (searchQuery) searchParams.append("q", searchQuery);
-  if (selectedSkill !== "all") searchParams.append("skill", selectedSkill);
+  if (selectedSkill !== "all") searchParams.append("glowCategory", selectedSkill);
   if (showOpenToPlayOnly) searchParams.append("openToPlay", "true");
   const searchQueryString = searchParams.toString();
 
@@ -260,16 +261,25 @@ export default function PlayerFinderScreen() {
               horizontal
               data={SKILL_FILTERS}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={[styles.filterChip, selectedSkill === item.id && styles.filterChipActive]}
-                  onPress={() => setSelectedSkill(item.id)}
-                >
-                  <ThemedText style={[styles.filterText, selectedSkill === item.id && styles.filterTextActive]}>
-                    {item.label}
-                  </ThemedText>
-                </Pressable>
-              )}
+              renderItem={({ item }) => {
+                const active = selectedSkill === item.id;
+                return (
+                  <Pressable
+                    style={[
+                      styles.filterChip,
+                      active && (item.color ? { backgroundColor: item.color + "22", borderColor: item.color } : styles.filterChipActive),
+                    ]}
+                    onPress={() => setSelectedSkill(item.id)}
+                  >
+                    {item.color ? (
+                      <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: active ? item.color : item.color + "80" }} />
+                    ) : null}
+                    <ThemedText style={[styles.filterText, active && (item.color ? { color: item.color } : styles.filterTextActive)]}>
+                      {item.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              }}
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: Spacing.md }}
             />
@@ -470,11 +480,16 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     marginBottom: Spacing.md,
   },
   filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: 16,
     marginRight: Spacing.xs,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   filterChipActive: {
     backgroundColor: Colors.dark.primary,

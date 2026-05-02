@@ -17,6 +17,11 @@ import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { getGlowCategoryInfo } from "@/components/GlowLevelBadge";
+
+// Task #1532 — glow category section headers in leaderboard
+const CATEGORY_ORDER = ["Beginner", "Intermediate", "Advanced", "Elite"] as const;
+
 interface RankedPlayer {
   rank: number;
   id: string;
@@ -29,6 +34,7 @@ interface RankedPlayer {
   dssRating: string | null;
   streak: number;
   isCurrentPlayer: boolean;
+  glowRank?: number | null;
 }
 
 interface LeaderboardData {
@@ -326,15 +332,78 @@ export default function GlowLeaderboardScreen() {
   );
   const _currentCat = CATEGORIES.find(c => c.key === category) || CATEGORIES[0];
 
+  // Task #1532 — Build sectioned data that inserts category header "items"
+  // between groups of players sharing the same Glow category. Only active
+  // when every player in the slice carries a glowRank value.
+  type LeaderboardItem =
+    | { _type: "player"; data: RankedPlayer }
+    | { _type: "header"; category: string; color: string; key: string };
+
+  const sectionedData = useMemo<LeaderboardItem[]>(() => {
+    const all = effectiveData?.rankings ?? [];
+    const hasGlowRank = all.some((p) => p.glowRank != null);
+    if (!hasGlowRank) {
+      return all.slice(3).map((p) => ({ _type: "player" as const, data: p }));
+    }
+    const items: LeaderboardItem[] = [];
+    let lastCat = "";
+    for (const p of all.slice(3)) {
+      const { category: cat, color } = getGlowCategoryInfo(p.glowRank ?? 9);
+      if (cat !== lastCat) {
+        items.push({ _type: "header", category: cat, color, key: `header-${cat}` });
+        lastCat = cat;
+      }
+      items.push({ _type: "player", data: p });
+    }
+    return items;
+  }, [effectiveData?.rankings]);
+
   // Task #1398 — Stable handlers / extractors so the FlatList does not
   // tear down and rebuild its rows on every render of the parent.
-  const keyExtractor = useCallback((item: RankedPlayer) => item.id, []);
+  const keyExtractor = useCallback(
+    (item: LeaderboardItem) => item._type === "header" ? item.key : item.data.id,
+    [],
+  );
   const renderItem = useCallback(
-    ({ item, index }: { item: RankedPlayer; index: number }) => (
-      <RankingRow player={item} index={index} metric={category} />
-    ),
+    ({ item, index }: { item: LeaderboardItem; index: number }) => {
+      if (item._type === "header") {
+        return (
+          <View style={[leaderboardHeaderStyles.container, { borderLeftColor: item.color }]}>
+            <View style={[leaderboardHeaderStyles.dot, { backgroundColor: item.color }]} />
+            <ThemedText style={[leaderboardHeaderStyles.label, { color: item.color }]}>
+              {item.category}
+            </ThemedText>
+          </View>
+        );
+      }
+      return <RankingRow player={item.data} index={index} metric={category} />;
+    },
     [category],
   );
+
+  const leaderboardHeaderStyles = {
+    container: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 8,
+      paddingVertical: 10,
+      paddingHorizontal: Spacing.md,
+      marginTop: Spacing.md,
+      borderLeftWidth: 3,
+      marginLeft: Spacing.md,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    label: {
+      fontSize: 13,
+      fontWeight: "700" as const,
+      letterSpacing: 0.5,
+      textTransform: "uppercase" as const,
+    },
+  };
 
   return (
     <LockedScreen featureKey="glow_leaderboard">
@@ -382,7 +451,7 @@ export default function GlowLeaderboardScreen() {
         </View>
       ) : (
         <FlatList
-          data={restOfRankings}
+          data={sectionedData}
           keyExtractor={keyExtractor}
           refreshControl={
             <RefreshControl refreshing={effectiveRefetching} onRefresh={effectiveRefetch} tintColor={Colors.dark.gold} />
