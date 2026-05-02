@@ -1,3 +1,41 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════════════════╗
+ * ║          CANONICAL PLAYER HOME SCREEN  —  DO NOT REPLACE THIS FILE          ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                                                                              ║
+ * ║  This is the ONE AND ONLY authoritative Home tab screen for the V2 Player   ║
+ * ║  surface.  It is mounted by PlayerV2Navigator.tsx and is the file that      ║
+ * ║  ALL future player-home work must happen in.                                ║
+ * ║                                                                              ║
+ * ║  Navigator wiring (PlayerV2Navigator.tsx):                                  ║
+ * ║    Home tab  →  ProPlayerHomeDiagnosticScreen   ← YOU ARE HERE              ║
+ * ║                                                                              ║
+ * ║  Why "Diagnostic" in the name?                                               ║
+ * ║    The screen started life as a V2 diagnostic/test harness alongside the    ║
+ * ║    legacy ProPlayerHomeScreen.  It has since been fully promoted to the      ║
+ * ║    production home screen.  The name is kept for continuity; ignore it.     ║
+ * ║                                                                              ║
+ * ║  What lives here (as of Task #1538):                                        ║
+ * ║    • ProPlayerCard (hero stats card)                                        ║
+ * ║    • PrimaryActionsRow (book / schedule / etc.)                             ║
+ * ║    • HeroCarousel (upcoming sessions / announcements)                       ║
+ * ║    • AICoachHomeCard (inline AI coach prompt)                               ║
+ * ║    • PlayerOfTheWeekCard (spotlight)                                        ║
+ * ║    • QuestsCard (daily / weekly quests)                                     ║
+ * ║    • CoachesRail, Discovery rows, Booking wizard, modals …                 ║
+ * ║                                                                              ║
+ * ║  What does NOT live here (removed in Tasks #1537 / #1538):                  ║
+ * ║    ✗  Tennis IQ / IQQuizModal                                               ║
+ * ║    ✗  StreakRail                                                             ║
+ * ║    ✗  UnifiedImproveCard                                                    ║
+ * ║    ✗  Spotlight mini-tiles (SpotlightNomineeMini, etc.)                     ║
+ * ║                                                                              ║
+ * ║  LEGACY FILE (do not edit for new features):                                ║
+ * ║    client/player/screens/ProPlayerHomeScreen.tsx                            ║
+ * ║    → kept only for reference / V1 navigator fallback.                       ║
+ * ║                                                                              ║
+ * ╚══════════════════════════════════════════════════════════════════════════════╝
+ */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,

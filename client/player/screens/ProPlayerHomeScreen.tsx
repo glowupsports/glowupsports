@@ -1,3 +1,19 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════════════════╗
+ * ║                    LEGACY FILE — DO NOT USE FOR NEW WORK                    ║
+ * ╠══════════════════════════════════════════════════════════════════════════════╣
+ * ║                                                                              ║
+ * ║  This file is the OLD V1-navigator player home screen.  It is NO LONGER     ║
+ * ║  the active home tab.  Do not add features or bug-fixes here.               ║
+ * ║                                                                              ║
+ * ║  THE CANONICAL HOME SCREEN IS:                                              ║
+ * ║    client/player/screens/ProPlayerHomeDiagnosticScreen.tsx                  ║
+ * ║                                                                              ║
+ * ║  This file is kept only as a reference / V1 navigator fallback.             ║
+ * ║  All new player-home work must go into ProPlayerHomeDiagnosticScreen.tsx.   ║
+ * ║                                                                              ║
+ * ╚══════════════════════════════════════════════════════════════════════════════╝
+ */
 import React, { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import * as Sentry from "@sentry/react-native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";

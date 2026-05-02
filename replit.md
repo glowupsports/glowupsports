@@ -71,6 +71,22 @@ count starts climbing again — but only after re-reading the hook/component
 guards inside v2 (it MUST skip `^use[A-Z]` and `^[A-Z][a-z]` declarations or
 it will silently break `react-hooks/rules-of-hooks`).
 
+### CRITICAL: Player Home Screen — canonical file
+The **active, production Home tab** for the V2 Player surface is:
+
+```
+client/player/screens/ProPlayerHomeDiagnosticScreen.tsx
+```
+
+It is wired in `client/navigation/PlayerV2Navigator.tsx` as the Home tab screen.
+All new player-home features, bug-fixes, and UI changes MUST go into this file.
+
+The file `client/player/screens/ProPlayerHomeScreen.tsx` is the **legacy V1 file**.
+It is kept for reference only — do NOT add new work there.
+
+Why "Diagnostic" in the name? The screen began as a V2 test harness and was
+promoted to production.  The name is historical; ignore it.
+
 ### CRITICAL: API Development Rule
 DO NOT create new API endpoints without explicit permission!
 1. **First**: Check existing endpoints.
