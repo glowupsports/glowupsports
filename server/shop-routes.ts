@@ -1328,7 +1328,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
     console.error("[Shop] Error creating order:", error);
     res.status(500).json({ error: "Failed to create order" });
   }
-} as any));
+});
 
 // ==================== ACADEMY OWNER SHOP MANAGEMENT ====================
 
@@ -3210,7 +3210,7 @@ router.post("/player/shop/orders/:orderId/upsells/:upsellId/respond", authMiddle
       if (action === "approve") {
         const priceStr = upsell.price;
 
-        await tx.insert(shopOrderItems).values(({
+        await tx.insert(shopOrderItems).values({
           orderId,
           itemType: "service",
           name: upsell.label,
