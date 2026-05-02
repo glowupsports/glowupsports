@@ -259,6 +259,11 @@ export default function PlayerGuideScreen() {
     if (navigation.canGoBack()) navigation.goBack();
   }, [navigation]);
 
+  const goBackThenTab = useCallback((tabKey: string, screenParams?: { screen: string; params?: any }) => {
+    if (navigation.canGoBack()) navigation.goBack();
+    setTimeout(() => navigateToTab(tabKey, screenParams), 50);
+  }, [navigation, navigateToTab]);
+
   const checklistSteps = useMemo<ChecklistStep[]>(() => {
     const playerProfile = profile?.player ?? null;
     const hasPhoto =
@@ -281,7 +286,7 @@ export default function PlayerGuideScreen() {
         description: t("playerGuide.steps.profile.desc"),
         actionLabel: t("playerGuide.steps.profile.action"),
         done: hasProfile,
-        onPress: () => navigateToTab("Profile"),
+        onPress: () => goBackThenTab("Profile"),
       },
       isFree
         ? {
@@ -300,7 +305,7 @@ export default function PlayerGuideScreen() {
             description: t("playerGuide.steps.session.desc"),
             actionLabel: t("playerGuide.steps.session.action"),
             done: hasNextSession,
-            onPress: () => navigateToTab("Growth", { screen: "ScheduleMain" }),
+            onPress: () => goBackThenTab("Growth", { screen: "ScheduleMain" }),
           },
       {
         id: "academy",
@@ -317,7 +322,7 @@ export default function PlayerGuideScreen() {
         done: hasAcademy,
         onPress: () =>
           hasAcademy
-            ? navigateToTab("Growth", { screen: "ScheduleMain" })
+            ? goBackThenTab("Growth", { screen: "ScheduleMain" })
             : navigation.navigate("AcademyBrowser"),
       },
       {
@@ -327,7 +332,7 @@ export default function PlayerGuideScreen() {
         description: t("playerGuide.steps.progressCheck.desc"),
         actionLabel: t("playerGuide.steps.progressCheck.action"),
         done: hasProgressActivity,
-        onPress: () => navigateToTab("Growth"),
+        onPress: () => goBackThenTab("Growth"),
       },
       {
         id: "community",
@@ -336,7 +341,7 @@ export default function PlayerGuideScreen() {
         description: t("playerGuide.steps.community.desc"),
         actionLabel: t("playerGuide.steps.community.action"),
         done: hasFriends,
-        onPress: () => navigateToTab("Community"),
+        onPress: () => goBackThenTab("Community"),
       },
       {
         id: "notifications",
@@ -345,11 +350,11 @@ export default function PlayerGuideScreen() {
         description: t("playerGuide.steps.notifications.desc"),
         actionLabel: t("playerGuide.steps.notifications.action"),
         done: hasNotifications,
-        onPress: () => navigateToTab("Profile"),
+        onPress: () => goBackThenTab("Profile"),
       },
     ];
     return steps;
-  }, [dashboard, profile, friends, notificationPrefs, navigation, navigateToTab, t]);
+  }, [dashboard, profile, friends, notificationPrefs, navigation, navigateToTab, goBackThenTab, t]);
 
   const completedCount = checklistSteps.filter((s) => s.done).length;
   const progressPercent = Math.round((completedCount / checklistSteps.length) * 100);
@@ -495,7 +500,7 @@ export default function PlayerGuideScreen() {
                     style={styles.exploreCard}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      entry.onPress(navigation, navigateToTab);
+                      entry.onPress(navigation, goBackThenTab);
                     }}
                   >
                     <View style={styles.exploreIcon}>
