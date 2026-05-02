@@ -20,6 +20,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 interface PinAllowance {
   canPin: boolean;
@@ -123,6 +124,7 @@ function parseMatchInvite(body: string): null | {
 export default function ChatRoomScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const route = useRoute<any>();
   const roomId: string = route.params?.roomId;
   const initialTitle: string = route.params?.title || "Room";

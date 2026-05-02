@@ -35,6 +35,7 @@ import { CreditPackagesList } from "@/components/CreditPackagesList";
 import { useTranslation } from "react-i18next";
 import { getSportLabel, getSportColor } from "@/player/context/SportContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
@@ -219,6 +220,7 @@ export default function PlayerBookingWizard({
   );
 
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   // Current slide (0-4)
   const [currentSlide, setCurrentSlide] = useState(0);
 

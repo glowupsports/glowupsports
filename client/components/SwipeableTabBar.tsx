@@ -232,7 +232,7 @@ export function SwipeableTabBar({
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const [currentIndex, setCurrentIndex] = useState(initialPage);
-  const [_visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([initialPage]));
+  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([initialPage]));
   // Task #1417 — Replaces the PagerView ref. Same imperative `setPage`
   // contract so TabNavigationContext can still drive the pager from
   // outside without code changes.
@@ -416,20 +416,26 @@ export function SwipeableTabBar({
 
   const currentTabKey = tabs[currentIndex].key;
 
-  // Render only the active tab. Keeps the heavy tab children unmounted
-  // when off-screen — same contract as the previous PagerView impl.
-  // Each cell still occupies `containerWidth` so the row-translate
-  // animation has something to slide.
+  // Task #1526 — Keep-alive tab rendering: once a tab has been visited,
+  // keep it mounted so React Query cache is preserved on tab switch.
+  // `visitedTabs` already tracks every tab the user has opened; we now
+  // use it in render instead of the old `index === currentIndex` check.
+  // The translateX animation already moves off-screen tabs out of view;
+  // `pointerEvents="none"` on the wrapper prevents them intercepting
+  // touches or gesture recognisers while they are hidden.
   const screens = useMemo(() => 
     tabs.map((tab, index) => {
       const TabComponent = tab.component;
-      const shouldRender = index === currentIndex;
+      const shouldRender = visitedTabs.has(index);
       return (
-        <View key={tab.key} style={[styles.pageItem, { width: containerWidth }]}>
+        <View
+          key={tab.key}
+          style={[styles.pageItem, { width: containerWidth, pointerEvents: index === currentIndex ? "box-none" : "none" }]}
+        >
           {shouldRender ? <TabComponent /> : null}
         </View>
       );
-    }), [tabs, currentIndex, containerWidth]
+    }), [tabs, currentIndex, visitedTabs, containerWidth]
   );
 
   const animatedRowStyle = useAnimatedStyle(() => ({

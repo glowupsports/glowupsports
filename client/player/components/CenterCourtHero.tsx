@@ -14,6 +14,7 @@ import Animated, {
 import { ProTennisColors, Spacing, BorderRadius, Colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface SessionData {
@@ -176,6 +177,7 @@ function SessionScheduled({ session, onCheckIn }: { session: SessionData; onChec
 
 function NoSessionScheduled({ onBookSession, onFindMatch }: { onBookSession?: () => void; onFindMatch?: () => void }) {
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
 
   const handleBookSession = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

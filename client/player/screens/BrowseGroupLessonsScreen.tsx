@@ -22,6 +22,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { Colors, Spacing, getPlayerLevelTextColor, Backgrounds, GlowColors, TextColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const BALL_LEVEL_FILTERS = [
@@ -109,6 +110,7 @@ interface GroupSession {
 
 export default function BrowseGroupLessonsScreen() {
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const { user: _user } = useAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();

@@ -50,6 +50,7 @@ import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useWebSocket, type NewMessagePayload, type TypingPayload } from "@/lib/useWebSocket";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -256,6 +257,7 @@ export function PlayerChatFooter() {
   const tabBarHeight = TAB_BAR_HEIGHT;
   const queryClient = useQueryClient();
   const navigation = useNavigation<any>();
+  const { navigateToTab } = useTabNavigation();
   const { user } = useAuth();
   const { isMinor, chatEnabled } = usePlayer();
   const { setChatExpanded } = useChatState();

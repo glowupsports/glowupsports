@@ -19,6 +19,7 @@ import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { apiFetch } from "@/lib/query-client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 // Local navigation contract: only the routes this screen targets, including
 // nested-tab targets for OpenMatches (Play tab) and TournamentDetail (Growth tab).
@@ -295,6 +296,7 @@ export default function DiscoveryMapScreen() {
 function DiscoveryMapScreenInner() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<DiscoveryMapNav>>();
+  const { navigateToTab } = useTabNavigation();
   const route = useRoute<RouteProp<DiscoveryMapNav, "DiscoveryMap">>();
   const [filter, setFilter] = useState<FilterKey>(route.params?.initialFilter ?? "all");
   const [region, setRegion] = useState<Region>(WORLD_REGION);
@@ -503,7 +505,7 @@ function DiscoveryMapScreenInner() {
         }
         break;
     }
-  }, [selectedPin, navigation]);
+  }, [selectedPin, navigation, navigateToTab]);
 
   const headerTop = insets.top + Spacing.sm;
 
