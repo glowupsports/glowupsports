@@ -105,7 +105,7 @@ export function TodaysFocusCard({ focus, onCTA }: TodaysFocusCardProps) {
             <Ionicons name={iconName} size={18} color={accentColor} />
           </View>
           <View style={s.labelChip}>
-            <Text style={[s.chipText, { color: accentColor }]}>TODAY&apos;S FOCUS</Text>
+            <Text style={[s.chipText, { color: accentColor }]}>{"TODAY'S FOCUS"}</Text>
           </View>
         </View>
 

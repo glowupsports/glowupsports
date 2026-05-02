@@ -8670,3 +8670,439 @@ export const GLOW_CATEGORY_RANK_RANGES: Record<GlowCategory, { min: number; max:
   Elite: { min: 1, max: 3 },
 };
 
+
+// ==================== GLOW ARENA TABLES (Phase 1) ====================
+// Card rarity tiers (18-tier system):
+// Blue 1/2/3 = Common I/II/III, Red = Uncommon, Orange = Rare, Green = Epic,
+// Yellow = Legendary, Glow rank 7-9 = Mythic Bronze, 4-6 = Mythic Silver, 1-3 = Mythic Gold
+
+// ── Champion Cards (1 per player — live computed stats snapshot) ──────────────
+export const arenaChampionCards = pgTable("arena_champion_cards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().unique(), // 1-to-1 with players
+  // Rarity
+  rarityTier: text("rarity_tier").notNull().default("common_i"), // common_i..mythic_gold
+  rarityLabel: text("rarity_label").notNull().default("Common I"),
+  rarityMarker: text("rarity_marker").notNull().default("★"), // ★ ★★ ★★★ ✦ ✦✦ ✦✦✦
+  // Card stats (0-99)
+  statPower: integer("stat_power").notNull().default(0),
+  statTechnique: integer("stat_technique").notNull().default(0),
+  statMental: integer("stat_mental").notNull().default(0),
+  statTactics: integer("stat_tactics").notNull().default(0),
+  // Arena record
+  arenaMmr: integer("arena_mmr").notNull().default(1000),
+  arenaWins: integer("arena_wins").notNull().default(0),
+  arenaLosses: integer("arena_losses").notNull().default(0),
+  // Cosmetic overrides (future-proofing)
+  frameOverride: text("frame_override"),
+  avatarBorderColor: text("avatar_border_color"),
+  // Source data snapshot
+  ballLevelSnapshot: text("ball_level_snapshot"),
+  skillLevelSnapshot: integer("skill_level_snapshot"),
+  glowRankSnapshot: integer("glow_rank_snapshot"),
+  glowMmrSnapshot: integer("glow_mmr_snapshot"),
+  streakSnapshot: integer("streak_snapshot").default(0),
+  syncedAt: timestamp("synced_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type ArenaChampionCard = typeof arenaChampionCards.$inferSelect;
+export type InsertArenaChampionCard = typeof arenaChampionCards.$inferInsert;
+
+// ── Player Cards (collectible catalog — one row per player) ────────────────────
+export const arenaPlayerCards = pgTable("arena_player_cards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().unique(),
+  // Rarity (same calc as champion card)
+  rarityTier: text("rarity_tier").notNull().default("common_i"),
+  rarityLabel: text("rarity_label").notNull().default("Common I"),
+  rarityMarker: text("rarity_marker").notNull().default("★"),
+  // Stats snapshot for the collectible version
+  statPower: integer("stat_power").notNull().default(0),
+  statTechnique: integer("stat_technique").notNull().default(0),
+  statMental: integer("stat_mental").notNull().default(0),
+  statTactics: integer("stat_tactics").notNull().default(0),
+  // Display
+  playerName: text("player_name").notNull(),
+  photoUrl: text("photo_url"),
+  arenaMmr: integer("arena_mmr").notNull().default(1000),
+  // Card variant metadata
+  isFirstEdition: boolean("is_first_edition").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type ArenaPlayerCard = typeof arenaPlayerCards.$inferSelect;
+
+// ── Coach Cards (collectible catalog) ─────────────────────────────────────────
+export const arenaCoachCards = pgTable("arena_coach_cards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").notNull().unique(),
+  coachName: text("coach_name").notNull(),
+  photoUrl: text("photo_url"),
+  specialty: text("specialty"),
+  // Coach card stats (0-99)
+  statCertifiedStudents: integer("stat_certified_students").notNull().default(0),
+  statSessionsRun: integer("stat_sessions_run").notNull().default(0),
+  statCoachingPower: integer("stat_coaching_power").notNull().default(0),
+  statConsistency: integer("stat_consistency").notNull().default(0),
+  rarityTier: text("rarity_tier").notNull().default("common_i"),
+  rarityLabel: text("rarity_label").notNull().default("Common I"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type ArenaCoachCard = typeof arenaCoachCards.$inferSelect;
+
+// ── Ability Cards (master list) ────────────────────────────────────────────────
+export const arenaAbilityCards = pgTable("arena_ability_cards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // attack | defense | buff | clutch | special
+  rarity: text("rarity").notNull().default("common"), // common | uncommon | rare | epic | legendary
+  basePower: integer("base_power").notNull().default(10),
+  statMultiplier: text("stat_multiplier"), // power | technique | mental | tactics
+  isClutch: boolean("is_clutch").notNull().default(false),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── Player Ability Card Ownership ──────────────────────────────────────────────
+export const playerAbilityCards = pgTable("player_ability_cards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  abilityCardId: varchar("ability_card_id").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  cardLevel: integer("card_level").notNull().default(1), // 1-3
+  obtainedAt: timestamp("obtained_at").defaultNow(),
+}, (t) => [
+  index("player_ability_cards_player_idx").on(t.playerId),
+  unique("player_ability_cards_unique").on(t.playerId, t.abilityCardId),
+]);
+
+// ── Player Collected Cards (player/coach card ownership) ───────────────────────
+export const playerCollectedCards = pgTable("player_collected_cards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").notNull(), // the collector
+  cardType: text("card_type").notNull(), // player | coach
+  cardRefId: varchar("card_ref_id").notNull(), // arena_player_cards.id or arena_coach_cards.id
+  source: text("source").notNull().default("pack"), // real_match | pack | gift | reward
+  conqueredRibbon: boolean("conquered_ribbon").notNull().default(false),
+  isNemesis: boolean("is_nemesis").notNull().default(false),
+  isFirstEdition: boolean("is_first_edition").notNull().default(false),
+  cardVariant: text("card_variant").notNull().default("normal"), // normal | legacy_rookie | hof | conquered | event
+  obtainedAt: timestamp("obtained_at").defaultNow(),
+}, (t) => [
+  index("player_collected_cards_owner_idx").on(t.ownerId),
+]);
+
+// ── Arena Pack Definitions ─────────────────────────────────────────────────────
+export const arenaPacks = pgTable("arena_packs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  price: integer("price").notNull().default(0), // in glowCoins
+  cardCount: integer("card_count").notNull().default(5),
+  oddsCommon: integer("odds_common").notNull().default(60),
+  oddsUncommon: integer("odds_uncommon").notNull().default(25),
+  oddsRare: integer("odds_rare").notNull().default(10),
+  oddsEpic: integer("odds_epic").notNull().default(4),
+  oddsLegendary: integer("odds_legendary").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── Player Pack Pity Counter ───────────────────────────────────────────────────
+export const playerPackPity = pgTable("player_pack_pity", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().unique(),
+  legendaryMissStreak: integer("legendary_miss_streak").notNull().default(0),
+  lastPackOpenedAt: timestamp("last_pack_opened_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ── Arena Battles ──────────────────────────────────────────────────────────────
+export const arenaBattles = pgTable("arena_battles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  initiatorId: varchar("initiator_id").notNull(),
+  opponentId: varchar("opponent_id").notNull(),
+  winnerId: varchar("winner_id"),
+  status: text("status").notNull().default("pending"), // pending | active | completed | cancelled
+  source: text("source").notNull().default("arena"), // arena | real_match_converted
+  arenaMmrDeltaInitiator: integer("arena_mmr_delta_initiator").default(0),
+  arenaMmrDeltaOpponent: integer("arena_mmr_delta_opponent").default(0),
+  wagerCoins: integer("wager_coins").default(0),
+  initiatorSquad: jsonb("initiator_squad").$type<string[]>(), // ability card ids
+  opponentSquad: jsonb("opponent_squad").$type<string[]>(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => [
+  index("arena_battles_initiator_idx").on(t.initiatorId),
+  index("arena_battles_opponent_idx").on(t.opponentId),
+]);
+
+export type ArenaBattle = typeof arenaBattles.$inferSelect;
+
+// ── Arena Battle Turns ─────────────────────────────────────────────────────────
+export const arenaBattleTurns = pgTable("arena_battle_turns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  battleId: varchar("battle_id").notNull(),
+  turnNumber: integer("turn_number").notNull(),
+  actorId: varchar("actor_id").notNull(),
+  abilityCardId: varchar("ability_card_id"),
+  damage: integer("damage").default(0),
+  result: text("result"), // hit | miss | clutch | critical
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => [
+  index("arena_battle_turns_battle_idx").on(t.battleId),
+]);
+
+// ── Arena Seasons ──────────────────────────────────────────────────────────────
+export const arenaSeasons = pgTable("arena_seasons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  theme: text("theme"),
+  statMultiplierField: text("stat_multiplier_field"), // power | technique | mental | tactics
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  isActive: boolean("is_active").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ArenaSeason = typeof arenaSeasons.$inferSelect;
+
+// ── Arena Season Standings ─────────────────────────────────────────────────────
+export const arenaSeasonStandings = pgTable("arena_season_standings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  seasonId: varchar("season_id").notNull(),
+  playerId: varchar("player_id").notNull(),
+  wins: integer("wins").notNull().default(0),
+  losses: integer("losses").notNull().default(0),
+  peakMmr: integer("peak_mmr").notNull().default(1000),
+  finalRank: integer("final_rank"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => [
+  index("arena_season_standings_season_idx").on(t.seasonId),
+  index("arena_season_standings_player_idx").on(t.playerId),
+  unique("arena_season_standings_unique").on(t.seasonId, t.playerId),
+]);
+
+// ── Arena Head-to-Head ─────────────────────────────────────────────────────────
+export const arenaHeadToHead = pgTable("arena_head_to_head", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerAId: varchar("player_a_id").notNull(),
+  playerBId: varchar("player_b_id").notNull(),
+  playerAWins: integer("player_a_wins").notNull().default(0),
+  playerBWins: integer("player_b_wins").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => [
+  unique("arena_head_to_head_pair_unique").on(t.playerAId, t.playerBId),
+]);
+
+// ── Arena Bounties ─────────────────────────────────────────────────────────────
+export const arenaBounties = pgTable("arena_bounties", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  targetPlayerId: varchar("target_player_id").notNull(),
+  placedByPlayerId: varchar("placed_by_player_id").notNull(),
+  bountyCoins: integer("bounty_coins").notNull().default(0),
+  status: text("status").notNull().default("active"), // active | claimed | expired
+  claimedByPlayerId: varchar("claimed_by_player_id"),
+  claimedAt: timestamp("claimed_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── Arena Card Evolutions (24h reveal queue) ───────────────────────────────────
+export const arenaCardEvolutions = pgTable("arena_card_evolutions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  championCardId: varchar("champion_card_id").notNull(),
+  fromRarityTier: text("from_rarity_tier").notNull(),
+  toRarityTier: text("to_rarity_tier").notNull(),
+  revealAt: timestamp("reveal_at").notNull(),
+  revealed: boolean("revealed").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => [
+  index("arena_card_evolutions_player_idx").on(t.playerId),
+]);
+
+// ── Arena Hall of Fame ─────────────────────────────────────────────────────────
+export const arenaHallOfFame = pgTable("arena_hall_of_fame", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  seasonId: varchar("season_id"),
+  achievement: text("achievement").notNull(),
+  rank: integer("rank"),
+  mmrAtEntry: integer("mmr_at_entry"),
+  enteredAt: timestamp("entered_at").defaultNow(),
+});
+
+// ── Arena Cosmetics Unlocked ───────────────────────────────────────────────────
+export const arenaCosmeticsUnlocked = pgTable("arena_cosmetics_unlocked", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  cosmeticKey: text("cosmetic_key").notNull(),
+  unlockedAt: timestamp("unlocked_at").defaultNow(),
+}, (t) => [
+  index("arena_cosmetics_unlocked_player_idx").on(t.playerId),
+  unique("arena_cosmetics_unlocked_unique").on(t.playerId, t.cosmeticKey),
+]);
+
+// ── Arena Trophy Room Pins ─────────────────────────────────────────────────────
+export const arenaTrophyRoomPins = pgTable("arena_trophy_room_pins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  pinnedCardId: varchar("pinned_card_id").notNull(),
+  pinSlot: integer("pin_slot").notNull().default(1), // 1-5
+  pinnedAt: timestamp("pinned_at").defaultNow(),
+}, (t) => [
+  index("arena_trophy_room_pins_player_idx").on(t.playerId),
+  unique("arena_trophy_room_pins_slot_unique").on(t.playerId, t.pinSlot),
+]);
+
+// ── Arena Predictions ─────────────────────────────────────────────────────────
+export const arenaPredictions = pgTable("arena_predictions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  battleId: varchar("battle_id").notNull(),
+  predictorId: varchar("predictor_id").notNull(),
+  predictedWinnerId: varchar("predicted_winner_id").notNull(),
+  wageredCoins: integer("wagered_coins").default(0),
+  resolved: boolean("resolved").notNull().default(false),
+  won: boolean("won"),
+  coinsAwarded: integer("coins_awarded").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => [
+  index("arena_predictions_battle_idx").on(t.battleId),
+]);
+
+// ── Academy Clashes ────────────────────────────────────────────────────────────
+export const academyClashes = pgTable("academy_clashes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyAId: varchar("academy_a_id").notNull(),
+  academyBId: varchar("academy_b_id").notNull(),
+  academyAScore: integer("academy_a_score").notNull().default(0),
+  academyBScore: integer("academy_b_score").notNull().default(0),
+  status: text("status").notNull().default("pending"), // pending | active | completed
+  winnerId: varchar("winner_id"),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── Arena Tournaments ─────────────────────────────────────────────────────────
+export const arenaTournaments = pgTable("arena_tournaments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  maxParticipants: integer("max_participants").notNull().default(16),
+  entryFeeCoins: integer("entry_fee_coins").default(0),
+  prizeCoins: integer("prize_coins").default(0),
+  status: text("status").notNull().default("upcoming"), // upcoming | active | completed
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ── Arena Tournament Matches ───────────────────────────────────────────────────
+export const arenaTournamentMatches = pgTable("arena_tournament_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tournamentId: varchar("tournament_id").notNull(),
+  battleId: varchar("battle_id"),
+  playerAId: varchar("player_a_id").notNull(),
+  playerBId: varchar("player_b_id").notNull(),
+  winnerId: varchar("winner_id"),
+  round: integer("round").notNull().default(1),
+  matchOrder: integer("match_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => [
+  index("arena_tournament_matches_tournament_idx").on(t.tournamentId),
+]);
+
+// ── Arena Card Upgrades ────────────────────────────────────────────────────────
+export const arenaCardUpgrades = pgTable("arena_card_upgrades", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  abilityCardId: varchar("ability_card_id").notNull(),
+  fromLevel: integer("from_level").notNull().default(1),
+  toLevel: integer("to_level").notNull().default(2),
+  coinsSpent: integer("coins_spent").default(0),
+  upgradedAt: timestamp("upgraded_at").defaultNow(),
+}, (t) => [
+  index("arena_card_upgrades_player_idx").on(t.playerId),
+]);
+
+// ==================== ARENA RARITY HELPERS ====================
+
+export type ArenaRarityTier =
+  | "common_i" | "common_ii" | "common_iii"
+  | "uncommon_i" | "uncommon_ii" | "uncommon_iii"
+  | "rare_i" | "rare_ii" | "rare_iii"
+  | "epic_i" | "epic_ii" | "epic_iii"
+  | "legendary_i" | "legendary_ii" | "legendary_iii"
+  | "mythic_bronze" | "mythic_silver" | "mythic_gold";
+
+export interface ArenaRarityInfo {
+  tier: ArenaRarityTier;
+  label: string;
+  marker: string;
+  frameStyle: "flat_grey" | "grey_shimmer" | "grey_glow"
+    | "copper_flat" | "copper_shimmer" | "copper_glow"
+    | "bronze_flat" | "bronze_shimmer" | "bronze_glow"
+    | "silver_flat" | "silver_shimmer" | "silver_animated"
+    | "gold_flat" | "gold_shimmer" | "gold_particle"
+    | "rainbow_animated" | "rainbow_particles" | "holographic";
+  order: number; // 1 = lowest, 18 = rarest
+}
+
+export function computeArenaRarity(
+  ballLevel: string | null | undefined,
+  skillLevel: number | null | undefined,
+  glowRank: number | null | undefined,
+): ArenaRarityInfo {
+  const bl = (ballLevel || "blue").toLowerCase();
+  const sl = skillLevel || 1;
+  const gr = glowRank || 9;
+
+  if (bl === "glow") {
+    if (gr <= 3) return { tier: "mythic_gold",   label: "Mythic Gold",   marker: "✦✦✦", frameStyle: "holographic",      order: 18 };
+    if (gr <= 6) return { tier: "mythic_silver", label: "Mythic Silver", marker: "✦✦",  frameStyle: "rainbow_particles", order: 17 };
+    return          { tier: "mythic_bronze", label: "Mythic Bronze", marker: "✦",   frameStyle: "rainbow_animated",  order: 16 };
+  }
+
+  const ballMap: Record<string, { base: number; prefixes: ["legendary","epic","rare","uncommon","common"] }> = {
+    yellow: { base: 13, prefixes: ["legendary","epic","rare","uncommon","common"] },
+    green:  { base: 10, prefixes: ["legendary","epic","rare","uncommon","common"] },
+    orange: { base: 7,  prefixes: ["legendary","epic","rare","uncommon","common"] },
+    red:    { base: 4,  prefixes: ["legendary","epic","rare","uncommon","common"] },
+    blue:   { base: 1,  prefixes: ["legendary","epic","rare","uncommon","common"] },
+  };
+
+  type RarityBase = "common" | "uncommon" | "rare" | "epic" | "legendary";
+  const tierMap: Record<RarityBase, { labels: string[]; frames: ArenaRarityInfo["frameStyle"][]; tiers: ArenaRarityTier[] }> = {
+    legendary: { labels: ["Legendary I","Legendary II","Legendary III"], frames: ["gold_flat","gold_shimmer","gold_particle"], tiers: ["legendary_i","legendary_ii","legendary_iii"] },
+    epic:      { labels: ["Epic I","Epic II","Epic III"],                frames: ["silver_flat","silver_shimmer","silver_animated"], tiers: ["epic_i","epic_ii","epic_iii"] },
+    rare:      { labels: ["Rare I","Rare II","Rare III"],                frames: ["bronze_flat","bronze_shimmer","bronze_glow"], tiers: ["rare_i","rare_ii","rare_iii"] },
+    uncommon:  { labels: ["Uncommon I","Uncommon II","Uncommon III"],    frames: ["copper_flat","copper_shimmer","copper_glow"], tiers: ["uncommon_i","uncommon_ii","uncommon_iii"] },
+    common:    { labels: ["Common I","Common II","Common III"],          frames: ["flat_grey","grey_shimmer","grey_glow"], tiers: ["common_i","common_ii","common_iii"] },
+  };
+  const markers = ["★", "★★", "★★★"];
+
+  const entry = ballMap[bl] || ballMap["blue"];
+  const base: RarityBase = (() => {
+    if (bl === "yellow") return "legendary";
+    if (bl === "green")  return "epic";
+    if (bl === "orange") return "rare";
+    if (bl === "red")    return "uncommon";
+    return "common";
+  })();
+  const t = tierMap[base];
+  const idx = Math.max(0, Math.min(2, (sl || 1) - 1));
+  return {
+    tier: t.tiers[idx],
+    label: t.labels[idx],
+    marker: markers[idx],
+    frameStyle: t.frames[idx],
+    order: entry.base + idx,
+  };
+}

@@ -87,6 +87,7 @@ import playerAchievementsRouter from "./routes/player-achievements";
 import communityDataRouter from "./routes/community-data";
 import playerAiCoachDataRouter from "./routes/player-ai-coach-data";
 import quizRouter from "./routes/quiz";
+import arenaRouter from "./routes/arena";
 import { diagnosticsLimiter } from "./rateLimiter";
 
 const _authLimiter = rateLimit({
@@ -443,6 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(communityDataRouter);
   app.use(playerAiCoachDataRouter);
   app.use("/api/quiz", quizRouter);
+  app.use("/api/arena", arenaRouter);
 
   // ==================== USER ONBOARDING STATE ====================
 

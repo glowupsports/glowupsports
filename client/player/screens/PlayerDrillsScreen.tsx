@@ -13,7 +13,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { FlashList } from "@shopify/flash-list";
+
 import { DrillDetailSheet } from "@/player/components/DrillDetailSheet";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 

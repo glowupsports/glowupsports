@@ -165,7 +165,7 @@ function StatCard({
             ) : (
               <>
                 <Text style={cc.bigLabel}>Showing up</Text>
-                <Text style={cc.subLabel}>Progress is earned one session at a time. You're on your way.</Text>
+                <Text style={cc.subLabel}>{"Progress is earned one session at a time. You're on your way."}</Text>
               </>
             )}
           </>
@@ -177,7 +177,7 @@ function StatCard({
               <Ionicons name="sparkles" size={32} color={accent} />
             </View>
             <Text style={[cc.eyebrow, { color: accent }]}>AI COACH</Text>
-            <Text style={[cc.aiMessage, { color: Colors.dark.text }]}>"{data.aiMessage}"</Text>
+            <Text style={[cc.aiMessage, { color: Colors.dark.text }]}>{`"${data.aiMessage}"`}</Text>
             <Text style={[cc.subLabel, { marginTop: Spacing.sm }]}>See you on court next week</Text>
             <View style={cc.brandingRow}>
               <Ionicons name="tennisball" size={11} color={GlowColors.primary} />

@@ -114,6 +114,8 @@ import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import ArenaHubScreen from "@/player/screens/arena/ArenaHubScreen";
+import MyCardScreen from "@/player/screens/arena/MyCardScreen";
 
 // ─── Stack param list — mirrors PlayerStackParamList minus PlayerTabs ────────
 export type PlayerV2StackParamList = {
@@ -236,6 +238,9 @@ export type PlayerV2StackParamList = {
   // Corporate
   CorporateBenefits: undefined;
   CompanyContactDashboard: undefined;
+  // Arena
+  ArenaHub: undefined;
+  ArenaMyCard: undefined;
   // Legacy redirects (no-op)
   Schedule: undefined;
   Quests: undefined;
@@ -382,6 +387,7 @@ function PlayerV2TabView() {
     { key: "Community", label: "Social", icon: "people-outline",          iconFocused: "people",          component: CommunityScreen, badge: hasCommunityUnread },
     { key: "PlayStack", label: "Play",   icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator,     keepAlive: false },
     { key: "Growth",    label: "Growth", icon: "trending-up-outline",     iconFocused: "trending-up",     component: ProgressStackNavigator, keepAlive: false },
+    { key: "ArenaHub",  label: "Arena",  icon: "flash-outline",           iconFocused: "flash",           component: ArenaHubScreen,         keepAlive: false },
     { key: "Profile",   label: "Me",     icon: "person-outline",          iconFocused: "person",          component: PlayerProfileScreen },
   ], [hasCommunityUnread]);
 
@@ -622,6 +628,10 @@ function PlayerV2StackWithDrawer() {
         {/* ── Corporate ── */}
         <Stack.Screen name="CorporateBenefits" component={CorporateBenefitsScreen} options={{ headerShown: false }} />
         <Stack.Screen name="CompanyContactDashboard" component={CompanyContactDashboardScreen} options={{ headerShown: false }} />
+
+        {/* ── Arena ── */}
+        <Stack.Screen name="ArenaHub" component={ArenaHubScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Glow Arena", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaMyCard" component={MyCardScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Card", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
 
         {/* ── Legacy redirects (no-op — Growth tab handles these internally) ── */}
         <Stack.Screen name="Schedule" component={NoOpScreen} options={{ headerShown: false }} />

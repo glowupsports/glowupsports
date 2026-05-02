@@ -321,6 +321,13 @@ export async function awardXP(
   const playerUpdate: any = { totalXp: newTotalXp, level: newLevel };
   await db.update(players).set(playerUpdate).where(eq(players.id, playerId));
 
+  // Sync arena champion card whenever XP is awarded (non-blocking)
+  try {
+    const { syncChampionCard } = await import("./arena-card-service");
+    syncChampionCard(playerId).catch(() => {});
+  } catch {}
+
+
   const { xpUsedByPreviousLevels: xpUsedByCompletedLevels, xpForCurrentLevel: xpNeededForNextLevel } = calculateLevelFromXp(newTotalXp, allThresholds);
   const xpProgressInLevel = newTotalXp - xpUsedByCompletedLevels;
 

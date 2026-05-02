@@ -264,7 +264,7 @@ export default function AchievementCelebrationModal({ achievement, onClose }: Pr
         <Animated.View style={[styles.badgeWrap, pulseStyle]}>
           <Animated.View style={badgeStyle}>
             <LinearGradient
-              colors={glowColors}
+              colors={glowColors as [string, string, ...string[]]}
               style={styles.badgeOuter}
             >
               <View style={[styles.badgeInner, { borderColor: iconColor + "80" }]}>

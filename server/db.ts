@@ -1258,6 +1258,323 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] USTA assessment seed skipped:', e.message);
   }
+
+  // ── Glow Arena Tables (Phase 1) ──────────────────────────────────────────────
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_champion_cards (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL UNIQUE,
+        rarity_tier TEXT NOT NULL DEFAULT 'common_i',
+        rarity_label TEXT NOT NULL DEFAULT 'Common I',
+        rarity_marker TEXT NOT NULL DEFAULT '★',
+        stat_power INTEGER NOT NULL DEFAULT 0,
+        stat_technique INTEGER NOT NULL DEFAULT 0,
+        stat_mental INTEGER NOT NULL DEFAULT 0,
+        stat_tactics INTEGER NOT NULL DEFAULT 0,
+        arena_mmr INTEGER NOT NULL DEFAULT 1000,
+        arena_wins INTEGER NOT NULL DEFAULT 0,
+        arena_losses INTEGER NOT NULL DEFAULT 0,
+        frame_override TEXT,
+        avatar_border_color TEXT,
+        ball_level_snapshot TEXT,
+        skill_level_snapshot INTEGER,
+        glow_rank_snapshot INTEGER,
+        glow_mmr_snapshot INTEGER,
+        streak_snapshot INTEGER DEFAULT 0,
+        synced_at TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_player_cards (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL UNIQUE,
+        rarity_tier TEXT NOT NULL DEFAULT 'common_i',
+        rarity_label TEXT NOT NULL DEFAULT 'Common I',
+        rarity_marker TEXT NOT NULL DEFAULT '★',
+        stat_power INTEGER NOT NULL DEFAULT 0,
+        stat_technique INTEGER NOT NULL DEFAULT 0,
+        stat_mental INTEGER NOT NULL DEFAULT 0,
+        stat_tactics INTEGER NOT NULL DEFAULT 0,
+        player_name TEXT NOT NULL,
+        photo_url TEXT,
+        arena_mmr INTEGER NOT NULL DEFAULT 1000,
+        is_first_edition BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_coach_cards (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        coach_id VARCHAR NOT NULL UNIQUE,
+        coach_name TEXT NOT NULL,
+        photo_url TEXT,
+        specialty TEXT,
+        stat_certified_students INTEGER NOT NULL DEFAULT 0,
+        stat_sessions_run INTEGER NOT NULL DEFAULT 0,
+        stat_coaching_power INTEGER NOT NULL DEFAULT 0,
+        stat_consistency INTEGER NOT NULL DEFAULT 0,
+        rarity_tier TEXT NOT NULL DEFAULT 'common_i',
+        rarity_label TEXT NOT NULL DEFAULT 'Common I',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_ability_cards (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        rarity TEXT NOT NULL DEFAULT 'common',
+        base_power INTEGER NOT NULL DEFAULT 10,
+        stat_multiplier TEXT,
+        is_clutch BOOLEAN NOT NULL DEFAULT false,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_ability_cards (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        ability_card_id VARCHAR NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        card_level INTEGER NOT NULL DEFAULT 1,
+        obtained_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(player_id, ability_card_id)
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_collected_cards (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        owner_id VARCHAR NOT NULL,
+        card_type TEXT NOT NULL,
+        card_ref_id VARCHAR NOT NULL,
+        source TEXT NOT NULL DEFAULT 'pack',
+        conquered_ribbon BOOLEAN NOT NULL DEFAULT false,
+        is_nemesis BOOLEAN NOT NULL DEFAULT false,
+        is_first_edition BOOLEAN NOT NULL DEFAULT false,
+        card_variant TEXT NOT NULL DEFAULT 'normal',
+        obtained_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_packs (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        name TEXT NOT NULL,
+        description TEXT,
+        price INTEGER NOT NULL DEFAULT 0,
+        card_count INTEGER NOT NULL DEFAULT 5,
+        odds_common INTEGER NOT NULL DEFAULT 60,
+        odds_uncommon INTEGER NOT NULL DEFAULT 25,
+        odds_rare INTEGER NOT NULL DEFAULT 10,
+        odds_epic INTEGER NOT NULL DEFAULT 4,
+        odds_legendary INTEGER NOT NULL DEFAULT 1,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_pack_pity (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL UNIQUE,
+        legendary_miss_streak INTEGER NOT NULL DEFAULT 0,
+        last_pack_opened_at TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_battles (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        initiator_id VARCHAR NOT NULL,
+        opponent_id VARCHAR NOT NULL,
+        winner_id VARCHAR,
+        status TEXT NOT NULL DEFAULT 'pending',
+        source TEXT NOT NULL DEFAULT 'arena',
+        arena_mmr_delta_initiator INTEGER DEFAULT 0,
+        arena_mmr_delta_opponent INTEGER DEFAULT 0,
+        wager_coins INTEGER DEFAULT 0,
+        initiator_squad JSONB,
+        opponent_squad JSONB,
+        completed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_battle_turns (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        battle_id VARCHAR NOT NULL,
+        turn_number INTEGER NOT NULL,
+        actor_id VARCHAR NOT NULL,
+        ability_card_id VARCHAR,
+        damage INTEGER DEFAULT 0,
+        result TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_seasons (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        name TEXT NOT NULL,
+        theme TEXT,
+        stat_multiplier_field TEXT,
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_season_standings (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        season_id VARCHAR NOT NULL,
+        player_id VARCHAR NOT NULL,
+        wins INTEGER NOT NULL DEFAULT 0,
+        losses INTEGER NOT NULL DEFAULT 0,
+        peak_mmr INTEGER NOT NULL DEFAULT 1000,
+        final_rank INTEGER,
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(season_id, player_id)
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_head_to_head (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_a_id VARCHAR NOT NULL,
+        player_b_id VARCHAR NOT NULL,
+        player_a_wins INTEGER NOT NULL DEFAULT 0,
+        player_b_wins INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(player_a_id, player_b_id)
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_bounties (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        target_player_id VARCHAR NOT NULL,
+        placed_by_player_id VARCHAR NOT NULL,
+        bounty_coins INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active',
+        claimed_by_player_id VARCHAR,
+        claimed_at TIMESTAMP,
+        expires_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_card_evolutions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        champion_card_id VARCHAR NOT NULL,
+        from_rarity_tier TEXT NOT NULL,
+        to_rarity_tier TEXT NOT NULL,
+        reveal_at TIMESTAMP NOT NULL,
+        revealed BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_hall_of_fame (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        season_id VARCHAR,
+        achievement TEXT NOT NULL,
+        rank INTEGER,
+        mmr_at_entry INTEGER,
+        entered_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_cosmetics_unlocked (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        cosmetic_key TEXT NOT NULL,
+        unlocked_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(player_id, cosmetic_key)
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_trophy_room_pins (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        pinned_card_id VARCHAR NOT NULL,
+        pin_slot INTEGER NOT NULL DEFAULT 1,
+        pinned_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(player_id, pin_slot)
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_predictions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        battle_id VARCHAR NOT NULL,
+        predictor_id VARCHAR NOT NULL,
+        predicted_winner_id VARCHAR NOT NULL,
+        wagered_coins INTEGER DEFAULT 0,
+        resolved BOOLEAN NOT NULL DEFAULT false,
+        won BOOLEAN,
+        coins_awarded INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS academy_clashes (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        academy_a_id VARCHAR NOT NULL,
+        academy_b_id VARCHAR NOT NULL,
+        academy_a_score INTEGER NOT NULL DEFAULT 0,
+        academy_b_score INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'pending',
+        winner_id VARCHAR,
+        start_date DATE,
+        end_date DATE,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_tournaments (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        name TEXT NOT NULL,
+        description TEXT,
+        max_participants INTEGER NOT NULL DEFAULT 16,
+        entry_fee_coins INTEGER DEFAULT 0,
+        prize_coins INTEGER DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'upcoming',
+        start_date DATE,
+        end_date DATE,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_tournament_matches (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        tournament_id VARCHAR NOT NULL,
+        battle_id VARCHAR,
+        player_a_id VARCHAR NOT NULL,
+        player_b_id VARCHAR NOT NULL,
+        winner_id VARCHAR,
+        round INTEGER NOT NULL DEFAULT 1,
+        match_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_card_upgrades (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        ability_card_id VARCHAR NOT NULL,
+        from_level INTEGER NOT NULL DEFAULT 1,
+        to_level INTEGER NOT NULL DEFAULT 2,
+        coins_spent INTEGER DEFAULT 0,
+        upgraded_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('[Database] Glow Arena tables created/verified');
+  } catch (e: any) {
+    console.warn('[Database] Arena table migration warning:', e.message);
+  }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
 });
