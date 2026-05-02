@@ -1020,6 +1020,17 @@ function setupErrorHandler(app: express.Application) {
         log(`[PlayerFKAudit] failed to schedule: ${(err as Error)?.message ?? err}`);
       }
 
+      // Task #1510 — Startup repair for un-rebalanced semi-private credit charges.
+      // If the server crashed between a consumeCredit commit and the subsequent
+      // rebalanceSemiPrivateCharges call, the rebalance was silently skipped.
+      // This scan detects those sessions and triggers the (idempotent) rebalance.
+      try {
+        const { repairUnrebalancedSemiPrivateCharges } = await import("./startup/rebalance-semi-private");
+        void repairUnrebalancedSemiPrivateCharges();
+      } catch (err) {
+        log(`[SemiPrivateRebalanceRepair] failed to schedule: ${(err as Error)?.message ?? err}`);
+      }
+
       startReminderScheduler();
       startDailyTipScheduler();
       startMatchPrepNotificationScheduler();
