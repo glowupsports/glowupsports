@@ -114,6 +114,7 @@ export default function SpotlightNominationModal({ visible, onClose }: Spotlight
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/player/spotlight/current-week"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/spotlight/leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
       setStep("success");
     },
   });

@@ -19,6 +19,7 @@ import { qualifiesForPersonalisedQuests, pickPersonalisedQuests } from "../servi
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { adminRepairLimiter } from "../rateLimiter";
+import { invalidatePlayerHomeDataCache } from "./player-home";
 
 const CATEGORY_REASONS: Record<string, string[]> = {
   training: [
@@ -3565,6 +3566,11 @@ router.post("/api/player/spotlight/nominate", authMiddleware, requirePlayerOrOwn
         reason,
         weekStart,
       }).returning();
+
+      // Bust the home god-route cache so the next home-data fetch
+      // reflects the new nomination immediately instead of waiting
+      // out the 30s route-level TTL.
+      invalidatePlayerHomeDataCache(playerId);
 
       res.json({ success: true, nomination });
     } catch (error) {
