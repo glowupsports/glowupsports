@@ -1,19 +1,19 @@
 /**
- * Task #1531 — Smart Glow Level Assessment
+ * Task #1531 / #1549 — Smart Glow Level Assessment
  *
- * POST /api/player/me/glow-assessment
+ * GET  /api/player/me/glow-assessment-status   — check if player can retake
+ * POST /api/player/me/glow-assessment          — submit self-assessment result
  *
- * Accepts a self-assessment questionnaire result from the player and
- * optionally applies a suggested glowRank to the player's profile.
- * The suggested rank is derived on the CLIENT from the questionnaire
- * answers; the server validates the range, caps ±1 deviation from
- * the current rank, and persists it.
+ * Task #1549 additions:
+ * - Self-assessment result is capped at rank 3 (server-enforced)
+ * - Players who have attended at least one lesson are blocked from retaking
+ *   (coach manages their rank from that point onwards)
  */
 
 import { Router } from "express";
 import { db } from "../db";
-import { players } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { players, sessionPlayers, sessions } from "@shared/schema";
+import { eq, and, count } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   type AuthenticatedRequest,
@@ -21,6 +21,11 @@ import {
 
 const router = Router();
 router.use(authMiddleware);
+
+// ─── SELF-ASSESSMENT RANK CAP ─────────────────────────────────────────────────
+// Self-assessments can suggest at most rank 3.
+// Ranks 1 and 2 require coach assessment or match data.
+const SELF_ASSESSMENT_MIN_RANK = 3; // lower number = better; cap means never better than 3
 
 // ─── GLOW RANK METADATA ──────────────────────────────────────────────────────
 export const GLOW_RANK_META: Record<
@@ -38,6 +43,52 @@ export const GLOW_RANK_META: Record<
   1: { name: "Elite Semi-Pro",   color: "#FFD700", description: "Semi-professional competition." },
 };
 
+// ─── Helper: count attended sessions for player ───────────────────────────────
+// Throws on DB error — callers must handle and fail closed (deny assessment).
+async function getPlayerSessionCount(playerId: string): Promise<number> {
+  const [result] = await db
+    .select({ count: count() })
+    .from(sessionPlayers)
+    .innerJoin(sessions, eq(sessions.id, sessionPlayers.sessionId))
+    .where(
+      and(
+        eq(sessionPlayers.playerId, playerId),
+        eq(sessions.status, "completed"),
+      ),
+    );
+  return result?.count ?? 0;
+}
+
+/**
+ * GET /api/player/me/glow-assessment-status
+ *
+ * Returns whether the player is eligible to take the self-assessment.
+ * Once a player has attended at least one lesson, the coach manages their rank.
+ */
+router.get("/api/player/me/glow-assessment-status", async (req: AuthenticatedRequest, res) => {
+  try {
+    const user = req.user!;
+    if (!user.playerId) {
+      return res.status(403).json({ error: "Player account required" });
+    }
+
+    // Fail closed: if session-count query fails, deny eligibility with 500.
+    let sessionCount: number;
+    try {
+      sessionCount = await getPlayerSessionCount(user.playerId);
+    } catch (err) {
+      console.error("[glow-assessment] Unable to verify assessment eligibility:", err);
+      return res.status(500).json({ error: "Unable to verify assessment eligibility" });
+    }
+    const hasHadLessons = sessionCount > 0;
+
+    return res.json({ hasHadLessons, sessionCount });
+  } catch (err) {
+    console.error("[glow-assessment] GET status error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 /**
  * POST /api/player/me/glow-assessment
  *
@@ -47,13 +98,29 @@ export const GLOW_RANK_META: Record<
  *   answers        {Record<string, string>} — raw answers for audit (optional)
  *
  * Returns:
- *   suggestedRank, rankName, color, description, applied, currentRank
+ *   suggestedRank, rankName, color, description, applied, currentRank, cappedByPolicy
  */
 router.post("/api/player/me/glow-assessment", async (req: AuthenticatedRequest, res) => {
   try {
     const user = req.user!;
     if (!user.playerId) {
       return res.status(403).json({ error: "Player account required" });
+    }
+
+    // Block if player has already had lessons — coach manages rank from here.
+    // Fail closed: if the session count query fails, deny access with 500.
+    let sessionCount: number;
+    try {
+      sessionCount = await getPlayerSessionCount(user.playerId);
+    } catch (err) {
+      console.error("[glow-assessment] Unable to verify assessment eligibility:", err);
+      return res.status(500).json({ error: "Unable to verify assessment eligibility" });
+    }
+    if (sessionCount > 0) {
+      return res.status(403).json({
+        error: "Je coach beheert je level na je eerste les.",
+        hasHadLessons: true,
+      });
     }
 
     const { suggestedRank, applyRank = false } = req.body as {
@@ -63,9 +130,15 @@ router.post("/api/player/me/glow-assessment", async (req: AuthenticatedRequest, 
     };
 
     // Validate range
-    const rank = Math.round(Number(suggestedRank));
+    let rank = Math.round(Number(suggestedRank));
     if (!Number.isFinite(rank) || rank < 1 || rank > 9) {
       return res.status(400).json({ error: "suggestedRank must be 1–9" });
+    }
+
+    // Cap self-assessment: never better than rank 3
+    const cappedByPolicy = rank < SELF_ASSESSMENT_MIN_RANK;
+    if (cappedByPolicy) {
+      rank = SELF_ASSESSMENT_MIN_RANK;
     }
 
     const [player] = await db
@@ -83,9 +156,10 @@ router.post("/api/player/me/glow-assessment", async (req: AuthenticatedRequest, 
     let applied = false;
 
     if (applyRank) {
-      // Cap movement at ±2 from current rank to prevent wild jumps
+      // Cap movement at ±2 from current rank to prevent wild jumps,
+      // but also enforce the self-assessment policy cap.
       const capped = Math.max(currentRank - 2, Math.min(currentRank + 2, appliedRank));
-      appliedRank = Math.max(1, Math.min(9, capped));
+      appliedRank = Math.max(SELF_ASSESSMENT_MIN_RANK, Math.min(9, capped));
 
       await db
         .update(players)
@@ -103,6 +177,7 @@ router.post("/api/player/me/glow-assessment", async (req: AuthenticatedRequest, 
       description: meta.description,
       applied,
       currentRank,
+      cappedByPolicy,
     });
   } catch (err) {
     console.error("[glow-assessment] POST error:", err);

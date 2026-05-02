@@ -1,9 +1,16 @@
 /**
- * Task #1531 — GlowLevelAssessment
+ * Task #1531 / #1549 — GlowLevelAssessment
  *
  * Self-assessment wizard modal for players.
- * 7 questions → branching score → suggested Glow Rank (1–9).
- * Calls POST /api/player/me/glow-assessment to persist the result.
+ * ~18 questions grouped by category → branching score → suggested Glow Rank (3–9).
+ *
+ * Task #1549 changes:
+ * - Expanded question set: forehand, backhand, serve, volley, return, overhead,
+ *   movement, mental, match experience (~18 questions total)
+ * - Self-assessment result is capped at rank 3 (client + server enforced)
+ * - Players who have attended at least one lesson see a locked intro:
+ *   the coach manages their rank from that point onwards
+ * - Intro copy updated; result screen shows upgrade path banner at rank 3
  */
 
 import React, { useState, useCallback, useMemo } from "react";
@@ -15,6 +22,7 @@ import {
   Modal,
   ScrollView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import Animated, {
   FadeInDown,
@@ -25,7 +33,7 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Colors,
@@ -46,6 +54,7 @@ interface Option {
 
 interface Question {
   id: string;
+  category: string;
   question: string;
   icon: React.ComponentProps<typeof Ionicons>["name"];
   options: Option[];
@@ -58,6 +67,7 @@ interface AssessmentResult {
   description: string;
   applied: boolean;
   currentRank: number;
+  cappedByPolicy?: boolean;
 }
 
 interface GlowLevelAssessmentProps {
@@ -67,86 +77,222 @@ interface GlowLevelAssessmentProps {
 }
 
 // ─── Questions ───────────────────────────────────────────────────────────────
-// Total points: sum of max option.points → maps to 1–9 via scoreToRank()
+// ~18 questions across 9 categories.
+// Max points per category are balanced so no single category dominates.
+// Total max ≈ 90 points → maps to rank 3–9 via scoreToRank().
 const QUESTIONS: Question[] = [
+  // ── FOREHAND ──────────────────────────────────────────────────────────────
   {
-    id: "experience",
+    id: "fh_technique",
+    category: "Forehand",
+    question: "How would you describe your forehand technique?",
+    icon: "tennisball-outline",
+    options: [
+      { id: "fh_t0", label: "Still developing a consistent swing", points: 0 },
+      { id: "fh_t1", label: "Solid flat forehand, learning topspin", points: 3 },
+      { id: "fh_t2", label: "Good topspin with reliable depth", points: 6 },
+      { id: "fh_t3", label: "Heavy topspin and slice — weapon under pressure", points: 9 },
+    ],
+  },
+  {
+    id: "fh_consistency",
+    category: "Forehand",
+    question: "Cross-court forehand rally: how many shots in a row?",
+    icon: "repeat-outline",
+    options: [
+      { id: "fh_c0", label: "Under 5 shots reliably", points: 0 },
+      { id: "fh_c1", label: "5–15 shots on a good day", points: 3 },
+      { id: "fh_c2", label: "15–30 shots consistently", points: 6 },
+      { id: "fh_c3", label: "50+ — no problem", points: 9 },
+    ],
+  },
+  // ── BACKHAND ──────────────────────────────────────────────────────────────
+  {
+    id: "bh_technique",
+    category: "Backhand",
+    question: "Which describes your backhand best?",
+    icon: "swap-horizontal-outline",
+    options: [
+      { id: "bh_t0", label: "Still building a consistent backhand", points: 0 },
+      { id: "bh_t1", label: "Two-handed or one-handed — reliable flat/slice", points: 3 },
+      { id: "bh_t2", label: "Good topspin backhand — direction control", points: 6 },
+      { id: "bh_t3", label: "Backhand is a weapon — drive, slice, and drop shot", points: 9 },
+    ],
+  },
+  {
+    id: "bh_consistency",
+    category: "Backhand",
+    question: "How consistent is your backhand cross-court?",
+    icon: "checkmark-circle-outline",
+    options: [
+      { id: "bh_c0", label: "Less than 5 balls before an error", points: 0 },
+      { id: "bh_c1", label: "Around 5–10 reliable balls", points: 3 },
+      { id: "bh_c2", label: "10–25 shots with control", points: 6 },
+      { id: "bh_c3", label: "I rarely miss — can sustain 30+ shots", points: 9 },
+    ],
+  },
+  // ── SERVE ─────────────────────────────────────────────────────────────────
+  {
+    id: "srv_placement",
+    category: "Serve",
+    question: "How would you describe your first serve?",
+    icon: "radio-button-on-outline",
+    options: [
+      { id: "srv_p0", label: "Still learning to get it in consistently", points: 0 },
+      { id: "srv_p1", label: "Reliable first serve — mostly flat", points: 3 },
+      { id: "srv_p2", label: "Consistent pace, starting to target corners", points: 6 },
+      { id: "srv_p3", label: "Strong weapon — placement, kick, and slice", points: 9 },
+    ],
+  },
+  {
+    id: "srv_second",
+    category: "Serve",
+    question: "How reliable is your second serve under pressure?",
+    icon: "shield-outline",
+    options: [
+      { id: "srv_s0", label: "I double fault often under pressure", points: 0 },
+      { id: "srv_s1", label: "I get it in but it's soft — attackable", points: 2 },
+      { id: "srv_s2", label: "Consistent kick or slice — hard to attack", points: 5 },
+      { id: "srv_s3", label: "My second serve is nearly as dangerous as my first", points: 8 },
+    ],
+  },
+  // ── VOLLEY ────────────────────────────────────────────────────────────────
+  {
+    id: "vol_net",
+    category: "Volley",
+    question: "Describe your net game / volley confidence:",
+    icon: "git-network-outline",
+    options: [
+      { id: "vol_n0", label: "I avoid the net — not comfortable there", points: 0 },
+      { id: "vol_n1", label: "I can put easy volleys away", points: 2 },
+      { id: "vol_n2", label: "Good volley technique — consistent finishing", points: 5 },
+      { id: "vol_n3", label: "Strong net game — read play and intercept well", points: 8 },
+    ],
+  },
+  // ── RETURN ────────────────────────────────────────────────────────────────
+  {
+    id: "ret_return",
+    category: "Return",
+    question: "How do you handle your opponent's serve?",
+    icon: "arrow-undo-outline",
+    options: [
+      { id: "ret_r0", label: "I struggle to return consistently", points: 0 },
+      { id: "ret_r1", label: "I block it back — mostly defensive", points: 2 },
+      { id: "ret_r2", label: "I return with direction and can attack weak serves", points: 5 },
+      { id: "ret_r3", label: "Return is a weapon — I take the initiative on serve games", points: 8 },
+    ],
+  },
+  // ── OVERHEAD ──────────────────────────────────────────────────────────────
+  {
+    id: "ovh_confidence",
+    category: "Overhead",
+    question: "How do you handle an overhead smash situation?",
+    icon: "arrow-up-circle-outline",
+    options: [
+      { id: "ovh_c0", label: "I often miss or avoid overheads", points: 0 },
+      { id: "ovh_c1", label: "I can finish most overheads if set up well", points: 2 },
+      { id: "ovh_c2", label: "Reliable overhead — I welcome the chance to finish", points: 5 },
+      { id: "ovh_c3", label: "Overhead is a dominant weapon — I seek it out", points: 7 },
+    ],
+  },
+  // ── MOVEMENT ──────────────────────────────────────────────────────────────
+  {
+    id: "mov_footwork",
+    category: "Movement",
+    question: "How is your footwork and court coverage?",
+    icon: "footsteps-outline",
+    options: [
+      { id: "mov_f0", label: "I often get caught off guard and reach late", points: 0 },
+      { id: "mov_f1", label: "I cover the basics — occasional struggle on wide balls", points: 2 },
+      { id: "mov_f2", label: "Good split step and recovery — rarely out of position", points: 5 },
+      { id: "mov_f3", label: "Athletic, fast recovery — I dictate position in rallies", points: 7 },
+    ],
+  },
+  {
+    id: "mov_fitness",
+    category: "Movement",
+    question: "How is your physical fitness for match play?",
+    icon: "fitness-outline",
+    options: [
+      { id: "mov_fit0", label: "Short rallies tire me out noticeably", points: 0 },
+      { id: "mov_fit1", label: "Fine for social play — struggle in long matches", points: 2 },
+      { id: "mov_fit2", label: "Good for full match play — recover between points", points: 5 },
+      { id: "mov_fit3", label: "Athletic — can play 3 sets at high pace", points: 7 },
+    ],
+  },
+  // ── MENTAL ────────────────────────────────────────────────────────────────
+  {
+    id: "men_pressure",
+    category: "Mental",
+    question: "How do you perform under pressure points (break point, tiebreak)?",
+    icon: "analytics-outline",
+    options: [
+      { id: "men_p0", label: "Nerves affect my game significantly", points: 0 },
+      { id: "men_p1", label: "I manage but can get rattled at key moments", points: 2 },
+      { id: "men_p2", label: "Mostly composed — I stay focused on my game plan", points: 4 },
+      { id: "men_p3", label: "I thrive under pressure — clutch performer", points: 6 },
+    ],
+  },
+  {
+    id: "men_reset",
+    category: "Mental",
+    question: "How do you handle losing a set or a long losing streak in a match?",
+    icon: "refresh-outline",
+    options: [
+      { id: "men_r0", label: "I often fall apart mentally — hard to come back", points: 0 },
+      { id: "men_r1", label: "It takes effort to reset, but I try", points: 2 },
+      { id: "men_r2", label: "I can shake it off and stay competitive", points: 4 },
+      { id: "men_r3", label: "I stay calm, adapt my strategy, and often turn it around", points: 6 },
+    ],
+  },
+  // ── TACTICS ───────────────────────────────────────────────────────────────
+  {
+    id: "tac_patterns",
+    category: "Tactics",
+    question: "How do you approach point construction?",
+    icon: "bulb-outline",
+    options: [
+      { id: "tac_p0", label: "Just trying to keep the ball in play", points: 0 },
+      { id: "tac_p1", label: "I know basic patterns — cross-court, down-the-line", points: 2 },
+      { id: "tac_p2", label: "I use patterns, open the court, and change direction", points: 5 },
+      { id: "tac_p3", label: "High-level tactical — read opponents and adjust in-match", points: 7 },
+    ],
+  },
+  // ── MATCH EXPERIENCE ──────────────────────────────────────────────────────
+  {
+    id: "mxp_level",
+    category: "Match Experience",
+    question: "What level do you regularly compete at?",
+    icon: "trophy-outline",
+    options: [
+      { id: "mxp_l0", label: "No competition yet — just practice", points: 0 },
+      { id: "mxp_l1", label: "Friendly club matches or social tennis", points: 2 },
+      { id: "mxp_l2", label: "Club league or local tournaments", points: 5 },
+      { id: "mxp_l3", label: "Regional or national ranking", points: 8 },
+    ],
+  },
+  {
+    id: "mxp_experience",
+    category: "Match Experience",
     question: "How long have you been playing tennis?",
     icon: "calendar-outline",
     options: [
-      { id: "exp_0", label: "Just started (< 6 months)", points: 0 },
-      { id: "exp_1", label: "6 months – 2 years", points: 2 },
-      { id: "exp_2", label: "2–5 years", points: 4 },
-      { id: "exp_3", label: "5–10 years", points: 6 },
-      { id: "exp_4", label: "10+ years", points: 8 },
+      { id: "mxp_e0", label: "Just started (less than 6 months)", points: 0 },
+      { id: "mxp_e1", label: "6 months – 2 years", points: 2 },
+      { id: "mxp_e2", label: "2–5 years", points: 5 },
+      { id: "mxp_e3", label: "5+ years", points: 8 },
     ],
   },
   {
-    id: "rally",
-    question: "How consistently can you rally cross-court?",
-    icon: "tennisball-outline",
+    id: "mxp_wins",
+    category: "Match Experience",
+    question: "How often do you win competitive matches?",
+    icon: "medal-outline",
     options: [
-      { id: "ral_0", label: "Struggle to get it over the net", points: 0 },
-      { id: "ral_1", label: "5–10 shots on a good day", points: 2 },
-      { id: "ral_2", label: "10–20 shots consistently", points: 4 },
-      { id: "ral_3", label: "20–30 shots without thinking about it", points: 6 },
-      { id: "ral_4", label: "50+ shots — no problem", points: 8 },
-    ],
-  },
-  {
-    id: "serve",
-    question: "Describe your serve:",
-    icon: "radio-button-on-outline",
-    options: [
-      { id: "srv_0", label: "Still learning to get it in", points: 0 },
-      { id: "srv_1", label: "Reliable first serve, working on spin", points: 2 },
-      { id: "srv_2", label: "Consistent with pace and spin", points: 5 },
-      { id: "srv_3", label: "Strong weapon — variety and placement", points: 7 },
-    ],
-  },
-  {
-    id: "competition",
-    question: "What level do you compete at?",
-    icon: "trophy-outline",
-    options: [
-      { id: "cmp_0", label: "No competition yet — just practice", points: 0 },
-      { id: "cmp_1", label: "Friendly club matches", points: 2 },
-      { id: "cmp_2", label: "Club league or local tournaments", points: 5 },
-      { id: "cmp_3", label: "Regional or national ranking", points: 8 },
-      { id: "cmp_4", label: "International / professional", points: 10 },
-    ],
-  },
-  {
-    id: "tactics",
-    question: "How would you describe your tactical awareness?",
-    icon: "bulb-outline",
-    options: [
-      { id: "tac_0", label: "Just trying to keep the ball in", points: 0 },
-      { id: "tac_1", label: "I know to hit cross-court and down-the-line", points: 2 },
-      { id: "tac_2", label: "I construct points and use patterns", points: 5 },
-      { id: "tac_3", label: "High-level tactical — reading opponents, adjusting in-match", points: 8 },
-    ],
-  },
-  {
-    id: "fitness",
-    question: "How is your on-court movement and fitness?",
-    icon: "fitness-outline",
-    options: [
-      { id: "fit_0", label: "Short rallies tire me out", points: 0 },
-      { id: "fit_1", label: "Fine for casual play, struggle in long matches", points: 2 },
-      { id: "fit_2", label: "Good for match play — recover quickly", points: 5 },
-      { id: "fit_3", label: "Athletic, fast, can play 3 sets at high pace", points: 7 },
-    ],
-  },
-  {
-    id: "mental",
-    question: "How do you handle pressure points?",
-    icon: "analytics-outline",
-    options: [
-      { id: "men_0", label: "Nerves affect me a lot", points: 0 },
-      { id: "men_1", label: "I manage but can get rattled", points: 2 },
-      { id: "men_2", label: "Mostly composed — stay focused", points: 4 },
-      { id: "men_3", label: "Thrive under pressure — clutch performer", points: 6 },
+      { id: "mxp_w0", label: "Rarely — I mostly lose when playing competitively", points: 0 },
+      { id: "mxp_w1", label: "About 25–40% of my matches", points: 2 },
+      { id: "mxp_w2", label: "About 50–60% of the time", points: 5 },
+      { id: "mxp_w3", label: "I win most matches at my level", points: 7 },
     ],
   },
 ];
@@ -157,18 +303,19 @@ const MAX_SCORE = QUESTIONS.reduce(
   0,
 );
 
-// ─── Scoring: map total points → Glow Rank (9 = beginner, 1 = elite) ────────
+// ─── Scoring: map total points → Glow Rank (9 = beginner, 1 = elite) ─────────
+// Self-assessment is CAPPED at rank 3 — ranks 2 and 1 require coach/match data.
 function scoreToRank(score: number): number {
   const pct = score / MAX_SCORE;
-  if (pct < 0.07) return 9;
-  if (pct < 0.18) return 8;
-  if (pct < 0.32) return 7;
-  if (pct < 0.46) return 6;
-  if (pct < 0.58) return 5;
-  if (pct < 0.70) return 4;
-  if (pct < 0.80) return 3;
-  if (pct < 0.92) return 2;
-  return 1;
+  let rank: number;
+  if (pct < 0.07) rank = 9;
+  else if (pct < 0.18) rank = 8;
+  else if (pct < 0.32) rank = 7;
+  else if (pct < 0.46) rank = 6;
+  else if (pct < 0.58) rank = 5;
+  else if (pct < 0.70) rank = 4;
+  else rank = 3; // cap — never better than 3 for self-assessment
+  return rank;
 }
 
 // ─── Rank meta (mirrors server side) ─────────────────────────────────────────
@@ -183,6 +330,9 @@ const RANK_META: Record<number, { name: string; color: string; description: stri
   2: { name: "Performance Talent", color: "#F97316", description: "Pro pathway player." },
   1: { name: "Elite Semi-Pro",     color: "#FFD700", description: "Semi-professional competition." },
 };
+
+// Group question categories for progress display
+const CATEGORIES = [...new Set(QUESTIONS.map((q) => q.category))];
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export function GlowLevelAssessment({
@@ -199,6 +349,17 @@ export function GlowLevelAssessment({
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [applying, setApplying] = useState(false);
+
+  // Check whether the player is blocked from self-assessment
+  const { data: statusData, isLoading: statusLoading } = useQuery<{
+    hasHadLessons: boolean;
+    sessionCount: number;
+  }>({
+    queryKey: ["/api/player/me/glow-assessment-status"],
+    enabled: visible,
+    staleTime: 60_000,
+  });
+  const hasHadLessons = statusData?.hasHadLessons ?? false;
 
   const saveAssessment = useMutation({
     mutationFn: async (payload: {
@@ -245,7 +406,6 @@ export function GlowLevelAssessment({
     if (currentQ < QUESTIONS.length - 1) {
       setCurrentQ((q) => q + 1);
     } else {
-      // Submit for preview (don't apply yet)
       const rank = scoreToRank(totalScore);
       const meta = RANK_META[rank];
       setResult({
@@ -273,12 +433,12 @@ export function GlowLevelAssessment({
     if (!result) return;
     setApplying(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await saveAssessment.mutateAsync({
+    const data = await saveAssessment.mutateAsync({
       suggestedRank: result.suggestedRank,
       applyRank: true,
       answers,
     });
-    onComplete?.(result.suggestedRank, result.rankName);
+    onComplete?.(data.suggestedRank, data.rankName);
   }, [result, answers, saveAssessment, onComplete]);
 
   const handleReset = useCallback(() => {
@@ -297,6 +457,7 @@ export function GlowLevelAssessment({
   const q = QUESTIONS[currentQ];
   const hasAnswer = !!answers[q?.id];
   const progress = (currentQ + (hasAnswer ? 1 : 0)) / QUESTIONS.length;
+  const currentCategory = q?.category ?? "";
 
   return (
     <Modal
@@ -318,7 +479,6 @@ export function GlowLevelAssessment({
               contentContainerStyle={s.introContent}
               showsVerticalScrollIndicator={false}
             >
-              {/* Header */}
               <Pressable onPress={handleClose} style={s.closeBtn} hitSlop={12}>
                 <Ionicons name="close" size={22} color={Colors.dark.textMuted} />
               </Pressable>
@@ -336,43 +496,89 @@ export function GlowLevelAssessment({
 
               <Text style={s.introTitle}>Discover Your Glow Level</Text>
               <Text style={s.introSub}>
-                Answer 7 quick questions about your tennis background and we will
-                suggest the Glow Rank that matches your current game.
+                Answer {QUESTIONS.length} targeted questions about your game across{" "}
+                {CATEGORIES.length} categories. We will suggest your starting Glow Rank.
               </Text>
 
-              <View style={s.introPoints}>
-                {[
-                  { icon: "time-outline" as const, text: "Takes about 2 minutes" },
-                  { icon: "shield-checkmark-outline" as const, text: "No wrong answers — be honest" },
-                  { icon: "refresh-circle-outline" as const, text: "Retake anytime as you improve" },
-                ].map((p) => (
-                  <View key={p.text} style={s.introPoint}>
-                    <Ionicons name={p.icon} size={16} color={GlowColors.primary} />
-                    <Text style={s.introPointText}>{p.text}</Text>
+              {statusLoading ? (
+                <ActivityIndicator color={GlowColors.primary} style={{ marginTop: Spacing.lg }} />
+              ) : hasHadLessons ? (
+                // Locked state — coach manages rank after first lesson
+                <View style={s.lockedCard}>
+                  <View style={s.lockedIconRow}>
+                    <Ionicons name="lock-closed" size={22} color="#818CF8" />
                   </View>
-                ))}
-              </View>
+                  <Text style={s.lockedTitle}>Je coach beheert je level</Text>
+                  <Text style={s.lockedBody}>
+                    Omdat je al lessen hebt gehad, past je coach je Glow Level aan op
+                    basis van wat ze zien op de baan — aangevuld met je wedstrijdresultaten.
+                  </Text>
+                  <View style={s.lockedInfoRow}>
+                    <Ionicons name="information-circle-outline" size={14} color={Colors.dark.textMuted} />
+                    <Text style={s.lockedInfoText}>
+                      Zelf een self-assessment invullen is niet meer mogelijk na je eerste les.
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={s.introPoints}>
+                  {[
+                    { icon: "time-outline" as const, text: `Takes about ${Math.ceil(QUESTIONS.length / 4)} minutes` },
+                    { icon: "shield-checkmark-outline" as const, text: "No wrong answers — be honest" },
+                    { icon: "information-circle-outline" as const, text: "Levels 2 en 1 worden bepaald door je coach en wedstrijdresultaten" },
+                  ].map((p) => (
+                    <View key={p.text} style={s.introPoint}>
+                      <Ionicons name={p.icon} size={16} color={GlowColors.primary} />
+                      <Text style={s.introPointText}>{p.text}</Text>
+                    </View>
+                  ))}
+
+                  {/* Category overview pills */}
+                  <View style={s.categoryRow}>
+                    {CATEGORIES.map((cat) => (
+                      <View key={cat} style={s.categoryPill}>
+                        <Text style={s.categoryPillText}>{cat}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
             </ScrollView>
 
             <View style={[s.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-              <Pressable
-                style={s.ctaBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  setStep("questions");
-                  setCurrentQ(0);
-                }}
-              >
-                <LinearGradient
-                  colors={["#6366F1", "#8B5CF6", "#A855F7"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={s.ctaGradient}
+              {hasHadLessons ? (
+                <Pressable style={s.ctaBtn} onPress={handleClose}>
+                  <LinearGradient
+                    colors={["#333", "#444"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={s.ctaGradient}
+                  >
+                    <Text style={s.ctaText}>Sluiten</Text>
+                  </LinearGradient>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={[s.ctaBtn, statusLoading && s.ctaDisabled]}
+                  onPress={() => {
+                    if (statusLoading) return;
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setStep("questions");
+                    setCurrentQ(0);
+                  }}
+                  disabled={statusLoading}
                 >
-                  <Text style={s.ctaText}>Start Assessment</Text>
-                  <Ionicons name="arrow-forward" size={18} color="#fff" />
-                </LinearGradient>
-              </Pressable>
+                  <LinearGradient
+                    colors={["#6366F1", "#8B5CF6", "#A855F7"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={s.ctaGradient}
+                  >
+                    <Text style={s.ctaText}>Start Assessment</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#fff" />
+                  </LinearGradient>
+                </Pressable>
+              )}
             </View>
           </Animated.View>
         ) : null}
@@ -392,7 +598,7 @@ export function GlowLevelAssessment({
                   />
                 </View>
                 <Text style={s.progressLabel}>
-                  {currentQ + 1} / {QUESTIONS.length}
+                  {currentQ + 1} / {QUESTIONS.length} · {currentCategory}
                 </Text>
               </View>
               <Pressable onPress={handleClose} hitSlop={12}>
@@ -496,6 +702,21 @@ export function GlowLevelAssessment({
                 <Text style={s.rankDesc}>{result.description}</Text>
               </Animated.View>
 
+              {/* Rank 3 upgrade path banner — only shown when capped by policy */}
+              {result.suggestedRank === 3 ? (
+                <Animated.View entering={FadeInDown.delay(400).duration(400)} style={s.upgradeBanner}>
+                  <View style={s.upgradeBannerIconRow}>
+                    <Ionicons name="star-outline" size={18} color="#F97316" />
+                    <Text style={s.upgradeBannerTitle}>Klaar voor rank 2 of 1?</Text>
+                  </View>
+                  <Text style={s.upgradeBannerBody}>
+                    Hogere levels (rank 2 en 1) worden bepaald door je coach na observatie
+                    op de baan, of via je wedstrijdresultaten. Speel wedstrijden of vraag
+                    je coach om een beoordeling.
+                  </Text>
+                </Animated.View>
+              ) : null}
+
               {/* Score summary */}
               <View style={s.scoreSummary}>
                 <View style={s.scoreRow}>
@@ -509,8 +730,8 @@ export function GlowLevelAssessment({
               </View>
 
               <Text style={s.applyHint}>
-                Applying this rank will update your profile. Your coach can always
-                adjust it based on what they see on court.
+                Applying this rank updates your profile. Your coach can always adjust it
+                based on what they see on court.
               </Text>
             </ScrollView>
 
@@ -604,7 +825,7 @@ const s = makeReactiveStyles(() =>
     },
     introPoint: {
       flexDirection: "row",
-      alignItems: "center",
+      alignItems: "flex-start",
       gap: Spacing.sm,
       backgroundColor: "rgba(99,102,241,0.07)",
       paddingHorizontal: Spacing.md,
@@ -614,9 +835,79 @@ const s = makeReactiveStyles(() =>
       borderColor: "rgba(99,102,241,0.15)",
     },
     introPointText: {
+      flex: 1,
       fontSize: 14,
       color: TextColors.secondary,
       fontWeight: "500",
+      lineHeight: 20,
+    },
+
+    // Category pills in intro
+    categoryRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginTop: Spacing.sm,
+    },
+    categoryPill: {
+      backgroundColor: "rgba(99,102,241,0.12)",
+      borderRadius: BorderRadius.full,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: "rgba(99,102,241,0.25)",
+    },
+    categoryPillText: {
+      fontSize: 11,
+      fontWeight: "600",
+      color: "#818CF8",
+    },
+
+    // Locked state
+    lockedCard: {
+      width: "100%",
+      backgroundColor: "rgba(99,102,241,0.08)",
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1,
+      borderColor: "rgba(99,102,241,0.22)",
+      padding: Spacing.lg,
+      alignItems: "center",
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
+    },
+    lockedIconRow: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: "rgba(99,102,241,0.15)",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: Spacing.xs,
+    },
+    lockedTitle: {
+      fontSize: 16,
+      fontWeight: "800",
+      color: Colors.dark.text,
+      textAlign: "center",
+    },
+    lockedBody: {
+      fontSize: 13,
+      color: TextColors.secondary,
+      textAlign: "center",
+      lineHeight: 20,
+    },
+    lockedInfoRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 6,
+      marginTop: Spacing.xs,
+      paddingHorizontal: Spacing.xs,
+    },
+    lockedInfoText: {
+      flex: 1,
+      fontSize: 11,
+      color: Colors.dark.textMuted,
+      lineHeight: 16,
     },
 
     // ── Footer / CTA ──
@@ -805,6 +1096,34 @@ const s = makeReactiveStyles(() =>
       lineHeight: 20,
       paddingHorizontal: Spacing.md,
     },
+
+    // Rank 3 upgrade banner
+    upgradeBanner: {
+      width: "100%",
+      backgroundColor: "rgba(249,115,22,0.10)",
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: "rgba(249,115,22,0.28)",
+      padding: Spacing.md,
+      marginBottom: Spacing.md,
+      gap: Spacing.xs,
+    },
+    upgradeBannerIconRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    upgradeBannerTitle: {
+      fontSize: 14,
+      fontWeight: "800",
+      color: "#F97316",
+    },
+    upgradeBannerBody: {
+      fontSize: 13,
+      color: TextColors.secondary,
+      lineHeight: 19,
+    },
+
     scoreSummary: {
       width: "100%",
       gap: Spacing.sm,
