@@ -5,10 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -17,6 +15,7 @@ import * as Haptics from "expo-haptics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type ReportStatus = "open" | "resolved" | "dismissed";
 type FilterValue = ReportStatus | "all";
@@ -236,7 +235,7 @@ export default function ModerationReportsScreen() {
 
         {isLoading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={Colors.dark.gold} />
+            <TennisBallSpinner color={Colors.dark.gold} />
           </View>
         ) : items.length === 0 ? (
           <View style={[styles.center, CardStyles.elevated, styles.emptyCard]}>
@@ -354,7 +353,7 @@ export default function ModerationReportsScreen() {
 
                 {busy ? (
                   <View style={styles.busyOverlay}>
-                    <ActivityIndicator color={Colors.dark.gold} />
+                    <TennisBallSpinner color={Colors.dark.gold} />
                   </View>
                 ) : null}
               </View>

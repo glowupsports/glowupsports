@@ -9,10 +9,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Platform,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,6 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -237,7 +236,7 @@ export default function FeatureInterestScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+            <TennisBallSpinner size="small" color={PLATFORM_COLOR} />
           </View>
         ) : items.length === 0 ? (
           <View style={styles.emptyState}>

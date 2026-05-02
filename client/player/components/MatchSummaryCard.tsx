@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Image as RNImage,
-  ActivityIndicator,
-} from "react-native";
+  Image as RNImage} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -20,6 +18,7 @@ import {
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useTranslation } from "react-i18next";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 export const COMPETE_ACCENT = FunctionColors.info;
 
 export interface MatchSummaryHost {
@@ -353,7 +352,7 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
         onPress={handleCta}
       >
         {joining ? (
-          <ActivityIndicator size="small" color={Backgrounds.root} />
+          <TennisBallSpinner size="small" color={Backgrounds.root} />
         ) : (
           <>
             <Text style={styles.ctaText}>{ctaLabel}</Text>

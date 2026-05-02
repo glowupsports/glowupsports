@@ -5,14 +5,13 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+  ScrollView} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { TabProps } from "./types";
 import { useCoachingScroll } from "./CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export function TemplatesTab({ insets: _insets, tabBarHeight }: TabProps) {
   const navigation = useNavigation<any>();
@@ -46,7 +45,7 @@ export function TemplatesTab({ insets: _insets, tabBarHeight }: TabProps) {
   if (isLoading) {
     return (
       <View style={templatesStyles.container}>
-        <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+        <TennisBallSpinner size="large" color={Colors.dark.xpCyan} />
       </View>
     );
   }

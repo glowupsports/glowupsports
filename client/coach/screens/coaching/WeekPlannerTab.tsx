@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -19,6 +17,7 @@ import { SportBadge } from "@/components/SportBadge";
 import { formatSportSkillLevel, getSportSkillLevelColor } from "@shared/sportConfig";
 import type { TabProps } from "./types";
 import { useCoachingScroll } from "./CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -122,7 +121,7 @@ export function WeekPlannerTab({ insets: _insets, tabBarHeight }: TabProps) {
   if (isLoading) {
     return (
       <View style={wpStyles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <Text style={wpStyles.loadingText}>Loading week overview...</Text>
       </View>
     );

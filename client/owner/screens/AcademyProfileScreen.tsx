@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface AcademyData {
   id: string;
@@ -78,7 +79,7 @@ export default function AcademyProfileScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <TennisBallSpinner size="large" color={Colors.dark.gold} />
       </View>
     );
   }
@@ -96,7 +97,7 @@ export default function AcademyProfileScreen() {
           disabled={updateMutation.isPending}
         >
           {updateMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.gold} />
+            <TennisBallSpinner size="small" color={Colors.dark.gold} />
           ) : (
             <Text style={styles.actionButtonText}>{isEditing ? "Save" : "Edit"}</Text>
           )}

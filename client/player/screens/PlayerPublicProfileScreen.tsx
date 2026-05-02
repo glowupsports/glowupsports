@@ -5,14 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Switch,
   RefreshControl,
   Modal,
   Platform,
   Image as RNImage,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -24,6 +22,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface PublicProfile {
   id: string;
   name: string;
@@ -357,7 +356,7 @@ export default function PlayerPublicProfileScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
@@ -546,7 +545,7 @@ export default function PlayerPublicProfileScreen() {
               <>
                 {connectionStatusLoading ? (
                   <View style={styles.connectionLoadingBtn}>
-                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                    <TennisBallSpinner size="small" color={Colors.dark.primary} />
                   </View>
                 ) : connectionStatus?.status === "unavailable" ? (
                   <Pressable
@@ -570,7 +569,7 @@ export default function PlayerPublicProfileScreen() {
                     testID="button-add-friend"
                   >
                     {sendFriendRequestMutation.isPending ? (
-                      <ActivityIndicator size="small" color={Colors.dark.text} />
+                      <TennisBallSpinner size="small" color={Colors.dark.text} />
                     ) : (
                       <>
                         <Ionicons name="person-add" size={18} color={Colors.dark.text} />
@@ -593,7 +592,7 @@ export default function PlayerPublicProfileScreen() {
                         testID="button-accept-request"
                       >
                         {respondToRequestMutation.isPending && respondToRequestMutation.variables?.action === "accept" ? (
-                          <ActivityIndicator size="small" color={Colors.dark.text} />
+                          <TennisBallSpinner size="small" color={Colors.dark.text} />
                         ) : (
                           <>
                             <Ionicons name="checkmark" size={18} color={Colors.dark.text} />
@@ -608,7 +607,7 @@ export default function PlayerPublicProfileScreen() {
                         testID="button-decline-request"
                       >
                         {respondToRequestMutation.isPending && respondToRequestMutation.variables?.action === "decline" ? (
-                          <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+                          <TennisBallSpinner size="small" color={Colors.dark.textMuted} />
                         ) : (
                           <Text style={styles.declineBtnText}>Decline</Text>
                         )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, Pressable, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert} from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,6 +19,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import * as Haptics from "expo-haptics";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type MatchLiveParams = {
   matchId: string;
   opponentName: string;
@@ -423,7 +424,7 @@ export default function MatchLiveScreen() {
             disabled={scoringPending}
           >
             {scoringPending ? (
-              <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+              <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
             ) : (
               <>
                 <Feather name="chevron-up" size={28} color={Colors.dark.buttonText} />

@@ -8,9 +8,7 @@ import {
   RefreshControl,
   Dimensions,
   Platform,
-  Image as RNImage,
-  ActivityIndicator,
-} from "react-native";
+  Image as RNImage} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +22,7 @@ import { Colors, ProTennisColors, Spacing, BorderRadius, Backgrounds } from "@/c
 import { apiFetch } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 const NEWS_SPORT_PREF_KEY = "@news_sport_preference";
@@ -271,7 +270,7 @@ function LoadingState({ sport }: { sport: SportKey }) {
   const sportLabel = SPORT_CHIPS.find((c) => c.key === sport)?.label ?? "sport";
   return (
     <View style={styles.loadingState}>
-      <ActivityIndicator size="large" color={ProTennisColors.neonGreen} />
+      <TennisBallSpinner size="large" color={ProTennisColors.neonGreen} />
       <Text style={styles.loadingText}>Loading {sportLabel} news...</Text>
     </View>
   );

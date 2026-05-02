@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -10,6 +10,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import { GuidedEmptyState } from "@/components/GuidedEmptyState";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface CreditPackage {
   creditType: string;
@@ -170,7 +171,7 @@ export default function CreditPackagesScreen() {
         </View>
 
         {isLoading ? (
-          <ActivityIndicator color={Colors.dark.gold} style={{ marginTop: Spacing.xl }} />
+          <TennisBallSpinner color={Colors.dark.gold} style={{ marginTop: Spacing.xl }} />
         ) : error ? (
           <View style={styles.errorState}>
             <Ionicons name="alert-circle" size={40} color={Colors.dark.error} />

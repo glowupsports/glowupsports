@@ -5,12 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   TextInput,
   Alert,
   Modal,
-  Switch,
-} from "react-native";
+  Switch} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -24,6 +22,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import { CourtBookingPanel } from "@/components/CourtBooking";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const MIRROR_ACCENT = "#A78BFA";
 
 interface MatchDetail {
@@ -287,7 +286,7 @@ function GlowMirrorMatchCard({ matchId, matchDate: _matchDate }: { matchId: stri
   if (isLoading) {
     return (
       <View style={mirrorStyles.card}>
-        <ActivityIndicator size="small" color={MIRROR_ACCENT} />
+        <TennisBallSpinner size="small" color={MIRROR_ACCENT} />
       </View>
     );
   }
@@ -540,7 +539,7 @@ function GlowMirrorMatchCard({ matchId, matchDate: _matchDate }: { matchId: stri
           disabled={saveMutation.isPending}
         >
           {saveMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+            <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={16} color={Colors.dark.buttonText} />
@@ -750,7 +749,7 @@ function PillarSelfRating({ matchId, playerId, playerPillarScores }: {
         disabled={saveMutation.isPending}
       >
         {saveMutation.isPending ? (
-          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+          <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
         ) : (
           <>
             <Ionicons name="checkmark-circle" size={16} color={Colors.dark.buttonText} />
@@ -854,7 +853,7 @@ function GoalOutcomeCheck({ matchId, playerId, preMatchGoal }: {
         disabled={!goalAchieved || saveMutation.isPending}
       >
         {saveMutation.isPending ? (
-          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+          <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
         ) : (
           <Text style={deepStyles.saveBtnText}>Save</Text>
         )}
@@ -1044,7 +1043,7 @@ function PressureMomentLogger({ matchId, playerId: _playerId, existingMoments }:
                 disabled={!momentType || !outcome || saveMutation.isPending}
               >
                 {saveMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={deepStyles.saveBtnText}>Save Moment</Text>
                 )}
@@ -1082,7 +1081,7 @@ function MatchDebriefCard({ matchId, preMatchGoal, result, trainingSuggestions }
           <Text style={debriefStyles.title}>Coach AI Debrief</Text>
         </View>
         <View style={debriefStyles.skeleton}>
-          <ActivityIndicator size="small" color={Colors.dark.primary} />
+          <TennisBallSpinner size="small" color={Colors.dark.primary} />
           <Text style={debriefStyles.skeletonText}>Generating debrief...</Text>
         </View>
       </View>
@@ -1492,7 +1491,7 @@ export default function MatchDetailScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <TennisBallSpinner size="large" color={Colors.primary} />
       </View>
     );
   }

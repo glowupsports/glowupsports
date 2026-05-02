@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Modal, Alert, Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -8,6 +8,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -138,7 +139,7 @@ export default function XPMultipliersScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <TennisBallSpinner size="large" color={PLATFORM_COLOR} />
         <Text style={[styles.subtitle, { marginTop: Spacing.md }]}>Loading XP rules...</Text>
       </View>
     );
@@ -183,7 +184,7 @@ export default function XPMultipliersScreen() {
               </View>
               <View style={styles.valueContainer}>
                 {savingRule === rule.actionSource ? (
-                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                  <TennisBallSpinner size="small" color={PLATFORM_COLOR} />
                 ) : (
                   <>
                     <Text style={styles.valueText}>{rule.xpAmount}</Text>
@@ -209,7 +210,7 @@ export default function XPMultipliersScreen() {
             disabled={updateRuleMutation.isPending}
           >
             {updateRuleMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+              <TennisBallSpinner size="small" color={Colors.dark.text} />
             ) : (
               <Text style={styles.saveButtonText}>Save Changes</Text>
             )}

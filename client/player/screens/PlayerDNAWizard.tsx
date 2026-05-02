@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Image, Alert, ActivityIndicator, DimensionValue } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Image, Alert, DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps } from "react";
@@ -16,6 +16,7 @@ import type { NavigationProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 const DNA_CARDS: { id: string; title: string; subtitle: string; icon: IoniconName }[] = [
@@ -529,7 +530,7 @@ export default function PlayerDNAWizardScreen({ onComplete: _onComplete }: Props
               )}
               {photoUploading ? (
                 <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator size="small" color={Colors.dark.accentText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.accentText} />
                 </View>
               ) : null}
             </View>
@@ -554,7 +555,7 @@ export default function PlayerDNAWizardScreen({ onComplete: _onComplete }: Props
   if (profileLoading) {
     return (
       <View style={[styles.screen, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.accentText} style={{ flex: 1 }} />
+        <TennisBallSpinner size="large" color={Colors.dark.accentText} style={{ flex: 1 }} />
       </View>
     );
   }
@@ -573,7 +574,7 @@ export default function PlayerDNAWizardScreen({ onComplete: _onComplete }: Props
           <Text style={styles.headerSub}>{currentCard + 1} of {DNA_CARDS.length}</Text>
         </View>
         <Pressable style={styles.saveTextBtn} onPress={handleSaveAndClose} disabled={saving}>
-          {saving ? <ActivityIndicator size="small" color={Colors.dark.accentText} /> : <Text style={styles.saveText}>Save</Text>}
+          {saving ? <TennisBallSpinner size="small" color={Colors.dark.accentText} /> : <Text style={styles.saveText}>Save</Text>}
         </Pressable>
       </View>
 
@@ -610,7 +611,7 @@ export default function PlayerDNAWizardScreen({ onComplete: _onComplete }: Props
 
         <Pressable style={styles.nextBtn} onPress={handleNext} disabled={saving}>
           {saving ? (
-            <ActivityIndicator size="small" color="#000" />
+            <TennisBallSpinner size="small" color="#000" />
           ) : (
             <>
               <Text style={styles.nextBtnText}>{isLastCard ? "Finish" : "Next"}</Text>

@@ -6,15 +6,14 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing , GlowColors } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
 import type { Player, SessionInstance, SeriesDetail, CoachOption } from "./types";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface SeriesAttendanceModalProps {
   visible: boolean;
@@ -109,7 +108,7 @@ export function SeriesAttendanceModal({
                     {attendanceModalView === "transfer" ? "Transfer Session" : "Mark Attendance"}
                   </Text>
                   {loadingAttendance && attendanceModalView === "attendance" ? (
-                    <ActivityIndicator size="small" color={Colors.dark.accentNeon} />
+                    <TennisBallSpinner size="small" color={Colors.dark.accentNeon} />
                   ) : null}
                 </View>
                 {selectedSession ? (

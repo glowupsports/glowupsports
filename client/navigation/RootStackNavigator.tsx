@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { ActivityIndicator, View, StyleSheet, Platform } from "react-native";
+import { View, StyleSheet, Platform } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { CommonActions, useNavigationContainerRef } from "@react-navigation/native";
 import * as Linking from "expo-linking";
@@ -21,6 +21,7 @@ import { useAppMode } from "@/context/AppModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Colors } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export type RootStackParamList = {
   Boot: undefined;
@@ -228,7 +229,7 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
       </View>
     );
   }

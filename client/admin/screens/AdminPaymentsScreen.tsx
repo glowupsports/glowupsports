@@ -8,10 +8,8 @@ import {
   Modal,
   Platform,
   Alert,
-  ActivityIndicator,
   TextInput,
-  Image,
-} from "react-native";
+  Image} from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -21,6 +19,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useNavigation } from "@react-navigation/native";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
 interface Payment {
@@ -401,7 +400,7 @@ export default function AdminPaymentsScreen() {
             <ScrollView showsVerticalScrollIndicator={false} style={payStyles.tableScroll}>
               {isLoading ? (
                 <View style={payStyles.emptyRow}>
-                  <ActivityIndicator size="small" color={Colors.dark.orange} />
+                  <TennisBallSpinner size="small" color={Colors.dark.orange} />
                 </View>
               ) : desktopPayments.length === 0 ? (
                 <View style={payStyles.emptyRow}>
@@ -727,7 +726,7 @@ export default function AdminPaymentsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.orange} />
+          <TennisBallSpinner size="large" color={Colors.dark.orange} />
         </View>
       ) : (
         <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
@@ -914,7 +913,7 @@ export default function AdminPaymentsScreen() {
               disabled={createMutation.isPending}
             >
               {createMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.submitButtonText}>Record Payment</Text>
               )}
@@ -1011,7 +1010,7 @@ export default function AdminPaymentsScreen() {
                       disabled={confirmMutation.isPending}
                     >
                       {confirmMutation.isPending ? (
-                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                        <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <>
                           <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />
@@ -1036,7 +1035,7 @@ export default function AdminPaymentsScreen() {
                     disabled={deleteMutation.isPending}
                   >
                     {deleteMutation.isPending ? (
-                      <ActivityIndicator size="small" color={Colors.dark.error} />
+                      <TennisBallSpinner size="small" color={Colors.dark.error} />
                     ) : (
                       <Text style={styles.deleteButtonText}>Delete Payment</Text>
                     )}
@@ -1078,7 +1077,7 @@ export default function AdminPaymentsScreen() {
                 disabled={rejectMutation.isPending}
               >
                 {rejectMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                  <TennisBallSpinner size="small" color={Colors.dark.text} />
                 ) : (
                   <Text style={styles.rejectModalConfirmText}>Reject</Text>
                 )}

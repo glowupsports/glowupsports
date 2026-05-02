@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView} from "react-native";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,6 +7,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type SquadGroupRoute = RouteProp<{ SquadGroup: { squadId: string; squadName?: string } }, "SquadGroup">;
 
@@ -50,7 +51,7 @@ export default function SquadGroupScreen() {
 
       {isLoading ? (
         <View style={styles.loader}>
-          <ActivityIndicator size="small" color={Colors.dark.tint} />
+          <TennisBallSpinner size="small" color={Colors.dark.tint} />
         </View>
       ) : null}
 

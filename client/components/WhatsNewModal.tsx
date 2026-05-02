@@ -7,11 +7,9 @@ import {
   Pressable,
   ScrollView,
   Switch,
-  ActivityIndicator,
   Dimensions,
   type NativeScrollEvent,
-  type NativeSyntheticEvent,
-} from "react-native";
+  type NativeSyntheticEvent} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Feather from "@expo/vector-icons/Feather";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -35,6 +33,7 @@ import {
   type WhatsNewSlide,
 } from "@/hooks/useWhatsNew";
 import { useAuth } from "@/coach/context/AuthContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
@@ -154,7 +153,7 @@ export function WhatsNewModalView({
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={GlowColors.primary} />
+            <TennisBallSpinner size="large" color={GlowColors.primary} />
             <Text style={styles.loadingText}>{t("whatsNew.loading")}</Text>
           </View>
         ) : slides.length === 0 ? (

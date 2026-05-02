@@ -8,9 +8,7 @@ import {
   Modal,
   Platform,
   Alert,
-  ActivityIndicator,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,6 +20,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles, GlowColors } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useWebAlert } from "@/components/WebAlertProvider";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface AdminStats {
   totalCoaches: number;
   totalPlayers: number;
@@ -531,7 +530,7 @@ export default function AdminReportsScreen() {
 
             {isLoadingRevenue ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.dark.gold} />
+                <TennisBallSpinner size="large" color={Colors.dark.gold} />
                 <Text style={styles.loadingText}>Loading revenue data...</Text>
               </View>
             ) : (
@@ -593,7 +592,7 @@ export default function AdminReportsScreen() {
                   disabled={isExporting}
                 >
                   {isExporting ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Ionicons name="download-outline" size={20} color={Colors.dark.buttonText} />
                   )}
@@ -1001,7 +1000,7 @@ export default function AdminReportsScreen() {
               disabled={isDownloadingWorkbook}
             >
               {isDownloadingWorkbook ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Ionicons

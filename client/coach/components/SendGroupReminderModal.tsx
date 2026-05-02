@@ -5,11 +5,9 @@ import {
   Modal,
   Pressable,
   TextInput,
-  ActivityIndicator,
   Alert,
   StyleSheet,
-  ScrollView,
-} from "react-native";
+  ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useMutation } from "@tanstack/react-query";
@@ -18,6 +16,7 @@ import { Colors, Spacing, BorderRadius, Typography, Backgrounds } from "@/consta
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { SuccessToast } from "@/components/SuccessToast";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const MAX_LEN = 280;
 
@@ -242,7 +241,7 @@ export default function SendGroupReminderModal({
                   disabled={!canSend || mutation.isPending}
                 >
                   {mutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Ionicons

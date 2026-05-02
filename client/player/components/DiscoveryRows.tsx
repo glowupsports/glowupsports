@@ -1,6 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator, Alert, Platform, Image as RNImage } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Platform, Image as RNImage } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { Feather } from "@expo/vector-icons";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -19,6 +19,7 @@ import { buildPhotoUrl, apiRequest, getApiUrl, getAuthHeaders } from "@/lib/quer
 import { useTranslation } from "react-i18next";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 function PremiumEmptyCard({
   icon,
   accentColor,
@@ -622,7 +623,7 @@ export function GroupLessonsRow() {
                         onPress={() => !isJoining && handleLeaveSession(session.id)}
                       >
                         {isJoining ? (
-                          <ActivityIndicator size="small" color="#FF6B6B" />
+                          <TennisBallSpinner size="small" color="#FF6B6B" />
                         ) : (
                           <>
                             <Ionicons name="close-circle-outline" size={16} color="#FF6B6B" />
@@ -636,7 +637,7 @@ export function GroupLessonsRow() {
                         onPress={() => !isJoining && handleJoinSession(session.id)}
                       >
                         {isJoining ? (
-                          <ActivityIndicator size="small" color={Backgrounds.root} />
+                          <TennisBallSpinner size="small" color={Backgrounds.root} />
                         ) : (
                           <>
                             <Ionicons name="enter-outline" size={16} color={Backgrounds.root} />
@@ -1001,7 +1002,7 @@ function PlayerCarouselRow({
     <View style={styles.section}>
       <SectionHeader title={title} count={players.length} accentColor={accent} />
       {isLoading ? (
-        <ActivityIndicator size="small" color={accent} style={{ marginVertical: Spacing.sm }} />
+        <TennisBallSpinner size="small" color={accent} style={{ marginVertical: Spacing.sm }} />
       ) : (
         <ScrollView
           horizontal

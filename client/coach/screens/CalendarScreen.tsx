@@ -1,6 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions, Alert, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
@@ -35,6 +35,7 @@ import { CalendarDayViewSlots } from "@/coach/components/calendar/CalendarDayVie
 import { AddPlayerToSessionModal, type CalendarSessionForAdd } from "@/coach/components/calendar/AddPlayerToSessionModal";
 import { TIME_COLUMN_WIDTH, MIN_COURT_LANE_WIDTH, HOUR_HEIGHT_60, HOUR_HEIGHT_30, START_HOUR, END_HOUR } from "@/coach/components/calendar/calendarConstants";
 import { styles } from "@/coach/components/calendar/calendarStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type _CalendarRouteParams = {
   Calendar: {
     openSessionId?: string;
@@ -1231,7 +1232,7 @@ export default function CalendarScreen() {
         <View style={styles.noCoachContainer}>
           {coachesLoading ? (
             <>
-              <ActivityIndicator size="large" color={Colors.dark.primary} />
+              <TennisBallSpinner size="large" color={Colors.dark.primary} />
               <Text style={styles.noCoachText}>Loading coaches...</Text>
             </>
           ) : coaches.length === 0 ? (
@@ -1312,7 +1313,7 @@ export default function CalendarScreen() {
               disabled={isExporting}
             >
               {isExporting ? (
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
+                <TennisBallSpinner size="small" color={Colors.dark.primary} />
               ) : (
                 <Ionicons name="download-outline" size={16} color={Colors.dark.primary} />
               )}
@@ -1622,7 +1623,7 @@ export default function CalendarScreen() {
       {/* Subtle refresh indicator when fetching with existing data */}
       {isFetching && calendarData && (
         <View style={styles.refreshIndicator}>
-          <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+          <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
         </View>
       )}
 

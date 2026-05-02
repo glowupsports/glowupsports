@@ -6,9 +6,7 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -21,6 +19,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Academy {
   id: string;
   name: string;
@@ -192,7 +191,7 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
             disabled={isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons
@@ -330,7 +329,7 @@ export default function AcademyBrowserScreen() {
       >
         {academiesLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.primary} />
+            <TennisBallSpinner size="large" color={Colors.dark.primary} />
           </View>
         ) : filteredAcademies.length === 0 ? (
           <View style={styles.emptyContainer}>

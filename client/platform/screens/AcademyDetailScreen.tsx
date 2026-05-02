@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ActivityIndicator, Share, Modal } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, Share, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useAuth } from "@/coach/context/AuthContext";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -346,7 +347,7 @@ export default function AcademyDetailScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <TennisBallSpinner size="large" color={PLATFORM_COLOR} />
         <Text style={styles.loadingText}>Loading academy...</Text>
       </View>
     );
@@ -389,7 +390,7 @@ export default function AcademyDetailScreen() {
             style={styles.impersonateGradient}
           >
             {isImpersonating ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <TennisBallSpinner size="small" color="#fff" />
             ) : (
               <Ionicons name="eye-outline" size={20} color="#fff" />
             )}
@@ -477,7 +478,7 @@ export default function AcademyDetailScreen() {
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                  <TennisBallSpinner size="small" color={Colors.dark.text} />
                 ) : (
                   <Text style={styles.saveButtonText}>Save Changes</Text>
                 )}
@@ -589,7 +590,7 @@ export default function AcademyDetailScreen() {
               disabled={createInviteMutation.isPending}
             >
               {createInviteMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.text} />
+                <TennisBallSpinner size="small" color={Colors.dark.text} />
               ) : (
                 <>
                   <Ionicons name="add-circle-outline" size={20} color={Colors.dark.text} />
@@ -599,7 +600,7 @@ export default function AcademyDetailScreen() {
             </Pressable>
 
             {invitesLoading ? (
-              <ActivityIndicator size="small" color={PLATFORM_COLOR} style={{ marginTop: Spacing.md }} />
+              <TennisBallSpinner size="small" color={PLATFORM_COLOR} style={{ marginTop: Spacing.md }} />
             ) : invitesData?.invites?.length ? (
               <View style={styles.invitesList}>
                 {invitesData.invites.filter(inv => !inv.usedAt).map((invite) => {
@@ -660,7 +661,7 @@ export default function AcademyDetailScreen() {
             disabled={deleteMutation.isPending}
           >
             {deleteMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.error} />
+              <TennisBallSpinner size="small" color={Colors.dark.error} />
             ) : (
               <>
                 <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
@@ -786,7 +787,7 @@ export default function AcademyDetailScreen() {
                 disabled={!selectedUserId || addMemberMutation.isPending}
               >
                 {addMemberMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                  <TennisBallSpinner size="small" color={Colors.dark.text} />
                 ) : (
                   <Text style={styles.confirmButtonText}>Add Member</Text>
                 )}
@@ -891,7 +892,7 @@ export default function AcademyDetailScreen() {
                   disabled={!newUsername || !newPassword || createAccountMutation.isPending}
                 >
                   {createAccountMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                    <TennisBallSpinner size="small" color={Colors.dark.text} />
                   ) : (
                     <Text style={styles.confirmButtonText}>Create Account</Text>
                   )}
@@ -934,7 +935,7 @@ export default function AcademyDetailScreen() {
                 disabled={deleteMutation.isPending}
               >
                 {deleteMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                  <TennisBallSpinner size="small" color={Colors.dark.text} />
                 ) : (
                   <Text style={styles.destructiveButtonText}>Delete</Text>
                 )}

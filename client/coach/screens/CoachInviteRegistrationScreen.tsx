@@ -6,11 +6,9 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -27,6 +25,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
 import { TshirtSizePicker } from "@/components/TshirtSizePicker";
 import { TshirtSize } from "@shared/schema";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -90,7 +89,7 @@ function GamingButton({
         style={styles.gamingButtonGradient}
       >
         {isLoading ? (
-          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+          <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
         ) : (
           <>
             {icon ? (
@@ -234,7 +233,7 @@ export default function CoachInviteRegistrationScreen({
           style={styles.headerTopLine}
         />
         <View style={[styles.centered, { paddingTop: insets.top }]}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Verifying invite...</Text>
         </View>
       </View>

@@ -5,10 +5,8 @@ import {
   StyleSheet,
   SectionList,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +22,7 @@ import { parseCalendarDateParts } from "@/lib/dateUtils";
 import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface BookingInvite {
   booking_invite_guests: {
     id: string;
@@ -116,7 +115,7 @@ function InviteCard({
 
             <Pressable style={styles.acceptButton} onPress={onAccept} disabled={isLoading}>
               {isLoading ? (
-                <ActivityIndicator color={Colors.dark.text} size="small" />
+                <TennisBallSpinner color={Colors.dark.text} size="small" />
               ) : (
                 <>
                   <Ionicons name="checkmark" size={20} color={Colors.dark.text} />
@@ -281,7 +280,7 @@ function ChallengeInviteCard({
 
             <Pressable style={styles.acceptButton} onPress={onAccept} disabled={isLoading}>
               {isLoading ? (
-                <ActivityIndicator color={Colors.dark.text} size="small" />
+                <TennisBallSpinner color={Colors.dark.text} size="small" />
               ) : (
                 <>
                   <Ionicons name="checkmark" size={20} color={Colors.dark.text} />
@@ -459,7 +458,7 @@ export default function BookingInvitesScreen() {
     <View style={styles.container}>
       {allLoading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={Colors.dark.primary} size="large" />
+          <TennisBallSpinner color={Colors.dark.primary} size="large" />
           <Text style={styles.loadingText}>Loading invites...</Text>
         </View>
       ) : hasNoData ? (

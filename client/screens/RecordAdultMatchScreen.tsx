@@ -5,9 +5,7 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -21,6 +19,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { usePlayer } from "@/player/context/PlayerContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type MatchType = "friendly" | "ladder" | "tournament";
 type Verification = "self_reported" | "coach_verified";
@@ -148,7 +147,7 @@ export default function RecordAdultMatchScreen() {
   if (playerLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
       </View>
     );
   }
@@ -409,7 +408,7 @@ export default function RecordAdultMatchScreen() {
 
         <View style={styles.submitSection}>
           {isSubmitting || recordMatchMutation.isPending ? (
-            <ActivityIndicator size="large" color={Colors.dark.primary} />
+            <TennisBallSpinner size="large" color={Colors.dark.primary} />
           ) : (
             <Button title="Record Match" onPress={handleSubmit} disabled={!playerId} />
           )}

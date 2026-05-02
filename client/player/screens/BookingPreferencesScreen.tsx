@@ -6,9 +6,7 @@ import {
   ScrollView,
   Pressable,
   Switch,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -21,6 +19,7 @@ import { Spacing, BorderRadius, Backgrounds, GlowColors, TextColors } from "@/co
 import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const ProTennisColors = new Proxy({} as Record<string, string>, {
   get(_t, prop: string) {
     switch (prop) {
@@ -208,7 +207,7 @@ export default function BookingPreferencesScreen() {
           style={styles.headerSaveButton}
         >
           {saveMutation.isPending ? (
-            <ActivityIndicator color={ProTennisColors.midnightBlue} size="small" />
+            <TennisBallSpinner color={ProTennisColors.midnightBlue} size="small" />
           ) : (
             <Text style={styles.headerSaveText}>Save</Text>
           )}
@@ -220,7 +219,7 @@ export default function BookingPreferencesScreen() {
   if (prefsLoading) {
     return (
       <View style={[styles.container, styles.loading, { paddingTop: headerHeight }]}>
-        <ActivityIndicator color={ProTennisColors.neonCyan} size="large" />
+        <TennisBallSpinner color={ProTennisColors.neonCyan} size="large" />
       </View>
     );
   }

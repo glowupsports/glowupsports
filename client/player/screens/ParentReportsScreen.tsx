@@ -5,10 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Alert,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -20,6 +18,7 @@ import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { WebView } from "react-native-webview";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface MonthlyReport {
   id: string;
   playerId: string;
@@ -176,7 +175,7 @@ export default function ParentReportsScreen() {
           disabled={loadingPdf}
         >
           {loadingPdf ? (
-            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+            <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
               <Ionicons name="share-outline" size={20} color={Colors.dark.buttonText} />
@@ -287,7 +286,7 @@ export default function ParentReportsScreen() {
             disabled={loadingPdf}
           >
             {loadingPdf ? (
-              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} />
             ) : (
               <>
                 <Ionicons name="eye-outline" size={18} color={Colors.dark.primary} />
@@ -301,7 +300,7 @@ export default function ParentReportsScreen() {
             disabled={loadingPdf}
           >
             {loadingPdf ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="share-outline" size={18} color={Colors.dark.buttonText} />
@@ -335,7 +334,7 @@ export default function ParentReportsScreen() {
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       ) : reports.length === 0 ? (
         <View style={styles.emptyCard}>

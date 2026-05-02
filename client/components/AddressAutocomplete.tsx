@@ -5,16 +5,15 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
   Modal,
   ScrollView,
   Platform,
-  Dimensions,
-} from "react-native";
+  Dimensions} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Prediction {
   placeId: string;
@@ -179,9 +178,9 @@ export function AddressAutocomplete({
           autoCapitalize="none"
         />
         {resolving ? (
-          <ActivityIndicator size="small" color={Colors.dark.primary} style={styles.rightIcon} />
+          <TennisBallSpinner size="small" color={Colors.dark.primary} style={styles.rightIcon} />
         ) : loading ? (
-          <ActivityIndicator size="small" color={Colors.dark.textMuted} style={styles.rightIcon} />
+          <TennisBallSpinner size="small" color={Colors.dark.textMuted} style={styles.rightIcon} />
         ) : query.length > 0 ? (
           <Pressable onPress={handleClear} style={styles.rightIcon}>
             <Ionicons name="close-circle" size={16} color={Colors.dark.textMuted} />

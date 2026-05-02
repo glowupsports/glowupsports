@@ -7,9 +7,7 @@ import {
   Pressable,
   Image,
   RefreshControl,
-  Dimensions,
-  ActivityIndicator,
-} from "react-native";
+  Dimensions} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -20,6 +18,7 @@ import { Colors, Spacing, TextColors } from "@/constants/theme";
 import { useCart } from "../contexts/CartContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 3) / 2;
 
@@ -206,7 +205,7 @@ export default function ShopCategoryScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={HEAD_ORANGE} size="large" />
+          <TennisBallSpinner color={HEAD_ORANGE} size="large" />
           <Text style={styles.loadingText}>Loading products...</Text>
         </View>
       ) : (

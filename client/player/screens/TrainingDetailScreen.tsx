@@ -5,10 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   TextInput,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRoute, useNavigation, RouteProp } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +18,7 @@ import CoachRemindersCard from "@/player/components/CoachRemindersCard";
 import { CourtBookingPanel } from "@/player/components/CourtBookingPicker";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type RouteParams = {
   TrainingDetail: {
     sessionId: string;
@@ -278,7 +277,7 @@ function GlowMirrorCard({
   if (reflectionLoading) {
     return (
       <View style={mirrorStyles.card}>
-        <ActivityIndicator size="small" color={MIRROR_ACCENT} />
+        <TennisBallSpinner size="small" color={MIRROR_ACCENT} />
       </View>
     );
   }
@@ -449,7 +448,7 @@ function GlowMirrorCard({
         disabled={saveMutation.isPending}
       >
         {saveMutation.isPending ? (
-          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+          <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
         ) : (
           <>
             <Ionicons name="checkmark-circle" size={18} color={Colors.dark.buttonText} />
@@ -637,7 +636,7 @@ export default function TrainingDetailScreen() {
   if (!training) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
       </View>
     );
   }

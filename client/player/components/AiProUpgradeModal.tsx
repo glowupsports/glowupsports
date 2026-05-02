@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   Modal,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+  Pressable} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
@@ -15,6 +13,7 @@ import { PurchasesPackage } from "react-native-purchases";
 import type { PurchasesError } from "@revenuecat/purchases-typescript-internal";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -87,7 +86,7 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
 
   const renderPlanSection = () => {
     if (isOfferingsLoading) {
-      return <ActivityIndicator color={ACCENT} style={{ marginVertical: Spacing.lg }} />;
+      return <TennisBallSpinner color={ACCENT} style={{ marginVertical: Spacing.lg }} />;
     }
 
     if (isOfferingsError) {
@@ -142,7 +141,7 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
           disabled={isPurchasing || !selectedPkg}
         >
           {isPurchasing ? (
-            <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+            <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
           ) : (
             <Text style={styles.upgradeButtonText}>
               {selectedPkg ? `Subscribe — ${selectedPkg.product.priceString}` : "Subscribe to AI Pro"}
@@ -156,7 +155,7 @@ export default function AiProUpgradeModal({ visible, onClose, callCount = 0, lim
 
         <Pressable style={styles.restoreButton} onPress={handleRestore} disabled={isRestoring}>
           {isRestoring ? (
-            <ActivityIndicator color={Colors.dark.textMuted} size="small" />
+            <TennisBallSpinner color={Colors.dark.textMuted} size="small" />
           ) : restoreSuccess ? (
             <Text style={[styles.restoreText, { color: Colors.dark.successNeon }]}>Purchases restored</Text>
           ) : (

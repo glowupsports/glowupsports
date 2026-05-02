@@ -6,9 +6,7 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -18,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Invite {
   id: string;
@@ -320,7 +319,7 @@ export default function InviteManagementScreen() {
               disabled={createInviteMutation.isPending}
             >
               {createInviteMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Ionicons name="send" size={16} color={Colors.dark.buttonText} />
@@ -350,7 +349,7 @@ export default function InviteManagementScreen() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.gold} />
+            <TennisBallSpinner size="large" color={Colors.dark.gold} />
           </View>
         ) : invites.length === 0 ? (
           <View style={styles.emptyContainer}>

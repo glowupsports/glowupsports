@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -13,6 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { sharePdf } from "@/lib/sharePdf";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface AcademyPaymentInfo {
   acceptsCash: boolean;
   acceptsBankTransfer: boolean;
@@ -192,7 +193,7 @@ export default function ParentInvoicesScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.text} />
+          <TennisBallSpinner size="large" color={Colors.dark.text} />
         </View>
       ) : invoices.length === 0 ? (
         <View style={styles.emptyState}>
@@ -383,7 +384,7 @@ export default function ParentInvoicesScreen() {
                     disabled={downloadingId === selectedInvoice.id}
                   >
                     {downloadingId === selectedInvoice.id ? (
-                      <ActivityIndicator size="small" color={Colors.dark.text} />
+                      <TennisBallSpinner size="small" color={Colors.dark.text} />
                     ) : (
                       <Ionicons name="download-outline" size={20} color={Colors.dark.text} />
                     )}
@@ -427,7 +428,7 @@ export default function ParentInvoicesScreen() {
 
                 {!paymentInfo ? (
                   <View style={styles.paymentLoadingState}>
-                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                    <TennisBallSpinner size="small" color={Colors.dark.primary} />
                     <Text style={styles.paymentLoadingText}>Loading payment options...</Text>
                   </View>
                 ) : !paymentInfo.acceptsCash && !paymentInfo.acceptsBankTransfer ? (

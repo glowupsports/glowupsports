@@ -5,12 +5,10 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
   Alert,
   Modal,
-  ScrollView,
-} from "react-native";
+  ScrollView} from "react-native";
 import { openDirections } from "@/lib/maps";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,6 +21,7 @@ import { Spacing, BorderRadius, Backgrounds, TextColors, GlowColors } from "@/co
 import { apiRequest, buildPhotoUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const BG = Backgrounds.root;
 const CARD_BG = "#12151C";
 const CARD_BORDER = "#1E2332";
@@ -316,7 +315,7 @@ function SessionCard({
               onPress={() => !isJoining && onJoin(session.id, session.type)}
             >
               {isJoining ? (
-                <ActivityIndicator size="small" color={BG} />
+                <TennisBallSpinner size="small" color={BG} />
               ) : (
                 <>
                   <Text style={styles.joinButtonText}>
@@ -672,7 +671,7 @@ export default function ClassesDiscoveryScreen() {
 
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={ACCENT} />
+          <TennisBallSpinner size="large" color={ACCENT} />
           <Text style={styles.loadingText}>Finding classes near you...</Text>
         </View>
       ) : listData.length === 0 ? (

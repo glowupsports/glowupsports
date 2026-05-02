@@ -5,11 +5,9 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   Alert,
   TextInput,
-  Modal,
-} from "react-native";
+  Modal} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -26,6 +24,7 @@ import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Invoice {
   id: string;
@@ -307,7 +306,7 @@ export default function BillingScreen() {
         </View>
         
         {invoicesLoading ? (
-          <ActivityIndicator color={Colors.dark.xpCyan} />
+          <TennisBallSpinner color={Colors.dark.xpCyan} />
         ) : invoices.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="document-outline" size={40} color={Colors.dark.xpCyan} />
@@ -351,7 +350,7 @@ export default function BillingScreen() {
         </View>
         
         {paymentsLoading ? (
-          <ActivityIndicator color={Colors.dark.xpCyan} />
+          <TennisBallSpinner color={Colors.dark.xpCyan} />
         ) : payments.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="wallet-outline" size={40} color={Colors.dark.xpCyan} />
@@ -400,7 +399,7 @@ export default function BillingScreen() {
       </AnimatedButton>
 
       {invoicesLoading ? (
-        <ActivityIndicator color={Colors.dark.xpCyan} style={{ marginTop: Spacing.xl }} />
+        <TennisBallSpinner color={Colors.dark.xpCyan} style={{ marginTop: Spacing.xl }} />
       ) : invoices.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconContainer}>
@@ -459,7 +458,7 @@ export default function BillingScreen() {
   const renderPaymentsTab = () => (
     <View style={styles.tabContent}>
       {paymentsLoading ? (
-        <ActivityIndicator color={Colors.dark.xpCyan} style={{ marginTop: Spacing.xl }} />
+        <TennisBallSpinner color={Colors.dark.xpCyan} style={{ marginTop: Spacing.xl }} />
       ) : payments.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconContainer}>
@@ -577,7 +576,7 @@ export default function BillingScreen() {
       </AnimatedButton>
 
       {packagesLoading ? (
-        <ActivityIndicator color={Colors.dark.xpCyan} style={{ marginTop: Spacing.xl }} />
+        <TennisBallSpinner color={Colors.dark.xpCyan} style={{ marginTop: Spacing.xl }} />
       ) : packageTemplates.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconContainer}>
@@ -737,7 +736,7 @@ export default function BillingScreen() {
                 style={styles.modalButtonGradient}
               >
                 {createPackageMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} />
+                  <TennisBallSpinner color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.modalButtonText}>Create Package</Text>
                 )}
@@ -882,7 +881,7 @@ export default function BillingScreen() {
                 style={styles.modalButtonGradient}
               >
                 {createInvoiceMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} />
+                  <TennisBallSpinner color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.modalButtonText}>Create Invoice</Text>
                 )}

@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, ViewStyle, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, ViewStyle} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { useQuery } from "@tanstack/react-query";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface DssRatingWidgetProps {
   playerId: string;
@@ -145,7 +146,7 @@ export function DssRatingWidget({
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, style]}>
-        <ActivityIndicator color={GlowColors.primary} />
+        <TennisBallSpinner color={GlowColors.primary} />
       </View>
     );
   }

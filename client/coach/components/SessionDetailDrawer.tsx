@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Pressable, Modal, ScrollView, Alert, TextInput, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, ScrollView, Alert, TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -25,6 +25,7 @@ import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 import { useAIModal } from "@/coach/context/AIModalContext";
 import { AISessionPlanModal } from "./AISessionPlanModal";
 import SendGroupReminderModal from "./SendGroupReminderModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const SESSION_DETAILS_INTRO_KEY = "skipSessionDetailsIntro";
 
@@ -1020,7 +1021,7 @@ export default function SessionDetailDrawer({
               </Pressable>
             ))}
             {changeCourtMutation.isPending && (
-              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: 8 }} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginTop: 8 }} />
             )}
           </View>
         )}
@@ -1372,7 +1373,7 @@ export default function SessionDetailDrawer({
             disabled={removePlayerMutation.isPending || isOffline}
           >
             {removePlayerMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+              <TennisBallSpinner size="small" color={Colors.dark.text} />
             ) : (
               <Text style={styles.removePlayerConfirmText}>Remove from Session</Text>
             )}
@@ -1448,7 +1449,7 @@ export default function SessionDetailDrawer({
             disabled={convertGuestMutation.isPending}
           >
             {convertGuestMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <Text style={styles.convertBtnText}>Convert to Player</Text>
             )}
@@ -1493,7 +1494,7 @@ export default function SessionDetailDrawer({
                 disabled={addGuestMutation.isPending || addExistingGuestMutation.isPending}
               >
                 {(addGuestMutation.isPending || addExistingGuestMutation.isPending) ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.guestConfirmBtnText}>
                     {guestWeeks === 1 ? "Add Guest" : `Add for ${guestWeeks} Weeks`}
@@ -1940,7 +1941,7 @@ export default function SessionDetailDrawer({
         ))}
       </View>
       {extendSessionMutation.isPending && (
-        <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
+        <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
       )}
     </>
   );
@@ -1979,7 +1980,7 @@ export default function SessionDetailDrawer({
             disabled={endSessionMutation.isPending || isOffline}
           >
             {endSessionMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+              <TennisBallSpinner size="small" color={Colors.dark.text} />
             ) : (
               <Text style={styles.endConfirmButtonText}>End Session</Text>
             )}
@@ -2086,7 +2087,7 @@ export default function SessionDetailDrawer({
                 disabled={cancelSessionMutation.isPending || isOffline}
               >
                 {cancelSessionMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                  <TennisBallSpinner size="small" color={Colors.dark.text} />
                 ) : (
                   <Text style={styles.cancelConfirmButtonText}>Confirm Cancel</Text>
                 )}

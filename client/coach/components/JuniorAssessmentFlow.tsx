@@ -5,16 +5,15 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Alert,
-  Modal,
-} from "react-native";import { LinearGradient } from "expo-linear-gradient";
+  Modal} from "react-native";import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const NEON_GREEN = "#C8FF3D";
 const PASS_THRESHOLD = 85;
@@ -527,7 +526,7 @@ export function JuniorAssessmentFlow({
 
             {isLoading ? (
               <View style={[styles.content, styles.centered]}>
-                <ActivityIndicator size="large" color={NEON_GREEN} />
+                <TennisBallSpinner size="large" color={NEON_GREEN} />
                 <Text style={styles.loadingText}>Loading items...</Text>
               </View>
             ) : ustaItems.length === 0 ? (
@@ -767,7 +766,7 @@ export function JuniorAssessmentFlow({
                     style={styles.primaryBtnGradient}
                   >
                     {isStartingTrial ? (
-                      <ActivityIndicator size="small" color={Colors.dark.backgroundRoot} />
+                      <TennisBallSpinner size="small" color={Colors.dark.backgroundRoot} />
                     ) : (
                       <>
                         <Text style={[styles.primaryBtnText, { color: Colors.dark.backgroundRoot }]}>

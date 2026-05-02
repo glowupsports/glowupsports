@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { View, StyleSheet, Platform, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
@@ -113,6 +113,7 @@ import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
 import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 // ─── Stack param list — mirrors PlayerStackParamList minus PlayerTabs ────────
 export type PlayerV2StackParamList = {
@@ -732,7 +733,7 @@ export default function PlayerV2Navigator() {
   if (isLoading && shouldFetchDashboard && !bootTimedOut) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
       </View>
     );
   }

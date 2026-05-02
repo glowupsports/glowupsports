@@ -1,10 +1,11 @@
 import React from "react";
-import { View, Text, Modal, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Modal, Pressable} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
 import type { SessionInstance, SeriesDetail } from "./types";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Props {
   visible: boolean;
@@ -94,7 +95,7 @@ export function SeriesRestoreSessionModal({ visible, onClose, selectedSession, s
                   style={styles.restoreButtonGradient}
                 >
                   {restoringSession ? (
-                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                    <TennisBallSpinner size="small" color={Colors.dark.text} />
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle" size={22} color={Colors.dark.text} />

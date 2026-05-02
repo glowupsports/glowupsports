@@ -5,10 +5,8 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   Alert,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Print from "expo-print";
 import * as Haptics from "expo-haptics";
@@ -17,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { sharePdf } from "@/lib/sharePdf";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export interface InvoiceLineItem {
   description: string;
@@ -320,7 +319,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid, onDelete
                 }}
               >
                 {downloading ? (
-                  <ActivityIndicator color="#000" />
+                  <TennisBallSpinner color="#000" />
                 ) : (
                   <>
                     <Ionicons name={Platform.OS === "web" ? "print-outline" : "share-outline"} size={16} color="#000" />
@@ -350,7 +349,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid, onDelete
                   }}
                 >
                   {markPaidMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.successNeon} />
+                    <TennisBallSpinner color={Colors.dark.successNeon} />
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle" size={16} color={Colors.dark.successNeon} />
@@ -391,7 +390,7 @@ export function InvoiceViewerModal({ invoice, visible, onClose, onPaid, onDelete
                   }}
                 >
                   {deleting ? (
-                    <ActivityIndicator color={Colors.dark.error} />
+                    <TennisBallSpinner color={Colors.dark.error} />
                   ) : (
                     <>
                       <Ionicons name="trash-outline" size={16} color={Colors.dark.error} />

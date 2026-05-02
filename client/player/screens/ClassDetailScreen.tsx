@@ -6,10 +6,8 @@ import {
   ScrollView,
   Pressable,
   Alert,
-  ActivityIndicator,
   Share,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +21,7 @@ import { openDirections } from "@/lib/maps";
 import CoachRemindersCard from "@/player/components/CoachRemindersCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const BG = Backgrounds.root;
 const CARD_BG = "#12151C";
 const CARD_BORDER = "#1E2332";
@@ -401,7 +400,7 @@ export default function ClassDetailScreen() {
             disabled={isWorking}
           >
             {isWorking ? (
-              <ActivityIndicator size="small" color={DANGER} />
+              <TennisBallSpinner size="small" color={DANGER} />
             ) : (
               <>
                 <Ionicons name="close-circle-outline" size={18} color={DANGER} />
@@ -420,7 +419,7 @@ export default function ClassDetailScreen() {
             disabled={isWorking}
           >
             {isWorking ? (
-              <ActivityIndicator size="small" color={BG} />
+              <TennisBallSpinner size="small" color={BG} />
             ) : (
               <Text style={styles.primaryBtnText}>
                 Join{session.price != null ? ` — AED ${session.price}` : ""}

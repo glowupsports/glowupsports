@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, Pressable, Modal, ActivityIndicator, Alert, Platform, ScrollView } from "react-native";
+import { View, Text, Pressable, Modal, Alert, Platform, ScrollView } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Feather } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { invalidatePlayersList } from "@/lib/credit-cache";
 import { styles } from "./playersStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface AttendanceHistoryRecord {
   sessionId: string;
@@ -504,7 +505,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
         disabled={isExportingAttendanceReport}
       >
         {isExportingAttendanceReport ? (
-          <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+          <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
         ) : (
           <>
             <Ionicons name="document-text-outline" size={14} color={Colors.dark.xpCyan} />
@@ -518,7 +519,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
         disabled={isSharingAttendanceLink}
       >
         {isSharingAttendanceLink ? (
-          <ActivityIndicator size="small" color="#A78BFA" />
+          <TennisBallSpinner size="small" color="#A78BFA" />
         ) : (
           <>
             <Ionicons name="link-outline" size={14} color="#A78BFA" />
@@ -532,7 +533,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
         disabled={isSendingMonthlyReport}
       >
         {isSendingMonthlyReport ? (
-          <ActivityIndicator size="small" color={Colors.dark.primary} />
+          <TennisBallSpinner size="small" color={Colors.dark.primary} />
         ) : (
           <>
             <Ionicons name="mail-outline" size={14} color={Colors.dark.primary} />
@@ -694,7 +695,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
                 }}
               >
                 {isLoadingPage ? (
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
                 ) : (
                   <>
                     <Text style={styles.showMoreHistoryText}>
@@ -751,7 +752,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
               </Pressable>
             ))}
             {isUpdatingAttendance && (
-              <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={{ marginTop: 16 }} />
+              <TennisBallSpinner size="small" color={Colors.dark.xpCyan} style={{ marginTop: 16 }} />
             )}
             <Text style={styles.editAttendanceNote}>
               Changing attendance will automatically adjust credits

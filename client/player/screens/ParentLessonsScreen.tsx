@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -8,6 +8,7 @@ import { Colors, Backgrounds, Spacing, Typography, BorderRadius } from "@/consta
 import { getApiUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface LessonSummary {
   scheduled: number;
   attended: number;
@@ -116,7 +117,7 @@ export default function ParentLessonsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.text} />
+          <TennisBallSpinner size="large" color={Colors.dark.text} />
         </View>
       ) : (
         <ScrollView

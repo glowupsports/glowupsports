@@ -8,9 +8,7 @@ import {
   Switch,
   Alert,
   Platform,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+  ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -20,6 +18,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -234,7 +233,7 @@ function EditModal({
             style={[styles.editSaveBtn, { backgroundColor: color }]}
           >
             {saveMutation.isPending ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <TennisBallSpinner size="small" color="#fff" />
             ) : (
               <Text style={styles.editSaveBtnText}>Opslaan</Text>
             )}
@@ -410,7 +409,7 @@ export default function TierManagementScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator color={PLATFORM_COLOR} />
+            <TennisBallSpinner color={PLATFORM_COLOR} />
             <Text style={styles.loadingText}>Tiers laden...</Text>
           </View>
         ) : plans && plans.length > 0 ? (

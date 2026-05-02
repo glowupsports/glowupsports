@@ -1,9 +1,10 @@
 import React from "react";
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Dimensions} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path, Circle, Line, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import { Colors, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { useQuery } from "@tanstack/react-query";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface RatingHistoryChartProps {
   playerId: string;
@@ -54,7 +55,7 @@ export function RatingHistoryChart({
   if (isLoading) {
     return (
       <View style={[styles.container, { height }]}>
-        <ActivityIndicator color={GlowColors.primary} />
+        <TennisBallSpinner color={GlowColors.primary} />
       </View>
     );
   }

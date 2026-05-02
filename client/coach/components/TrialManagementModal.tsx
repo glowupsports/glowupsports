@@ -5,11 +5,9 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  ActivityIndicator,
   Alert,
   ScrollView,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -17,6 +15,7 @@ import * as Haptics from "expo-haptics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Player {
   id: string;
@@ -182,7 +181,7 @@ export default function TrialManagementModal({
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.dark.primary} />
+              <TennisBallSpinner size="large" color={Colors.dark.primary} />
             </View>
           ) : !activeTrial ? (
             <View style={styles.noTrialContainer}>
@@ -321,7 +320,7 @@ export default function TrialManagementModal({
                       disabled={recordTestMutation.isPending}
                     >
                       {recordTestMutation.isPending ? (
-                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                        <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <>
                           <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />
@@ -359,7 +358,7 @@ export default function TrialManagementModal({
                     disabled={completeTrialMutation.isPending || !activeTrial.allTestsPassed}
                   >
                     {completeTrialMutation.isPending ? (
-                      <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                      <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                     ) : (
                       <>
                         <Ionicons name="arrow-up" size={20} color={Colors.dark.buttonText} />

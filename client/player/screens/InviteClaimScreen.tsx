@@ -11,11 +11,9 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   Pressable,
   ScrollView,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -29,6 +27,7 @@ import {
 } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface InvitePreview {
   token: string;
@@ -155,7 +154,7 @@ export default function InviteClaimScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {loading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={Colors.dark.primary} />
+            <TennisBallSpinner color={Colors.dark.primary} />
           </View>
         ) : error ? (
           <View style={styles.center}>
@@ -302,7 +301,7 @@ export default function InviteClaimScreen() {
                   disabled={claiming}
                 >
                   {claiming ? (
-                    <ActivityIndicator size="small" color="#0B0D10" />
+                    <TennisBallSpinner size="small" color="#0B0D10" />
                   ) : (
                     <Text style={styles.btnPrimaryText}>Accept</Text>
                   )}

@@ -5,9 +5,7 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +18,7 @@ import { usePlayerLevelContext } from "@/player/context/PlayerLevelContext";
 import { LockedScreen } from "../components/LockedScreen";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface XPEvent {
   id: string;
   playerId: string;
@@ -223,7 +222,7 @@ export default function XPHistoryScreen() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color={Colors.dark.primary} style={styles.loader} />
+        <TennisBallSpinner color={Colors.dark.primary} style={styles.loader} />
       ) : xpHistory.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="flash-outline" size={48} color={Colors.dark.textMuted} />

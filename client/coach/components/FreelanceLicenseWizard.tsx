@@ -6,9 +6,7 @@ import {
   Pressable,
   Modal,
   TextInput,
-  Dimensions,
-  ActivityIndicator,
-} from "react-native";
+  Dimensions} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,6 +20,7 @@ import { Colors, Backgrounds, Typography, Spacing, BorderRadius } from "@/consta
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -440,7 +439,7 @@ export function FreelanceLicenseWizard({ visible, onClose, onSuccess }: Freelanc
                 disabled={!canProceed() || activateMutation.isPending}
               >
                 {activateMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
                     <Text style={[

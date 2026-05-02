@@ -5,11 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Alert,
   Modal,
-  FlatList,
-} from "react-native";
+  FlatList} from "react-native";
 import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +23,7 @@ import { CourtBookingPanel } from "@/components/CourtBooking";
 import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface OpenMatch {
   id: string;
   bookingId: string;
@@ -224,7 +223,7 @@ export default function ManageMatchScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loading]}>
-        <ActivityIndicator color={Colors.dark.primary} size="large" />
+        <TennisBallSpinner color={Colors.dark.primary} size="large" />
         <Text style={styles.loadingText}>Loading match details...</Text>
       </View>
     );
@@ -410,7 +409,7 @@ export default function ManageMatchScreen() {
           disabled={cancelMutation.isPending}
         >
           {cancelMutation.isPending ? (
-            <ActivityIndicator color={Colors.dark.error} size="small" />
+            <TennisBallSpinner color={Colors.dark.error} size="small" />
           ) : (
             <>
               <Ionicons name="close-circle" size={20} color={Colors.dark.error} />
@@ -471,7 +470,7 @@ export default function ManageMatchScreen() {
                       )}
                     </View>
                     {invitingFriendId === item.id ? (
-                      <ActivityIndicator color={Colors.dark.primary} size="small" />
+                      <TennisBallSpinner color={Colors.dark.primary} size="small" />
                     ) : (
                       <View style={styles.inviteButton}>
                         <Ionicons name="paper-plane" size={16} color={Colors.dark.buttonText} />
@@ -522,7 +521,7 @@ export default function ManageMatchScreen() {
                 disabled={kickMutation.isPending}
               >
                 {kickMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <TennisBallSpinner size="small" color="#fff" />
                 ) : (
                   <Text style={styles.confirmBtnDangerText}>Remove</Text>
                 )}

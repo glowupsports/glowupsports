@@ -6,11 +6,9 @@ import {
   Pressable,
   Modal,
   TextInput,
-  ActivityIndicator,
   Alert,
   Platform,
-  Image as RNImage,
-} from "react-native";
+  Image as RNImage} from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,6 +20,7 @@ import { apiRequest, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import {
   CourtBookingPicker,
   type CourtBookingStatus,
@@ -665,7 +664,7 @@ export default function CreateSessionDrawer({
             ]}
           >
             {createSessionMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+              <TennisBallSpinner size="small" color={Colors.dark.text} />
             ) : (
               <Text style={styles.submitText}>Book</Text>
             )}
@@ -904,7 +903,7 @@ export default function CreateSessionDrawer({
               {/* Conflict check indicator */}
               {isChecking ? (
                 <View style={styles.conflictBox}>
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
                   <Text style={styles.checkingText}>Checking...</Text>
                 </View>
               ) : conflicts.length > 0 ? (
@@ -1075,7 +1074,7 @@ export default function CreateSessionDrawer({
                   ]}
                 >
                   {createGuestMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
                   )}
@@ -1273,7 +1272,7 @@ export default function CreateSessionDrawer({
                         <Text style={styles.weekPreviewTitle}>Week Availability:</Text>
                         {isCheckingWeeks ? (
                           <View style={styles.weekPreviewLoading}>
-                            <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                            <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
                             <Text style={styles.weekPreviewLoadingText}>Checking {weekCount} weeks...</Text>
                           </View>
                         ) : weekAvailability.length > 0 ? (

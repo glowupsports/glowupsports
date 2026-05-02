@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+  Pressable} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -18,6 +16,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import { LockedScreen } from "../components/LockedScreen";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface BallLevel {
   id: string;
   name: string;
@@ -222,7 +221,7 @@ export default function TrialGatesScreen() {
         </View>
 
         {isLoading ? (
-          <ActivityIndicator color={Colors.dark.primary} style={styles.loader} />
+          <TennisBallSpinner color={Colors.dark.primary} style={styles.loader} />
         ) : (
           <>
             {activeTrials.length > 0 ? (

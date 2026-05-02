@@ -3,11 +3,9 @@ import {
   View,
   Text,
   Pressable,
-  ActivityIndicator,
   ScrollView,
   Alert,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -22,6 +20,7 @@ import { generateAttendanceReportPDF, StatItem, SkillBar } from "./AdminPlayerHe
 import { AdminPlayer, AdminPlayerPackage, AdminPlayerSessionItem, AdminPlayerStats } from "./adminPlayerTypes";
 import { ScheduleExtraLessonModal } from "@/coach/components/players/ScheduleExtraLessonModal";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface AdminInlinePlayerProfileProps {
   selectedPlayerId: string;
@@ -326,7 +325,7 @@ export function AdminInlinePlayerProfile({
 
       {statsLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.orange} />
+          <TennisBallSpinner size="large" color={Colors.dark.orange} />
           <Text style={styles.loadingText}>Loading player details...</Text>
         </View>
       ) : statsError ? (
@@ -545,7 +544,7 @@ export function AdminInlinePlayerProfile({
                     style={{ flex: 2, paddingVertical: Spacing.sm, borderRadius: 8, alignItems: "center", backgroundColor: Colors.dark.primary }}
                   >
                     {createCustomPackageMutation.isPending ? (
-                      <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                      <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                     ) : (
                       <Text style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 13 }}>Create Package</Text>
                     )}
@@ -739,7 +738,7 @@ export function AdminInlinePlayerProfile({
 
           {inviteLoading ? (
             <View style={[styles.section, CardStyles.elevated, { alignItems: "center", paddingVertical: 20 }]}>
-              <ActivityIndicator size="small" color={Colors.dark.orange} />
+              <TennisBallSpinner size="small" color={Colors.dark.orange} />
               <Text style={{ color: Colors.dark.textMuted, marginTop: 8, fontSize: 13 }}>Loading invite code...</Text>
             </View>
           ) : playerInvite?.inviteCode && playerInvite?.status === "pending" ? (
@@ -786,7 +785,7 @@ export function AdminInlinePlayerProfile({
                 disabled={regenerateInviteMutation.isPending}
               >
                 {regenerateInviteMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.error} />
+                  <TennisBallSpinner size="small" color={Colors.dark.error} />
                 ) : (
                   <Ionicons name="refresh-outline" size={16} color={Colors.dark.error} />
                 )}

@@ -6,9 +6,7 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -22,6 +20,7 @@ import { apiRequest } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const MIRROR_ACCENT = "#A78BFA";
 const PRIMARY = Colors.dark.primary;
 
@@ -249,7 +248,7 @@ export default function MatchPrepScreen() {
   if (loadingPlan) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={PRIMARY} style={{ marginTop: 80 }} />
+        <TennisBallSpinner size="large" color={PRIMARY} style={{ marginTop: 80 }} />
       </View>
     );
   }
@@ -509,7 +508,7 @@ export default function MatchPrepScreen() {
           disabled={isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+            <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />

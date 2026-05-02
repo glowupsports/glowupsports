@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { StyleSheet, View, ActivityIndicator, Platform } from "react-native";
+import { StyleSheet, View, Platform } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
 import { setCurrentAcademyId } from "@/lib/auth";
@@ -29,6 +29,7 @@ import PublicListingsScreen from "@/owner/screens/PublicListingsScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import { Colors } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export type OwnerTabParamList = {
   OwnerDashboard: undefined;
@@ -146,7 +147,7 @@ export default function OwnerNavigator() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <TennisBallSpinner size="large" color={Colors.dark.gold} />
       </View>
     );
   }

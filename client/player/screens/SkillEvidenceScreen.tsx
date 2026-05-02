@@ -5,11 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Alert,
   Platform,
-  Linking,
-} from "react-native";
+  Linking} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +22,7 @@ import { LockedScreen } from "../components/LockedScreen";
 import { VideoPlayerModal } from "@/components/VideoPlayerModal";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Skill {
   id: string;
   name: string;
@@ -457,7 +456,7 @@ export default function SkillEvidenceScreen() {
             <Text style={styles.sectionTitle}>My Evidence</Text>
             
             {loadingEvidence ? (
-              <ActivityIndicator color={Colors.dark.primary} style={styles.loader} />
+              <TennisBallSpinner color={Colors.dark.primary} style={styles.loader} />
             ) : evidence.length === 0 ? (
               <View style={styles.emptyState}>
                 <Ionicons name="film-outline" size={48} color={Colors.dark.textMuted} />

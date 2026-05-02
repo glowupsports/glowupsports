@@ -4,9 +4,7 @@ import {
   Text,
   ScrollView,
   Pressable,
-  ActivityIndicator,
-  StyleSheet,
-} from "react-native";
+  StyleSheet} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +13,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { getApiUrl } from "@/lib/query-client";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
 import { useCoachingScroll } from "../CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Player {
   id: string;
@@ -361,7 +360,7 @@ export function FeedbackCommandCenter({ tabBarHeight, onShowSessionList }: Feedb
   if (isDataLoading) {
     return (
       <View style={ccStyles.center}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
       </View>
     );
   }

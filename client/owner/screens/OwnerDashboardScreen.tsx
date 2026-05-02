@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -36,6 +34,7 @@ import { SettingsWalkthroughModal } from "@/components/SettingsWalkthroughModal"
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type NavigationProp = NativeStackNavigationProp<OwnerTabParamList>;
 
 interface OwnerBusinessDashboardData {
@@ -360,7 +359,7 @@ export default function OwnerDashboardScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <TennisBallSpinner size="large" color={Colors.dark.gold} />
         <Text style={styles.loadingText}>Loading Business Center...</Text>
       </View>
     );

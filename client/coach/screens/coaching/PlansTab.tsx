@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput, ActivityIndicator, Alert } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput, Alert } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -10,6 +10,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import type { TabProps, SessionTemplate } from "./types";
 import { styles } from "./coachingStyles";
 import { useCoachingScroll } from "./CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
   const onScroll = useCoachingScroll();
@@ -137,7 +138,7 @@ export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading templates...</Text>
       </View>
     );
@@ -371,7 +372,7 @@ export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
                 disabled={createTemplateMutation.isPending || !coachId}
               >
                 {createTemplateMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
                     <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />

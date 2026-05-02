@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
+  TextInput} from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +13,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Colors, Backgrounds, Spacing } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface WellnessLog {
   id: string;
@@ -189,7 +188,7 @@ export default function WellnessLogScreen() {
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       </View>
     );
@@ -214,7 +213,7 @@ export default function WellnessLogScreen() {
           disabled={saveMutation.isPending}
         >
           {saveMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+            <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
           ) : (
             <Text style={styles.saveButtonText}>SAVE</Text>
           )}

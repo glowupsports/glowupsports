@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Payment {
   id: string;
   amount: string;
@@ -98,7 +99,7 @@ export default function ParentPaymentsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.text} />
+          <TennisBallSpinner size="large" color={Colors.dark.text} />
         </View>
       ) : payments.length === 0 ? (
         <View style={styles.emptyState}>

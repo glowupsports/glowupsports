@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { usePlayer } from "@/player/context/PlayerContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type DrawerParamList = {
   AdultRanksList: undefined;
@@ -87,7 +88,7 @@ export default function AdultGlowRankScreen() {
   if (playerLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <ThemedText style={styles.loadingText}>Loading...</ThemedText>
       </View>
     );
@@ -108,7 +109,7 @@ export default function AdultGlowRankScreen() {
   if (isLoading || !profileData) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <ThemedText style={styles.loadingText}>Loading rank data...</ThemedText>
       </View>
     );

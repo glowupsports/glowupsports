@@ -6,11 +6,9 @@ import {
   FlatList,
   Pressable,
   TextInput,
-  ActivityIndicator,
   Modal,
   Alert,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +19,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useTabNavigation } from "@/components/TabNavigationContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface PinAllowance {
   canPin: boolean;
@@ -435,7 +434,7 @@ export default function ChatRoomScreen() {
 
       {isLoading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={Colors.dark.primary} />
+          <TennisBallSpinner color={Colors.dark.primary} />
         </View>
       ) : (
         <FlatList

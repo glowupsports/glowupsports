@@ -5,11 +5,9 @@ import {
   StyleSheet,
   Pressable,
   Platform,
-  ActivityIndicator,
   ScrollView,
   Modal,
-  Linking,
-} from "react-native";
+  Linking} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +18,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { apiFetch } from "@/lib/query-client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useTabNavigation } from "@/components/TabNavigationContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 // Local navigation contract: only the routes this screen targets, including
 // nested-tab targets for OpenMatches (Play tab) and TournamentDetail (Growth tab).
@@ -525,7 +524,7 @@ function DiscoveryMapScreenInner() {
             <Text style={styles.webNoticeText}>{fallbackMessage}</Text>
           </View>
           {isLoading ? (
-            <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
+            <TennisBallSpinner color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
           ) : isError ? (
             <View style={{ alignItems: "center", marginTop: Spacing.xl }}>
               <Text style={styles.empty}>Couldn&apos;t load map data.</Text>
@@ -628,7 +627,7 @@ function DiscoveryMapScreenInner() {
 
       {(isLoading || isFetching) ? (
         <View style={[styles.loadingBadge, { top: headerTop + 60 }]} pointerEvents="none">
-          <ActivityIndicator size="small" color="#fff" />
+          <TennisBallSpinner size="small" color="#fff" />
         </View>
       ) : null}
 

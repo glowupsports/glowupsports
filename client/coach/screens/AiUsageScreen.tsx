@@ -4,13 +4,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
   Alert,
   TextInput,
-  Modal,
-} from "react-native";
+  Modal} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,6 +16,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface FeatureBreakdown {
   featureType: string;
@@ -325,7 +324,7 @@ export default function AiUsageScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={Colors.dark.xpCyan} />
+        <TennisBallSpinner color={Colors.dark.xpCyan} />
       </View>
     );
   }
@@ -476,7 +475,7 @@ export default function AiUsageScreen() {
             <SectionTitle title="Academy Budgets" />
             {academyLoading ? (
               <View style={styles.loadingRow}>
-                <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
               </View>
             ) : academyData?.academies && academyData.academies.length > 0 ? (
               academyData.academies.map((academy) => (

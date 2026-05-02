@@ -6,13 +6,11 @@ import {
   ScrollView,
   RefreshControl,
   Pressable,
-  ActivityIndicator,
   Alert,
   Modal,
   Platform,
   I18nManager,
-  useWindowDimensions,
-} from "react-native";
+  useWindowDimensions} from "react-native";
 import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -57,6 +55,7 @@ import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import {
   ScheduleTabBar,
   StatsBand,
@@ -1157,7 +1156,7 @@ export default function PlayerScheduleScreen() {
   if (sessionsLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={EVENT_COLORS.lesson} />
+        <TennisBallSpinner size="large" color={EVENT_COLORS.lesson} />
         <Text style={styles.loadingText}>{t("player.schedule.loadingSchedule")}</Text>
       </View>
     );

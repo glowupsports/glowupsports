@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { Card } from "@/components/Card";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface SessionFeedback {
   id: string;
   sessionId: string;
@@ -202,7 +203,7 @@ export default function CoachFeedbackHistoryScreen() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.accentText} />
+            <TennisBallSpinner size="large" color={Colors.dark.accentText} />
             <Text style={styles.loadingText}>Loading feedback...</Text>
           </View>
         ) : error ? (

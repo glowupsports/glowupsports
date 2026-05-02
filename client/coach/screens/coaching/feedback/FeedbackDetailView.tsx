@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing } from "@/constants/theme";
@@ -7,6 +7,7 @@ import { styles } from "../coachingStyles";
 import type { FeedbackTabState } from "./useFeedbackTab";
 import type { QuickSignal, SocialIssue } from "../types";
 import { useCoachingScroll } from "../CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export function FeedbackDetailView(props: FeedbackTabState) {
   const onScroll = useCoachingScroll();
@@ -588,7 +589,7 @@ export function FeedbackDetailView(props: FeedbackTabState) {
           disabled={saveFeedbackMutation.isPending}
         >
           {saveFeedbackMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+            <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />

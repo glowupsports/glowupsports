@@ -7,11 +7,9 @@ import {
   Pressable,
   FlatList,
   TextInput,
-  ActivityIndicator,
   Alert,
   Modal,
-  Switch,
-} from "react-native";
+  Switch} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +20,7 @@ import { apiRequest } from "@/lib/query-client";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type NavigationProp = NativeStackNavigationProp<CoachStackParamList>;
 
@@ -361,7 +360,7 @@ function CreateTournamentModal({ visible, onClose, onSuccess }: { visible: boole
             disabled={createMutation.isPending}
           >
             {createMutation.isPending ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <TennisBallSpinner size="small" color="#fff" />
             ) : (
               <>
                 <Ionicons name="trophy" size={16} color="#fff" />
@@ -453,7 +452,7 @@ function TournamentList({ onCreatePress: _onCreatePress, onSelectTournament }: {
   if (isLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={GlowColors.primary} />
+        <TennisBallSpinner color={GlowColors.primary} />
       </View>
     );
   }
@@ -692,7 +691,7 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
   });
 
   if (isLoading || !tournament) {
-    return <View style={styles.centered}><ActivityIndicator color={GlowColors.primary} /></View>;
+    return <View style={styles.centered}><TennisBallSpinner color={GlowColors.primary} /></View>;
   }
 
   const pendingMatches = tournament.matches.filter(
@@ -822,7 +821,7 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
               disabled={generateAmericanoMutation.isPending}
             >
               {generateAmericanoMutation.isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <TennisBallSpinner size="small" color="#fff" />
               ) : (
                 <>
                   <Ionicons name="sync-outline" size={16} color="#fff" />
@@ -941,7 +940,7 @@ function TournamentDetailView({ tournamentId }: { tournamentId: string }) {
               disabled={generateDrawMutation.isPending}
             >
               {generateDrawMutation.isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <TennisBallSpinner size="small" color="#fff" />
               ) : (
                 <>
                   <Ionicons name="git-network-outline" size={16} color="#fff" />

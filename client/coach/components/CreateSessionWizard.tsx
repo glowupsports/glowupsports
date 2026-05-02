@@ -7,7 +7,7 @@ import React, {
   useRef,
 } from "react";
 
-import { View, Text, StyleSheet, Pressable, Modal, TextInput, ActivityIndicator, Alert, Dimensions, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert, Dimensions, ScrollView } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";import Ionicons from "@expo/vector-icons/Ionicons";
@@ -29,6 +29,7 @@ import { apiRequest, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -3231,7 +3232,7 @@ export default function CreateSessionWizard({
                   style={styles.createBtnGradient}
                 >
                   {createSessionMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} />
+                    <TennisBallSpinner color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Ionicons
@@ -3589,7 +3590,7 @@ export default function CreateSessionWizard({
                   style={styles.guestModalAddBtnGradient}
                 >
                   {isCreatingGuest ? (
-                    <ActivityIndicator
+                    <TennisBallSpinner
                       size="small"
                       color={Colors.dark.buttonText}
                     />

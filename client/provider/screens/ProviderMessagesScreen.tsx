@@ -5,15 +5,14 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
-  Image,
-} from "react-native";
+  Image} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Conversation {
   id: string;
@@ -103,7 +102,7 @@ export default function ProviderMessagesScreen() {
 
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={Colors.dark.primary} />
+          <TennisBallSpinner color={Colors.dark.primary} />
         </View>
       ) : (
         <FlatList

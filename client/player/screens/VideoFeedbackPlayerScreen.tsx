@@ -5,10 +5,8 @@ import {
   StyleSheet,
   Pressable,
   FlatList,
-  ActivityIndicator,
   ScrollView,
-  Dimensions,
-} from "react-native";
+  Dimensions} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +18,7 @@ import { getStaticAssetsUrl } from "@/lib/query-client";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface VideoAnnotation {
   timestamp: number;
   text: string;
@@ -210,7 +209,7 @@ export default function VideoFeedbackPlayerScreen() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator size="large" color={Colors.dark.accentText} style={{ marginTop: 60 }} />
+        <TennisBallSpinner size="large" color={Colors.dark.accentText} style={{ marginTop: 60 }} />
       ) : allFeedback.length === 0 ? (
         <EmptyStateCard
           icon="videocam-outline"

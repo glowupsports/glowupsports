@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Coach {
   id: string;
   name: string;
@@ -129,7 +130,7 @@ export default function OperationsScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <TennisBallSpinner size="large" color={Colors.dark.gold} />
         <Text style={styles.loadingText}>Loading operations...</Text>
       </View>
     );

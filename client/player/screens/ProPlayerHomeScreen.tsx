@@ -2,7 +2,7 @@ import React, { useCallback, useState, useEffect, useMemo, useRef } from "react"
 import * as Sentry from "@sentry/react-native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable, DimensionValue, Modal, NativeScrollEvent, NativeSyntheticEvent, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Pressable, DimensionValue, Modal, NativeScrollEvent, NativeSyntheticEvent, Platform } from "react-native";
 import { LazyOnScroll, ScrollPositionContext, useScrollPositionController } from "@/player/components/LazyOnScroll";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -49,6 +49,7 @@ import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointment
 import { CoachesRail, JoinAcademySoftCard } from "@/player/components/CoachesRail";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface DashboardData {
   player: {
     id: string;
@@ -425,7 +426,7 @@ function IQQuizModal({
 
           {quizLoading ? (
             <View style={iqCardStyles.loadingWrap}>
-              <ActivityIndicator color={Colors.dark.gold} size="small" />
+              <TennisBallSpinner color={Colors.dark.gold} size="small" />
               <Text style={iqCardStyles.loadingText}>Loading questions...</Text>
             </View>
           ) : quizComplete ? (

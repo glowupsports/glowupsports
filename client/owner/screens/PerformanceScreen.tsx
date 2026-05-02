@@ -1,9 +1,10 @@
 import React, { } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface MetricCardProps {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
@@ -142,7 +143,7 @@ export default function PerformanceScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <TennisBallSpinner size="large" color={Colors.dark.gold} />
         <Text style={styles.loadingText}>Loading performance data...</Text>
       </View>
     );

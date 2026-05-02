@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Modal, Alert, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Modal, Alert, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Coach {
   id: string;
   name: string;
@@ -402,7 +403,7 @@ export default function AdminCoachesScreen() {
 
           {statsLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.dark.orange} />
+              <TennisBallSpinner size="large" color={Colors.dark.orange} />
               <Text style={styles.loadingText}>Loading coach details...</Text>
             </View>
           ) : statsError ? (
@@ -625,7 +626,7 @@ export default function AdminCoachesScreen() {
                 disabled={deleteCoachMutation.isPending}
               >
                 {deleteCoachMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.error} />
+                  <TennisBallSpinner size="small" color={Colors.dark.error} />
                 ) : (
                   <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
                 )}
@@ -668,7 +669,7 @@ export default function AdminCoachesScreen() {
               </View>
 
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={Colors.dark.orange} />
+                <TennisBallSpinner size="small" color={Colors.dark.orange} />
                 <Text style={styles.loadingText}>Loading full stats...</Text>
               </View>
             </ScrollView>
@@ -771,7 +772,7 @@ export default function AdminCoachesScreen() {
                   disabled={markPaidMutation.isPending}
                 >
                   {markPaidMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                    <TennisBallSpinner size="small" color={Colors.dark.text} />
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle" size={20} color={Colors.dark.text} />
@@ -790,7 +791,7 @@ export default function AdminCoachesScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.orange} />
+        <TennisBallSpinner size="large" color={Colors.dark.orange} />
       </View>
     );
   }

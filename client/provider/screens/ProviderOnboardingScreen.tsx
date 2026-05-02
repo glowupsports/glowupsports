@@ -5,15 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import {
   PROVIDER_SPECIALIZATIONS,
   SPECIALIZATION_KEYS,
@@ -129,7 +128,7 @@ export default function ProviderOnboardingScreen() {
           disabled={selected.length === 0 || saving}
         >
           {saving ? (
-            <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+            <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
           ) : (
             <Text style={styles.ctaText}>Let&apos;s Go</Text>
           )}

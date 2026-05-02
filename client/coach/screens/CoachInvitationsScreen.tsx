@@ -6,9 +6,7 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +22,7 @@ import Animated, {
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface CoachInvitation {
   id: string;
@@ -335,7 +334,7 @@ export default function CoachInvitationsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+          <TennisBallSpinner size="large" color={Colors.dark.xpCyan} />
         </View>
       ) : (
         <ScrollView 
@@ -433,7 +432,7 @@ export default function CoachInvitationsScreen() {
                         style={styles.sendButtonGradient}
                       >
                         {createMutation.isPending ? (
-                          <ActivityIndicator size="small" color={Colors.dark.text} />
+                          <TennisBallSpinner size="small" color={Colors.dark.text} />
                         ) : (
                           <>
                             <Ionicons name="send" size={16} color={Colors.dark.text} />

@@ -7,9 +7,7 @@ import {
   Modal,
   ScrollView,
   TextInput,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -17,6 +15,7 @@ import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, getPlayerLevelColor, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const STROKES = [
   { id: "forehand", label: "Forehand" },
@@ -436,7 +435,7 @@ export default function StrokeFeedbackModal({
             disabled={submitMutation.isPending}
           >
             {submitMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Text style={styles.nextButtonText}>

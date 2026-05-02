@@ -21,12 +21,10 @@ import {
   StyleSheet,
   Modal,
   TextInput,
-  ActivityIndicator,
   ScrollView,
   Alert,
   Platform,
-  Switch,
-} from "react-native";
+  Switch} from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
@@ -41,6 +39,7 @@ import {
 } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import type { MatchCandidate } from "./PlayerMatchCard";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Props {
   visible: boolean;
@@ -419,7 +418,7 @@ export function ChallengeComposerModal({
               }}
             >
               {mutation.isPending ? (
-                <ActivityIndicator color="#0B0D10" size="small" />
+                <TennisBallSpinner color="#0B0D10" size="small" />
               ) : (
                 <>
                   <Text style={styles.footerPrimaryText}>

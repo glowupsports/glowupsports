@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -15,6 +15,7 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constan
 import AdminSeriesDetailDrawer from "../components/AdminSeriesDetailDrawer";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import { RouteProp } from "@react-navigation/native";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type AdminClassesScreenProps = {
   route?: RouteProp<{ ClassesManagement: { focusSeriesId?: string } | undefined }, "ClassesManagement">;
@@ -220,7 +221,7 @@ export default function AdminClassesScreen({ route }: AdminClassesScreenProps) {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={ADMIN_COLOR} />
+        <TennisBallSpinner size="large" color={ADMIN_COLOR} />
       </View>
     );
   }

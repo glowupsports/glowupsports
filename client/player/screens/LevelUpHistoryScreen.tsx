@@ -5,9 +5,7 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +17,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import { LockedScreen } from "../components/LockedScreen";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface LevelUpEvent {
   id: string;
   playerId: string;
@@ -206,7 +205,7 @@ export default function LevelUpHistoryScreen() {
     return (
       <LockedScreen featureKey="level_up_history">
         <View style={[styles.container, styles.loadingContainer]}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Loading your journey...</Text>
         </View>
       </LockedScreen>

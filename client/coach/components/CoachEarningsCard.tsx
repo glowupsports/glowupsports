@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Typography, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { InfoTooltip } from "@/components/InfoTooltip";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface EarningsSummary {
   realized: {
@@ -76,7 +77,7 @@ export function CoachEarningsCard({ onPress }: Props) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingCard}>
-          <ActivityIndicator size="small" color={Colors.dark.primary} />
+          <TennisBallSpinner size="small" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Loading earnings...</Text>
         </View>
       </View>

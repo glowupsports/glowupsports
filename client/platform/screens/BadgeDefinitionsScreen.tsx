@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -50,7 +51,7 @@ export default function BadgeDefinitionsScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <TennisBallSpinner size="large" color={PLATFORM_COLOR} />
         <Text style={styles.loadingText}>Loading badges...</Text>
       </View>
     );

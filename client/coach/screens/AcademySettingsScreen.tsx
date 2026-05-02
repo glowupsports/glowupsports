@@ -6,10 +6,8 @@ import {
   Pressable,
   TextInput,
   Alert,
-  ActivityIndicator,
   Share,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -26,6 +24,7 @@ import { useTranslation } from "react-i18next";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface JoinCodeData {
   joinCode: string | null;
@@ -357,7 +356,7 @@ export default function AcademySettingsScreen() {
         
         {joinCodeLoading ? (
           <View style={styles.joinCodeLoadingContainer}>
-            <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+            <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
           </View>
         ) : joinCodeData?.joinCode ? (
           <>
@@ -398,7 +397,7 @@ export default function AcademySettingsScreen() {
                 style={styles.generateCodeGradient}
               >
                 {regenerateJoinCodeMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
                     <Ionicons name="add" size={20} color={Colors.dark.buttonText} />
@@ -712,7 +711,7 @@ export default function AcademySettingsScreen() {
             style={styles.buttonGradient}
           >
             {updateSettingsMutation.isPending ? (
-              <ActivityIndicator color={Colors.dark.buttonText} />
+              <TennisBallSpinner color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="checkmark" size={20} color={Colors.dark.buttonText} />
@@ -731,7 +730,7 @@ export default function AcademySettingsScreen() {
         <Text style={styles.sectionTitle}>TEAM MEMBERS ({members.length})</Text>
         
         {membersLoading ? (
-          <ActivityIndicator color={Colors.dark.xpCyan} />
+          <TennisBallSpinner color={Colors.dark.xpCyan} />
         ) : members.length === 0 ? (
           <Text style={styles.emptyText}>No team members yet</Text>
         ) : (
@@ -808,7 +807,7 @@ export default function AcademySettingsScreen() {
             style={styles.buttonGradient}
           >
             {createInviteMutation.isPending ? (
-              <ActivityIndicator color={Colors.dark.buttonText} />
+              <TennisBallSpinner color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="mail-outline" size={20} color={Colors.dark.buttonText} />
@@ -823,7 +822,7 @@ export default function AcademySettingsScreen() {
         <Text style={styles.sectionTitle}>PENDING INVITES ({invites.filter(i => i.status === "pending").length})</Text>
         
         {invitesLoading ? (
-          <ActivityIndicator color={Colors.dark.xpCyan} />
+          <TennisBallSpinner color={Colors.dark.xpCyan} />
         ) : invites.filter(i => i.status === "pending").length === 0 ? (
           <Text style={styles.emptyText}>No pending invites</Text>
         ) : (
@@ -850,7 +849,7 @@ export default function AcademySettingsScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+          <TennisBallSpinner size="large" color={Colors.dark.xpCyan} />
         </View>
       </View>
     );

@@ -5,10 +5,8 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  ActivityIndicator,
   ScrollView,
-  Dimensions,
-} from "react-native";
+  Dimensions} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -18,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { BaselineFlowCard, AnimatedCheckbox, ProgressRing } from "./BaselineFlowCard";import { AnimatedCheck } from "@/components/AnimatedCheck";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -764,7 +763,7 @@ export function PremiumBaselineFlow({
           onBack={handleBack}
         >
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={GlowColors.primary} />
+            <TennisBallSpinner size="large" color={GlowColors.primary} />
           </View>
         </BaselineFlowCard>
       );

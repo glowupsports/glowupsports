@@ -6,11 +6,9 @@ import {
   ScrollView,
   Pressable,
   Switch,
-  ActivityIndicator,
   Platform,
   Alert,
-  useWindowDimensions,
-} from "react-native";
+  useWindowDimensions} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -19,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Permission {
   key: string;
@@ -290,7 +289,7 @@ export default function AdminRolesPermissionsScreen() {
           disabled={!hasChanges || saveMutation.isPending}
         >
           {saveMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+            <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
           ) : (
             <Text style={[styles.saveButtonText, !hasChanges && styles.saveButtonTextDisabled]}>
               Save

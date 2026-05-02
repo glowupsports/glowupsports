@@ -4,14 +4,13 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  SectionList,
-  ActivityIndicator,
-} from "react-native";
+  SectionList} from "react-native";
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import {
   Colors,
   Backgrounds,
@@ -168,7 +167,7 @@ export default function PlayerFeedbackHistorySheet({
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator color={GlowColors.primary} />
+              <TennisBallSpinner color={GlowColors.primary} />
             </View>
           ) : sections.length === 0 ? (
             <View style={styles.emptyContainer}>

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, FlatList, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { buildPhotoUrl } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type Sport = "tennis" | "padel" | "pickleball";
 type Scope = "country" | "global";
@@ -172,7 +173,7 @@ export default function CountryLeaderboardScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.center}><ActivityIndicator size="large" color={Colors.dark.gold} /></View>
+        <View style={styles.center}><TennisBallSpinner size="large" color={Colors.dark.gold} /></View>
       ) : isError ? (
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={36} color={Colors.dark.danger} />

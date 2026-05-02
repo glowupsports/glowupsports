@@ -6,11 +6,9 @@ import {
   Pressable,
   Modal,
   TextInput,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-} from "react-native";
+  ScrollView} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +17,7 @@ import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const NEON_YELLOW = "#FFE600";
 
 type Category = "bug" | "idea" | "compliment";
@@ -217,7 +216,7 @@ export function BetaFeedbackButton({
                     disabled={!canSubmit}
                   >
                     {isSubmitting ? (
-                      <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                      <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                     ) : (
                       <>
                         <Ionicons name="send" size={16} color={Colors.dark.buttonText} />

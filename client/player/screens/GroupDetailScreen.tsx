@@ -5,7 +5,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ActivityIndicator,
   Alert,
   ScrollView,
   TextInput,
@@ -13,8 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Share,
-  Image,
-} from "react-native";
+  Image} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -33,6 +31,7 @@ import { useTranslation } from "react-i18next";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface GroupDetail {
   group: {
     id: string;
@@ -281,7 +280,7 @@ function CommentsSheet({
           {/* Comment list */}
           {isLoading ? (
             <View style={styles.commentsLoading}>
-              <ActivityIndicator color={typeColor} />
+              <TennisBallSpinner color={typeColor} />
             </View>
           ) : comments.length === 0 ? (
             <View style={styles.commentsEmpty}>
@@ -340,7 +339,7 @@ function CommentsSheet({
               onPress={() => addMutation.mutate()}
             >
               {addMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Ionicons name="send" size={16} color={Colors.dark.buttonText} />
               )}
@@ -620,7 +619,7 @@ function ComposePostModal({
               ]}
             >
               {postMutation.isPending || uploading ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.composePostBtnText}>Post</Text>
               )}
@@ -804,7 +803,7 @@ function AddMembersModal({
 
           {isLoading ? (
             <View style={styles.addMembersLoading}>
-              <ActivityIndicator color={typeColor} />
+              <TennisBallSpinner color={typeColor} />
             </View>
           ) : isEmpty ? (
             <View style={styles.addMembersEmpty}>
@@ -1166,7 +1165,7 @@ function CreateEventWizard({
               style={[styles.composePostBtn, { backgroundColor: canAdvance ? typeColor : typeColor + "50" }]}
             >
               {mutation.isPending && isLastStep ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.composePostBtnText}>{isLastStep ? (isMatchFlow ? "Challenge" : "Create") : "Next"}</Text>
               )}
@@ -1857,7 +1856,7 @@ function GroupEventsTab({
   };
 
   if (isLoading) {
-    return <ActivityIndicator style={{ marginTop: 60 }} color={typeColor} />;
+    return <TennisBallSpinner style={{ marginTop: 60 }} color={typeColor} />;
   }
 
   return (
@@ -2177,7 +2176,7 @@ function GroupChatTab({
   if (loadingConv) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator color={typeColor} />
+        <TennisBallSpinner color={typeColor} />
       </View>
     );
   }
@@ -2274,7 +2273,7 @@ function GroupChatTab({
             disabled={!inputText.trim() || sending}
             style={[chatStyles.sendBtn, { backgroundColor: inputText.trim() ? typeColor : typeColor + "40" }]}
           >
-            {sending ? <ActivityIndicator size="small" color={Colors.dark.buttonText} /> : <Ionicons name="send" size={18} color={Colors.dark.buttonText} />}
+            {sending ? <TennisBallSpinner size="small" color={Colors.dark.buttonText} /> : <Ionicons name="send" size={18} color={Colors.dark.buttonText} />}
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -2516,7 +2515,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
       </View>
     );
   }
@@ -2617,7 +2616,7 @@ export default function GroupDetailScreen({ route, navigation }: Props) {
       {activeTab === "feed" ? (
         feedLoading ? (
           <View style={styles.centered}>
-            <ActivityIndicator color={Colors.dark.primary} />
+            <TennisBallSpinner color={Colors.dark.primary} />
           </View>
         ) : (
           <FlatList

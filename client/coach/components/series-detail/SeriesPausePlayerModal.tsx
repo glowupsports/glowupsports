@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, Modal, Pressable, ActivityIndicator, TextInput, Platform } from "react-native";
+import { View, Text, Modal, Pressable, TextInput, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing } from "@/constants/theme";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { styles } from "./seriesDetailStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Props {
   visible: boolean;
@@ -169,7 +170,7 @@ export function SeriesPausePlayerModal({
                 disabled={isPending || isInvalid}
               >
                 {isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.confirmButtonText}>Pause Player</Text>
                 )}

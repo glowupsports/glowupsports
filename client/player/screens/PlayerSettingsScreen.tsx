@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, ActivityIndicator, Linking, Modal, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, Linking, Modal, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -28,6 +28,7 @@ import { PinSetupModal } from "@/components/PinSetupModal";
 import { PinRecoveryModal } from "@/components/PinRecoveryModal";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface SettingItem {
   id: string;
   icon: string;
@@ -605,7 +606,7 @@ export default function PlayerSettingsScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>My Sports</Text>
-            {sportSaving ? <ActivityIndicator size="small" color={Colors.dark.primary} /> : null}
+            {sportSaving ? <TennisBallSpinner size="small" color={Colors.dark.primary} /> : null}
           </View>
           <Text style={styles.sectionSubtitle}>Select the sports you play to personalise your experience.</Text>
           <View style={styles.sectionCard}>
@@ -1001,7 +1002,7 @@ export default function PlayerSettingsScreen() {
                   {appleLinked ? "Apple ID Linked" : "Link Apple ID"}
                 </Text>
                 {appleLoading ? (
-                  <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} />
                 ) : (
                   <Pressable
                     onPress={appleLinked ? handleUnlinkApple : handleLinkApple}
@@ -1060,7 +1061,7 @@ export default function PlayerSettingsScreen() {
           accessibilityLabel="Delete my account"
         >
           {deleteLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.error} />
+            <TennisBallSpinner size="small" color={Colors.dark.error} />
           ) : (
             <>
               <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
@@ -1104,7 +1105,7 @@ export default function PlayerSettingsScreen() {
               accessibilityLabel="Join family"
             >
               {joinLoading ? (
-                <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
               ) : (
                 <Text style={styles.joinButtonText}>Join Family</Text>
               )}

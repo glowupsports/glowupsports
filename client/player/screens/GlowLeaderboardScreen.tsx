@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, memo } from "react";
-import { View, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import { LockedScreen } from "../components/LockedScreen";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface RankedPlayer {
   rank: number;
   id: string;
@@ -369,7 +370,7 @@ export default function GlowLeaderboardScreen() {
 
       {effectiveLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.gold} />
+          <TennisBallSpinner size="large" color={Colors.dark.gold} />
         </View>
       ) : effectiveError ? (
         <View style={styles.loadingContainer}>

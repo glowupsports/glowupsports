@@ -5,12 +5,10 @@ import {
   StyleSheet,
   Pressable,
   TextInput,
-  ActivityIndicator,
   Alert,
   Platform,
   Switch,
-  Image as RNImage,
-} from "react-native";
+  Image as RNImage} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -32,6 +30,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/consta
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface CoachProfile {
   id: string;
@@ -255,7 +254,7 @@ export default function CoachProfileScreen() {
         style={[styles.container, { paddingTop: insets.top }]}
       >
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       </LinearGradient>
     );
@@ -301,7 +300,7 @@ export default function CoachProfileScreen() {
                   style={styles.saveButton}
                 >
                   {updateMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.saveText}>Save</Text>
                   )}
@@ -364,7 +363,7 @@ export default function CoachProfileScreen() {
                 </LinearGradient>
                 <View style={styles.cameraIconOverlay}>
                   {isUploadingPhoto ? (
-                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                    <TennisBallSpinner size="small" color={Colors.dark.text} />
                   ) : (
                     <Ionicons name="camera" size={16} color={Colors.dark.text} />
                   )}

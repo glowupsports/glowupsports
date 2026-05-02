@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
+  TextInput} from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface MatchDetail {
   id: string;
@@ -173,7 +172,7 @@ export default function MatchReviewScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <TennisBallSpinner size="large" color={Colors.primary} />
       </View>
     );
   }

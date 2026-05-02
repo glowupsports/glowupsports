@@ -5,9 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Alert,
-  ActivityIndicator,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface CorporateAccount {
   id: string;
   companyName: string;
@@ -107,7 +106,7 @@ export default function CompanyContactDashboardScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator color={Colors.dark.orange} size="large" />
+        <TennisBallSpinner color={Colors.dark.orange} size="large" />
       </View>
     );
   }
@@ -234,7 +233,7 @@ export default function CompanyContactDashboardScreen() {
                             disabled={inviteMutation.isPending}
                           >
                             {inviteMutation.isPending ? (
-                              <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                              <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
                             ) : (
                               <Text style={styles.sendInviteBtnText}>Send</Text>
                             )}

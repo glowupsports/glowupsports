@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator, Platform } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +18,7 @@ import Animated, {
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors, TextColors } from "@/constants/theme";
 import { apiFetch } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface DrillBlock {
   id: string;
@@ -290,7 +291,7 @@ function TemplateCard({ template, index }: { template: LessonTemplate; index: nu
         <View style={styles.blocksContainer}>
           {isLoading ? (
             <View style={styles.loadingBlocks}>
-              <ActivityIndicator size="small" color={config.color} />
+              <TennisBallSpinner size="small" color={config.color} />
               <ThemedText style={styles.loadingText}>Loading blocks...</ThemedText>
             </View>
           ) : blocks.length > 0 ? (
@@ -421,7 +422,7 @@ export default function LessonTemplateLibraryScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={GlowColors.primary} />
+        <TennisBallSpinner size="large" color={GlowColors.primary} />
         <ThemedText style={styles.loadingText}>Loading lesson templates...</ThemedText>
       </View>
     );

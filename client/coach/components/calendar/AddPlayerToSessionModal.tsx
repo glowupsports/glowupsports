@@ -6,10 +6,8 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  ActivityIndicator,
   StyleSheet,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { formatTimeInTimezone } from "@/lib/dateUtils";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface AvailablePlayer {
   id: string;
@@ -375,7 +374,7 @@ export function AddPlayerToSessionModal({
 
           {playersLoading ? (
             <View style={styles.loadingBlock}>
-              <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+              <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
               <Text style={styles.loadingText}>Loading players...</Text>
             </View>
           ) : null}
@@ -425,7 +424,7 @@ export function AddPlayerToSessionModal({
                   ) : null}
                 </View>
                 {isSubmitting ? (
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
                 ) : (
                   <Ionicons
                     name="add-circle"

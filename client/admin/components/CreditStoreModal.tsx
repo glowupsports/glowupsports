@@ -5,15 +5,14 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  ActivityIndicator,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface CreditStoreModalProps {
   visible: boolean;
@@ -262,7 +261,7 @@ export default function CreditStoreModal({ visible, onClose, playerId, playerNam
                 disabled={grantCreditsMutation.isPending || !isCustomValid}
               >
                 {grantCreditsMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                  <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
                 ) : (
                   <>
                     <Ionicons name="add-circle" size={18} color={Colors.dark.buttonText} />

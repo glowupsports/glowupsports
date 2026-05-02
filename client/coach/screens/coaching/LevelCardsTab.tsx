@@ -5,14 +5,13 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+  ScrollView} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { TabProps } from "./types";
 import { useCoachingScroll } from "./CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export function LevelCardsTab({ insets: _insets, tabBarHeight }: TabProps) {
   const _navigation = useNavigation<any>();
@@ -59,7 +58,7 @@ export function LevelCardsTab({ insets: _insets, tabBarHeight }: TabProps) {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator size="large" color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
       ) : levelData && levelData.length > 0 ? (
         <View style={levelCardsStyles.pillarsContainer}>
           {levelData.map((level: any, index: number) => (

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   Alert as RNAlert,
   Platform,
   Linking,
@@ -53,6 +52,7 @@ import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useTranslation } from "react-i18next";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Player {
   id: string;
@@ -904,7 +904,7 @@ function CounterProposeModal({
           <Text style={bStyles.counterInputLabel}>Select start time</Text>
           {isFetching ? (
             <View style={cpStyles.loadingRow}>
-              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} />
               <Text style={cpStyles.loadingText}>Loading available slots...</Text>
             </View>
           ) : isError ? (
@@ -978,7 +978,7 @@ function CounterProposeModal({
             disabled={!canSend || loadingCounter}
           >
             {loadingCounter ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <TennisBallSpinner size="small" color="#FFF" />
             ) : (
               <Text style={bStyles.sendMsgBtnText}>Send Alternative Time</Text>
             )}
@@ -1497,7 +1497,7 @@ function BookingRequestCard({
             disabled={loadingApprove}
           >
             {loadingApprove ? (
-              <ActivityIndicator size="small" color="#000" />
+              <TennisBallSpinner size="small" color="#000" />
             ) : (
               <>
                 <Ionicons name="checkmark" size={16} color="#000" />
@@ -1527,7 +1527,7 @@ function BookingRequestCard({
             disabled={loadingApprove}
           >
             {loadingApprove ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <TennisBallSpinner size="small" color="#FFF" />
             ) : (
               <Text style={bStyles.confirmApproveBtnText}>Confirm Approval</Text>
             )}
@@ -1572,7 +1572,7 @@ function BookingRequestCard({
                 disabled={loadingDecline}
               >
                 {loadingDecline ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                  <TennisBallSpinner size="small" color="#FFF" />
                 ) : (
                   <Text style={bStyles.declineConfirmBtnText}>Decline Request</Text>
                 )}
@@ -1606,7 +1606,7 @@ function BookingRequestCard({
                 disabled={!preConfirmMsg.trim() || loadingMsg}
               >
                 {loadingMsg ? (
-                  <ActivityIndicator size="small" color="#FFF" />
+                  <TennisBallSpinner size="small" color="#FFF" />
                 ) : (
                   <Text style={bStyles.sendMsgBtnText}>Send Message</Text>
                 )}
@@ -2846,7 +2846,7 @@ export default function DashboardScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>{t("common.loading")}</Text>
         </View>
       </View>

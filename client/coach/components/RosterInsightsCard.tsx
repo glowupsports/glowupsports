@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable} from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface RosterInsight {
   text: string;
@@ -83,7 +84,7 @@ export function RosterInsightsCard() {
               disabled={refreshing}
             >
               {refreshing ? (
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
+                <TennisBallSpinner size="small" color={Colors.dark.primary} />
               ) : (
                 <Ionicons name="refresh-outline" size={16} color={Colors.dark.primary} />
               )}
@@ -102,7 +103,7 @@ export function RosterInsightsCard() {
         <View style={styles.cardBody}>
           {isLoading ? (
             <View style={styles.loadingRow}>
-              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} />
               <Text style={styles.loadingText}>Analyzing your roster...</Text>
             </View>
           ) : error ? (

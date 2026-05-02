@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, Modal, Pressable, ActivityIndicator, TextInput, Platform } from "react-native";
+import { View, Text, Modal, Pressable, TextInput, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Spacing } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
 import type { SessionInstance } from "./types";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Props {
   visible: boolean;
@@ -170,7 +171,7 @@ export function SeriesRescheduleSessionModal({
                   style={styles.restoreButtonGradient}
                 >
                   {reschedulingSession ? (
-                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                    <TennisBallSpinner size="small" color={Colors.dark.text} />
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle" size={22} color={Colors.dark.text} />
@@ -186,7 +187,7 @@ export function SeriesRescheduleSessionModal({
                 disabled={cancellingSession}
               >
                 {cancellingSession ? (
-                  <ActivityIndicator size="small" color={Colors.dark.error} />
+                  <TennisBallSpinner size="small" color={Colors.dark.error} />
                 ) : (
                   <>
                     <Ionicons name="close-circle-outline" size={18} color={Colors.dark.error} />

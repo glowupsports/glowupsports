@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Linking, Switch, Image as RNImage, Modal, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +22,7 @@ import { SportBadge } from "@/components/SportBadge";
 import { SPORTS, getSportConfig, getSportSkillLevelColor } from "@shared/sportConfig";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type SportProfileRecord = Record<string, { ballLevel?: string | null; skillLevel?: string | null; category?: string | null; rating?: string | null }>;
 
 interface ProfileData {
@@ -1018,7 +1019,7 @@ export default function PlayerProfileScreen() {
               </View>
               <View style={styles.cameraIconOverlay}>
                 {isUploadingPhoto ? (
-                  <ActivityIndicator size="small" color={Colors.dark.text} />
+                  <TennisBallSpinner size="small" color={Colors.dark.text} />
                 ) : (
                   <Ionicons name="camera" size={16} color={Colors.dark.text} />
                 )}
@@ -1721,7 +1722,7 @@ export default function PlayerProfileScreen() {
           disabled={deleteLoading}
         >
           {deleteLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.error} />
+            <TennisBallSpinner size="small" color={Colors.dark.error} />
           ) : (
             <Text style={styles.deleteAccountText}>Delete My Account</Text>
           )}

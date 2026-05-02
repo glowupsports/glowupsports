@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Share, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Share} from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,6 +11,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type MatchSummaryParams = {
   matchId: string;
   opponentName: string;
@@ -213,7 +214,7 @@ export default function MatchSummaryScreen() {
               testID="button-add-opponent-friend"
             >
               {addFriendMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.text} />
+                <TennisBallSpinner size="small" color={Colors.dark.text} />
               ) : (
                 <Feather name="user-plus" size={16} color={Colors.dark.text} />
               )}

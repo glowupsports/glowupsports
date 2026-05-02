@@ -1,6 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Switch, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Dimensions, Switch, Alert } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,6 +19,7 @@ import { apiRequest, apiFetch, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/q
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
 import { BaselineFlowCard } from "./BaselineFlowCard";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SKIP_INTRO_KEY = "premium_session_wizard_skip_intro";
@@ -1649,7 +1650,7 @@ export function PremiumSessionWizard({
                 Checking availability for {weekCount} weeks
               </Text>
               {isCheckingAvailability ? (
-                <ActivityIndicator size="small" color="#8B5CF6" />
+                <TennisBallSpinner size="small" color="#8B5CF6" />
               ) : null}
             </View>
           ) : null}
@@ -1667,7 +1668,7 @@ export function PremiumSessionWizard({
           
           {isCheckingAvailability ? (
             <View style={styles.noSlotsContainer}>
-              <ActivityIndicator size="large" color="#8B5CF6" />
+              <TennisBallSpinner size="large" color="#8B5CF6" />
               <Text style={styles.noSlotsText}>Checking {weekCount} weeks...</Text>
             </View>
           ) : availableSlots.length > 0 ? (
@@ -2220,7 +2221,7 @@ export function PremiumSessionWizard({
                 style={styles.guestModalAddBtnGradient}
               >
                 {isCreatingGuest ? (
-                  <ActivityIndicator size="small" color="#0B0D10" />
+                  <TennisBallSpinner size="small" color="#0B0D10" />
                 ) : (
                   <Ionicons name="person-add" size={18} color={guestName.trim() ? "#0B0D10" : Colors.dark.textMuted} />
                 )}

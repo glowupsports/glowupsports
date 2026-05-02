@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, ActivityIndicator, Alert, Modal, Platform, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Modal, Platform, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -20,6 +20,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import { GamingPlayerCard } from "@/coach/components/players/GamingPlayerCard";
 import { PlayerDetailView } from "@/coach/components/players/PlayerDetailView";
 import { styles } from "@/coach/components/players/playersStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const TAB_BAR_HEIGHT = 80;
 
@@ -1257,7 +1258,7 @@ export default function PlayersScreen() {
       <Animated.View style={[localStyles.mainContent, animatedMainContentStyle]}>
       {currentIsLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+          <TennisBallSpinner size="large" color={Colors.dark.xpCyan} />
         </View>
       ) : filteredPlayers.length === 0 ? (
         searchQuery ? (
@@ -1659,7 +1660,7 @@ export default function PlayersScreen() {
               testID="button-submit-practice-pair"
             >
               {practicePairMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.buttonText} />
+                <TennisBallSpinner color={Colors.dark.buttonText} />
               ) : (
                 <Text style={practicePairStyles.submitBtnText}>Suggest match</Text>
               )}

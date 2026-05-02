@@ -5,10 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
-  DimensionValue,
-} from "react-native";
+  DimensionValue} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -16,6 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PURPLE = "#9B59B6";
 const CYAN = Colors.dark.xpCyan;
@@ -313,7 +312,7 @@ function FeatureRow({ item, rank, days, academyId }: {
       {expanded && (
         <View style={s.drilldownContainer}>
           {drillLoading ? (
-            <ActivityIndicator size="small" color={PURPLE} style={{ marginVertical: 8 }} />
+            <TennisBallSpinner size="small" color={PURPLE} style={{ marginVertical: 8 }} />
           ) : (drilldown?.players || []).length === 0 ? (
             <Text style={s.drillEmptyText}>No player data available</Text>
           ) : (
@@ -343,7 +342,7 @@ function FeaturesTab({ days, academyId }: { days: number; academyId: string | nu
   if (isLoading) {
     return (
       <View style={s.centered}>
-        <ActivityIndicator size="large" color={PURPLE} />
+        <TennisBallSpinner size="large" color={PURPLE} />
         <Text style={s.emptyText}>Loading features...</Text>
       </View>
     );
@@ -414,7 +413,7 @@ function PlayersTab({ days, academyId }: { days: number; academyId: string | nul
   if (isLoading) {
     return (
       <View style={s.centered}>
-        <ActivityIndicator size="large" color={PURPLE} />
+        <TennisBallSpinner size="large" color={PURPLE} />
         <Text style={s.emptyText}>Loading players...</Text>
       </View>
     );
@@ -464,7 +463,7 @@ function DeadZonesTab({ days, academyId }: { days: number; academyId: string | n
   if (isLoading) {
     return (
       <View style={s.centered}>
-        <ActivityIndicator size="large" color={PURPLE} />
+        <TennisBallSpinner size="large" color={PURPLE} />
         <Text style={s.emptyText}>Analyzing...</Text>
       </View>
     );

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, ActivityIndicator, Pressable, Text, StyleSheet } from "react-native";
+import { View, Pressable, Text, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, Typography } from "@/constants/theme";
@@ -8,6 +8,7 @@ import { useFeedbackTab } from "./feedback/useFeedbackTab";
 import { FeedbackDetailView } from "./feedback/FeedbackDetailView";
 import { SessionListView } from "./feedback/SessionListView";
 import { FeedbackCommandCenter } from "./feedback/FeedbackCommandCenter";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export function TodayFeedbackTab({ insets: _insets, tabBarHeight }: TabProps) {
   const [showSessionList, setShowSessionList] = useState(false);
@@ -16,7 +17,7 @@ export function TodayFeedbackTab({ insets: _insets, tabBarHeight }: TabProps) {
   if (state.isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
       </View>
     );
   }

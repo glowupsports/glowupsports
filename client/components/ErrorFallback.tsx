@@ -7,9 +7,7 @@ import {
   ScrollView,
   Text,
   Modal,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
+  TextInput} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { ThemedView } from "@/components/ThemedView";
@@ -22,6 +20,7 @@ import {
   sendDiagnosticsReport,
 } from "@/lib/diagnostics";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -151,7 +150,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             ]}
           >
             {isSending ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="send-outline" size={20} color={Colors.dark.buttonText} />

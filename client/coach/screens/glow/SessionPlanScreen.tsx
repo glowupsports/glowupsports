@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,6 +12,7 @@ import { Card } from "@/components/Card";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import BallLevelBadge from "@/components/BallLevelBadge";
 import { apiRequest, apiFetch } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface DrillBlock {
   id: string;
@@ -117,7 +118,7 @@ export default function SessionPlanScreen() {
   if (planLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <ThemedText style={styles.loadingText}>Loading session plan...</ThemedText>
       </View>
     );
@@ -205,7 +206,7 @@ export default function SessionPlanScreen() {
             disabled={isGenerating}
           >
             {isGenerating ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+              <TennisBallSpinner size="small" color={Colors.dark.text} />
             ) : (
               <Ionicons name="flash" size={20} color={Colors.dark.text} />
             )}

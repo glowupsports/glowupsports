@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -12,6 +12,7 @@ import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { Picker } from "@react-native-picker/picker";
 import PackagesCard from "@/coach/components/PackagesCard";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type TabType = "coaches" | "players" | "admins";
 
 interface PersonData {
@@ -87,7 +88,7 @@ function PersonCard({ id: _id, name, role, status, stats, onPress, onDelete, isD
             disabled={isDeleting}
           >
             {isDeleting ? (
-              <ActivityIndicator size="small" color={Colors.dark.error} />
+              <TennisBallSpinner size="small" color={Colors.dark.error} />
             ) : (
               <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
             )}
@@ -404,7 +405,7 @@ export default function PeopleScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <TennisBallSpinner size="large" color={Colors.dark.gold} />
         <Text style={styles.loadingText}>Loading people...</Text>
       </View>
     );
@@ -677,7 +678,7 @@ export default function PeopleScreen() {
                           disabled={isGeneratingLink}
                         >
                           {isGeneratingLink ? (
-                            <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                            <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
                           ) : (
                             <>
                               <Ionicons name="link" size={20} color={Colors.dark.xpCyan} />
@@ -749,7 +750,7 @@ export default function PeopleScreen() {
 
                 {removalStep === "loading" ? (
                   <View style={styles.removalLoading}>
-                    <ActivityIndicator size="large" color={Colors.dark.gold} />
+                    <TennisBallSpinner size="large" color={Colors.dark.gold} />
                     <Text style={styles.removalLoadingText}>Checking for sessions...</Text>
                   </View>
                 ) : null}
@@ -820,14 +821,14 @@ export default function PeopleScreen() {
 
                 {removalStep === "reassigning" ? (
                   <View style={styles.removalLoading}>
-                    <ActivityIndicator size="large" color={Colors.dark.gold} />
+                    <TennisBallSpinner size="large" color={Colors.dark.gold} />
                     <Text style={styles.removalLoadingText}>Reassigning sessions...</Text>
                   </View>
                 ) : null}
 
                 {removalStep === "deleting" ? (
                   <View style={styles.removalLoading}>
-                    <ActivityIndicator size="large" color={Colors.dark.error} />
+                    <TennisBallSpinner size="large" color={Colors.dark.error} />
                     <Text style={styles.removalLoadingText}>Deleting coach...</Text>
                   </View>
                 ) : null}

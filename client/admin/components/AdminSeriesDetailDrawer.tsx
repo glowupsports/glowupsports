@@ -6,10 +6,8 @@ import {
   Pressable,
   Modal,
   ScrollView,
-  ActivityIndicator,
   TextInput,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -21,6 +19,7 @@ import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const ADMIN_COLOR = Colors.dark.orange;
 
@@ -351,7 +350,7 @@ export default function AdminSeriesDetailDrawer({
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={ADMIN_COLOR} />
+            <TennisBallSpinner size="large" color={ADMIN_COLOR} />
           </View>
         ) : series ? (
           <>
@@ -967,7 +966,7 @@ export default function AdminSeriesDetailDrawer({
                   style={styles.saveAttendanceGradient}
                 >
                   {saveAttendanceMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle" size={22} color={Colors.dark.buttonText} />

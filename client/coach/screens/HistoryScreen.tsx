@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+  ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -19,6 +17,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Session {
   id: string;
@@ -221,7 +220,7 @@ export default function HistoryScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       ) : Object.keys(groupedSessions).length === 0 ? (
         <View style={styles.emptyContainer}>

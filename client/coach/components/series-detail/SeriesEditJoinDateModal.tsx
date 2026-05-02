@@ -1,9 +1,10 @@
 import React from "react";
-import { View, Text, Modal, Pressable, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, Modal, Pressable, ScrollView } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing } from "@/constants/theme";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { styles } from "./seriesDetailStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Props {
   visible: boolean;
@@ -58,7 +59,7 @@ export function SeriesEditJoinDateModal({ visible, onClose, editJoinDate, setEdi
               disabled={savingJoinDate}
             >
               {savingJoinDate ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.confirmButtonText}>Save</Text>
               )}

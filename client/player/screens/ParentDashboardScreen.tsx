@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -9,6 +9,7 @@ import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface DashboardData {
   player: { id: string; name: string };
   academy: { id: string; name: string } | null;
@@ -83,7 +84,7 @@ export default function ParentDashboardScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color={Colors.dark.text} />
+        <TennisBallSpinner size="large" color={Colors.dark.text} />
       </View>
     );
   }

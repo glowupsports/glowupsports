@@ -6,11 +6,9 @@ import {
   ScrollView,
   Pressable,
   Dimensions,
-  ActivityIndicator,
   Alert,
   Modal,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -25,6 +23,7 @@ import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
@@ -260,7 +259,7 @@ function MatchReadinessCard({
             disabled={mutation.isPending}
           >
             {mutation.isPending ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <TennisBallSpinner size="small" color="#fff" />
             ) : (
               <>
                 <Ionicons name="flash" size={14} color="#fff" />
@@ -483,7 +482,7 @@ function ParticipantsList({ participants }: { participants: ParticipantEntry[] }
 function LoadingView() {
   return (
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={Colors.dark.accentText} />
+      <TennisBallSpinner size="large" color={Colors.dark.accentText} />
     </View>
   );
 }
@@ -905,7 +904,7 @@ export default function TournamentDetailScreen() {
               disabled={registerMutation.isPending}
             >
               {registerMutation.isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <TennisBallSpinner size="small" color="#fff" />
               ) : (
                 <>
                   <Ionicons name="trophy-outline" size={16} color="#fff" />
@@ -1042,7 +1041,7 @@ export default function TournamentDetailScreen() {
               disabled={registerMutation.isPending}
             >
               {registerMutation.isPending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <TennisBallSpinner size="small" color="#fff" />
               ) : (
                 <Text style={detailRegStyles.submitBtnText}>
                   {tournament.entryFee && Number(tournament.entryFee) > 0

@@ -5,10 +5,8 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -22,6 +20,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { Image } from "expo-image";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Participant {
   id: string;
   playerId: string;
@@ -255,7 +254,7 @@ export default function MyGamesScreen() {
     <View style={[styles.container, { paddingTop: headerHeight }]}>
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       ) : !games || games.length === 0 ? (
         <View style={styles.empty}>

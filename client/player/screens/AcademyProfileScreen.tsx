@@ -5,10 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Linking,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRoute, useNavigation } from "@react-navigation/native";
@@ -21,6 +19,7 @@ import { apiRequest, apiFetch } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface AcademyProfile {
   id: string;
   name: string;
@@ -182,7 +181,7 @@ export default function AcademyProfileScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Loading academy profile...</Text>
         </View>
       </View>
@@ -349,7 +348,7 @@ export default function AcademyProfileScreen() {
             disabled={joinMutation.isPending}
           >
             {joinMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="add" size={20} color={Colors.dark.buttonText} />

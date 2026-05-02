@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useNavigation } from "@react-navigation/native";
-import { StyleSheet, View, Platform, ActivityIndicator, Pressable, Text } from "react-native";
+import { StyleSheet, View, Platform, Pressable, Text } from "react-native";
 import { useSafeAreaInsets , SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
@@ -134,6 +134,7 @@ import { SportContextProvider } from "@/player/context/SportContext";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 // Family B — the legacy "view-as" banner has been removed. Profile-switching
 // now goes through a real auth-swap (POST /api/family/switch + reboot). We
@@ -1912,7 +1913,7 @@ export default function PlayerNavigator() {
   if (isLoading && shouldFetchDashboard && !bootTimedOut) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
       </View>
     );
   }

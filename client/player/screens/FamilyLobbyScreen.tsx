@@ -5,14 +5,12 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   Alert,
   Switch,
   Modal,
   Platform,
   TextInput,
-  Share,
-} from "react-native";
+  Share} from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,6 +35,7 @@ import { callFamilySwitch, applySwitchResult } from "@/lib/familySwitch";
 import { reloadAppAsync } from "expo";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 // Retained as a transient reboot-redirect signal. The legacy "view as" banner
 // has been removed but a few code paths still want to know "the user just
 // switched accounts" during the reboot window, so we keep the storage key.
@@ -1173,7 +1172,7 @@ export default function FamilyLobbyScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loading, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading family...</Text>
       </View>
     );
@@ -1331,7 +1330,7 @@ export default function FamilyLobbyScreen() {
                 </View>
                 <View style={styles.payAllButton}>
                   {payAllMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                    <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
                   ) : (
                     <>
                       <Ionicons name="card" size={20} color={Colors.dark.buttonText} />
@@ -1599,7 +1598,7 @@ export default function FamilyLobbyScreen() {
                   accessibilityLabel="Add member by email"
                 >
                   {addChildMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                    <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
                   ) : (
                     <Text style={styles.addButtonText}>Add to Family</Text>
                   )}
@@ -1611,7 +1610,7 @@ export default function FamilyLobbyScreen() {
                   Share this code with the player. They can enter it in Settings to join your family.
                 </Text>
                 {inviteCodeMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.primary} size="large" style={{ marginVertical: Spacing.xl }} />
+                  <TennisBallSpinner color={Colors.dark.primary} size="large" style={{ marginVertical: Spacing.xl }} />
                 ) : inviteCode ? (
                   <>
                     <View style={styles.codeBox}>
@@ -1684,7 +1683,7 @@ export default function FamilyLobbyScreen() {
                         accessibilityLabel="Look up invite code"
                       >
                         {enterCodeLoading ? (
-                          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                          <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                         ) : (
                           <Text style={styles.enterCodeLookupBtnText}>Look up</Text>
                         )}
@@ -1711,7 +1710,7 @@ export default function FamilyLobbyScreen() {
                           accessibilityLabel="Confirm and link player"
                         >
                           {enterCodeClaiming ? (
-                            <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                            <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
                           ) : (
                             <Text style={styles.addButtonText}>Add {enterCodePreview.playerName} to Family</Text>
                           )}
@@ -1829,7 +1828,7 @@ export default function FamilyLobbyScreen() {
                       accessibilityLabel={`Generate a new spectator link for ${member.name}`}
                     >
                       {isGenerating ? (
-                        <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                        <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
                       ) : (
                         <>
                           <Ionicons name="add-circle-outline" size={16} color={Colors.dark.buttonText} />
@@ -1842,7 +1841,7 @@ export default function FamilyLobbyScreen() {
               })}
 
               {spectatorLinksQuery.isLoading ? (
-                <ActivityIndicator color={Colors.dark.primary} style={{ marginVertical: Spacing.lg }} />
+                <TennisBallSpinner color={Colors.dark.primary} style={{ marginVertical: Spacing.lg }} />
               ) : null}
             </ScrollView>
           </View>
@@ -1896,7 +1895,7 @@ export default function FamilyLobbyScreen() {
                 accessibilityRole="button"
               >
                 {pinVerifying ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                  <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
                 ) : (
                   <Text style={styles.pinModalBtnConfirmText}>Confirm</Text>
                 )}
@@ -2112,7 +2111,7 @@ function FamilyWalletModal({ visible, onClose }: { visible: boolean; onClose: ()
                   disabled={setupIntent.isPending}
                 >
                   {setupIntent.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={walletStyles.actionPrimaryText}>
                       {wallet.data?.paymentMethod ? "Update card" : "Add card"}
@@ -2126,7 +2125,7 @@ function FamilyWalletModal({ visible, onClose }: { visible: boolean; onClose: ()
                     disabled={removeCard.isPending}
                   >
                     {removeCard.isPending ? (
-                      <ActivityIndicator size="small" color={Colors.dark.text} />
+                      <TennisBallSpinner size="small" color={Colors.dark.text} />
                     ) : (
                       <Text style={walletStyles.actionSecondaryText}>Remove</Text>
                     )}
@@ -2142,7 +2141,7 @@ function FamilyWalletModal({ visible, onClose }: { visible: boolean; onClose: ()
                   accessibilityLabel="View family invoices and receipts"
                 >
                   {billingPortal.isPending ? (
-                    <ActivityIndicator size="small" color="#00BCD4" />
+                    <TennisBallSpinner size="small" color="#00BCD4" />
                   ) : (
                     <>
                       <Ionicons name="receipt-outline" size={18} color="#00BCD4" />
@@ -2160,7 +2159,7 @@ function FamilyWalletModal({ visible, onClose }: { visible: boolean; onClose: ()
             {/* Per-member spend limits */}
             <Text style={walletStyles.sectionTitle}>Monthly spend limits</Text>
             {wallet.isLoading ? (
-              <ActivityIndicator color={Colors.dark.text} />
+              <TennisBallSpinner color={Colors.dark.text} />
             ) : wallet.data?.members.length === 0 ? (
               <Text style={walletStyles.muted}>No family members yet.</Text>
             ) : (
@@ -2195,7 +2194,7 @@ function FamilyWalletModal({ visible, onClose }: { visible: boolean; onClose: ()
                               disabled={saving}
                             >
                               {saving ? (
-                                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                               ) : (
                                 <Text style={walletStyles.saveBtnText}>Save</Text>
                               )}
@@ -2222,7 +2221,7 @@ function FamilyWalletModal({ visible, onClose }: { visible: boolean; onClose: ()
             {/* Statement */}
             <Text style={walletStyles.sectionTitle}>This month</Text>
             {statement.isLoading ? (
-              <ActivityIndicator color={Colors.dark.text} />
+              <TennisBallSpinner color={Colors.dark.text} />
             ) : statement.data ? (
               <View style={walletStyles.card}>
                 <Text style={walletStyles.muted}>Month: {statement.data.month}</Text>

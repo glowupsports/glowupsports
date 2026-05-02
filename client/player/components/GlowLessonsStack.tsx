@@ -6,9 +6,7 @@ import {
   Pressable,
   FlatList,
   NativeScrollEvent,
-  NativeSyntheticEvent,
-  ActivityIndicator,
-} from "react-native";
+  NativeSyntheticEvent} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -21,6 +19,7 @@ import { BALL_LEVEL_ORDER, type BallLevelId } from "@shared/ballLevel";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 import { useCategoryAccent } from "@/player/theme/useCategoryAccent";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 // Theme tokens are read at render time (or inside `makeReactiveStyles`) so
 // they flip when the player toggles Light/Dark. Do NOT capture them into
 // module-level `const` values — that freezes them at import.
@@ -316,7 +315,7 @@ function LessonCard({
               disabled={isJoining}
             >
               {isJoining ? (
-                <ActivityIndicator size="small" color={Backgrounds.root} />
+                <TennisBallSpinner size="small" color={Backgrounds.root} />
               ) : (
                 <Text style={styles.joinBtnText}>
                   Join{session.price != null ? ` · AED ${session.price}` : ""}

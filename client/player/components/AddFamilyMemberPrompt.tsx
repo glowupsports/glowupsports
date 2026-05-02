@@ -5,9 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
+  TextInput} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown, ZoomIn } from "react-native-reanimated";
@@ -18,6 +16,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Props {
   visible: boolean;
   onDone: () => void;
@@ -196,7 +195,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
             disabled={!inviteCode.trim() || inviteLoading}
           >
             {inviteLoading ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <Text style={styles.lookupBtnText}>Look up</Text>
             )}
@@ -224,7 +223,7 @@ export default function AddFamilyMemberPrompt({ visible, onDone }: Props) {
               disabled={claimLoading}
             >
               {claimLoading ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.confirmBtnText}>Confirm — I&apos;m {invitePreview.playerName}</Text>
               )}

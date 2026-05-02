@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
-  Linking,
-} from "react-native";
+  Linking} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import type { RouteProp } from "@react-navigation/native";
@@ -20,6 +18,7 @@ import { apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type NavProp = NativeStackNavigationProp<PlayerStackParamList>;
 type RouteProps = RouteProp<PlayerStackParamList, "AcademyPublicProfile">;
 
@@ -245,7 +244,7 @@ export default function PlayerAcademyProfileScreen() {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Loading academy...</Text>
         </View>
       </View>

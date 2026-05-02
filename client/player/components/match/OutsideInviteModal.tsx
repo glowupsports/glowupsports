@@ -17,9 +17,7 @@ import {
   Linking,
   Share,
   Platform,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import * as Clipboard from "expo-clipboard";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -30,6 +28,7 @@ import {
   FontSizes,
 } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Props {
   visible: boolean;
@@ -184,7 +183,7 @@ export function OutsideInviteModal({
 
           {loading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator color={Colors.dark.primary} />
+              <TennisBallSpinner color={Colors.dark.primary} />
             </View>
           ) : error ? (
             <View style={styles.errorBox}>

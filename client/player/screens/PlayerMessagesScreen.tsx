@@ -5,9 +5,7 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +15,7 @@ import { usePlayer } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/OnlineSafetyModal";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Conversation {
   id: string;
   type: string;
@@ -206,7 +205,7 @@ export default function PlayerMessagesScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       ) : isError ? (
         <View style={styles.errorState}>

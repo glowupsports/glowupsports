@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+  Alert} from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -19,6 +17,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type StartLiveMatchParams = {
   opponentId: string;
   opponentName: string;
@@ -182,7 +181,7 @@ export default function StartLiveMatchScreen() {
           disabled={createMatch.isPending}
         >
           {createMatch.isPending ? (
-            <ActivityIndicator color={Colors.dark.buttonText} />
+            <TennisBallSpinner color={Colors.dark.buttonText} />
           ) : (
             <>
               <Feather name="play-circle" size={20} color={Colors.dark.buttonText} />

@@ -4,13 +4,12 @@ import {
   Text,
   Modal,
   Pressable,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+  ScrollView} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
 import type { MergeSuggestion } from "./types";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface SeriesSmartFillModalProps {
   visible: boolean;
@@ -62,7 +61,7 @@ export function SeriesSmartFillModal({
           <ScrollView style={styles.addPlayerContent} contentContainerStyle={{ paddingBottom: 40 }}>
             {loadingSuggestions ? (
               <View style={{ alignItems: "center", padding: Spacing.xl }}>
-                <ActivityIndicator size="large" color={Colors.dark.orange} />
+                <TennisBallSpinner size="large" color={Colors.dark.orange} />
                 <Text style={{ color: Colors.dark.textMuted, marginTop: Spacing.md }}>Finding available players...</Text>
               </View>
             ) : !mergeSuggestions?.suggestions?.length ? (

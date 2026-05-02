@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { StyleSheet, View, Platform, ActivityIndicator, Text, Pressable, useWindowDimensions } from "react-native";
+import { StyleSheet, View, Platform, Text, Pressable, useWindowDimensions } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
@@ -55,6 +55,7 @@ import { IntakeModalProvider, useIntakeModal } from "@/coach/context/IntakeModal
 import { IntakeFlowModal } from "@/coach/components/IntakeFlowModal";
 import { AIModalProvider, useAIModal } from "@/coach/context/AIModalContext";
 import { AICoachingChatModal } from "@/coach/components/AICoachingChatModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const WEB_DESKTOP_BREAKPOINT = 1024;
 
@@ -538,7 +539,7 @@ export default function CoachNavigator() {
   if (isLoading || activatingRoles) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <Pressable
           onPress={logout}
           style={{ marginTop: 24, paddingVertical: 12, paddingHorizontal: 24, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 8 }}

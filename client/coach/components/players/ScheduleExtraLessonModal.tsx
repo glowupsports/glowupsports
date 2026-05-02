@@ -5,10 +5,8 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   StyleSheet,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type SessionTypeFilter = "private" | "semi_private" | "group";
 
@@ -473,7 +472,7 @@ export function ScheduleExtraLessonModal({
                 {prettySessionType(sessionType)} sessions on this day
               </Text>
               {calendarLoading ? (
-                <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
               ) : null}
             </View>
 
@@ -534,7 +533,7 @@ export function ScheduleExtraLessonModal({
                     </Text>
                   </View>
                   {isSubmitting ? (
-                    <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                    <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
                   ) : enrolled ? (
                     <View style={modalStyles.enrolledBadge}>
                       <Ionicons

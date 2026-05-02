@@ -6,20 +6,19 @@ import {
   ScrollView,
   FlatList,
   TextInput,
-  ActivityIndicator,
   Pressable,
   Modal,
   Platform,
   SafeAreaView,
   Image,
   Linking,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Feather from "@expo/vector-icons/Feather";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { SuccessToast } from "@/components/SuccessToast";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import {
   Colors,
   Spacing,
@@ -385,7 +384,7 @@ function AcademyPickerModal({
             </View>
             {isLoading ? (
               <View style={styles.pickerLoading}>
-                <ActivityIndicator color={NEON_GREEN} />
+                <TennisBallSpinner color={NEON_GREEN} />
               </View>
             ) : (
               <FlatList
@@ -650,7 +649,7 @@ function PlayerDetailSheet({
                 disabled={assigning}
               >
                 {assigning ? (
-                  <ActivityIndicator size="small" color="#000" />
+                  <TennisBallSpinner size="small" color="#000" />
                 ) : (
                   <>
                     <Feather name="home" size={15} color="#000" />
@@ -671,7 +670,7 @@ function PlayerDetailSheet({
                 disabled={deleting || assigning}
               >
                 {deleting ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <TennisBallSpinner size="small" color="#fff" />
                 ) : (
                   <>
                     <Feather name="trash-2" size={15} color="#fff" />
@@ -876,7 +875,7 @@ export default function PlayerHealthScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: headerHeight }]}>
-        <ActivityIndicator size="large" color={PLATFORM_PURPLE} />
+        <TennisBallSpinner size="large" color={PLATFORM_PURPLE} />
         <Text style={styles.loadingText}>Loading player data...</Text>
       </View>
     );
@@ -1086,7 +1085,7 @@ export default function PlayerHealthScreen() {
                 disabled={cleaningGhosts}
               >
                 {cleaningGhosts ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <TennisBallSpinner size="small" color="#fff" />
                 ) : (
                   <Text style={styles.ghostBannerButtonText}>Clear all</Text>
                 )}

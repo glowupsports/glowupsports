@@ -5,11 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Alert,
   RefreshControl,
-  Image,
-} from "react-native";
+  Image} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +18,7 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 
 interface BookingPartner {
@@ -399,7 +398,7 @@ export default function MyCourtBookingsScreen() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.primary} />
+            <TennisBallSpinner size="large" color={Colors.dark.primary} />
             <Text style={styles.loadingText}>Loading your bookings...</Text>
           </View>
         ) : isError ? (

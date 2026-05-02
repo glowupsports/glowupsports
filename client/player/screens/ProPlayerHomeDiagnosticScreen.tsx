@@ -4,15 +4,13 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   RefreshControl,
   Pressable,
   DimensionValue,
   Modal,
   Platform,
   NativeScrollEvent,
-  NativeSyntheticEvent,
-} from "react-native";
+  NativeSyntheticEvent} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image as ExpoImage } from "expo-image";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -72,6 +70,7 @@ import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { MiniFeed } from "@/player/components/MiniFeed";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -197,7 +196,7 @@ function IQQuizModal({ visible, onClose, onComplete }: { visible: boolean; onClo
           <Text style={diagIQStyles.modalTitle}>Tennis IQ Quiz</Text>
           {quizLoading ? (
             <View style={diagIQStyles.loadingWrap}>
-              <ActivityIndicator color={Colors.dark.gold} size="small" />
+              <TennisBallSpinner color={Colors.dark.gold} size="small" />
               <Text style={diagIQStyles.loadingText}>Loading questions...</Text>
             </View>
           ) : quizComplete ? (

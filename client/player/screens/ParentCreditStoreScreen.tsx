@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, TextInput, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type CreditType = "group" | "private" | "semi_private" | "court";
 
 interface CreditPackage {
@@ -301,7 +302,7 @@ export default function ParentCreditStoreScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.text} />
+            <TennisBallSpinner size="large" color={Colors.dark.text} />
           </View>
         ) : packages.length === 0 ? (
           <View style={styles.emptyState}>
@@ -364,7 +365,7 @@ export default function ParentCreditStoreScreen() {
                   disabled={purchaseMutation.isPending || pin.length < 4}
                 >
                   {purchaseMutation.isPending && selectedPaymentMethod === "cash" ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} />
+                    <TennisBallSpinner color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Ionicons name="cash-outline" size={24} color={Colors.dark.gold} />
@@ -381,7 +382,7 @@ export default function ParentCreditStoreScreen() {
                   disabled={purchaseMutation.isPending || pin.length < 4}
                 >
                   {purchaseMutation.isPending && selectedPaymentMethod === "bank_transfer" ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} />
+                    <TennisBallSpinner color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Ionicons name="card-outline" size={24} color={Colors.dark.primary} />

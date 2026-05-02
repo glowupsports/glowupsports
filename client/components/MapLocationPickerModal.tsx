@@ -5,10 +5,8 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
   Platform,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import WebView from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
@@ -16,6 +14,7 @@ import { apiFetch } from "@/lib/query-client";
 import * as Location from "expo-location";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export interface MapLocationResult {
   address: string;
@@ -234,7 +233,7 @@ export function MapLocationPickerModal({
             disabled={locating}
           >
             {locating ? (
-              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} />
             ) : (
               <Ionicons name="navigate" size={20} color={Colors.dark.primary} />
             )}
@@ -268,7 +267,7 @@ export function MapLocationPickerModal({
             />
           ) : (
             <View style={[StyleSheet.absoluteFill, styles.mapPlaceholder]}>
-              <ActivityIndicator size="large" color={Colors.dark.primary} />
+              <TennisBallSpinner size="large" color={Colors.dark.primary} />
             </View>
           )}
         </View>
@@ -280,7 +279,7 @@ export function MapLocationPickerModal({
 
           {resolving ? (
             <View style={styles.addressRow}>
-              <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+              <TennisBallSpinner size="small" color={Colors.dark.textMuted} />
               <Text style={[styles.addressText, { marginLeft: Spacing.sm }]}>
                 Finding address...
               </Text>

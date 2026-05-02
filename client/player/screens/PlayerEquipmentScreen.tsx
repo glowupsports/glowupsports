@@ -7,12 +7,10 @@ import {
   Pressable,
   Modal,
   Alert,
-  ActivityIndicator,
   RefreshControl,
   FlatList,
   Platform,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -26,6 +24,7 @@ import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface EquipmentItem {
   id: string;
   name: string;
@@ -486,7 +485,7 @@ export default function PlayerEquipmentScreen() {
             ))}
           </View>
           {equipmentLoading ? (
-            <ActivityIndicator style={styles.loader} color={Colors.dark.primary} />
+            <TennisBallSpinner style={styles.loader} color={Colors.dark.primary} />
           ) : filteredEquipment.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="cube-outline" size={48} color={Colors.dark.textMuted} />
@@ -514,7 +513,7 @@ export default function PlayerEquipmentScreen() {
       ) : (
         <View style={{ flex: 1 }}>
           {rentalsLoading ? (
-            <ActivityIndicator style={styles.loader} color={Colors.dark.primary} />
+            <TennisBallSpinner style={styles.loader} color={Colors.dark.primary} />
           ) : myRentals.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="repeat-outline" size={48} color={Colors.dark.textMuted} />
@@ -657,7 +656,7 @@ export default function PlayerEquipmentScreen() {
                 disabled={!reservedFrom || !reservedUntil || rentMutation.isPending}
               >
                 {rentMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} />
+                  <TennisBallSpinner color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.ctaBtnText}>Confirm Reservation</Text>
                 )}
@@ -755,7 +754,7 @@ export default function PlayerEquipmentScreen() {
                 disabled={purchaseMutation.isPending}
               >
                 {purchaseMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} />
+                  <TennisBallSpinner color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.ctaBtnText}>Confirm Purchase</Text>
                 )}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, RefreshControl } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -21,6 +21,7 @@ import type { RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
 type RouteProps = RouteProp<PlayerStackParamList, "LadderDetail">;
 
@@ -147,7 +148,7 @@ function ChallengeModal({
               }}
             >
               {isLoading ? (
-                <ActivityIndicator color={Colors.dark.onAccent} />
+                <TennisBallSpinner color={Colors.dark.onAccent} />
               ) : (
                 <Text style={modalStyles.confirmButtonText}>{t("player.tournaments.challenge")}</Text>
               )}
@@ -208,7 +209,7 @@ export default function LadderDetailScreen() {
   if (isLoading || !data) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, alignItems: "center", justifyContent: "center" }]}>
-        <ActivityIndicator size="large" color={Colors.dark.accentText} />
+        <TennisBallSpinner size="large" color={Colors.dark.accentText} />
       </View>
     );
   }

@@ -7,9 +7,7 @@ import {
   Modal,
   ScrollView,
   TextInput,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -18,6 +16,7 @@ import { Colors, Spacing, Typography, BorderRadius, FontSizes } from "@/constant
 import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
 const MOTIVATION_OPTIONS: { id: string; label: string; icon: IoniconName }[] = [
@@ -510,7 +509,7 @@ export default function CreateFamilyMemberFlow({ visible, onClose, onComplete }:
                 disabled={!canProceed() || createMutation.isPending}
               >
                 {createMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                  <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
                 ) : (
                   <>
                     <Text style={fStyles.nextBtnText}>{step === TOTAL_STEPS - 1 ? "Save" : "Next"}</Text>

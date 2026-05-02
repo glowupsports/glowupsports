@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, ActivityIndicator, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, Platform } from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,6 +11,7 @@ import { SportBadge } from "@/components/SportBadge";
 import { SPORTS, type Sport } from "@shared/sportConfig";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import { TIME_COLUMN_WIDTH, START_HOUR } from "@/coach/components/calendar/calendarConstants";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const ADMIN_COLOR = RoleColors.admin;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HOUR_HEIGHT = 60;
@@ -557,7 +558,7 @@ export default function AdminCalendarScreen() {
   if (sessionsLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: isDesktop ? 0 : insets.top }]}>
-        <ActivityIndicator size="large" color={ADMIN_COLOR} />
+        <TennisBallSpinner size="large" color={ADMIN_COLOR} />
       </View>
     );
   }

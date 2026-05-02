@@ -5,10 +5,8 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   Animated,
-  Dimensions,
-} from "react-native";
+  Dimensions} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps } from "react";
@@ -17,6 +15,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type IoniconsName = ComponentProps<typeof Ionicons>["name"];
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -623,7 +622,7 @@ export function IntakeFlowModal({
               disabled={!canProceed() || saveMutation.isPending}
             >
               {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Text style={styles.nextBtnText}>

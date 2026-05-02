@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, Pressable, FlatList, ActivityIndicator, RefreshControl, Alert, TextInput, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, FlatList, RefreshControl, Alert, TextInput, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +21,7 @@ import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
 type NavigationProp = NativeStackNavigationProp<PlayerStackParamList>;
@@ -376,7 +377,7 @@ function TournamentCard({
                 }}
               >
                 {isRegistering ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <TennisBallSpinner size="small" color="#fff" />
                 ) : (
                   <Text style={[styles.registerBtnText, isFull ? styles.registerBtnTextDisabled : undefined]}>
                     {isFull ? t("player.tournaments.spotsFull") : registerLabel}
@@ -472,7 +473,7 @@ function LadderCard({
               }}
             >
               {isJoining ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <TennisBallSpinner size="small" color="#fff" />
               ) : (
                 <Text style={styles.joinBtnText}>{t("player.tournaments.joinLadder")}</Text>
               )}
@@ -802,7 +803,7 @@ export default function TournamentsScreen() {
     if (isLoading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.accentText} />
+          <TennisBallSpinner size="large" color={Colors.dark.accentText} />
         </View>
       );
     }
@@ -923,7 +924,7 @@ export default function TournamentsScreen() {
 
             {publicTournamentsLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.dark.accentText} />
+                <TennisBallSpinner size="large" color={Colors.dark.accentText} />
               </View>
             ) : (
               <FlatList

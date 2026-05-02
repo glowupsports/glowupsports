@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Modal, ScrollView } from "react-native";
+import { View, Text, StyleSheet, FlatList, Pressable, Modal, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";import { Colors, Spacing, Typography, BorderRadius, CardStyles } from "@/constants/theme";import { PlayerAIInsightsCard } from "@/components/PlayerAIInsightsCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Milestone {
   id: string;
   type: string;
@@ -461,7 +462,7 @@ export default function PlayerJourneyScreen() {
   if (isLoading || recognitionLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading your journey...</Text>
       </View>
     );

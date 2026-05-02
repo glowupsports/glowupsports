@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ActivityIndicator, Platform, Alert } from "react-native";
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, Platform, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -9,6 +9,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useUIInteraction } from "@/contexts/UIInteractionContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface ReportIssueModalProps {
   visible: boolean;
@@ -209,7 +210,7 @@ export function ReportIssueModal({ visible, onClose, currentScreen }: ReportIssu
             disabled={isRateLimited || submitMutation.isPending}
           >
             {submitMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+              <TennisBallSpinner size="small" color={Colors.dark.text} />
             ) : (
               <Text style={styles.submitButtonText}>
                 {isRateLimited ? "Rate Limited" : "Submit Report"}

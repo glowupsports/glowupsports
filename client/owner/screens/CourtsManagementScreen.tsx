@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Alert, Platform, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Platform, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";import { SportBadge, SportSingleSelector } from "@/components/SportBadge";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Court {
   id: string;
@@ -194,7 +195,7 @@ export default function CourtsManagementScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <TennisBallSpinner size="large" color={Colors.dark.gold} />
       </View>
     );
   }
@@ -380,7 +381,7 @@ export default function CourtsManagementScreen() {
               disabled={createMutation.isPending || updateMutation.isPending}
             >
               {(createMutation.isPending || updateMutation.isPending) ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.saveButtonText}>
                   {editingCourt ? "Update Court" : "Add Court"}

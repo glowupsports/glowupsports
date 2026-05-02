@@ -8,9 +8,7 @@ import {
   Alert,
   Image,
   Modal,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
+  TextInput} from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -18,6 +16,7 @@ import Animated, { FadeInUp, FadeOutDown } from "react-native-reanimated";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const BADGE_LABELS: Record<string, string> = {
   first_job: "First Job",
@@ -232,7 +231,7 @@ function AddExtraModal({
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} />
             ) : (
               <Text style={addExtraStyles.saveText}>Send</Text>
             )}

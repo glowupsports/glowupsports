@@ -1,13 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  View,
-} from "react-native";
+  View} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -17,6 +15,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const APPLE_HANDLE_RE = /^apple_[a-f0-9]+$/i;
 const VALID_RE = /^[a-z0-9_]+$/;
 
@@ -185,7 +184,7 @@ export default function ChooseUsernameModal() {
                 onSubmitEditing={handleSubmit}
               />
               {status.checking ? (
-                <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+                <TennisBallSpinner size="small" color={Colors.dark.textMuted} />
               ) : status.available === true ? (
                 <Ionicons name="checkmark-circle" size={20} color={Colors.dark.success} />
               ) : status.available === false ? (
@@ -209,7 +208,7 @@ export default function ChooseUsernameModal() {
               disabled={submitDisabled}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.ctaLabel}>CONTINUE</Text>
               )}

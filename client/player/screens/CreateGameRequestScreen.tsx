@@ -7,9 +7,7 @@ import {
   TextInput,
   Alert,
   ScrollView,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -24,6 +22,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const SPORTS = [
   { key: "tennis", label: "Tennis", icon: "tennisball-outline" },
   { key: "padel", label: "Padel", icon: "golf-outline" },
@@ -263,7 +262,7 @@ export default function CreateGameRequestScreen() {
             style={styles.submitGradient}
           >
             {mutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="megaphone-outline" size={18} color={Colors.dark.buttonText} />

@@ -6,9 +6,7 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
-  Platform,
-  ActivityIndicator,
-} from "react-native";import { BlurView } from "expo-blur";
+  Platform} from "react-native";import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import Animated, {
   useSharedValue,
@@ -23,6 +21,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TextColors, GlowColors, FunctionColors, RoleColors, Spacing, BorderRadius, Shadows, Backgrounds } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -181,7 +180,7 @@ export function PremiumButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator
+        <TennisBallSpinner
           size="small"
           color={variant === "primary" || variant === "admin" ? "#000000" : TextColors.primary}
         />

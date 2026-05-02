@@ -5,9 +5,7 @@ import {
   StyleSheet,
   Modal,
   Pressable,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+  ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -15,6 +13,7 @@ import * as Clipboard from "expo-clipboard";
 import { useMutation } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface SessionPlan {
   theme: string;
@@ -173,7 +172,7 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
         {/* Content */}
         {planMutation.isPending ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={GlowColors.primary} />
+            <TennisBallSpinner size="large" color={GlowColors.primary} />
             <Text style={styles.loadingTitle}>Analysing your group...</Text>
             <Text style={styles.loadingSubtitle}>
               Reviewing player skill scores, recent feedback, and attendance to build a personalised session plan.
@@ -279,7 +278,7 @@ export function AISessionPlanModal({ visible, onClose, sessionId, sessionType }:
               disabled={saveMutation.isPending}
             >
               {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Ionicons
                   name={saved ? "checkmark-circle" : "bookmark-outline"}

@@ -6,15 +6,13 @@ import {
   Pressable,
   Modal,
   TextInput,
-  ActivityIndicator,
   Alert,
   Platform,
   Dimensions,
   ScrollView,
   FlatList,
   Keyboard,
-  Linking,
-} from "react-native";
+  Linking} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { openDirections } from "@/lib/maps";
 import { useNavigation } from "@react-navigation/native";
@@ -38,6 +36,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Coach {
@@ -1333,7 +1332,7 @@ export default function PlayerBookingWizard({
       <Animated.View entering={FadeIn} style={styles.slideContent}>
         {academyCourtsLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.accentText} />
+            <TennisBallSpinner size="large" color={Colors.dark.accentText} />
             <Text style={styles.loadingText}>Loading courts...</Text>
           </View>
         ) : academyCourts.length === 0 ? (
@@ -1434,7 +1433,7 @@ export default function PlayerBookingWizard({
         
         {academyCoachesLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.accentText} />
+            <TennisBallSpinner size="large" color={Colors.dark.accentText} />
             <Text style={styles.loadingText}>Loading coaches...</Text>
           </View>
         ) : directoryCoaches.length === 0 ? (
@@ -1647,7 +1646,7 @@ export default function PlayerBookingWizard({
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.dark.primary} />
+              <TennisBallSpinner size="large" color={Colors.dark.primary} />
               <Text style={styles.loadingText}>Finding sessions...</Text>
             </View>
           ) : (
@@ -1815,7 +1814,7 @@ export default function PlayerBookingWizard({
 
                       {isSelected ? (
                         reservationLoading ? (
-                          <ActivityIndicator size="small" color={Colors.dark.primary} />
+                          <TennisBallSpinner size="small" color={Colors.dark.primary} />
                         ) : reservationId ? (
                           <View style={styles.countdownBadge}>
                             <Ionicons name="time-outline" size={11} color="#000" />
@@ -2018,7 +2017,7 @@ export default function PlayerBookingWizard({
                 <Ionicons name="sparkles" size={15} color={Colors.dark.primary} />
                 <Text style={styles.aiFocusLabel}>AI Focus Suggestions</Text>
                 {aiFocusLoading ? (
-                  <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: 4 }} />
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginLeft: 4 }} />
                 ) : null}
               </View>
               {aiFocusSuggestions.length > 0 ? (
@@ -2421,7 +2420,7 @@ export default function PlayerBookingWizard({
               disabled={!canProceed || bookingMutation.isPending || dropInLessonMutation.isPending}
             >
               {bookingMutation.isPending || dropInLessonMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>

@@ -5,14 +5,12 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Alert,
   TextInput,
   Platform,
   Image,
   Modal,
-  ScrollView,
-} from "react-native";
+  ScrollView} from "react-native";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";import Ionicons from "@expo/vector-icons/Ionicons";
@@ -36,6 +34,7 @@ import { calculateAgeFromDOB, getBallLevelFromDOB, isValidDOB } from "@shared/ba
 import { apiRequest } from "@/lib/query-client";
 import { setAuthToken, saveAuthState } from "@/lib/auth";
 import CountryCodePicker, { getDefaultCountry, CountryCode } from "@/components/CountryCodePicker";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import {
   SavedAccount,
   getSavedAccounts,
@@ -283,7 +282,7 @@ function PremiumButton({
         style={premiumButtonStyles.gradient}
       >
         {isLoading ? (
-          <ActivityIndicator color="#fff" size="small" />
+          <TennisBallSpinner color="#fff" size="small" />
         ) : (
           <Text style={premiumButtonStyles.text}>{title}</Text>
         )}
@@ -1643,7 +1642,7 @@ export default function LoginScreen() {
           />
           {usernameStatus.checking ? (
             <View style={styles.usernameStatusIcon}>
-              <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+              <TennisBallSpinner size="small" color={Colors.dark.textMuted} />
             </View>
           ) : usernameStatus.available === true ? (
             <View style={styles.usernameStatusIcon}>
@@ -1755,7 +1754,7 @@ export default function LoginScreen() {
               disabled={otpSending}
             >
               {otpSending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Ionicons name="shield-checkmark-outline" size={18} color={Colors.dark.buttonText} />
@@ -1782,7 +1781,7 @@ export default function LoginScreen() {
                   disabled={otpSending || otpCode.length !== 6}
                 >
                   {otpSending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.verifyOtpButtonText}>Verify</Text>
                   )}
@@ -2273,7 +2272,7 @@ export default function LoginScreen() {
               />
               {usernameStatus.checking ? (
                 <View style={styles.usernameStatusIcon}>
-                  <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+                  <TennisBallSpinner size="small" color={Colors.dark.textMuted} />
                 </View>
               ) : usernameStatus.available === true ? (
                 <View style={styles.usernameStatusIcon}>

@@ -5,12 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Alert,
   Modal,
   TextInput,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -18,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface PlayerSubscription {
   id: string;
@@ -221,7 +220,7 @@ export default function AdminSubscriptionsScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: headerHeight }]}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <TennisBallSpinner size="large" color={Colors.dark.gold} />
         <Text style={styles.loadingText}>Loading subscriptions...</Text>
       </View>
     );
@@ -492,7 +491,7 @@ export default function AdminSubscriptionsScreen() {
                 disabled={createMutation.isPending}
               >
                 {createMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.submitButtonText}>Create</Text>
                 )}
@@ -621,7 +620,7 @@ export default function AdminSubscriptionsScreen() {
                 disabled={updateMutation.isPending}
               >
                 {updateMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.submitButtonText}>Save Changes</Text>
                 )}

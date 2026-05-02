@@ -9,9 +9,7 @@ import {
   RefreshControl,
   Dimensions,
   TextInput,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+  Alert} from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -26,6 +24,7 @@ import { LockedScreen } from "../components/LockedScreen";
 import { apiRequest, apiFetch } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const HEAD_ORANGE = "#FF6600";
@@ -155,7 +154,7 @@ function UpsellRowItem({ upsell, onRespond, isResponding, onViewBooking }: { ups
           disabled={isResponding}
         >
           {isResponding ? (
-            <ActivityIndicator size="small" color={Colors.dark.error} />
+            <TennisBallSpinner size="small" color={Colors.dark.error} />
           ) : (
             <Ionicons name="close" size={16} color={Colors.dark.error} />
           )}
@@ -166,7 +165,7 @@ function UpsellRowItem({ upsell, onRespond, isResponding, onViewBooking }: { ups
           disabled={isResponding}
         >
           {isResponding ? (
-            <ActivityIndicator size="small" color={Colors.dark.backgroundDefault} />
+            <TennisBallSpinner size="small" color={Colors.dark.backgroundDefault} />
           ) : (
             <Text style={pendingUpsellStyles.approveBtnText}>Accept</Text>
           )}
@@ -603,7 +602,7 @@ export default function ShopScreen() {
                   <Text style={styles.sectionTitle}>Results</Text>
                   {isSearching ? (
                     <View style={styles.centerPad}>
-                      <ActivityIndicator color={HEAD_ORANGE} />
+                      <TennisBallSpinner color={HEAD_ORANGE} />
                     </View>
                   ) : (
                     <>

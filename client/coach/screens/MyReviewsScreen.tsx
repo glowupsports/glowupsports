@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, RefreshControl } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, TextInput, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
@@ -10,6 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface ReviewStats {
   totalReviews: number;
@@ -323,7 +324,7 @@ function ResponseModal({
               style={styles.submitButtonGradient}
             >
               {submitMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Feather name="send" size={16} color={Colors.dark.buttonText} />
@@ -411,7 +412,7 @@ export default function MyReviewsScreen() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.primary} />
+            <TennisBallSpinner size="large" color={Colors.dark.primary} />
             <ThemedText style={styles.loadingText}>Loading reviews...</ThemedText>
           </View>
         ) : (

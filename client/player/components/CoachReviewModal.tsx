@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Modal, Pressable, ScrollView, TextInput, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Modal, Pressable, ScrollView, TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface CoachReviewModalProps {
   visible: boolean;
   onClose: () => void;
@@ -301,7 +302,7 @@ export function CoachReviewModal({ visible, onClose, coach, onSuccess }: CoachRe
                   ]}
                 >
                   {submitMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Feather name="send" size={18} color={Colors.dark.buttonText} />

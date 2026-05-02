@@ -7,11 +7,9 @@ import {
   Pressable,
   Modal,
   Alert,
-  ActivityIndicator,
   TextInput,
   FlatList,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +19,7 @@ import { useNavigation } from "@react-navigation/native";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface CorporateAccount {
   id: string;
@@ -251,7 +250,7 @@ export default function AdminCorporateAccountsScreen() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color={Colors.dark.orange} style={{ marginTop: Spacing.xl }} />
+        <TennisBallSpinner color={Colors.dark.orange} style={{ marginTop: Spacing.xl }} />
       ) : accounts.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="business-outline" size={48} color={Colors.dark.textMuted} />
@@ -328,7 +327,7 @@ export default function AdminCorporateAccountsScreen() {
             />
             <Pressable style={styles.submitBtn} onPress={handleCreate} disabled={createMutation.isPending}>
               {createMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.buttonText} />
+                <TennisBallSpinner color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.submitBtnText}>Create Account</Text>
               )}
@@ -348,7 +347,7 @@ export default function AdminCorporateAccountsScreen() {
           </View>
           <ScrollView contentContainerStyle={{ padding: Spacing.md, paddingBottom: insets.bottom + Spacing.xl }}>
             {isLoadingDetail ? (
-              <ActivityIndicator color={Colors.dark.orange} style={{ marginTop: Spacing.xl }} />
+              <TennisBallSpinner color={Colors.dark.orange} style={{ marginTop: Spacing.xl }} />
             ) : accountDetail ? (
               <>
                 {/* Balance Card */}
@@ -387,7 +386,7 @@ export default function AdminCorporateAccountsScreen() {
                       disabled={sendReportMutation.isPending}
                     >
                       {sendReportMutation.isPending ? (
-                        <ActivityIndicator size="small" color={Colors.dark.text} />
+                        <TennisBallSpinner size="small" color={Colors.dark.text} />
                       ) : (
                         <Ionicons name="mail-outline" size={18} color={Colors.dark.text} />
                       )}
@@ -429,7 +428,7 @@ export default function AdminCorporateAccountsScreen() {
                       }}
                     >
                       {csvExporting ? (
-                        <ActivityIndicator size="small" color={Colors.dark.text} />
+                        <TennisBallSpinner size="small" color={Colors.dark.text} />
                       ) : (
                         <Ionicons name="download-outline" size={18} color={Colors.dark.text} />
                       )}
@@ -577,7 +576,7 @@ export default function AdminCorporateAccountsScreen() {
                 />
                 <Pressable style={styles.submitBtn} onPress={handleTopUp} disabled={topUpMutation.isPending}>
                   {topUpMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} />
+                    <TennisBallSpinner color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.submitBtnText}>Add Credits</Text>
                   )}
@@ -609,7 +608,7 @@ export default function AdminCorporateAccountsScreen() {
                 <Text style={styles.inviteNote}>An email with an invite token will be sent to this address.</Text>
                 <Pressable style={styles.submitBtn} onPress={handleInvite} disabled={inviteMutation.isPending}>
                   {inviteMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} />
+                    <TennisBallSpinner color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.submitBtnText}>Send Invite</Text>
                   )}

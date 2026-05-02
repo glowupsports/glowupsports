@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, StyleSheet} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { SuccessToast } from "@/components/SuccessToast";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const FEATURE_INTEREST_QUERY_KEY = ["/api/players/me/feature-interest"] as const;
 
@@ -157,7 +158,7 @@ export function ComingSoonPaymentRow({
           style={styles.notifyPressable}
         >
           {mutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.primary} />
+            <TennisBallSpinner size="small" color={Colors.dark.primary} />
           ) : (
             <Text style={styles.notifyLink}>{notifyText}</Text>
           )}

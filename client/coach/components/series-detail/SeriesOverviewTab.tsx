@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator, StyleSheet, Switch, Platform } from "react-native";
+import { View, Text, Pressable, TextInput, StyleSheet, Switch, Platform } from "react-native";
 import { useTranslation } from "react-i18next";
 import { openDirections } from "@/lib/maps";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -10,6 +10,7 @@ import { formatCredits } from "@/lib/dateUtils";
 import { styles } from "./seriesDetailStyles";
 import { DAY_NAMES, getBallLevelColor } from "./utils";
 import type { SeriesDetail, Player, CourtOption } from "./types";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const DURATION_OPTIONS = [30, 45, 60, 75, 90, 120];
 
@@ -366,7 +367,7 @@ export function SeriesOverviewTab({
               disabled={scheduleSaving}
             >
               {scheduleSaving ? (
-                <ActivityIndicator size="small" color={Colors.dark.text} />
+                <TennisBallSpinner size="small" color={Colors.dark.text} />
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={18} color={Colors.dark.text} />
@@ -422,7 +423,7 @@ export function SeriesOverviewTab({
               </Pressable>
             ))}
             {changeSeriesCourtMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: 8 }} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginTop: 8 }} />
             ) : null}
           </View>
         ) : null}
@@ -440,7 +441,7 @@ export function SeriesOverviewTab({
             <Text style={publicStyles.toggleSubLabel}>Public lessons appear to all players in your region.</Text>
           </View>
           {updatingVisibility ? (
-            <ActivityIndicator size="small" color={Colors.dark.successNeon} />
+            <TennisBallSpinner size="small" color={Colors.dark.successNeon} />
           ) : (
             <Switch
               value={series.isPublic ?? false}
@@ -701,7 +702,7 @@ export function SeriesOverviewTab({
                               disabled={isPausing}
                             >
                               {isPausing ? (
-                                <ActivityIndicator size="small" color={Colors.dark.gold} />
+                                <TennisBallSpinner size="small" color={Colors.dark.gold} />
                               ) : (
                                 <>
                                   <View style={[styles.playerActionIconWrapper, { backgroundColor: Colors.dark.gold + "20" }]}>
@@ -723,7 +724,7 @@ export function SeriesOverviewTab({
                               disabled={isRemoving}
                             >
                               {isRemoving ? (
-                                <ActivityIndicator size="small" color={Colors.dark.error} />
+                                <TennisBallSpinner size="small" color={Colors.dark.error} />
                               ) : (
                                 <>
                                   <View style={[styles.playerActionIconWrapper, { backgroundColor: Colors.dark.error + "20" }]}>
@@ -821,7 +822,7 @@ export function SeriesOverviewTab({
             disabled={extendingSeries}
           >
             {extendingSeries ? (
-              <ActivityIndicator size="small" color={Colors.dark.accent} />
+              <TennisBallSpinner size="small" color={Colors.dark.accent} />
             ) : (
               <>
                 <Ionicons name="add-circle-outline" size={18} color={Colors.dark.accent} />
@@ -838,7 +839,7 @@ export function SeriesOverviewTab({
             disabled={addingExtraLesson}
           >
             {addingExtraLesson ? (
-              <ActivityIndicator size="small" color={Colors.dark.warning} />
+              <TennisBallSpinner size="small" color={Colors.dark.warning} />
             ) : (
               <>
                 <Ionicons name="calendar-outline" size={18} color={Colors.dark.warning} />
@@ -867,7 +868,7 @@ export function SeriesOverviewTab({
             disabled={completingSeries}
           >
             {completingSeries ? (
-              <ActivityIndicator size="small" color={Colors.dark.successNeon} />
+              <TennisBallSpinner size="small" color={Colors.dark.successNeon} />
             ) : (
               <>
                 <Ionicons name="checkmark-circle-outline" size={18} color={Colors.dark.successNeon} />
@@ -895,7 +896,7 @@ export function SeriesOverviewTab({
           disabled={deletingSeries}
         >
           {deletingSeries ? (
-            <ActivityIndicator size="small" color={Colors.dark.error} />
+            <TennisBallSpinner size="small" color={Colors.dark.error} />
           ) : (
             <>
               <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />

@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+  Pressable} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface EarningsSummary {
   realized: { amount: string; currency: string; sessionsCount: number; status: string };
@@ -212,7 +211,7 @@ export default function CoachEarningsScreen() {
       <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
         {loadingSummary ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.primary} />
+            <TennisBallSpinner size="large" color={Colors.dark.primary} />
           </View>
         ) : summary ? (
           <>
@@ -652,7 +651,7 @@ export default function CoachEarningsScreen() {
               </Pressable>
               {showBreakdown ? (
                 loadingBreakdown ? (
-                  <View style={styles.breakdownLoading}><ActivityIndicator size="small" color={Colors.dark.primary} /></View>
+                  <View style={styles.breakdownLoading}><TennisBallSpinner size="small" color={Colors.dark.primary} /></View>
                 ) : breakdown?.breakdown.length === 0 ? (
                   <View style={styles.emptyBreakdown}>
                     <Ionicons name="calendar-outline" size={32} color={Colors.dark.textMuted} />

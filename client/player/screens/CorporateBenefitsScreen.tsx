@@ -5,8 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Alert,
-  ActivityIndicator,
- TextInput } from "react-native";
+  TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import KeyboardAwareScrollViewCompat from "@/components/KeyboardAwareScrollViewCompat";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface CorporateAccount {
   id: string;
   companyName: string;
@@ -104,7 +104,7 @@ export default function CorporateBenefitsScreen() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color={Colors.dark.orange} style={{ marginTop: Spacing.xl }} />
+        <TennisBallSpinner color={Colors.dark.orange} style={{ marginTop: Spacing.xl }} />
       ) : hasCorporate ? (
         <>
           {/* Active corporate account */}
@@ -189,7 +189,7 @@ export default function CorporateBenefitsScreen() {
                   disabled={acceptMutation.isPending}
                 >
                   {acceptMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} />
+                    <TennisBallSpinner color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.activateBtnText}>Activate Benefits</Text>
                   )}

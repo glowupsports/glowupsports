@@ -8,9 +8,7 @@ import {
   TextInput,
   Modal,
   Alert,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +18,7 @@ import { apiRequest, apiFetch } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { IANA_TIMEZONES } from "@/constants/timezones";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Location {
   id: string;
@@ -247,7 +246,7 @@ export default function AdminLocationsScreen() {
           <Text style={styles.label}>Timezone</Text>
           {timezoneDetecting ? (
             <View style={styles.detectingBadge}>
-              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginRight: 4 }} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginRight: 4 }} />
               <Text style={styles.detectingText}>Detecting...</Text>
             </View>
           ) : timezoneAutoDetected ? (
@@ -414,7 +413,7 @@ export default function AdminLocationsScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.gold} />
+            <TennisBallSpinner size="large" color={Colors.dark.gold} />
           </View>
         ) : locations.length === 0 ? (
           <View style={[styles.emptyContainer, CardStyles.elevated]}>
@@ -542,7 +541,7 @@ export default function AdminLocationsScreen() {
                 disabled={createMutation.isPending}
               >
                 {createMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} />
+                  <TennisBallSpinner color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.submitButtonText}>Add Location</Text>
                 )}
@@ -599,7 +598,7 @@ export default function AdminLocationsScreen() {
                   disabled={updateMutation.isPending}
                 >
                   {updateMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} />
+                    <TennisBallSpinner color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.submitButtonText}>Save Changes</Text>
                   )}
@@ -612,7 +611,7 @@ export default function AdminLocationsScreen() {
                 disabled={deleteMutation.isPending}
               >
                 {deleteMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.error} />
+                  <TennisBallSpinner color={Colors.dark.error} />
                 ) : (
                   <>
                     <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />

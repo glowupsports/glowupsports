@@ -6,9 +6,7 @@ import {
   FlatList,
   Pressable,
   TextInput,
-  ActivityIndicator,
-  Dimensions,
-} from "react-native";
+  Dimensions} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
@@ -25,6 +23,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { usePlayerCountry } from "@/player/hooks/usePlayerCountry";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2;
 
@@ -323,7 +322,7 @@ export default function CoachDirectoryScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.accentText} />
+          <TennisBallSpinner size="large" color={Colors.dark.accentText} />
           <Text style={styles.loadingText}>Finding coaches...</Text>
         </View>
       ) : filteredCoaches.length === 0 ? (

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -9,6 +9,7 @@ import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, Tex
 import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type PrivacyLevel = "everyone" | "platform" | "academy" | "hidden";
 
 interface PrivacyOption {
@@ -192,7 +193,7 @@ export default function PrivacySettingsScreen({
             end={{ x: 1, y: 1 }}
           />
           {updatePrivacyMutation.isPending ? (
-            <ActivityIndicator color={Backgrounds.root} />
+            <TennisBallSpinner color={Backgrounds.root} />
           ) : (
             <Text style={styles.confirmButtonText}>
               {isOnboarding ? "Continue" : "Save Changes"}

@@ -5,11 +5,9 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
   Alert,
-  ScrollView,
-} from "react-native";
+  ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -24,6 +22,7 @@ import { Image } from "expo-image";
 import { useSport } from "@/player/context/SportContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const SPORTS = [
   { key: "all", label: "All", icon: "apps-outline" },
   { key: "tennis", label: "Tennis", icon: "tennisball-outline" },
@@ -274,7 +273,7 @@ export default function FindGameScreen() {
             onPress={() => !isJoining && handleLeave(item.id)}
           >
             {isJoining ? (
-              <ActivityIndicator size="small" color={Colors.dark.error} />
+              <TennisBallSpinner size="small" color={Colors.dark.error} />
             ) : (
               <>
                 <Ionicons name="exit-outline" size={15} color={Colors.dark.error} />
@@ -288,7 +287,7 @@ export default function FindGameScreen() {
             onPress={() => !isJoining && handleJoin(item.id)}
           >
             {isJoining ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="enter-outline" size={15} color={Colors.dark.buttonText} />
@@ -338,7 +337,7 @@ export default function FindGameScreen() {
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       ) : !requests || requests.length === 0 ? (
         <View style={styles.empty}>

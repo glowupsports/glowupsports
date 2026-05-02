@@ -9,9 +9,7 @@ import {
   Image,
   Modal,
   TextInput,
-  ActivityIndicator,
-  Switch,
-} from "react-native";
+  Switch} from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -19,6 +17,7 @@ import Animated, { FadeInUp } from "react-native-reanimated";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing } from "@/constants/theme";
 import { buildPhotoUrl, apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import {
   PROVIDER_SPECIALIZATIONS,
   SPECIALIZATION_KEYS,
@@ -133,7 +132,7 @@ function EditProfileModal({
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} />
             ) : (
               <Text style={editModalStyles.saveText}>Save</Text>
             )}
@@ -372,7 +371,7 @@ function AvailabilitySection() {
               disabled={saving}
             >
               {saving ? (
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
+                <TennisBallSpinner size="small" color={Colors.dark.primary} />
               ) : (
                 <Text style={availStyles.saveText}>Save</Text>
               )}
@@ -553,7 +552,7 @@ function ServiceMenuSection() {
         </Pressable>
       </View>
       {isLoading ? (
-        <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.sm }} />
+        <TennisBallSpinner color={Colors.dark.primary} style={{ marginTop: Spacing.sm }} />
       ) : services.length === 0 ? (
         <Pressable style={svcStyles.emptyCard} onPress={openCreate}>
           <Ionicons name="add-circle-outline" size={20} color={Colors.dark.primary} />
@@ -599,7 +598,7 @@ function ServiceMenuSection() {
             <Text style={svcStyles.modalTitle}>{editingService ? "Edit Service" : "New Service"}</Text>
             <Pressable onPress={handleSave} disabled={saving} style={{ opacity: saving ? 0.5 : 1 }}>
               {saving ? (
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
+                <TennisBallSpinner size="small" color={Colors.dark.primary} />
               ) : (
                 <Text style={svcStyles.saveText}>Save</Text>
               )}

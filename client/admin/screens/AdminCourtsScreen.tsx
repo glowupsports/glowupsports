@@ -8,10 +8,8 @@ import {
   TextInput,
   Modal,
   Alert,
-  ActivityIndicator,
   Platform,
-  Linking,
-} from "react-native";
+  Linking} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -27,6 +25,7 @@ import { SportBadge, SportSingleSelector } from "@/components/SportBadge";
 import { SPORTS, type SportOrMulti } from "@shared/sportConfig";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { MapLocationPickerModal, type MapLocationResult } from "@/components/MapLocationPickerModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Court {
   id: string;
@@ -594,7 +593,7 @@ export default function AdminCourtsScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.gold} />
+            <TennisBallSpinner size="large" color={Colors.dark.gold} />
           </View>
         ) : courts.length === 0 ? (
           <View style={[styles.emptyContainer, CardStyles.elevated]}>
@@ -709,7 +708,7 @@ export default function AdminCourtsScreen() {
                 <View style={styles.locationLabelRow}>
                   <Text style={styles.label}>Location</Text>
                   {creatingLocation ? (
-                    <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: Spacing.sm }} />
+                    <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginLeft: Spacing.sm }} />
                   ) : null}
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
@@ -783,7 +782,7 @@ export default function AdminCourtsScreen() {
                   disabled={uploadingPhoto}
                 >
                   {uploadingPhoto ? (
-                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                    <TennisBallSpinner size="small" color={Colors.dark.primary} />
                   ) : formData.photoUrl ? (
                     <View style={styles.photoPreviewContainer}>
                       <Image 
@@ -861,7 +860,7 @@ export default function AdminCourtsScreen() {
                 disabled={createMutation.isPending || creatingLocation}
               >
                 {createMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.buttonText} />
+                  <TennisBallSpinner color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.submitButtonText}>Add Court</Text>
                 )}
@@ -926,7 +925,7 @@ export default function AdminCourtsScreen() {
                 <View style={styles.locationLabelRow}>
                   <Text style={styles.label}>Location</Text>
                   {creatingLocation ? (
-                    <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: Spacing.sm }} />
+                    <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginLeft: Spacing.sm }} />
                   ) : null}
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationPicker}>
@@ -1000,7 +999,7 @@ export default function AdminCourtsScreen() {
                   disabled={uploadingPhoto}
                 >
                   {uploadingPhoto ? (
-                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                    <TennisBallSpinner size="small" color={Colors.dark.primary} />
                   ) : formData.photoUrl ? (
                     <View style={styles.photoPreviewContainer}>
                       <Image 
@@ -1079,7 +1078,7 @@ export default function AdminCourtsScreen() {
                   disabled={updateMutation.isPending || creatingLocation}
                 >
                   {updateMutation.isPending ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} />
+                    <TennisBallSpinner color={Colors.dark.buttonText} />
                   ) : (
                     <Text style={styles.submitButtonText}>Save Changes</Text>
                   )}
@@ -1092,7 +1091,7 @@ export default function AdminCourtsScreen() {
                 disabled={deleteMutation.isPending}
               >
                 {deleteMutation.isPending ? (
-                  <ActivityIndicator color={Colors.dark.error} />
+                  <TennisBallSpinner color={Colors.dark.error} />
                 ) : (
                   <>
                     <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />

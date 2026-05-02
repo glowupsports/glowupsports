@@ -4,9 +4,7 @@ import {
   StyleSheet,
   TextInput,
   FlatList,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+  Pressable} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -17,6 +15,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { buildPhotoUrl } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Friend {
   id: string;
   name: string;
@@ -203,7 +202,7 @@ export default function FriendSelector({
 
       {isLoading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={Colors.dark.primary} />
+          <TennisBallSpinner color={Colors.dark.primary} />
           <ThemedText style={styles.loadingText}>Loading friends...</ThemedText>
         </View>
       ) : filteredFriends.length === 0 ? (

@@ -5,9 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -15,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface CoachMembership {
   id: string;
@@ -91,7 +90,7 @@ export function AcademySwitcher() {
             <Text style={styles.dropdownTitle}>Switch Academy</Text>
             
             {isLoading ? (
-              <ActivityIndicator color={Colors.dark.primary} style={{ padding: Spacing.lg }} />
+              <TennisBallSpinner color={Colors.dark.primary} style={{ padding: Spacing.lg }} />
             ) : (
               activeAcademies.map((membership) => (
                 <Pressable

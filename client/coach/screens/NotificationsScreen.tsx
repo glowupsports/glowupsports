@@ -5,9 +5,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -24,6 +22,7 @@ import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useTabNavigation } from "@/components/TabNavigationContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Notification {
   id: string;
@@ -311,7 +310,7 @@ export default function NotificationsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.emptyState}>

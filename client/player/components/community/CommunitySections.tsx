@@ -8,12 +8,10 @@ import {
   ScrollView,
   Pressable,
   RefreshControl,
-  ActivityIndicator,
   TextInput,
   Modal,
   Share,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -33,6 +31,7 @@ import { type Achievement, type NewsItem, type Friend, type FriendActivity, type
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { SkeletonCard } from "@/components/SkeletonLoader";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 export function AchievementShowcase({ onSelectAchievement }: { onSelectAchievement: (achievement: Achievement) => void }) {
   const { t } = useTranslation();
   const _insets = useSafeAreaInsets();
@@ -662,7 +661,7 @@ export function FriendsSection({ onChallenge: _onChallenge, onSelectActivity }: 
 
       {isLoading ? (
         <View style={friendStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       ) : activeTab === "activity" ? (
         <FlatList
@@ -910,7 +909,7 @@ export function GroupsSection() {
               disabled={isJoining}
             >
               {isJoining ? (
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
+                <TennisBallSpinner size="small" color={Colors.dark.primary} />
               ) : (
                 <ThemedText style={groupStyles.joinBtnText}>Join</ThemedText>
               )}
@@ -1127,7 +1126,7 @@ export function GroupsSection() {
               disabled={!newGroupName.trim() || createGroupMutation.isPending}
             >
               {createGroupMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <ThemedText style={groupStyles.createGroupSubmitText}>{t('player.community.createGroup')}</ThemedText>
               )}

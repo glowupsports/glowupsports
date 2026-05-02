@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal, Linking } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -47,6 +47,7 @@ import {
 } from "@/hooks/useThemedStyles";
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { SkeletonSessionCard } from "@/components/SkeletonLoader";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 // react-native-maps is a native module. On builds where the native side
 // isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
 // build, a missing/expired Google Maps key, or a future SDK upgrade) the
@@ -1476,7 +1477,7 @@ export default function PlayScreen() {
                       }}
                     >
                       {isJoining ? (
-                        <ActivityIndicator size="small" color="#FF6B6B" />
+                        <TennisBallSpinner size="small" color="#FF6B6B" />
                       ) : (
                         <>
                           <Ionicons
@@ -1511,7 +1512,7 @@ export default function PlayScreen() {
                           }}
                         >
                           {isJoining ? (
-                            <ActivityIndicator
+                            <TennisBallSpinner
                               size="small"
                               color={Colors.dark.buttonText}
                             />
@@ -1562,7 +1563,7 @@ export default function PlayScreen() {
                         }}
                       >
                         {isJoining ? (
-                          <ActivityIndicator size="small" color="#FF6B6B" />
+                          <TennisBallSpinner size="small" color="#FF6B6B" />
                         ) : (
                           <Text style={styles.epicLeaveWaitlistText}>
                             Leave Waitlist
@@ -1584,7 +1585,7 @@ export default function PlayScreen() {
                         }}
                       >
                         {isJoining ? (
-                          <ActivityIndicator size="small" color="#000" />
+                          <TennisBallSpinner size="small" color="#000" />
                         ) : (
                           <>
                             <Ionicons
@@ -1616,7 +1617,7 @@ export default function PlayScreen() {
                         }}
                       >
                         {isJoining ? (
-                          <ActivityIndicator
+                          <TennisBallSpinner
                             size="small"
                             color={Colors.dark.buttonText}
                           />
@@ -1651,7 +1652,7 @@ export default function PlayScreen() {
                       }}
                     >
                       {isJoining ? (
-                        <ActivityIndicator
+                        <TennisBallSpinner
                           size="small"
                           color={Colors.dark.text}
                         />
@@ -2057,7 +2058,7 @@ export default function PlayScreen() {
               <Text style={styles.sectionTitle}>Courts Near You</Text>
             </View>
           </View>
-          <ActivityIndicator
+          <TennisBallSpinner
             size="small"
             color={Colors.dark.primary}
             style={{ marginVertical: Spacing.md }}
@@ -3809,7 +3810,7 @@ export default function PlayScreen() {
                 </Pressable>
               )}
               {playersLoading ? (
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
+                <TennisBallSpinner size="small" color={Colors.dark.primary} />
               ) : filteredPlayers.length > 0 ? (
                 <View style={styles.playersGrid}>
                   {filteredPlayers.map(renderPlayerCard)}
@@ -3924,7 +3925,7 @@ export default function PlayScreen() {
               ) : null}
 
               {leaderboardLoading ? (
-                <ActivityIndicator
+                <TennisBallSpinner
                   size="small"
                   color={Colors.dark.primary}
                   style={{ marginTop: Spacing.xl }}
@@ -4555,7 +4556,7 @@ export default function PlayScreen() {
                         }}
                       >
                         {sendFriendRequestMutation.isPending ? (
-                          <ActivityIndicator
+                          <TennisBallSpinner
                             size="small"
                             color={Colors.dark.buttonText}
                           />

@@ -6,10 +6,8 @@ import {
   Pressable,
   FlatList,
   Modal,
-  ActivityIndicator,
   Alert,
-  ScrollView,
-} from "react-native";
+  ScrollView} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -19,6 +17,7 @@ import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { apiRequest } from "@/lib/query-client";
 import type { TabProps } from "./types";
 import { useCoachingScroll } from "./CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -260,7 +259,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
 
       {isLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={Colors.dark.primary} size="large" />
+          <TennisBallSpinner color={Colors.dark.primary} size="large" />
         </View>
       ) : filteredSeries.length === 0 ? (
         <View style={styles.centered}>
@@ -301,7 +300,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
 
             {moving ? (
               <View style={styles.centered}>
-                <ActivityIndicator color={Colors.dark.primary} />
+                <TennisBallSpinner color={Colors.dark.primary} />
                 <Text style={styles.movingText}>Moving...</Text>
               </View>
             ) : (
@@ -390,7 +389,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
                 disabled={completing}
               >
                 {completing ? (
-                  <ActivityIndicator size="small" color={Colors.dark.error} />
+                  <TennisBallSpinner size="small" color={Colors.dark.error} />
                 ) : (
                   <Text style={styles.confirmBtnConfirmText}>Complete</Text>
                 )}

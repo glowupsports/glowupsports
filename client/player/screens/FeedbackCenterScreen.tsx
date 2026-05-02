@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, type DimensionValue } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, type DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { CompositeNavigationProp } from "@react-navigation/native";
@@ -10,6 +10,7 @@ import { Colors, Backgrounds, Spacing, Typography, BorderRadius, GlowColors, Tex
 import type { PlayerStackParamList, ProgressStackParamList } from "@/player/navigation/PlayerNavigator";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type FeedbackCenterNavProp = CompositeNavigationProp<
   NativeStackNavigationProp<ProgressStackParamList, "FeedbackCenter">,
   NativeStackNavigationProp<PlayerStackParamList>
@@ -132,7 +133,7 @@ export default function FeedbackCenterScreen() {
       >
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.accentText} />
+            <TennisBallSpinner size="large" color={Colors.dark.accentText} />
             <Text style={styles.loadingText}>Loading assessments...</Text>
           </View>
         ) : sortedSummaries.length > 0 ? (

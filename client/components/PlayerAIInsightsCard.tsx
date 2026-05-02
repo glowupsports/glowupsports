@@ -3,10 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
-  ActivityIndicator,
-
-} from "react-native";
+  Pressable} from "react-native";
 import Svg, { Path, Line, Circle, Text as SvgText } from "react-native-svg";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +12,7 @@ import { Colors, Spacing, Typography, BorderRadius, CardStyles, FontSizes } from
 import { apiRequest } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface SessionDigest {
   id: string;
@@ -336,7 +334,7 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
                   disabled={generateMutation.isPending}
                 >
                   {generateMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Ionicons name="sparkles-outline" size={14} color={Colors.dark.buttonText} />
                   )}
@@ -416,7 +414,7 @@ export function PlayerAIInsightsCard({ playerId, myProfile }: Props) {
               disabled={generateMutation.isPending}
             >
               {generateMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Ionicons name="refresh" size={14} color={Colors.dark.buttonText} />
               )}

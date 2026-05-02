@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, ActivityIndicator, Platform, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Platform, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const CURRENCIES = ["AED", "EUR", "USD", "GBP"];
 
@@ -304,7 +305,7 @@ export default function CoachCompensationScreen() {
 
         {contractsLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.gold} />
+            <TennisBallSpinner size="large" color={Colors.dark.gold} />
           </View>
         ) : (
           <>

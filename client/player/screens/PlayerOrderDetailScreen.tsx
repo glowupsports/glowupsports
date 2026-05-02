@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
+  Alert} from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -18,6 +16,7 @@ import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface UpsellRequest {
   id: string;
   orderId: string;
@@ -128,7 +127,7 @@ export default function PlayerOrderDetailScreen() {
   if (isLoading || !data) {
     return (
       <View style={[styles.center, { paddingTop: headerHeight + Spacing.xl }]}>
-        <ActivityIndicator color={Colors.dark.primary} />
+        <TennisBallSpinner color={Colors.dark.primary} />
       </View>
     );
   }
@@ -201,7 +200,7 @@ export default function PlayerOrderDetailScreen() {
                   disabled={responding === upsell.id}
                 >
                   {responding === upsell.id ? (
-                    <ActivityIndicator size="small" color={Colors.dark.error} />
+                    <TennisBallSpinner size="small" color={Colors.dark.error} />
                   ) : (
                     <>
                       <Ionicons name="close" size={16} color={Colors.dark.error} />
@@ -215,7 +214,7 @@ export default function PlayerOrderDetailScreen() {
                   disabled={responding === upsell.id}
                 >
                   {responding === upsell.id ? (
-                    <ActivityIndicator size="small" color={Colors.dark.backgroundDefault} />
+                    <TennisBallSpinner size="small" color={Colors.dark.backgroundDefault} />
                   ) : (
                     <>
                       <Ionicons name="checkmark" size={16} color={Colors.dark.backgroundDefault} />

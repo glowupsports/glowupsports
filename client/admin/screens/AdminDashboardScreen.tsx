@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -37,6 +35,7 @@ import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type AdminNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList>,
   NativeStackNavigationProp<AdminStackParamList>
@@ -253,7 +252,7 @@ export default function AdminDashboardScreen() {
   if (isLoading && !operationsData) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: isDesktop ? 0 : insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.orange} />
+        <TennisBallSpinner size="large" color={Colors.dark.orange} />
         <Text style={styles.loadingText}>Loading Operations Hub...</Text>
       </View>
     );

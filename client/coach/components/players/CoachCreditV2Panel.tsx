@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, Modal, TextInput, Platform, Alert, ScrollView } from "react-native";
+import { View, Text, Pressable, Modal, TextInput, Platform, Alert, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -12,6 +12,7 @@ import { Colors, Spacing, Typography } from "@/constants/theme";
 import { CreditPackagesList } from "@/components/CreditPackagesList";
 import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
 import { SuccessToast } from "@/components/SuccessToast";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type CreditType = "group" | "semi_private" | "private";
 
@@ -539,7 +540,7 @@ export function CoachCreditV2Panel({ playerId }: Props) {
   if (walletQuery.isLoading) {
     return (
       <View style={{ paddingVertical: Spacing.md, alignItems: "center" }}>
-        <ActivityIndicator color={Colors.dark.primary} />
+        <TennisBallSpinner color={Colors.dark.primary} />
       </View>
     );
   }
@@ -813,7 +814,7 @@ export function CoachCreditV2Panel({ playerId }: Props) {
       {showLedger ? (
         <View style={{ marginTop: Spacing.sm }}>
           {ledgerQuery.isLoading ? (
-            <ActivityIndicator color={Colors.dark.primary} />
+            <TennisBallSpinner color={Colors.dark.primary} />
           ) : !ledgerQuery.data?.entries?.length ? (
             <Text style={{ fontSize: 11, color: Colors.dark.textMuted }}>
               No history yet.
@@ -1136,7 +1137,7 @@ function AddCreditsModal({
           }}
         >
           {isPending ? (
-            <ActivityIndicator color="#000" />
+            <TennisBallSpinner color="#000" />
           ) : (
             <Text style={{ color: "#000", fontWeight: "800", fontSize: 14 }}>
               {addPayment === "already_paid" ? "Add credits now" : "Create invoice"}
@@ -1285,7 +1286,7 @@ function RemoveCreditsModal({
           }}
         >
           {isPending ? (
-            <ActivityIndicator color="#fff" />
+            <TennisBallSpinner color="#fff" />
           ) : (
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>
               Remove credits
@@ -1765,7 +1766,7 @@ function LedgerEntryDetailSheet({
                   }}
                 >
                   {isPending ? (
-                    <ActivityIndicator color="#fff" size="small" />
+                    <TennisBallSpinner color="#fff" size="small" />
                   ) : (
                     <Ionicons name="checkmark" size={14} color="#fff" />
                   )}

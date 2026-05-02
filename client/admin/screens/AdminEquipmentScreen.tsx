@@ -8,11 +8,9 @@ import {
   TextInput,
   Modal,
   Alert,
-  ActivityIndicator,
   Switch,
   RefreshControl,
-  FlatList,
-} from "react-native";
+  FlatList} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +22,7 @@ import { apiRequest, getApiUrl } from "@/lib/query-client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import * as ImagePicker from "expo-image-picker";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface EquipmentItem {
   id: string;
@@ -513,7 +512,7 @@ export default function AdminEquipmentScreen() {
       {/* Content */}
       {activeTab === "inventory" ? (
         equipmentLoading ? (
-          <ActivityIndicator style={styles.loader} color={Colors.dark.primary} />
+          <TennisBallSpinner style={styles.loader} color={Colors.dark.primary} />
         ) : (
           <ScrollView
             style={styles.list}
@@ -568,7 +567,7 @@ export default function AdminEquipmentScreen() {
             ))}
           </ScrollView>
           {rentalsLoading ? (
-            <ActivityIndicator style={styles.loader} color={Colors.dark.primary} />
+            <TennisBallSpinner style={styles.loader} color={Colors.dark.primary} />
           ) : filteredRentals.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons name="repeat-outline" size={48} color={Colors.dark.textMuted} />
@@ -620,7 +619,7 @@ export default function AdminEquipmentScreen() {
               ) : (
                 <View style={styles.photoPlaceholder}>
                   {uploadingPhoto ? (
-                    <ActivityIndicator color={Colors.dark.primary} />
+                    <TennisBallSpinner color={Colors.dark.primary} />
                   ) : (
                     <>
                       <Ionicons name="camera-outline" size={32} color={Colors.dark.textMuted} />
@@ -755,7 +754,7 @@ export default function AdminEquipmentScreen() {
               disabled={!form.name.trim() || saveMutation.isPending}
             >
               {saveMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.buttonText} />
+                <TennisBallSpinner color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.saveBtnText}>
                   {editingItem ? "Save Changes" : "Add Equipment"}

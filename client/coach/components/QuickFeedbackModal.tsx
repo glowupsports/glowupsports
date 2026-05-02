@@ -5,10 +5,8 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  ActivityIndicator,
   Alert,
-  ScrollView,
-} from "react-native";
+  ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -18,6 +16,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelC
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Player {
   id: string;
@@ -486,7 +485,7 @@ export default function QuickFeedbackModal({
             {showSkillPicker && !selectedSkillForRubric ? (
               <View style={styles.skillsGrid}>
                 {loadingSkills ? (
-                  <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} />
                 ) : suggestedSkills && suggestedSkills.length > 0 ? (
                   suggestedSkills.map(skill => {
                     const existingScore = getSkillScore(skill.id);
@@ -592,7 +591,7 @@ export default function QuickFeedbackModal({
               disabled={submitMutation.isPending}
             >
               {submitMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>Save Rating</Text>
@@ -617,7 +616,7 @@ export default function QuickFeedbackModal({
             disabled={submitMutation.isPending}
           >
             {submitMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Text style={styles.nextButtonText}>

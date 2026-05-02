@@ -7,9 +7,7 @@ import {
   Pressable,
   Platform,
   Alert,
-  Switch,
-  ActivityIndicator,
-} from "react-native";
+  Switch} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -27,6 +25,7 @@ import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { MapLocationPickerModal, type MapLocationResult } from "@/components/MapLocationPickerModal";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type ProfileData = {
   player: {
     id: string;
@@ -496,7 +495,7 @@ export default function PlayerEditProfileScreen() {
             )}
             <View style={styles.photoBadge}>
               {photoUploading ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Ionicons name="camera" size={15} color={Colors.dark.buttonText} />
               )}

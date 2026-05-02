@@ -1,6 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -11,6 +11,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/consta
 import { apiRequest } from "@/lib/query-client";
 import { GLOW_UP_TENNIS_LOGO } from "./logoBase64";
 import { sharePdf, prepareImageUri } from "@/lib/sharePdf";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -1659,7 +1660,7 @@ export default function CreateInvoiceModal({
             disabled={isGeneratingPDF}
           >
             {isGeneratingPDF ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="download-outline" size={20} color={Colors.dark.buttonText} />
@@ -1673,7 +1674,7 @@ export default function CreateInvoiceModal({
             disabled={createInvoiceMutation.isPending}
           >
             {createInvoiceMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+              <TennisBallSpinner size="small" color={Colors.dark.text} />
             ) : (
               <>
                 <Ionicons name="save-outline" size={20} color={Colors.dark.text} />

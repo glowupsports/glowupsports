@@ -5,11 +5,9 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
   Alert,
-  Dimensions,
-} from "react-native";
+  Dimensions} from "react-native";
 import { openDirections } from "@/lib/maps";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useWebSocket } from "@/lib/useWebSocket";
@@ -27,6 +25,7 @@ import { MatchSummaryCard, COMPETE_ACCENT } from "@/player/components/MatchSumma
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useTranslation } from "react-i18next";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OpenMatch {
@@ -394,7 +393,7 @@ function PremiumMatchCard({
                 style={styles.joinButtonGradient}
               >
                 {isJoining ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
                     <Ionicons 
@@ -669,7 +668,7 @@ export default function OpenMatchFeedScreen() {
 
         {isLoading ? (
           <View style={styles.loading}>
-            <ActivityIndicator color={Colors.dark.primary} size="large" />
+            <TennisBallSpinner color={Colors.dark.primary} size="large" />
             <Text style={styles.loadingText}>Finding matches near you...</Text>
           </View>
         ) : filteredMatches.length === 0 ? (

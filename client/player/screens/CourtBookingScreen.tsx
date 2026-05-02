@@ -6,11 +6,9 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   TextInput,
   Animated,
-  Dimensions,
-} from "react-native";
+  Dimensions} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,6 +23,7 @@ import { LockedScreen } from "../components/LockedScreen";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
 
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
@@ -515,7 +514,7 @@ export default function CourtBookingScreen() {
           {isLoading ? (
             <View style={styles.stateContainer}>
               <View style={styles.loadingPulse}>
-                <ActivityIndicator size="large" color={Colors.dark.primary} />
+                <TennisBallSpinner size="large" color={Colors.dark.primary} />
               </View>
               <Text style={styles.stateTitle}>Finding courts...</Text>
               <Text style={styles.stateSubtitle}>Checking availability in real-time</Text>

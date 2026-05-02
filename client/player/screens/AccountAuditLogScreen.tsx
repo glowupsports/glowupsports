@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, FlatList} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useRoute, useNavigation, type RouteProp } from "@react-navigation/native";
@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type AuditEntry = {
   id: string;
@@ -109,7 +110,7 @@ export default function AccountAuditLogScreen() {
 
       {query.isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={Colors.dark.primary} />
+          <TennisBallSpinner color={Colors.dark.primary} />
         </View>
       ) : entries.length === 0 ? (
         <View style={styles.center}>

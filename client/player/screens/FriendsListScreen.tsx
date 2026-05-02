@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, FlatList, Pressable, ActivityIndicator, RefreshControl, Alert } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, RefreshControl, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
@@ -16,6 +16,7 @@ import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface ConnectionPlayer {
   id: string;
   name: string;
@@ -195,7 +196,7 @@ function RequestCard({
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="checkmark" size={18} color={Colors.dark.buttonText} />
@@ -392,7 +393,7 @@ export default function FriendsListScreen() {
       
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
       ) : isError ? (
         <View style={styles.loadingContainer}>

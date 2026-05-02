@@ -20,6 +20,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Feather from "@expo/vector-icons/Feather";
 import * as SplashScreen from "expo-splash-screen";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -282,9 +283,7 @@ export function AnimatedSplashScreen({
             </Text>
 
             <View style={styles.dotIndicatorRow}>
-              <View style={[styles.dotIndicator, styles.dotActive]} />
-              <View style={styles.dotIndicator} />
-              <View style={styles.dotIndicator} />
+              <TennisBallSpinner size="small" color={G.green} />
             </View>
           </View>
 

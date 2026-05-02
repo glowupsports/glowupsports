@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, Modal, Platform, Image as RNImage, Dimensions } from "react-native";
+import { View, Text, Pressable, Modal, Platform, Image as RNImage, Dimensions } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -12,6 +12,7 @@ import { buildPhotoUrl } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
 
 import { styles } from "./playersStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const _TAB_BAR_HEIGHT = 80;
 
@@ -516,7 +517,7 @@ export function GamingPlayerCard({
               </Pressable>
             </>
           ) : (
-            <ActivityIndicator size="small" color={Colors.dark.orange} style={{ marginVertical: 16 }} />
+            <TennisBallSpinner size="small" color={Colors.dark.orange} style={{ marginVertical: 16 }} />
           )}
           <Pressable style={styles.pendingInviteDismissBtn} onPress={() => setShowInvitePopover(false)}>
             <Text style={styles.pendingInviteDismissBtnText}>Dismiss</Text>

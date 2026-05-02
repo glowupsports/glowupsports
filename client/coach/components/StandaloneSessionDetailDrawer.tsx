@@ -6,9 +6,7 @@ import {
   Pressable,
   Modal,
   ScrollView,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -16,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Player {
   id: string;
@@ -311,7 +310,7 @@ export default function StandaloneSessionDetailDrawer({
     if (feedbackLoading) {
       return (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={accentColor} />
+          <TennisBallSpinner size="large" color={accentColor} />
         </View>
       );
     }

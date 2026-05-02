@@ -5,15 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  FlatList,
-  ActivityIndicator,
-} from "react-native";
+  FlatList} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Session {
   id: string;
@@ -191,7 +190,7 @@ export default function AdminScheduleScreen() {
   if (sessionsLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.orange} />
+        <TennisBallSpinner size="large" color={Colors.dark.orange} />
       </View>
     );
   }

@@ -5,9 +5,7 @@ import {
   FlatList,
   Pressable,
   TextInput,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,6 +25,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { apiRequest } from "@/lib/query-client";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Message {
   id: string;
@@ -406,7 +405,7 @@ export default function ChatInboxScreen() {
 
         {loadingMessages ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator color={Colors.dark.primary} size="large" />
+            <TennisBallSpinner color={Colors.dark.primary} size="large" />
           </View>
         ) : (
           <View style={{ flex: 1 }}>
@@ -516,7 +515,7 @@ export default function ChatInboxScreen() {
 
       {loadingConversations ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={Colors.dark.primary} size="large" />
+          <TennisBallSpinner color={Colors.dark.primary} size="large" />
         </View>
       ) : filteredConversations.length === 0 ? (
         <View style={styles.emptyState}>

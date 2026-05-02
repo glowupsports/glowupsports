@@ -5,12 +5,10 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   Alert,
   Animated,
   ViewStyle,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +18,7 @@ import { Colors, Spacing, Typography, BorderRadius, TextColors } from "@/constan
 import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface BookingRequest {
   id: string;
   coachId: string | null;
@@ -221,7 +220,7 @@ function PlayerReplyCard({ item, onReplied }: { item: BookingRequest; onReplied:
         disabled={!reply.trim() || loading}
       >
         {loading ? (
-          <ActivityIndicator size="small" color="#000" />
+          <TennisBallSpinner size="small" color="#000" />
         ) : (
           <>
             <Ionicons name="send" size={16} color={Colors.dark.buttonText || "#000"} />
@@ -317,7 +316,7 @@ function CounterProposalCard({
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <TennisBallSpinner size="small" color="#FFF" />
           ) : (
             <>
               <Ionicons name="checkmark" size={16} color="#FFF" />
@@ -481,7 +480,7 @@ export default function MyLessonRequestsScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
       </View>
     );
   }

@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
-  Pressable,
-} from "react-native";
+  Pressable} from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,6 +20,7 @@ import { Backgrounds, Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type LiveMatchViewerParams = {
   matchId: string;
   playerName?: string;
@@ -165,7 +164,7 @@ export default function LiveMatchViewerScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={Colors.dark.primary} size="large" />
+          <TennisBallSpinner color={Colors.dark.primary} size="large" />
           <Text style={styles.loadingText}>Loading match...</Text>
         </View>
       ) : !data ? (

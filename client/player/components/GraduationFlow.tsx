@@ -20,14 +20,13 @@ import {
   Pressable,
   TextInput,
   StyleSheet,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { PinPadModal } from "@/components/PinPadModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type Step = "intro" | "pin" | "email" | "newPin" | "done";
 
@@ -310,7 +309,7 @@ export function GraduationFlow({
 
           {submitting ? (
             <View style={styles.spinner}>
-              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} />
             </View>
           ) : null}
         </View>

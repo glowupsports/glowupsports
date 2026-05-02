@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -9,6 +9,7 @@ import { apiRequest } from "@/lib/query-client";
 import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface ParentSettings {
   id: string;
   userId: string;
@@ -94,7 +95,7 @@ export default function ParentSettingsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.text} />
+          <TennisBallSpinner size="large" color={Colors.dark.text} />
         </View>
       ) : (
         <ScrollView

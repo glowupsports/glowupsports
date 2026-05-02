@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ScrollView} from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,6 +9,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -121,7 +122,7 @@ export default function AcademyDefaultsScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <TennisBallSpinner size="large" color={PLATFORM_COLOR} />
         <Text style={styles.loadingText}>Loading academy defaults...</Text>
       </View>
     );
@@ -156,7 +157,7 @@ export default function AcademyDefaultsScreen() {
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Default Currency</Text>
                 {savingKey === CONFIG_KEYS.DEFAULT_CURRENCY ? (
-                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                  <TennisBallSpinner size="small" color={PLATFORM_COLOR} />
                 ) : null}
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.currencyScroll}>
@@ -184,7 +185,7 @@ export default function AcademyDefaultsScreen() {
               <View style={styles.labelRow}>
                 <Text style={styles.label}>Default Timezone</Text>
                 {savingKey === CONFIG_KEYS.DEFAULT_TIMEZONE ? (
-                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                  <TennisBallSpinner size="small" color={PLATFORM_COLOR} />
                 ) : null}
               </View>
               <TextInput
@@ -208,7 +209,7 @@ export default function AcademyDefaultsScreen() {
               </View>
               <View style={styles.inputContainer}>
                 {savingKey === CONFIG_KEYS.DEFAULT_SESSION_DURATION ? (
-                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                  <TennisBallSpinner size="small" color={PLATFORM_COLOR} />
                 ) : (
                   <>
                     <TextInput
@@ -237,7 +238,7 @@ export default function AcademyDefaultsScreen() {
               </View>
               <View style={styles.inputContainer}>
                 {savingKey === CONFIG_KEYS.DEFAULT_TRIAL_DAYS ? (
-                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                  <TennisBallSpinner size="small" color={PLATFORM_COLOR} />
                 ) : (
                   <>
                     <TextInput
@@ -263,7 +264,7 @@ export default function AcademyDefaultsScreen() {
             disabled={updateMutation.isPending}
           >
             {updateMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+              <TennisBallSpinner size="small" color={Colors.dark.text} />
             ) : (
               <Text style={styles.saveButtonText}>Save Changes</Text>
             )}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Modal, Alert, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Modal, Alert, Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -12,6 +12,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useAuth } from "@/coach/context/AuthContext";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { IANA_TIMEZONES } from "@/constants/timezones";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const COMMON_COUNTRIES = [
   "United Arab Emirates",
@@ -486,7 +487,7 @@ export default function AdminSettingsScreen() {
             </Pressable>
           </View>
           {courtsLoading ? (
-            <ActivityIndicator size="small" color={GlowColors.primary} />
+            <TennisBallSpinner size="small" color={GlowColors.primary} />
           ) : courts.length === 0 ? (
             <View style={[styles.emptyCard, CardStyles.elevated]}>
               <Ionicons name="tennisball-outline" size={32} color={Colors.dark.textMuted} />
@@ -614,7 +615,7 @@ export default function AdminSettingsScreen() {
               disabled={testPushLoading}
             >
               {testPushLoading ? (
-                <ActivityIndicator size="small" color={RoleColors.admin} />
+                <TennisBallSpinner size="small" color={RoleColors.admin} />
               ) : (
                 <>
                   <Ionicons name="notifications" size={20} color={RoleColors.admin} />
@@ -629,7 +630,7 @@ export default function AdminSettingsScreen() {
               disabled={testInviteLoading}
             >
               {testInviteLoading ? (
-                <ActivityIndicator size="small" color={RoleColors.admin} />
+                <TennisBallSpinner size="small" color={RoleColors.admin} />
               ) : (
                 <>
                   <Ionicons name="person-add" size={20} color={RoleColors.admin} />
@@ -658,7 +659,7 @@ export default function AdminSettingsScreen() {
               accessibilityLabel="Delete my account"
             >
               {deleteAccountLoading ? (
-                <ActivityIndicator size="small" color={Colors.dark.error} />
+                <TennisBallSpinner size="small" color={Colors.dark.error} />
               ) : (
                 <>
                   <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
@@ -744,7 +745,7 @@ export default function AdminSettingsScreen() {
               />
               {locationResolving ? (
                 <View style={styles.locationStatusRow}>
-                  <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} />
                   <Text style={styles.locationStatusText}>Linking location...</Text>
                 </View>
               ) : locationStatus ? (
@@ -887,7 +888,7 @@ export default function AdminSettingsScreen() {
             <Text style={styles.modalTitle}>Edit Profile</Text>
             <Pressable onPress={handleSaveProfile} disabled={saveProfileLoading}>
               {saveProfileLoading ? (
-                <ActivityIndicator size="small" color={GlowColors.primary} />
+                <TennisBallSpinner size="small" color={GlowColors.primary} />
               ) : (
                 <Text style={styles.saveButton}>Save</Text>
               )}
@@ -982,7 +983,7 @@ export default function AdminSettingsScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", marginBottom: Spacing.xs }}>
                 <Text style={styles.label}>Timezone</Text>
                 {timezoneDetecting ? (
-                  <ActivityIndicator size="small" color={GlowColors.primary} style={{ marginLeft: Spacing.sm }} />
+                  <TennisBallSpinner size="small" color={GlowColors.primary} style={{ marginLeft: Spacing.sm }} />
                 ) : timezoneAutoDetected ? (
                   <View style={{ flexDirection: "row", alignItems: "center", marginLeft: Spacing.sm }}>
                     <Ionicons name="checkmark-circle" size={14} color="#22c55e" />

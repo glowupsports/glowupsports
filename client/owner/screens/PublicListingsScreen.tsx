@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -20,6 +18,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PUBLIC_GREEN = "#2ECC71";
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -197,7 +196,7 @@ export default function PublicListingsScreen() {
         {/* Listings */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={PUBLIC_GREEN} />
+            <TennisBallSpinner size="large" color={PUBLIC_GREEN} />
             <Text style={styles.loadingText}>Loading listings...</Text>
           </View>
         ) : displayed.length === 0 ? (

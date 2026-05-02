@@ -6,11 +6,10 @@ import {
   Pressable,
   StyleSheet,
   Animated,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface PinPadModalProps {
   visible: boolean;
@@ -119,7 +118,7 @@ export function PinPadModal({
 
           {submitting ? (
             <View style={styles.spinnerRow}>
-              <ActivityIndicator color={Colors.primary} />
+              <TennisBallSpinner color={Colors.primary} />
             </View>
           ) : null}
 

@@ -5,12 +5,10 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ActivityIndicator,
   TextInput,
   Modal,
   Alert,
-  ScrollView,
-} from "react-native";
+  ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -29,6 +27,7 @@ import { useSport, getSportColor, getSportLabel, getSportIcon } from "@/player/c
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Group {
   id: string;
   name: string;
@@ -704,7 +703,7 @@ export default function GroupsScreen({ navigation, route }: Props) {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.primary} />
+            <TennisBallSpinner size="large" color={Colors.dark.primary} />
           </View>
         ) : (
           <FlatList

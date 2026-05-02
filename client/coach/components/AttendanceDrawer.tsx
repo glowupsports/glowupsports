@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, Modal, ActivityIndicator, Alert, ScrollView, TextInput } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, Alert, ScrollView, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -15,6 +15,7 @@ import { SessionSummaryModal } from "@/components/SessionSummaryModal";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { InfoTooltip } from "@/components/InfoTooltip";
 import StrokeFeedbackModal from "@/coach/components/StrokeFeedbackModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type AttendanceStatus = "present" | "late" | "absent" | "holiday";
 type LateMinutes = 5 | 10 | 15 | 20 | 30 | 999;
@@ -441,7 +442,7 @@ export default function AttendanceDrawer({
             disabled={saveMutation.isPending || isOffline}
           >
             {saveMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <Text style={styles.saveButtonText}>Save</Text>
             )}
@@ -501,7 +502,7 @@ export default function AttendanceDrawer({
                 disabled={selectedPlayerIds.length === 0 || addPlayersMutation.isPending}
               >
                 {addPlayersMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.confirmButtonText}>Add ({selectedPlayerIds.length})</Text>
                 )}

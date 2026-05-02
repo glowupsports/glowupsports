@@ -8,9 +8,7 @@ import {
   TextInput,
   Platform,
   Alert,
-  FlatList,
-  ActivityIndicator,
-} from "react-native";
+  FlatList} from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,6 +22,7 @@ import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Service {
   id: string;
   name: string;
@@ -511,7 +510,7 @@ export default function ServiceDetailScreen() {
                   {showFreePicker ? "Preferred Time" : "Available Time Slots"}
                 </Text>
                 {isLoadingSlots && !isAnyProvider ? (
-                  <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: 6 }} />
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginLeft: 6 }} />
                 ) : null}
               </View>
 

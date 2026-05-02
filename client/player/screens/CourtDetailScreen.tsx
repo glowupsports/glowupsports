@@ -5,13 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
   TextInput,
-  Modal,
-} from "react-native";
+  Modal} from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,6 +26,7 @@ import { AnimatedCheck } from "@/components/AnimatedCheck";
 import { SuccessToast } from "@/components/SuccessToast";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
 type RouteProp = NativeStackScreenProps<ScheduleStackParamList, "CourtDetail">["route"];
 
@@ -413,7 +412,7 @@ export default function CourtDetailScreen() {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
         <View style={styles.loadingPulse}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
         </View>
         <Text style={styles.loadingText}>Loading court details...</Text>
       </View>
@@ -673,7 +672,7 @@ export default function CourtDetailScreen() {
                 style={styles.bookButtonGradient}
               >
                 {bookingMutation.isPending ? (
-                  <ActivityIndicator size="small" color={TextColors.primary} />
+                  <TennisBallSpinner size="small" color={TextColors.primary} />
                 ) : (
                   <>
                     <Text style={styles.bookButtonText}>Book Now</Text>
@@ -944,7 +943,7 @@ export default function CourtDetailScreen() {
                           style={styles.confirmBookGradient}
                         >
                           {bookingMutation.isPending ? (
-                            <ActivityIndicator size="small" color={TextColors.primary} />
+                            <TennisBallSpinner size="small" color={TextColors.primary} />
                           ) : (
                             <Text style={styles.confirmBookText}>Book Now</Text>
                           )}

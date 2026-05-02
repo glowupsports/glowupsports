@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Modal, ActivityIndicator, Text } from "react-native";
+import { View, StyleSheet, Pressable, Modal, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEvent } from "expo";
@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";
 import { getStaticAssetsUrl } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface VideoPlayerModalProps {
   visible: boolean;
@@ -89,7 +90,7 @@ export function VideoPlayerModal({ visible, videoUrl, title, onClose }: VideoPla
           <View style={styles.videoContainer}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={Colors.dark.primary} />
+                <TennisBallSpinner size="large" color={Colors.dark.primary} />
                 <Text style={styles.loadingText}>Loading video...</Text>
               </View>
             ) : null}

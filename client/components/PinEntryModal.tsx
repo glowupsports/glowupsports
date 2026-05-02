@@ -6,16 +6,15 @@ import {
   Modal,
   Pressable,
   TextInput,
-  ActivityIndicator,
   Alert,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface PinEntryModalProps {
   visible: boolean;
@@ -256,7 +255,7 @@ export default function PinEntryModal({
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               {isVerifying ? (
-                <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={styles.loading} />
+                <TennisBallSpinner size="small" color={Colors.dark.xpCyan} style={styles.loading} />
               ) : null}
 
               <Text style={styles.hint}>
@@ -283,7 +282,7 @@ export default function PinEntryModal({
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
               {isVerifying ? (
-                <ActivityIndicator size="small" color={Colors.dark.xpCyan} style={styles.loading} />
+                <TennisBallSpinner size="small" color={Colors.dark.xpCyan} style={styles.loading} />
               ) : null}
             </>
           )}

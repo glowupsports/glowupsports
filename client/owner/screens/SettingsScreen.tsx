@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, Modal, TextInput, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Platform, Modal, TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,6 +15,7 @@ import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { OwnerStackParamList } from "@/owner/navigation/OwnerNavigator";import { SportMultiSelector } from "@/components/SportBadge";
 import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface ResetOptions {
   sessions: boolean;
   attendance: boolean;
@@ -147,7 +148,7 @@ function SubscriptionSection() {
       <View style={subStyles.section}>
         <Text style={subStyles.sectionTitle}>Abonnement</Text>
         <View style={subStyles.card}>
-          <ActivityIndicator color={Colors.dark.gold} />
+          <TennisBallSpinner color={Colors.dark.gold} />
         </View>
       </View>
     );
@@ -240,7 +241,7 @@ function SubscriptionSection() {
               disabled={portalMutation.isPending}
             >
               {portalMutation.isPending ? (
-                <ActivityIndicator size="small" color={tierColor} />
+                <TennisBallSpinner size="small" color={tierColor} />
               ) : (
                 <>
                   <Ionicons name="settings-outline" size={16} color={tierColor} />
@@ -942,7 +943,7 @@ export default function SettingsScreen() {
           accessibilityLabel="Delete my account"
         >
           {deleteAccountLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.error} />
+            <TennisBallSpinner size="small" color={Colors.dark.error} />
           ) : (
             <>
               <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />

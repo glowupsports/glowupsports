@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
@@ -12,6 +12,7 @@ import type { TabProps, PlayerSkillState, PlayerXpData, ObservationTrend, SkillD
 import { styles } from "./coachingStyles";
 import { getDomainIcon, getTrendIcon, getTrendColor, getMomentumColor, getProgressColor, getAssessmentBadge, getLevelColor, formatSessionTime, formatSessionDate, getSessionTypeLabel } from "./progressUtils";
 import { useCoachingScroll } from "./CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
   const onScroll = useCoachingScroll();
@@ -97,7 +98,7 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
   if (playersLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading progress...</Text>
       </View>
     );
@@ -210,7 +211,7 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
         {/* Skill Domains */}
         <Text style={styles.sectionTitle}>Skill Domains</Text>
         {statesLoading ? (
-          <ActivityIndicator size="small" color={Colors.dark.primary} />
+          <TennisBallSpinner size="small" color={Colors.dark.primary} />
         ) : (
           <View style={styles.domainGrid}>
             {skillStates.map((state) => {
@@ -331,7 +332,7 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
             disabled={submitAssessmentMutation.isPending}
           >
             {submitAssessmentMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />

@@ -5,10 +5,8 @@ import {
   Modal,
   Pressable,
   TextInput,
-  ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import Animated, { FadeIn, FadeOut, ZoomIn } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Feather } from "@expo/vector-icons";
@@ -19,6 +17,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes } from "@/constan
 import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface LessonRatingModalProps {
   visible: boolean;
   sessionId: string;
@@ -190,7 +189,7 @@ export default function LessonRatingModal({
                 disabled={rating === 0 || submitMutation.isPending}
               >
                 {submitMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <ThemedText
                     style={[

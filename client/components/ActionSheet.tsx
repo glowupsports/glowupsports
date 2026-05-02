@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   Modal,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+  Pressable} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -17,6 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import {
   Backgrounds,
   Spacing,
@@ -142,7 +141,7 @@ export function ActionSheet({ visible, onClose, actions }: ActionSheetProps) {
       >
         <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
           {isThisLoading ? (
-            <ActivityIndicator size="small" color={iconColor} />
+            <TennisBallSpinner size="small" color={iconColor} />
           ) : (
             <Ionicons name={action.icon} size={18} color={iconColor} />
           )}

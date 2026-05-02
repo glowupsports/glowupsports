@@ -7,14 +7,12 @@ import {
   TextInput,
   Dimensions,
   Platform,
-  ActivityIndicator,
   RefreshControl,
   ScrollView,
   useWindowDimensions,
   Modal,
   Alert,
-  Keyboard,
-} from "react-native";
+  Keyboard} from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
@@ -44,6 +42,7 @@ import { useChatState } from "@/coach/context/ChatStateContext";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
 import { PlayerContext } from "@/player/context/PlayerContext";
 import OnlineSafetyModal, { loadSafetyReminderState } from "@/player/components/OnlineSafetyModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface ChatFooterProps {
   mode?: "coach" | "player";
@@ -2236,7 +2235,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       </View>
       {loadingActivity ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={Colors.dark.primary} />
+          <TennisBallSpinner color={Colors.dark.primary} />
         </View>
       ) : (
         <FlatList
@@ -2728,7 +2727,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
                 : `No ${currentTabConfig?.name.toLowerCase()} chats yet`}
             </ThemedText>
             {currentTab === "academy" ? (
-              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.md }} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.md }} />
             ) : currentTab === "players" ? (
               <Pressable
                 onPress={() => setShowNewMessage(true)}
@@ -2875,7 +2874,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
 
           {loadingMessages ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator color={Colors.dark.primary} />
+              <TennisBallSpinner color={Colors.dark.primary} />
             </View>
           ) : (
             <Pressable
@@ -3033,7 +3032,7 @@ export function CoachChatFooter({ mode = "coach", onChallenge }: ChatFooterProps
       return (
         <>{safetyBanner}
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={Colors.dark.primary} />
+          <TennisBallSpinner color={Colors.dark.primary} />
         </View>
         </>
       );

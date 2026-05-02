@@ -11,11 +11,9 @@ import {
   View,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Share,
   Platform,
-  StatusBar,
-} from "react-native";
+  StatusBar} from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
@@ -32,6 +30,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type Slide =
   | { kind: "intro"; title: string }
@@ -116,7 +115,7 @@ export default function YearInTennisScreen() {
   if (isLoading) {
     return (
       <View style={[styles.root, styles.center]}>
-        <ActivityIndicator color={Colors.dark.primary} size="large" />
+        <TennisBallSpinner color={Colors.dark.primary} size="large" />
       </View>
     );
   }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform} from "react-native";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -9,6 +9,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PLATFORM_COLOR = "#9B59B6";
 
@@ -129,7 +130,7 @@ export default function LevelThresholdsScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <TennisBallSpinner size="large" color={PLATFORM_COLOR} />
         <Text style={styles.loadingText}>Loading level thresholds...</Text>
       </View>
     );
@@ -168,7 +169,7 @@ export default function LevelThresholdsScreen() {
               </View>
               <View style={styles.inputContainer}>
                 {savingLevel === threshold.level ? (
-                  <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+                  <TennisBallSpinner size="small" color={PLATFORM_COLOR} />
                 ) : (
                   <>
                     <TextInput
@@ -208,7 +209,7 @@ export default function LevelThresholdsScreen() {
             disabled={updateMutation.isPending}
           >
             {updateMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.text} />
+              <TennisBallSpinner size="small" color={Colors.dark.text} />
             ) : (
               <Text style={styles.saveButtonText}>Save Changes</Text>
             )}

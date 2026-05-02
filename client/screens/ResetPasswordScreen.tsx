@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator, ScrollView, Alert } from "react-native";
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Alert } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type ResetNav = NativeStackNavigationProp<RootStackParamList, "ResetPassword">;
 type ResetRoute = RouteProp<RootStackParamList, "ResetPassword">;
@@ -93,7 +94,7 @@ export default function ResetPasswordScreen() {
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <Pressable style={[styles.button, submitting && styles.buttonDisabled]} onPress={handleSubmit} disabled={submitting}>
-              {submitting ? <ActivityIndicator color="#0A0A0B" /> : <Text style={styles.buttonText}>Set new password</Text>}
+              {submitting ? <TennisBallSpinner color="#0A0A0B" /> : <Text style={styles.buttonText}>Set new password</Text>}
             </Pressable>
           </>
         )}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, FlatList, Modal, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, FlatList, Modal, KeyboardAvoidingView, Platform} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn, FadeInDown, FadeInUp, SlideInDown } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface AcademyPlayer {
   id: string;
   name: string;
@@ -198,7 +199,7 @@ export default function SpotlightNominationModal({ visible, onClose }: Spotlight
 
                 {loadingPlayers ? (
                   <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#FFD700" />
+                    <TennisBallSpinner size="large" color="#FFD700" />
                   </View>
                 ) : (
                   <FlatList
@@ -278,7 +279,7 @@ export default function SpotlightNominationModal({ visible, onClose }: Spotlight
                     style={styles.submitGradient}
                   >
                     {nominateMutation.isPending ? (
-                      <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                      <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                     ) : (
                       <>
                         <Ionicons name="star" size={18} color={Colors.dark.buttonText} />

@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Image as RNImage,
   Platform,
@@ -29,6 +28,7 @@ import {
 } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { getAuthToken } from "@/lib/auth";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 
 const COLOR_FIELDS: {
@@ -261,7 +261,7 @@ export default function BrandingScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={Colors.dark.primary} />
+        <TennisBallSpinner color={Colors.dark.primary} />
       </View>
     );
   }
@@ -289,7 +289,7 @@ export default function BrandingScreen() {
           ]}
         >
           {saveMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+            <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
           ) : (
             <Title style={styles.saveBtnLabel}>Save</Title>
           )}
@@ -329,7 +329,7 @@ export default function BrandingScreen() {
                   style={[styles.logoBtn, { opacity: uploadingLogo ? 0.6 : 1 }]}
                 >
                   {uploadingLogo ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Ionicons name="cloud-upload" size={16} color={Colors.dark.buttonText} />

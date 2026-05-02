@@ -7,10 +7,8 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const MIRROR_ACCENT = "#A78BFA";
 const ACCENT2 = "#7C3AED";
 
@@ -317,7 +316,7 @@ export function MonthlyAssessmentModal({
                   disabled={!canProceed || mutation.isPending}
                 >
                   {mutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Text style={styles.nextButtonText}>

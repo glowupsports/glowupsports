@@ -12,9 +12,7 @@ import {
   Image,
   Platform,
   Alert,
-  Share,
-  ActivityIndicator,
-} from "react-native";
+  Share} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -35,6 +33,7 @@ import * as Location from "expo-location";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 const SPORT_LABELS: Record<string, string> = {
@@ -2405,7 +2404,7 @@ function TennisQuizStep({ data: _data, setData, onNext }: StepProps) {
 
       {quizLoading ? (
         <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.quizLoadingWrap}>
-          <ActivityIndicator color={Colors.dark.accentText} size="small" />
+          <TennisBallSpinner color={Colors.dark.accentText} size="small" />
         </Animated.View>
       ) : quizComplete ? (
         <Animated.View entering={ZoomIn} style={styles.quizResultContainer}>

@@ -7,11 +7,9 @@ import {
   Pressable,
   Modal,
   ScrollView,
-  ActivityIndicator,
   TextInput,
   Alert,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -47,6 +45,7 @@ import { SeriesAttendanceModal } from "./series-detail/SeriesAttendanceModal";
 import { SeriesExtraLessonModal } from "./series-detail/SeriesExtraLessonModal";
 import { SeriesOverviewTab } from "./series-detail/SeriesOverviewTab";
 import SendGroupReminderModal from "./SendGroupReminderModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 export default function SeriesDetailDrawer({
   visible,
   seriesId,
@@ -1718,7 +1717,7 @@ export default function SeriesDetailDrawer({
 
           {isLoading || !series ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.dark.successNeon} />
+              <TennisBallSpinner size="large" color={Colors.dark.successNeon} />
             </View>
           ) : (
             <>
@@ -2172,7 +2171,7 @@ export default function SeriesDetailDrawer({
                 disabled={!restoreIdentityName.trim() || restoreIdentityMutation.isPending}
               >
                 {restoreIdentityMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#000000" />
+                  <TennisBallSpinner size="small" color="#000000" />
                 ) : (
                   <Text style={confirmStyles.confirmText}>Restore</Text>
                 )}

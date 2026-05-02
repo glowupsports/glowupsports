@@ -3,9 +3,7 @@ import {
   View,
   Text,
   Pressable,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+  ScrollView} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -13,6 +11,7 @@ import { Colors, Spacing } from "@/constants/theme";
 import { glowLevelsStyles } from "./glowLevelsStyles";
 import type { TabProps, BallLevel } from "./types";
 import { useCoachingScroll } from "./CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const STAGES = ["RED", "ORANGE", "GREEN", "YELLOW"] as const;
 const PILLARS = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "SOCIAL", "MATCH"] as const;
@@ -93,7 +92,7 @@ export function GlowLevelsTab({ insets, tabBarHeight }: TabProps) {
   if (isLoading) {
     return (
       <View style={glowLevelsStyles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <Text style={glowLevelsStyles.loadingText}>Loading levels...</Text>
       </View>
     );

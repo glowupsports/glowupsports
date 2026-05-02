@@ -6,13 +6,11 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  ActivityIndicator,
   Alert,
   Modal,
   Platform,
   Image as RNImage,
-  Dimensions,
-} from "react-native";
+  Dimensions} from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -45,6 +43,7 @@ import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 
 import * as Clipboard from "expo-clipboard";
 import { styles } from "./playersStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const TAB_BAR_HEIGHT = 80;
 
@@ -156,7 +155,7 @@ function PlayerQuestsSection({ playerId }: { playerId: string }) {
   if (isLoading) {
     return (
       <View style={{ paddingVertical: 16, alignItems: "center" }}>
-        <ActivityIndicator size="small" color={Colors.dark.primary} />
+        <TennisBallSpinner size="small" color={Colors.dark.primary} />
       </View>
     );
   }
@@ -326,7 +325,7 @@ function ProminentInviteCard({
           disabled={isSendingEmail}
         >
           {isSendingEmail ? (
-            <ActivityIndicator size="small" color={Colors.dark.primary} />
+            <TennisBallSpinner size="small" color={Colors.dark.primary} />
           ) : (
             <Ionicons name="paper-plane-outline" size={16} color={Colors.dark.tabIconDefault} />
           )}
@@ -342,7 +341,7 @@ function ProminentInviteCard({
           disabled={isGeneratingNewCode}
         >
           {isGeneratingNewCode ? (
-            <ActivityIndicator size="small" color={Colors.dark.error} />
+            <TennisBallSpinner size="small" color={Colors.dark.error} />
           ) : (
             <Ionicons name="refresh-outline" size={16} color={Colors.dark.error} />
           )}
@@ -935,7 +934,7 @@ export function PlayerDetailView({
             }}
           >
             {deletePlayerMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.error} />
+              <TennisBallSpinner size="small" color={Colors.dark.error} />
             ) : (
               <Text style={styles.premiumActionsButtonText}>Actions</Text>
             )}
@@ -1664,7 +1663,7 @@ export function PlayerDetailView({
                 disabled={updatePlayerMutation.isPending}
               >
                 {updatePlayerMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 15 }}>Save</Text>
                 )}
@@ -1683,7 +1682,7 @@ export function PlayerDetailView({
               Select a completed session to rate {localPlayer.name}
             </Text>
             {!attendanceHistoryData ? (
-              <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginVertical: Spacing.lg }} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginVertical: Spacing.lg }} />
             ) : recentCompletedSessions.length === 0 ? (
               <View style={{ alignItems: "center", paddingVertical: Spacing.xl }}>
                 <Ionicons name="calendar-outline" size={32} color={Colors.dark.tabIconDefault} />
@@ -1763,7 +1762,7 @@ export function PlayerDetailView({
 
             {isGeneratingReport ? (
               <View style={{ alignItems: "center", paddingVertical: Spacing.xl * 2 }}>
-                <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+                <TennisBallSpinner size="large" color={Colors.dark.xpCyan} />
                 <Text style={{ color: Colors.dark.textSecondary, marginTop: Spacing.md, textAlign: "center" }}>
                   Generating AI letter for {localPlayer.name}...
                 </Text>
@@ -1803,7 +1802,7 @@ export function PlayerDetailView({
                     disabled={isSendingReport}
                   >
                     {isSendingReport ? (
-                      <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                      <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                     ) : (
                       <Ionicons name="send" size={16} color={Colors.dark.buttonText} />
                     )}

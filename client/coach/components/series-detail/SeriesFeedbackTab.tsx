@@ -1,9 +1,10 @@
 import React from "react";
-import { View, Text, ActivityIndicator } from "react-native";
+import { View, Text} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
 import type { FeedbackData, SeriesDetail } from "./types";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface SeriesFeedbackTabProps {
   feedbackLoading: boolean;
@@ -28,7 +29,7 @@ export function SeriesFeedbackTab({ feedbackLoading, feedbackData, series, forma
   if (feedbackLoading) {
     return (
       <View style={styles.tabContent}>
-        <ActivityIndicator size="large" color={Colors.dark.successNeon} />
+        <TennisBallSpinner size="large" color={Colors.dark.successNeon} />
       </View>
     );
   }

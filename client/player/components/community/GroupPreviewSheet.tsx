@@ -3,9 +3,7 @@ import {
   View,
   Modal,
   Pressable,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+  StyleSheet} from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,6 +14,7 @@ import { ThemedText as Text } from "@/components/ThemedText";
 import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 export interface SheetGroup {
   id: string;
   name: string;
@@ -200,7 +199,7 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
 
         {isLoading ? (
           <View style={styles.membersLoading}>
-            <ActivityIndicator size="small" color={Colors.dark.primary} />
+            <TennisBallSpinner size="small" color={Colors.dark.primary} />
           </View>
         ) : members.length > 0 ? (
           <View style={styles.memberAvatars}>
@@ -254,7 +253,7 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
               disabled={joinMutation.isPending}
             >
               {joinMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.primary} />
+                <TennisBallSpinner size="small" color={Colors.dark.primary} />
               ) : (
                 <>
                   <Ionicons name="add" size={18} color={Colors.dark.primary} />
@@ -272,7 +271,7 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
               disabled={leaveMutation.isPending}
             >
               {leaveMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.error} />
+                <TennisBallSpinner size="small" color={Colors.dark.error} />
               ) : (
                 <>
                   <Ionicons name="exit-outline" size={18} color={Colors.dark.error} />
@@ -325,7 +324,7 @@ export default function GroupPreviewSheet({ visible, group, onClose, onOpenGroup
                 disabled={leaveMutation.isPending}
               >
                 {leaveMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#FF6B6B" />
+                  <TennisBallSpinner size="small" color="#FF6B6B" />
                 ) : (
                   <Text style={styles.confirmDestructiveText}>Leave</Text>
                 )}

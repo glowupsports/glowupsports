@@ -4,12 +4,11 @@ import {
   Text,
   Pressable,
   Modal,
-  ActivityIndicator,
   ScrollView,
-  StyleSheet,
-} from "react-native";
+  StyleSheet} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface AdminDeletePlayerModalProps {
   visible: boolean;
@@ -84,7 +83,7 @@ export function AdminDeletePlayerModal({
               disabled={isPending}
             >
               {isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.text} />
+                <TennisBallSpinner size="small" color={Colors.dark.text} />
               ) : (
                 <>
                   <Ionicons name="trash" size={16} color={Colors.dark.text} />

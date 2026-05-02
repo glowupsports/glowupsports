@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator, Alert, Platform, ScrollView } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
@@ -24,6 +24,7 @@ import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { ComingSoonPaymentRow } from "@/components/ComingSoonPaymentRow";
 import { appendImageToFormData } from "@/lib/uploads";
 import { formatTimeInTimezone } from "@/lib/dateUtils";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
@@ -270,7 +271,7 @@ export function PaymentsTab({
 
       {isLoading ? (
         <View style={{ padding: Spacing.xl, alignItems: "center" }}>
-          <ActivityIndicator color={Colors.dark.primary} />
+          <TennisBallSpinner color={Colors.dark.primary} />
         </View>
       ) : payments.length === 0 ? (
         <View style={paymentStyles.empty}>
@@ -1160,7 +1161,7 @@ export function LogPaymentSheet({
               disabled={submitting}
             >
               {submitting ? (
-                <ActivityIndicator color={Colors.dark.buttonText} />
+                <TennisBallSpinner color={Colors.dark.buttonText} />
               ) : (
                 <Text style={sheetStyles.submitText}>Submit for review</Text>
               )}

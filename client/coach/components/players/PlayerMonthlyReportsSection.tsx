@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, ActivityIndicator, Alert, TextInput, Modal, Platform } from "react-native";
+import { View, Text, Pressable, Alert, TextInput, Modal, Platform } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -8,6 +8,7 @@ import * as Sharing from "expo-sharing";
 import { WebView } from "react-native-webview";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getApiUrl, apiRequest, getAuthHeaders } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface MonthlyReport {
   id: string;
   playerId: string;
@@ -222,7 +223,7 @@ export function PlayerMonthlyReportsSection({ playerId, playerName }: Props) {
                 }}
               >
                 {finaliseReportMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={previewStyles.finaliseBtnText}>Mark as Final</Text>
                 )}
@@ -244,7 +245,7 @@ export function PlayerMonthlyReportsSection({ playerId, playerName }: Props) {
           disabled={isGenerating}
         >
           {isGenerating ? (
-            <ActivityIndicator size="small" color={Colors.dark.primary} />
+            <TennisBallSpinner size="small" color={Colors.dark.primary} />
           ) : (
             <>
               <Ionicons name="refresh" size={14} color={Colors.dark.primary} />
@@ -255,7 +256,7 @@ export function PlayerMonthlyReportsSection({ playerId, playerName }: Props) {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
+        <TennisBallSpinner color={Colors.dark.primary} style={{ marginTop: Spacing.lg }} />
       ) : reports.length === 0 ? (
         <View style={sectionStyles.emptyBox}>
           <Ionicons name="document-text-outline" size={36} color={Colors.dark.disabled} />
@@ -323,7 +324,7 @@ export function PlayerMonthlyReportsSection({ playerId, playerName }: Props) {
                   disabled={loadingPreview}
                 >
                   {loadingPreview ? (
-                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                    <TennisBallSpinner size="small" color={Colors.dark.primary} />
                   ) : (
                     <>
                       <Ionicons name="eye-outline" size={14} color={Colors.dark.primary} />
@@ -376,7 +377,7 @@ export function PlayerMonthlyReportsSection({ playerId, playerName }: Props) {
               }}
             >
               {saveNoteMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <Text style={noteStyles.saveBtnText}>Save Note</Text>
               )}

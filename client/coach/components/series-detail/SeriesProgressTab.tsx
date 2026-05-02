@@ -1,10 +1,11 @@
 import React from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
 import type { ProgressData } from "./types";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface SeriesProgressTabProps {
   progressLoading: boolean;
@@ -16,7 +17,7 @@ export function SeriesProgressTab({ progressLoading, progressData, onAssessPlaye
   if (progressLoading) {
     return (
       <View style={styles.tabContent}>
-        <ActivityIndicator size="large" color={Colors.dark.gold} />
+        <TennisBallSpinner size="large" color={Colors.dark.gold} />
       </View>
     );
   }

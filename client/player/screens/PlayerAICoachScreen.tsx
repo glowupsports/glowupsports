@@ -6,12 +6,10 @@ import {
   Pressable,
   TextInput,
   ScrollView,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Modal,
-} from "react-native";
+  Modal} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -24,6 +22,7 @@ import { MonthlyAssessmentModal } from "@/player/components/MonthlyAssessmentMod
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const AI_COACH_INTRO_SEEN_KEY = "ai_coach_intro_seen";
 
 interface Message {
@@ -1966,7 +1965,7 @@ export default function PlayerAICoachScreen() {
                   ]}
                 >
                   {isLoading ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Ionicons name="send" size={18} color={Colors.dark.buttonText} />
                   )}

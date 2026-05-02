@@ -5,9 +5,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -30,6 +28,7 @@ import {
   getAuthHeaders,
 } from "@/lib/query-client";
 import { SuccessToast } from "@/components/SuccessToast";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface DiscoveryPlayer {
   id: string;
@@ -239,7 +238,7 @@ export function DiscoveryRail({ currentUserId }: DiscoveryRailProps) {
 
       {isLoading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="small" color={Colors.dark.primary} />
+          <TennisBallSpinner size="small" color={Colors.dark.primary} />
         </View>
       ) : (
         <ScrollView
@@ -363,7 +362,7 @@ function DiscoveryRailCard({
         }
       >
         {isSubmitting ? (
-          <ActivityIndicator
+          <TennisBallSpinner
             size="small"
             color={
               isPending ? Colors.dark.gold : Colors.dark.buttonText

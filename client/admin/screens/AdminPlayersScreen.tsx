@@ -8,10 +8,8 @@ import {
   TextInput,
   Alert,
   Platform,
-  ActivityIndicator,
   ScrollView,
-  Modal,
-} from "react-native";
+  Modal} from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -23,6 +21,7 @@ import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";import CreditStoreModal from "@/admin/components/CreditStoreModal";import { styles } from "@/admin/components/players/adminPlayersStyles";import { AdminPlayerDetailModal } from "@/admin/components/players/AdminPlayerDetailModal";
 import { AdminInlinePlayerProfile } from "@/admin/components/players/AdminInlinePlayerProfile";
 import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low" | "newest" | "not_activated";
 type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number>; onboardingCompleted?: boolean; createdAt?: string; lastSessionDate?: string | null };
@@ -651,7 +650,7 @@ export default function AdminPlayersScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: isDesktop ? 0 : insets.top }]}>
-        <ActivityIndicator size="large" color={Colors.dark.orange} />
+        <TennisBallSpinner size="large" color={Colors.dark.orange} />
       </View>
     );
   }
@@ -753,7 +752,7 @@ export default function AdminPlayersScreen() {
             style={[dtStyles.addBtn, { backgroundColor: `${Colors.dark.error}18`, borderWidth: 1, borderColor: `${Colors.dark.error}40` }]}
           >
             {fullCreditRebuildMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.error} />
+              <TennisBallSpinner size="small" color={Colors.dark.error} />
             ) : (
               <Ionicons name="refresh-circle-outline" size={14} color={Colors.dark.error} />
             )}
@@ -1301,7 +1300,7 @@ export default function AdminPlayersScreen() {
         }}
       >
         {fullCreditRebuildMutation.isPending ? (
-          <ActivityIndicator size="small" color={Colors.dark.error} />
+          <TennisBallSpinner size="small" color={Colors.dark.error} />
         ) : (
           <Ionicons name="refresh-circle-outline" size={14} color={Colors.dark.error} />
         )}
@@ -1804,7 +1803,7 @@ function AdminInvitePopover({
             {player?.name} hasn&apos;t joined the app yet. Share this code with them:
           </Text>
           {isLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.orange} style={{ marginVertical: 16 }} />
+            <TennisBallSpinner size="small" color={Colors.dark.orange} style={{ marginVertical: 16 }} />
           ) : inviteData?.inviteCode ? (
             <>
               <Text style={{

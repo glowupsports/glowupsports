@@ -5,13 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
   Alert,
   Modal,
   TouchableOpacity,
-  Image,
-} from "react-native";
+  Image} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
@@ -25,6 +23,7 @@ import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const BALL_LEVEL_FILTERS = [
   { id: "my_level", label: "My Level", color: "dynamic" },
   { id: "all", label: "All Levels", color: "#A0A8B8" },
@@ -276,7 +275,7 @@ export default function BrowseGroupLessonsScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={ProTennisColors.electricGreen} />
+            <TennisBallSpinner size="large" color={ProTennisColors.electricGreen} />
             <Text style={styles.loadingText}>Loading available lessons...</Text>
           </View>
         ) : filteredSessions.length === 0 ? (
@@ -551,7 +550,7 @@ export default function BrowseGroupLessonsScreen() {
                       disabled={enrollingId === selectedSession.id}
                     >
                       {enrollingId === selectedSession.id ? (
-                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                        <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <>
                           <Text style={styles.enrollButtonText}>Join Session</Text>

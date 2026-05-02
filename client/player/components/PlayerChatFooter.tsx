@@ -21,13 +21,11 @@ import {
   TextInput,
   Dimensions,
   Platform,
-  ActivityIndicator,
   Image,
   RefreshControl,
   Modal,
   Alert,
-  Text,
-} from "react-native";
+  Text} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
@@ -53,6 +51,7 @@ import OnlineSafetyModal, { hasShownSafetyReminder } from "@/player/components/O
 import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const FOOTER_COLLAPSED = 60;
 const CHAT_PILL_LIFT = 22;
@@ -1301,7 +1300,7 @@ export function PlayerChatFooter() {
 
         {loadingRoomMessages ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator color={Colors.dark.primary} />
+            <TennisBallSpinner color={Colors.dark.primary} />
           </View>
         ) : (
           <FlatList
@@ -1628,7 +1627,7 @@ export function PlayerChatFooter() {
               </View>
               {loadingMessages ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} />
                 </View>
               ) : (
                 <View style={{ flex: 1 }}>
@@ -1707,7 +1706,7 @@ export function PlayerChatFooter() {
                   style={[styles.sendButton, (!inputText.trim() || sendMessageMutation.isPending) && styles.sendButtonDisabled]}
                 >
                   {sendMessageMutation.isPending ? (
-                    <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                    <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                   ) : (
                     <Ionicons name="send" size={18} color={Colors.dark.buttonText} />
                   )}
@@ -1726,7 +1725,7 @@ export function PlayerChatFooter() {
               ) : null}
               {loadingConversations ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} />
                 </View>
               ) : (
                 <FlatList

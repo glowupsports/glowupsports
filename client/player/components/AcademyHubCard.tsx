@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface JoinRequest {
   id: string;
   academyId: string;
@@ -60,7 +61,7 @@ export function AcademyHubCard({ hasAcademy, academyName: _academyName, onBrowse
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={Colors.dark.primary} />
+          <TennisBallSpinner size="small" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Checking requests...</Text>
         </View>
       ) : (

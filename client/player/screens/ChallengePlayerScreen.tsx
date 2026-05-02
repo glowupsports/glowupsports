@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect , useContext } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, ActivityIndicator, Image } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, ScrollView, Image } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
@@ -15,6 +15,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { CourtBookingPicker, CourtBookingValue } from "@/components/CourtBooking";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 // Task #1313 — Safely read tab bar height without violating Rules of Hooks.
 // useBottomTabBarHeight throws when not inside a tab navigator; reading the
@@ -453,7 +454,7 @@ export default function ChallengePlayerScreen() {
         ) : null}
 
         {courtsLoading ? (
-          <ActivityIndicator color={Colors.dark.primary} style={{ marginVertical: Spacing.xl }} />
+          <TennisBallSpinner color={Colors.dark.primary} style={{ marginVertical: Spacing.xl }} />
         ) : (
           <View style={styles.courtList}>
             {courts.map((court: any) => {
@@ -643,7 +644,7 @@ export default function ChallengePlayerScreen() {
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Available Times</Text>
           {slotsLoading ? (
-            <ActivityIndicator color={Colors.dark.primary} size="small" />
+            <TennisBallSpinner color={Colors.dark.primary} size="small" />
           ) : (
             <Text style={styles.slotCount}>
               {slots.filter((s: any) => s.available).length} slots open
@@ -665,7 +666,7 @@ export default function ChallengePlayerScreen() {
 
         {slotsLoading ? (
           <View style={styles.slotsLoading}>
-            <ActivityIndicator color={Colors.dark.primary} />
+            <TennisBallSpinner color={Colors.dark.primary} />
             <Text style={styles.slotsLoadingText}>Checking availability...</Text>
           </View>
         ) : (
@@ -870,7 +871,7 @@ export default function ChallengePlayerScreen() {
               style={styles.nextButtonGradient}
             >
               {challengeMutation.isPending ? (
-                <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+                <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
               ) : (
                 <>
                   <Text style={[styles.nextButtonText, !canProceed() && styles.nextButtonTextDisabled]}>

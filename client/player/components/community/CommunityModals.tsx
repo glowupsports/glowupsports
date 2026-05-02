@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  ActivityIndicator,
   TextInput,
   Modal,
   ScrollView,
@@ -13,8 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Share,
-  Switch,
-} from "react-native";
+  Switch} from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -51,6 +49,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface CommentsModalProps {
   visible: boolean;
   postId: string | null;
@@ -430,7 +429,7 @@ export function CommentsModal({ visible, postId, feedItemId, onClose }: Comments
             disabled={!commentText.trim() || isSubmitting}
           >
             {isSubmitting ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <Ionicons name="send" size={18} color={Colors.dark.buttonText} />
             )}
@@ -686,7 +685,7 @@ export function SharePreviewModal({ visible, achievement, onClose }: SharePrevie
               style={shareStyles.shareBtnGradient}
             >
               {isSharing ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Ionicons name="share-social" size={20} color={Colors.dark.buttonText} />
@@ -1439,7 +1438,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
               {isUploading ? (
                 <ThemedText style={createStyles.postButtonText}>{uploadProgress}%</ThemedText>
               ) : isSubmitting ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <ThemedText style={createStyles.postButtonText}>Post</ThemedText>
               )}
@@ -1549,7 +1548,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
                   )}
                   {selectedMedia.preparing ? (
                     <View style={createStyles.preparingOverlay}>
-                      <ActivityIndicator color={Colors.dark.primary} />
+                      <TennisBallSpinner color={Colors.dark.primary} />
                       <ThemedText style={createStyles.preparingLabel}>
                         {selectedMedia.type === "video" ? "Checking video size\u2026" : "Optimizing photo\u2026"}
                       </ThemedText>
@@ -1583,7 +1582,7 @@ export function CreateMomentModal({ visible, onClose, onSubmit, isSubmitting, us
               <View style={createStyles.uploadProgressContainer}>
                 <View style={createStyles.uploadProgressHeader}>
                   <View style={createStyles.uploadProgressLabelRow}>
-                    <ActivityIndicator size="small" color={Colors.dark.primary} />
+                    <TennisBallSpinner size="small" color={Colors.dark.primary} />
                     <ThemedText style={createStyles.uploadProgressLabel}>
                       Uploading… {uploadProgress}%
                     </ThemedText>
@@ -2883,7 +2882,7 @@ export function FeedTypeFilterModal({
 
           {isSaving ? (
             <View style={feedFilterStyles.savingRow}>
-              <ActivityIndicator size="small" color={Colors.dark.primary} />
+              <TennisBallSpinner size="small" color={Colors.dark.primary} />
               <ThemedText style={feedFilterStyles.savingText}>
                 {t("player.community.feedTypes.saving", "Saving…")}
               </ThemedText>

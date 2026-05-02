@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, ActivityIndicator, Modal, Platform, KeyboardAvoidingView } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Modal, Platform, KeyboardAvoidingView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -11,6 +11,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const PLATFORM_COLOR = "#9B59B6";
 
 interface AcademyData {
@@ -270,7 +271,7 @@ function CreateAcademyModal({ visible, onClose, onSuccess }: CreateAcademyModalP
               disabled={createMutation.isPending}
             >
               {createMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Ionicons name="add-circle" size={20} color={Colors.dark.buttonText} />
@@ -409,7 +410,7 @@ export default function AcademiesScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <TennisBallSpinner size="large" color={PLATFORM_COLOR} />
         <Text style={styles.loadingText}>Loading academies...</Text>
       </View>
     );

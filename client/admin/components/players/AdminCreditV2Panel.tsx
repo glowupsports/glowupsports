@@ -4,16 +4,15 @@ import {
   Text,
   Pressable,
   TextInput,
-  ActivityIndicator,
   ScrollView,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { CreditPackagesList } from "@/components/CreditPackagesList";
 import { useAuth } from "@/coach/context/AuthContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type CreditType = "group" | "semi_private" | "private";
 
@@ -220,7 +219,7 @@ export function AdminCreditV2Panel({ playerId }: Props) {
   if (walletQuery.isLoading) {
     return (
       <View style={{ paddingVertical: Spacing.md, alignItems: "center" }}>
-        <ActivityIndicator color={Colors.dark.primary} />
+        <TennisBallSpinner color={Colors.dark.primary} />
       </View>
     );
   }
@@ -281,7 +280,7 @@ export function AdminCreditV2Panel({ playerId }: Props) {
       </View>
 
       {walletQuery.isLoading ? (
-        <ActivityIndicator color={Colors.dark.primary} />
+        <TennisBallSpinner color={Colors.dark.primary} />
       ) : !wallet ? (
         <Text style={{ color: Colors.dark.textMuted, fontSize: 12 }}>
           No V2 wallet yet for this player.
@@ -725,7 +724,7 @@ export function AdminCreditV2Panel({ playerId }: Props) {
                 }}
               >
                 {adjustMutation.isPending ? (
-                  <ActivityIndicator
+                  <TennisBallSpinner
                     size="small"
                     color={Colors.dark.buttonText}
                   />
@@ -884,7 +883,7 @@ export function AdminCreditV2Panel({ playerId }: Props) {
                 }}
               >
                 {makeupMutation.isPending ? (
-                  <ActivityIndicator
+                  <TennisBallSpinner
                     size="small"
                     color={Colors.dark.buttonText}
                   />
@@ -922,7 +921,7 @@ export function AdminCreditV2Panel({ playerId }: Props) {
                 Audit log (most recent first)
               </Text>
               {ledgerQuery.isLoading ? (
-                <ActivityIndicator color={Colors.dark.primary} />
+                <TennisBallSpinner color={Colors.dark.primary} />
               ) : ledgerQuery.data?.entries?.length ? (
                 <ScrollView style={{ maxHeight: 280 }}>
                   {ledgerQuery.data.entries.map((e) => {

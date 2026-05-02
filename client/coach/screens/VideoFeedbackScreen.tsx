@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator, Alert, Platform, FlatList, Modal } from "react-native";
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, Platform, FlatList, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface VideoAnnotation {
   timestamp: number;
@@ -373,7 +374,7 @@ export default function VideoFeedbackScreen() {
         disabled={!selectedPlayerId || !title.trim() || (!videoUri && !videoUrl) || sendMutation.isPending || uploading}
       >
         {sendMutation.isPending || uploading ? (
-          <ActivityIndicator size="small" color={Backgrounds.root} />
+          <TennisBallSpinner size="small" color={Backgrounds.root} />
         ) : (
           <>
             <Ionicons name="send" size={18} color={Backgrounds.root} />
@@ -416,7 +417,7 @@ export default function VideoFeedbackScreen() {
   const renderSentTab = () => (
     <View style={{ flex: 1 }}>
       {loadingSent ? (
-        <ActivityIndicator size="large" color={GlowColors.primary} style={{ marginTop: 60 }} />
+        <TennisBallSpinner size="large" color={GlowColors.primary} style={{ marginTop: 60 }} />
       ) : sentFeedback.length === 0 ? (
         <EmptyStateCard
           icon="videocam-outline"

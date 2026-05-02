@@ -4,10 +4,8 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Alert,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -17,6 +15,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { getApiUrl } from "@/lib/query-client";
 import { setAuthToken, saveAuthState } from "@/lib/auth";
 import { useAuth } from "@/coach/context/AuthContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface ClaimInviteScreenProps {
   inviteToken: string;
@@ -165,7 +164,7 @@ export function ClaimInviteScreen({ inviteToken, onBack }: ClaimInviteScreenProp
       >
         {previewLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.primary} />
+            <TennisBallSpinner size="large" color={Colors.dark.primary} />
             <Text style={styles.loadingText}>Loading invite...</Text>
           </View>
         ) : previewError ? (
@@ -292,7 +291,7 @@ export function ClaimInviteScreen({ inviteToken, onBack }: ClaimInviteScreenProp
                   style={styles.submitBtnGradient}
                 >
                   {submitting ? (
-                    <ActivityIndicator color={Colors.dark.buttonText} />
+                    <TennisBallSpinner color={Colors.dark.buttonText} />
                   ) : (
                     <>
                       <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />

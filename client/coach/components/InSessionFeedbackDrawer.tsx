@@ -5,9 +5,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
+  TextInput} from "react-native";
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -23,6 +21,7 @@ import {
 Backgrounds, } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { SuccessToast } from "@/components/SuccessToast";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Player {
   id: string;
@@ -422,7 +421,7 @@ export default function InSessionFeedbackDrawer({
           disabled={!message.trim() || submitMutation.isPending}
         >
           {submitMutation.isPending ? (
-            <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+            <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
           ) : (
             <>
               <Ionicons name="send" size={18} color={Colors.dark.buttonText} />

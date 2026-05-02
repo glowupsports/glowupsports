@@ -17,9 +17,7 @@ import {
   StyleSheet,
   Pressable,
   FlatList,
-  ActivityIndicator,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -38,6 +36,7 @@ import { PlayerMatchCard, type MatchCandidate } from "@/player/components/match/
 import { ChallengeComposerModal } from "@/player/components/match/ChallengeComposerModal";
 import { OutsideInviteModal } from "@/player/components/match/OutsideInviteModal";
 import { SkeletonPlayerCard } from "@/components/SkeletonLoader";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const LEVEL_FILTERS: { id: "all" | "green" | "yellow" | "orange" | "red"; label: string }[] = [
   { id: "all", label: "All levels" },
@@ -248,7 +247,7 @@ export default function MatchFinderHomeScreen() {
   const ListFooter = (
     <View style={styles.footerWrap}>
       {isFetchingNextPage ? (
-        <ActivityIndicator color={Colors.dark.primary} />
+        <TennisBallSpinner color={Colors.dark.primary} />
       ) : null}
       <Pressable
         style={[styles.footerBtn, styles.footerBtnPrimary]}

@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface CreditsResponse {
   credits: {
@@ -61,7 +62,7 @@ export default function LessonBalanceCard({ playerId, onBuyCredits }: LessonBala
           <View style={styles.textBlock}>
             <Text style={styles.label}>{t("player.schedule.lessonBalance")}</Text>
             {isLoading ? (
-              <ActivityIndicator size="small" color={accentColor} style={{ marginTop: 4 }} />
+              <TennisBallSpinner size="small" color={accentColor} style={{ marginTop: 4 }} />
             ) : (
               <>
                 <Text style={[styles.bigNumber, { color: accentColor }]}>

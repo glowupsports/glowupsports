@@ -6,9 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  TextInput,
-  ActivityIndicator,
-} from "react-native";
+  TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp, NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -23,6 +21,7 @@ import type { PlayerStackParamList, ScheduleStackParamList } from "@/player/navi
 import { LockedScreen } from "../components/LockedScreen";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Opponent {
   id: string;
   name: string;
@@ -275,7 +274,7 @@ export default function MatchScreen() {
       >
         {activeTab === "upcoming" ? (
           loadingUpcoming ? (
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <TennisBallSpinner size="large" color={Colors.primary} />
           ) : upcomingMatches && upcomingMatches.length > 0 ? (
             upcomingMatches.map(renderUpcomingCard)
           ) : (
@@ -288,7 +287,7 @@ export default function MatchScreen() {
             </View>
           )
         ) : loadingHistory ? (
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <TennisBallSpinner size="large" color={Colors.primary} />
         ) : matchHistory && matchHistory.length > 0 ? (
           matchHistory.map(renderHistoryCard)
         ) : (

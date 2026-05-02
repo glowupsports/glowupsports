@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, TextInput } from "react-native";import Ionicons from "@expo/vector-icons/Ionicons";
+import { View, Text, StyleSheet, Pressable, Alert, TextInput } from "react-native";import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import Animated, { 
@@ -15,6 +15,7 @@ import { apiRequest } from "@/lib/query-client";
 import { useCoach } from "@/coach/context/CoachContext";
 import { convertUTCTimeToLocal } from "@/lib/dateUtils";
 import { getSportColor, formatSportSkillLevel, getSportSkillLevelColor } from "@shared/sportConfig";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface PlayerPreview {
   id: string;
@@ -369,7 +370,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.dark.primary} />
+        <TennisBallSpinner size="large" color={Colors.dark.primary} />
         <Text style={styles.loadingText}>Loading classes...</Text>
       </View>
     );

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Switch, ActivityIndicator, Modal, TextInput } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform, Switch, Modal, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -11,6 +11,7 @@ import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constan
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type NavigationProp = NativeStackNavigationProp<PlatformStackParamList>;
 
 const PLATFORM_COLOR = "#9B59B6";
@@ -464,7 +465,7 @@ export default function SystemScreen() {
             >
               <View style={[styles.settingIcon, { backgroundColor: `${TEST_COLOR}20` }]}>
                 {testPushLoading ? (
-                  <ActivityIndicator size="small" color={TEST_COLOR} />
+                  <TennisBallSpinner size="small" color={TEST_COLOR} />
                 ) : (
                   <Ionicons name="notifications" size={20} color={TEST_COLOR} />
                 )}
@@ -482,7 +483,7 @@ export default function SystemScreen() {
             >
               <View style={[styles.settingIcon, { backgroundColor: `${TEST_COLOR}20` }]}>
                 {testSignupLoading ? (
-                  <ActivityIndicator size="small" color={TEST_COLOR} />
+                  <TennisBallSpinner size="small" color={TEST_COLOR} />
                 ) : (
                   <Ionicons name="business-outline" size={20} color={TEST_COLOR} />
                 )}
@@ -511,7 +512,7 @@ export default function SystemScreen() {
                   </Text>
                 </View>
                 {maintenanceLoading || maintenanceMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.error} />
+                  <TennisBallSpinner size="small" color={Colors.dark.error} />
                 ) : (
                   <Switch
                     value={isMaintenanceOn}
@@ -569,7 +570,7 @@ export default function SystemScreen() {
                 disabled={!welcomeVideoUrl || welcomeVideoMutation.isPending}
               >
                 {welcomeVideoMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <TennisBallSpinner size="small" color="#fff" />
                 ) : (
                   <Text style={styles.modalSaveText}>Save</Text>
                 )}

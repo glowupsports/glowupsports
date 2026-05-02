@@ -9,11 +9,9 @@ import {
   Pressable,
   TextInput,
   ScrollView,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert,
-} from "react-native";
+  Alert} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -21,6 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Message {
   role: "user" | "assistant";
@@ -527,7 +526,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
 
         {ctxLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.primary} />
+            <TennisBallSpinner size="large" color={Colors.dark.primary} />
             <Text style={styles.loadingText}>Loading player context...</Text>
           </View>
         ) : (
@@ -581,7 +580,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                     <Text style={styles.aiLabelText}>AI Coach</Text>
                   </View>
                   <View style={styles.typingDots}>
-                    <ActivityIndicator size="small" color={Colors.dark.textMuted} />
+                    <TennisBallSpinner size="small" color={Colors.dark.textMuted} />
                     <Text style={styles.typingText}>Thinking...</Text>
                   </View>
                 </View>
@@ -610,7 +609,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                       disabled={verifyLoading}
                     >
                       {verifyLoading ? (
-                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                        <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <Text style={styles.verifyBtnTextYes}>Yes, they showed it!</Text>
                       )}
@@ -753,7 +752,7 @@ export function AICoachingChatModal({ visible, onClose, sessionId, playerId, pla
                         disabled={commitMutation.isPending || verifyPending}
                       >
                         {commitMutation.isPending ? (
-                          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                          <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                         ) : (
                           <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                         )}

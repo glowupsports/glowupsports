@@ -4,14 +4,13 @@ import {
   Text,
   Modal,
   Pressable,
-  ActivityIndicator,
   ScrollView,
-  StyleSheet,
-} from "react-native";
+  StyleSheet} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const FULL_DAY_NAMES = [
   "Sunday",
@@ -211,7 +210,7 @@ export function SeriesEditScheduleModal({
                   style={styles.restoreButtonGradient}
                 >
                   {saving ? (
-                    <ActivityIndicator size="small" color={Colors.dark.text} />
+                    <TennisBallSpinner size="small" color={Colors.dark.text} />
                   ) : (
                     <>
                       <Ionicons

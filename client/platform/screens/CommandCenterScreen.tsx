@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator, RefreshControl, DimensionValue } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, RefreshControl, DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -26,6 +26,7 @@ import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import type { PlatformStackParamList } from "@/platform/navigation/PlatformNavigator";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const PLATFORM_PURPLE = "#9B59B6";
 
@@ -237,7 +238,7 @@ function FeatureUsageCard({ academies }: { academies: AcademyOption[] }) {
       <View style={fuStyles.card}>
         {isLoading ? (
           <View style={fuStyles.loadingContainer}>
-            <ActivityIndicator size="small" color={PLATFORM_PURPLE} />
+            <TennisBallSpinner size="small" color={PLATFORM_PURPLE} />
             <Text style={fuStyles.emptyText}>Loading usage data...</Text>
           </View>
         ) : features.length === 0 ? (
@@ -702,7 +703,7 @@ export default function CommandCenterScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={PLATFORM_PURPLE} />
+        <TennisBallSpinner size="large" color={PLATFORM_PURPLE} />
         <Text style={styles.loadingText}>Loading Platform Center...</Text>
       </View>
     );

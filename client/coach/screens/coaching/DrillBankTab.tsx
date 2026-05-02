@@ -5,16 +5,15 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   TextInput,
-  Modal,
-} from "react-native";
+  Modal} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import type { TabProps } from "./types";
 import { useCoachingScroll } from "./CoachingScrollContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
@@ -208,7 +207,7 @@ export function DrillBankTab({ insets, tabBarHeight }: TabProps) {
       >
         {isLoading ? (
           <View style={styles.center}>
-            <ActivityIndicator color={Colors.dark.primary} />
+            <TennisBallSpinner color={Colors.dark.primary} />
             <Text style={styles.loadingText}>Loading drills...</Text>
           </View>
         ) : isError ? (

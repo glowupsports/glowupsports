@@ -1,7 +1,7 @@
 import logger from "@/lib/logger";
 import { WhatsNewSettingsCard } from "@/components/WhatsNewSettingsCard";
 import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, Pressable, TouchableOpacity, ScrollView, Alert, TextInput, Modal, Platform, ActivityIndicator, Dimensions, Linking } from "react-native";
+import { View, Text, StyleSheet, Pressable, TouchableOpacity, ScrollView, Alert, TextInput, Modal, Platform, Dimensions, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -18,6 +18,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
 import { useTranslation } from "react-i18next";
 import { SUPPORTED_LANGUAGES, type LanguageCode } from "@/i18n";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const _TAB_BAR_HEIGHT = 80;
 
@@ -1040,7 +1041,7 @@ export default function SettingsScreen() {
 
               {savingBookingSettings ? (
                 <View style={{ alignItems: "center", paddingVertical: Spacing.sm }}>
-                  <ActivityIndicator size="small" color={Colors.dark.primary} />
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} />
                 </View>
               ) : null}
             </>
@@ -1592,7 +1593,7 @@ export default function SettingsScreen() {
                   </View>
                 </View>
                 {appleLoading ? (
-                  <ActivityIndicator size="small" color={Colors.dark.xpCyan} />
+                  <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
                 ) : (
                   <Pressable
                     onPress={appleLinked ? handleUnlinkApple : handleLinkApple}
@@ -1660,7 +1661,7 @@ export default function SettingsScreen() {
             accessibilityLabel="Delete my account"
           >
             {deleteAccountLoading ? (
-              <ActivityIndicator size="small" color={Colors.dark.error} />
+              <TennisBallSpinner size="small" color={Colors.dark.error} />
             ) : (
               <>
                 <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />

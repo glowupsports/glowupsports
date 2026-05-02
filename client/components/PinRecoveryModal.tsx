@@ -5,11 +5,10 @@ import {
   Text,
   TextInput,
   Pressable,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+  StyleSheet} from "react-native";
 import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface PinRecoveryModalProps {
   visible: boolean;
@@ -109,7 +108,7 @@ export function PinRecoveryModal({
                 </Pressable>
                 <Pressable onPress={handleSend} style={styles.primaryBtn} disabled={submitting}>
                   {submitting ? (
-                    <ActivityIndicator color="#000" />
+                    <TennisBallSpinner color="#000" />
                   ) : (
                     <Text style={styles.primaryBtnText}>Send link</Text>
                   )}

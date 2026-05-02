@@ -5,9 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
-  Dimensions,
-} from "react-native";
+  Dimensions} from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -15,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { apiRequest, queryClient } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -239,7 +238,7 @@ export function GlowAssessmentFlow({
   if (step === 1 && loadingLevel) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={GlowColors.primary} />
+        <TennisBallSpinner size="large" color={GlowColors.primary} />
         <Text style={styles.loadingText}>Loading skills...</Text>
       </View>
     );
@@ -497,7 +496,7 @@ export function GlowAssessmentFlow({
               style={styles.nextButtonGradient}
             >
               {saveAssessment.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>Save Assessment</Text>

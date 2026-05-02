@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, Modal, ScrollView, ActivityIndicator, Alert, Platform, TextInput } from "react-native";
+import { View, Text, Pressable, Modal, ScrollView, Alert, Platform, TextInput } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -11,6 +11,7 @@ import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
 import { SuccessToast } from "@/components/SuccessToast";
 import { styles } from "./playersStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface PaymentsInvoice {
   id: string;
@@ -853,7 +854,7 @@ export function PlayerPaymentsSection({ playerStats, playerId, playerName: _play
               disabled={editSaving}
             >
               {editSaving ? (
-                <ActivityIndicator color={Colors.dark.buttonText} />
+                <TennisBallSpinner color={Colors.dark.buttonText} />
               ) : (
                 <Text style={styles.recordPaymentDoneText}>Save changes</Text>
               )}

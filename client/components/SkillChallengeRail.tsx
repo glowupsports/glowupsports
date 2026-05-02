@@ -3,13 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+  Pressable} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface SkillChallenge {
   id: string;
@@ -60,7 +59,7 @@ export default function SkillChallengeRail({ onPress }: SkillChallengeRailProps)
   if (isLoading) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="small" color={Colors.dark.tint} />
+        <TennisBallSpinner size="small" color={Colors.dark.tint} />
       </View>
     );
   }

@@ -6,9 +6,7 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  ActivityIndicator,
-  StyleSheet,
-} from "react-native";
+  StyleSheet} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing } from "@/constants/theme";
@@ -16,6 +14,7 @@ import { styles } from "./seriesDetailStyles";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import type { Player, PackageTemplate, CreditPackageOption } from "./types";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const CREDIT_TYPE_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   private: { label: "Private Credits", color: Colors.dark.sessionPrivate, icon: "person" },
@@ -207,7 +206,7 @@ export function SeriesAddPlayerModal({
                 disabled={addPlayerIsPending}
               >
                 {addPlayerIsPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.saveButtonText}>
                     Save ({Object.values(selectedAttendance).filter(Boolean).length} sessions attended)
@@ -288,7 +287,7 @@ export function SeriesAddPlayerModal({
                       disabled={!newPackageName.trim() || !newPackageCredits || !newPackagePricePerCredit || createPackageIsPending}
                     >
                       {createPackageIsPending ? (
-                        <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                        <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                       ) : (
                         <Text style={styles.formSaveButtonText}>Create Package</Text>
                       )}

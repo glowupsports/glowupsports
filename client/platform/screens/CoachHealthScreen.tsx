@@ -1,11 +1,12 @@
 import React, { } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const PLATFORM_COLOR = "#9B59B6";
 
 interface PendingBio {
@@ -145,7 +146,7 @@ function PendingOwnerProfileRow({ profile, onApprove, onReject, isLoading }: Pen
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.primary} />
+            <TennisBallSpinner size="small" color={Colors.dark.primary} />
           ) : (
             <>
               <Ionicons name="checkmark" size={16} color={Colors.dark.primary} />
@@ -233,7 +234,7 @@ function PendingBioRow({ bio, onApprove, onReject, isLoading }: PendingBioRowPro
           disabled={isLoading}
         >
           {isLoading ? (
-            <ActivityIndicator size="small" color={Colors.dark.primary} />
+            <TennisBallSpinner size="small" color={Colors.dark.primary} />
           ) : (
             <>
               <Ionicons name="checkmark" size={16} color={Colors.dark.primary} />
@@ -386,7 +387,7 @@ export default function CoachHealthScreen() {
   if (loadingCoachHealth) {
     return (
       <View style={[styles.container, styles.centered, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color={PLATFORM_COLOR} />
+        <TennisBallSpinner size="large" color={PLATFORM_COLOR} />
         <Text style={styles.loadingText}>Loading coach health data...</Text>
       </View>
     );
@@ -434,7 +435,7 @@ export default function CoachHealthScreen() {
           </View>
         ) : loadingPendingBios ? (
           <View style={styles.loadingSection}>
-            <ActivityIndicator size="small" color={PLATFORM_COLOR} />
+            <TennisBallSpinner size="small" color={PLATFORM_COLOR} />
           </View>
         ) : null}
 
@@ -461,7 +462,7 @@ export default function CoachHealthScreen() {
           </View>
         ) : loadingOwnerProfiles ? (
           <View style={styles.loadingSection}>
-            <ActivityIndicator size="small" color={Colors.dark.gold} />
+            <TennisBallSpinner size="small" color={Colors.dark.gold} />
           </View>
         ) : null}
 

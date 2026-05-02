@@ -3,9 +3,7 @@ import {
   View,
   Text,
   Pressable,
-  StyleSheet,
-  ActivityIndicator,
-} from "react-native";
+  StyleSheet} from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,6 +20,7 @@ import { Colors, Spacing, FontSizes } from "@/constants/theme";
 import { TimeSlot } from "./TimeSlotGrid";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface SelectedFriend {
   id: string;
   name: string;
@@ -340,7 +339,7 @@ export function BookingConfirmationCard({
               style={styles.confirmButton}
             >
               {isLoading ? (
-                <ActivityIndicator color={Colors.dark.text} size="small" />
+                <TennisBallSpinner color={Colors.dark.text} size="small" />
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={22} color={Colors.dark.text} />

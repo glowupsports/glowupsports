@@ -7,9 +7,7 @@ import {
   Pressable,
   Dimensions,
   TextInput,
-  ScrollView,
-  ActivityIndicator,
-} from "react-native";
+  ScrollView} from "react-native";
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,6 +24,7 @@ import Slider from "@react-native-community/slider";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { CourtBookingPicker, CourtBookingValue } from "@/components/CourtBooking";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type CreateMatchRouteParams = {
   CreateMatch: {
@@ -865,7 +864,7 @@ export default function CreateMatchScreen() {
             style={styles.nextButtonGradient}
           >
             {createMatchMutation.isPending ? (
-              <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+              <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
             ) : (
               <>
                 <Ionicons name="rocket" size={20} color={Colors.dark.buttonText} />

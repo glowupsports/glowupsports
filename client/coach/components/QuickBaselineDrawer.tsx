@@ -5,10 +5,8 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  ActivityIndicator,
   ScrollView,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,6 +17,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, getPlayerLevelCo
 import { apiRequest } from "@/lib/query-client";
 import { PostActionModal } from "@/components/PostActionModal";
 import { AnimatedCheck } from "@/components/AnimatedCheck";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Player {
   id: string;
@@ -1198,7 +1197,7 @@ export default function QuickBaselineDrawer({
               disabled={suggestMutation.isPending}
             >
               {suggestMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Text style={styles.nextButtonText}>Next</Text>
@@ -1216,7 +1215,7 @@ export default function QuickBaselineDrawer({
               disabled={saveMutation.isPending || !confirmedLevel}
             >
               {saveMutation.isPending ? (
-                <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />

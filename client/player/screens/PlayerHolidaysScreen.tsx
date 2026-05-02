@@ -5,11 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
   Alert,
   Modal,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -22,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Spacing, BorderRadius, Backgrounds, TextColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface VacationData {
   active: boolean;
@@ -187,7 +186,7 @@ export default function PlayerHolidaysScreen() {
         </View>
 
         {isLoading ? (
-          <ActivityIndicator color={VACATION_BLUE} style={{ marginTop: Spacing.xl }} />
+          <TennisBallSpinner color={VACATION_BLUE} style={{ marginTop: Spacing.xl }} />
         ) : holidays.length === 0 ? (
           <View style={styles.emptyCard}>
             <Feather name="sun" size={28} color={VACATION_BLUE} />
@@ -382,7 +381,7 @@ export default function PlayerHolidaysScreen() {
                 style={styles.saveButtonGradient}
               >
                 {createMutation.isPending || updateMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
+                  <TennisBallSpinner color="#fff" />
                 ) : (
                   <>
                     <Feather name="sun" size={18} color="#fff" />

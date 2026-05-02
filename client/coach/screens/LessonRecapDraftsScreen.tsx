@@ -6,10 +6,8 @@ import {
   Pressable,
   TextInput,
   Alert,
-  ActivityIndicator,
   RefreshControl,
-  Switch,
-} from "react-native";import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+  Switch} from "react-native";import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -19,6 +17,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { ThemedText } from "@/components/ThemedText";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface RecapDraft {
   id: string;
@@ -92,7 +91,7 @@ export default function LessonRecapDraftsScreen() {
       <ThemedText style={styles.sectionLabel}>Pending drafts</ThemedText>
 
       {isLoading ? (
-        <ActivityIndicator color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
+        <TennisBallSpinner color={Colors.dark.primary} style={{ marginTop: Spacing.xl }} />
       ) : drafts.length === 0 ? (
         <View style={styles.emptyCard}>
           <Ionicons name="clipboard-outline" size={36} color={Colors.dark.textMuted} />
@@ -188,7 +187,7 @@ function DraftRow({ draft }: { draft: RecapDraft }) {
           style={[styles.btn, styles.btnPrimary, (busy || !caption.trim()) && styles.btnDisabled]}
         >
           {busy ? (
-            <ActivityIndicator color={Colors.dark.buttonText} size="small" />
+            <TennisBallSpinner color={Colors.dark.buttonText} size="small" />
           ) : (
             <Text style={styles.btnPrimaryText}>Send recap</Text>
           )}

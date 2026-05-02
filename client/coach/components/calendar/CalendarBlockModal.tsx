@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, Modal, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, Modal, ScrollView} from "react-native";
 import { Feather } from "@expo/vector-icons";import { Colors } from "@/constants/theme";
 import { styles } from "./calendarStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type SelectedCell = { hour: number; courtId?: string; date?: string };
 
@@ -183,7 +184,7 @@ export function CalendarBlockModal({ visible, onClose, selectedCells, onConfirm,
                 disabled={isConfirming || blockWeekdays.length === 0}
               >
                 {isConfirming ? (
-                  <ActivityIndicator size="small" color="#1A1A1A" />
+                  <TennisBallSpinner size="small" color="#1A1A1A" />
                 ) : (
                   <>
                     <Feather name="lock" size={16} color="#1A1A1A" />

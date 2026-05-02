@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, TextInput, ActivityIndicator, Alert } from "react-native";
+import { View, Text, Pressable, TextInput, Alert } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { styles } from "./playersStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const NOTE_CATEGORIES = [
   { value: "technique", label: "Technique", icon: "fitness-outline" as const },
@@ -185,7 +186,7 @@ export function PlayerNotesSection({ playerId, coachId, hideHeader = false }: Pr
                 disabled={addNoteMutation.isPending || !newNoteContent.trim()}
               >
                 {addNoteMutation.isPending ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <Text style={styles.saveNoteButtonText}>Save</Text>
                 )}
@@ -206,7 +207,7 @@ export function PlayerNotesSection({ playerId, coachId, hideHeader = false }: Pr
         )}
 
         {notesLoading ? (
-          <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.md }} />
+          <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginTop: Spacing.md }} />
         ) : notes.length === 0 ? (
           <View style={styles.emptyNotesCard}>
             <Ionicons name="document-text-outline" size={32} color={Colors.dark.disabled} />

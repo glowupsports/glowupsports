@@ -6,9 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  ActivityIndicator,
-  Modal,
-} from "react-native";
+  Modal} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
@@ -19,6 +17,7 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { LockedScreen } from "../components/LockedScreen";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface Badge {
   id: string;
   name: string;
@@ -258,7 +257,7 @@ export default function CollectionScreen() {
         showsVerticalScrollIndicator={false}
       >
         {isLoading ? (
-          <ActivityIndicator color={Colors.dark.primary} style={styles.loader} />
+          <TennisBallSpinner color={Colors.dark.primary} style={styles.loader} />
         ) : activeTab === "badges" ? (
           <>
             {earnedBadges.length > 0 ? (

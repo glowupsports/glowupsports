@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
@@ -22,6 +22,7 @@ import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { MonthlyAssessmentModal } from "@/player/components/MonthlyAssessmentModal";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 interface DomainInsights {
   recentHighlights: string[];
   focusAreas: string[];
@@ -1197,7 +1198,7 @@ function PillarDetailModal({
               
               {skillsLoading ? (
                 <View style={{ paddingVertical: Spacing.xl, alignItems: "center" }}>
-                  <ActivityIndicator size="small" color={domain.color} />
+                  <TennisBallSpinner size="small" color={domain.color} />
                 </View>
               ) : skillData && skillData.length > 0 ? (
                 <View style={skillCategoryStyles.container}>

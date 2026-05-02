@@ -4,15 +4,14 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
-  FlatList,
-} from "react-native";
+  FlatList} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface AcademyRankRow {
   rank: number;
@@ -145,7 +144,7 @@ export default function AcademyVsAcademyScreen() {
 
       {isLoading && rows.length === 0 ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.dark.tint} />
+          <TennisBallSpinner size="large" color={Colors.dark.tint} />
         </View>
       ) : rows.length === 0 ? (
         <View style={styles.center}>

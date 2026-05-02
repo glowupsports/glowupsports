@@ -4,9 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+  Pressable} from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -16,6 +14,7 @@ import { Colors, Spacing, BorderRadius, Typography, Backgrounds, GlowColors } fr
 import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 function formatDate(iso: string): string {
   try {
     return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(iso));
@@ -121,7 +120,7 @@ export default function MatchHistoryScreen() {
     <View style={[styles.container, { backgroundColor: Backgrounds.root }]}>
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={Colors.dark.primary} size="large" />
+          <TennisBallSpinner color={Colors.dark.primary} size="large" />
         </View>
       ) : error ? (
         <View style={styles.center}>

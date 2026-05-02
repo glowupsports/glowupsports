@@ -5,14 +5,13 @@ import {
   StyleSheet,
   FlatList,
   Image,
-  ActivityIndicator,
   Pressable,
-  RefreshControl,
-} from "react-native";
+  RefreshControl} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type SubTab = "submissions" | "leaderboard";
 
@@ -99,7 +98,7 @@ export default function SkillChallengeSubmissionsScreen() {
 
       {isLoading ? (
         <View style={styles.loader}>
-          <ActivityIndicator size="large" color={Colors.dark.tint} />
+          <TennisBallSpinner size="large" color={Colors.dark.tint} />
         </View>
       ) : !challenge ? (
         <View style={styles.empty}>

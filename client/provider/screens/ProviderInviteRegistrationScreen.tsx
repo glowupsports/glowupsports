@@ -6,11 +6,9 @@ import {
   ScrollView,
   Pressable,
   TextInput,
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -19,6 +17,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { useAuth } from "@/coach/context/AuthContext";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface InviteInfo {
   valid: boolean;
@@ -129,7 +128,7 @@ export default function ProviderInviteRegistrationScreen({
         <LinearGradient colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]} style={StyleSheet.absoluteFillObject} />
         <LinearGradient colors={[Colors.dark.primary, Colors.dark.xpCyan]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.headerTopLine} />
         <View style={[styles.centered, { paddingTop: insets.top }]}>
-          <ActivityIndicator size="large" color={Colors.dark.primary} />
+          <TennisBallSpinner size="large" color={Colors.dark.primary} />
           <Text style={styles.loadingText}>Verifying invite...</Text>
         </View>
       </View>
@@ -290,7 +289,7 @@ export default function ProviderInviteRegistrationScreen({
           disabled={registerMutation.isPending}
         >
           {registerMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+            <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={20} color={Colors.dark.buttonText} />

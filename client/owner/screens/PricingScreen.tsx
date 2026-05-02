@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, ActivityIndicator, Platform, Switch } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Platform, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } fr
 import { apiRequest } from "@/lib/query-client";
 import { getCurrentAcademyId } from "@/lib/auth";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface AcademyPricing {
   id: string;
@@ -353,7 +354,7 @@ export default function PricingScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.gold} />
+            <TennisBallSpinner size="large" color={Colors.dark.gold} />
           </View>
         ) : (
           <>

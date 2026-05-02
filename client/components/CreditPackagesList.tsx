@@ -5,15 +5,14 @@ import {
   Pressable,
   Modal,
   ScrollView,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+  Platform} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { invalidatePlayersList } from "@/lib/credit-cache";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type CreditType = "group" | "semi_private" | "private";
 
@@ -241,7 +240,7 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
 
       {lotsQuery.isLoading ? (
         <View style={{ paddingVertical: Spacing.sm, alignItems: "center" }}>
-          <ActivityIndicator color={Colors.dark.primary} />
+          <TennisBallSpinner color={Colors.dark.primary} />
         </View>
       ) : sortedLots.length === 0 ? (
         <Text
@@ -520,7 +519,7 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
                         }}
                       >
                         {deleteMutation.isPending ? (
-                          <ActivityIndicator color="#fff" />
+                          <TennisBallSpinner color="#fff" />
                         ) : (
                           <>
                             <Ionicons name="trash-outline" size={18} color="#fff" />
@@ -626,7 +625,7 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
                     }}
                   >
                     {deleteMutation.isPending ? (
-                      <ActivityIndicator color="#fff" size="small" />
+                      <TennisBallSpinner color="#fff" size="small" />
                     ) : (
                       <Ionicons name="trash-outline" size={14} color="#fff" />
                     )}

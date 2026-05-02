@@ -5,10 +5,8 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   Alert,
-  TextInput,
-} from "react-native";
+  TextInput} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -27,6 +25,7 @@ import CreditStoreModal from "../CreditStoreModal";
 import { AdminCreditV2Panel } from "./AdminCreditV2Panel";
 import { ReportIssueModal } from "@/components/ReportIssueModal";
 import { InvoiceViewerModal, type ViewableInvoice } from "@/components/billing/InvoiceViewerModal";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 // CONVENTION: If a modal is opened from inside another modal, render it as a
 // child of the parent modal's JSX (below), not as a sibling on the screen.
@@ -339,7 +338,7 @@ export function AdminPlayerDetailModal({
 
           {statsLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={Colors.dark.orange} />
+              <TennisBallSpinner size="large" color={Colors.dark.orange} />
               <Text style={styles.loadingText}>Loading player details...</Text>
             </View>
           ) : statsError ? (
@@ -586,7 +585,7 @@ export function AdminPlayerDetailModal({
                         style={{ flex: 2, paddingVertical: Spacing.sm, borderRadius: 8, alignItems: "center", backgroundColor: Colors.dark.primary }}
                       >
                         {createCustomPackageMutation.isPending ? (
-                          <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                          <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                         ) : (
                           <Text style={{ color: Colors.dark.buttonText, fontWeight: "700", fontSize: 13 }}>Create Package</Text>
                         )}
@@ -957,7 +956,7 @@ export function AdminPlayerDetailModal({
 
               {inviteLoading ? (
                 <View style={[styles.section, CardStyles.elevated, { alignItems: "center", paddingVertical: 20 }]}>
-                  <ActivityIndicator size="small" color={Colors.dark.orange} />
+                  <TennisBallSpinner size="small" color={Colors.dark.orange} />
                   <Text style={{ color: Colors.dark.textMuted, marginTop: 8, fontSize: 13 }}>Loading invite code...</Text>
                 </View>
               ) : inviteError ? (
@@ -1022,7 +1021,7 @@ export function AdminPlayerDetailModal({
                       disabled={isRegeneratingInviteCode}
                     >
                       {isRegeneratingInviteCode ? (
-                        <ActivityIndicator size="small" color={Colors.dark.error} />
+                        <TennisBallSpinner size="small" color={Colors.dark.error} />
                       ) : (
                         <Ionicons name="refresh-outline" size={16} color={Colors.dark.error} />
                       )}
@@ -1069,7 +1068,7 @@ export function AdminPlayerDetailModal({
               </View>
 
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={Colors.dark.orange} />
+                <TennisBallSpinner size="small" color={Colors.dark.orange} />
                 <Text style={styles.loadingText}>Loading full stats...</Text>
               </View>
 

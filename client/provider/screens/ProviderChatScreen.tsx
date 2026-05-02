@@ -7,9 +7,7 @@ import {
   TextInput,
   Pressable,
   KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-} from "react-native";
+  Platform} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -19,6 +17,7 @@ import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing } from "@/constants/theme";
 import { useWebSocket } from "@/lib/useWebSocket";
 import { useChatStickyBottom } from "@/lib/useChatStickyBottom";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Message {
   id: string;
@@ -146,7 +145,7 @@ export default function ProviderChatScreen() {
   if (convLoading) {
     return (
       <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator color={Colors.dark.primary} />
+        <TennisBallSpinner color={Colors.dark.primary} />
       </View>
     );
   }
@@ -174,7 +173,7 @@ export default function ProviderChatScreen() {
       {/* Messages */}
       {msgsLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={Colors.dark.primary} />
+          <TennisBallSpinner color={Colors.dark.primary} />
         </View>
       ) : (
         <View style={{ flex: 1 }}>
@@ -223,7 +222,7 @@ export default function ProviderChatScreen() {
           disabled={!inputText.trim() || sendMutation.isPending}
         >
           {sendMutation.isPending ? (
-            <ActivityIndicator size="small" color={Colors.dark.backgroundDefault} />
+            <TennisBallSpinner size="small" color={Colors.dark.backgroundDefault} />
           ) : (
             <Ionicons name="send" size={18} color={Colors.dark.backgroundDefault} />
           )}

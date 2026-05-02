@@ -5,9 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Modal,
-  ActivityIndicator,
-  ScrollView,
-} from "react-native";
+  ScrollView} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -15,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Player {
   id: string;
@@ -194,7 +193,7 @@ export function DeepAssessmentDrawer({ visible, player, onClose }: DeepAssessmen
                 disabled={saving}
               >
                 {saving ? (
-                  <ActivityIndicator size="small" color={Colors.dark.buttonText} />
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
                 ) : (
                   <>
                     <Ionicons name="save" size={16} color={Colors.dark.buttonText} />
@@ -211,7 +210,7 @@ export function DeepAssessmentDrawer({ visible, player, onClose }: DeepAssessmen
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.dark.xpCyan} />
+            <TennisBallSpinner size="large" color={Colors.dark.xpCyan} />
             <Text style={styles.loadingText}>Loading skills...</Text>
           </View>
         ) : (
