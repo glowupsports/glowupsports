@@ -1230,7 +1230,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
             status: orderStatus,
           }).returning();
           for (const item of orderItems) {
-            await tx.insert(shopOrderItems).values(({
+            await tx.insert(shopOrderItems).values({
               orderId: row.id,
               ...item,
             } as any);
@@ -1299,7 +1299,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
         status: orderStatus,
       }).returning();
       for (const item of orderItems) {
-        await db.insert(shopOrderItems).values(({
+        await db.insert(shopOrderItems).values({
           orderId: row.id,
           ...item,
         } as any);
