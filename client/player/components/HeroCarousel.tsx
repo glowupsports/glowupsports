@@ -28,6 +28,7 @@ import * as Haptics from "expo-haptics";
 import { SessionHeroCard } from "./SessionHeroCard";
 import { MatchSummaryCard } from "./MatchSummaryCard";
 import { GlowLessonsStack } from "./GlowLessonsStack";
+import { WeeklyDigestStory } from "./WeeklyDigestStory";
 import {
   Spacing,
   BorderRadius,
@@ -1112,6 +1113,7 @@ export function HeroCarousel({
       FRIEND_SPOT_SLOT_ACCENT,
     ],
   );
+  const { user } = useAuth();
   const navigation = useNavigation<any>();
   const { navigateToTab, setScrollEnabled } = useTabNavigation();
   const [containerWidth, setContainerWidth] = useState<number>(
@@ -1121,6 +1123,8 @@ export function HeroCarousel({
   const [paused, setPaused] = useState(false);
   const [userPaused, setUserPaused] = useState(false);
   const [pausedHydrated, setPausedHydrated] = useState(false);
+  const [showDigestBanner, setShowDigestBanner] = useState(false);
+  const [showDigestStory, setShowDigestStory] = useState(false);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progress = useSharedValue(0);
@@ -1297,6 +1301,42 @@ export function HeroCarousel({
     }
   }, [activeIndex, containerWidth, dragging, translateX]);
 
+  // Monday morning weekly digest banner — only for academy players (not free/guest)
+  useEffect(() => {
+    const DIGEST_STORAGE_KEY = "@weekly_digest_last_seen";
+    const today = new Date();
+    // Guest check: user must have a playerId and an academyId
+    if (!user?.playerId || !user?.academyId) {
+      setShowDigestBanner(false);
+      return;
+    }
+    if (today.getDay() !== 1) {
+      setShowDigestBanner(false);
+      return;
+    }
+    const todayStr = today.toISOString().split("T")[0];
+    AsyncStorage.getItem(DIGEST_STORAGE_KEY)
+      .then((lastSeen) => {
+        if (lastSeen !== todayStr) setShowDigestBanner(true);
+      })
+      .catch(() => {});
+  }, [user?.playerId, user?.academyId]);
+
+  const handleDismissDigestBanner = useCallback(() => {
+    const DIGEST_STORAGE_KEY = "@weekly_digest_last_seen";
+    const todayStr = new Date().toISOString().split("T")[0];
+    AsyncStorage.setItem(DIGEST_STORAGE_KEY, todayStr).catch(() => {});
+    setShowDigestBanner(false);
+  }, []);
+
+  const handleOpenDigestStory = useCallback(() => {
+    const DIGEST_STORAGE_KEY = "@weekly_digest_last_seen";
+    const todayStr = new Date().toISOString().split("T")[0];
+    AsyncStorage.setItem(DIGEST_STORAGE_KEY, todayStr).catch(() => {});
+    setShowDigestBanner(false);
+    setShowDigestStory(true);
+  }, []);
+
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
@@ -1451,6 +1491,27 @@ export function HeroCarousel({
         if (w > 0 && w !== containerWidth) setContainerWidth(w);
       }}
     >
+      {/* Monday Morning Weekly Digest Banner */}
+      {showDigestBanner ? (
+        <Pressable
+          style={styles.digestBanner}
+          onPress={handleOpenDigestStory}
+          accessibilityRole="button"
+          accessibilityLabel="See your week recap"
+        >
+          <View style={styles.digestBannerLeft}>
+            <Ionicons name="sparkles" size={14} color={GlowColors.primary} />
+            <Text style={styles.digestBannerText}>Your week recap is ready</Text>
+          </View>
+          <View style={styles.digestBannerRight}>
+            <Text style={styles.digestBannerCta}>See recap</Text>
+            <Pressable hitSlop={10} onPress={handleDismissDigestBanner} style={styles.digestBannerClose}>
+              <Ionicons name="close" size={14} color="rgba(255,255,255,0.5)" />
+            </Pressable>
+          </View>
+        </Pressable>
+      ) : null}
+
       {/* Progress bar */}
       <View style={styles.progressTrack}>
         {!paused && !userPaused ? (
@@ -1556,6 +1617,10 @@ export function HeroCarousel({
         </View>
       ) : null}
     </View>
+      <WeeklyDigestStory
+        visible={showDigestStory}
+        onClose={() => setShowDigestStory(false)}
+      />
     </HeroPillContext.Provider>
   );
 }
@@ -1563,6 +1628,46 @@ export function HeroCarousel({
 const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     width: "100%",
+  },
+  digestBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: Spacing.lg,
+    marginBottom: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: "rgba(200,255,61,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.22)",
+  },
+  digestBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    flex: 1,
+  },
+  digestBannerText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  digestBannerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  digestBannerCta: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: GlowColors.primary,
+  },
+  digestBannerClose: {
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
   },
   progressTrack: {
     marginHorizontal: Spacing.lg,

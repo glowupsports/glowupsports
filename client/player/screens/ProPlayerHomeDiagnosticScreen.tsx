@@ -104,6 +104,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
+import { TrainingLoadCard } from "@/player/components/TrainingLoadCard";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { AICoachHomeCard } from "@/player/components/AICoachHomeCard";
 import { PostSessionCheckInModal } from "@/player/components/PostSessionCheckInModal";
@@ -858,6 +859,11 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
 
           {/* WELCOME / GUIDE */}
           <WelcomeGuideCard />
+
+          {/* TRAINING LOAD */}
+          <LazyOnScroll prefetchOffset={300} minHeight={130}>
+            <TrainingLoadCard />
+          </LazyOnScroll>
 
           {/* COACHES RAIL */}
           {!isGuest ? (

@@ -6,7 +6,7 @@ import { getPlayerCountryLadderRank, resolvePlayerSports } from "./tournaments-l
   import { db } from "../db";
   import { storage } from "../storage";
   import { eq, sql, desc, and, ne, gt, gte, asc, inArray, isNotNull, or, count, lte } from "drizzle-orm";
-  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, requireFeatureUnlock, generateRefreshToken, generateToken, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";import { users, coaches, players, sessions, coachingSeries, seriesPlayers, sessionPlayers, courts, locations, playerHolidays, ballLevels, playerNotifications, posts as postsTable, postReactions as postReactionsTable, communityGroups as communityGroupsTable, groupMembers as groupMembersTable, groupEvents as groupEventsTable, groupEventRsvps as groupEventRsvpsTable, conversations as conversationsTable, conversationParticipants as conversationParticipantsTable, messages as messagesTable, messageReactions as messageReactionsTable, playerConnections, parentPlayerRelations, coachNotifications, playerSelfUpdateSchema, bookingRequests } from "@shared/schema";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, requireFeatureUnlock, generateRefreshToken, generateToken, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";import { users, coaches, players, sessions, coachingSeries, seriesPlayers, sessionPlayers, courts, locations, playerHolidays, ballLevels, playerNotifications, posts as postsTable, postReactions as postReactionsTable, communityGroups as communityGroupsTable, groupMembers as groupMembersTable, groupEvents as groupEventsTable, groupEventRsvps as groupEventRsvpsTable, conversations as conversationsTable, conversationParticipants as conversationParticipantsTable, messages as messagesTable, messageReactions as messageReactionsTable, playerConnections, parentPlayerRelations, coachNotifications, playerSelfUpdateSchema, bookingRequests, playerQuests, playerStreaks, playerBadges, xpTransactions } from "@shared/schema";
   import { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";import { getBallLevelFromAge, calculateAgeFromDOB } from "@shared/ballLevel";
   import { profilePhotoUpload, courtPhotoUpload, wrapUploadHandler } from "../upload-middleware";
@@ -8914,6 +8914,113 @@ router.post(
   },
 );
 
+// ==================== TRAINING LOAD ====================
+// GET /api/player/me/training-load
+// Returns current week session breakdown (Mon–Sun), personalised weekly goal, and status.
+// Weekly goal derived from 4-week attendance history (clamp 1–7, fallback 3).
+router.get(
+  "/api/player/me/training-load",
+  authMiddleware,
+  requirePlayerOrOwner,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) return res.status(400).json({ error: "Player profile required" });
+
+      const isFreePlayer = !req.user?.academyId;
+
+      const now = new Date();
+      const dayOfWeek = now.getDay();
+      const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const weekStart = new Date(now);
+      weekStart.setDate(weekStart.getDate() - daysFromMonday);
+      weekStart.setHours(0, 0, 0, 0);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+
+      const weekSessions = await storage
+        .getPlayerSessionsWithDetails(playerId, weekStart, weekEnd)
+        .catch(() => []);
+
+      // Derive weekly goal from last 4 weeks of attendance history
+      // This personalises the target to the player's own training DNA.
+      let weeklyGoal = 0;
+      if (!isFreePlayer) {
+        const historyStart = new Date(weekStart);
+        historyStart.setDate(historyStart.getDate() - 28); // 4 weeks back
+        const pastSessions = await storage
+          .getPlayerSessionsWithDetails(playerId, historyStart, weekStart)
+          .catch(() => []);
+        const attendedPast = pastSessions.filter(
+          (s) => s.attendanceStatus === "present" || s.attendanceStatus === "late",
+        );
+        const avgPerWeek = attendedPast.length / 4;
+        // Clamp between 1 and 7, round up; fall back to 3 when no history
+        weeklyGoal = avgPerWeek > 0 ? Math.max(1, Math.min(7, Math.ceil(avgPerWeek))) : 3;
+      }
+
+      const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const weekDays = DAY_NAMES.map((dayName, i) => {
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(dayDate.getDate() + i);
+        const dayStart = new Date(dayDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayDate);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const daySessions = weekSessions.filter((s) => {
+          const st = new Date(s.startTime);
+          return st >= dayStart && st <= dayEnd;
+        });
+
+        let status: "done" | "upcoming" | "empty" = "empty";
+        if (daySessions.some((s) => s.attendanceStatus === "present" || s.attendanceStatus === "late")) {
+          status = "done";
+        } else if (daySessions.some((s) => new Date(s.startTime) > now)) {
+          status = "upcoming";
+        }
+
+        return { day: dayName, date: dayDate.toISOString().split("T")[0], status };
+      });
+
+      const sessionsDone = weekDays.filter((d) => d.status === "done").length;
+      const sessionsUpcoming = weekDays.filter((d) => d.status === "upcoming").length;
+
+      let trainingStatus: "on_track" | "behind" | "rest_week" | "no_goal_set";
+      let statusText: string;
+
+      if (isFreePlayer || weeklyGoal === 0) {
+        trainingStatus = "no_goal_set";
+        statusText = sessionsDone > 0
+          ? `${sessionsDone} session${sessionsDone === 1 ? "" : "s"} this week — great work!`
+          : "No sessions this week yet — let's change that.";
+      } else if (sessionsDone >= weeklyGoal) {
+        trainingStatus = "rest_week";
+        statusText = `Rest week — you've hit your goal, recovery is part of training.`;
+      } else if (sessionsDone > 0) {
+        trainingStatus = "on_track";
+        statusText = `On track — ${sessionsDone} of your ${weeklyGoal} weekly sessions done.`;
+      } else {
+        trainingStatus = "behind";
+        statusText = `You're overdue — no sessions this week, time to book!`;
+      }
+
+      return res.json({
+        weekDays,
+        sessionsDone,
+        sessionsUpcoming,
+        weeklyGoal,
+        status: trainingStatus,
+        statusText,
+        isFreePlayer,
+      });
+    } catch (err) {
+      console.error("[training-load] error:", err);
+      return res.status(500).json({ error: "Failed to fetch training load" });
+    }
+  },
+);
+
 // GET /api/player/me/session-history
 // Returns paginated past sessions with check-in data joined.
 router.get(
@@ -8994,10 +9101,6 @@ router.get(
     } catch (error) {
       console.error("[SessionHistory] Error:", error);
       res.status(500).json({ error: "Failed to fetch session history" });
-    }
-  },
-);
-
 // GET /api/player/me/checkin-insight
 // Analyzes last 30 days of check-in data and returns a pattern insight string.
 router.get(
@@ -9028,7 +9131,6 @@ router.get(
         return res.json({ insight: null });
       }
 
-      // Analyse energy by day-of-week
       const dowEnergy: Record<number, number[]> = {};
       for (const c of checkins) {
         const dow = Number(c.dow);
@@ -9066,6 +9168,118 @@ router.get(
     }
   },
 );
+
+// ==================== WEEKLY DIGEST STORY ====================
+// 7-day per-player server-side cache keyed by playerId + ISO date.
+const _weeklyDigestCache = new Map<string, { data: object; ts: number }>();
+const WEEKLY_DIGEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function computeWeeklyDigest(playerId: string, isFreePlayer: boolean): Promise<object> {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const thisWeekStart = new Date(now);
+  thisWeekStart.setDate(thisWeekStart.getDate() - daysFromMonday);
+  thisWeekStart.setHours(0, 0, 0, 0);
+  const lastWeekStart = new Date(thisWeekStart);
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  const lastWeekEnd = new Date(thisWeekStart);
+  lastWeekEnd.setMilliseconds(-1);
+
+  const weekRangeLabel = `${lastWeekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${lastWeekEnd.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+
+  const [xpRows, lastWeekSessions, streakRow, questRows] = await Promise.all([
+    db
+      .select({ total: sql<number>`COALESCE(SUM(${xpTransactions.xpAmount}), 0)` })
+      .from(xpTransactions)
+      .where(
+        and(
+          eq(xpTransactions.playerId, playerId),
+          gte(xpTransactions.createdAt, lastWeekStart),
+          lte(xpTransactions.createdAt, lastWeekEnd),
+        ),
+      )
+      .catch(() => [{ total: 0 }]),
+    storage.getPlayerSessionsWithDetails(playerId, lastWeekStart, lastWeekEnd).catch(() => []),
+    db
+      .select()
+      .from(playerStreaks)
+      .where(eq(playerStreaks.playerId, playerId))
+      .limit(1)
+      .catch(() => []),
+    db
+      .select({ status: playerQuests.status, completedAt: playerQuests.completedAt })
+      .from(playerQuests)
+      .where(
+        and(
+          eq(playerQuests.playerId, playerId),
+          gte(playerQuests.assignedAt, lastWeekStart),
+          lte(playerQuests.assignedAt, lastWeekEnd),
+        ),
+      )
+      .catch(() => []),
+  ]);
+
+  const xpEarned = Number((xpRows[0] as any)?.total ?? 0);
+  const sessionsAttended = lastWeekSessions.filter(
+    (s) => s.attendanceStatus === "present" || s.attendanceStatus === "late",
+  ).length;
+  const streak = streakRow[0] as any;
+  const currentStreak: number = streak?.currentStreak ?? 0;
+  const longestStreak: number = streak?.longestStreak ?? 0;
+  const streakIsPersonalBest = currentStreak > 0 && currentStreak >= longestStreak;
+  const questsCompleted = questRows.filter((q) => q.status === "completed" || q.status === "claimed").length;
+  const questsTotal = questRows.length;
+
+  let aiMessage: string;
+  if (sessionsAttended === 0) {
+    aiMessage = "Every champion starts somewhere. Book your first session and make next week count.";
+  } else if (sessionsAttended >= 3 && questsCompleted >= 3) {
+    aiMessage = "Outstanding week! You're training like a pro. Keep the momentum and push for new personal bests.";
+  } else if (sessionsAttended >= 2) {
+    aiMessage = "Solid week on court. Stay consistent and those small gains will compound into big results.";
+  } else if (currentStreak >= 7) {
+    aiMessage = `${currentStreak}-day streak — that's elite consistency. Don't let it slip this coming week.`;
+  } else {
+    aiMessage = "Good effort this week. Focus on one area to sharpen and you'll see rapid improvement.";
+  }
+
+  return {
+    weekRange: weekRangeLabel,
+    xpEarned,
+    sessionsAttended,
+    streakCurrent: currentStreak,
+    streakIsPersonalBest,
+    questsCompleted,
+    questsTotal,
+    aiMessage,
+    isFreePlayer,
+  };
+}
+
+async function weeklyDigestHandler(req: AuthenticatedRequest, res: Response) {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(400).json({ error: "Player profile required" });
+    const isFreePlayer = !req.user?.academyId;
+
+    const cacheKey = `${playerId}:${new Date().toISOString().slice(0, 10)}`;
+    const cached = _weeklyDigestCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < WEEKLY_DIGEST_TTL_MS) {
+      return res.json(cached.data);
+    }
+
+    const data = await computeWeeklyDigest(playerId, isFreePlayer);
+    _weeklyDigestCache.set(cacheKey, { data, ts: Date.now() });
+    return res.json(data);
+  } catch (err) {
+    console.error("[weekly-digest] error:", err);
+    return res.status(500).json({ error: "Failed to fetch weekly digest" });
+  }
+}
+
+router.get("/api/player/me/weekly-digest", authMiddleware, requirePlayerOrOwner, weeklyDigestHandler);
+router.get("/api/player/me/weekly-digest-story", authMiddleware, requirePlayerOrOwner, weeklyDigestHandler);
 
 export { generateIcsToken };
 export default router;
