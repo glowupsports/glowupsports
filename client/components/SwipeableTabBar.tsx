@@ -443,9 +443,15 @@ export function SwipeableTabBar({
   const screens = useMemo(() => 
     tabs.map((tab, index) => {
       const TabComponent = tab.component;
-      // keepAlive tabs are always rendered (pre-mounted on first render);
-      // other tabs are rendered once visited and kept alive thereafter.
-      const shouldRender = tab.keepAlive || visitedTabs.has(index);
+      // keepAlive: false → only render when this tab is the active page so
+      // nested Stack Navigators (PlayStack, Growth) are never simultaneously
+      // mounted under the same container (prevents "Another navigator is
+      // already registered" on iOS/Android).
+      // keepAlive: true → pre-mounted and always kept alive.
+      // keepAlive: undefined (default) → rendered once visited, then kept alive.
+      const shouldRender = tab.keepAlive === false
+        ? index === currentIndex
+        : visitedTabs.has(index);
       return (
         <View
           key={tab.key}
