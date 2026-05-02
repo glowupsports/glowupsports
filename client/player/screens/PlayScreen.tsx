@@ -48,6 +48,8 @@ import {
 import SwipeableBottomSheet from "@/components/SwipeableBottomSheet";
 import { SkeletonSessionCard } from "@/components/SkeletonLoader";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import AvailableSlotsStrip from "@/player/components/AvailableSlotsStrip";
+import type { AvailableTodaySlot } from "@/player/components/PlayNowCard";
 // react-native-maps is a native module. On builds where the native side
 // isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
 // build, a missing/expired Google Maps key, or a future SDK upgrade) the
@@ -3145,6 +3147,17 @@ export default function PlayScreen() {
       </Animated.View>
 
       <Animated.View style={[styles.mainContent, animatedMainContentStyle]}>
+        {/* AVAILABLE SLOTS STRIP — Task #1570 */}
+        <AvailableSlotsStrip
+          onBookSlot={(_slot: AvailableTodaySlot) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            navigation.navigate("LessonBooking");
+          }}
+          onBookNow={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            navigation.navigate("LessonBooking");
+          }}
+        />
         <View style={styles.tabs}>
           {TAB_OPTIONS.map((tab) => (
             <Pressable

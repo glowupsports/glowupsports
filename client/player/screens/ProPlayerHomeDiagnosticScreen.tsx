@@ -116,6 +116,7 @@ import { GlowAssessmentCard } from "@/player/components/GlowAssessmentCard";
 import AchievementCelebrationModal from "@/player/components/AchievementCelebrationModal";
 import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
 import { WellnessSnapshotCard } from "@/player/components/WellnessSnapshotCard";
+import PlayNowCard, { type AvailableTodaySlot } from "@/player/components/PlayNowCard";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -127,6 +128,7 @@ interface DashboardData {
     glowScore: number;
     ballLevel: string | null;
     streak: number;
+    checkinStreak?: number;
     profilePhotoUrl?: string | null;
     dateOfBirth?: string | null;
     playStyle?: string | null;
@@ -330,7 +332,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   const { navigateToTab } = useTabNavigation();
 
   // ── Health recovery status (Task #1571) ───────────────────────────────────
-  const [healthRecoveryStatus, setHealthRecoveryStatus] = useState<"fully_recovered" | "light_day" | "rest_today" | null>(null);
+  const [healthRecoveryStatus, setHealthRecoveryStatus] = useState<any>(null);
   useEffect(() => {
     let cancelled = false;
     import("@/player/services/healthService").then(async ({ getHealthConnectionState, readHealthSnapshot }) => {
@@ -346,6 +348,8 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [bookingWizardSport, setBookingWizardSport] = useState<string | undefined>(undefined);
+  const [bookingWizardPreselectedDate, setBookingWizardPreselectedDate] = useState<Date | undefined>(undefined);
+  const [bookingWizardPreselectedCoachId, setBookingWizardPreselectedCoachId] = useState<string | undefined>(undefined);
   const [showBookingSportPicker, setShowBookingSportPicker] = useState(false);
   const [ramadanDismissed, setRamadanDismissed] = useState(false);
   const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
@@ -686,10 +690,27 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     // No fallback to nextSession — future sessions cannot be checked in
   }, [sessionHistoryForTrigger]);
 
+  const handleBookFromPlayNow = useCallback((slot?: AvailableTodaySlot) => {
+    guardAction(() => {
+      const today = new Date();
+      setBookingWizardPreselectedDate(today);
+      if (slot?.coachId) {
+        setBookingWizardPreselectedCoachId(slot.coachId);
+      } else {
+        setBookingWizardPreselectedCoachId(undefined);
+      }
+      setBookingWizardSport(activeSport);
+      setShowBookingWizard(true);
+    });
+  }, [guardAction, activeSport]);
+
   const handleBookingSuccess = () => {
     setShowBookingWizard(false);
+    setBookingWizardPreselectedDate(undefined);
+    setBookingWizardPreselectedCoachId(undefined);
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/courts/available-today"] });
   };
 
   // ── Memoized style objects ─────────────────────────────────────────────────
@@ -859,6 +880,21 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           {/* RAMADAN BONUS CARD */}
           {isRamadan && !isBirthday && !ramadanDismissed ? (
             <RamadanBonusCard onDismiss={handleDismissRamadan} />
+          ) : null}
+
+          {/* PLAY NOW CARD — court availability widget */}
+          {!isGuest ? (
+            <PlayNowCard
+              hasTodaySession={(() => {
+                const ns = effectiveData?.nextSession;
+                if (!ns?.date) return false;
+                const today = new Date();
+                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+                return ns.date.startsWith(todayStr);
+              })()}
+              onBookNow={handleBookFromPlayNow}
+              onBrowseAll={() => navigateToTab("PlayStack", { screen: "Play" } as any)}
+            />
           ) : null}
 
           {/* HERO CAROUSEL */}
@@ -1057,9 +1093,15 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
         {/* BOOKING WIZARD */}
         <PlayerBookingWizard
           visible={showBookingWizard}
-          onClose={() => setShowBookingWizard(false)}
+          onClose={() => {
+            setShowBookingWizard(false);
+            setBookingWizardPreselectedDate(undefined);
+            setBookingWizardPreselectedCoachId(undefined);
+          }}
           onBookingSuccess={handleBookingSuccess}
           sport={bookingWizardSport}
+          preselectedDate={bookingWizardPreselectedDate}
+          preselectedCoachId={bookingWizardPreselectedCoachId}
         />
 
         {/* PIN MODAL */}

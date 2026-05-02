@@ -301,6 +301,107 @@ router.get(
   },
 );
 
+// ── Task #1570: Quick availability widget ────────────────────────────────────
+// Returns up to 10 available coaching slots for today at the player's academy.
+// Response is cached for 15 minutes per academy.
+const _availabilityTodayCache = new Map<string, { data: unknown[]; expiresAt: number }>();
+
+router.get(
+  "/api/courts/available-today",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const player = await storage.getPlayer(playerId, req.user?.academyId || "");
+      if (!player) {
+        return res.status(404).json({ error: "Player not found" });
+      }
+
+      const academyId = player.academyId || "";
+      if (!academyId) {
+        return res.json([]);
+      }
+
+      const cacheKey = `available-today:${academyId}`;
+      const cached = _availabilityTodayCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        return res.json(cached.data);
+      }
+
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const rangeStart = new Date(`${todayStr}T00:00:00.000Z`);
+      const rangeEnd = new Date(`${todayStr}T23:59:59.999Z`);
+
+      const slots = await storage.getAvailableSlots({
+        academyId,
+        startDate: rangeStart,
+        endDate: rangeEnd,
+        duration: 60,
+        requestingPlayerId: playerId,
+      });
+
+      const slotCoachIds = [...new Set(slots.map((s) => s.coachId).filter(Boolean) as string[])];
+      const slotCourtIds = [...new Set(slots.map((s) => s.courtId).filter(Boolean) as string[])];
+      const slotLocationIds = [...new Set(slots.map((s) => s.locationId).filter(Boolean) as string[])];
+
+      const [coachRows, courtRows, locationRows, academyRows] = await Promise.all([
+        slotCoachIds.length > 0
+          ? db.select({ id: coaches.id, name: coaches.name }).from(coaches).where(inArray(coaches.id, slotCoachIds))
+          : Promise.resolve([] as { id: string; name: string | null }[]),
+        slotCourtIds.length > 0
+          ? db.select({ id: courts.id, name: courts.name }).from(courts).where(inArray(courts.id, slotCourtIds))
+          : Promise.resolve([] as { id: string; name: string | null }[]),
+        slotLocationIds.length > 0
+          ? db.select({ id: locations.id, name: locations.name }).from(locations).where(inArray(locations.id, slotLocationIds))
+          : Promise.resolve([] as { id: string; name: string | null }[]),
+        academyId
+          ? db.select({ id: academies.id, name: academies.name }).from(academies).where(eq(academies.id, academyId))
+          : Promise.resolve([] as { id: string; name: string | null }[]),
+      ]);
+
+      const coachMap = new Map(coachRows.map((c) => [c.id, c]));
+      const courtMap = new Map(courtRows.map((c) => [c.id, c]));
+      void locationRows;
+      const academyName = academyRows[0]?.name || "Academy";
+
+      const enriched = slots
+        .map((slot) => {
+          const court = slot.courtId ? courtMap.get(slot.courtId) : null;
+          const coach = slot.coachId ? coachMap.get(slot.coachId) : null;
+          const timeStr = slot.startTime
+            ? new Date(slot.startTime).toISOString().substring(11, 16)
+            : "";
+          const slotId = `${slot.coachId || ""}:${todayStr}:${timeStr}`;
+          return {
+            slotId,
+            time: timeStr,
+            courtName: court?.name || "Court",
+            academyName,
+            durationMinutes: 60,
+            price: null as number | null,
+            coachId: slot.coachId || "",
+            coachName: coach?.name || "Coach",
+            date: todayStr,
+          };
+        })
+        .filter((s) => !!s.time)
+        .sort((a, b) => a.time.localeCompare(b.time))
+        .slice(0, 10);
+
+      _availabilityTodayCache.set(cacheKey, { data: enriched, expiresAt: Date.now() + 15 * 60 * 1000 });
+      res.json(enriched);
+    } catch (error) {
+      console.error("[AvailableToday] error:", error);
+      res.status(500).json({ error: "Failed to fetch available slots" });
+    }
+  },
+);
+
 // Get player's booking requests
 // Get all coaches from player's academy for booking wizard (with extended details)
 router.get(

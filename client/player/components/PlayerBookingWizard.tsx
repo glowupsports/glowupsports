@@ -126,6 +126,11 @@ interface PlayerBookingWizardProps {
   preselectedCoachId?: string;
   /** Optional open lesson the player wants to join from a public profile. */
   preselectedSessionId?: string;
+  /**
+   * Task #1570 — Play Now card. When set, pre-fills the date picker to this
+   * date and skips ahead to the slot-selection step.
+   */
+  preselectedDate?: Date;
 }
 
 type SessionType = "private" | "semi_private" | "group" | "open_play";
@@ -205,6 +210,7 @@ export default function PlayerBookingWizard({
   sport = "tennis",
   preselectedCoachId,
   preselectedSessionId,
+  preselectedDate,
 }: PlayerBookingWizardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -750,12 +756,19 @@ export default function PlayerBookingWizard({
         } else {
           setSessionType("private");
         }
+        if (preselectedDate) {
+          setSelectedDate(preselectedDate);
+        }
+        setCurrentSlide(2);
+      } else if (preselectedDate) {
+        // Task #1570 — Play Now card: pre-set the date and jump to slot picker
+        setSelectedDate(preselectedDate);
         setCurrentSlide(2);
       }
     } else {
       resetForm();
     }
-  }, [visible, preselectedCoachId, preselectedSessionId]);
+  }, [visible, preselectedCoachId, preselectedSessionId, preselectedDate]);
 
   // Animate slide progress
   useEffect(() => {
