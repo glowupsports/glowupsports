@@ -8197,6 +8197,14 @@ export const drills = pgTable("drills", {
   repRange: text("rep_range"), // e.g. "3 sets of 10", "10 min", "20 balls"
   milestoneCriteria: text("milestone_criteria"), // Observable success criterion
   source: text("source"), // "USTA", "Tennis Australia", "KNLTB", "Glow", "ITF"
+  // Drill library UI fields (Task #1568)
+  category: text("category").default("Other"), // Serve, Forehand, Backhand, Footwork, Net Play, Match Tactics, Fitness & Conditioning
+  difficulty: text("difficulty").default("Intermediate"), // Beginner, Intermediate, Advanced
+  durationMinutes: integer("duration_minutes").default(15),
+  description: text("description"),
+  steps: jsonb("steps").$type<string[]>().default([]),
+  tips: text("tips"),
+  skillTags: jsonb("skill_tags").$type<string[]>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("drills_skill_area_idx").on(table.skillArea),
@@ -8205,6 +8213,48 @@ export const drills = pgTable("drills", {
 export const insertDrillSchema = createInsertSchema(drills).omit({ id: true, createdAt: true });
 export type InsertDrill = z.infer<typeof insertDrillSchema>;
 export type Drill = typeof drills.$inferSelect;
+
+// Player saved drills (bookmarks)
+export const playerSavedDrills = pgTable("player_saved_drills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  drillId: varchar("drill_id").notNull().references(() => drills.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("player_saved_drills_unique").on(table.playerId, table.drillId),
+  index("player_saved_drills_player_idx").on(table.playerId),
+]);
+export type PlayerSavedDrill = typeof playerSavedDrills.$inferSelect;
+
+// Player drill logs (completions with XP)
+export const playerDrillLogs = pgTable("player_drill_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  drillId: varchar("drill_id").notNull().references(() => drills.id, { onDelete: "cascade" }),
+  durationDone: integer("duration_done"),
+  rating: integer("rating"),
+  notes: text("notes"),
+  xpAwarded: integer("xp_awarded").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("player_drill_logs_player_idx").on(table.playerId),
+]);
+export type PlayerDrillLog = typeof playerDrillLogs.$inferSelect;
+
+// Coach assigned drills
+export const coachAssignedDrills = pgTable("coach_assigned_drills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").notNull().references(() => coaches.id, { onDelete: "cascade" }),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  drillId: varchar("drill_id").notNull().references(() => drills.id, { onDelete: "cascade" }),
+  message: text("message"),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  dismissedAt: timestamp("dismissed_at"),
+}, (table) => [
+  uniqueIndex("coach_assigned_drills_unique").on(table.coachId, table.playerId, table.drillId),
+  index("coach_assigned_drills_player_idx").on(table.playerId),
+]);
+export type CoachAssignedDrill = typeof coachAssignedDrills.$inferSelect;
 
 // Slot Reservations — temporary holds (5 min TTL) to prevent double-booking race conditions
 export const slotReservations = pgTable("slot_reservations", {

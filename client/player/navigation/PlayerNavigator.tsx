@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import PlayScreen from "@/player/screens/PlayScreen";
 import PlayerProgressScreen from "@/player/screens/PlayerProgressScreen";
 import PlayerScheduleScreen from "@/player/screens/PlayerScheduleScreen";
+import PlayerDrillsScreen from "@/player/screens/PlayerDrillsScreen";
 import OpenMatchFeedScreen from "@/player/screens/OpenMatchFeedScreen";
 import CreateMatchScreen from "@/player/screens/CreateMatchScreen";
 import MatchFinderHomeScreen from "@/player/screens/MatchFinderHomeScreen";
@@ -344,7 +345,7 @@ export function PlayStackNavigator() {
   );
 }
 
-type GrowthSubTab = "Progress" | "Quests" | "Schedule";
+type GrowthSubTab = "Progress" | "Quests" | "Schedule" | "Drills";
 const GROWTH_SCHEDULE_SCREENS = new Set(["ScheduleMain", "CourtBooking", "CourtDetail", "MyCourtBookings", "QuickBook", "Match", "MatchDetail", "MatchPrep", "OpponentProfile"]);
 const GROWTH_QUESTS_SCREENS = new Set(["QuestsMain"]);
 
@@ -360,14 +361,14 @@ function GrowthScreen({ setSubTabSetter }: { setSubTabSetter: (setter: (t: Growt
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
-      <View style={{ paddingTop: insets.top + 6, paddingBottom: 6, paddingHorizontal: Spacing.md, flexDirection: "row", gap: 8, backgroundColor: Colors.dark.backgroundRoot }}>
-        {(["Progress", "Quests", "Schedule"] as GrowthSubTab[]).map((tab) => (
+      <View style={{ paddingTop: insets.top + 6, paddingBottom: 6, paddingHorizontal: Spacing.md, flexDirection: "row", gap: 6, backgroundColor: Colors.dark.backgroundRoot }}>
+        {(["Progress", "Quests", "Schedule", "Drills"] as GrowthSubTab[]).map((tab) => (
           <Pressable
             key={tab}
             onPress={() => { setActiveSubTab(tab); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
             style={{ flex: 1, paddingVertical: 9, borderRadius: 24, backgroundColor: activeSubTab === tab ? GlowColors.primary : Colors.dark.chipBackgroundStrong, alignItems: "center" }}
           >
-            <Text style={{ color: activeSubTab === tab ? "#000" : Colors.dark.text, fontWeight: "700", fontSize: 13 }}>{tab}</Text>
+            <Text style={{ color: activeSubTab === tab ? "#000" : Colors.dark.text, fontWeight: "700", fontSize: 12 }}>{tab}</Text>
           </Pressable>
         ))}
       </View>
@@ -375,6 +376,7 @@ function GrowthScreen({ setSubTabSetter }: { setSubTabSetter: (setter: (t: Growt
         {activeSubTab === "Progress" ? <PlayerProgressScreen /> : null}
         {activeSubTab === "Quests" ? <QuestsScreen /> : null}
         {activeSubTab === "Schedule" ? <PlayerScheduleScreen /> : null}
+        {activeSubTab === "Drills" ? <PlayerDrillsScreen /> : null}
       </SafeAreaInsetsContext.Provider>
     </View>
   );
@@ -400,6 +402,8 @@ function GrowthMainWithCallback(props: any) {
         }
       } else if (screen === "Progress" || screen === "ProgressMain") {
         subTabSetterRef.current?.("Progress");
+      } else if (screen === "Drills") {
+        subTabSetterRef.current?.("Drills");
       } else {
         navigation.navigate(screen as any, params);
       }

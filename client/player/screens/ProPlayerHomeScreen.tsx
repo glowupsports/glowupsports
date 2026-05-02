@@ -1068,6 +1068,8 @@ function PlayerHomeContent() {
               aiStatus={homeData?.aiProStatus ?? null}
               aiCoachContext={homeData?.aiCoachContext ?? null}
               weeklyDigest={homeData?.weeklyDigest ?? null}
+              drillRecommendation={(homeData as any)?.drillRecommendation ?? null}
+              onNavigateToDrills={() => navigateToTab("Growth", "Drills")}
             />
 
             <View style={styles.improveCardGap} />

@@ -20,7 +20,19 @@ interface AICoachHomeCardProps {
   weeklyDigest: { data: { focusArea?: string } | null } | null;
   energyInsight?: string | null;
   recoveryStatus?: "fully_recovered" | "light_day" | "rest_today" | null;
+  drillRecommendation?: { drillId: string; drillName: string; category: string | null; durationMinutes: number | null } | null;
+  onNavigateToDrills?: () => void;
 }
+
+const CATEGORY_ICON: Record<string, string> = {
+  "Serve": "arrow-up-circle-outline",
+  "Forehand": "flash-outline",
+  "Backhand": "swap-horizontal-outline",
+  "Footwork": "footsteps-outline",
+  "Net Play": "contract-outline",
+  "Match Tactics": "bulb-outline",
+  "Fitness & Conditioning": "barbell-outline",
+};
 
 const LAYER_LABELS = ["Session Check-ins", "Monthly Voice", "Perception Gaps"] as const;
 
@@ -36,6 +48,8 @@ export const AICoachHomeCard = React.memo(function AICoachHomeCard({
   weeklyDigest,
   energyInsight,
   recoveryStatus,
+  drillRecommendation,
+  onNavigateToDrills,
 }: AICoachHomeCardProps) {
   useThemeReactivity();
   const navigation = useNavigation<any>();
@@ -150,6 +164,19 @@ export const AICoachHomeCard = React.memo(function AICoachHomeCard({
                 {RECOVERY_LABELS[recoveryStatus].label}
               </Text>
             </View>
+          ) : null}
+
+          {drillRecommendation ? (
+            <Pressable
+              style={({ pressed }) => [s.drillRow, pressed && { opacity: 0.75 }]}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onNavigateToDrills?.(); }}
+            >
+              <Ionicons name={(CATEGORY_ICON[drillRecommendation.category ?? ""] ?? "fitness-outline") as any} size={14} color="#F97316" />
+              <Text style={s.drillText} numberOfLines={1}>
+                Try: <Text style={{ fontWeight: "800" }}>{drillRecommendation.drillName}</Text>
+              </Text>
+              <Ionicons name="chevron-forward" size={12} color="#F97316" />
+            </Pressable>
           ) : null}
 
           {isNearLimit && remaining !== null ? (
@@ -341,6 +368,22 @@ const s = makeReactiveStyles(() =>
       fontSize: 11,
       fontWeight: "600",
       color: Colors.dark.error,
+    },
+    drillRow: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 6,
+      backgroundColor: "rgba(249,115,22,0.08)",
+      borderRadius: BorderRadius.sm,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 7,
+      borderWidth: 1,
+      borderColor: "rgba(249,115,22,0.20)",
+    },
+    drillText: {
+      flex: 1,
+      fontSize: 12,
+      color: "#F97316",
     },
     ctaBtn: {
       borderRadius: BorderRadius.lg,

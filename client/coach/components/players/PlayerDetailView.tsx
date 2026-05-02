@@ -143,6 +143,216 @@ interface PlayerQuestItem {
   personalisedBy: string | null;
 }
 
+interface DrillItem {
+  id: string;
+  name: string;
+  category: string | null;
+  difficulty: string | null;
+  durationMinutes: number | null;
+  description: string | null;
+}
+
+interface CoachAssignment {
+  id: string;
+  drillId: string;
+  message: string | null;
+  assignedAt: string;
+  dismissedAt: string | null;
+  drill: DrillItem;
+}
+
+const CATEGORY_ICON: Record<string, string> = {
+  "Serve": "arrow-up-circle-outline",
+  "Forehand": "flash-outline",
+  "Backhand": "swap-horizontal-outline",
+  "Footwork": "footsteps-outline",
+  "Net Play": "contract-outline",
+  "Match Tactics": "bulb-outline",
+  "Fitness & Conditioning": "barbell-outline",
+  "Other": "ellipsis-horizontal-circle-outline",
+};
+
+const CATEGORY_COLOR: Record<string, string> = {
+  "Serve": "#6366F1",
+  "Forehand": "#F97316",
+  "Backhand": "#10B981",
+  "Footwork": "#EC4899",
+  "Net Play": "#0EA5E9",
+  "Match Tactics": "#8B5CF6",
+  "Fitness & Conditioning": "#F59E0B",
+  "Other": "#6B7280",
+};
+
+function PlayerDrillsSection({ playerId }: { playerId: string }) {
+  const queryClient = useQueryClient();
+  const [showPicker, setShowPicker] = useState(false);
+  const [message, setMessage] = useState("");
+  const [selectedDrillId, setSelectedDrillId] = useState<string | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  const { data: assignedData, isLoading: loadingAssigned } = useQuery<{ assigned: CoachAssignment[] }>({
+    queryKey: ["/api/coach/players", playerId, "drills", "assigned"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/coach/players/${playerId}/drills/assigned`);
+      return res.json();
+    },
+  });
+
+  const { data: drillsData } = useQuery<{ drills: DrillItem[] }>({
+    queryKey: ["/api/coach/drills"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/coach/drills");
+      return res.json();
+    },
+    enabled: showPicker,
+  });
+
+  const assigned = assignedData?.assigned ?? [];
+  const availDrills = drillsData?.drills ?? [];
+
+  const handleAssign = async () => {
+    if (!selectedDrillId) {
+      Alert.alert("Select a drill", "Please choose a drill to assign.");
+      return;
+    }
+    setIsAssigning(true);
+    try {
+      await apiRequest("POST", `/api/coach/players/${playerId}/drills/assign`, {
+        drillId: selectedDrillId,
+        message: message.trim() || null,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/players", playerId, "drills", "assigned"] });
+      setShowPicker(false);
+      setSelectedDrillId(null);
+      setMessage("");
+    } catch {
+      Alert.alert("Error", "Could not assign drill. Please try again.");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleUnassign = async (assignmentId: string) => {
+    try {
+      await apiRequest("DELETE", `/api/coach/drills/assigned/${assignmentId}`);
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/players", playerId, "drills", "assigned"] });
+    } catch {
+      Alert.alert("Error", "Could not remove drill assignment.");
+    }
+  };
+
+  if (loadingAssigned) {
+    return (
+      <View style={{ paddingVertical: 16, alignItems: "center" }}>
+        <TennisBallSpinner size="small" color={Colors.dark.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: 10, paddingTop: 4 }}>
+      {assigned.length === 0 ? (
+        <View style={{ paddingVertical: 8, alignItems: "center", gap: 6 }}>
+          <Ionicons name="fitness-outline" size={24} color={Colors.dark.tabIconDefault} />
+          <Text style={{ color: Colors.dark.textSecondary, fontSize: 13, textAlign: "center" }}>
+            No drills assigned yet
+          </Text>
+        </View>
+      ) : (
+        assigned.map(a => {
+          const cat = a.drill.category ?? "Other";
+          const color = CATEGORY_COLOR[cat] ?? "#6B7280";
+          const icon = CATEGORY_ICON[cat] ?? "ellipsis-horizontal-circle-outline";
+          return (
+            <View key={a.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.dark.backgroundDefault, borderRadius: 12, borderWidth: 1, borderColor: Colors.dark.chipBorder, padding: 12 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: color + "22", alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name={icon as any} size={18} color={color} />
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.dark.text }} numberOfLines={1}>{a.drill.name}</Text>
+                {a.message ? <Text style={{ fontSize: 12, color: Colors.dark.textMuted, fontStyle: "italic" }} numberOfLines={2}>{a.message}</Text> : null}
+                <Text style={{ fontSize: 11, color: Colors.dark.textSecondary }}>{a.drill.difficulty ?? "Intermediate"} • {a.drill.durationMinutes ?? 15} min</Text>
+              </View>
+              <Pressable hitSlop={8} onPress={() => Alert.alert("Remove Drill", "Remove this drill assignment?", [{ text: "Cancel" }, { text: "Remove", style: "destructive", onPress: () => handleUnassign(a.id) }])}>
+                <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+              </Pressable>
+            </View>
+          );
+        })
+      )}
+
+      <Pressable
+        style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: Colors.dark.chipBackgroundStrong, borderRadius: 12, paddingVertical: 10, opacity: pressed ? 0.75 : 1 })}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowPicker(true); }}
+      >
+        <Ionicons name="add-circle-outline" size={16} color={Colors.dark.primary} />
+        <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.dark.primary }}>Assign Drill</Text>
+      </Pressable>
+
+      <Modal visible={showPicker} transparent animationType="slide" onRequestClose={() => setShowPicker(false)}>
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+          <Pressable style={{ ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" }} onPress={() => setShowPicker(false)} />
+          <View style={{ backgroundColor: Colors.dark.backgroundDefault, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, gap: 14, maxHeight: "75%" }}>
+            <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.dark.text }}>Assign Drill</Text>
+
+            <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.dark.textSecondary }}>SELECT DRILL</Text>
+            <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
+              {availDrills.length === 0 ? (
+                <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                  <TennisBallSpinner size="small" color={Colors.dark.primary} />
+                </View>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {availDrills.map(drill => {
+                    const cat = drill.category ?? "Other";
+                    const color = CATEGORY_COLOR[cat] ?? "#6B7280";
+                    const isSelected = selectedDrillId === drill.id;
+                    return (
+                      <Pressable
+                        key={drill.id}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: isSelected ? color + "22" : Colors.dark.chipBackground, borderRadius: 10, borderWidth: 1.5, borderColor: isSelected ? color : Colors.dark.chipBorder, padding: 10 }}
+                        onPress={() => setSelectedDrillId(drill.id)}
+                      >
+                        <Ionicons name={CATEGORY_ICON[cat] as any ?? "ellipsis-horizontal-circle-outline"} size={16} color={color} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 13, fontWeight: "700", color: Colors.dark.text }} numberOfLines={1}>{drill.name}</Text>
+                          <Text style={{ fontSize: 11, color: Colors.dark.textMuted }}>{cat} • {drill.difficulty ?? "Intermediate"} • {drill.durationMinutes ?? 15} min</Text>
+                        </View>
+                        {isSelected ? <Ionicons name="checkmark-circle" size={18} color={color} /> : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </ScrollView>
+
+            <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.dark.textSecondary }}>MESSAGE (OPTIONAL)</Text>
+            <TextInput
+              style={{ backgroundColor: Colors.dark.chipBackground, borderRadius: 10, borderWidth: 1, borderColor: Colors.dark.chipBorder, padding: 12, fontSize: 14, color: Colors.dark.text, minHeight: 60 }}
+              placeholder="Add a coaching tip or note..."
+              placeholderTextColor={Colors.dark.textMuted}
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              textAlignVertical="top"
+            />
+
+            <Pressable
+              style={({ pressed }) => ({ backgroundColor: Colors.dark.primary, borderRadius: 12, paddingVertical: 13, alignItems: "center", opacity: pressed || isAssigning ? 0.8 : 1 })}
+              onPress={handleAssign}
+              disabled={isAssigning}
+            >
+              <Text style={{ fontSize: 15, fontWeight: "800", color: "#000" }}>
+                {isAssigning ? "Assigning..." : "Assign to Player"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 function PlayerQuestsSection({ playerId }: { playerId: string }) {
   const { data, isLoading } = useQuery<{ quests: PlayerQuestItem[] }>({
     queryKey: ["/api/coach/players", playerId, "quests"],
@@ -1502,6 +1712,10 @@ export function PlayerDetailView({
         </CollapsibleSection>
 
         <PlayerStrokeFeedbackSection playerId={player.id} />
+
+        <CollapsibleSection title="Assigned Drills" icon="fitness-outline" iconColor="#6366F1">
+          <PlayerDrillsSection playerId={player.id} />
+        </CollapsibleSection>
 
         <CollapsibleSection title="Active Quests" icon="flash-outline" iconColor="#00FF88">
           <PlayerQuestsSection playerId={player.id} />

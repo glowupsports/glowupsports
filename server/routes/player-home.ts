@@ -33,8 +33,10 @@ import {
   spotlightWeeklyWinners,
   players,
   playerQuests,
+  coachAssignedDrills,
+  drills,
 } from "@shared/schema";
-import { and, desc, eq, isNotNull, count } from "drizzle-orm";
+import { and, desc, eq, isNotNull, count, isNull } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
 } from "../auth";
@@ -213,6 +215,7 @@ router.get(
         tennisIqResult,
         aiProStatusResult,
         dailyFocusResult,
+        drillRecommendationResult,
       ] = await Promise.allSettled([
         fetchDashboard(playerId),
         // @ts-ignore - fetchProfile accepts AuthenticatedRequest via memoBranch
@@ -226,6 +229,7 @@ router.get(
         // @ts-ignore - fetchAiProStatus accepts AuthenticatedRequest via memoBranch
         fetchAiProStatus(req),
         computeDailyFocus(playerId),
+        fetchDrillRecommendation(playerId),
       ]);
 
       const result: Record<string, unknown> = {
@@ -263,6 +267,10 @@ router.get(
           dailyFocusResult.status === "fulfilled"
             ? dailyFocusResult.value
             : null,
+        drillRecommendation:
+          drillRecommendationResult.status === "fulfilled"
+            ? drillRecommendationResult.value
+            : null,
       };
 
       // Log any rejected branch so we can see in production logs which
@@ -279,6 +287,7 @@ router.get(
         ["tennisIq", tennisIqResult],
         ["aiProStatus", aiProStatusResult],
         ["dailyFocus", dailyFocusResult],
+        ["drillRecommendation", drillRecommendationResult],
       ] as const) {
         if (r.status === "rejected") {
           console.error(
@@ -716,6 +725,7 @@ let fetchWeeklyDigest: (playerId: string) => Promise<Record<string, unknown> | n
 let fetchAiCoachContext: (playerId: string) => Promise<Record<string, unknown> | null>;
 let fetchSpotlightWeeklyWinner: (playerId: string) => Promise<Record<string, unknown> | null>;
 let fetchTennisIq: (playerId: string) => Promise<Record<string, unknown> | null>;
+let fetchDrillRecommendation: (playerId: string) => Promise<Record<string, unknown> | null>;
 
 // Mirror of `/api/player/me/notifications/unread-count` (coach-calendar.ts).
 async function fetchUnreadCount(playerId: string): Promise<{ count: number }> {
@@ -1195,5 +1205,57 @@ router.get(
     }
   },
 );
+
+// Drill recommendation: return first active assigned drill, or a random drill
+// if no assignment exists — gives the AI coach card a "Try this drill" prompt.
+async function fetchDrillRecommendationImpl(
+  playerId: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    // Prefer coach-assigned drill that hasn't been dismissed
+    const [assignment] = await db
+      .select({
+        drillId: coachAssignedDrills.drillId,
+        drillName: drills.name,
+        category: drills.category,
+        durationMinutes: drills.durationMinutes,
+      })
+      .from(coachAssignedDrills)
+      .innerJoin(drills, eq(drills.id, coachAssignedDrills.drillId))
+      .where(
+        and(
+          eq(coachAssignedDrills.playerId, playerId),
+          isNull(coachAssignedDrills.dismissedAt),
+        ),
+      )
+      .orderBy(desc(coachAssignedDrills.assignedAt))
+      .limit(1);
+
+    if (assignment) {
+      return {
+        drillId: assignment.drillId,
+        drillName: assignment.drillName,
+        category: assignment.category,
+        durationMinutes: assignment.durationMinutes,
+      };
+    }
+
+    // Fall back to any drill (weighted toward beginner/intermediate for new players)
+    const [anyDrill] = await db
+      .select({ id: drills.id, name: drills.name, category: drills.category, durationMinutes: drills.durationMinutes })
+      .from(drills)
+      .limit(1);
+
+    if (!anyDrill) return null;
+    return { drillId: anyDrill.id, drillName: anyDrill.name, category: anyDrill.category, durationMinutes: anyDrill.durationMinutes };
+  } catch {
+    return null;
+  }
+}
+fetchDrillRecommendation = memoBranch(
+  "drillRecommendation",
+  SLOW_BRANCH_TTL_MS,
+  fetchDrillRecommendationImpl,
+) as (playerId: string) => Promise<Record<string, unknown> | null>;
 
 export default router;
