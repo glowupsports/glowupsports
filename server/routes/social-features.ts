@@ -23,8 +23,10 @@ import {
   openMatchSlots,
   userFeedPreferences,
   coachFollows as coachFollowsTable,
+  GLOW_CATEGORY_RANK_RANGES,
+  type GlowCategory,
 } from "@shared/schema";
-import { eq, sql, and, asc, inArray, notInArray, gte, count, ne, or } from "drizzle-orm";
+import { eq, sql, and, asc, inArray, notInArray, gte, lte, count, ne, or } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireFeatureUnlock,
@@ -4023,6 +4025,12 @@ function socialPostUploadHandler(
             ? v
             : null;
         })();
+        const glowCategoryFilter = (() => {
+          const v = String(req.query.glowCategory || "");
+          return Object.hasOwn(GLOW_CATEGORY_RANK_RANGES, v)
+            ? (v as GlowCategory)
+            : null;
+        })();
 
         // Resolve viewer context.
         const [me] = await db
@@ -4131,6 +4139,7 @@ function socialPostUploadHandler(
           ballLevel: players.ballLevel,
           skillLevel: players.skillLevel,
           glowMmr: players.glowMmr,
+          glowRank: players.glowRank,
           country: players.country,
           academyId: players.academyId,
           city: players.city,
@@ -4144,6 +4153,7 @@ function socialPostUploadHandler(
           ballLevel: string | null;
           skillLevel: number | null;
           glowMmr: number | null;
+          glowRank: number | null;
           country: string | null;
           academyId: string | null;
           city: string | null;
@@ -4274,6 +4284,7 @@ function socialPostUploadHandler(
               p.ball_level    AS "ballLevel",
               p.skill_level   AS "skillLevel",
               p.glow_mmr      AS "glowMmr",
+              p.glow_rank     AS "glowRank",
               p.country       AS "country",
               p.academy_id    AS "academyId",
               p.city          AS "city",
@@ -4319,6 +4330,15 @@ function socialPostUploadHandler(
             (p) =>
               !!p.ballLevel &&
               String(p.ballLevel).toLowerCase() === ballLevelFilter,
+          );
+        }
+        if (glowCategoryFilter) {
+          const range = GLOW_CATEGORY_RANK_RANGES[glowCategoryFilter];
+          filteredBucket = filteredBucket.filter(
+            (p) =>
+              typeof p.glowRank === "number" &&
+              p.glowRank >= range.min &&
+              p.glowRank <= range.max,
           );
         }
 

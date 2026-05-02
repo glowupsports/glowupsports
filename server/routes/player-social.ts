@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import { db } from "../db";
 import { storage } from "../storage";
 import { awardXP } from "../services/xp-service";
-import { questTemplates as questTemplatesTable, playerQuests as playerQuestsTable, dailyQuestSlots as dailyQuestSlotsTable, playerStreaks as playerStreaksTable, badges as badgesTable, playerBadges as playerBadgesTable, titles as titlesTable, playerTitles as playerTitlesTable, playerConnections, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners, playerXpEvents, playerNotifications, players, sessions, sessionPlayers, coachingSeries, creditTransactions, packages, coaches, users, openToPlay as openToPlayTable, posts as postsTable, academies, contentReports as contentReportsTable, playerBlocks as playerBlocksTable, questChainBonusClaims as questChainBonusClaimsTable, matchLogs, openMatchSlots, squadMembers } from "@shared/schema";
+import { questTemplates as questTemplatesTable, playerQuests as playerQuestsTable, dailyQuestSlots as dailyQuestSlotsTable, playerStreaks as playerStreaksTable, badges as badgesTable, playerBadges as playerBadgesTable, titles as titlesTable, playerTitles as playerTitlesTable, playerConnections, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners, playerXpEvents, playerNotifications, players, sessions, sessionPlayers, coachingSeries, creditTransactions, packages, coaches, users, openToPlay as openToPlayTable, posts as postsTable, academies, contentReports as contentReportsTable, playerBlocks as playerBlocksTable, questChainBonusClaims as questChainBonusClaimsTable, matchLogs, openMatchSlots, squadMembers, GLOW_CATEGORY_RANK_RANGES, type GlowCategory } from "@shared/schema";
 import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import {
@@ -1765,6 +1765,13 @@ router.get("/api/player/search", authMiddleware, async (req: AuthRequest, res: R
       
       if (openToPlayOnly) {
         conditions.push(eq(players.openToPlay, true));
+      }
+
+      const glowCategoryParam = req.query.glowCategory as string | undefined;
+      if (glowCategoryParam && Object.hasOwn(GLOW_CATEGORY_RANK_RANGES, glowCategoryParam)) {
+        const range = GLOW_CATEGORY_RANK_RANGES[glowCategoryParam as GlowCategory];
+        conditions.push(gte(players.glowRank, range.min));
+        conditions.push(lte(players.glowRank, range.max));
       }
 
       conditions.push(not(inArray(players.id, HIDDEN_PLAYER_IDS)));
