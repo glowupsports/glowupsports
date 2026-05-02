@@ -3567,10 +3567,28 @@ router.post("/api/player/spotlight/nominate", authMiddleware, requirePlayerOrOwn
         weekStart,
       }).returning();
 
-      // Bust the home god-route cache so the next home-data fetch
-      // reflects the new nomination immediately instead of waiting
-      // out the 30s route-level TTL.
-      invalidatePlayerHomeDataCache(playerId);
+      // Bust the home god-route cache for every player in the academy so
+      // the updated nomination tally (totalVotes, leaderboard order) is
+      // visible to all academy-mates within seconds, not just the
+      // nominator. A single DB round-trip fetches all playerIds; the
+      // invalidation itself is O(1) per entry (Map.delete). Non-fatal:
+      // stale data expires within 30s regardless.
+      try {
+        const academyPlayers = await db
+          .select({ id: players.id })
+          .from(players)
+          .where(eq(players.academyId, academyId));
+        for (const p of academyPlayers) {
+          invalidatePlayerHomeDataCache(p.id);
+        }
+      } catch (cacheErr) {
+        console.error(
+          "[Spotlight] academy home-data cache invalidation failed (non-fatal):",
+          cacheErr,
+        );
+        // Fallback: at least bust the nominator's own entry.
+        invalidatePlayerHomeDataCache(playerId);
+      }
 
       res.json({ success: true, nomination });
     } catch (error) {
