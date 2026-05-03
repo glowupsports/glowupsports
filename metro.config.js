@@ -1,7 +1,22 @@
 const { createProxyMiddleware } = require("http-proxy-middleware");
 const path = require("path");
+const fs = require("fs");
 const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 const { getDefaultConfig } = require("expo/metro-config");
+
+// react-native-health and react-native-health-connect are native-only packages
+// that require a custom dev build (not available in Expo Go). If they are not
+// installed in node_modules, Metro cannot resolve them even inside a guarded
+// dynamic import — this crashes the iOS/Android bundle request from Expo Go.
+// Detect their absence once at config-load time and shim them unconditionally
+// when missing. A real native dev build that installs them will find them in
+// node_modules and skip the shim.
+const healthInstalled = fs.existsSync(
+  path.resolve(__dirname, "node_modules/react-native-health"),
+);
+const healthConnectInstalled = fs.existsSync(
+  path.resolve(__dirname, "node_modules/react-native-health-connect"),
+);
 
 // During static/production builds (--no-dev), skip Sentry's source map
 // serializer. It processes all 2400+ modules single-threaded and adds
@@ -63,7 +78,7 @@ config.resolver = {
         type: "sourceFile",
       };
     }
-    if (platform === "web" && moduleName === "react-native-health") {
+    if (!healthInstalled && moduleName === "react-native-health") {
       return {
         filePath: path.resolve(
           __dirname,
@@ -72,7 +87,7 @@ config.resolver = {
         type: "sourceFile",
       };
     }
-    if (platform === "web" && moduleName === "react-native-health-connect") {
+    if (!healthConnectInstalled && moduleName === "react-native-health-connect") {
       return {
         filePath: path.resolve(
           __dirname,
