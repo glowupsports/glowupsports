@@ -7844,7 +7844,7 @@ router.post(
 
       // Bust availability cache and push real-time update to connected clients
       _availabilityTodayCache.delete(`available-today:${court.academyId}`);
-      broadcastCourtAvailabilityUpdated(court.academyId);
+      if (court.academyId) broadcastCourtAvailabilityUpdated(court.academyId);
 
       res.status(201).json(booking);
     } catch (error) {

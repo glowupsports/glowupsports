@@ -5,7 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Linking} from "react-native";
+  Linking,
+  Platform} from "react-native";
+import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import type { RouteProp } from "@react-navigation/native";
@@ -153,6 +155,7 @@ interface AcademyPublicProfile {
   slug: string;
   city: string | null;
   country: string | null;
+  address: string | null;
   description: string | null;
   website: string | null;
   phone: string | null;
@@ -173,6 +176,7 @@ interface AcademyPublicProfile {
   } | null;
   openingHours?: Record<string, { open: string; close: string; closed?: boolean }> | null;
   venueCourts?: VenueCourt[] | null;
+  venueLocation?: { lat: number | null; lng: number | null; address: string | null } | null;
 }
 
 function formatSchedule(dayOfWeek: number, startTime: string, duration: number): string {
@@ -366,6 +370,30 @@ export default function PlayerAcademyProfileScreen() {
   const openingHours = profile.openingHours ?? null;
   const hasOpeningHours = openingHours && Object.keys(openingHours).length > 0;
 
+  const venueLocation = profile.venueLocation ?? null;
+  const hasMapCoords = venueLocation != null && venueLocation.lat != null && venueLocation.lng != null;
+  const venueAddress = venueLocation?.address ?? profile.address ?? null;
+  const hasDirectionsData = hasMapCoords || venueAddress != null || (profile.city != null || profile.country != null);
+
+  const openNativeMaps = () => {
+    const label = encodeURIComponent(profile.name);
+    if (hasMapCoords) {
+      const lat = venueLocation!.lat!;
+      const lng = venueLocation!.lng!;
+      const url = Platform.OS === "ios"
+        ? `maps://?q=${label}&ll=${lat},${lng}`
+        : `geo:${lat},${lng}?q=${lat},${lng}(${label})`;
+      Linking.openURL(url).catch(() => {
+        Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+      });
+    } else {
+      const query = encodeURIComponent(
+        venueAddress ?? [profile.city, profile.country].filter(Boolean).join(", ") ?? profile.name
+      );
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -423,6 +451,46 @@ export default function PlayerAcademyProfileScreen() {
             ) : null}
           </View>
         </View>
+
+        {/* Venue Map */}
+        {hasMapCoords ? (
+          <Pressable style={styles.mapContainer} onPress={openNativeMaps} accessibilityRole="button" accessibilityLabel="Open venue in maps app">
+            <MapView
+              style={styles.map}
+              provider={PROVIDER_DEFAULT}
+              region={{
+                latitude: venueLocation!.lat!,
+                longitude: venueLocation!.lng!,
+                latitudeDelta: 0.005,
+                longitudeDelta: 0.005,
+              }}
+              scrollEnabled={false}
+              zoomEnabled={false}
+              rotateEnabled={false}
+              pitchEnabled={false}
+              pointerEvents="none"
+            >
+              <Marker
+                coordinate={{ latitude: venueLocation!.lat!, longitude: venueLocation!.lng! }}
+                title={profile.name}
+              />
+            </MapView>
+            <View style={styles.mapOverlay}>
+              <View style={styles.mapChip}>
+                <Ionicons name="navigate-outline" size={13} color={Colors.dark.primary} />
+                <Text style={styles.mapChipText}>Get directions</Text>
+              </View>
+            </View>
+          </Pressable>
+        ) : hasDirectionsData ? (
+          <Pressable style={styles.directionsRow} onPress={openNativeMaps}>
+            <Ionicons name="navigate-outline" size={16} color={Colors.dark.primary} />
+            <Text style={styles.directionsRowText}>
+              {venueAddress ?? [profile.city, profile.country].filter(Boolean).join(", ")}
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+          </Pressable>
+        ) : null}
 
         {/* Book a Lesson CTA — prominent */}
         <Pressable style={styles.bookLessonBtn} onPress={handleBookLesson}>
@@ -739,6 +807,56 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.primary,
     fontWeight: "600",
+  },
+  mapContainer: {
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    height: 160,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  map: {
+    flex: 1,
+  },
+  mapOverlay: {
+    position: "absolute",
+    bottom: Spacing.sm,
+    right: Spacing.sm,
+  },
+  mapChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  mapChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  directionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  directionsRowText: {
+    flex: 1,
+    ...Typography.body,
+    color: Colors.dark.text,
   },
   bookLessonBtn: {
     flexDirection: "row",

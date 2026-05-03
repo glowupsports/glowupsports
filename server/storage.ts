@@ -1490,6 +1490,26 @@ export const storage = {
       venueCourts = [];
     }
 
+    // Task #1602 — Venue location: fetch first active location for map display
+    let venueLocation: { lat: number | null; lng: number | null; address: string | null } | null = null;
+    try {
+      const locationRows = await db
+        .select({ lat: locations.lat, lng: locations.lng, address: locations.address })
+        .from(locations)
+        .where(and(eq(locations.academyId, academyId), eq(locations.isActive, true)))
+        .orderBy(asc(locations.createdAt))
+        .limit(1);
+      if (locationRows[0]) {
+        venueLocation = {
+          lat: locationRows[0].lat ?? null,
+          lng: locationRows[0].lng ?? null,
+          address: locationRows[0].address ?? null,
+        };
+      }
+    } catch {
+      venueLocation = null;
+    }
+
     return {
       ...academy[0],
       coachCount: coachResult[0]?.count || 0,
@@ -1502,6 +1522,7 @@ export const storage = {
         activePlayers: playerResult[0]?.count || 0,
       },
       venueCourts,
+      venueLocation,
     };
   },
 
