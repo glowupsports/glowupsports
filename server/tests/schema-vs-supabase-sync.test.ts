@@ -364,13 +364,8 @@ async function fetchSupabaseColumnMeta(
  * Format key: `<table_name>.<column_name>` (snake_case, exactly as in the DB).
  */
 const KNOWN_TYPE_DRIFT: ReadonlyMap<string, string> = new Map([
-  [
-    "open_matches.booking_id",
-    // schema.ts declares `varchar("booking_id")` (nullable by default), but
-    // Supabase has `booking_id` as NOT NULL. Tracked under the same #1349
-    // sync effort that owns the existence drift above.
-    "schema.ts says nullable, Supabase says NOT NULL — pre-existing, owned by Task #1349 sync work",
-  ],
+  // open_matches.booking_id was previously listed here (nullable vs NOT NULL
+  // drift, Task #1349) but the drift has since been resolved — removed.
 ]);
 
 function describeTypeDrift(reports: TypeDriftReport[]): string {
