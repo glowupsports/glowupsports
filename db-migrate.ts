@@ -14,7 +14,7 @@
  * Run via: npx tsx db-migrate.ts
  */
 
-import { Pool } from "pg";
+import { Pool, PoolClient } from "pg";
 
 const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -23,7 +23,7 @@ if (!dbUrl) {
 }
 
 const pool = new Pool({ connectionString: dbUrl });
-type PgClient = Awaited<ReturnType<Pool["connect"]>>;
+type PgClient = PoolClient;
 
 /**
  * Ensures a named UNIQUE constraint exists in pg_constraint.
