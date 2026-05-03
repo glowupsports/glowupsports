@@ -13,6 +13,7 @@ import { buildPhotoUrl, apiRequest } from "@/lib/query-client";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { useAuth } from "@/coach/context/AuthContext";
 import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
+import { GuestBrowsingBanner } from "@/components/GuestBrowsingBanner";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 interface UpcomingSession {
@@ -96,7 +97,7 @@ export default function PlayerCoachProfileScreen() {
   const insets = useSafeAreaInsets();
   const { coachId, previewMode } = route.params || {};
   const { isGuest } = useAuth();
-  const { guardAction, promptProps } = useGuestGuard();
+  const { guardAction, setShowPrompt, promptProps } = useGuestGuard();
 
   const queryClient = useQueryClient();
   // Task #1580 — guests use the public (unauthenticated) coach profile
@@ -300,6 +301,10 @@ export default function PlayerCoachProfileScreen() {
             Preview · This is what players see in the public coach directory
           </ThemedText>
         </View>
+      ) : null}
+
+      {isGuest && !previewMode ? (
+        <GuestBrowsingBanner onSignIn={() => setShowPrompt(true)} />
       ) : null}
 
       <ScrollView

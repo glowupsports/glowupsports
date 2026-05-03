@@ -27,6 +27,7 @@ import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useTranslation } from "react-i18next";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
+import { GuestBrowsingBanner } from "@/components/GuestBrowsingBanner";
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface OpenMatch {
@@ -471,7 +472,7 @@ function EmptyState({ onCreateMatch }: { onCreateMatch: () => void }) {
 export default function OpenMatchFeedScreen() {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const { guardAction, promptProps } = useGuestGuard();
+  const { isGuest, guardAction, setShowPrompt, promptProps } = useGuestGuard();
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -633,6 +634,9 @@ export default function OpenMatchFeedScreen() {
   return (
     <LockedScreen featureKey="match_preparation">
       <View style={styles.container}>
+        {isGuest ? (
+          <GuestBrowsingBanner onSignIn={() => setShowPrompt(true)} />
+        ) : null}
         <Animated.View entering={FadeInUp} style={styles.filterSection}>
           <View style={styles.filterRow}>
             {(["all", "singles", "doubles"] as FilterType[]).map((filter, _idx) => {

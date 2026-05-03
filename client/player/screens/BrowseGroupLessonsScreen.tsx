@@ -25,6 +25,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
+import { GuestBrowsingBanner } from "@/components/GuestBrowsingBanner";
 const BALL_LEVEL_FILTERS = [
   { id: "my_level", label: "My Level", color: "dynamic" },
   { id: "all", label: "All Levels", color: "#A0A8B8" },
@@ -112,7 +113,7 @@ export default function BrowseGroupLessonsScreen() {
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
   const { isGuest } = useAuth();
-  const { guardAction, promptProps } = useGuestGuard();
+  const { guardAction, setShowPrompt, promptProps } = useGuestGuard();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const _headerHeight = useHeaderHeight();
@@ -235,6 +236,10 @@ export default function BrowseGroupLessonsScreen() {
             <Feather name="x" size={24} color={ProTennisColors.textPrimary} />
           </Pressable>
         </View>
+
+        {isGuest ? (
+          <GuestBrowsingBanner onSignIn={() => setShowPrompt(true)} />
+        ) : null}
 
         <ScrollView
           style={styles.scrollView}
