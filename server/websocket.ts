@@ -452,6 +452,13 @@ export function broadcastSessionUpdate(academyId: string, payload: { sessionId: 
   });
 }
 
+export function broadcastCourtAvailabilityUpdated(academyId: string) {
+  broadcastToAcademy(academyId, {
+    type: "court_availability_updated",
+    payload: { academyId },
+  });
+}
+
 export function getOnlineUsers(academyId: string): string[] {
   const users = onlineUsers.get(academyId);
   return users ? Array.from(users) : [];

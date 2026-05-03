@@ -16,7 +16,7 @@ import {
   getCoachPushTokens,
 } from "../pushNotifications";
 import { enrollPlayerInGroupSession } from "../sessionEnrolment";
-import { broadcastToPlayerIds } from "../websocket";
+import { broadcastToPlayerIds, broadcastCourtAvailabilityUpdated } from "../websocket";
 import { invalidateHomeDataCache } from "./coach-home";
 import { buildFriendStatusMap } from "../services/friendStatus";
 import { paymentProofUpload, wrapUploadHandler } from "../upload-middleware";
@@ -7842,6 +7842,10 @@ router.post(
         }
       }
 
+      // Bust availability cache and push real-time update to connected clients
+      _availabilityTodayCache.delete(`available-today:${court.academyId}`);
+      broadcastCourtAvailabilityUpdated(court.academyId);
+
       res.status(201).json(booking);
     } catch (error) {
       console.error("Create court booking error:", error);
@@ -7935,6 +7939,12 @@ router.post(
         booking.endTime,
         "available",
       );
+
+      // Bust availability cache and push real-time update to connected clients
+      if (booking.academyId) {
+        _availabilityTodayCache.delete(`available-today:${booking.academyId}`);
+        broadcastCourtAvailabilityUpdated(booking.academyId);
+      }
 
       res.json({ success: true, message: "Booking cancelled" });
     } catch (error) {

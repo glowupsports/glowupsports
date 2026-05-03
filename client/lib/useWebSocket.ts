@@ -70,6 +70,7 @@ type NewSessionHandler = (payload: NewSessionPayload) => void;
 type FeedbackReceivedHandler = (payload: FeedbackReceivedPayload) => void;
 type SessionUpdateHandler = (payload: SessionUpdatePayload) => void;
 type WorldMessageHandler = (payload: unknown) => void;
+type CourtAvailabilityUpdatedHandler = (payload: { academyId: string }) => void;
 
 interface UseWebSocketOptions {
   onNewMessage?: MessageHandler;
@@ -85,6 +86,7 @@ interface UseWebSocketOptions {
   onMessageDeleted?: (payload: { conversationId: string; messageId: string }) => void;
   onReactionUpdated?: (payload: { conversationId: string; messageId: string; reactions: unknown[] }) => void;
   onOpenMatchUpdate?: (payload: { matchId: string; reason?: string }) => void;
+  onCourtAvailabilityUpdated?: CourtAvailabilityUpdatedHandler;
   onConnected?: () => void;
   onDisconnected?: () => void;
 }
@@ -183,6 +185,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
               break;
             case "open_match.updated":
               optionsRef.current.onOpenMatchUpdate?.(message.payload as { matchId: string; reason?: string });
+              break;
+            case "court_availability_updated":
+              optionsRef.current.onCourtAvailabilityUpdated?.(message.payload as { academyId: string });
               break;
             case "connected":
               break;

@@ -9,12 +9,12 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useFocusEffect } from "@react-navigation/native";
-import { useQueryClient } from "@tanstack/react-query";
 import { getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useWebSocket } from "@/lib/useWebSocket";
 import type { AvailableTodaySlot } from "./PlayNowCard";
 
 interface AvailableSlotsStripProps {
@@ -48,8 +48,7 @@ export default function AvailableSlotsStrip({ onBookSlot, onBookNow }: Available
       return r.json();
     },
     enabled: !!user?.playerId && !isGuest,
-    staleTime: 15 * 60 * 1000,
-    refetchInterval: 15 * 60 * 1000,
+    staleTime: Infinity,
   });
 
   useFocusEffect(
@@ -57,6 +56,12 @@ export default function AvailableSlotsStrip({ onBookSlot, onBookNow }: Available
       queryClient.invalidateQueries({ queryKey: ["/api/courts/available-today"] });
     }, [queryClient]),
   );
+
+  useWebSocket({
+    onCourtAvailabilityUpdated: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courts/available-today"] });
+    }, [queryClient]),
+  });
 
   const isFreePlayer = !user?.academyId;
   if (isGuest || isFreePlayer) return null;

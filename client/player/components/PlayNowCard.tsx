@@ -14,10 +14,11 @@ import Animated, {
 } from "react-native-reanimated";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getApiUrl } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 export interface AvailableTodaySlot {
   slotId: string;
@@ -57,6 +58,7 @@ const EXPANDED_HEIGHT = 200;
 
 export default function PlayNowCard({ hasTodaySession, onBookNow, onBrowseAll }: PlayNowCardProps) {
   const { user, isGuest } = useAuth();
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const expandAnim = useSharedValue(0);
 
@@ -72,8 +74,13 @@ export default function PlayNowCard({ hasTodaySession, onBookNow, onBrowseAll }:
       return r.json();
     },
     enabled: !!user?.playerId && !isGuest,
-    staleTime: 15 * 60 * 1000,
-    refetchInterval: 15 * 60 * 1000,
+    staleTime: Infinity,
+  });
+
+  useWebSocket({
+    onCourtAvailabilityUpdated: useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courts/available-today"] });
+    }, [queryClient]),
   });
 
   const isFreePlayer = !user?.academyId;
