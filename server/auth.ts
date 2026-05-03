@@ -42,7 +42,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export interface UserStorageInterface {
-  getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null; playerId: string | null; deleted?: boolean | null } | null>;
+  getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null; playerId: string | null; deleted?: boolean | null } | null | undefined>;
   isMaintenanceMode(): Promise<boolean>;
   isUserAcademyOwner(userId: string, academyId: string): Promise<boolean>;
   getPlayerEmail(playerId: string): Promise<string | null>;

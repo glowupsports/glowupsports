@@ -729,6 +729,9 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
     const { sessionId } = req.params;
     const coachId = req.user!.coachId;
     const academyId = req.user!.academyId;
+    if (!coachId) {
+      return res.status(403).json({ error: "Coach account required" });
+    }
     const {
       playerId,
       effort,
@@ -824,7 +827,7 @@ router.post("/api/glow/sessions/:sessionId/feedback", authMiddleware, requireAca
         mentalPillar: pillarRatings?.MENTAL,
         socialPillar: pillarRatings?.SOCIAL,
         matchPillar: pillarRatings?.MATCH,
-        skillRatings: skillRatings ? JSON.stringify(skillRatings) : null,
+        skillRatings: skillRatings || null,
         strokeFeedback: strokeFeedback || null,
         lessonIntensity: lessonIntensity || null,
         playerNote: playerNote || null,
@@ -1971,6 +1974,7 @@ router.post("/api/glow/players/:playerId/assessment", authMiddleware, requireAca
       );
       
       if (existing.length > 0) {
+        const existingScore = Number(existing[0].currentScore ?? 0);
         await db.update(playerPillarProgress)
           .set({
             currentScore: String(scores.percentage),

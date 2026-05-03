@@ -54,6 +54,7 @@ interface GroupDetail {
     role: string;
     joinedAt: string;
     avatarUrl?: string | null;
+    addedManually?: boolean;
   }[];
   memberCount: number;
 }
@@ -2124,24 +2125,6 @@ function GroupChatTab({
           };
           return [...prev, wsMsg];
         });
-      }
-    }, [conversationId]),
-    onMessageRead: useCallback(() => {
-      // Refresh read state when another participant marks the conversation read
-      if (conversationId) {
-        apiRequest("GET", `/api/player/me/conversations/${conversationId}/read-state`)
-          .then(res => res.json())
-          .then((readState: { playerId: string | null; lastReadAt: string | Date | null }[]) => {
-            if (Array.isArray(readState) && readState.length > 0) {
-              const latest = readState.reduce<Date | null>((max, p) => {
-                if (!p.lastReadAt) return max;
-                const d = new Date(p.lastReadAt);
-                return max === null || d > max ? d : max;
-              }, null);
-              setOthersLastReadAt(latest);
-            }
-          })
-          .catch(() => {});
       }
     }, [conversationId]),
   });

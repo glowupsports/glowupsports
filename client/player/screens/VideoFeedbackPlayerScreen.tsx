@@ -212,11 +212,10 @@ export default function VideoFeedbackPlayerScreen() {
       {isLoading ? (
         <TennisBallSpinner size="large" color={Colors.dark.accentText} style={{ marginTop: 60 }} />
       ) : allFeedback.length === 0 ? (
-        <EmptyStateCard
-          icon="videocam-outline"
-          title="No video feedback yet"
-          message="Your coach will send video feedback when they have technique tips or clips to share"
-        />
+        <View style={{ padding: 40, alignItems: "center" }}>
+          <Text style={{ color: Colors.dark.textMuted, marginTop: 8, textAlign: "center" }}>No video feedback yet</Text>
+          <Text style={{ color: Colors.dark.textSecondary, marginTop: 4, fontSize: 13, textAlign: "center" }}>Your coach will send video feedback when they have technique tips or clips to share</Text>
+        </View>
       ) : (
         <FlatList
           data={allFeedback}

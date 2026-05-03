@@ -1399,7 +1399,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
         if (!playerId)
           return res.status(400).json({ error: "Player not found" });
 
-        const markReadSchema = z.object({ notificationIds: z.array(z.number().int().positive()).optional() });
+        const markReadSchema = z.object({ notificationIds: z.array(z.string()).optional() });
         const parsedMarkRead = markReadSchema.safeParse(req.body);
         if (!parsedMarkRead.success) return res.status(400).json({ error: fromZodError(parsedMarkRead.error).message });
         const { notificationIds } = parsedMarkRead.data;
@@ -1411,7 +1411,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
             .where(
               and(
                 eq(playerNotifications.playerId, playerId),
-                inArray(playerNotifications.id, (notificationIds as number[]).map(String)),
+                inArray(playerNotifications.id, notificationIds as string[]),
               ),
             );
         } else {
@@ -1531,6 +1531,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
         }[] = [];
 
         for (const sp of sessionPlayersForRefund) {
+          if (!sp.playerId) continue;
           // Only refund if credits were actually deducted (creditDeductedAt is set)
           if (sp.creditDeductedAt) {
             const refundResult = await storage.refundCreditsForSession(

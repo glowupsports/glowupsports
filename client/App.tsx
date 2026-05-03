@@ -26,7 +26,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
 import { getEnv } from "@/lib/env";
 
-import RootStackNavigator from "@/navigation/RootStackNavigator";
+import RootStackNavigator, { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { AutoLockOverlay } from "@/components/AutoLockOverlay";
 import { setActiveRouteName, getDeepestRouteName } from "@/lib/activeRoute";
 import { useAuth , AuthProvider } from "@/coach/context/AuthContext";
@@ -308,7 +308,7 @@ function AutoLockHost() {
 }
 
 function NavigationContainerWithRef() {
-  const navigationRef = useNavigationContainerRef();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
   const { registerNavigation } = useTabNavigation();
   const [navReady, setNavReady] = useState(false);
 

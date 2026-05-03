@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
-import { Alert as RNAlert, Platform, View, Text, Pressable, StyleSheet, Modal, Animated } from "react-native";
+import { Alert as RNAlert, Platform, View, Text, Pressable, StyleSheet, Modal, Animated, type AlertOptions, type AlertButton as RNAlertButton } from "react-native";
 import { Colors } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 

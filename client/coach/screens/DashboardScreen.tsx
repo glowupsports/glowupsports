@@ -20,6 +20,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
 import { useQuery, useQueryClient, QueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
 import * as Haptics from "expo-haptics";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
@@ -350,7 +352,7 @@ const feedbackCardStyles = StyleSheet.create({
   card: {
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.cardBackground,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     borderWidth: 1,
@@ -2144,7 +2146,7 @@ const bStyles = StyleSheet.create({
 export default function DashboardScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const queryClient = useQueryClient();
   const { navigateToTab } = useTabNavigation();
   const { coach, academy: _academy, calendarData, isLoading: _isLoading, refetchCalendar } = useCoach();

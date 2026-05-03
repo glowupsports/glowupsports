@@ -77,7 +77,7 @@ export function SeriesSmartFillModal({
                   {mergeSuggestions.suggestions.length} available ({mergeSuggestions.openSlots} open slots)
                 </Text>
                 {mergeSuggestions.suggestions.map((suggestion) => {
-                  const ballColor = getBallLevelColor(suggestion.ballLevel);
+                  const ballColor = getBallLevelColor(suggestion.ballLevel ?? undefined);
                   return (
                     <View key={suggestion.playerId} style={styles.smartFillCard}>
                       <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>

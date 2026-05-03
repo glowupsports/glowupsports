@@ -78,12 +78,20 @@ export interface SlotReservation {
   expiresAt: string;
 }
 
+interface CoachBlock {
+  id: string;
+  startTime: string | Date;
+  endTime: string | Date;
+  blockReason?: string;
+}
+
 interface CalendarData {
   ownSessions: Session[];
   blockedSessions: BlockedSession[];
   courts: Court[];
   locations: Location[];
   slotReservations?: SlotReservation[];
+  coachBlocks?: CoachBlock[];
   dateRange: { start: string; end: string };
 }
 

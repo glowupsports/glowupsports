@@ -109,7 +109,7 @@ function nearestCountry(lat: number, lng: number): string | null {
   return bestD <= 15 * 15 ? best : null;
 }
 
-type DoubleCol = typeof locations.lat;
+type DoubleCol = typeof locations.lat | typeof locations.lng;
 
 function inBboxSql(latCol: DoubleCol, lngCol: DoubleCol, bbox: ReturnType<typeof parseBbox>) {
   if (!bbox) return undefined;

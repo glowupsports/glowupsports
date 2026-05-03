@@ -48,7 +48,12 @@ export async function seedDemoDataForTheLaw() {
     }
 
     const playerId = theLawPlayer[0].id;
-    const academyId = theLawPlayer[0].academyId;
+    const academyIdRaw = theLawPlayer[0].academyId;
+    if (!academyIdRaw) {
+      console.log("[DemoSeed] Player has no academy");
+      return { success: false, error: "Player has no academy" };
+    }
+    const academyId: string = academyIdRaw;
     const [theLawUser] = await db
       .select({ id: users.id })
       .from(users)
@@ -329,8 +334,6 @@ export async function seedDemoDataForTheLaw() {
             contextType: i === 1 ? "match" : "training",
             caption: postTexts[i],
             visibility: "academy",
-            likesCount: Math.floor(Math.random() * 15) + 3,
-            commentsCount: Math.floor(Math.random() * 5),
             createdAt: new Date(Date.now() - i * 2 * 24 * 60 * 60 * 1000),
             updatedAt: new Date(Date.now() - i * 2 * 24 * 60 * 60 * 1000),
           } as any));

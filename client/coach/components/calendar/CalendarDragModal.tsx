@@ -8,11 +8,13 @@ import { formatTimeInTimezone, formatDateObjectInTimezone, parseUTCTimestamp } f
 import { dragModalStyles } from "./calendarStyles";
 
 type Court = { id: string; name: string };
-type Session = { startTime: string; endTime: string; type?: string; courtId?: string };
+type Session = { startTime: string; endTime: string; type?: string; courtId?: string | null };
 
 interface PendingDrag {
   session: Session;
   newStart: Date;
+  newEnd?: Date;
+  newCourtId?: string;
   newCourtName?: string;
   isPastSession?: boolean;
 }

@@ -121,7 +121,7 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
                   style={({ pressed: hovered } : any) => [
                     styles.navItem,
                     focused && styles.navItemActive,
-                    !focused && (hovered as boolean) && styles.navItemHovered,
+                    !focused && hovered && styles.navItemHovered,
                   ]}
                   onPress={() => handleNavPress(item)}
                 >
@@ -141,7 +141,7 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
             <Pressable
               style={({ pressed: hovered } : any) => [
                 styles.navItem,
-                (hovered as boolean) && styles.navItemHovered,
+                hovered && styles.navItemHovered,
               ]}
               onPress={handleChatPress}
             >
@@ -180,7 +180,7 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
             <Pressable
               style={({ pressed: hovered } : any) => [
                 styles.logoutBtn,
-                (hovered as boolean) && styles.logoutBtnHovered,
+                hovered && styles.logoutBtnHovered,
               ]}
               onPress={handleLogout}
               accessibilityRole="button"

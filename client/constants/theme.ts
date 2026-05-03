@@ -173,6 +173,8 @@ export const ProTennisColors = {
   // Form/XP Bar
   formBarFill: GlowColors.primary,
   formBarBackground: Backgrounds.card,
+  // Legacy alias — older screens still reference `border` directly on ProTennisColors.
+  border: "rgba(255, 255, 255, 0.06)",
   
   // Gradients
   gradientElectric: [GlowColors.primary, "#DFFF40"],
@@ -316,11 +318,11 @@ export const Colors = {
     success: FunctionColors.success,
     surfaceAlt: LightBackgrounds.surface,
     surfaceElevated: LightBackgrounds.elevated,
+    surfaceLight: LightBackgrounds.elevated,
+    cardAlt: LightBackgrounds.elevated,
     panel: LightBackgrounds.card,
     panelBorder: "rgba(11, 13, 16, 0.10)",
     errorNeon: FunctionColors.error,
-    // Legacy aliases used by older admin/coach components
-    cardAlt: LightBackgrounds.elevated,
     backgroundCard: LightBackgrounds.card,
   },
   dark: {
@@ -444,9 +446,10 @@ export const Colors = {
     panel: Backgrounds.card,
     panelBorder: "rgba(255, 255, 255, 0.06)",
     errorNeon: FunctionColors.error,
-    // Legacy aliases used by older admin/coach components
+    // Legacy aliases — older screens still reference these tokens on the dark scheme.
     cardAlt: Backgrounds.elevated,
     backgroundCard: Backgrounds.card,
+    surfaceLight: Backgrounds.elevated,
     surfaceElevated: Backgrounds.elevated,
   },
   // Top-level legacy aliases — older screens still reference Colors.warning,
@@ -466,6 +469,9 @@ export const Colors = {
   cardLight: Backgrounds.elevated,
   cardBackground: Backgrounds.card,
   surface: Backgrounds.surface,
+  surfaceLight: Backgrounds.elevated,
+  surfaceElevated: Backgrounds.elevated,
+  textPrimary: TextColors.primary,
   border: "rgba(255, 255, 255, 0.15)",
   error: FunctionColors.error,
   danger: FunctionColors.error,
@@ -774,7 +780,13 @@ export const FontSizes = {
   "3xl": 24,
   "4xl": 28,
   "5xl": 32,
-  xxl: 20 + webFontBump, // alias of "2xl" — used by older components
+  // Legacy aliases — older screens still reference these tokens.
+  xxl: 20 + webFontBump, // alias of "2xl"
+  xxxl: 24,
+  large: 16 + webFontBump,
+  medium: 14 + webFontBump,
+  small: 12 + webFontBump,
+  tiny: 10 + webFontBump,
 };
 
 export const BorderRadius = {
@@ -786,6 +798,10 @@ export const BorderRadius = {
   "2xl": 40,
   "3xl": 50,
   full: 9999,
+  // Legacy aliases — older screens still reference these tokens.
+  large: 24,
+  medium: 16,
+  small: 12,
 };
 
 export const Typography = {
@@ -889,11 +905,15 @@ export const Typography = {
     fontWeight: "600" as const,
   },
   // iOS-style typography aliases used by older admin/coach screens
+  tiny: { fontSize: 10, fontWeight: "400" as const },
+  title: { fontSize: 22, fontWeight: "700" as const },
   title2: { fontSize: 22, fontWeight: "700" as const },
   title3: { fontSize: 20, fontWeight: "600" as const },
   headline: { fontSize: 17, fontWeight: "600" as const },
   callout: { fontSize: 16, fontWeight: "400" as const },
-  tiny: { fontSize: 10, fontWeight: "400" as const },
+  label: { fontSize: 13, fontWeight: "500" as const },
+  button: { fontSize: 16, fontWeight: "600" as const },
+  buttonMedium: { fontSize: 14, fontWeight: "600" as const },
 };
 
 // Premium Card Styles

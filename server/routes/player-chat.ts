@@ -513,6 +513,9 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
       if (!squadId) {
         return res.status(400).json({ error: "squadId required for squad conversation" });
       }
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy membership required for squad chat" });
+      }
       const existing = await db
         .select()
         .from(conversations)
@@ -820,6 +823,10 @@ router.post("/api/player/me/conversations/:id/messages", authMiddleware, require
       body: filteredBody,
       messageType: messageType || "text",
     });
+
+    if (!message) {
+      return res.status(500).json({ error: "Failed to send message" });
+    }
 
     await storage.updateConversation(id, {
       lastMessageAt: new Date(),

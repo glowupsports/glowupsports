@@ -105,7 +105,7 @@ export default function StartLiveMatchScreen() {
           challengeId: challengeId || undefined,
         },
       );
-      return result;
+      return result as unknown as { match: { id: string } };
     },
     onSuccess: (data) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

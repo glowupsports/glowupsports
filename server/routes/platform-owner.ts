@@ -1849,11 +1849,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           slug,
         } as any);
 
-        if (city) {
-          await storage.upsertAcademySettings(newAcademy.id, {
-            city,
-          });
-        }
+        await storage.upsertAcademySettings(newAcademy.id, {
+          ...(city ? { city } : {}),
+          currency: "AED",
+        });
 
         // Always create an academy_owner invite for new academies
         const inviteToken = crypto.randomUUID();
@@ -2685,7 +2684,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }).from(sessionPlayers)
           .where(eq(sessionPlayers.playerId, playerId));
 
-        const sessionIds = [...new Set(allSessionPlayers.map(sp => sp.sessionId))];
+        const sessionIds = [...new Set(
+          allSessionPlayers
+            .map(sp => sp.sessionId)
+            .filter((id): id is string => id !== null)
+        )];
         let sessionDetails: Record<string, any> = {};
         if (sessionIds.length > 0) {
           const sessRows = await db.select({

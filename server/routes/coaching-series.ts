@@ -309,7 +309,7 @@ router.get(
             .from(sessionPlayers)
             .where(eq(sessionPlayers.sessionId, firstSession.id));
 
-          const playerDetails = await Promise.all(
+          const playerDetails = (await Promise.all(
             sessionPlayersList.slice(0, 4).map(async (sp) => {
               const player = await storage.getPlayer(sp.playerId!);
               return {
@@ -318,7 +318,7 @@ router.get(
                 ballLevel: player?.ballLevel || null,
               };
             }),
-          );
+          )).filter((p): p is { id: string; name: string; ballLevel: string | null } => p !== null);
 
           virtualFlexibleSeries.push({
             id: `virtual-${seriesKey}`,
@@ -385,6 +385,10 @@ router.get(
       const { id } = req.params;
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
+
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
 
       const series = await storage.getCoachingSeriesById(id);
 
@@ -3360,6 +3364,10 @@ router.get(
       const { id } = req.params;
       const coachId = req.user!.coachId;
 
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
+
       const targetSeries = await storage.getCoachingSeriesById(id);
       if (!targetSeries) {
         return res.status(404).json({ error: "Class not found" });
@@ -3783,6 +3791,10 @@ router.get(
     try {
       const { id } = req.params;
       const coachId = req.user!.coachId;
+
+      if (!coachId) {
+        return res.status(403).json({ error: "Coach access required" });
+      }
 
       const series = await storage.getCoachingSeriesById(id);
       if (!series) {

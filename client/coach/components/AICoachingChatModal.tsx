@@ -1226,7 +1226,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.dark.primary,
   },
   verifyBtnNo: {
-    backgroundColor: Colors.dark.backgroundCard,
+    backgroundColor: Colors.dark.background,
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },

@@ -32,11 +32,11 @@ interface UpcomingSession {
 interface RecentReview {
   id?: string;
   overallScore?: number | null;
+  rating?: number | null;
   comment?: string | null;
   playerFirstName?: string;
   reviewerLevel?: string | null;
   createdAt?: string | null;
-  rating?: number;
 }
 
 interface CoachDetails {
@@ -506,11 +506,11 @@ export default function PlayerCoachProfileScreen() {
         {coach.languages && coach.languages.length > 0 ? (
           <Card style={styles.section}>
             <ThemedText style={styles.sectionTitle}>Languages</ThemedText>
-            <View style={styles.specsContainer}>
+            <View style={styles.tagsContainer}>
               {coach.languages.map((lang, index) => (
-                <View key={index} style={styles.specChip}>
+                <View key={index} style={styles.tag}>
                   <Ionicons name="globe-outline" size={14} color={Colors.dark.primary} />
-                  <ThemedText style={styles.specChipText}>{lang}</ThemedText>
+                  <ThemedText style={styles.tagText}>{lang}</ThemedText>
                 </View>
               ))}
             </View>

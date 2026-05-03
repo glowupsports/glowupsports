@@ -281,14 +281,14 @@ import { Router, type Response } from "express";
 
         const sessionIds = playerRecords
           .map((r) => r.sessionId)
-          .filter(Boolean);
+          .filter((id): id is string => Boolean(id));
         let sessionMap: Record<
           string,
           {
-            startTime: Date;
-            endTime: Date;
-            sessionType: string;
-            status: string;
+            startTime: Date | null;
+            endTime: Date | null;
+            sessionType: string | null;
+            status: string | null;
             seriesId: string | null;
           }
         > = {};
@@ -320,10 +320,10 @@ import { Router, type Response } from "express";
             {} as Record<
               string,
               {
-                startTime: Date;
-                endTime: Date;
-                sessionType: string;
-                status: string;
+                startTime: Date | null;
+                endTime: Date | null;
+                sessionType: string | null;
+                status: string | null;
                 seriesId: string | null;
               }
             >,
@@ -429,6 +429,7 @@ import { Router, type Response } from "express";
               ? sessionMap[record.sessionId]
               : null;
             if (!sessionInfo) return null;
+            if (!sessionInfo.startTime || !sessionInfo.endTime) return null;
 
             const sessionTime = new Date(sessionInfo.startTime);
             if (sessionTime > now) return null;
@@ -701,9 +702,9 @@ import { Router, type Response } from "express";
 
         let orphanedCompletedSessions: {
           sessionId: string;
-          sessionStatus: string;
-          startTime: Date | null;
-          sessionType: string | null;
+          sessionStatus: string | null;
+          startTime: Date;
+          sessionType: string;
         }[] = [];
         if (seriesIdList.length > 0) {
           const seriesSessions = await db
@@ -761,7 +762,7 @@ import { Router, type Response } from "express";
         const now = new Date();
 
         // A session "happened" = completed, OR has attendance marked, OR start time is in the past
-        const isSessionInPast = (r: { sessionStatus: string; startTime: Date | null; attendanceStatus: string | null; sessionType: string | null }) =>
+        const isSessionInPast = (r: { sessionStatus: string | null; startTime: Date | null; attendanceStatus: string | null; sessionType: string | null }) =>
           r.sessionStatus === "completed" ||
           r.attendanceStatus !== null ||
           (r.startTime !== null && new Date(r.startTime) < now);
@@ -2865,6 +2866,13 @@ import { Router, type Response } from "express";
         // 5. Update pillar progress bars via EMA
         try {
           const { updatePillarProgress } = await import("../utils/pillarProgress");
+          const pillarRatings: Record<string, number> = {};
+          if (structured.techniquePillar !== undefined) pillarRatings.TECHNIQUE = clamp(structured.techniquePillar);
+          if (structured.tacticalPillar  !== undefined) pillarRatings.TACTICAL  = clamp(structured.tacticalPillar);
+          if (structured.physicalPillar  !== undefined) pillarRatings.PHYSICAL  = clamp(structured.physicalPillar);
+          if (structured.mentalPillar    !== undefined) pillarRatings.MENTAL    = clamp(structured.mentalPillar);
+          if (structured.socialPillar    !== undefined) pillarRatings.SOCIAL    = clamp(structured.socialPillar);
+          if (structured.matchPillar     !== undefined) pillarRatings.MATCH     = clamp(structured.matchPillar);
           await updatePillarProgress(playerId, sessionId, {
             effort: clamp(structured.effort),
             execution: clamp(structured.execution),

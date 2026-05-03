@@ -161,7 +161,7 @@ async function runPickupReminders(): Promise<void> {
         sessionId: e.sessionId!,
         playerId: e.playerId!,
         playerName: e.playerName,
-        endTime: e.endTime!,
+        endTime: e.endTime,
       }));
 
     const nowMs = Date.now();

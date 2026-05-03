@@ -1525,7 +1525,7 @@ export default function SettingsScreen() {
             </View>
           </Pressable>
           {!legalCollapsed ? <>
-          <View style={styles.card}>
+          <View style={styles.infoCard}>
             <Pressable
               style={styles.settingRow}
               onPress={() => Linking.openURL("https://glowupsports.com/privacy")}
@@ -1579,7 +1579,7 @@ export default function SettingsScreen() {
               </View>
             </Pressable>
             {!appleSignInCollapsed ? <>
-            <View style={styles.card}>
+            <View style={styles.infoCard}>
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
                   <Ionicons name="logo-apple" size={22} color={Colors.dark.xpCyan} />

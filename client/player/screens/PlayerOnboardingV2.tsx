@@ -4250,6 +4250,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "600",
   },
+  adjustOptionActive: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: `${Colors.dark.primary}20`,
+  },
   adjustOptionDesc: {
     ...Typography.small,
     color: Colors.dark.textMuted,

@@ -77,8 +77,8 @@ interface CoachBlock {
 }
 
 interface CalendarDayViewSlotsProps {
-  courtHeaderScrollRef: React.RefObject<ScrollView>;
-  courtLanesScrollRef: React.RefObject<ScrollView>;
+  courtHeaderScrollRef: React.RefObject<ScrollView | null>;
+  courtLanesScrollRef: React.RefObject<ScrollView | null>;
   showFilterOverlay: boolean;
   setShowFilterOverlay: (v: boolean) => void;
   allLocations: Location[];

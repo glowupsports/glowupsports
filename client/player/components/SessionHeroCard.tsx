@@ -1256,7 +1256,7 @@ export function SessionHeroCard({
                   </View>
                   <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, marginTop: Spacing.md, marginBottom: Spacing.sm }}>Message (optional)</Text>
                   <TextInput
-                    style={[styles.cancelReasonInput, { minHeight: 60 }]}
+                    style={[styles.issueInput, { minHeight: 60 }]}
                     placeholder="e.g. Traffic, will be there soon!"
                     placeholderTextColor={ProTennisColors.textMuted}
                     value={matchLateMessage}
@@ -1361,7 +1361,7 @@ export function SessionHeroCard({
                       <View>
                         <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, marginBottom: Spacing.sm }}>Score (e.g. 6-4, 7-5)</Text>
                         <TextInput
-                          style={styles.cancelReasonInput}
+                          style={styles.issueInput}
                           placeholder="6-4, 6-3"
                           placeholderTextColor={ProTennisColors.textMuted}
                           value={scoreText}
@@ -1486,7 +1486,7 @@ export function SessionHeroCard({
                       <View>
                         <Text style={{ color: ProTennisColors.textSecondary, fontSize: 13, fontWeight: "600", marginBottom: Spacing.sm }}>Key takeaway (optional)</Text>
                         <TextInput
-                          style={[styles.cancelReasonInput, { minHeight: 50 }]}
+                          style={[styles.issueInput, { minHeight: 50 }]}
                           placeholder="What did you learn from this match?"
                           placeholderTextColor={ProTennisColors.textMuted}
                           value={scoreKeyTakeaway}

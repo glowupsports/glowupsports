@@ -102,13 +102,13 @@ export default function CreateMatchScreen() {
   // Fetch friends for partner selection. We need them in both singles and
   // doubles flows now — the wizard always asks "leave open or invite a
   // specific friend?" before publishing the open match.
-  const { data: friendsData } = useQuery({
+  const { data: friendsData } = useQuery<{ friends: { id: string; name: string; ballLevel?: string | null }[] }>({
     queryKey: ["/api/player/me/friends"],
     enabled: matchType !== null,
   });
 
   // Get player info to determine if adult or kid
-  const { data: playerData } = useQuery({
+  const { data: playerData } = useQuery<{ player: { ballLevel?: string | null } | null }>({
     queryKey: ["/api/player/me/profile"],
   });
 

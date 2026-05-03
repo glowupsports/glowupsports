@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useState, useMemo, useEffect } from "react";
-import { StyleSheet, View, Platform, Pressable, useWindowDimensions, Text } from "react-native";
+import { StyleSheet, View, Platform, Pressable, useWindowDimensions, Text, type PressableStateCallbackType } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";

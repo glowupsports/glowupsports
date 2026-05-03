@@ -3131,6 +3131,9 @@ import fs from "fs";
           return res.status(404).json({ error: "Group not found" });
         }
         const academyId = group.academyId;
+        if (!academyId) {
+          return res.status(400).json({ error: "Group has no academy" });
+        }
 
         // Get all current member userIds for exclusion
         const currentMembers = await db
@@ -3303,7 +3306,7 @@ import fs from "fs";
             .where(eq(players.id, targetUser.playerId));
           inAcademy = pp?.academyId === group.academyId;
         }
-        if (!inAcademy) {
+        if (!inAcademy && group.academyId) {
           const [parentLink] = await db
             .select({ playerId: parentPlayerRelations.playerId })
             .from(parentPlayerRelations)
@@ -6085,9 +6088,12 @@ import fs from "fs";
         const xpData = await storage.getPlayerXpTotal(playerId);
 
         // Get recent sessions
+        const recentEnd = new Date();
+        const recentStart = new Date(recentEnd.getTime() - 30 * 24 * 60 * 60 * 1000);
         const sessions = await (storage as any).getSessionsForPlayer(
           playerId,
-          academyId,
+          recentStart,
+          recentEnd,
         );
 
         res.json({
@@ -8436,8 +8442,10 @@ import fs from "fs";
         .from(sessionPlayers)
         .where(eq(sessionPlayers.playerId, player.id));
 
-      const sessionIds = playerRecords.map((r) => r.sessionId).filter(Boolean);
-      let sessionMap: Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string; seriesId: string | null }> = {};
+      const sessionIds = playerRecords
+        .map((r) => r.sessionId)
+        .filter((id): id is string => id !== null);
+      let sessionMap: Record<string, { startTime: Date; endTime: Date; sessionType: string; status: string | null; seriesId: string | null }> = {};
 
       if (sessionIds.length > 0) {
         const sessionDetails = await db
@@ -8493,7 +8501,7 @@ import fs from "fs";
       }
 
       type PublicAttendanceRecord = {
-        sessionId: string | null;
+        sessionId: string;
         date: string;
         startTime: string;
         endTime: string;
@@ -8506,13 +8514,14 @@ import fs from "fs";
 
       const records: PublicAttendanceRecord[] = playerRecords
         .map((record) => {
-          const sessionInfo = record.sessionId ? sessionMap[record.sessionId] : null;
+          if (!record.sessionId) return null;
+          const sessionInfo = sessionMap[record.sessionId];
           if (!sessionInfo) return null;
           const sessionTime = new Date(sessionInfo.startTime);
           if (sessionTime > now) return null;
           const isCancelled = sessionInfo.status === "cancelled";
           const isNoCharge = record.attendanceStatus === "vacation" || record.attendanceStatus === "holiday";
-          const isPaid = record.sessionId != null && paidSessionIdSet.has(record.sessionId);
+          const isPaid = paidSessionIdSet.has(record.sessionId);
           return {
             sessionId: record.sessionId,
             date: sessionInfo.startTime.toISOString().split("T")[0],

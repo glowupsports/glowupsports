@@ -6,11 +6,11 @@ import {
   StyleSheet,
 } from "react-native";
 import Animated, {
+  type SharedValue,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   interpolate,
-  SharedValue,
   Extrapolation,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";

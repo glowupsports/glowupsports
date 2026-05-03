@@ -46,18 +46,18 @@ type _CalendarRouteParams = {
 
 interface Session {
   id: string;
-  coachId: string | null;
+  coachId?: string | null;
   courtId: string | null;
   locationId?: string | null;
   startTime: string;
   endTime: string;
-  duration: number;
+  duration?: number;
   sessionType: string;
   ballLevel?: string | null;
   skillLevel?: number | null;
   isRecurring?: boolean | null;
   paymentStatus?: string | null;
-  status: string | null;
+  status?: string | null;
   skipReason?: string | null;
   players?: { name: string }[];
   title?: string | null;
@@ -84,6 +84,9 @@ interface CoachData {
   totalXp: number | null;
   role: string | null;
   academyId: string | null;
+  photoUrl: string | null;
+  specialty: string | null;
+  bio: string | null;
 }
 export default function CalendarScreen() {
   const { coach, academy, calendarData, isLoading, isFetching, refetchCalendar, setCoach, focusMode, setFocusMode, timeGrid, setTimeGrid, selectedDate, setSelectedDate, viewMode, setViewMode } = useCoach();
@@ -670,7 +673,7 @@ export default function CalendarScreen() {
     return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
   };
 
-  const getSessionPosition = (session: Session | BlockedSession) => {
+  const getSessionPosition = (session: { startTime: string; endTime: string }) => {
     // Use timezone-aware time extraction to position sessions correctly in local academy time
     const startLocal = getTimeInTimezone(session.startTime, academyTimezone);
     const endLocal = getTimeInTimezone(session.endTime, academyTimezone);

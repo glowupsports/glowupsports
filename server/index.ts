@@ -372,9 +372,10 @@ function setupExpoDevProxy(app: express.Application) {
             log(`Expo proxy error (port ${port}): ${err.message} - Metro may still be starting`);
             cachedExpoPort = null;
             portCacheExpiry = 0;
-            if (!res.headersSent) {
-              res.writeHead(503);
-              res.end('Metro bundler is starting up, please refresh in a moment...');
+            const httpRes = res as http.ServerResponse;
+            if (!httpRes.headersSent) {
+              httpRes.writeHead(503);
+              httpRes.end('Metro bundler is starting up, please refresh in a moment...');
             }
           }) as any,
         }
@@ -1200,6 +1201,7 @@ function setupErrorHandler(app: express.Application) {
           id: string;
           name: string | null;
           display_name: string | null;
+          [key: string]: unknown;
         }
         // Postgres regex character class matching the same set as
         // shared/textSanitize.ts plus standard whitespace at either end.

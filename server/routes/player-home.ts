@@ -218,7 +218,6 @@ router.get(
         drillRecommendationResult,
       ] = await Promise.allSettled([
         fetchDashboard(playerId),
-        // @ts-ignore - fetchProfile accepts AuthenticatedRequest via memoBranch
         fetchProfile(req),
         fetchUnreadCount(playerId),
         fetchWeeklyDigest(playerId),
@@ -226,7 +225,6 @@ router.get(
         fetchSpotlightCurrentWeek(playerId),
         fetchSpotlightWeeklyWinner(playerId),
         fetchTennisIq(playerId),
-        // @ts-ignore - fetchAiProStatus accepts AuthenticatedRequest via memoBranch
         fetchAiProStatus(req),
         computeDailyFocus(playerId),
         fetchDrillRecommendation(playerId),
@@ -681,7 +679,7 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
 // server/lib/in-process-dispatch.ts. Cost: one extra ~1ms in-process
 // hop, but it's inside `Promise.allSettled` alongside dashboard so it
 // runs in parallel and doesn't extend the home-data critical path.
-async function fetchProfileImpl(
+async function fetchProfile(
   req: AuthenticatedRequest,
 ): Promise<Record<string, unknown> | null> {
   const result = await dispatchInProcess<Record<string, unknown>>(
@@ -695,7 +693,7 @@ async function fetchProfileImpl(
 // Same rationale as fetchProfile: the home screen's `isNearLimit`
 // banner used to fire its own useQuery for this on cold start. Now it
 // rides home-data so the banner can paint without an extra round trip.
-async function fetchAiProStatusImpl(
+async function fetchAiProStatus(
   req: AuthenticatedRequest,
 ): Promise<Record<string, unknown> | null> {
   const result = await dispatchInProcess<Record<string, unknown>>(
@@ -705,17 +703,8 @@ async function fetchAiProStatusImpl(
   return result.status === "ok" ? result.data : null;
 }
 
-const fetchProfile = memoBranch(
-  "profile",
-  SLOW_BRANCH_TTL_MS,
-  fetchProfileImpl as any,
-);
-
-const fetchAiProStatus = memoBranch(
-  "aiProStatus",
-  SLOW_BRANCH_TTL_MS,
-  fetchAiProStatusImpl as any,
-);
+// fetchProfile and fetchAiProStatus take req directly (not playerId),
+// so they are called directly without memoBranch caching.
 
 // Forward declarations of slow branch wrappers — implementations live
 // further down. We construct the wrappers right next to the impls but

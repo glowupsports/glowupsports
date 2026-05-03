@@ -210,7 +210,7 @@ function usePendingGroupDeepLink(
   }, [isAuthenticated, bootComplete, mode, navigationRef]);
 }
 
-export default function RootStackNavigator({ navigationRef }: { navigationRef?: ReturnType<typeof useNavigationContainerRef> | null }) {
+export default function RootStackNavigator({ navigationRef }: { navigationRef?: ReturnType<typeof useNavigationContainerRef<RootStackParamList>> | null }) {
   const screenOptions = useScreenOptions();
   const { mode } = useAppMode();
   const { isAuthenticated, isLoading } = useAuth();
@@ -221,8 +221,8 @@ export default function RootStackNavigator({ navigationRef }: { navigationRef?: 
   }, []);
 
   usePushNotifications();
-  useNavigationEffect(isAuthenticated, bootComplete, mode, navigationRef ?? null);
-  usePendingGroupDeepLink(isAuthenticated, bootComplete, mode, navigationRef ?? null);
+  useNavigationEffect(isAuthenticated, bootComplete, mode, (navigationRef ?? null) as Parameters<typeof useNavigationEffect>[3]);
+  usePendingGroupDeepLink(isAuthenticated, bootComplete, mode, (navigationRef ?? null) as Parameters<typeof usePendingGroupDeepLink>[3]);
 
   if (isLoading) {
     return (

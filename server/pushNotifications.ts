@@ -799,7 +799,7 @@ export async function sendSessionReminderToCoach(
 }
 
 async function getSessionPlayersForReminder(session: any) {
-  let sessionPlayersList = await db
+  let sessionPlayersList: any[] = await db
     .select()
     .from(sessionPlayers)
     .where(eq(sessionPlayers.sessionId, session.id));

@@ -972,6 +972,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const ctxUserRole = typeof context?.userRole === "string" ? context.userRole : null;
+      const ctxScreen = typeof context?.screen === "string" ? context.screen : null;
+      const ctxPlatform = typeof context?.platform === "string" ? context.platform : null;
+      const ctxAppVersion = typeof context?.appVersion === "string" ? context.appVersion : null;
       const report = await storage.createDiagnosticReport({
         errorId,
         userId: userId || null,

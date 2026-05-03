@@ -155,7 +155,7 @@ export default function AdminCourtsScreen() {
     setCreatingLocation(true);
 
     try {
-      const newLoc = await apiRequest("POST", "/api/admin/locations", {
+      const newLocRes = await apiRequest("POST", "/api/admin/locations", {
         name: locationName,
         address: result.address,
         lat: result.lat,
@@ -163,9 +163,9 @@ export default function AdminCourtsScreen() {
         timezone: "Asia/Dubai",
       }) as unknown as { id: string };
       queryClient.invalidateQueries({ queryKey: ["/api/admin/locations"] });
-      setFormData(prev => ({ ...prev, locationId: newLoc.id }));
+      setFormData(prev => ({ ...prev, locationId: newLocRes.id }));
       setCourtAddressSearch(prev =>
-        prev ? { ...prev, matchedLocationId: newLoc.id } : prev
+        prev ? { ...prev, matchedLocationId: newLocRes.id } : prev
       );
       if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
       setNewLocationBanner(locationName);

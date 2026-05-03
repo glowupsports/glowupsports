@@ -3475,6 +3475,7 @@ router.get(
 
       for (const tx of transactions) {
         const type = (tx.creditType as keyof typeof summary) || "group";
+        const txAmount = Number(tx.amount);
         if (type in summary) {
           if (Number(tx.amount) > 0) {
             summary[type].credits += Number(tx.amount);
@@ -3617,7 +3618,7 @@ router.get(
         };
 
         for (const tx of transactions) {
-          const type = tx.creditType || "group";
+          const type = (tx.creditType || "group") as keyof typeof txByType;
           if (type in txByType) {
             const txBucket = (txByType as any)[type];
             if (Number(tx.amount) > 0) txBucket.credits += Number(tx.amount);
@@ -4886,8 +4887,6 @@ router.post(
       // Deduct 1 group credit
       await (storage.autoDeductPlayerCredit as any)(
         playerId,
-        "group",
-        1,
         session.academyId || undefined,
       );
 
@@ -5224,10 +5223,13 @@ router.get(
         id: string;
         type: string;
         time: string;
+        date?: string;
         spotsLeft: number;
         maxPlayers: number;
+        coachId?: string | null;
         coachName?: string;
-        ballLevel: string;
+        coachPhotoUrl?: string | null;
+        ballLevel: string | null;
         participants: {
           id: string;
           name: string;

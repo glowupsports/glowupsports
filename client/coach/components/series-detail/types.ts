@@ -119,10 +119,13 @@ export interface SeriesDetailDrawerProps {
 export interface MergeSuggestion {
   playerId: string;
   name: string;
-  ballLevel?: string;
+  ballLevel?: string | null;
+  homeSeriesId?: string;
   homeSeriesName: string;
-  pauseFrom?: string;
-  pauseUntil?: string;
+  homeSeriesDay?: number;
+  pauseFrom?: string | null;
+  pauseUntil?: string | null;
+  pauseReason?: string | null;
 }
 
 export interface CoachOption {

@@ -14,7 +14,7 @@ import { Router, type Response } from "express";
         const coachId = req.user!.coachId;
         let academyId = req.user!.academyId;
 
-        // For coaches without direct academyId, get their primary academy from memberships
+        // For coaches without direct academyId, get their primary academy from the coaches table
         if (!academyId && coachId) {
           const memberships = await (storage as any).getCoachAcademyMemberships(coachId);
           if (memberships.length > 0) {
@@ -52,7 +52,7 @@ import { Router, type Response } from "express";
         const coachId = req.user!.coachId;
         let academyId = req.user!.academyId;
 
-        // For coaches without direct academyId, get their primary academy from memberships
+        // For coaches without direct academyId, get their primary academy from the coaches table
         if (!academyId && coachId) {
           const memberships = await (storage as any).getCoachAcademyMemberships(coachId);
           if (memberships.length > 0) {

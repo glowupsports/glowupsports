@@ -60,6 +60,7 @@ type ProfileData = {
     preferredCities?: string[] | null;
     matchPreference?: string | null;
     preferredPlayType?: string | null;
+    profilePhotoUrl?: string | null;
   } | null;
 };
 

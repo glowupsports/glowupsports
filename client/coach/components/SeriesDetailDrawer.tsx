@@ -1003,16 +1003,16 @@ export default function SeriesDetailDrawer({
     }
   };
 
-  const handleSetAttendance = (playerId: string, status: "present" | "absent" | "vacation") => {
+  const handleSetAttendance = (playerId: string, status: string) => {
     logger.log("[Attendance] Setting status:", { playerId, status });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSessionAttendance(prev => {
       const newState = {
         ...prev,
-        [playerId]: status,
+        [playerId]: status as "present" | "absent" | "vacation",
       };
       logger.log("[Attendance] New state:", newState);
-      return newState;
+      return newState as Record<string, "present" | "absent" | "vacation">;
     });
   };
 
@@ -1564,8 +1564,8 @@ export default function SeriesDetailDrawer({
 
   const tz = academy?.timezone || "Asia/Dubai";
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+  const formatDate = (dateStr: string | Date) => {
+    const date = dateStr instanceof Date ? dateStr : new Date(dateStr);
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",

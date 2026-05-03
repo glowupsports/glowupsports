@@ -4639,6 +4639,25 @@ const styles = makeReactiveStyles(() =>
       flex: 1,
       backgroundColor: Colors.dark.backgroundRoot,
     },
+    centered: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    errorText: {
+      color: Colors.dark.text,
+      fontSize: 16,
+      fontWeight: "600" as const,
+      textAlign: "center" as const,
+    },
+    sessionInfoButton: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.sm,
+      backgroundColor: Colors.dark.surface,
+    },
     animatedHeader: {
       position: "absolute",
       left: 0,
@@ -6756,19 +6775,6 @@ const styles = makeReactiveStyles(() =>
       color: Colors.dark.primary,
       minWidth: 50,
       textAlign: "right",
-    },
-    sessionInfoButton: {
-      padding: 4,
-    },
-    centered: {
-      flex: 1,
-      alignItems: "center" as const,
-      justifyContent: "center" as const,
-    },
-    errorText: {
-      fontSize: 16,
-      fontWeight: "600" as const,
-      color: Colors.dark.text,
     },
   }),
 );

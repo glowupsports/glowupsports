@@ -56,7 +56,7 @@ function GamingButton({
   icon?: string;
   isLoading?: boolean;
   disabled?: boolean;
-  colors?: string[];
+  colors?: readonly [string, string, ...string[]];
 }) {
   const scale = useSharedValue(1);
 

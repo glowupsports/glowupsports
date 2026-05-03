@@ -970,7 +970,7 @@ export async function seedGlowLevelingData() {
         courtType: level.courtType,
         ballType: level.ballType,
         promotionToLevelId: level.promotionTo,
-        promotionRequirements: level.promotionRequirements,
+        promotionRequirements: level.promotionRequirements as unknown as typeof ballLevels.$inferInsert['promotionRequirements'],
         trialEnabled: level.trialEnabled,
         trialDays: level.trialDays
       } as any).onConflictDoUpdate({

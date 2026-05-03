@@ -272,6 +272,9 @@ export default function GlowLeaderboardScreen() {
     queryFn: () => apiFetch(`/api/player/leaderboard?scope=${scope}&category=${category}`) as any,
   });
 
+  type RollingRow = { rank: number; playerId: string; name: string; photoUrl: string | null; value: number };
+  type RollingResponse = { rows: RollingRow[] };
+
   // Canonical rolling-window metric endpoint (xp_weekly | wins_monthly | streak_current).
   const {
     data: rollingData,
@@ -279,9 +282,7 @@ export default function GlowLeaderboardScreen() {
     refetch: refetchRolling,
     isRefetching: rollingRefetching,
     isError: rollingError,
-  } = useQuery<{
-    rows: { rank: number; playerId: string; name: string; photoUrl: string | null; value: number }[];
-  }>({
+  } = useQuery<RollingResponse>({
     queryKey: ["/api/leaderboards", scope, category],
     enabled: isRollingMetric,
     staleTime: 60_000,
@@ -299,17 +300,13 @@ export default function GlowLeaderboardScreen() {
       glowScore: r.value,
       xp: category === "xp_weekly" ? r.value : 0,
       ballLevel: null,
-      glowMmr: 0,
       dssRating: null,
       streak: category === "streak_current" ? r.value : 0,
-      academyName: null,
-      city: null,
       isCurrentPlayer: false,
     }));
     return {
       rankings,
       myRank: 0,
-      totalPlayers: rankings.length,
       currentPlayer: null,
       scope: "academy" as const,
       category: category || "overall",

@@ -1135,7 +1135,12 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
       serviceId?: string;
       variantId?: string;
       variantName?: string;
-      serviceDetails?: string;
+      serviceDetails?: {
+        stringingTension?: number;
+        stringChoice?: string;
+        racketModel?: string;
+        appointmentTime?: string;
+      };
     }[] = [];
 
     for (const item of items) {
@@ -1177,7 +1182,7 @@ router.post("/player/shop/orders", authMiddleware, requirePlayerProfile, require
             quantity: 1,
             unitPrice: unitPrice.toFixed(2),
             totalPrice: unitPrice.toFixed(2),
-            serviceDetails: item.serviceDetails ? JSON.stringify(item.serviceDetails) : undefined,
+            serviceDetails: item.serviceDetails ?? undefined,
           });
         }
       }
@@ -2092,6 +2097,11 @@ router.patch("/provider/bookings/:orderId/status", authMiddleware, requireServic
     if (!existingOrder) {
       return res.status(404).json({ error: "Booking not found or not assigned to you" });
     }
+
+    if (!existingOrder.status) {
+      return res.status(409).json({ error: "Booking has no current status" });
+    }
+    const currentStatus = existingOrder.status;
 
     const VALID_TRANSITIONS: Record<string, string[]> = {
       pending: ["confirmed", "cancelled"],
