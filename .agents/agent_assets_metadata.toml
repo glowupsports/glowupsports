@@ -1,0 +1,26 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "KFsTxR8O9hpTXP2k6yIeM"
+uri = "file://attached_assets/generated_images/promo_court_aerial.png"
+type = "image"
+title = "tennis court aerial night neon"
+
+[[generated]]
+id = "anjOn7RTAzkFieAVLH6wG"
+uri = "file://attached_assets/generated_images/promo_ball_trail.png"
+type = "image"
+title = "neon ball trail abstract dark"
+
+[[generated]]
+id = "j935qZtcxFJE9lp7xgR9u"
+uri = "file://attached_assets/generated_images/promo_radar_bg.png"
+type = "image"
+title = "neon radar pentagon dark"
+
+[[generated]]
+id = "-Zj8EdM2E5k_KlqhDUchW"
+uri = "file://attached_assets/generated_images/promo_ai_bg.png"
+type = "image"
+title = "ai circuit board dark glass"

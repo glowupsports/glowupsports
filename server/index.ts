@@ -355,6 +355,9 @@ function setupExpoDevProxy(app: express.Application) {
 
   log('Setting up Expo dev server proxy on port 5000 (dynamic port resolution enabled)');
 
+  const MOCKUP_SANDBOX_PORT = 23636;
+  log(`Setting up mockup sandbox proxy → localhost:${MOCKUP_SANDBOX_PORT}`);
+
   const proxyCache = new Map<number, ReturnType<typeof createProxyMiddleware>>();
 
   function getProxy(port: number) {
@@ -379,6 +382,14 @@ function setupExpoDevProxy(app: express.Application) {
     }
     return proxyCache.get(port)!;
   }
+
+  // Route /__mockup/* to the mockup sandbox vite server (preserves full path)
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/__mockup')) {
+      return getProxy(MOCKUP_SANDBOX_PORT)(req, res, next);
+    }
+    return next();
+  });
 
   // Serve icon fonts directly from Express so the browser can load them without
   // hitting Metro's CORS/origin check (which blocks requests from the Replit domain).
