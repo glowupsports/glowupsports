@@ -122,11 +122,12 @@ The platform features a dark-themed premium sports aesthetic with Neon Green, Wh
 - **Drill Library**: Coach-assigned training between sessions. Players browse 16 categorised drills (Serve, Forehand, Backhand, Footwork, Net Play, Match Tactics, Fitness), save favourites, log completions with star rating/duration/notes (earns XP), and view step-by-step instructions. Coaches assign drills from PlayerDetailView. AI Coach home card shows a drill recommendation. Growth tab has 4 sub-tabs: Progress, Quests, Schedule, Drills.
 - **Player Match & Score Tracking (Task #1583)**: Players self-log match results (opponent name or in-app player search, date, per-set score, win/loss). In-app opponents receive a push notification to confirm within 24 h; unconfirmed results auto-confirm after that window. `match_results` DB table with lazy auto-confirm. Unified `MatchHistoryScreen` shows both live-scored matches and self-logged results with confirm/dispute controls. Log Match button in Community header and Profile "Matches" tab. Coach sees player match history with W/L stats in PlayerDetailView CollapsibleSection. Confirmed wins count toward Monthly Wins leaderboard via 4th leg added to `aggregatePlayerMatches`. APIs: `POST /api/player/me/match-results`, `GET /api/player/me/match-results`, `POST /api/player/match-results/:id/confirm`, `POST /api/player/match-results/:id/reject`, `GET /api/player/players/:playerId/match-results`, `GET /api/coach/players/:playerId/match-results`, `GET /api/player/search-players`.
 - **Updates**: What's New Modal (role and locale-aware carousel).
+- **AI Technique Feedback (Task #1572)**: Players upload a short video clip (≤30 s) of a tennis stroke for AI-powered analysis. Video and generated thumbnail are stored in Replit Object Storage (GCS bucket) via `server/objectStorage.ts`. Step 2 of the upload flow shows a visual thumbnail preview using `expo-video-thumbnails`. Coach-sharing privacy toggle (`shareAnalysesWithCoach`) is persisted in the `players` DB table (default true) and synced via `PATCH /api/player/me/social`; `GET /api/player/me/technique-privacy` exposes it. `PrivacySettingsScreen` reads from the server with AsyncStorage as write-through cache. Purging old analyses deletes GCS objects for GCS-hosted URLs.
 
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL
-- **Media Storage**: Supabase Storage
+- **Media Storage**: Supabase Storage; Replit Object Storage (GCS) for AI technique analysis videos/thumbnails
 - **Deployment**: Replit
 - **Push Notifications**: Firebase Cloud Messaging (FCM)
 - **Email Service**: Resend API

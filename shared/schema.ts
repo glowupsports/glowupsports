@@ -1149,6 +1149,7 @@ export const players = pgTable("players", {
   preferredCities: jsonb("preferred_cities").$type<string[]>(), // cities/areas
   matchPreference: text("match_preference"), // casual/training/competitive
   privacyLevel: text("privacy_level").default("platform"), // everyone/platform/academy/hidden
+  shareAnalysesWithCoach: boolean("share_analyses_with_coach").default(true), // AI technique feedback sharing default
   bio: text("bio"), // Short player bio
   lastActiveAt: timestamp("last_active_at"),
   preferredTime: text("preferred_time"), // Preferred session time (morning/afternoon/evening)

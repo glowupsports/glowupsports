@@ -78,6 +78,8 @@ import MatchSummaryScreen from "@/player/screens/MatchSummaryScreen";
 import LiveMatchViewerScreen from "@/player/screens/LiveMatchViewerScreen";
 import MatchHistoryScreen from "@/player/screens/MatchHistoryScreen";
 import VideoFeedbackPlayerScreen from "@/player/screens/VideoFeedbackPlayerScreen";
+import TechniqueUploadFlow from "@/player/screens/TechniqueUploadFlow";
+import TechniqueAnalysisResultScreen from "@/player/screens/TechniqueAnalysisResultScreen";
 import PlayerAICoachScreen from "@/player/screens/PlayerAICoachScreen";
 import YearInTennisScreen from "@/player/screens/YearInTennisScreen";
 import GroupsScreen from "@/player/screens/GroupsScreen";
@@ -231,6 +233,8 @@ export type PlayerV2StackParamList = {
   VideoFeedbackPlayer: { feedbackId?: string } | undefined;
   PlayerAICoach: undefined;
   YearInTennis: { year?: number } | undefined;
+  TechniqueUploadFlow: undefined;
+  TechniqueAnalysisResult: { analysisId: string; strokeType?: string };
   // Training
   Training: undefined;
   TrainingDetail: { sessionId: string };
@@ -648,6 +652,8 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="VideoFeedbackPlayer" component={VideoFeedbackPlayerScreen} options={{ presentation: "card", headerShown: false }} />
         <Stack.Screen name="PlayerAICoach" component={PlayerAICoachScreen} options={{ presentation: "card", headerShown: false }} />
         <Stack.Screen name="YearInTennis" component={YearInTennisScreen} options={{ presentation: "fullScreenModal", headerShown: false, animation: "fade" }} />
+        <Stack.Screen name="TechniqueUploadFlow" component={TechniqueUploadFlow} options={{ presentation: "card", headerShown: true, headerTitle: "Analyze My Technique", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="TechniqueAnalysisResult" component={TechniqueAnalysisResultScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Technique Analysis", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
 
         {/* ── Training ── */}
         <Stack.Screen name="Training" component={PlayerTrainingScreen} options={{ presentation: "modal" }} />

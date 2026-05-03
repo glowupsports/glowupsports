@@ -1251,6 +1251,33 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] player_personal_records migration skipped:', e.message);
   }
 
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS technique_analyses (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        stroke_type TEXT NOT NULL,
+        video_url TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'processing',
+        overall_score INTEGER,
+        checkpoints JSONB,
+        tips JSONB,
+        key_frame_timestamp NUMERIC,
+        thumbnail_url TEXT,
+        error_message TEXT,
+        share_with_coach BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        completed_at TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ta_player_idx ON technique_analyses(player_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ta_status_idx ON technique_analyses(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ta_created_idx ON technique_analyses(created_at)`);
+    console.log('[Database] technique_analyses migration applied');
+  } catch (e: any) {
+    console.log('[Database] technique_analyses migration skipped:', e.message);
+  }
+
   // Seed USTA assessment items (idempotent — uses ON CONFLICT DO NOTHING)
   try {
     const { seedUstaAssessmentItems } = await import("./seeds/usta-assessment-items-seed");
@@ -1574,6 +1601,14 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] Glow Arena tables created/verified');
   } catch (e: any) {
     console.warn('[Database] Arena table migration warning:', e.message);
+  }
+
+  // Task #1572 — AI Technique Feedback: coach-sharing privacy toggle
+  try {
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS share_analyses_with_coach BOOLEAN DEFAULT true`);
+    console.log('[Database] players share_analyses_with_coach migration applied');
+  } catch (e: any) {
+    console.log('[Database] players share_analyses_with_coach migration skipped:', e.message);
   }
 
   // Task #1583 — Player-logged match results with peer confirmation

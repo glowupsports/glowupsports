@@ -872,6 +872,78 @@ function configureExpoAndLanding(app: express.Application) {
   // Group event photos are public
   app.use("/uploads/group-events", express.static(path.resolve(process.cwd(), "uploads/group-events")));
 
+  // Technique video and thumbnail files: ownership-scoped access.
+  // Only the uploading player or their assigned coach may download these files.
+  app.use(
+    ["/uploads/technique-videos", "/uploads/technique-thumbs"],
+    async (req: Request, res: Response, next: NextFunction) => {
+      // Resolve JWT the same way the generic guard does
+      const authHeader = req.headers.authorization;
+      let token: string | null = null;
+      if (authHeader?.startsWith("Bearer ")) token = authHeader.substring(7);
+      else if (typeof req.query.token === "string") token = req.query.token;
+
+      if (!token) return res.status(401).json({ error: "Authentication required" });
+
+      let decoded: { userId?: string; role?: string } | null = null;
+      try {
+        const jwt = require("jsonwebtoken");
+        const { JWT_SECRET } = require("./auth");
+        decoded = jwt.verify(token, JWT_SECRET) as { userId?: string; role?: string };
+      } catch {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      if (!decoded) return res.status(401).json({ error: "Invalid token" });
+
+      // Platform owners bypass ownership check
+      if (decoded.role === "platform_owner") return next();
+
+      // Derive the filename from the URL path and look up ownership
+      const filename = path.basename(req.path);
+      try {
+        // Use require'd pool with untyped rows — avoids TS2347 on require("./db")
+        const { pool: dbPool } = require("./db") as { pool: { query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, string | null>[] }> } };
+        const rows = await dbPool.query(
+          `SELECT ta.player_id,
+                  p.coach_id
+           FROM technique_analyses ta
+           JOIN players p ON p.id = ta.player_id
+           WHERE ta.video_url LIKE $1
+              OR ta.thumbnail_url LIKE $1
+           LIMIT 1`,
+          [`%${filename}%`]
+        );
+        if (rows.rows.length === 0) {
+          // Frame files (not in DB) denied by default — only video/thumb main URLs tracked
+          return res.status(403).json({ error: "Access denied" });
+        }
+        const player_id = rows.rows[0].player_id as string;
+        const coach_id = rows.rows[0].coach_id as string | null;
+        // Allow player owner
+        const playerRows = await dbPool.query(
+          `SELECT user_id FROM players WHERE id = $1 LIMIT 1`,
+          [player_id]
+        );
+        const playerUserId = playerRows.rows[0]?.user_id;
+        if (decoded.userId === playerUserId) return next();
+
+        // Allow assigned coach
+        if (coach_id) {
+          const coachRows = await dbPool.query(
+            `SELECT user_id FROM coaches WHERE id = $1 LIMIT 1`,
+            [coach_id]
+          );
+          if (decoded.userId === coachRows.rows[0]?.user_id) return next();
+        }
+
+        return res.status(403).json({ error: "Access denied" });
+      } catch {
+        return res.status(500).json({ error: "Could not verify access" });
+      }
+    }
+  );
+
   // All other uploads require a valid JWT token for ALL HTTP methods (GET, HEAD, etc.)
   const uploadsAuthGuard = (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;

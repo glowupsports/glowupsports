@@ -48,6 +48,149 @@ import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const TAB_BAR_HEIGHT = 80;
 
+interface CoachTechniqueAnalysis {
+  id: string;
+  stroke_type: string;
+  status: "completed";
+  overall_score: number | null;
+  checkpoints: { name: string; rating: "Good" | "Needs Work" | "Focus Area"; explanation: string }[] | null;
+  tips: string[] | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+const COACH_STROKE_COLORS: Record<string, string> = {
+  Serve: "#6366F1",
+  Forehand: "#10B981",
+  Backhand: "#F59E0B",
+  Volley: "#3B82F6",
+  Return: "#EC4899",
+  Overhead: "#8B5CF6",
+};
+
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+const COACH_RATING_CONFIG: Record<string, { color: string; icon: IoniconName }> = {
+  Good: { color: "#22C55E", icon: "checkmark-circle" },
+  "Needs Work": { color: "#F59E0B", icon: "time" },
+  "Focus Area": { color: "#EF4444", icon: "alert-circle" },
+};
+
+function CoachTechniqueAnalysesSection({ playerId }: { playerId: string }) {
+  const navigation = useNavigation<any>();
+  const { data, isLoading } = useQuery<{ analyses: CoachTechniqueAnalysis[] }>({
+    queryKey: [`/api/coach/players/${playerId}/technique-analyses`],
+    staleTime: 60000,
+  });
+
+  const analyses = data?.analyses ?? [];
+
+  if (isLoading) {
+    return (
+      <CollapsibleSection title="AI Technique Analyses" icon="videocam-outline" iconColor="#6366F1">
+        <View style={{ padding: Spacing.md, alignItems: "center" }}>
+          <Text style={{ color: Colors.dark.textMuted, fontSize: 13 }}>Loading...</Text>
+        </View>
+      </CollapsibleSection>
+    );
+  }
+
+  if (analyses.length === 0) {
+    return (
+      <CollapsibleSection title="AI Technique Analyses" icon="videocam-outline" iconColor="#6366F1">
+        <View style={{ padding: Spacing.md, flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+          <Ionicons name="film-outline" size={20} color={Colors.dark.textMuted} />
+          <Text style={{ color: Colors.dark.textMuted, fontSize: 13, flex: 1 }}>
+            No technique analyses shared by this player yet.
+          </Text>
+        </View>
+      </CollapsibleSection>
+    );
+  }
+
+  return (
+    <CollapsibleSection
+      title={`AI Technique Analyses (${analyses.length})`}
+      icon="videocam-outline"
+      iconColor="#6366F1"
+    >
+      <View style={{ gap: Spacing.sm, padding: Spacing.sm }}>
+        {analyses.map((a) => {
+          const color = COACH_STROKE_COLORS[a.stroke_type] ?? "#6366F1";
+          const score = a.overall_score ?? 0;
+          const scoreColor = score >= 80 ? "#22C55E" : score >= 60 ? "#F59E0B" : "#EF4444";
+          const dateStr = a.completed_at
+            ? new Date(a.completed_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+            : new Date(a.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+          return (
+            <Pressable
+              key={a.id}
+              style={({ pressed }) => ({
+                backgroundColor: Colors.dark.surfaceElevated,
+                borderRadius: 12,
+                padding: Spacing.md,
+                gap: Spacing.sm,
+                borderLeftWidth: 3,
+                borderLeftColor: color,
+                opacity: pressed ? 0.85 : 1,
+              })}
+              onPress={() => {
+                navigation.navigate("CoachTechniqueAnalysisDetail", { analysis: a });
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.dark.text, flex: 1 }}>
+                  {a.stroke_type}
+                </Text>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    borderWidth: 3,
+                    borderColor: scoreColor,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: scoreColor + "14",
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: "900", color: scoreColor }}>{score}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+              </View>
+              <Text style={{ fontSize: 11, color: Colors.dark.textMuted }}>{dateStr}</Text>
+              {(a.checkpoints ?? []).length > 0 ? (
+                <View style={{ gap: 4 }}>
+                  {(a.checkpoints ?? []).map((cp, i) => {
+                    const cfg = COACH_RATING_CONFIG[cp.rating] ?? COACH_RATING_CONFIG["Needs Work"];
+                    return (
+                      <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Ionicons name={cfg.icon} size={14} color={cfg.color} />
+                        <Text style={{ fontSize: 12, color: Colors.dark.text, fontWeight: "600", width: 100 }}>{cp.name}</Text>
+                        <Text style={{ fontSize: 11, color: Colors.dark.textMuted, flex: 1 }} numberOfLines={1}>{cp.explanation}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+              {(a.tips ?? []).length > 0 ? (
+                <View style={{ backgroundColor: "#6366F110", borderRadius: 8, padding: Spacing.sm, gap: 4 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#6366F1", marginBottom: 2 }}>AI Tips</Text>
+                  {(a.tips ?? []).map((tip, i) => (
+                    <Text key={i} style={{ fontSize: 11, color: Colors.dark.text, lineHeight: 16 }}>
+                      {i + 1}. {tip}
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+    </CollapsibleSection>
+  );
+}
+
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const BALL_LEVELS = ["blue", "red", "orange", "green", "yellow", "glow"];
@@ -1701,6 +1844,8 @@ export function PlayerDetailView({
             </> : null}
           </View>
         ) : null}
+
+        <CoachTechniqueAnalysesSection playerId={player.id} />
 
         <CollapsibleSection title="Packages" icon="ticket-outline" iconColor={Colors.dark.gold}>
           <CoachCreditV2Panel playerId={player.id} />

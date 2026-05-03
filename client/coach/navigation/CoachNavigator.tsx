@@ -8,6 +8,7 @@ import { TabNavigationProvider } from "@/components/TabNavigationContext";
 import DashboardScreen from "@/coach/screens/DashboardScreen";
 import CoachPostComposerScreen from "@/coach/screens/CoachPostComposerScreen";
 import LessonRecapDraftsScreen from "@/coach/screens/LessonRecapDraftsScreen";
+import CoachTechniqueAnalysisDetailScreen from "@/coach/screens/CoachTechniqueAnalysisDetailScreen";
 import CalendarScreen from "@/coach/screens/CalendarScreen";
 import PlayersScreen from "@/coach/screens/PlayersScreen";
 import CoachingScreen from "@/coach/screens/CoachingScreen";
@@ -112,6 +113,17 @@ export type CoachStackParamList = {
   AiUsage: undefined;
   CoachPostComposer: { mode?: "coach" | "academy"; academyId?: string } | undefined;
   LessonRecapDrafts: undefined;
+  CoachTechniqueAnalysisDetail: {
+    analysis: {
+      id: string;
+      stroke_type: string;
+      overall_score: number | null;
+      checkpoints: { name: string; rating: string; explanation: string }[] | null;
+      tips: string[] | null;
+      created_at: string;
+      completed_at: string | null;
+    };
+  };
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
@@ -504,6 +516,15 @@ function CoachStackNavigator() {
           headerShown: true,
           headerTitle: "Lesson Recaps",
         }}
+      />
+      <Stack.Screen
+        name="CoachTechniqueAnalysisDetail"
+        component={CoachTechniqueAnalysisDetailScreen}
+        options={({ route }) => ({
+          headerShown: true,
+          headerTitle: `${route.params.analysis.stroke_type} Analysis`,
+          presentation: "card",
+        })}
       />
     </Stack.Navigator>
   );

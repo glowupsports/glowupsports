@@ -37,6 +37,8 @@ import MatchScreen from "@/player/screens/MatchScreen";
 import MatchDetailScreen from "@/player/screens/MatchDetailScreen";
 import MatchPrepScreen from "@/player/screens/MatchPrepScreen";
 import OpponentProfileScreen from "@/player/screens/OpponentProfileScreen";
+import TechniqueUploadFlow from "@/player/screens/TechniqueUploadFlow";
+import TechniqueAnalysisResultScreen from "@/player/screens/TechniqueAnalysisResultScreen";
 import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
 
@@ -104,6 +106,8 @@ export type ProgressStackParamList = {
   MatchDetail: { matchId: string };
   MatchPrep: { planId?: string; matchId?: string };
   OpponentProfile: { opponentId: string | null };
+  TechniqueUploadFlow: undefined;
+  TechniqueAnalysisResult: { analysisId: string; strokeType?: string };
 };
 
 export type PlayerStackParamList = {
@@ -593,6 +597,28 @@ export function ProgressStackNavigator() {
           headerTitle: "Opponent Profile",
           headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: '#A78BFA',
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen
+        name="TechniqueUploadFlow"
+        component={TechniqueUploadFlow}
+        options={{
+          headerShown: true,
+          headerTitle: "Analyze My Technique",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
+          headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
+        }}
+      />
+      <ProgressStack.Screen
+        name="TechniqueAnalysisResult"
+        component={TechniqueAnalysisResultScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Technique Analysis",
+          headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
+          headerTintColor: Colors.dark.primary,
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
         }}
       />

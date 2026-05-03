@@ -1,12 +1,15 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, Alert, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Backgrounds, Spacing, Typography, BorderRadius, CardStyles, TextColors, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+
+const COACH_SHARE_PREF_KEY = "technique_share_with_coach_default";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -61,17 +64,51 @@ export default function PrivacySettingsScreen({
   const queryClient = useQueryClient();
   
   const [selected, setSelected] = useState<PrivacyLevel>(currentLevel);
+  const [shareWithCoach, setShareWithCoach] = useState(true);
+
+  // Fetch server-backed coach-share preference (source of truth)
+  const { data: privacyData } = useQuery<{ shareAnalysesWithCoach: boolean }>({
+    queryKey: ["/api/player/me/technique-privacy"],
+  });
+
+  useEffect(() => {
+    if (privacyData?.shareAnalysesWithCoach !== undefined) {
+      setShareWithCoach(privacyData.shareAnalysesWithCoach);
+      // Keep AsyncStorage cache in sync (used by upload flow)
+      AsyncStorage.setItem(
+        COACH_SHARE_PREF_KEY,
+        privacyData.shareAnalysesWithCoach ? "true" : "false"
+      ).catch(() => {});
+    } else {
+      // Fallback to local cache while server response is loading
+      AsyncStorage.getItem(COACH_SHARE_PREF_KEY).then((val) => {
+        if (val !== null) setShareWithCoach(val === "true");
+      }).catch(() => {});
+    }
+  }, [privacyData]);
+
+  const handleCoachShareToggle = (val: boolean) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShareWithCoach(val);
+  };
 
   const updatePrivacyMutation = useMutation({
-    mutationFn: async (privacyLevel: PrivacyLevel) => {
+    mutationFn: async (params: { privacyLevel: PrivacyLevel; shareAnalysesWithCoach: boolean }) => {
       const response = await apiRequest("PATCH", "/api/player/me/social", {
-        privacyLevel,
+        privacyLevel: params.privacyLevel,
+        shareAnalysesWithCoach: params.shareAnalysesWithCoach,
       });
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (_data, params) => {
+      // Write-through: keep local cache in sync with server
+      AsyncStorage.setItem(
+        COACH_SHARE_PREF_KEY,
+        params.shareAnalysesWithCoach ? "true" : "false"
+      ).catch(() => {});
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/social"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/technique-privacy"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (onComplete) {
@@ -97,7 +134,7 @@ export default function PrivacySettingsScreen({
 
   const handleConfirm = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    updatePrivacyMutation.mutate(selected);
+    updatePrivacyMutation.mutate({ privacyLevel: selected, shareAnalysesWithCoach: shareWithCoach });
   };
 
   return (
@@ -178,6 +215,26 @@ export default function PrivacySettingsScreen({
         <Text style={styles.infoText}>
           You can change this anytime in Settings. Your choice affects who can see your profile and invite you to matches.
         </Text>
+      </View>
+
+      <View style={styles.coachSectionCard}>
+        <View style={styles.coachSectionRow}>
+          <View style={styles.coachSectionIcon}>
+            <Ionicons name="videocam-outline" size={22} color={GlowColors.primary} />
+          </View>
+          <View style={styles.coachSectionText}>
+            <Text style={styles.coachSectionTitle}>Share Technique Analyses</Text>
+            <Text style={styles.coachSectionSub}>
+              Allow your coach to view your AI technique feedback by default
+            </Text>
+          </View>
+          <Switch
+            value={shareWithCoach}
+            onValueChange={handleCoachShareToggle}
+            trackColor={{ false: Backgrounds.card, true: GlowColors.primary }}
+            thumbColor="#fff"
+          />
+        </View>
       </View>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
@@ -313,6 +370,38 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: TextColors.muted,
     flex: 1,
     lineHeight: 18,
+  },
+  coachSectionCard: {
+    ...CardStyles.base,
+    marginTop: Spacing.md,
+  },
+  coachSectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  coachSectionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${GlowColors.primary}20`,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  coachSectionText: {
+    flex: 1,
+  },
+  coachSectionTitle: {
+    ...Typography.body,
+    color: TextColors.primary,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  coachSectionSub: {
+    ...Typography.caption,
+    color: TextColors.secondary,
+    lineHeight: 16,
   },
   footer: {
     marginTop: Spacing.xl,

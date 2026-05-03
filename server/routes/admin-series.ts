@@ -5834,7 +5834,7 @@ router.patch(
       }
 
       const playerId = req.user!.playerId!;
-      const { privacyLevel, openToPlay, displayName, bio } = req.body;
+      const { privacyLevel, openToPlay, displayName, bio, shareAnalysesWithCoach } = req.body;
 
       // Update privacy level if provided
       if (privacyLevel !== undefined) {
@@ -5865,6 +5865,13 @@ router.patch(
       if (bio !== undefined) {
         await db.execute(
           sql`UPDATE players SET bio = ${bio} WHERE id = ${playerId}`,
+        );
+      }
+
+      // Update AI technique analyses coach-sharing default if provided
+      if (typeof shareAnalysesWithCoach === "boolean") {
+        await db.execute(
+          sql`UPDATE players SET share_analyses_with_coach = ${shareAnalysesWithCoach} WHERE id = ${playerId}`,
         );
       }
 

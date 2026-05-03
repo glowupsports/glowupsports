@@ -87,6 +87,7 @@ import playerProfileDataRouter from "./routes/player-profile-data";
 import playerAchievementsRouter from "./routes/player-achievements";
 import communityDataRouter from "./routes/community-data";
 import playerAiCoachDataRouter from "./routes/player-ai-coach-data";
+import techniqueAnalysisRouter from "./routes/technique-analysis";
 import quizRouter from "./routes/quiz";
 import arenaRouter from "./routes/arena";
 import matchResultsRouter from "./routes/match-results";
@@ -448,6 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(playerAchievementsRouter);
   app.use(communityDataRouter);
   app.use(playerAiCoachDataRouter);
+  app.use(techniqueAnalysisRouter);
   app.use("/api/quiz", quizRouter);
   app.use("/api/arena", arenaRouter);
 

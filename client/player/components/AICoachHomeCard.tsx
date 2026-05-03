@@ -186,23 +186,34 @@ export const AICoachHomeCard = React.memo(function AICoachHomeCard({
             </View>
           ) : null}
 
-          <Pressable
-            onPress={handleOpen}
-            style={({ pressed }) => [s.ctaBtn, pressed && s.ctaPressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Open AI Coach"
-          >
-            <LinearGradient
-              colors={["#6366F1", "#3B82F6", "#00D4FF"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={s.ctaGradient}
+          <View style={s.ctaRow}>
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate("TechniqueUploadFlow"); }}
+              style={({ pressed }) => [s.analyzeBtn, pressed && s.ctaPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Analyze My Technique"
             >
-              <Ionicons name="sparkles" size={15} color="#fff" />
-              <Text style={s.ctaText}>Open AI Coach</Text>
-              <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.7)" />
-            </LinearGradient>
-          </Pressable>
+              <Ionicons name="videocam-outline" size={15} color={Colors.dark.primary} />
+              <Text style={s.analyzeBtnText}>Analyze</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleOpen}
+              style={({ pressed }) => [s.ctaBtn, { flex: 1 }, pressed && s.ctaPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Open AI Coach"
+            >
+              <LinearGradient
+                colors={["#6366F1", "#3B82F6", "#00D4FF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={s.ctaGradient}
+              >
+                <Ionicons name="sparkles" size={15} color="#fff" />
+                <Text style={s.ctaText}>Open AI Coach</Text>
+                <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.7)" />
+              </LinearGradient>
+            </Pressable>
+          </View>
         </View>
       </LinearGradient>
     </Animated.View>
@@ -385,10 +396,31 @@ const s = makeReactiveStyles(() =>
       fontSize: 12,
       color: "#F97316",
     },
+    ctaRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginTop: 2,
+      alignItems: "stretch",
+    },
+    analyzeBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1.5,
+      borderColor: Colors.dark.primary + "88",
+      backgroundColor: Colors.dark.primary + "10",
+    },
+    analyzeBtnText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: Colors.dark.primary,
+    },
     ctaBtn: {
       borderRadius: BorderRadius.lg,
       overflow: "hidden",
-      marginTop: 2,
     },
     ctaPressed: {
       opacity: 0.82,

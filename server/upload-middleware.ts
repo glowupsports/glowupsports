@@ -8,12 +8,14 @@ const COURT_PHOTOS_DIR = path.join(UPLOADS_DIR, "court-photos");
 const PROFILE_PHOTOS_DIR = path.join(UPLOADS_DIR, "profile-photos");
 const SOCIAL_POSTS_DIR = path.join(UPLOADS_DIR, "social-posts");
 const VIDEO_FEEDBACK_DIR = path.join(UPLOADS_DIR, "video-feedback");
+const TECHNIQUE_VIDEO_DIR = path.join(UPLOADS_DIR, "technique-videos");
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 if (!fs.existsSync(COURT_PHOTOS_DIR)) fs.mkdirSync(COURT_PHOTOS_DIR, { recursive: true });
 if (!fs.existsSync(PROFILE_PHOTOS_DIR)) fs.mkdirSync(PROFILE_PHOTOS_DIR, { recursive: true });
 if (!fs.existsSync(SOCIAL_POSTS_DIR)) fs.mkdirSync(SOCIAL_POSTS_DIR, { recursive: true });
 if (!fs.existsSync(VIDEO_FEEDBACK_DIR)) fs.mkdirSync(VIDEO_FEEDBACK_DIR, { recursive: true });
+if (!fs.existsSync(TECHNIQUE_VIDEO_DIR)) fs.mkdirSync(TECHNIQUE_VIDEO_DIR, { recursive: true });
 
 /**
  * Thrown by `fileFilter` callbacks when a file's mimetype isn't on the
@@ -110,6 +112,20 @@ export const videoFeedbackUpload = multer({
     },
   }),
   limits: { fileSize: 200 * 1024 * 1024 }, // 200MB limit for videos
+  fileFilter: makeMimeFilter(VIDEO_FEEDBACK_TYPES),
+});
+
+export const techniqueAnalysisUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, TECHNIQUE_VIDEO_DIR),
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      const rawExt = path.extname(file.originalname).toLowerCase();
+      const safeExt = SAFE_VIDEO_EXTENSIONS[rawExt] || ".mp4";
+      cb(null, `ta-${uniqueSuffix}${safeExt}`);
+    },
+  }),
+  limits: { fileSize: 200 * 1024 * 1024 },
   fileFilter: makeMimeFilter(VIDEO_FEEDBACK_TYPES),
 });
 

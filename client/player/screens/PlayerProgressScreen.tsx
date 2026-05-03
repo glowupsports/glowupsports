@@ -1440,6 +1440,277 @@ function formatShortDate(dateStr: string): string {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+interface TechniqueAnalysisSummary {
+  id: string;
+  stroke_type: string;
+  status: "processing" | "completed" | "failed";
+  overall_score: number | null;
+  created_at: string;
+  completed_at: string | null;
+  trend?: "improving" | "declining" | "stable";
+}
+
+const STROKE_COLORS: Record<string, string> = {
+  Serve: "#6366F1",
+  Forehand: "#10B981",
+  Backhand: "#F59E0B",
+  Volley: "#3B82F6",
+  Return: "#EC4899",
+  Overhead: "#8B5CF6",
+};
+
+function TechniqueAnalysisSection({ navigation }: { navigation: any }) {
+  const { data, isLoading } = useQuery<{ analyses: TechniqueAnalysisSummary[] }>({
+    queryKey: ["/api/player/me/technique-analyses"],
+    staleTime: 30000,
+  });
+
+  const analyses = data?.analyses ?? [];
+  const [showAll, setShowAll] = useState(false);
+  const displayed = showAll ? analyses : analyses.slice(0, 5);
+
+  const trendIcon = (trend?: string) => {
+    if (trend === "improving") return { name: "trending-up" as const, color: "#22C55E" };
+    if (trend === "declining") return { name: "trending-down" as const, color: "#EF4444" };
+    return { name: "remove" as const, color: Colors.dark.textMuted };
+  };
+
+  return (
+    <View style={taStyles.section}>
+      <View style={taStyles.header}>
+        <View style={taStyles.sectionTitleRow}>
+          <View style={[taStyles.sectionIconSmall, { backgroundColor: "#6366F120" }]}>
+            <Ionicons name="videocam-outline" size={16} color="#6366F1" />
+          </View>
+          <Text style={taStyles.sectionTitle}>AI Technique Analysis</Text>
+          {analyses.length > 0 ? (
+            <View style={taStyles.countBadge}>
+              <Text style={taStyles.countBadgeText}>{analyses.length}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+
+      <Pressable
+        style={({ pressed }) => [taStyles.uploadCard, pressed && { opacity: 0.85 }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("TechniqueUploadFlow");
+        }}
+      >
+        <View style={taStyles.uploadCardLeft}>
+          <View style={taStyles.uploadIconWrap}>
+            <Ionicons name="videocam" size={24} color="#6366F1" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={taStyles.uploadCardTitle}>Analyze My Technique</Text>
+            <Text style={taStyles.uploadCardSub}>Upload a clip and get AI-powered stroke feedback</Text>
+          </View>
+        </View>
+        <View style={taStyles.uploadArrow}>
+          <Ionicons name="arrow-forward" size={16} color="#6366F1" />
+        </View>
+      </Pressable>
+
+      {isLoading ? (
+        <View style={taStyles.emptyCard}>
+          <Text style={taStyles.emptyText}>Loading analyses...</Text>
+        </View>
+      ) : displayed.length > 0 ? (
+        <View style={taStyles.historyList}>
+          {displayed.map((a) => {
+            const color = STROKE_COLORS[a.stroke_type] ?? "#6366F1";
+            const scoreDisplay = a.status === "completed" && a.overall_score !== null
+              ? `${a.overall_score}/100`
+              : a.status === "processing" ? "Analyzing..." : "Failed";
+            const dateStr = new Date(a.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+            const trend = a.trend;
+            const trendCfg = trendIcon(trend);
+            return (
+              <Pressable
+                key={a.id}
+                style={({ pressed }) => [taStyles.analysisCard, pressed && { opacity: 0.85 }]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("TechniqueAnalysisResult", { analysisId: a.id, strokeType: a.stroke_type });
+                }}
+              >
+                <View style={[taStyles.analysisDot, { backgroundColor: color }]} />
+                <Text style={taStyles.analysisStroke}>{a.stroke_type}</Text>
+                {a.status === "completed" && trend ? (
+                  <Ionicons name={trendCfg.name} size={14} color={trendCfg.color} />
+                ) : null}
+                <Text style={[taStyles.analysisScore, { color: a.status === "completed" ? color : Colors.dark.textMuted }]}>
+                  {scoreDisplay}
+                </Text>
+                <Text style={taStyles.analysisDate}>{dateStr}</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.dark.textMuted} />
+              </Pressable>
+            );
+          })}
+          {analyses.length > 5 ? (
+            <Pressable
+              style={taStyles.showMoreBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowAll((p) => !p);
+              }}
+            >
+              <Text style={taStyles.showMoreText}>
+                {showAll ? "Show less" : `Show all ${analyses.length} analyses`}
+              </Text>
+              <Ionicons name={showAll ? "chevron-up" : "chevron-down"} size={14} color="#6366F1" />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : (
+        <View style={taStyles.emptyCard}>
+          <Ionicons name="film-outline" size={22} color={Colors.dark.textMuted} />
+          <Text style={taStyles.emptyText}>No analyses yet. Upload your first clip to get started.</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const taStyles = StyleSheet.create({
+  section: {
+    marginHorizontal: 0,
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  header: {},
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: 2,
+  },
+  sectionIconSmall: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  countBadge: {
+    backgroundColor: "#6366F120",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#6366F1",
+  },
+  uploadCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#6366F112",
+    borderRadius: 14,
+    padding: Spacing.md,
+    borderWidth: 1.5,
+    borderColor: "#6366F130",
+    gap: Spacing.sm,
+  },
+  uploadCardLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  uploadIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#6366F120",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  uploadCardSub: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+  },
+  uploadArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#6366F120",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  historyList: {
+    gap: Spacing.xs,
+  },
+  analysisCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
+    borderRadius: 10,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+  },
+  analysisDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  analysisStroke: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  analysisScore: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  analysisDate: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginLeft: 4,
+  },
+  emptyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
+    borderRadius: 10,
+    padding: Spacing.md,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  showMoreBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 8,
+  },
+  showMoreText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6366F1",
+  },
+});
+
 export default function PlayerProgressScreen() {
   useThemeReactivity();
   const insets = useSafeAreaInsets();
@@ -2884,6 +3155,9 @@ export default function PlayerProgressScreen() {
             </View>
           </View>
         ) : null}
+
+        {/* AI Technique Analysis Section */}
+        <TechniqueAnalysisSection navigation={navigation} />
 
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color={Colors.dark.primary} />
