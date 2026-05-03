@@ -897,36 +897,28 @@ function Scene6({ sp }: { sp: number }) {
   );
 }
 
-// ─── SCENE 7: QUESTS + DRILLS + POST-SESSION CHECK-IN ─────────────────────────
-
-const DRILL_CATEGORIES = ["Forehand Topspin", "Backhand Rally", "Serve Mechanics", "Volley Control", "Approach Shots", "Return of Serve", "Drop Shot", "Lob Defense", "Cross-Court BH", "Inside-Out FH", "Net Rush", "Slice BH", "Two-Handed BH", "Kick Serve", "Pattern Play", "Match Tactics"];
+// ─── SCENE 7: QUESTS + POST-SESSION CHECK-IN ───────────────────────────────────
 
 function Scene7({ sp }: { sp: number }) {
-  // 0–0.3: Quest bar fills → complete
-  // 0.3–0.5: Drill library scroll
-  // 0.5–1.0: Post-session check-in (3 steps)
+  // 0–0.35: Quest bar fills → complete + XP rain
+  // 0.35–1.0: Post-session check-in (3 steps, more breathing room)
 
   const questOp = easeOut(cl(sp / 0.15));
   const questFill = easeOut(cl(sp / 0.28));
   const questDone = sp > 0.28;
   const xpRain = questDone ? easeOut(cl((sp - 0.28) / 0.15)) : 0;
 
-  const drillsOp = easeOut(cl((sp - 0.3) / 0.12));
-  const drillOffset = sp > 0.3 ? -(sp - 0.3) / 0.2 * 280 : 0;
-
-  // Check-in modal (3 steps)
-  const checkInOp = easeOut(cl((sp - 0.5) / 0.12));
-  const checkInY = lerp(80, 0, easeOut(cl((sp - 0.5) / 0.15)));
+  // Check-in modal (3 steps — now starts earlier, more time)
+  const checkInOp = easeOut(cl((sp - 0.35) / 0.12));
+  const checkInY = lerp(80, 0, easeOut(cl((sp - 0.35) / 0.15)));
 
   // Step timing
-  const step1Op = easeOut(cl((sp - 0.52) / 0.1));
-  const step2Op = easeOut(cl((sp - 0.68) / 0.12));
-  const step3Op = easeOut(cl((sp - 0.82) / 0.12));
-  const energySlider = easeOut(cl((sp - 0.54) / 0.12)); // 0-1
-  const moodActive = sp > 0.7 ? Math.min(3, Math.floor((sp - 0.7) / 0.05)) : -1;
-  const xpBurst = easeOut(cl((sp - 0.87) / 0.12));
-
-  const headlineOp = slideIn(sp, 0.42, 0.08) * (1 - easeOut(cl((sp - 0.5) / 0.08)));
+  const step1Op = easeOut(cl((sp - 0.37) / 0.1));
+  const step2Op = easeOut(cl((sp - 0.53) / 0.12));
+  const step3Op = easeOut(cl((sp - 0.67) / 0.12));
+  const energySlider = easeOut(cl((sp - 0.39) / 0.14)); // 0-1
+  const moodActive = sp > 0.55 ? Math.min(3, Math.floor((sp - 0.55) / 0.07)) : -1;
+  const xpBurst = easeOut(cl((sp - 0.75) / 0.14));
 
   const moods = ["😴", "😐", "😊", "🔥"];
 
@@ -940,7 +932,7 @@ function Scene7({ sp }: { sp: number }) {
     <div style={{ position: "relative", width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 20px", background: C.bg }}>
       <div style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 10 }}>
         {/* Quest bar */}
-        <div style={{ opacity: questOp * (1 - easeOut(cl((sp - 0.48) / 0.08))) }}>
+        <div style={{ opacity: questOp * (1 - easeOut(cl((sp - 0.33) / 0.08))) }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
             <span style={{ fontSize: 10, color: C.textMuted, fontFamily: "'Space Grotesk', sans-serif" }}>DAILY QUEST — Backhand Focus</span>
             <span style={{ fontSize: 10, color: C.primary, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif" }}>{Math.round(questFill * 100)}%</span>
@@ -973,22 +965,6 @@ function Scene7({ sp }: { sp: number }) {
             ))}
           </div>
         )}
-
-        {/* Drill library */}
-        <div style={{ opacity: drillsOp * (1 - easeOut(cl((sp - 0.5) / 0.08))), overflow: "hidden" }}>
-          <div style={{ fontSize: 9, color: C.textMuted, letterSpacing: 2, marginBottom: 8, fontFamily: "'Space Grotesk', sans-serif" }}>DRILL LIBRARY — 16 CATEGORIES</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, transform: `translateX(${drillOffset}px)`, transition: "transform 0.05s linear" }}>
-            {DRILL_CATEGORIES.map((d, i) => (
-              <div key={d} style={{
-                padding: "5px 10px", borderRadius: 8, flexShrink: 0,
-                background: i % 4 === 0 ? `${C.primary}18` : C.elevated,
-                border: `1px solid ${i % 4 === 0 ? `${C.primary}40` : C.surface}`,
-                color: i % 4 === 0 ? C.primary : C.textSecondary,
-                fontSize: 10, fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif",
-              }}>{d}</div>
-            ))}
-          </div>
-        </div>
 
         {/* Post-session check-in modal */}
         <div style={{
@@ -1060,7 +1036,7 @@ function Scene7({ sp }: { sp: number }) {
         </div>
       </div>
 
-      <div style={{ position: "absolute", bottom: 24, left: 0, right: 0, display: "flex", justifyContent: "center", opacity: headlineOp }}>
+      <div style={{ position: "absolute", bottom: 24, left: 0, right: 0, display: "flex", justifyContent: "center", opacity: easeOut(cl((sp - 0.88) / 0.1)) }}>
         <div style={{ fontSize: 22, fontWeight: 900, color: C.white, fontFamily: "'Oxanium', sans-serif", textAlign: "center", textShadow: `0 0 20px ${C.primary}40` }}>Train. Complete. Glow up.</div>
       </div>
     </div>
