@@ -22,7 +22,7 @@ import Feather from "@expo/vector-icons/Feather";
 import * as SplashScreen from "expo-splash-screen";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const { width, height } = Dimensions.get("window");
 
