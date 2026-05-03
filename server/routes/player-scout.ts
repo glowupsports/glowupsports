@@ -75,7 +75,7 @@ router.get(
         where: eq(users.playerId, opponentId),
         columns: { id: true },
       });
-      const socialProfile = linkedUser
+      const socialProfile = linkedUser?.id
         ? await db.query.userSocialProfiles.findFirst({
             where: eq(userSocialProfiles.userId, linkedUser.id),
           })

@@ -2796,6 +2796,13 @@ router.post(
                       sessionId,
                       "session_attendance",
                     );
+                    // Fire-and-forget: 20% chance to earn an ability card on session attendance
+                    import("../services/arena-card-service")
+                      .then(({ maybeAwardAbilityCard, awardReferralCard }) => {
+                        maybeAwardAbilityCard(playerId, "session_attended").catch(() => {});
+                        awardReferralCard(playerId).catch(() => {});
+                      })
+                      .catch(() => {});
                   }
                 }
               } catch (e) {
@@ -2915,6 +2922,13 @@ router.post(
                   sessionId,
                   "session_attendance",
                 );
+                // Fire-and-forget: 20% chance to earn an ability card on session attendance
+                import("../services/arena-card-service")
+                  .then(({ maybeAwardAbilityCard, awardReferralCard }) => {
+                    maybeAwardAbilityCard(playerId, "session_attended").catch(() => {});
+                    awardReferralCard(playerId).catch(() => {});
+                  })
+                  .catch(() => {});
               }
             }
           } catch (e) {

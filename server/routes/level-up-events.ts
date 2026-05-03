@@ -114,6 +114,11 @@ router.post("/api/players/:playerId/level-up", authMiddleware, requireAcademy, a
       publishLevelUp(event.id).catch(() => {});
     }
 
+    // Fire-and-forget: guaranteed rare/epic ability card on level promotion
+    import("../services/arena-card-service")
+      .then(({ maybeAwardAbilityCard }) => maybeAwardAbilityCard(playerId, "level_promoted"))
+      .catch(() => {});
+
     res.status(201).json(event);
   } catch (error) {
     console.error("Error recording level-up:", error);

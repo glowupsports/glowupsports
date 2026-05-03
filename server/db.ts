@@ -1404,6 +1404,24 @@ pool.query('SELECT 1').then(async () => {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    // Seed canonical 5 pack definitions (idempotent)
+    await pool.query(`
+      INSERT INTO arena_packs (id, name, description, price, card_count, odds_common, odds_uncommon, odds_rare, odds_epic, odds_legendary, is_active)
+      VALUES
+        ('arena-pack-bronze',  'Bronze Pack',  '5 cards — standard rarity odds',                      50,  5, 60, 25, 10,  4,  1, true),
+        ('arena-pack-silver',  'Silver Pack',  '5 cards — improved rarity odds',                     150,  5, 50, 25, 15,  8,  2, true),
+        ('arena-pack-gold',    'Gold Pack',    '5 cards — premium odds with guaranteed Rare+',        500,  5, 35, 25, 22, 13,  5, true),
+        ('arena-pack-academy', 'Academy Pack', '5 cards exclusively from your own academy',            75,  5, 45, 25, 18,  8,  4, true),
+        ('arena-pack-world',   'World Pack',   '5 world-class cards with highest Legendary chance',   200,  5, 30, 22, 22, 18,  8, true)
+      ON CONFLICT (id) DO UPDATE SET
+        price = EXCLUDED.price,
+        description = EXCLUDED.description,
+        odds_common = EXCLUDED.odds_common,
+        odds_uncommon = EXCLUDED.odds_uncommon,
+        odds_rare = EXCLUDED.odds_rare,
+        odds_epic = EXCLUDED.odds_epic,
+        odds_legendary = EXCLUDED.odds_legendary
+    `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS player_pack_pity (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -1598,6 +1616,138 @@ pool.query('SELECT 1').then(async () => {
         upgraded_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    // Daily challenge claims (Card of the Day — 3 tiers, once per day per player)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_daily_challenge_claims (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        challenge_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        tier TEXT NOT NULL,
+        claimed_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(player_id, challenge_date, tier)
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS adcc_player_date_idx ON arena_daily_challenge_claims(player_id, challenge_date)
+    `);
+
+    // Phase 2: arena_global_settings (first-edition state, counters, limits)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_global_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      INSERT INTO arena_global_settings (key, value) VALUES
+        ('first_edition_active', 'true'),
+        ('first_edition_packs_opened', '0'),
+        ('first_edition_limit', '1000')
+      ON CONFLICT (key) DO NOTHING
+    `);
+
+    // Phase 2: player_login_streaks
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_login_streaks (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL UNIQUE,
+        current_streak INTEGER NOT NULL DEFAULT 0,
+        last_login_date DATE,
+        total_login_days INTEGER NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS player_login_streaks_player_idx ON player_login_streaks(player_id)
+    `);
+
+    // Phase 2: arena_mission_templates
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_mission_templates (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        name TEXT NOT NULL,
+        description TEXT,
+        target_action TEXT NOT NULL,
+        target_count INTEGER NOT NULL DEFAULT 1,
+        reward_type TEXT NOT NULL DEFAULT 'coins',
+        reward_value TEXT NOT NULL DEFAULT '100',
+        cadence TEXT NOT NULL DEFAULT 'weekly',
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Phase 2: player_arena_missions
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_arena_missions (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        template_id VARCHAR NOT NULL,
+        current_progress INTEGER NOT NULL DEFAULT 0,
+        target_progress INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL DEFAULT 'active',
+        reward_type TEXT NOT NULL DEFAULT 'coins',
+        reward_value TEXT NOT NULL DEFAULT '100',
+        expires_at TIMESTAMP NOT NULL,
+        completed_at TIMESTAMP,
+        claimed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS player_arena_missions_player_idx ON player_arena_missions(player_id)
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS player_arena_missions_status_idx ON player_arena_missions(status)
+    `);
+
+    // Phase 2: player_arena_badges
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_arena_badges (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        badge_key TEXT NOT NULL,
+        badge_label TEXT NOT NULL,
+        earned_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(player_id, badge_key)
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS player_arena_badges_player_idx ON player_arena_badges(player_id)
+    `);
+
+    // Phase 2: arena_shop_daily_purchases
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_shop_daily_purchases (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        ability_card_id VARCHAR NOT NULL,
+        purchase_date DATE NOT NULL,
+        coins_spent INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(player_id, ability_card_id, purchase_date)
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS arena_shop_daily_purchases_player_idx ON arena_shop_daily_purchases(player_id)
+    `);
+
+    // Phase 2: card_wishlists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS card_wishlists (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL,
+        card_ref_id VARCHAR NOT NULL,
+        card_type TEXT NOT NULL DEFAULT 'player',
+        added_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(player_id, card_ref_id)
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS card_wishlists_player_idx ON card_wishlists(player_id)
+    `);
+
     console.log('[Database] Glow Arena tables created/verified');
   } catch (e: any) {
     console.warn('[Database] Arena table migration warning:', e.message);

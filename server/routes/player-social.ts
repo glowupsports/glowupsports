@@ -588,6 +588,11 @@ router.post("/api/quests/:id/claim", authMiddleware, async (req: AuthRequest, re
         .from(players)
         .where(eq(players.id, playerId));
 
+      // Fire-and-forget: guaranteed common ability card on quest completion
+      import("../services/arena-card-service")
+        .then(({ maybeAwardAbilityCard }) => maybeAwardAbilityCard(playerId, "quest_completed"))
+        .catch(() => {});
+
       res.json({
         success: true,
         xpAwarded: xpReward,

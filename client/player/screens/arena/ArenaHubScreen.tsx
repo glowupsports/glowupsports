@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  Animated,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +18,29 @@ import { Feather } from "@expo/vector-icons";
 import { Colors, Spacing } from "@/constants/theme";
 import ChampionCard from "@/player/components/arena/ChampionCard";
 import { apiRequest } from "@/lib/query-client";
+
+interface Mission {
+  id: string;
+  name: string;
+  status: "active" | "completed" | "claimed";
+  currentProgress: number;
+  targetProgress: number;
+}
+
+interface LoginReward {
+  awarded: boolean;
+  currentStreak: number;
+  totalLoginDays: number;
+  coinsAwarded: number;
+  milestone: string | null;
+}
+
+interface ShopPreviewCard {
+  id: string;
+  name: string;
+  rarity: string;
+  price: number;
+}
 
 interface HubData {
   card: {
@@ -39,18 +64,211 @@ interface HubData {
   } | null;
   arenaRecord: { wins: number; losses: number; mmr: number };
   activeSeason: { name: string; endDate: string } | null;
+  glowCoins: number;
+  collectedCount: number;
+  loginReward: LoginReward | null;
+  missions: Mission[];
+  shopPreview: ShopPreviewCard[];
   features: { battleUnlocked: boolean; collectionUnlocked: boolean; packShopUnlocked: boolean };
 }
 
+const RARITY_COLORS: Record<string, string> = {
+  common: "#888888", uncommon: "#CD7F32", rare: "#4DA3FF", epic: "#C040FB", legendary: "#FFD700",
+};
+
+// ── Login Reward Modal ─────────────────────────────────────────────────────────
+function LoginRewardModal({
+  reward,
+  onDismiss,
+}: {
+  reward: LoginReward;
+  onDismiss: () => void;
+}) {
+  const scale = new Animated.Value(0.8);
+  useEffect(() => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, tension: 80, friction: 7 }).start();
+  }, []);
+
+  return (
+    <Modal visible animationType="fade" transparent>
+      <View style={rewardStyles.overlay}>
+        <Animated.View style={[rewardStyles.modal, { transform: [{ scale }] }]}>
+          <View style={rewardStyles.coinIcon}>
+            <Feather name="zap" size={36} color={Colors.dark.primary} />
+          </View>
+          <Text style={rewardStyles.title}>Daily Login Reward</Text>
+          <Text style={rewardStyles.streakText}>
+            Day {reward.totalLoginDays} streak
+          </Text>
+          <Text style={rewardStyles.coinsText}>+{reward.coinsAwarded} Glow Coins</Text>
+          {reward.milestone && (
+            <View style={rewardStyles.milestoneBanner}>
+              <Feather name="award" size={14} color="#FFD700" />
+              <Text style={rewardStyles.milestoneText}>{reward.milestone}</Text>
+            </View>
+          )}
+          <Pressable style={rewardStyles.doneBtn} onPress={onDismiss}>
+            <Text style={rewardStyles.doneBtnText}>Collect</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const rewardStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modal: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: "center",
+    gap: Spacing.md,
+    marginHorizontal: Spacing.xl,
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.3)",
+  },
+  coinIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(200,255,61,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(200,255,61,0.3)",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: Colors.dark.text,
+  },
+  streakText: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+  },
+  coinsText: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+  },
+  milestoneBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,215,0,0.12)",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,215,0,0.3)",
+  },
+  milestoneText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#FFD700",
+  },
+  doneBtn: {
+    backgroundColor: Colors.dark.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: Spacing.sm,
+    minWidth: 140,
+    alignItems: "center",
+  },
+  doneBtnText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#000",
+  },
+});
+
+// ── Hub Feature Card ───────────────────────────────────────────────────────────
+function FeatureCard({
+  icon,
+  label,
+  sublabel,
+  onPress,
+  badge,
+  color,
+}: {
+  icon: string;
+  label: string;
+  sublabel: string;
+  onPress: () => void;
+  badge?: string | number;
+  color?: string;
+}) {
+  return (
+    <Pressable style={styles.featureCard} onPress={onPress}>
+      <View style={[styles.featureIcon, { backgroundColor: (color ?? Colors.dark.primary) + "22" }]}>
+        <Feather name={icon as any} size={22} color={color ?? Colors.dark.primary} />
+        {badge != null && String(badge) !== "0" && (
+          <View style={styles.featureBadge}>
+            <Text style={styles.featureBadgeText}>{badge}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={styles.featureLabel}>{label}</Text>
+      <Text style={styles.featureSublabel}>{sublabel}</Text>
+      <Feather name="chevron-right" size={14} color={Colors.dark.disabled} style={styles.featureArrow} />
+    </Pressable>
+  );
+}
+
+// ── Compact Mission Bar ────────────────────────────────────────────────────────
+function CompactMissionBar({ mission }: { mission: Mission }) {
+  const pct = mission.targetProgress > 0 ? (mission.currentProgress / mission.targetProgress) * 100 : 0;
+  const isComplete = mission.status === "completed";
+
+  return (
+    <View style={styles.missionBar}>
+      <Text style={styles.missionBarName} numberOfLines={1}>{mission.name}</Text>
+      <View style={styles.missionBarProgress}>
+        <View style={styles.missionBarBg}>
+          <View style={[
+            styles.missionBarFill,
+            { width: `${pct}%`, backgroundColor: isComplete ? Colors.dark.primary : "#4DA3FF" },
+          ]} />
+        </View>
+        <Text style={styles.missionBarText}>
+          {mission.currentProgress}/{mission.targetProgress}
+        </Text>
+        {isComplete && (
+          <View style={styles.missionCompleteTag}>
+            <Text style={styles.missionCompleteTagText}>Claim</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ── Main Hub Screen ────────────────────────────────────────────────────────────
 export default function ArenaHubScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const queryClient = useQueryClient();
+  const [showLoginReward, setShowLoginReward] = useState(false);
+  const [loginRewardDismissed, setLoginRewardDismissed] = useState(false);
 
   const { data, isLoading, refetch, isRefetching } = useQuery<HubData>({
     queryKey: ["/api/arena/hub"],
   });
+
+  // Show login reward modal once on load
+  useEffect(() => {
+    if (data?.loginReward?.awarded && !loginRewardDismissed) {
+      setShowLoginReward(true);
+    }
+  }, [data?.loginReward?.awarded, loginRewardDismissed]);
 
   const handleCardPress = useCallback(() => {
     navigation.navigate("ArenaMyCard");
@@ -64,94 +282,206 @@ export default function ArenaHubScreen() {
     } catch {}
   }, [queryClient]);
 
+  const handleDismissLoginReward = useCallback(() => {
+    setShowLoginReward(false);
+    setLoginRewardDismissed(true);
+  }, []);
+
   const daysRemaining = data?.activeSeason
     ? Math.max(0, Math.ceil((new Date(data.activeSeason.endDate).getTime() - Date.now()) / 86400000))
     : null;
 
+  const activeMissions = (data?.missions ?? []).filter((m) => m.status !== "claimed");
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-      }}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefetching}
-          onRefresh={refetch}
-          tintColor={Colors.dark.primary}
-        />
-      }
-    >
-      {/* Hero title */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Glow Arena</Text>
-        <Text style={styles.subtitle}>Collect. Battle. Conquer.</Text>
-      </View>
-
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator color={Colors.dark.primary} size="large" />
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: insets.bottom + Spacing.xl,
+          paddingHorizontal: Spacing.lg,
+        }}
+        refreshControl={
+          <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.dark.primary} />
+        }
+      >
+        {/* Hero title */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Glow Arena</Text>
+          <Text style={styles.subtitle}>Collect. Battle. Conquer.</Text>
         </View>
-      ) : (
-        <>
-          {/* Season badge */}
-          {data?.activeSeason && (
-            <View style={styles.seasonBadge}>
-              <Feather name="award" size={14} color={Colors.dark.primary} />
-              <Text style={styles.seasonText}>
-                {data.activeSeason.name}
-                {daysRemaining !== null ? `  ·  ${daysRemaining}d left` : ""}
-              </Text>
-            </View>
-          )}
 
-          {/* Champion Card */}
-          <Pressable
-            style={styles.cardContainer}
-            onPress={handleCardPress}
-          >
-            {data?.card && data?.player ? (
-              <ChampionCard
-                card={data.card}
-                player={data.player}
-                size="standard"
-                onPress={handleCardPress}
-              />
-            ) : (
-              <View style={styles.noCardPlaceholder}>
-                <Feather name="credit-card" size={40} color={Colors.dark.disabled} />
-                <Text style={styles.noCardText}>Generating your card…</Text>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={Colors.dark.primary} size="large" />
+          </View>
+        ) : (
+          <>
+            {/* Coin + collection bar */}
+            <View style={styles.statsBar}>
+              <View style={styles.statsBarItem}>
+                <Feather name="zap" size={14} color={Colors.dark.primary} />
+                <Text style={styles.statsBarValue}>{data?.glowCoins ?? 0}</Text>
+                <Text style={styles.statsBarLabel}>Coins</Text>
+              </View>
+              <View style={styles.statsBarDivider} />
+              <View style={styles.statsBarItem}>
+                <Feather name="layers" size={14} color="#4DA3FF" />
+                <Text style={[styles.statsBarValue, { color: "#4DA3FF" }]}>{data?.collectedCount ?? 0}</Text>
+                <Text style={styles.statsBarLabel}>Cards</Text>
+              </View>
+              <View style={styles.statsBarDivider} />
+              <View style={styles.statsBarItem}>
+                <Feather name="trending-up" size={14} color="#FFD700" />
+                <Text style={[styles.statsBarValue, { color: "#FFD700" }]}>{data?.arenaRecord.mmr ?? 1000}</Text>
+                <Text style={styles.statsBarLabel}>MMR</Text>
+              </View>
+            </View>
+
+            {/* Season badge */}
+            {data?.activeSeason && (
+              <View style={styles.seasonBadge}>
+                <Feather name="award" size={14} color={Colors.dark.primary} />
+                <Text style={styles.seasonText}>
+                  {data.activeSeason.name}
+                  {daysRemaining !== null ? `  ·  ${daysRemaining}d left` : ""}
+                </Text>
               </View>
             )}
-          </Pressable>
 
-          {/* Sync button */}
-          <Pressable style={styles.syncButton} onPress={handleSyncCard}>
-            <Feather name="refresh-cw" size={13} color={Colors.dark.text} />
-            <Text style={styles.syncButtonText}>Sync Card</Text>
-          </Pressable>
+            {/* Champion Card */}
+            <Pressable style={styles.cardContainer} onPress={handleCardPress}>
+              {data?.card && data?.player ? (
+                <ChampionCard card={data.card} player={data.player} size="standard" onPress={handleCardPress} />
+              ) : (
+                <View style={styles.noCardPlaceholder}>
+                  <Feather name="credit-card" size={40} color={Colors.dark.disabled} />
+                  <Text style={styles.noCardText}>Generating your card...</Text>
+                </View>
+              )}
+            </Pressable>
 
-          {/* Arena record */}
-          <View style={styles.recordRow}>
-            <RecordStat label="Wins" value={data?.arenaRecord.wins ?? 0} color={Colors.dark.success} />
-            <View style={styles.recordDivider} />
-            <RecordStat label="Losses" value={data?.arenaRecord.losses ?? 0} color={Colors.dark.error} />
-            <View style={styles.recordDivider} />
-            <RecordStat label="Arena MMR" value={data?.arenaRecord.mmr ?? 1000} color={Colors.dark.primary} />
-          </View>
+            {/* Sync + record */}
+            <View style={styles.cardActions}>
+              <Pressable style={styles.syncButton} onPress={handleSyncCard}>
+                <Feather name="refresh-cw" size={12} color={Colors.dark.text} />
+                <Text style={styles.syncButtonText}>Sync Card</Text>
+              </Pressable>
+              <View style={styles.miniRecord}>
+                <RecordStat label="W" value={data?.arenaRecord.wins ?? 0} color={Colors.dark.success} />
+                <Text style={styles.recordSep}>/</Text>
+                <RecordStat label="L" value={data?.arenaRecord.losses ?? 0} color={Colors.dark.error} />
+              </View>
+            </View>
 
-          {/* Locked feature previews */}
-          <Text style={styles.sectionTitle}>Coming Soon</Text>
-          <View style={styles.lockedGrid}>
-            <LockedFeature icon="swords" label="Battle" description="Challenge players to card battles" />
-            <LockedFeature icon="layers" label="Collection" description="Collect player & coach cards" />
-            <LockedFeature icon="package" label="Pack Shop" description="Open card packs" />
-          </View>
-        </>
+            {/* Phase 2 Feature Grid */}
+            <Text style={styles.sectionTitle}>Arena Features</Text>
+            <View style={styles.featureGrid}>
+              <FeatureCard
+                icon="package"
+                label="Pack Shop"
+                sublabel="Open card packs"
+                onPress={() => navigation.navigate("ArenaPackShop")}
+                color={Colors.dark.primary}
+              />
+              <FeatureCard
+                icon="layers"
+                label="My Collection"
+                sublabel={`${data?.collectedCount ?? 0} cards`}
+                onPress={() => navigation.navigate("ArenaMyCollection")}
+                color="#4DA3FF"
+                badge={data?.collectedCount}
+              />
+              <FeatureCard
+                icon="globe"
+                label="The Exchange"
+                sublabel="All cards gallery"
+                onPress={() => navigation.navigate("ArenaGallery")}
+                color="#C040FB"
+              />
+              <FeatureCard
+                icon="zap"
+                label="Quick Draw"
+                sublabel="Instant battles"
+                onPress={() => navigation.navigate("ArenaQuickDraw")}
+                color="#FF4D4D"
+              />
+              <FeatureCard
+                icon="target"
+                label="Missions"
+                sublabel="Weekly challenges"
+                onPress={() => navigation.navigate("ArenaDailyChallenge")}
+                color="#FFD700"
+                badge={activeMissions.filter((m) => m.status === "completed").length || undefined}
+              />
+              <FeatureCard
+                icon="credit-card"
+                label="My Card"
+                sublabel="Champion card"
+                onPress={handleCardPress}
+                color={Colors.dark.primary}
+              />
+            </View>
+
+            {/* Active missions preview */}
+            {activeMissions.length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>Weekly Missions</Text>
+                <Pressable
+                  style={styles.missionsPreviewCard}
+                  onPress={() => navigation.navigate("ArenaDailyChallenge")}
+                >
+                  {activeMissions.slice(0, 3).map((m) => (
+                    <CompactMissionBar key={m.id} mission={m} />
+                  ))}
+                  <View style={styles.viewAllRow}>
+                    <Text style={styles.viewAllText}>View all missions</Text>
+                    <Feather name="chevron-right" size={14} color={Colors.dark.primary} />
+                  </View>
+                </Pressable>
+              </>
+            )}
+
+            {/* Shop preview */}
+            {(data?.shopPreview ?? []).length > 0 && (
+              <>
+                <Text style={styles.sectionTitle}>{"Today's Shop"}</Text>
+                <Pressable
+                  style={styles.shopPreviewCard}
+                  onPress={() => navigation.navigate("ArenaDailyChallenge")}
+                >
+                  {(data?.shopPreview ?? []).map((card) => {
+                    const color = RARITY_COLORS[card.rarity] ?? "#888";
+                    return (
+                      <View key={card.id} style={styles.shopPreviewItem}>
+                        <View style={[styles.shopPreviewIcon, { backgroundColor: color + "22" }]}>
+                          <Feather name="zap" size={16} color={color} />
+                        </View>
+                        <Text style={styles.shopPreviewName} numberOfLines={1}>{card.name}</Text>
+                        <View style={styles.shopPreviewPrice}>
+                          <Feather name="zap" size={10} color={Colors.dark.primary} />
+                          <Text style={styles.shopPreviewPriceText}>{card.price}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                  <View style={styles.viewAllRow}>
+                    <Text style={styles.viewAllText}>Open shop</Text>
+                    <Feather name="chevron-right" size={14} color={Colors.dark.primary} />
+                  </View>
+                </Pressable>
+              </>
+            )}
+          </>
+        )}
+      </ScrollView>
+
+      {/* Login Reward Modal */}
+      {showLoginReward && data?.loginReward && (
+        <LoginRewardModal reward={data.loginReward} onDismiss={handleDismissLoginReward} />
       )}
-    </ScrollView>
+    </>
   );
 }
 
@@ -159,20 +489,7 @@ function RecordStat({ label, value, color }: { label: string; value: number; col
   return (
     <View style={styles.recordStat}>
       <Text style={[styles.recordValue, { color }]}>{value}</Text>
-      <Text style={styles.recordLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function LockedFeature({ icon, label, description }: { icon: any; label: string; description: string }) {
-  return (
-    <View style={styles.lockedCard}>
-      <View style={styles.lockedIconWrap}>
-        <Feather name={icon} size={22} color={Colors.dark.disabled} />
-        <Feather name="lock" size={11} color={Colors.dark.disabled} style={styles.lockOverlay} />
-      </View>
-      <Text style={styles.lockedLabel}>{label}</Text>
-      <Text style={styles.lockedDescription}>{description}</Text>
+      <Text style={styles.recordStatLabel}>{label}</Text>
     </View>
   );
 }
@@ -193,13 +510,45 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.dark.textMuted,
     marginTop: 4,
   },
   loadingContainer: {
     alignItems: "center",
     paddingTop: 60,
+  },
+  statsBar: {
+    flexDirection: "row",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 14,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+  },
+  statsBarItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 2,
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  statsBarValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    marginLeft: 4,
+  },
+  statsBarLabel: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    marginLeft: 2,
+  },
+  statsBarDivider: {
+    width: 1,
+    backgroundColor: Colors.dark.divider,
+    marginVertical: 2,
   },
   seasonBadge: {
     flexDirection: "row",
@@ -238,17 +587,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.textMuted,
   },
-  syncButton: {
+  cardActions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    alignSelf: "center",
-    paddingHorizontal: 16,
+    gap: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  syncButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: Colors.dark.chipBackgroundStrong,
-    marginBottom: Spacing.xl,
     borderWidth: 1,
     borderColor: Colors.dark.chipBorder,
   },
@@ -257,75 +610,194 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
-  recordRow: {
+  miniRecord: {
     flexDirection: "row",
-    backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: 14,
-    padding: Spacing.lg,
-    marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.dark.borderSubtle,
+    alignItems: "center",
+    gap: 8,
   },
   recordStat: {
-    flex: 1,
     alignItems: "center",
+    flexDirection: "row",
+    gap: 3,
   },
   recordValue: {
-    fontSize: 22,
+    fontSize: 15,
     fontWeight: "800",
   },
-  recordLabel: {
+  recordStatLabel: {
     fontSize: 11,
     color: Colors.dark.textMuted,
-    marginTop: 2,
   },
-  recordDivider: {
-    width: 1,
-    backgroundColor: Colors.dark.divider,
-    marginVertical: 4,
+  recordSep: {
+    fontSize: 13,
+    color: Colors.dark.disabled,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
     color: Colors.dark.text,
     marginBottom: Spacing.md,
   },
-  lockedGrid: {
-    gap: Spacing.md,
+  featureGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
   },
-  lockedCard: {
+  featureCard: {
+    width: "48.5%",
     backgroundColor: Colors.dark.backgroundDefault,
-    borderRadius: 12,
+    borderRadius: 14,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+    gap: 4,
+    position: "relative",
+  },
+  featureIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+    position: "relative",
+  },
+  featureBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  featureBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#000",
+  },
+  featureLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  featureSublabel: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+  },
+  featureArrow: {
+    position: "absolute",
+    top: Spacing.md,
+    right: Spacing.md,
+  },
+  missionsPreviewCard: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 14,
     padding: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.dark.borderSubtle,
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  missionBar: {
+    gap: 4,
+  },
+  missionBarName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  missionBarProgress: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 8,
   },
-  lockedIconWrap: {
-    position: "relative",
-    width: 36,
-    height: 36,
+  missionBarBg: {
+    flex: 1,
+    height: 5,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  missionBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  missionBarText: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    minWidth: 28,
+    textAlign: "right",
+  },
+  missionCompleteTag: {
+    backgroundColor: "rgba(200,255,61,0.15)",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  missionCompleteTagText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  viewAllRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    marginTop: 4,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.borderSubtle,
+  },
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  shopPreviewCard: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: 14,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.borderSubtle,
+    gap: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  shopPreviewItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  shopPreviewIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  lockOverlay: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-  },
-  lockedLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.dark.textMuted,
-    flex: 0,
-    width: 80,
-  },
-  lockedDescription: {
+  shopPreviewName: {
     flex: 1,
-    fontSize: 12,
-    color: Colors.dark.disabled,
-    lineHeight: 16,
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  shopPreviewPrice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(200,255,61,0.10)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  shopPreviewPriceText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.primary,
   },
 });

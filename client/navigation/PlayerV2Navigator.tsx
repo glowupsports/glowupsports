@@ -119,6 +119,11 @@ import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import ArenaHubScreen from "@/player/screens/arena/ArenaHubScreen";
 import MyCardScreen from "@/player/screens/arena/MyCardScreen";
+import PackOpeningScreen from "@/player/screens/arena/PackOpeningScreen";
+import MyCollectionScreen from "@/player/screens/arena/MyCollectionScreen";
+import CardGalleryScreen from "@/player/screens/arena/CardGalleryScreen";
+import QuickDrawScreen from "@/player/screens/arena/QuickDrawScreen";
+import DailyChallengeScreen from "@/player/screens/arena/DailyChallengeScreen";
 
 // ─── Stack param list — mirrors PlayerStackParamList minus PlayerTabs ────────
 export type PlayerV2StackParamList = {
@@ -246,6 +251,11 @@ export type PlayerV2StackParamList = {
   // Arena
   ArenaHub: undefined;
   ArenaMyCard: undefined;
+  ArenaPackShop: undefined;
+  ArenaMyCollection: undefined;
+  ArenaGallery: undefined;
+  ArenaQuickDraw: undefined;
+  ArenaDailyChallenge: undefined;
   // Legacy redirects (no-op)
   Schedule: undefined;
   Quests: undefined;
@@ -668,6 +678,11 @@ function PlayerV2StackWithDrawer() {
         {/* ── Arena ── */}
         <Stack.Screen name="ArenaHub" component={ArenaHubScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Glow Arena", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaMyCard" component={MyCardScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Card", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaPackShop" component={PackOpeningScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Pack Shop", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaMyCollection" component={MyCollectionScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Collection", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaGallery" component={CardGalleryScreen} options={{ presentation: "card", headerShown: true, headerTitle: "The Exchange", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaQuickDraw" component={QuickDrawScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Quick Draw", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaDailyChallenge" component={DailyChallengeScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Missions", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
 
         {/* ── Legacy redirects (no-op — Growth tab handles these internally) ── */}
         <Stack.Screen name="Schedule" component={NoOpScreen} options={{ headerShown: false }} />

@@ -353,6 +353,10 @@ router.post(
         console.error("[outside-invites] notify inviter failed:", notifErr);
       }
 
+      // Arena referral reward: the inviter receives the referred player's arena card
+      // after the referred player attends their first session (handled in coaching-series.ts
+      // via awardReferralCard). Nothing to do here at claim time.
+
       res.json({
         ok: true,
         invite: {

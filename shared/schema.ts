@@ -9038,6 +9038,121 @@ export const arenaCardUpgrades = pgTable("arena_card_upgrades", {
   index("arena_card_upgrades_player_idx").on(t.playerId),
 ]);
 
+// ── Arena Global Settings (first edition window, etc.) ────────────────────────
+export const arenaGlobalSettings = pgTable("arena_global_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ── Player Login Streaks (daily login rewards) ─────────────────────────────────
+export const playerLoginStreaks = pgTable("player_login_streaks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().unique(),
+  currentStreak: integer("current_streak").notNull().default(0),
+  lastLoginDate: date("last_login_date"),
+  totalLoginDays: integer("total_login_days").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (t) => [
+  index("player_login_streaks_player_idx").on(t.playerId),
+]);
+
+export type PlayerLoginStreak = typeof playerLoginStreaks.$inferSelect;
+
+// ── Arena Mission Templates (card missions) ────────────────────────────────────
+export const arenaMissionTemplates = pgTable("arena_mission_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  targetAction: text("target_action").notNull(), // collect_player | open_pack | win_battle | collect_rarity
+  targetCount: integer("target_count").notNull().default(1),
+  rewardType: text("reward_type").notNull().default("coins"), // coins | pack | ability_card
+  rewardValue: text("reward_value").notNull().default("100"), // coins amount or pack type
+  cadence: text("cadence").notNull().default("weekly"), // weekly | daily
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ArenaMissionTemplate = typeof arenaMissionTemplates.$inferSelect;
+
+// ── Player Arena Missions (assigned missions) ──────────────────────────────────
+export const playerArenaMissions = pgTable("player_arena_missions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  templateId: varchar("template_id").notNull(),
+  currentProgress: integer("current_progress").notNull().default(0),
+  targetProgress: integer("target_progress").notNull().default(1),
+  status: text("status").notNull().default("active"), // active | completed | claimed | expired
+  rewardType: text("reward_type").notNull().default("coins"),
+  rewardValue: text("reward_value").notNull().default("100"),
+  expiresAt: timestamp("expires_at").notNull(),
+  completedAt: timestamp("completed_at"),
+  claimedAt: timestamp("claimed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => [
+  index("player_arena_missions_player_idx").on(t.playerId),
+  index("player_arena_missions_status_idx").on(t.status),
+]);
+
+export type PlayerArenaMission = typeof playerArenaMissions.$inferSelect;
+
+// ── Player Arena Badges (collection completion) ────────────────────────────────
+export const playerArenaBadges = pgTable("player_arena_badges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  badgeKey: text("badge_key").notNull(), // academy_completionist | coach_collector | world_scout | veteran_diamond
+  badgeLabel: text("badge_label").notNull(),
+  earnedAt: timestamp("earned_at").defaultNow(),
+}, (t) => [
+  index("player_arena_badges_player_idx").on(t.playerId),
+  unique("player_arena_badges_unique").on(t.playerId, t.badgeKey),
+]);
+
+export type PlayerArenaBadge = typeof playerArenaBadges.$inferSelect;
+
+// ── Arena Shop Daily Purchases (per-player per-day enforcement) ────────────────
+export const arenaShopDailyPurchases = pgTable("arena_shop_daily_purchases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  abilityCardId: varchar("ability_card_id").notNull(),
+  purchaseDate: date("purchase_date").notNull(),
+  coinsSpent: integer("coins_spent").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => [
+  index("arena_shop_daily_purchases_player_idx").on(t.playerId),
+  unique("arena_shop_daily_purchases_unique").on(t.playerId, t.abilityCardId, t.purchaseDate),
+]);
+
+export type ArenaShopDailyPurchase = typeof arenaShopDailyPurchases.$inferSelect;
+
+// ── Card Wishlists ─────────────────────────────────────────────────────────────
+export const cardWishlists = pgTable("card_wishlists", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  cardRefId: varchar("card_ref_id").notNull(), // arena_player_cards.id or arena_coach_cards.id
+  cardType: text("card_type").notNull().default("player"), // player | coach
+  addedAt: timestamp("added_at").defaultNow(),
+}, (t) => [
+  index("card_wishlists_player_idx").on(t.playerId),
+  unique("card_wishlists_unique").on(t.playerId, t.cardRefId),
+]);
+
+export type CardWishlist = typeof cardWishlists.$inferSelect;
+
+// ── Arena Daily Challenge Claims (Card of the Day — 3 tiers, once per day) ────
+export const arenaDailyChallengeClaims = pgTable("arena_daily_challenge_claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  challengeDate: date("challenge_date").notNull(),
+  tier: text("tier").notNull(), // easy | medium | hard
+  claimedAt: timestamp("claimed_at").defaultNow(),
+}, (t) => [
+  index("adcc_player_date_idx").on(t.playerId, t.challengeDate),
+  unique("adcc_player_date_tier_unique").on(t.playerId, t.challengeDate, t.tier),
+]);
+
+export type ArenaDailyChallengeClam = typeof arenaDailyChallengeClaims.$inferSelect;
+
 // ==================== ARENA RARITY HELPERS ====================
 
 export type ArenaRarityTier =
