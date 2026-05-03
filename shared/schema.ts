@@ -2802,6 +2802,7 @@ export const academySettings = pgTable("academy_settings", {
   cancellationPolicyEnabled: boolean("cancellation_policy_enabled").default(true),
   cancellationWindowHours: integer("cancellation_window_hours").default(24), // Hours before session when policy kicks in
   cancellationChargePercent: integer("cancellation_charge_percent").default(100), // Percentage charged for late cancellation (0-100)
+  cancellationPolicy: text("cancellation_policy").default("Free cancellation up to 24 hours before the lesson"), // Human-readable policy shown to players
   
   // Onboarding Welcome Video
   welcomeVideoUrl: text("welcome_video_url"), // YouTube or custom video URL for player onboarding

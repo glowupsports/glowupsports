@@ -48,6 +48,7 @@ interface AcademySettings {
   vatRegistrationNumber: string | null;
   openJoin?: boolean;
   slug?: string | null;
+  cancellationPolicy?: string | null;
 }
 
 interface AcademyInvite {
@@ -134,6 +135,7 @@ export default function AcademySettingsScreen() {
     acceptsBankTransfer: true,
     vatRegistrationNumber: "",
     openJoin: true,
+    cancellationPolicy: "Free cancellation up to 24 hours before the lesson",
   });
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -248,6 +250,7 @@ export default function AcademySettingsScreen() {
         acceptsBankTransfer: (settings as any).acceptsBankTransfer !== false,
         vatRegistrationNumber: (settings as any).vatRegistrationNumber || "",
         openJoin: settings.openJoin !== false,
+        cancellationPolicy: settings.cancellationPolicy || "Free cancellation up to 24 hours before the lesson",
       });
       setHasChanges(false);
     }
@@ -294,6 +297,7 @@ export default function AcademySettingsScreen() {
       acceptsBankTransfer: formData.acceptsBankTransfer,
       vatRegistrationNumber: formData.vatRegistrationNumber || null,
       openJoin: formData.openJoin,
+      cancellationPolicy: formData.cancellationPolicy || "Free cancellation up to 24 hours before the lesson",
     } as any);
   };
 
@@ -623,6 +627,27 @@ export default function AcademySettingsScreen() {
             multiline
             numberOfLines={2}
           />
+        </View>
+      </View>
+
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>CANCELLATION POLICY</Text>
+        <Text style={styles.sectionSubtitle}>Shown to players before they confirm a booking</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Policy Text</Text>
+          <TextInput
+            style={[styles.input, styles.multilineInput]}
+            value={formData.cancellationPolicy}
+            onChangeText={(text) => updateField("cancellationPolicy", text)}
+            placeholder="Free cancellation up to 24 hours before the lesson"
+            placeholderTextColor={Colors.dark.textMuted}
+            multiline
+            numberOfLines={3}
+          />
+          <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginTop: 4 }}>
+            This policy is displayed to players on the booking confirmation screen and session detail pages.
+          </Text>
         </View>
       </View>
 

@@ -4643,6 +4643,10 @@ router.get(
         return res.json({ sessions: [] });
       }
 
+      const academySettingsForPolicy = await storage.getAcademySettings(player.academyId);
+      const cancellationPolicy = (academySettingsForPolicy as any)?.cancellationPolicy
+        || "Free cancellation up to 24 hours before the lesson";
+
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
       const DUBAI_OFFSET = 4;
@@ -4725,6 +4729,7 @@ router.get(
             isEnrolled,
             locationName,
             participants: validParticipants,
+            cancellationPolicy,
           };
         }),
       );

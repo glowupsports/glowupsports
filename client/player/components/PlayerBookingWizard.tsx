@@ -562,6 +562,16 @@ export default function PlayerBookingWizard({
     ? true
     : !!lessonPriceInfo;
 
+  // Fetch the academy's cancellation policy to show on the confirm step.
+  const [policyModalVisible, setPolicyModalVisible] = useState(false);
+  const { data: policyData } = useQuery<{ cancellationPolicy: string }>({
+    queryKey: [`/api/player/academy-cancellation-policy/${resolvedAcademyId}`],
+    enabled: visible && !!resolvedAcademyId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const cancellationPolicy = policyData?.cancellationPolicy
+    || "Free cancellation up to 24 hours before the lesson";
+
   // Default selection: prefer Credits when available, else Card if enabled,
   // else Pay later. Re-runs when the inputs that drive availability change.
   useEffect(() => {
@@ -2339,6 +2349,20 @@ export default function PlayerBookingWizard({
               />
             ) : null}
 
+            {/* Cancellation Policy */}
+            {resolvedAcademyId ? (
+              <Pressable
+                style={styles.policyRow}
+                onPress={() => setPolicyModalVisible(true)}
+              >
+                <Ionicons name="shield-checkmark-outline" size={14} color={Colors.dark.textSecondary} />
+                <Text style={styles.policyRowText} numberOfLines={1}>
+                  {cancellationPolicy}
+                </Text>
+                <Ionicons name="information-circle-outline" size={14} color={Colors.dark.textMuted} />
+              </Pressable>
+            ) : null}
+
             {/* XP Preview */}
             <View style={styles.rewardPreview}>
               <View style={styles.rewardItem}>
@@ -2378,6 +2402,30 @@ export default function PlayerBookingWizard({
                 </View>
                 <CreditPackagesList playerId={playerId || ""} />
               </View>
+            </Modal>
+
+            {/* Cancellation policy detail modal */}
+            <Modal
+              visible={policyModalVisible}
+              animationType="fade"
+              transparent={true}
+              onRequestClose={() => setPolicyModalVisible(false)}
+            >
+              <Pressable style={styles.policyOverlay} onPress={() => setPolicyModalVisible(false)}>
+                <View style={styles.policyModalBox}>
+                  <View style={styles.policyModalHeader}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color={GlowColors.primary} />
+                    <Text style={styles.policyModalTitle}>Cancellation Policy</Text>
+                  </View>
+                  <Text style={styles.policyModalBody}>{cancellationPolicy}</Text>
+                  <Pressable
+                    style={styles.policyModalClose}
+                    onPress={() => setPolicyModalVisible(false)}
+                  >
+                    <Text style={styles.policyModalCloseText}>Got it</Text>
+                  </Pressable>
+                </View>
+              </Pressable>
             </Modal>
           </>
         )}
@@ -3378,6 +3426,62 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
     color: Colors.dark.primary,
     textDecorationLine: "underline",
+  },
+  policyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Backgrounds.elevated,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.sm,
+  },
+  policyRowText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  policyOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  policyModalBox: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    width: "100%",
+    gap: Spacing.md,
+  },
+  policyModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  policyModalTitle: {
+    fontSize: 16,
+    fontWeight: "700" as const,
+    color: Colors.dark.text,
+  },
+  policyModalBody: {
+    fontSize: 14,
+    color: Colors.dark.textSecondary,
+    lineHeight: 22,
+  },
+  policyModalClose: {
+    backgroundColor: GlowColors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: 10,
+    alignItems: "center" as const,
+    marginTop: Spacing.xs,
+  },
+  policyModalCloseText: {
+    fontSize: 15,
+    fontWeight: "700" as const,
+    color: Colors.dark.buttonText,
   },
   priceSummaryRow: {
     flexDirection: "row",

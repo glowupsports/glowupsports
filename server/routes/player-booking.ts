@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db, pool } from "../db";
-import { storage } from "../storage";import { players, coaches, users, sessions, coachingSeries, seriesPlayers, creditTransactions, payments, sessionPlayers, sessionWaitlist, leaderboardSnapshots, locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions, coachTimeBlocks, courtAvailability, courtBookings, courts, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, bookingRequests, academyPricing, submitReviewSchema, inSessionFeedback, sessionSkillObservations, xpTransactions, playerSkillScores, glowSkills, sessionRatings, sessionRatingInputSchema, academies, coachReviewStats, locations, parentPlayerRelations, type Coach, type InsertInvoice, type InsertPayment } from "@shared/schema";
+import { storage } from "../storage";import { players, coaches, users, sessions, coachingSeries, seriesPlayers, creditTransactions, payments, sessionPlayers, sessionWaitlist, leaderboardSnapshots, locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions, coachTimeBlocks, courtAvailability, courtBookings, courts, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, bookingRequests, academyPricing, submitReviewSchema, inSessionFeedback, sessionSkillObservations, xpTransactions, playerSkillScores, glowSkills, sessionRatings, sessionRatingInputSchema, academies, coachReviewStats, locations, parentPlayerRelations, academySettings, type Coach, type InsertInvoice, type InsertPayment } from "@shared/schema";
 import { eq, sql, desc, and, ne, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, optionalAuthMiddleware, type JWTPayload } from "../auth";
@@ -2762,6 +2762,24 @@ router.get(
     } catch (error) {
       console.error("[AcademyPricing] lookup error:", error);
       res.status(500).json({ error: "Failed to load pricing" });
+    }
+  },
+);
+
+// Get the cancellation policy text for an academy (player-accessible)
+router.get(
+  "/api/player/academy-cancellation-policy/:academyId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { academyId } = req.params;
+      const settings = await storage.getAcademySettings(academyId);
+      const policy = (settings as any)?.cancellationPolicy
+        || "Free cancellation up to 24 hours before the lesson";
+      return res.json({ cancellationPolicy: policy });
+    } catch (error) {
+      console.error("[CancellationPolicy] lookup error:", error);
+      return res.json({ cancellationPolicy: "Free cancellation up to 24 hours before the lesson" });
     }
   },
 );
@@ -8653,6 +8671,32 @@ router.get(
         }
       }
 
+      // Bulk-fetch cancellation policies for academy-created matches
+      const uniqueAcademyIds = Array.from(
+        new Set(
+          ordered
+            .map((o) => o.m.academyId)
+            .filter((v): v is string => Boolean(v)),
+        ),
+      );
+      const policyByAcademyId = new Map<string, string>();
+      if (uniqueAcademyIds.length > 0) {
+        try {
+          const settingsRows = await db
+            .select({ academyId: academySettings.academyId, cancellationPolicy: academySettings.cancellationPolicy })
+            .from(academySettings)
+            .where(inArray(academySettings.academyId, uniqueAcademyIds));
+          for (const row of settingsRows) {
+            policyByAcademyId.set(
+              row.academyId,
+              (row.cancellationPolicy as string | null) || "Free cancellation up to 24 hours before the lesson",
+            );
+          }
+        } catch (_policyErr) {
+          // Non-critical — policy display degrades gracefully
+        }
+      }
+
       // Transform to format expected by frontend
       const transformedMatches = ordered.map(({ m, levelMatch }) => {
         let scheduledTime: string | null = null;
@@ -8744,6 +8788,7 @@ router.get(
               startMs && startMs < priorityEnd ? startMs : priorityEnd;
             return new Date(effective).toISOString();
           })(),
+          cancellationPolicy: m.academyId ? policyByAcademyId.get(m.academyId) || null : null,
         };
       });
 

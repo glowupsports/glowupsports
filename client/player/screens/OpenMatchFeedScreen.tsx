@@ -76,6 +76,7 @@ interface OpenMatch {
   invitedPlayerName?: string | null;
   linkedChallengeId?: string | null;
   priorityUntil?: string | null;
+  cancellationPolicy?: string | null;
 }
 
 type FilterType = "all" | "singles" | "doubles";
@@ -353,6 +354,20 @@ function PremiumMatchCard({
             </Text>
           </View>
         </View>
+
+        {match.cancellationPolicy ? (
+          <Pressable
+            style={styles.policyRow}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Alert.alert("Cancellation Policy", match.cancellationPolicy!);
+            }}
+          >
+            <Ionicons name="shield-checkmark-outline" size={13} color={Colors.dark.textSecondary} />
+            <Text style={styles.policyRowText} numberOfLines={1}>{match.cancellationPolicy}</Text>
+            <Ionicons name="information-circle-outline" size={13} color={Colors.dark.textMuted} />
+          </Pressable>
+        ) : null}
 
         <View style={styles.cardDivider} />
 
@@ -1018,6 +1033,19 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: FontSizes.xs,
     fontWeight: "600",
     textTransform: "capitalize",
+  },
+  policyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  policyRowText: {
+    flex: 1,
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
   },
   cardDivider: {
     height: 1,

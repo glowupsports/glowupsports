@@ -107,6 +107,7 @@ interface GroupSession {
   currentPlayers?: number;
   isEnrolled?: boolean;
   participants?: Participant[];
+  cancellationPolicy?: string;
 }
 
 export default function BrowseGroupLessonsScreen() {
@@ -120,6 +121,7 @@ export default function BrowseGroupLessonsScreen() {
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<GroupSession | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("my_level");
+  const [policyModalVisible, setPolicyModalVisible] = useState(false);
 
   // Task #1580 — guests use the public sessions feed so they see real
   // upcoming sessions across all academies rather than an empty list.
@@ -535,6 +537,20 @@ export default function BrowseGroupLessonsScreen() {
                     </View>
                   </View>
 
+                  {selectedSession.cancellationPolicy ? (
+                    <TouchableOpacity
+                      style={styles.policyRow}
+                      onPress={() => setPolicyModalVisible(true)}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="shield" size={14} color={ProTennisColors.textSecondary} />
+                      <Text style={styles.policyRowText} numberOfLines={1}>
+                        {selectedSession.cancellationPolicy}
+                      </Text>
+                      <Feather name="info" size={14} color={ProTennisColors.textMuted} />
+                    </TouchableOpacity>
+                  ) : null}
+
                   <View style={styles.participantsSection}>
                     <Text style={styles.participantsTitle}>
                       Players ({selectedSession.participants?.length || 0})
@@ -588,6 +604,30 @@ export default function BrowseGroupLessonsScreen() {
       </Modal>
 
       <GuestPromptModal {...promptProps} message="Sign in to enroll in group sessions and request lessons." />
+      <Modal
+        visible={policyModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setPolicyModalVisible(false)}
+      >
+        <Pressable style={styles.policyOverlay} onPress={() => setPolicyModalVisible(false)}>
+          <View style={styles.policyModalBox}>
+            <View style={styles.policyModalHeader}>
+              <Feather name="shield" size={18} color={ProTennisColors.electricGreen} />
+              <Text style={styles.policyModalTitle}>Cancellation Policy</Text>
+            </View>
+            <Text style={styles.policyModalBody}>
+              {selectedSession?.cancellationPolicy || "Free cancellation up to 24 hours before the lesson"}
+            </Text>
+            <TouchableOpacity
+              style={styles.policyModalClose}
+              onPress={() => setPolicyModalVisible(false)}
+            >
+              <Text style={styles.policyModalCloseText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -894,6 +934,64 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   sessionDetailText: {
     fontSize: 14,
     color: ProTennisColors.textSecondary,
+  },
+  policyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    marginTop: Spacing.sm,
+    backgroundColor: ProTennisColors.cardBackground,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: ProTennisColors.border,
+  },
+  policyRowText: {
+    flex: 1,
+    fontSize: 12,
+    color: ProTennisColors.textSecondary,
+  },
+  policyOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  policyModalBox: {
+    backgroundColor: ProTennisColors.surfaceElevated,
+    borderRadius: 16,
+    padding: Spacing.xl,
+    width: "100%",
+    gap: Spacing.md,
+  },
+  policyModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  policyModalTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: ProTennisColors.textPrimary,
+  },
+  policyModalBody: {
+    fontSize: 14,
+    color: ProTennisColors.textSecondary,
+    lineHeight: 21,
+  },
+  policyModalClose: {
+    backgroundColor: ProTennisColors.electricGreen,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginTop: Spacing.xs,
+  },
+  policyModalCloseText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
   },
   participantsSection: {
     marginTop: Spacing.xl,
