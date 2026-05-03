@@ -71,6 +71,15 @@
       }
     </style>
     <script>
+      // Diagnostic: log unhandled rejection reason so we can identify the source.
+      // This does NOT suppress the CDP event (which Replit monitors), but it tells
+      // us WHAT is being rejected so we can eliminate the source.
+      window.addEventListener('unhandledrejection', function(event) {
+        var r = event.reason;
+        console.log('[unhandledrejection-diag] type=' + typeof r + ' value=' + JSON.stringify(r) + ' constructor=' + (r && r.constructor ? r.constructor.name : 'none') + ' keys=' + (r && typeof r === 'object' ? JSON.stringify(Object.keys(r)) : 'n/a'));
+      });
+    </script>
+    <script>
       // Patch document.fonts.load so that fontfaceobserver can detect icon fonts.
       // Icon fonts only contain glyphs in the Private Use Area (PUA), e.g. U+F100.
       // fontfaceobserver tests with ASCII text ('BESbswy') which does not exist in
