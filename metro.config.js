@@ -60,6 +60,15 @@ config.resolver = {
     new RegExp(`${escapeRegex(path.resolve(__dirname, "scripts"))}.*`),
   ],
   resolveRequest: (context, moduleName, platform) => {
+    if (platform === "web" && moduleName === "react-native-purchases") {
+      return {
+        filePath: path.resolve(
+          __dirname,
+          "client/shims/react-native-purchases.web.ts",
+        ),
+        type: "sourceFile",
+      };
+    }
     if (platform === "web" && moduleName === "react-native-pager-view") {
       return {
         filePath: path.resolve(

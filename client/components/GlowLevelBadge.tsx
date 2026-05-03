@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: `${Colors.border}60`,
+    borderColor: Colors.border,
   },
   glowBackground: {
     ...StyleSheet.absoluteFillObject,

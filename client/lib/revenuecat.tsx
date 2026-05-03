@@ -1,15 +1,21 @@
 import React, { createContext, useContext } from "react";
 import Constants, { ExecutionEnvironment } from "expo-constants";
+import { Platform } from "react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { CustomerInfo, PurchasesOfferings, PurchasesPackage } from "react-native-purchases";
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
+// Do NOT load the SDK on web — the web SDK fires internal Promise.reject(nonError)
+// calls that trigger React Native Web's unhandlederror event, which Replit's canvas
+// detects as a crash. Subscriptions are not available on web anyway.
 let Purchases: typeof import("react-native-purchases").default | null = null;
-try {
-  Purchases = require("react-native-purchases").default;
-} catch {
-  // SDK unavailable
+if (Platform.OS !== "web") {
+  try {
+    Purchases = require("react-native-purchases").default;
+  } catch {
+    // SDK unavailable (e.g. missing native module in Expo Go)
+  }
 }
 
 export const REVENUECAT_ENTITLEMENT_IDENTIFIER = "ai_pro";
