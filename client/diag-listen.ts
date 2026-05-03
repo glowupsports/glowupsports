@@ -109,7 +109,9 @@ if (IS_WEB && typeof window !== "undefined" && typeof window.Promise === "functi
     return promise;
   } as unknown as PromiseConstructor;
 
-  (_SafePromise as unknown as Record<string, unknown>).prototype =
+  // Copy prototype so `promise instanceof Promise` still works.
+  // Cast through unknown to bypass TypeScript's readonly constraint on Function.prototype.
+  (_SafePromise as unknown as { prototype: unknown }).prototype =
     _NativePromise.prototype;
   Object.setPrototypeOf(_SafePromise, _NativePromise);
 

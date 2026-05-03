@@ -124,9 +124,12 @@ args = "GIT_ASKPASS='' GIT_TERMINAL_PROMPT=0 git remote set-url github \"https:/
 name = "db push"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run db:push -- --force"
+args = "npx tsx db-migrate.ts && npm run db:push -- --force"
 
 [[workflows.workflow]]
 name = "lint"
