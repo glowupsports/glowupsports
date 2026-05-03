@@ -1,12 +1,13 @@
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator, type DimensionValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Feather } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
+import { apiRequest } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -18,10 +19,29 @@ interface DashboardData {
   lessonSummary: { scheduled: number; attended: number; missed: number; cancelled: number; makeUps: number };
 }
 
+interface SpendingLimitData {
+  limit: number | null;
+  spent: number;
+  remaining: number | null;
+  unit: string;
+}
+
+const SPENDING_PRESETS: { label: string; cents: number | null }[] = [
+  { label: "£5", cents: 500 },
+  { label: "£10", cents: 1000 },
+  { label: "£25", cents: 2500 },
+  { label: "Unlimited", cents: null },
+];
+
+function formatPounds(cents: number): string {
+  return `£${(cents / 100).toFixed(2)}`;
+}
+
 export default function ParentDashboardScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   
   const playerId = user?.playerId || "";
 
@@ -29,6 +49,28 @@ export default function ParentDashboardScreen() {
     queryKey: [`/api/parent/dashboard/${playerId}`],
     enabled: !!playerId,
   });
+
+  const { data: spendingData } = useQuery<SpendingLimitData>({
+    queryKey: ["/api/arena/monetisation/spending-limit", playerId],
+    enabled: !!playerId,
+  });
+
+  const spendingMutation = useMutation({
+    mutationFn: ({ targetPlayerId, limitCents }: { targetPlayerId: string; limitCents: number | null }) =>
+      apiRequest("POST", "/api/arena/monetisation/spending-limit", { targetPlayerId, limitCents }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/arena/monetisation/spending-limit", playerId] });
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to update spending limit. Please try again.");
+    },
+  });
+
+  const handleSelectPreset = (cents: number | null) => {
+    const childId = dashboardData?.player?.id || playerId;
+    if (!childId) return;
+    spendingMutation.mutate({ targetPlayerId: childId, limitCents: cents });
+  };
 
   interface SessionRatingItem {
     id: string;
@@ -213,6 +255,111 @@ export default function ParentDashboardScreen() {
                 </View>
               </View>
             )}
+
+            <View style={styles.summarySection}>
+              <Text style={styles.sectionTitle}>Arena Spending Limit</Text>
+              <View style={styles.lessonSummaryCard}>
+                <View style={styles.spendingHeader}>
+                  <View style={styles.spendingIconContainer}>
+                    <Ionicons name="shield-checkmark-outline" size={20} color="#a855f7" />
+                  </View>
+                  <View style={styles.spendingHeaderText}>
+                    <Text style={styles.spendingTitle}>Monthly Arena Cap</Text>
+                    <Text style={styles.spendingSubtitle}>
+                      Limit how much your child can spend in the Arena each month
+                    </Text>
+                  </View>
+                </View>
+
+                {spendingData ? (
+                  <>
+                    <View style={styles.spendingStatus}>
+                      <View style={styles.spendingStatRow}>
+                        <Text style={styles.spendingStatLabel}>Spent this month</Text>
+                        <Text style={styles.spendingStatValue}>{formatPounds(spendingData.spent)}</Text>
+                      </View>
+                      {spendingData.limit !== null ? (
+                        <>
+                          <View style={styles.spendingStatRow}>
+                            <Text style={styles.spendingStatLabel}>Monthly cap</Text>
+                            <Text style={[styles.spendingStatValue, { color: "#a855f7" }]}>
+                              {formatPounds(spendingData.limit)}
+                            </Text>
+                          </View>
+                          <View style={styles.spendingProgressBg}>
+                            {(() => {
+                              const limitVal = spendingData.limit ?? 0;
+                              const spentVal = spendingData.spent;
+                              const pct = limitVal > 0
+                                ? Math.min(100, Math.round((spentVal / limitVal) * 100))
+                                : 0;
+                              const fillWidth: DimensionValue = `${pct}%`;
+                              const fillColor =
+                                limitVal > 0 && spentVal >= limitVal
+                                  ? "#EF4444"
+                                  : limitVal > 0 && spentVal / limitVal >= 0.8
+                                  ? "#F59E0B"
+                                  : "#a855f7";
+                              return (
+                                <View
+                                  style={[
+                                    styles.spendingProgressFill,
+                                    { width: fillWidth, backgroundColor: fillColor },
+                                  ]}
+                                />
+                              );
+                            })()}
+                          </View>
+                          {spendingData.remaining !== null ? (
+                            <Text style={styles.spendingRemaining}>
+                              {formatPounds(spendingData.remaining)} remaining
+                            </Text>
+                          ) : null}
+                        </>
+                      ) : (
+                        <View style={styles.spendingStatRow}>
+                          <Text style={styles.spendingStatLabel}>Monthly cap</Text>
+                          <Text style={[styles.spendingStatValue, { color: Colors.dark.textMuted }]}>Unlimited</Text>
+                        </View>
+                      )}
+                    </View>
+                  </>
+                ) : null}
+
+                <View style={styles.spendingDivider} />
+                <Text style={styles.spendingPresetLabel}>Set monthly cap:</Text>
+                <View style={styles.spendingPresets}>
+                  {SPENDING_PRESETS.map((preset) => {
+                    const isActive = spendingData
+                      ? preset.cents === spendingData.limit
+                      : false;
+                    const isSaving = spendingMutation.isPending;
+                    return (
+                      <Pressable
+                        key={preset.label}
+                        style={({ pressed }) => [
+                          styles.presetChip,
+                          isActive && styles.presetChipActive,
+                          pressed && styles.presetChipPressed,
+                          isSaving && styles.presetChipDisabled,
+                        ]}
+                        onPress={() => handleSelectPreset(preset.cents)}
+                        disabled={isSaving}
+                        android_ripple={{ color: "rgba(168, 85, 247, 0.2)" }}
+                      >
+                        {isSaving && isActive ? (
+                          <ActivityIndicator size="small" color="#a855f7" />
+                        ) : (
+                          <Text style={[styles.presetChipText, isActive && styles.presetChipTextActive]}>
+                            {preset.label}
+                          </Text>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
 
             <View style={styles.quickActions}>
               <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -448,5 +595,112 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   emptyText: {
     ...Typography.body,
     color: Colors.dark.textMuted,
+  },
+  spendingHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  spendingIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(168, 85, 247, 0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  spendingHeaderText: {
+    flex: 1,
+  },
+  spendingTitle: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  spendingSubtitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  spendingStatus: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  spendingStatRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  spendingStatLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  spendingStatValue: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  spendingProgressBg: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    marginTop: Spacing.xs,
+    overflow: "hidden",
+  },
+  spendingProgressFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  spendingRemaining: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "right",
+    marginTop: 2,
+  },
+  spendingDivider: {
+    height: 1,
+    backgroundColor: Colors.dark.border,
+    marginVertical: Spacing.md,
+  },
+  spendingPresetLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+  },
+  spendingPresets: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+  },
+  presetChip: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full ?? 999,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    minWidth: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  presetChipActive: {
+    backgroundColor: "rgba(168, 85, 247, 0.15)",
+    borderColor: "#a855f7",
+  },
+  presetChipPressed: {
+    opacity: 0.75,
+  },
+  presetChipDisabled: {
+    opacity: 0.6,
+  },
+  presetChipText: {
+    ...Typography.caption,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+  },
+  presetChipTextActive: {
+    color: "#a855f7",
   },
 }));
