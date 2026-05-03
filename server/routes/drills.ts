@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { db } from "../db";
 import { drills, playerSavedDrills, playerDrillLogs, coachAssignedDrills, coaches } from "../../shared/schema";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, inArray } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, requireRole } from "../auth";
 import { awardXP } from "../services/xp-service";
 
@@ -310,7 +310,46 @@ router.get("/api/coach/players/:playerId/drills/assigned", authMiddleware, requi
       .where(eq(coachAssignedDrills.playerId, playerId))
       .orderBy(desc(coachAssignedDrills.assignedAt));
 
-    res.json({ assigned: rows.map(r => ({ ...r.cad, drill: r.d })) });
+    const drillIds = [...new Set(rows.map(r => r.cad.drillId))];
+    const logs = drillIds.length > 0
+      ? await db
+          .select()
+          .from(playerDrillLogs)
+          .where(and(eq(playerDrillLogs.playerId, playerId), inArray(playerDrillLogs.drillId, drillIds)))
+      : [];
+
+    const logsByDrillId: Record<string, typeof logs> = {};
+    for (const log of logs) {
+      if (!logsByDrillId[log.drillId]) logsByDrillId[log.drillId] = [];
+      logsByDrillId[log.drillId].push(log);
+    }
+
+    const assigned = rows.map(r => {
+      const drillLogs = (logsByDrillId[r.cad.drillId] ?? [])
+        .slice()
+        .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+      const completionCount = drillLogs.length;
+      const ratingsWithValue = drillLogs.filter(l => l.rating !== null && l.rating !== undefined);
+      const avgRating = ratingsWithValue.length > 0
+        ? ratingsWithValue.reduce((sum, l) => sum + (l.rating ?? 0), 0) / ratingsWithValue.length
+        : null;
+      const lastLoggedAt = drillLogs.length > 0 && drillLogs[0].createdAt ? drillLogs[0].createdAt.toISOString() : null;
+      const recentLogs = drillLogs.slice(0, 5).map(l => ({
+        id: l.id,
+        createdAt: l.createdAt ? l.createdAt.toISOString() : null,
+        durationDone: l.durationDone,
+        rating: l.rating,
+        notes: l.notes,
+      }));
+      return {
+        ...r.cad,
+        drill: r.d,
+        logSummary: { completionCount, avgRating, lastLoggedAt },
+        recentLogs,
+      };
+    });
+
+    res.json({ assigned });
   } catch (error) {
     console.error("[GET coach assigned drills]", error);
     res.status(500).json({ error: "Failed to fetch assigned drills" });

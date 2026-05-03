@@ -404,6 +404,20 @@ interface DrillItem {
   description: string | null;
 }
 
+interface DrillLogSummary {
+  completionCount: number;
+  avgRating: number | null;
+  lastLoggedAt: string | null;
+}
+
+interface DrillLogEntry {
+  id: string;
+  createdAt: string | null;
+  durationDone: number | null;
+  rating: number | null;
+  notes: string | null;
+}
+
 interface CoachAssignment {
   id: string;
   drillId: string;
@@ -411,6 +425,8 @@ interface CoachAssignment {
   assignedAt: string;
   dismissedAt: string | null;
   drill: DrillItem;
+  logSummary: DrillLogSummary;
+  recentLogs: DrillLogEntry[];
 }
 
 const CATEGORY_ICON: Record<string, string> = {
@@ -515,19 +531,75 @@ function PlayerDrillsSection({ playerId }: { playerId: string }) {
           const cat = a.drill.category ?? "Other";
           const color = CATEGORY_COLOR[cat] ?? "#6B7280";
           const icon = CATEGORY_ICON[cat] ?? "ellipsis-horizontal-circle-outline";
+          const { completionCount, avgRating } = a.logSummary ?? { completionCount: 0, avgRating: null, lastLoggedAt: null };
+          const hasActivity = completionCount > 0;
+          const avgStars = avgRating !== null ? Math.round(avgRating) : null;
+          const recentLogs = a.recentLogs ?? [];
           return (
-            <View key={a.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: Colors.dark.backgroundDefault, borderRadius: 12, borderWidth: 1, borderColor: Colors.dark.chipBorder, padding: 12 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: color + "22", alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name={icon as any} size={18} color={color} />
+            <View key={a.id} style={{ backgroundColor: Colors.dark.backgroundDefault, borderRadius: 12, borderWidth: 1, borderColor: Colors.dark.chipBorder, padding: 12, gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: color + "22", alignItems: "center", justifyContent: "center" }}>
+                  <Ionicons name={icon as any} size={18} color={color} />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.dark.text }} numberOfLines={1}>{a.drill.name}</Text>
+                  {a.message ? <Text style={{ fontSize: 12, color: Colors.dark.textMuted, fontStyle: "italic" }} numberOfLines={2}>{a.message}</Text> : null}
+                  <Text style={{ fontSize: 11, color: Colors.dark.textSecondary }}>{a.drill.difficulty ?? "Intermediate"} • {a.drill.durationMinutes ?? 15} min</Text>
+                </View>
+                <Pressable hitSlop={8} onPress={() => Alert.alert("Remove Drill", "Remove this drill assignment?", [{ text: "Cancel" }, { text: "Remove", style: "destructive", onPress: () => handleUnassign(a.id) }])}>
+                  <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
+                </Pressable>
               </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.dark.text }} numberOfLines={1}>{a.drill.name}</Text>
-                {a.message ? <Text style={{ fontSize: 12, color: Colors.dark.textMuted, fontStyle: "italic" }} numberOfLines={2}>{a.message}</Text> : null}
-                <Text style={{ fontSize: 11, color: Colors.dark.textSecondary }}>{a.drill.difficulty ?? "Intermediate"} • {a.drill.durationMinutes ?? 15} min</Text>
+              <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)", paddingTop: 8, gap: 6 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons name="checkmark-circle-outline" size={13} color={hasActivity ? "#22C55E" : Colors.dark.textMuted} />
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: hasActivity ? Colors.dark.text : Colors.dark.textMuted }}>
+                      {completionCount} {completionCount === 1 ? "completion" : "completions"}
+                    </Text>
+                  </View>
+                  {avgStars !== null ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                      {[1, 2, 3, 4, 5].map(s => (
+                        <Ionicons key={s} name={s <= avgStars ? "star" : "star-outline"} size={11} color={s <= avgStars ? "#F59E0B" : Colors.dark.textMuted} />
+                      ))}
+                      <Text style={{ fontSize: 11, color: Colors.dark.textSecondary, marginLeft: 2 }}>avg</Text>
+                    </View>
+                  ) : (
+                    <Text style={{ fontSize: 11, color: Colors.dark.textMuted }}>No rating yet</Text>
+                  )}
+                </View>
+                {recentLogs.length > 0 ? (
+                  <View style={{ gap: 4, marginTop: 2 }}>
+                    {recentLogs.map((log) => {
+                      const logDate = log.createdAt
+                        ? new Date(log.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                        : null;
+                      const logStars = log.rating ?? null;
+                      return (
+                        <View key={log.id} style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 8, padding: 7 }}>
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                              {logDate ? <Text style={{ fontSize: 11, fontWeight: "600", color: Colors.dark.textSecondary }}>{logDate}</Text> : null}
+                              {log.durationDone ? <Text style={{ fontSize: 11, color: Colors.dark.textMuted }}>{log.durationDone} min</Text> : null}
+                              {logStars !== null ? (
+                                <View style={{ flexDirection: "row", alignItems: "center", gap: 1 }}>
+                                  {[1, 2, 3, 4, 5].map(s => (
+                                    <Ionicons key={s} name={s <= logStars ? "star" : "star-outline"} size={10} color={s <= logStars ? "#F59E0B" : Colors.dark.textMuted} />
+                                  ))}
+                                </View>
+                              ) : null}
+                            </View>
+                            {log.notes ? <Text style={{ fontSize: 11, color: Colors.dark.textMuted, fontStyle: "italic" }} numberOfLines={2}>{log.notes}</Text> : null}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 11, color: Colors.dark.textMuted, fontStyle: "italic" }}>No completions logged yet</Text>
+                )}
               </View>
-              <Pressable hitSlop={8} onPress={() => Alert.alert("Remove Drill", "Remove this drill assignment?", [{ text: "Cancel" }, { text: "Remove", style: "destructive", onPress: () => handleUnassign(a.id) }])}>
-                <Ionicons name="trash-outline" size={18} color={Colors.dark.error} />
-              </Pressable>
             </View>
           );
         })
