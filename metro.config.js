@@ -63,6 +63,24 @@ config.resolver = {
         type: "sourceFile",
       };
     }
+    if (platform === "web" && moduleName === "react-native-health") {
+      return {
+        filePath: path.resolve(
+          __dirname,
+          "client/shims/react-native-health.web.ts",
+        ),
+        type: "sourceFile",
+      };
+    }
+    if (platform === "web" && moduleName === "react-native-health-connect") {
+      return {
+        filePath: path.resolve(
+          __dirname,
+          "client/shims/react-native-health-connect.web.ts",
+        ),
+        type: "sourceFile",
+      };
+    }
     return context.resolveRequest(context, moduleName, platform);
   },
 };
