@@ -21,7 +21,6 @@
  * ║    • HeroCarousel (upcoming sessions / announcements)                       ║
  * ║    • AICoachHomeCard (inline AI coach prompt)                               ║
  * ║    • PlayerOfTheWeekCard (spotlight)                                        ║
- * ║    • QuestsCard (daily / weekly quests)                                     ║
  * ║    • CoachesRail, Discovery rows, Booking wizard, modals …                 ║
  * ║                                                                              ║
  * ║  What does NOT live here (removed in Tasks #1537 / #1538):                  ║
@@ -99,7 +98,6 @@ import { UpcomingProviderSessionCard } from "@/player/components/UpcomingProvide
 import { WelcomeGuideCard } from "@/player/components/WelcomeGuideCard";
 import { CoachesRail, JoinAcademySoftCard } from "@/player/components/CoachesRail";
 import { PlayersNearYouRow, CountryLeaderboardsEntry } from "@/player/components/DiscoveryRows";
-import { useQuests, Quest } from "@/player/hooks/useQuests";
 import SpotlightNominationModal from "@/player/components/SpotlightNominationModal";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
@@ -110,7 +108,6 @@ import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { AICoachHomeCard } from "@/player/components/AICoachHomeCard";
 import { PostSessionCheckInModal } from "@/player/components/PostSessionCheckInModal";
 import { PlayerOfTheWeekCard } from "@/player/components/PlayerOfTheWeekCard";
-import { MiniFeed } from "@/player/components/MiniFeed";
 import { GlowMarketSpotlight } from "@/player/components/GlowMarketSpotlight";
 import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import { GlowAssessmentCard } from "@/player/components/GlowAssessmentCard";
@@ -150,80 +147,6 @@ interface DashboardData {
   } | null;
   isFreePlayer?: boolean;
 }
-
-// ─── QuestsCard ───────────────────────────────────────────────────────────
-const QuestsCard = React.memo(function QuestsCard({ onQuestPress }: { onQuestPress: () => void }) {
-  const { user } = useAuth();
-  const { data: questsData } = useQuests(!!user?.playerId);
-  const { quest, questType } = useMemo(() => {
-    if (!questsData) return { quest: null as Quest | null, questType: null as "daily" | null };
-    const dailyActive = questsData.daily.filter((q) => q.status === "active" || q.status === "in_progress");
-    const tagged: { quest: Quest; type: "daily" }[] = [
-      ...dailyActive.map((q) => ({ quest: q, type: "daily" as const })),
-    ];
-    if (tagged.length === 0) return { quest: null as Quest | null, questType: null as "daily" | null };
-    const sorted = tagged.sort((a, b) => {
-      const aRatio = a.quest.targetProgress > 0 ? a.quest.currentProgress / a.quest.targetProgress : 0;
-      const bRatio = b.quest.targetProgress > 0 ? b.quest.currentProgress / b.quest.targetProgress : 0;
-      return bRatio - aRatio;
-    });
-    return { quest: sorted[0].quest as Quest | null, questType: sorted[0].type as "daily" | null };
-  }, [questsData]);
-
-  const questProgress = quest && quest.targetProgress > 0 ? Math.min(quest.currentProgress / quest.targetProgress, 1) : 0;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={quest ? `Quest: ${quest.name}` : "View quests"}
-      style={({ pressed }) => [qc.card, pressed && qc.pressed]}
-      onPress={onQuestPress}
-    >
-      <View style={qc.header}>
-        <View style={qc.headerLeft}>
-          <Ionicons name={quest ? "flame" : "flame-outline"} size={14} color={GlowColors.orange} />
-          <Text style={qc.label} numberOfLines={1}>
-            {quest ? "DAILY QUEST" : "QUESTS"}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={15} color={Colors.dark.textMuted} />
-      </View>
-      {quest ? (
-        <>
-          <Text style={qc.questName} numberOfLines={2}>{quest.name}</Text>
-          <View style={qc.progressBar}>
-            <View style={[qc.progressFill, { width: `${Math.max(questProgress * 100, 2)}%` as DimensionValue, backgroundColor: quest.iconColor || GlowColors.primary }]} />
-          </View>
-          <View style={qc.footer}>
-            <Text style={qc.progressText}>{quest.currentProgress}/{quest.targetProgress}</Text>
-            <View style={qc.xpRow}>
-              <Ionicons name="flash" size={11} color={Colors.dark.gold} />
-              <Text style={qc.xpText}>+{quest.xpReward ?? 0} XP</Text>
-            </View>
-          </View>
-        </>
-      ) : (
-        <Text style={qc.emptyText}>No active quest — tap to view all</Text>
-      )}
-    </Pressable>
-  );
-});
-
-const qc = makeReactiveStyles(() => StyleSheet.create({
-  card: { marginHorizontal: Spacing.lg, backgroundColor: "rgba(255,133,27,0.06)", borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: "rgba(255,133,27,0.18)", padding: Spacing.md, gap: 8 },
-  pressed: { opacity: 0.82 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 5 },
-  label: { fontSize: 10, fontWeight: "800", color: GlowColors.orange, letterSpacing: 1.2 },
-  questName: { fontSize: 14, fontWeight: "700", color: Colors.dark.text, lineHeight: 18 },
-  emptyText: { fontSize: 13, color: Colors.dark.textMuted },
-  progressBar: { height: 4, backgroundColor: Colors.dark.chipBackgroundStrong, borderRadius: 2, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 2 },
-  footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  progressText: { fontSize: 11, color: Colors.dark.textSubtle, fontWeight: "700" },
-  xpRow: { flexDirection: "row", alignItems: "center", gap: 3 },
-  xpText: { fontSize: 11, color: Colors.dark.gold, fontWeight: "700" },
-}));
 
 // ─── PlayerDNABanner (exact copy from ProPlayerHomeScreen) ─────────────────
 const PlayerDNABanner = React.memo(function PlayerDNABanner({ playerId }: { playerId: string }) {
@@ -996,16 +919,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
                 onViewDetails={() => navigation.navigate("SpotlightDetail" as never)}
               />
 
-              <View style={styles.improveCardGap} />
-
-              <QuestsCard
-                onQuestPress={() => {
-                  track("home:quest_tracker");
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  navigateToTab("Growth", { screen: "QuestsMain" });
-                }}
-              />
-
               {/* RecentFeedback & UpcomingAppointment — academy-only */}
               {!isFreePlayer ? (
                 <>
@@ -1028,13 +941,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           {!isGuest && !isFreePlayer ? (
             <LazyOnScroll minHeight={180}>
               <SquadVsSquadWidget />
-            </LazyOnScroll>
-          ) : null}
-
-          {/* COMMUNITY */}
-          {!isGuest ? (
-            <LazyOnScroll>
-              <MiniFeed />
             </LazyOnScroll>
           ) : null}
 
