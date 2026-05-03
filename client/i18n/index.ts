@@ -74,11 +74,15 @@ export const initializeI18n = async () => {
 
   // Check stored preference in the background; update language if needed.
   // This won't delay app startup — it resolves asynchronously after the UI is visible.
-  getStoredLanguage().then(storedLang => {
-    if (storedLang && storedLang !== i18n.language) {
-      i18n.changeLanguage(storedLang);
-    }
-  });
+  getStoredLanguage()
+    .then(storedLang => {
+      if (storedLang && storedLang !== i18n.language) {
+        return i18n.changeLanguage(storedLang);
+      }
+    })
+    .catch(() => {
+      // Non-fatal: if we can't read the stored language, just stay with the default.
+    });
 
   return i18n;
 };
