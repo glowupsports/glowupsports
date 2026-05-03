@@ -137,10 +137,14 @@ router.get(
         }
       }
 
-      // Skill tags from play style
-      const skillTags = opponent.playStyle
-        ? (PLAYSTYLE_SKILL_TAGS[opponent.playStyle] ?? []).slice(0, 3)
-        : [];
+      // Skill tags: prefer explicit player-selected tags; fall back to play-style derivation
+      const explicitTags: string[] | null | undefined = opponent.skillTags;
+      const skillTags =
+        explicitTags && explicitTags.length > 0
+          ? explicitTags.slice(0, 3)
+          : opponent.playStyle
+            ? (PLAYSTYLE_SKILL_TAGS[opponent.playStyle] ?? []).slice(0, 3)
+            : [];
 
       const archetype = opponent.playStyle
         ? PLAYSTYLE_LABELS[opponent.playStyle] ?? null

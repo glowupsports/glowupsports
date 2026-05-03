@@ -95,6 +95,7 @@ interface ProfileData {
     homeAddress?: string | null;
     homeLat?: number | null;
     homeLng?: number | null;
+    skillTags?: string[] | null;
   };
   coach: {
     id: string;
@@ -455,6 +456,112 @@ const sportSectionStyles = makeReactiveStyles(() => StyleSheet.create({
   },
 }));
 
+// All skill tag options drawn from PLAYSTYLE_SKILL_TAGS (Task #1617)
+const ALL_SKILL_TAGS = [
+  "Deep Groundstrokes", "Consistency", "Endurance",
+  "Net Play", "Volleys", "Approach Shots",
+  "Strong Serve", "First Strike", "Power",
+  "Versatility", "All-Court", "Adaptability",
+  "Defense", "Counter Punching", "Speed",
+  "Placement", "Strategy", "Spin Variation",
+];
+
+interface MyStrengthsSectionProps {
+  selectedTags: string[];
+  onToggleTag: (tag: string) => void;
+  isSaving: boolean;
+}
+
+function MyStrengthsSection({ selectedTags, onToggleTag, isSaving }: MyStrengthsSectionProps) {
+  return (
+    <View style={strengthStyles.card}>
+      <Text style={strengthStyles.hint}>Pick up to 3 tags that best describe your game</Text>
+      <View style={strengthStyles.tagsWrap}>
+        {ALL_SKILL_TAGS.map((tag) => {
+          const isSelected = selectedTags.includes(tag);
+          const atLimit = selectedTags.length >= 3 && !isSelected;
+          return (
+            <Pressable
+              key={tag}
+              style={[
+                strengthStyles.tag,
+                isSelected && strengthStyles.tagSelected,
+                atLimit && strengthStyles.tagDisabled,
+              ]}
+              onPress={() => {
+                if (atLimit) return;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onToggleTag(tag);
+              }}
+              disabled={isSaving}
+            >
+              {isSelected ? (
+                <Ionicons name="checkmark-circle" size={13} color={Colors.dark.primary} />
+              ) : null}
+              <Text style={[strengthStyles.tagText, isSelected && strengthStyles.tagTextSelected]}>
+                {tag}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {selectedTags.length > 0 ? (
+        <Text style={strengthStyles.selectedCount}>{selectedTags.length} / 3 selected</Text>
+      ) : null}
+    </View>
+  );
+}
+
+const strengthStyles = makeReactiveStyles(() => StyleSheet.create({
+  card: {
+    marginHorizontal: Spacing.xl,
+    ...CardStyles.elevated,
+    padding: Spacing.lg,
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  hint: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  tagsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+  },
+  tag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.card,
+  },
+  tagSelected: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "18",
+  },
+  tagDisabled: {
+    opacity: 0.4,
+  },
+  tagText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  tagTextSelected: {
+    color: Colors.dark.primary,
+  },
+  selectedCount: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "right",
+  },
+}));
+
 export default function PlayerProfileScreen() {
   useThemeReactivity();
   const { t } = useTranslation();
@@ -777,6 +884,20 @@ export default function PlayerProfileScreen() {
     },
     onError: () => {
       Alert.alert("Error", "Could not update sport profile. Please try again.");
+    },
+  });
+
+  const updateSkillTags = useMutation({
+    mutationFn: async (tags: string[]) => {
+      return apiRequest("PATCH", "/api/player/me/profile", { skillTags: tags });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/profile-data"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Could not update strengths. Please try again.");
     },
   });
 
@@ -1710,6 +1831,20 @@ export default function PlayerProfileScreen() {
           sportProfiles={player.sportProfiles}
           onUpdateSports={(updatedProfiles) => updateSportProfiles.mutate(updatedProfiles)}
           isSaving={updateSportProfiles.isPending}
+        />
+
+        {/* My Strengths Section — Task #1617 */}
+        <Text style={styles.sectionGroupHeader}>My Strengths</Text>
+        <MyStrengthsSection
+          selectedTags={player.skillTags ?? []}
+          onToggleTag={(tag) => {
+            const current = player.skillTags ?? [];
+            const next = current.includes(tag)
+              ? current.filter((t) => t !== tag)
+              : [...current, tag];
+            updateSkillTags.mutate(next);
+          }}
+          isSaving={updateSkillTags.isPending}
         />
 
         {/* ── Achievements Section ──────────────────────────────────────── */}

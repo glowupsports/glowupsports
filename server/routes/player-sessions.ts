@@ -1999,6 +1999,7 @@ import fs from "fs";
             homeLng: player.homeLng ?? null,
             city: (player as any).city || null,
             country: (player as any).country || null,
+            skillTags: (player as any).skillTags || null,
           },
           coach: coach
             ? {
@@ -2140,6 +2141,31 @@ import fs from "fs";
           const sportProfilesJson = JSON.stringify(req.body.sportProfiles);
           await db.execute(
             sql`UPDATE players SET sport_profiles = ${sportProfilesJson}::jsonb WHERE id = ${playerId}`,
+          );
+        }
+        if (req.body.skillTags !== undefined) {
+          const VALID_SKILL_TAGS = new Set([
+            "Deep Groundstrokes", "Consistency", "Endurance",
+            "Net Play", "Volleys", "Approach Shots",
+            "Strong Serve", "First Strike", "Power",
+            "Versatility", "All-Court", "Adaptability",
+            "Defense", "Counter Punching", "Speed",
+            "Placement", "Strategy", "Spin Variation",
+          ]);
+          const rawTags = req.body.skillTags;
+          if (!Array.isArray(rawTags)) {
+            return res.status(400).json({ error: "skillTags must be an array" });
+          }
+          if (rawTags.length > 12) {
+            return res.status(400).json({ error: "skillTags cannot exceed 12 entries" });
+          }
+          const invalidTags = rawTags.filter((t: unknown) => typeof t !== "string" || !VALID_SKILL_TAGS.has(t));
+          if (invalidTags.length > 0) {
+            return res.status(400).json({ error: "Invalid skill tag(s)", invalid: invalidTags });
+          }
+          const skillTagsJson = JSON.stringify(rawTags);
+          await db.execute(
+            sql`UPDATE players SET skill_tags = ${skillTagsJson}::jsonb WHERE id = ${playerId}`,
           );
         }
         if (req.body.homeAddress !== undefined || req.body.homeLat !== undefined || req.body.homeLng !== undefined) {

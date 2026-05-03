@@ -1190,6 +1190,10 @@ export const players = pgTable("players", {
     category?: string | null;
     rating?: string | null;
   }>>(),
+
+  // Manually selected skill strength tags for scouting cards (Task #1617).
+  // When present the scout API prefers these over play-style-derived tags.
+  skillTags: jsonb("skill_tags").$type<string[]>(),
   
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
@@ -1314,6 +1318,7 @@ export const playerSelfUpdateSchema = z.object({
   enjoymentTags: z.array(z.string()).optional().nullable(),
   gender: z.enum(["male", "female", "prefer_not_to_say"]).optional().nullable(),
   quizScore: z.number().int().min(0).max(3).optional().nullable(),
+  skillTags: z.array(z.string()).max(12).optional().nullable(),
 });
 
 // Youth Ball Stages - Constants for skill level progression
