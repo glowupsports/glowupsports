@@ -1043,7 +1043,7 @@ export function PlayersYouMightKnowRow({ sport }: { sport?: string } = {}) {
   );
 }
 
-const discoveryRowStyles = StyleSheet.create({
+const discoveryRowStyles = makeReactiveStyles(() => StyleSheet.create({
   card: {
     alignItems: "center",
     gap: 4,
@@ -1089,7 +1089,7 @@ const discoveryRowStyles = StyleSheet.create({
     fontSize: 12,
     color: ProTennisColors.textMuted,
   },
-});
+}));
 
 interface TournamentMini {
   id: string;
@@ -2565,7 +2565,7 @@ export function CountryLeaderboardsEntry() {
   );
 }
 
-const leaderboardEntryStyles = StyleSheet.create({
+const leaderboardEntryStyles = makeReactiveStyles(() => StyleSheet.create({
   wrap: { paddingHorizontal: Spacing.lg },
   card: {
     flexDirection: "row",
@@ -2587,4 +2587,4 @@ const leaderboardEntryStyles = StyleSheet.create({
   content: { flex: 1, gap: 2 },
   title: { fontSize: 15, fontWeight: "700", color: Colors.dark.text },
   subtitle: { fontSize: 12, color: Colors.dark.textMuted },
-});
+}));

@@ -584,7 +584,7 @@ function SessionDetailModal({ item, visible, onClose, onRate }: {
   );
 }
 
-const sd = StyleSheet.create({
+const sd = makeReactiveStyles(() => StyleSheet.create({
   overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" },
   backdrop: { flex: 1 },
   sheet: { backgroundColor: Colors.dark.backgroundDefault, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: Spacing.xl, paddingTop: Spacing.md, minHeight: 300 },
@@ -608,7 +608,7 @@ const sd = StyleSheet.create({
   milestoneBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.md, backgroundColor: "#EAB30815", borderRadius: 12, padding: Spacing.md, borderWidth: 1, borderColor: "#EAB30830" },
   milestoneTitle: { fontSize: 14, fontWeight: "800", color: "#EAB308" },
   milestoneDesc: { fontSize: 12, color: Colors.dark.textMuted, marginTop: 1 },
-});
+}));
 
 function SessionHistoryCard({
   item,
@@ -694,7 +694,7 @@ function SessionMonthHeader({ title }: { title: string }) {
   );
 }
 
-const sh = StyleSheet.create({
+const sh = makeReactiveStyles(() => StyleSheet.create({
   card: { flexDirection: "row", marginBottom: 0, paddingHorizontal: Spacing.xl },
   leftTrack: { width: 20, alignItems: "center", paddingTop: 4 },
   trackLine: { flex: 1, width: 1.5, backgroundColor: Colors.dark.backgroundTertiary, marginTop: 4 },
@@ -725,7 +725,7 @@ const sh = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
-});
+}));
 
 export default function PlayerJourneyScreen() {
   const insets = useSafeAreaInsets();
