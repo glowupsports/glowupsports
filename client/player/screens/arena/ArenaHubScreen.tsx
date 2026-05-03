@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,11 +13,14 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useHeaderHeight, HeaderButton } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Spacing } from "@/constants/theme";
 import ChampionCard from "@/player/components/arena/ChampionCard";
 import { apiRequest } from "@/lib/query-client";
+
+const ARENA_INTRO_SEEN_KEY = "@glow_arena_intro_seen_v1";
 
 interface Mission {
   id: string;
@@ -189,6 +192,175 @@ const rewardStyles = StyleSheet.create({
   },
 });
 
+// ── Arena Intro Modal ──────────────────────────────────────────────────────────
+const INTRO_SECTIONS = [
+  {
+    icon: "zap" as const,
+    color: Colors.dark.primary,
+    title: "What is the Glow Arena?",
+    body: "The Arena is your competitive battleground. Collect Champion Cards, battle other players, and climb the MMR leaderboard each season.",
+  },
+  {
+    icon: "credit-card" as const,
+    color: "#C040FB",
+    title: "Champion Cards",
+    body: "Your Champion Card reflects your real tennis stats — Power, Technique, Mental and Tactics. Sync it regularly to keep your card strong.",
+  },
+  {
+    icon: "package" as const,
+    color: "#4DA3FF",
+    title: "Pack Shop & Collection",
+    body: "Spend Glow Coins in the Pack Shop to open card packs and grow your collection. Rarer cards give you a tactical edge in battles.",
+  },
+  {
+    icon: "crosshair" as const,
+    color: "#FF6B35",
+    title: "Quick Draw & Battles",
+    body: "Challenge opponents in Quick Draw for instant head-to-head card battles, or join full Arena battles to win Coins and boost your MMR.",
+  },
+];
+
+function ArenaIntroModal({ onDismiss }: { onDismiss: () => void }) {
+  const insets = useSafeAreaInsets();
+  const slideY = new Animated.Value(60);
+  const opacity = new Animated.Value(0);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.spring(slideY, { toValue: 0, tension: 70, friction: 10, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Modal visible animationType="none" transparent>
+      <View style={introStyles.overlay}>
+        <Animated.View style={[introStyles.sheet, { transform: [{ translateY: slideY }], opacity, paddingBottom: insets.bottom + 24 }]}>
+          {/* Handle */}
+          <View style={introStyles.handle} />
+
+          {/* Header */}
+          <View style={introStyles.headerRow}>
+            <View style={introStyles.logoCircle}>
+              <Feather name="zap" size={22} color={Colors.dark.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={introStyles.sheetTitle}>Welcome to the Arena</Text>
+              <Text style={introStyles.sheetSubtitle}>{"Here's how everything works"}</Text>
+            </View>
+          </View>
+
+          {/* Sections */}
+          {INTRO_SECTIONS.map((s) => (
+            <View key={s.title} style={introStyles.section}>
+              <View style={[introStyles.sectionIcon, { backgroundColor: s.color + "20" }]}>
+                <Feather name={s.icon} size={18} color={s.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={introStyles.sectionTitle}>{s.title}</Text>
+                <Text style={introStyles.sectionBody}>{s.body}</Text>
+              </View>
+            </View>
+          ))}
+
+          {/* CTA */}
+          <Pressable style={introStyles.cta} onPress={onDismiss}>
+            <Text style={introStyles.ctaText}>{"Let's go!"}</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const introStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: 12,
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.15)",
+    gap: Spacing.lg,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 4,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  logoCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(200,255,61,0.12)",
+    borderWidth: 1.5,
+    borderColor: "rgba(200,255,61,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: -0.3,
+  },
+  sheetSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  section: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+  },
+  sectionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 3,
+  },
+  sectionBody: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    lineHeight: 17,
+  },
+  cta: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  ctaText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#000",
+  },
+});
+
 // ── Hub Feature Card ───────────────────────────────────────────────────────────
 function FeatureCard({
   icon,
@@ -258,10 +430,18 @@ export default function ArenaHubScreen() {
   const queryClient = useQueryClient();
   const [showLoginReward, setShowLoginReward] = useState(false);
   const [loginRewardDismissed, setLoginRewardDismissed] = useState(false);
+  const [showIntroModal, setShowIntroModal] = useState(false);
 
   const { data, isLoading, refetch, isRefetching } = useQuery<HubData>({
     queryKey: ["/api/arena/hub"],
   });
+
+  // Check if this is the first time opening Arena
+  useEffect(() => {
+    AsyncStorage.getItem(ARENA_INTRO_SEEN_KEY).then((val) => {
+      if (val === null) setShowIntroModal(true);
+    });
+  }, []);
 
   // Show login reward modal once on load
   useEffect(() => {
@@ -269,6 +449,26 @@ export default function ArenaHubScreen() {
       setShowLoginReward(true);
     }
   }, [data?.loginReward?.awarded, loginRewardDismissed]);
+
+  const handleDismissIntro = useCallback(() => {
+    setShowIntroModal(false);
+    AsyncStorage.setItem(ARENA_INTRO_SEEN_KEY, "1");
+  }, []);
+
+  const handleShowIntro = useCallback(() => {
+    setShowIntroModal(true);
+  }, []);
+
+  // Header info button
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <HeaderButton onPress={handleShowIntro}>
+          <Feather name="info" size={20} color={Colors.dark.textMuted} />
+        </HeaderButton>
+      ),
+    });
+  }, [navigation, handleShowIntro]);
 
   const handleCardPress = useCallback(() => {
     navigation.navigate("ArenaMyCard");
@@ -302,6 +502,7 @@ export default function ArenaHubScreen() {
           paddingBottom: insets.bottom + Spacing.xl,
           paddingHorizontal: Spacing.lg,
         }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.dark.primary} />
         }
@@ -514,6 +715,9 @@ export default function ArenaHubScreen() {
       {showLoginReward && data?.loginReward && (
         <LoginRewardModal reward={data.loginReward} onDismiss={handleDismissLoginReward} />
       )}
+
+      {/* First-time Arena Intro Modal */}
+      {showIntroModal && <ArenaIntroModal onDismiss={handleDismissIntro} />}
     </>
   );
 }
