@@ -193,9 +193,7 @@ export async function writeBackTennisWorkout(params: {
 
   try {
     if (platform === "ios") {
-      const { default: AppleHealthKit, HealthInputOptions } = await import(
-        "react-native-health"
-      );
+      const { default: AppleHealthKit, HealthInputOptions } = await import("react-native-health"); // eslint-disable-line import/no-unresolved
 
       return await new Promise<boolean>((resolve) => {
         AppleHealthKit.saveWorkout(
@@ -224,9 +222,7 @@ export async function writeBackTennisWorkout(params: {
     }
 
     if (platform === "android") {
-      const { insertRecords, ExerciseSessionType } = await import(
-        "react-native-health-connect"
-      );
+      const { insertRecords, ExerciseSessionType } = await import("react-native-health-connect"); // eslint-disable-line import/no-unresolved
 
       await insertRecords([
         {
