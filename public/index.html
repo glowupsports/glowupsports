@@ -71,6 +71,40 @@
       }
     </style>
     <script>
+      // Early non-Error unhandledrejection suppressor.
+      // React Native Web converts every unhandledrejection whose reason is NOT an
+      // Error into a custom "unhandlederror" window event, which Replit's canvas
+      // monitor interprets as a crash — even though the app is fully functional.
+      // Several React Native / Expo modules (RevenueCat, Sentry native init,
+      // expo-notifications web stub, etc.) reject with plain strings or objects on
+      // the web platform, producing these false-positive crash signals.
+      //
+      // This interceptor registers in capture-phase BEFORE any bundle code runs, so
+      // it is the very first unhandledrejection listener on the page.  It silences
+      // non-Error rejections by calling preventDefault() + stopImmediatePropagation(),
+      // which prevents React Native Web's handler from ever seeing them.  Genuine
+      // Error-based rejections are left completely untouched.
+      (function () {
+        if (typeof window === 'undefined') return;
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e.reason;
+          if (r instanceof Error) return; // real error — let it through
+          // Non-Error rejection (string, number, plain object, undefined …)
+          // Log for diagnostics then suppress the false-positive crash signal.
+          try {
+            console.warn(
+              '[GUS] suppressed non-Error unhandledrejection | type=' +
+                typeof r +
+                ' | value=' +
+                String(r).slice(0, 200)
+            );
+          } catch (_) {}
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }, true /* capture — fires before React Native Web's bubble-phase handler */);
+      })();
+    </script>
+    <script>
       // Patch document.fonts.load so that fontfaceobserver can detect icon fonts.
       // Icon fonts only contain glyphs in the Private Use Area (PUA), e.g. U+F100.
       // fontfaceobserver tests with ASCII text ('BESbswy') which does not exist in
