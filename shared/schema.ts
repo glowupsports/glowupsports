@@ -9025,6 +9025,24 @@ export const arenaTournamentMatches = pgTable("arena_tournament_matches", {
   index("arena_tournament_matches_tournament_idx").on(t.tournamentId),
 ]);
 
+// ==================== PLAYER HEALTH SNAPSHOTS (Task #1605) ====================
+
+// Persists wellness summaries submitted by players via POST /api/player/me/health-snapshot.
+// Replaces the previous in-memory Map so recovery history survives server restarts.
+export const playerHealthSnapshots = pgTable("player_health_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull(),
+  sleepQuality: text("sleep_quality"), // "good" | "fair" | "poor" | null
+  recoveryStatus: text("recovery_status"), // free-form label, max 40 chars
+  stepsToday: integer("steps_today"),
+  recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+}, (t) => [
+  index("player_health_snapshots_player_idx").on(t.playerId),
+]);
+
+export type PlayerHealthSnapshot = typeof playerHealthSnapshots.$inferSelect;
+export type InsertPlayerHealthSnapshot = typeof playerHealthSnapshots.$inferInsert;
+
 // ── Arena Card Upgrades ────────────────────────────────────────────────────────
 export const arenaCardUpgrades = pgTable("arena_card_upgrades", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
