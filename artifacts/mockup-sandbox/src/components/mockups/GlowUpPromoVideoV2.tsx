@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 
+const BASE = import.meta.env.BASE_URL;
+const LOGO_URL = `${BASE}promo/glow_up_logo.png`;
+const PHOTOS: Record<string, string> = {
+  thelaw: `${BASE}promo/thelaw.png`,
+  marco:  `${BASE}promo/marco.png`,
+  maya:   `${BASE}promo/maya.png`,
+  rafael: `${BASE}promo/rafael.png`,
+  lucas:  `${BASE}promo/jake.png`,
+  sam:    `${BASE}promo/sam.png`,
+};
+
 const C = {
   bg: "#0B0D10",
   card: "#11141A",
@@ -88,6 +99,25 @@ function Avatar({ initials, color, size = 48, fontSize = 18 }: { initials: strin
   );
 }
 
+function PhotoAvatar({ photo, initials, color, size = 48 }: { photo?: string; initials: string; color: string; size?: number }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      border: `2px solid ${color}`,
+      boxShadow: `0 0 10px ${color}50`,
+      overflow: "hidden", flexShrink: 0,
+      background: `linear-gradient(135deg, ${color}40, ${color}20)`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      {photo ? (
+        <img src={photo} alt={initials} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }} />
+      ) : (
+        <span style={{ fontSize: size * 0.38, fontWeight: 800, color, fontFamily: "'Space Grotesk', sans-serif" }}>{initials}</span>
+      )}
+    </div>
+  );
+}
+
 function GlowBadge({ label, color }: { label: string; color: string }) {
   return (
     <span style={{
@@ -153,7 +183,7 @@ function Scene1({ sp }: { sp: number }) {
       {/* Logo */}
       <div style={{ opacity: logoOp, transform: `scale(${logoScale})`, textAlign: "center", zIndex: 10, position: "relative" }}>
         <img
-          src="/promo/glow_up_logo.png"
+          src={LOGO_URL}
           alt="Glow Up Sports"
           style={{ width: 160, height: "auto", filter: `drop-shadow(0 0 ${20 + pulse * 15}px ${C.primary}90)`, display: "block", margin: "0 auto" }}
         />
@@ -220,13 +250,12 @@ function Scene2({ sp }: { sp: number }) {
               <div style={{ position: "relative" }}>
                 <div style={{
                   width: 60, height: 60, borderRadius: "50%",
-                  background: `linear-gradient(135deg, ${C.primary}50, ${C.cyan}30)`,
                   border: `2px solid ${C.primary}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 24, fontWeight: 900, color: C.white,
-                  fontFamily: "'Space Grotesk', sans-serif",
                   boxShadow: `0 0 ${12 + pulse * 12}px ${C.primary}60`,
-                }}>T</div>
+                  overflow: "hidden",
+                }}>
+                  <img src={PHOTOS.thelaw} alt="Thelaw" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }} />
+                </div>
                 <div style={{
                   position: "absolute", bottom: -4, right: -4,
                   width: 24, height: 24, borderRadius: "50%",
@@ -355,7 +384,7 @@ function Scene3({ sp }: { sp: number }) {
           boxShadow: "0 8px 32px #00000050"
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <Avatar initials="M" color={C.cyan} size={44} />
+            <PhotoAvatar photo={PHOTOS.marco} initials="M" color={C.cyan} size={44} />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: C.white, fontFamily: "'Space Grotesk', sans-serif" }}>Coach Marco</div>
               <div style={{ fontSize: 11, color: C.textMuted, fontFamily: "'Space Grotesk', sans-serif" }}>4.9 ★ · 230 sessions</div>
@@ -605,7 +634,7 @@ function Scene4({ sp }: { sp: number }) {
           display: "flex", alignItems: "center", gap: 10,
           boxShadow: `0 0 16px ${C.gold}20`,
         }}>
-          <Avatar initials="M" color={C.gold} size={36} fontSize={14} />
+          <PhotoAvatar photo={PHOTOS.marco} initials="M" color={C.gold} size={36} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 9, color: C.gold, fontWeight: 700, letterSpacing: 1, fontFamily: "'Space Grotesk', sans-serif" }}>COACH NOTE</div>
             <div style={{ fontSize: 11, color: C.textSecondary, fontFamily: "'Space Grotesk', sans-serif" }}>"Work on cross-court backhand consistency"</div>
@@ -697,7 +726,7 @@ function Scene5({ sp }: { sp: number }) {
                 boxShadow: isSelected ? `0 0 16px ${opp.color}25` : "0 4px 12px #00000030",
                 transition: "border 0.1s, box-shadow 0.1s"
               }}>
-                <Avatar initials={opp.name[0]} color={opp.color} size={40} fontSize={16} />
+                <PhotoAvatar photo={PHOTOS[opp.name.split(" ")[0].toLowerCase()]} initials={opp.name[0]} color={opp.color} size={40} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.white, fontFamily: "'Space Grotesk', sans-serif" }}>{opp.name}</div>
                   <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
@@ -721,7 +750,7 @@ function Scene5({ sp }: { sp: number }) {
           }}>
             <div style={{ fontSize: 9, color: featured.color, letterSpacing: 2, fontWeight: 700, fontFamily: "'Space Grotesk', sans-serif", marginBottom: 8 }}>SCOUTING REPORT</div>
             <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10 }}>
-              <Avatar initials={featured.name[0]} color={featured.color} size={44} />
+              <PhotoAvatar photo={PHOTOS.rafael} initials={featured.name[0]} color={featured.color} size={44} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.white, fontFamily: "'Space Grotesk', sans-serif" }}>{featured.name}</div>
                 <div style={{ display: "flex", gap: 5 }}>
@@ -790,7 +819,7 @@ function Scene6({ sp }: { sp: number }) {
           padding: "12px 14px", display: "flex", alignItems: "center", gap: 10,
           boxShadow: `0 0 16px ${C.purple}15`,
         }}>
-          <Avatar initials="M" color={C.purple} size={40} />
+          <PhotoAvatar photo={PHOTOS.maya} initials="M" color={C.purple} size={40} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: C.white, fontFamily: "'Space Grotesk', sans-serif" }}>Maya S. wants to be friends</div>
             <div style={{ fontSize: 10, color: C.textMuted, fontFamily: "'Space Grotesk', sans-serif" }}>Elite · 4.2 UTR</div>
@@ -1107,7 +1136,7 @@ function Scene8({ sp }: { sp: number }) {
               opacity: easeOut(cl((sp - (pos - 3) * 0.05) / 0.25)),
             }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, width: 16, fontFamily: "'Oxanium', sans-serif" }}>#{pos}</span>
-              <Avatar initials={p.name[0]} color={p.color} size={28} fontSize={11} />
+              <PhotoAvatar photo={PHOTOS[p.name.split(" ")[0].toLowerCase()]} initials={p.name[0]} color={p.color} size={28} />
               <span style={{ flex: 1, fontSize: 12, color: C.textSecondary, fontFamily: "'Space Grotesk', sans-serif" }}>{p.name}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: p.color, fontFamily: "'Oxanium', sans-serif" }}>{p.score.toLocaleString()}</span>
             </div>
@@ -1154,7 +1183,7 @@ function Scene9({ sp }: { sp: number }) {
       {/* Logo */}
       <div style={{ opacity: logoOp, transform: `scale(${logoScale})`, textAlign: "center", zIndex: 10 }}>
         <img
-          src="/promo/glow_up_logo.png"
+          src={LOGO_URL}
           alt="Glow Up Sports"
           style={{ width: 150, height: "auto", filter: `drop-shadow(0 0 ${18 + pulse * 20}px ${C.primary}90)`, display: "block", margin: "0 auto" }}
         />
@@ -1307,7 +1336,7 @@ export default function GlowUpPromoVideoV2() {
           ) : isDone ? (
             /* End screen */
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "rgba(11,13,16,0.95)" }}>
-              <img src="/promo/glow_up_logo.png" alt="Glow Up Sports" style={{ width: 120, filter: `drop-shadow(0 0 20px ${C.primary}80)` }} />
+              <img src={LOGO_URL} alt="Glow Up Sports" style={{ width: 120, filter: `drop-shadow(0 0 20px ${C.primary}80)` }} />
               <div style={{ fontSize: 22, fontWeight: 900, color: C.white, fontFamily: "'Oxanium', sans-serif", textAlign: "center" }}>TRAIN. MATCH. GLOW.</div>
               <div style={{ fontSize: 10, color: C.textMuted, fontFamily: "'Space Grotesk', sans-serif" }}>Glow Up Sports — Player App</div>
               <button
@@ -1327,7 +1356,7 @@ export default function GlowUpPromoVideoV2() {
             /* Start screen */
             <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
               <div style={{ textAlign: "center" }}>
-                <img src="/promo/glow_up_logo.png" alt="Glow Up Sports" style={{ width: 140, filter: `drop-shadow(0 0 24px ${C.primary}80)`, marginBottom: 16 }} />
+                <img src={LOGO_URL} alt="Glow Up Sports" style={{ width: 140, filter: `drop-shadow(0 0 24px ${C.primary}80)`, marginBottom: 16 }} />
                 <div style={{ fontSize: 11, letterSpacing: 2, color: C.textMuted, fontFamily: "'Space Grotesk', sans-serif" }}>PLAYER APP · 60-SECOND SHOWCASE</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", maxWidth: 260 }}>
