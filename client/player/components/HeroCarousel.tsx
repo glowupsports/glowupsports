@@ -13,6 +13,7 @@ import { apiRequest ,
   buildPhotoUrl,
 } from "@/lib/query-client";
 import { parseCalendarDateParts } from "@/lib/dateUtils";
+import { getCounterDrillSearch } from "@/lib/scoutingUtils";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -382,31 +383,8 @@ function CompeteCard() {
     }
   };
 
-  const COUNTER_DRILL_MAP: Record<string, string> = {
-    "Deep Groundstrokes": "approach",
-    "Consistency": "approach",
-    "Endurance": "short ball",
-    "Net Play": "passing",
-    "Volleys": "lob",
-    "Approach Shots": "passing",
-    "Strong Serve": "return",
-    "First Strike": "return",
-    "Power": "return",
-    "Versatility": "passing",
-    "All-Court": "passing",
-    "Adaptability": "baseline",
-    "Defense": "aggressive",
-    "Counter Punching": "aggressive",
-    "Speed": "net",
-    "Placement": "movement",
-    "Strategy": "consistency",
-    "Spin Variation": "flat",
-  };
-
   const handleScoutPrepare = async (skillTags: string[]) => {
-    const counterSearch = skillTags[0]
-      ? (COUNTER_DRILL_MAP[skillTags[0]] ?? skillTags[0])
-      : "";
+    const counterSearch = getCounterDrillSearch(skillTags);
     if (counterSearch) {
       try {
         await AsyncStorage.setItem("@drills:pending_search", counterSearch);

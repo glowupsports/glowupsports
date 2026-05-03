@@ -1,4 +1,5 @@
 import logger from "@/lib/logger";
+import { getCounterDrillSearch } from "@/lib/scoutingUtils";
 import React, {
   useState,
   useEffect,
@@ -4617,10 +4618,10 @@ export default function PlayScreen() {
         opponentId={scoutPlayerId}
         onClose={() => setScoutPlayerId(null)}
         onPrepare={async (skillTags) => {
-          const tag = skillTags[0] ?? "";
-          if (tag) {
+          const counterSearch = getCounterDrillSearch(skillTags);
+          if (counterSearch) {
             try {
-              await AsyncStorage.setItem("@drills:pending_search", tag);
+              await AsyncStorage.setItem("@drills:pending_search", counterSearch);
             } catch {}
           }
           setScoutPlayerId(null);
