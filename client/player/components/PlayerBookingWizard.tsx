@@ -78,7 +78,7 @@ interface Location {
   lng?: number | null;
 }
 
-interface AvailableSlot {
+export interface AvailableSlot {
   coachId: string;
   coachName: string;
   coachPhotoUrl?: string | null;
@@ -131,6 +131,11 @@ interface PlayerBookingWizardProps {
    * date and skips ahead to the slot-selection step.
    */
   preselectedDate?: Date;
+  /**
+   * Task #1598 — Play Now slot deep-link. When set, the wizard opens at the
+   * slot-selection step with this slot already highlighted and auto-selected.
+   */
+  preselectedSlot?: AvailableSlot;
 }
 
 type SessionType = "private" | "semi_private" | "group" | "open_play";
@@ -211,6 +216,7 @@ export default function PlayerBookingWizard({
   preselectedCoachId,
   preselectedSessionId,
   preselectedDate,
+  preselectedSlot,
 }: PlayerBookingWizardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -257,6 +263,9 @@ export default function PlayerBookingWizard({
   // Slot reservation — temp lock to prevent race-condition double-booking
   const activeReservationRef = React.useRef<string | null>(null); // ref so resetForm can access without dep
   const [reservationId, setReservationId] = useState<string | null>(null);
+  // Refs for pre-highlighted slot scroll-into-view (Task #1598)
+  const slotListScrollViewRef = React.useRef<ScrollView>(null);
+  const preHighlightedSlotYRef = React.useRef<number | null>(null);
   const [reservationExpiresAt, setReservationExpiresAt] = useState<Date | null>(null);
   const [reservationSecondsLeft, setReservationSecondsLeft] = useState(0);
   const [reservationError, setReservationError] = useState<string | null>(null);
@@ -617,6 +626,39 @@ export default function PlayerBookingWizard({
     }, 1000);
     return () => clearInterval(tick);
   }, [reservationExpiresAt]);
+
+  // Task #1598 — Auto-select the preselected slot once the available slots load.
+  // Matches by coachId + UTC time portion (HH:MM) extracted from the ISO startTime.
+  useEffect(() => {
+    if (!preselectedSlot || !visible || currentSlide < 2) return;
+    if (availableSlots.length === 0 || slotsLoading) return;
+    if (selectedSlot) return; // already selected
+    const preTime = preselectedSlot.startTime.substring(11, 16);
+    const match = availableSlots.find(
+      (s) =>
+        s.coachId === preselectedSlot.coachId &&
+        s.startTime.substring(11, 16) === preTime,
+    );
+    if (!match) return;
+    setSelectedSlot(match);
+    setSelectedSession(null);
+    setIsJoining(false);
+    setReservationLoading(true);
+    reserveSlotMutation.mutate({
+      coachId: match.coachId,
+      startTime: match.startTime,
+      endTime: match.endTime,
+    });
+    // Scroll to the slot after a brief delay to let layout settle
+    setTimeout(() => {
+      if (preHighlightedSlotYRef.current !== null) {
+        slotListScrollViewRef.current?.scrollTo({
+          y: Math.max(0, preHighlightedSlotYRef.current - 80),
+          animated: true,
+        });
+      }
+    }, 500);
+  }, [preselectedSlot, availableSlots, slotsLoading, visible, currentSlide, selectedSlot]);
 
   // Drive pulsing glow on the Next button while a slot hold is active
   useEffect(() => {
@@ -1508,7 +1550,7 @@ export default function PlayerBookingWizard({
 
     return (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
-        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+        <ScrollView ref={slotListScrollViewRef} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
           {/* Prominent SLOT LOCKED banner — shown at the top when a hold is active */}
           {reservationId && selectedSlot && !reservationLoading ? (
             <View style={styles.slotLockedCard}>
@@ -1772,6 +1814,12 @@ export default function PlayerBookingWizard({
                 </Text>
                 {filteredSlots.map((slot, index) => {
                   const isSelected = selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
+                  // Task #1598: pre-highlight the slot that was deep-linked from Play Now
+                  const isPreHighlighted =
+                    !!preselectedSlot &&
+                    !isSelected &&
+                    slot.coachId === preselectedSlot.coachId &&
+                    slot.startTime.substring(11, 16) === preselectedSlot.startTime.substring(11, 16);
                   const displayLocationName = slot.locationId
                     ? slot.locationName
                     : selectedLocationId
@@ -1780,7 +1828,10 @@ export default function PlayerBookingWizard({
                   return (
                     <Pressable
                       key={`${slot.coachId}-${slot.startTime}-${index}`}
-                      style={[styles.slotCard, isSelected && styles.slotCardSelected]}
+                      style={[styles.slotCard, isSelected && styles.slotCardSelected, isPreHighlighted && styles.slotCardPreHighlighted]}
+                      onLayout={isPreHighlighted ? (e) => {
+                        preHighlightedSlotYRef.current = e.nativeEvent.layout.y;
+                      } : undefined}
                       onPress={() => {
                         if (reservationLoading) return;
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -2992,6 +3043,16 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   slotCardSelected: {
     borderColor: Colors.dark.primary,
     backgroundColor: Colors.dark.primary + "10",
+  },
+  slotCardPreHighlighted: {
+    borderColor: Colors.dark.primary,
+    borderWidth: 2,
+    backgroundColor: Colors.dark.primary + "15",
+    shadowColor: Colors.dark.primary,
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
   },
   slotTimeColumn: {
     alignItems: "center",

@@ -80,7 +80,7 @@ import type { FocusCard } from "@/player/components/TodaysFocusCard";
 import { StreakMilestoneBanner } from "@/player/components/StreakMilestoneBanner";
 import { NewPlayerGuideCard } from "@/player/components/NewPlayerGuideCard";
 import { HeroCarousel } from "@/player/components/HeroCarousel";
-import PlayerBookingWizard from "@/player/components/PlayerBookingWizard";
+import PlayerBookingWizard, { type AvailableSlot } from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
 import {
   LazyOnScroll,
@@ -351,6 +351,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   const [bookingWizardSport, setBookingWizardSport] = useState<string | undefined>(undefined);
   const [bookingWizardPreselectedDate, setBookingWizardPreselectedDate] = useState<Date | undefined>(undefined);
   const [bookingWizardPreselectedCoachId, setBookingWizardPreselectedCoachId] = useState<string | undefined>(undefined);
+  const [bookingWizardPreselectedSlot, setBookingWizardPreselectedSlot] = useState<AvailableSlot | undefined>(undefined);
   const [showBookingSportPicker, setShowBookingSportPicker] = useState(false);
   const [ramadanDismissed, setRamadanDismissed] = useState(false);
   const [showSpotlightNomination, setShowSpotlightNomination] = useState(false);
@@ -697,8 +698,32 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
       setBookingWizardPreselectedDate(today);
       if (slot?.coachId) {
         setBookingWizardPreselectedCoachId(slot.coachId);
+        // Task #1598: build an AvailableSlot hint so the wizard can auto-select
+        // and highlight the exact slot the player tapped in Play Now.
+        if (slot.time && slot.date) {
+          const addMinutes = (t: string, mins: number): string => {
+            const [h, m] = t.split(":").map(Number);
+            const total = h * 60 + m + mins;
+            return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+          };
+          setBookingWizardPreselectedSlot({
+            coachId: slot.coachId,
+            coachName: slot.coachName,
+            coachPhotoUrl: null,
+            courtId: "",
+            courtName: slot.courtName,
+            locationId: null,
+            locationName: slot.academyName,
+            startTime: `${slot.date}T${slot.time}:00.000Z`,
+            endTime: `${slot.date}T${addMinutes(slot.time, slot.durationMinutes)}:00.000Z`,
+            duration: slot.durationMinutes,
+          });
+        } else {
+          setBookingWizardPreselectedSlot(undefined);
+        }
       } else {
         setBookingWizardPreselectedCoachId(undefined);
+        setBookingWizardPreselectedSlot(undefined);
       }
       setBookingWizardSport(activeSport);
       setShowBookingWizard(true);
@@ -709,6 +734,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     setShowBookingWizard(false);
     setBookingWizardPreselectedDate(undefined);
     setBookingWizardPreselectedCoachId(undefined);
+    setBookingWizardPreselectedSlot(undefined);
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
     queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
     queryClient.invalidateQueries({ queryKey: ["/api/courts/available-today"] });
@@ -1098,11 +1124,13 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
             setShowBookingWizard(false);
             setBookingWizardPreselectedDate(undefined);
             setBookingWizardPreselectedCoachId(undefined);
+            setBookingWizardPreselectedSlot(undefined);
           }}
           onBookingSuccess={handleBookingSuccess}
           sport={bookingWizardSport}
           preselectedDate={bookingWizardPreselectedDate}
           preselectedCoachId={bookingWizardPreselectedCoachId}
+          preselectedSlot={bookingWizardPreselectedSlot}
         />
 
         {/* PIN MODAL */}
