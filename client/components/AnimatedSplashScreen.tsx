@@ -103,6 +103,7 @@ export function AnimatedSplashScreen({
   const [isReadyInternal, setIsReadyInternal] = useState(false);
   const [displayPct, setDisplayPct]           = useState(0);
   const hasExited                             = useRef(false);
+  const phase1IvRef                           = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const containerOpacity = useSharedValue(1);
   const logoScale        = useSharedValue(1);
@@ -131,14 +132,26 @@ export function AnimatedSplashScreen({
     const iv = setInterval(() => {
       const pct = Math.min(88, Math.round(((Date.now() - start) / 2000) * 88));
       setDisplayPct(pct);
-      if (pct >= 88) clearInterval(iv);
+      if (pct >= 88) {
+        clearInterval(iv);
+        phase1IvRef.current = null;
+      }
     }, 50);
-    return () => clearInterval(iv);
+    phase1IvRef.current = iv;
+    return () => {
+      clearInterval(iv);
+      phase1IvRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
     if (!isReady || hasExited.current) return;
     hasExited.current = true;
+
+    if (phase1IvRef.current !== null) {
+      clearInterval(phase1IvRef.current);
+      phase1IvRef.current = null;
+    }
 
     SplashScreen.hideAsync();
 
