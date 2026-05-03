@@ -16,11 +16,14 @@ import { useWebSocket } from "@/lib/useWebSocket";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { CourtBookingPanel } from "@/components/CourtBooking";
 import { useAuth } from "@/coach/context/AuthContext";
+import ScoutingCardSheet from "@/player/components/ScoutingCardSheet";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -79,10 +82,12 @@ export default function ManageMatchScreen() {
   const route = useRoute<any>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { navigateToTab } = useTabNavigation();
   const { matchId } = route.params || {};
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [invitingFriendId, setInvitingFriendId] = useState<string | null>(null);
   const [kickTarget, setKickTarget] = useState<{ id: string; name: string } | null>(null);
+  const [scoutOpponentId, setScoutOpponentId] = useState<string | null>(null);
 
   const { data: match, isLoading, refetch } = useQuery<OpenMatch>({
     queryKey: [`/api/open-matches/${matchId}`],
@@ -194,6 +199,29 @@ export default function ManageMatchScreen() {
         { text: "Cancel Match", style: "destructive", onPress: () => cancelMutation.mutate() }
       ]
     );
+  };
+
+  const COUNTER_DRILL_MAP: Record<string, string> = {
+    "Net Play": "passing",
+    "Serve & Volley": "return",
+    "Baseline Grinder": "approach",
+    "Big Serve": "return serve",
+    Slice: "topspin",
+    Topspin: "flat",
+    "Spin Variation": "flat",
+  };
+
+  const handleScoutPrepare = async (skillTags: string[]) => {
+    const counterSearch = skillTags[0]
+      ? (COUNTER_DRILL_MAP[skillTags[0]] ?? skillTags[0])
+      : "";
+    if (counterSearch) {
+      try {
+        await AsyncStorage.setItem("@drills:pending_search", counterSearch);
+      } catch {}
+    }
+    setScoutOpponentId(null);
+    navigateToTab("Growth", { screen: "Drills" });
   };
 
   const getBallLevelColor = (level?: string) => {
@@ -403,21 +431,42 @@ export default function ManageMatchScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
-        <Pressable 
-          style={styles.cancelButton}
-          onPress={handleCancelMatch}
-          disabled={cancelMutation.isPending}
-        >
-          {cancelMutation.isPending ? (
-            <TennisBallSpinner color={Colors.dark.error} size="small" />
-          ) : (
-            <>
-              <Ionicons name="close-circle" size={20} color={Colors.dark.error} />
-              <Text style={styles.cancelButtonText}>Cancel Match</Text>
-            </>
-          )}
-        </Pressable>
+        {!isHost && match.hostPlayerId ? (
+          <Pressable
+            style={styles.scoutButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              setScoutOpponentId(match.hostPlayerId);
+            }}
+          >
+            <Ionicons name="binoculars-outline" size={18} color={Colors.dark.primary} />
+            <Text style={styles.scoutButtonText}>Scout Opponent</Text>
+          </Pressable>
+        ) : null}
+        {isHost ? (
+          <Pressable 
+            style={styles.cancelButton}
+            onPress={handleCancelMatch}
+            disabled={cancelMutation.isPending}
+          >
+            {cancelMutation.isPending ? (
+              <TennisBallSpinner color={Colors.dark.error} size="small" />
+            ) : (
+              <>
+                <Ionicons name="close-circle" size={20} color={Colors.dark.error} />
+                <Text style={styles.cancelButtonText}>Cancel Match</Text>
+              </>
+            )}
+          </Pressable>
+        ) : null}
       </View>
+
+      <ScoutingCardSheet
+        visible={!!scoutOpponentId}
+        opponentId={scoutOpponentId}
+        onClose={() => setScoutOpponentId(null)}
+        onPrepare={handleScoutPrepare}
+      />
 
       <Modal
         visible={showInviteModal}
@@ -736,6 +785,23 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.backgroundRoot,
     borderTopWidth: 1,
     borderTopColor: Colors.dark.border,
+  },
+  scoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "10",
+    marginBottom: Spacing.sm,
+  },
+  scoutButtonText: {
+    color: Colors.dark.primary,
+    fontSize: FontSizes.md,
+    fontWeight: "600",
   },
   cancelButton: {
     flexDirection: "row",

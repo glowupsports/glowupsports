@@ -53,6 +53,10 @@ export interface MatchSummaryCardProps {
   onManage?: () => void;
   joining?: boolean;
 
+  // Scout opponent — when provided a secondary "Scout Opponent" button is
+  // rendered below the primary CTA for non-host viewers.
+  onScout?: () => void;
+
   // Whole-card press (e.g. open detail). Distinct from CTA so taps on the
   // big primary button don't double-fire.
   onPress?: () => void;
@@ -177,6 +181,7 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
     onJoin,
     onManage,
     joining = false,
+    onScout,
     onPress,
     embedded = false,
     accent = COMPETE_ACCENT,
@@ -342,24 +347,38 @@ export function MatchSummaryCard(props: MatchSummaryCardProps) {
         </View>
       </View>
 
-      {/* CTA */}
-      <Pressable
-        style={[
-          styles.cta,
-          { backgroundColor: ctaBg, opacity: ctaDisabled ? 0.6 : 1 },
-        ]}
-        disabled={ctaDisabled || !ctaHandler}
-        onPress={handleCta}
-      >
-        {joining ? (
-          <TennisBallSpinner size="small" color={Backgrounds.root} />
-        ) : (
-          <>
-            <Text style={styles.ctaText}>{ctaLabel}</Text>
-            <Ionicons name={ctaIcon} size={14} color={Backgrounds.root} />
-          </>
-        )}
-      </Pressable>
+      {/* CTA row — primary action + optional Scout Opponent secondary */}
+      <View style={styles.ctaRow}>
+        <Pressable
+          style={[
+            styles.cta,
+            { backgroundColor: ctaBg, opacity: ctaDisabled ? 0.6 : 1 },
+          ]}
+          disabled={ctaDisabled || !ctaHandler}
+          onPress={handleCta}
+        >
+          {joining ? (
+            <TennisBallSpinner size="small" color={Backgrounds.root} />
+          ) : (
+            <>
+              <Text style={styles.ctaText}>{ctaLabel}</Text>
+              <Ionicons name={ctaIcon} size={14} color={Backgrounds.root} />
+            </>
+          )}
+        </Pressable>
+        {!isHost && !!onScout ? (
+          <Pressable
+            style={styles.scoutBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              onScout();
+            }}
+          >
+            <Ionicons name="binoculars-outline" size={14} color={TextColors.secondary} />
+            <Text style={styles.scoutBtnText}>Scout</Text>
+          </Pressable>
+        ) : null}
+      </View>
     </>
   );
 
@@ -465,8 +484,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     lineHeight: 18,
     marginTop: 2,
   },
-  cta: {
+  ctaRow: {
     marginTop: Spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  cta: {
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
@@ -479,5 +503,21 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: FontSizes.sm,
     fontWeight: "700",
     color: Backgrounds.root,
+  },
+  scoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.chipBorder,
+    backgroundColor: Colors.dark.chipBackground,
+  },
+  scoutBtnText: {
+    fontSize: FontSizes.sm,
+    fontWeight: "600",
+    color: TextColors.secondary,
   },
 }));

@@ -17,11 +17,14 @@ import Animated, { FadeIn, FadeInDown, FadeInUp, useSharedValue, useAnimatedStyl
 import { LinearGradient } from "expo-linear-gradient";import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Spacing, FontSizes, BorderRadius } from "@/constants/theme";import { apiRequest, getApiUrl, buildPhotoUrl, getAuthHeaders } from "@/lib/query-client";
 import { LockedScreen } from "../components/LockedScreen";
 import { useAuth } from "@/coach/context/AuthContext";
 import { getSportLabel, getSportIcon, getSportColor } from "@/player/context/SportContext";
 import { MatchSummaryCard, COMPETE_ACCENT } from "@/player/components/MatchSummaryCard";
+import ScoutingCardSheet from "@/player/components/ScoutingCardSheet";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useTranslation } from "react-i18next";
@@ -476,8 +479,10 @@ export default function OpenMatchFeedScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { navigateToTab } = useTabNavigation();
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [joiningMatchId, setJoiningMatchId] = useState<string | null>(null);
+  const [scoutOpponentId, setScoutOpponentId] = useState<string | null>(null);
 
   const { data: matches, isLoading, refetch, isRefetching } = useQuery<OpenMatch[]>({
     queryKey: ["/api/open-matches", { includeAllLevels: true, includeMine: true }],
@@ -557,6 +562,28 @@ export default function OpenMatchFeedScreen() {
     );
   };
 
+  const handleScoutPrepare = async (skillTags: string[]) => {
+    const COUNTER_DRILL_MAP: Record<string, string> = {
+      "Net Play": "passing",
+      "Serve & Volley": "return",
+      "Baseline Grinder": "approach",
+      "Big Serve": "return serve",
+      Slice: "topspin",
+      Topspin: "flat",
+      "Spin Variation": "flat",
+    };
+    const counterSearch = skillTags[0]
+      ? (COUNTER_DRILL_MAP[skillTags[0]] ?? skillTags[0])
+      : "";
+    if (counterSearch) {
+      try {
+        await AsyncStorage.setItem("@drills:pending_search", counterSearch);
+      } catch {}
+    }
+    setScoutOpponentId(null);
+    navigateToTab("Growth", { screen: "Drills" });
+  };
+
   const _doJoinWithPriorityCheck = (item: OpenMatch) => {
     const myPlayerId = user?.playerId;
     const invitedId = item.invitedPlayerId;
@@ -598,6 +625,7 @@ export default function OpenMatchFeedScreen() {
 
   const renderMatch = ({ item, index }: { item: OpenMatch; index: number }) => {
     const isHost = user?.playerId === item.hostPlayerId;
+    const hostId = item.host?.id ?? item.hostPlayerId;
     return (
       <Animated.View entering={FadeInDown.delay(index * 80).springify()}>
         <MatchSummaryCard
@@ -626,6 +654,7 @@ export default function OpenMatchFeedScreen() {
               navigation.navigate("ManageMatch", { matchId: item.id });
             }
           }}
+          onScout={!isHost && hostId ? () => setScoutOpponentId(hostId) : undefined}
           accent={COMPETE_ACCENT}
         />
       </Animated.View>
@@ -707,6 +736,12 @@ export default function OpenMatchFeedScreen() {
         )}
       <GuestPromptModal {...promptProps} message="Sign in to join or create open matches." />
       </View>
+      <ScoutingCardSheet
+        visible={!!scoutOpponentId}
+        opponentId={scoutOpponentId}
+        onClose={() => setScoutOpponentId(null)}
+        onPrepare={handleScoutPrepare}
+      />
     </LockedScreen>
   );
 }
