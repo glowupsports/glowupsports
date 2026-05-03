@@ -61,6 +61,10 @@ interface AcademyProfile {
   openingHours: OpeningHours | null;
 }
 
+interface AcademySettingsBasic {
+  academyId: string;
+}
+
 interface Court {
   id: string;
   name: string;
@@ -132,6 +136,10 @@ export default function VenueSetupScreen() {
 
   const { data: courtsData, isLoading: courtsLoading } = useQuery<Court[]>({
     queryKey: ["/api/courts"],
+  });
+
+  const { data: settingsData } = useQuery<AcademySettingsBasic>({
+    queryKey: ["/api/academy/settings"],
   });
 
   const courts = courtsData?.filter(c => c.isActive) ?? [];
@@ -319,15 +327,26 @@ export default function VenueSetupScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
         </Pressable>
         <Text style={styles.headerTitle}>My Venue</Text>
-        <Pressable
-          onPress={() => saveMutation.mutate()}
-          disabled={!hasChanges || saveMutation.isPending}
-          style={[styles.saveHeaderBtn, (!hasChanges || saveMutation.isPending) && styles.saveHeaderBtnDisabled]}
-        >
-          <Text style={styles.saveHeaderBtnText}>
-            {saveMutation.isPending ? "Saving..." : "Save"}
-          </Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          {settingsData?.academyId ? (
+            <Pressable
+              onPress={() => navigation.navigate("AcademyPublicPreview", { academyId: settingsData.academyId })}
+              style={styles.previewHeaderBtn}
+            >
+              <Ionicons name="eye-outline" size={16} color={Colors.dark.xpCyan} />
+              <Text style={styles.previewHeaderBtnText}>Preview Profile</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => saveMutation.mutate()}
+            disabled={!hasChanges || saveMutation.isPending}
+            style={[styles.saveHeaderBtn, (!hasChanges || saveMutation.isPending) && styles.saveHeaderBtnDisabled]}
+          >
+            <Text style={styles.saveHeaderBtnText}>
+              {saveMutation.isPending ? "Saving..." : "Save"}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <KeyboardAwareScrollViewCompat
@@ -585,6 +604,26 @@ const styles = StyleSheet.create({
     ...Typography.h3,
     color: Colors.dark.text,
     fontWeight: "700",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  previewHeaderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan,
+  },
+  previewHeaderBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.xpCyan,
   },
   saveHeaderBtn: {
     paddingHorizontal: Spacing.md,

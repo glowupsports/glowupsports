@@ -16,6 +16,7 @@ import HistoryScreen from "@/coach/screens/HistoryScreen";
 import NotificationsScreen from "@/coach/screens/NotificationsScreen";
 import CoachProfileScreen from "@/coach/screens/CoachProfileScreen";
 import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
+import PlayerAcademyProfileScreen from "@/player/screens/PlayerAcademyProfileScreen";
 import ChatInboxScreen from "@/coach/screens/ChatInboxScreen";
 import AvailabilityScreen from "@/coach/screens/AvailabilityScreen";
 import CourtPreferencesScreen from "@/coach/screens/CourtPreferencesScreen";
@@ -89,6 +90,7 @@ export type CoachStackParamList = {
   LessonTemplateLibrary: undefined;
   AcademySettings: undefined;
   VenueSetup: undefined;
+  AcademyPublicPreview: { academyId: string };
   Billing: undefined;
   CoachInvitations: undefined;
   CoachEarnings: undefined;
@@ -337,6 +339,14 @@ function CoachStackNavigator() {
       <Stack.Screen 
         name="VenueSetup" 
         component={VenueSetupScreen}
+      />
+      <Stack.Screen
+        name="AcademyPublicPreview"
+        component={PlayerAcademyProfileScreen}
+        options={{
+          headerShown: false,
+          presentation: "modal",
+        }}
       />
       <Stack.Screen 
         name="Billing" 
