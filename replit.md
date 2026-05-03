@@ -1,7 +1,7 @@
 # Glow Up Sports - Multi-Academy Tennis SaaS Platform
 
 ## Overview
-Glow Up Sports is a multi-academy SaaS platform revolutionizing tennis academy administration, coaching, and player engagement. It offers specialized applications for Platform Owners, Academy Owners, Coaches, and Players. Its core purpose is to modernize tennis academy operations, monitor player progress, and elevate coaching and playing experiences through gamification, detailed progress tracking, and efficient resource management. The platform aims to enhance player retention and improve the overall experience in tennis academies.
+Glow Up Sports is a multi-academy SaaS platform for tennis academy administration, coaching, and player engagement. It provides specialized applications for Platform Owners, Academy Owners, Coaches, and Players. The platform aims to modernize operations, monitor player progress, and enhance coaching and playing experiences through gamification, progress tracking, and efficient resource management, ultimately improving player retention.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -40,36 +40,13 @@ The AI Coach tab and the Home tab use god-routes for data fetching to prevent pa
 
 ### CRITICAL: Lint baseline (Task #1469)
 `npm run lint` (= `npx expo lint`) is the canonical lint gate. The current
-healthy baseline is **0 errors / ~325 warnings**, down from ~3617 warnings
-before Task #1469. The breakdown is:
-
-- ~258 `react-hooks/exhaustive-deps` — known followup. Most are
-  `useSharedValue` / `useAnimatedStyle` results from `react-native-reanimated`
-  that the developer intentionally omits because the value object is stable
-  across renders. Per-line audit + targeted `// eslint-disable-next-line` is
-  the right cleanup, **not** disabling the rule.
-- ~35 `@typescript-eslint/no-unused-vars` — long-tail PascalCase components
-  / hooks (`AnimatedEventCard`, `ScheduleStackNavigator`, custom `useFoo`)
-  the auto-cleanup intentionally **left alone** because renaming them to
-  `_Foo` / `_useFoo` invalidates `react-hooks/rules-of-hooks` for every
-  internal `useState`/`useEffect` call.
-- ~13 `@typescript-eslint/no-require-imports` — intentional, conditional
-  `require(...)` calls used as platform/lazy fallbacks (`@sentry/react-native`,
-  `react-native-keyboard-controller`).
-- ~14 `import/*` — duplicate-import / default-vs-named noise from
-  `rate-limiter-flexible`, hand-cleanable.
+healthy baseline is **0 errors / ~325 warnings**.
 
 **Never disable `@typescript-eslint/no-unused-vars` to bury new warnings.**
 The rule is configured (in `eslint.config.js`) to honour the conventional
 `_`-prefix escape hatch (`argsIgnorePattern: "^_"`, etc.). If a new unused
 var is *intentional* (placeholder destructure, unused arg in an interface
 contract), prefix it with `_`. If it's a leftover from a refactor, delete it.
-The two helper scripts that did the bulk cleanup (`.local/scratch/clean_unused_v1.cjs`
-for dead named imports and `.local/scratch/clean_unused_v2.cjs` for renames)
-can be re-run on a fresh `npx expo lint --format json` dump if the unused-vars
-count starts climbing again — but only after re-reading the hook/component
-guards inside v2 (it MUST skip `^use[A-Z]` and `^[A-Z][a-z]` declarations or
-it will silently break `react-hooks/rules-of-hooks`).
 
 ### CRITICAL: Player Home Screen — canonical file
 The **active, production Home tab** for the V2 Player surface is:
@@ -85,7 +62,7 @@ The file `client/player/screens/ProPlayerHomeScreen.tsx` is the **legacy V1 file
 It is kept for reference only — do NOT add new work there.
 
 Why "Diagnostic" in the name? The screen began as a V2 test harness and was
-promoted to production.  The name is historical; ignore it.
+promoted to production. The name is historical; ignore it.
 
 ### CRITICAL: API Development Rule
 DO NOT create new API endpoints without explicit permission!
@@ -96,38 +73,38 @@ DO NOT create new API endpoints without explicit permission!
 ## System Architecture
 
 ### UI/UX Decisions
-The platform features a dark-themed premium sports aesthetic with Neon Green, White, and Yellow accents, utilizing card-based elements, drawer navigation, custom headers, and animated empty states. Theming is token-based with dedicated UI themes and navigation tailored for each user role (Coach, Player, Platform Owner, Service Provider).
+The platform uses a dark-themed premium sports aesthetic with Neon Green, White, and Yellow accents. It incorporates card-based elements, drawer navigation, custom headers, and animated empty states. Theming is token-based with dedicated UI themes and navigation for each user role (Coach, Player, Platform Owner, Service Provider).
 
 ### Technical Implementations
-- **Frontend**: React Native with Expo SDK 54, React Navigation, React Context, `AsyncStorage`, and `React Native Reanimated`.
-- **Backend**: Express.js server with TypeScript for RESTful API endpoints.
-- **Data Storage**: Client-side `AsyncStorage`; Drizzle ORM with Supabase PostgreSQL server-side.
+- **Frontend**: React Native (Expo SDK 54, React Navigation, React Context, `AsyncStorage`, `React Native Reanimated`).
+- **Backend**: Express.js server with TypeScript for RESTful APIs.
+- **Data Storage**: Client-side `AsyncStorage`; server-side Drizzle ORM with Supabase PostgreSQL.
 - **Build System**: Concurrent Expo and Express servers; static Expo web build served by Express; Drizzle Kit for PostgreSQL migrations.
-- **API Caching**: In-memory caching with TTLs and pattern-based invalidation, including god-endpoints for player data, and persisted query cache to `AsyncStorage` for stale-while-revalidate.
+- **API Caching**: In-memory caching with TTLs and pattern-based invalidation, god-endpoints for player data, and persisted query cache to `AsyncStorage`.
 - **Authentication**: Automatic client-side token refresh via `refreshAuthMiddleware`.
-- **Internationalization**: `i18next` and `react-i18next` for English, Arabic (RTL), Indonesian.
-- **Timezone Handling**: Academy-specific IANA timezones managed client-side and server-side using `AT TIME ZONE` in PostgreSQL.
-- **Core Features**: Credit System (V2 ledger), Gamification (Glow Leveling OS, Adult Glow DSS Rating System, 50-level XP Engine), Player Assessment (Start Baseline, Skill Evidence Capture via video), Session & Match Management (templates, planning, logging, Match Challenge System), Session Player Integrity, Player Onboarding (17-step adaptable process), User Onboarding & Guidance (checklists, modals, help centers).
-- **Role-Specific Applications**: Dedicated apps for Coaches, Players, Platform Owners, and Service Providers.
-- **Market & Community**: Glow Market (e-commerce with XP-based discounts), Community Marketplace (used equipment), Player Chat Surface, Group Social Hub (Events with RSVP, Chat with emoji reactions), Coach & Academy Posts (templates, role-tinted feed, pinned posts, auto lesson-recap drafts, country-scope publishing), Coach Following.
-- **Academy Management**: Session Waitlist, Tournament Management, Ladder System, Multiple Locations per Academy, Live Scoring, Free Player Mode.
-- **Player Tools**: Player Calendar Integration (ICS feed, native calendar), Venue/Club System (coaching, court rental, social clubs), Playtomic-Style Court Booking System (multi-phase, friend invites, cost splitting, smart availability), Slot Reservation System (atomic 5-minute holds).
-- **Family & Corporate**: Family Lobby System (Netflix-style multi-account, audit logs, screen-time locks), Family Wallet (Stripe payment, spend caps), Corporate/Business Accounts (session credit pools).
-- **Engagement & Planning**: Quest System (daily, weekly, monthly, streak tracking, XP multipliers), Week Planner (Coach's "Week View"), Guest Player System, Smart Fill (holidaying players as guests).
-- **Post-Session Check-In**: 3-step animated modal (energy 1–5, mood 1–5, optional 120-char notes) with confetti + XP reward. Auto-triggers 2 hours after a session ends (once per screen visit). Backed by `session_checkins` table (unique per session+player). XP awarded via `awardXP("session_checkin")`. API: `POST /api/player/sessions/:id/checkin`, `GET /api/player/me/session-history`, `GET /api/player/me/checkin-insight`.
-- **Player Journey — Session History Tab**: New "Sessions" tab on the PlayerJourneyScreen timeline showing all past sessions with color-coded energy dots and mood/notes from check-ins.
-- **My Journey Shortcut**: Tappable chip on ProPlayerCard bottom row navigating to the Journey screen.
-- **AI Coach Energy Trend Insight**: AICoachHomeCard displays an orange energy trend insight from `/api/player/me/checkin-insight` based on 30 days of check-in history.
-- **Apple Health / Google Health Connect Integration (Task #1571)**: Player can connect their health app from Profile screen ("Connected Apps" section). `WellnessSnapshotCard` on home screen (between Quests and MiniFeed) shows sleep quality, step progress arc, resting heart rate, and recovery status badge. AI Coach card shows recovery status inline. Backend stores only computed labels via `POST/GET /api/player/me/health-snapshot` (never raw biometrics). Full Expo Go / web graceful fallback — card hidden, toggle shows informative Alert. Service: `client/player/services/healthService.ts`. Components: `client/player/components/WellnessSnapshotCard.tsx`. Backend: `server/routes/player-health.ts`.
-- **Drill Library**: Coach-assigned training between sessions. Players browse 16 categorised drills (Serve, Forehand, Backhand, Footwork, Net Play, Match Tactics, Fitness), save favourites, log completions with star rating/duration/notes (earns XP), and view step-by-step instructions. Coaches assign drills from PlayerDetailView. AI Coach home card shows a drill recommendation. Growth tab has 4 sub-tabs: Progress, Quests, Schedule, Drills.
-- **Player Match & Score Tracking (Task #1583)**: Players self-log match results (opponent name or in-app player search, date, per-set score, win/loss). In-app opponents receive a push notification to confirm within 24 h; unconfirmed results auto-confirm after that window. `match_results` DB table with lazy auto-confirm. Unified `MatchHistoryScreen` shows both live-scored matches and self-logged results with confirm/dispute controls. Log Match button in Community header and Profile "Matches" tab. Coach sees player match history with W/L stats in PlayerDetailView CollapsibleSection. Confirmed wins count toward Monthly Wins leaderboard via 4th leg added to `aggregatePlayerMatches`. APIs: `POST /api/player/me/match-results`, `GET /api/player/me/match-results`, `POST /api/player/match-results/:id/confirm`, `POST /api/player/match-results/:id/reject`, `GET /api/player/players/:playerId/match-results`, `GET /api/coach/players/:playerId/match-results`, `GET /api/player/search-players`.
+- **Internationalization**: `i18next` and `react-i18next` (English, Arabic (RTL), Indonesian).
+- **Timezone Handling**: Academy-specific IANA timezones using `AT TIME ZONE` in PostgreSQL.
+- **Core Features**: Credit System (V2 ledger), Gamification (Glow Leveling OS, Adult Glow DSS Rating System, 50-level XP Engine), Player Assessment (Baseline, Skill Evidence via video), Session & Match Management, Player Onboarding (17-step), User Onboarding & Guidance.
+- **Role-Specific Applications**: Dedicated applications for Coaches, Players, Platform Owners, and Service Providers.
+- **Market & Community**: Glow Market, Community Marketplace, Player Chat, Group Social Hub (Events with RSVP, Chat), Coach & Academy Posts.
+- **Academy Management**: Session Waitlist, Tournament Management, Ladder System, Multiple Locations, Live Scoring, Free Player Mode.
+- **Player Tools**: Player Calendar Integration (ICS feed, native calendar), Venue/Club System, Playtomic-Style Court Booking, Slot Reservation.
+- **Family & Corporate**: Family Lobby System (multi-account, audit logs, screen-time locks), Family Wallet (Stripe payment, spend caps), Corporate/Business Accounts.
+- **Engagement & Planning**: Quest System (daily, weekly, monthly, streak tracking, XP multipliers), Week Planner (Coach's "Week View"), Guest Player System, Smart Fill.
+- **Post-Session Check-In**: 3-step animated modal for energy, mood, and notes with XP reward, auto-triggered 2 hours post-session.
+- **Player Journey — Session History Tab**: Displays past sessions with check-in details on `PlayerJourneyScreen`.
+- **My Journey Shortcut**: Tappable chip on `ProPlayerCard` navigating to the Journey screen.
+- **AI Coach Energy Trend Insight**: Displays a 30-day energy trend on `AICoachHomeCard`.
+- **Apple Health / Google Health Connect Integration**: Players connect health apps from profile. `WellnessSnapshotCard` on home shows sleep, steps, heart rate, recovery. AI Coach card shows recovery. Backend stores computed labels, not raw biometrics. Graceful fallback for Expo Go/web.
+- **Drill Library**: Coach-assigned training drills. Players browse 16 categories, save favorites, log completions for XP, view instructions. Coaches assign drills. AI Coach provides recommendations. Growth tab includes Drills.
+- **Player Match & Score Tracking**: Players self-log match results (opponent, date, score, win/loss). In-app opponents confirm via push notification. `MatchHistoryScreen` unifies live-scored and self-logged results. Confirmed wins count toward leaderboards.
 - **Updates**: What's New Modal (role and locale-aware carousel).
-- **AI Technique Feedback (Task #1572)**: Players upload a short video clip (≤30 s) of a tennis stroke for AI-powered analysis. Video and generated thumbnail are stored in Replit Object Storage (GCS bucket) via `server/objectStorage.ts`. Step 2 of the upload flow shows a visual thumbnail preview using `expo-video-thumbnails`. Coach-sharing privacy toggle (`shareAnalysesWithCoach`) is persisted in the `players` DB table (default true) and synced via `PATCH /api/player/me/social`; `GET /api/player/me/technique-privacy` exposes it. `PrivacySettingsScreen` reads from the server with AsyncStorage as write-through cache. Purging old analyses deletes GCS objects for GCS-hosted URLs.
+- **AI Technique Feedback**: Players upload short video clips for AI analysis. Videos and thumbnails stored in Replit Object Storage. Coach-sharing privacy toggle. Purging deletes GCS objects.
 
 ## External Dependencies
 
 - **Database**: Supabase PostgreSQL
-- **Media Storage**: Supabase Storage; Replit Object Storage (GCS) for AI technique analysis videos/thumbnails
+- **Media Storage**: Supabase Storage; Replit Object Storage (GCS)
 - **Deployment**: Replit
 - **Push Notifications**: Firebase Cloud Messaging (FCM)
 - **Email Service**: Resend API
