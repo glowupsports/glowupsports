@@ -199,3 +199,70 @@ if (IS_WEB && typeof window !== "undefined") {
     true, // capture phase: runs before any other listener
   );
 }
+
+// ── LAYER 4: window.onerror + error event (synchronous throw path) ────────────
+//
+// When Metro's ExceptionsManager receives a non-Error unhandled rejection, it
+// wraps it in a SyntheticError("An uncaught exception occured but the error
+// was not an error object.") and RE-THROWS it synchronously. This synchronous
+// throw travels through window.onerror — not unhandledrejection — so Layers
+// 0-3 never see it. Without this layer, the SyntheticError reaches Chrome's
+// Runtime.exceptionThrown CDP, and Replit's canvas restarts the iframe.
+//
+// We suppress:
+//   a) Any error whose message contains "not an error object" — ExceptionsManager's
+//      exact wrapper text for non-Error values.
+//   b) Any window.onerror call where the error object is not a real Error
+//      instance (e.g. thrown null/undefined/string/plain-object).
+if (IS_WEB && typeof window !== "undefined") {
+  // Capture-phase 'error' event — fires before bubble-phase and before
+  // window.onerror. e.preventDefault() + stopImmediatePropagation() ensures
+  // no other listener (including Replit's canvas monitor) can act on it.
+  window.addEventListener(
+    "error",
+    (e: ErrorEvent) => {
+      if (
+        (typeof e.message === "string" &&
+          e.message.includes("not an error object")) ||
+        (e.error != null && !(e.error instanceof Error))
+      ) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    },
+    true, // capture phase
+  );
+
+  // window.onerror wrapper — belt-and-suspenders for callers that bypass
+  // the event listener path. Returning true suppresses Chrome's DevTools
+  // logging and the Runtime.exceptionThrown CDP notification.
+  const _origOnerror = window.onerror;
+  window.onerror = function (
+    message: string | Event,
+    _source?: string,
+    _lineno?: number,
+    _colno?: number,
+    error?: Error,
+  ): boolean {
+    if (
+      (typeof message === "string" &&
+        message.includes("not an error object")) ||
+      (error != null && !(error instanceof Error))
+    ) {
+      return true; // suppress — prevents Runtime.exceptionThrown
+    }
+    if (typeof _origOnerror === "function") {
+      return (
+        (_origOnerror as typeof window.onerror)?.call(
+          window,
+          message,
+          _source,
+          _lineno,
+          _colno,
+          error,
+        ) ?? false
+      );
+    }
+    return false;
+  };
+}
