@@ -9,6 +9,7 @@ import { Router, type Response } from "express";
   import { getFirstSessionDate, addDaysToLocalDate, ensureResolvableLocalTime } from "../utils/timezone";  import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, inSessionFeedback, sessionSkillFeedback, ballLevels, playerNotifications, questTemplates as questTemplatesTable, playerQuests as playerQuestsTable, sessionPlans, sessionAiSummaries, playerAiInsights, glowSkills, playerSkillScores, playerSessionReflections, playerMonthlyAssessments, matchReflections, matches, aiCoachConversations, playerAiTrainingPlans, deepAssessmentPillarSummaries } from "@shared/schema";  import { awardXP } from "../services/xp-service";
   import { aiQuotaMiddleware, logAiCall } from "../middleware/aiQuotaMiddleware";
   import { broadcastSessionUpdate } from "../websocket";
+import { getPlayerHealthSnapshot } from "./player-health";
   const router = Router();
   
     // ==================== PLAYER PROGRESS ====================
@@ -2632,6 +2633,18 @@ import { Router, type Response } from "express";
 
         let systemPrompt = buildCoachingSystemPrompt(ctx);
 
+        // Inject player health snapshot so coaching advice is recovery-aware
+        const healthSnapshot = getPlayerHealthSnapshot(playerId);
+        if (healthSnapshot) {
+          const healthParts: string[] = [];
+          if (healthSnapshot.recovery_status) healthParts.push(`Recovery status: ${healthSnapshot.recovery_status}`);
+          if (healthSnapshot.sleep_quality) healthParts.push(`Sleep quality: ${healthSnapshot.sleep_quality}`);
+          if (healthSnapshot.steps_today !== null) healthParts.push(`Steps today: ${healthSnapshot.steps_today.toLocaleString()}`);
+          if (healthParts.length > 0) {
+            systemPrompt = `PLAYER HEALTH SNAPSHOT (from wearables — use to make coaching advice recovery-aware):\n${healthParts.map((p) => `- ${p}`).join("\n")}\n(If recovery or sleep is poor, favour lower-intensity suggestions and acknowledge the physical state.)\n\n${systemPrompt}`;
+          }
+        }
+
         // Inject previous conversation history into the system prompt
         if (history.length > 0) {
           const historyBlock = history
@@ -3124,6 +3137,18 @@ import { Router, type Response } from "express";
         if (!ctx) return res.status(404).json({ error: "Player not found" });
 
         let systemPrompt = buildPlayerSelfSystemPrompt(ctx);
+
+        // Inject player health snapshot so coaching advice is recovery-aware
+        const healthSnapshotSelf = getPlayerHealthSnapshot(playerId);
+        if (healthSnapshotSelf) {
+          const healthPartsSelf: string[] = [];
+          if (healthSnapshotSelf.recovery_status) healthPartsSelf.push(`Recovery status: ${healthSnapshotSelf.recovery_status}`);
+          if (healthSnapshotSelf.sleep_quality) healthPartsSelf.push(`Sleep quality: ${healthSnapshotSelf.sleep_quality}`);
+          if (healthSnapshotSelf.steps_today !== null) healthPartsSelf.push(`Steps today: ${healthSnapshotSelf.steps_today.toLocaleString()}`);
+          if (healthPartsSelf.length > 0) {
+            systemPrompt = `PLAYER HEALTH SNAPSHOT (from wearables — use to make advice recovery-aware):\n${healthPartsSelf.map((p) => `- ${p}`).join("\n")}\n(If recovery or sleep is poor, favour lower-intensity training suggestions and acknowledge their physical state.)\n\n${systemPrompt}`;
+          }
+        }
 
         // Inject previous conversation history into the system prompt
         if (history.length > 0) {
