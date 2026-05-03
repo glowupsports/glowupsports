@@ -91,6 +91,7 @@ import PlayerBookingChatScreen from "@/player/screens/PlayerBookingChatScreen";
 import PlayerPublicProfileScreen from "@/player/screens/PlayerPublicProfileScreen";
 import PlayerCoachProfileScreen from "@/player/screens/PlayerCoachProfileScreen";
 import PlayerAcademyProfileScreen from "@/player/screens/PlayerAcademyProfileScreen";
+import AcademySlugResolverScreen from "@/player/screens/AcademySlugResolverScreen";
 import ShopScreen from "@/player/screens/ShopScreen";
 import ProductDetailScreen from "@/player/screens/ProductDetailScreen";
 import ServiceDetailScreen from "@/player/screens/ServiceDetailScreen";
@@ -152,6 +153,7 @@ export type PlayerV2StackParamList = {
   CoachProfile: { coachId: string };
   AcademyProfile: { academyId: string };
   AcademyPublicProfile: { academyId: string };
+  AcademySlugResolver: { slug: string };
   AcademyBrowser: undefined;
   CoachDirectory: undefined;
   TransferRequest: { academyId?: string; academyName?: string } | undefined;
@@ -602,6 +604,7 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="CoachProfile" component={PlayerCoachProfileScreen} options={{ presentation: "card" }} />
         <Stack.Screen name="AcademyProfile" component={AcademyProfileScreen} options={{ presentation: "card" }} />
         <Stack.Screen name="AcademyPublicProfile" component={PlayerAcademyProfileScreen} options={{ presentation: "card", headerShown: false }} />
+        <Stack.Screen name="AcademySlugResolver" component={AcademySlugResolverScreen} options={{ presentation: "card", headerShown: false }} />
         <Stack.Screen name="AcademyBrowser" component={AcademyBrowserScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="CoachDirectory" component={CoachDirectoryScreen} options={{ presentation: "card", headerTitle: t("player.settings.findCoaches"), headerTransparent: true, headerShown: true, headerTintColor: Colors.dark.text }} />
         <Stack.Screen name="TransferRequest" component={TransferRequestScreen} options={{ presentation: "card" }} />

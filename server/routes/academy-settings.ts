@@ -245,6 +245,8 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           acceptsBankTransfer: (academy as any)?.acceptsBankTransfer !== false,
           // Task #1131: openJoin lives on the academies table.
           openJoin: academy?.openJoin !== false,
+          // Task #1604: expose slug so the client can build the public share URL.
+          slug: academy?.slug || null,
         };
 
         res.json(response);

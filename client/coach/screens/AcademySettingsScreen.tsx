@@ -47,6 +47,7 @@ interface AcademySettings {
   websiteUrl: string | null;
   vatRegistrationNumber: string | null;
   openJoin?: boolean;
+  slug?: string | null;
 }
 
 interface AcademyInvite {
@@ -187,6 +188,30 @@ export default function AcademySettingsScreen() {
       } catch (_error) {
         handleCopyJoinCode();
       }
+    }
+  };
+
+  const handleSharePublicProfile = async () => {
+    const slug = settings?.slug;
+    if (!slug) {
+      Alert.alert("Not available", "Your public profile link is not ready yet. Please complete your academy setup first.");
+      return;
+    }
+    const url = `https://app.glowupsports.com/academy/${slug}`;
+    const academyName = settings?.businessName || "our academy";
+    if (Platform.OS === "web") {
+      await Clipboard.setStringAsync(url);
+      Alert.alert("Link copied", url);
+      return;
+    }
+    try {
+      await Share.share({
+        message: `Check out ${academyName} on Glow Up Sports: ${url}`,
+        url,
+      });
+    } catch (_error) {
+      await Clipboard.setStringAsync(url);
+      Alert.alert("Link copied", "Public profile link copied to clipboard.");
     }
   };
 
@@ -884,7 +909,9 @@ export default function AcademySettingsScreen() {
             <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
           </Pressable>
           <Text style={styles.headerTitle}>ACADEMY SETTINGS</Text>
-          <View style={{ width: 40 }} />
+          <Pressable onPress={handleSharePublicProfile} style={styles.shareButton} hitSlop={8}>
+            <Ionicons name="share-outline" size={22} color={Colors.dark.xpCyan} />
+          </Pressable>
         </View>
       </LinearGradient>
 
@@ -950,6 +977,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: Spacing.xs,
+  },
+  shareButton: {
+    padding: Spacing.xs,
+    width: 40,
+    alignItems: "center",
   },
   headerTitle: {
     ...Typography.h2,

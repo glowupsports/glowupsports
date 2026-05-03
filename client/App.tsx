@@ -222,6 +222,7 @@ function KeyboardWrapper({ children }: { children: React.ReactNode }) {
 const DOMAIN = getEnv().EXPO_PUBLIC_DOMAIN || undefined;
 
 const GROUP_PATH_RE = /^group\/([a-zA-Z0-9\-_]+)$/;
+const ACADEMY_SLUG_PATH_RE = /^academy\/([a-zA-Z0-9\-_]+)$/;
 
 const linking: LinkingOptions<any> = {
   prefixes: [
@@ -268,9 +269,9 @@ const linking: LinkingOptions<any> = {
   },
   getStateFromPath(path, options) {
     const clean = path.replace(/^\//, "");
-    const match = GROUP_PATH_RE.exec(clean);
-    if (match) {
-      const groupId = match[1];
+    const groupMatch = GROUP_PATH_RE.exec(clean);
+    if (groupMatch) {
+      const groupId = groupMatch[1];
       return {
         routes: [
           {
@@ -278,6 +279,27 @@ const linking: LinkingOptions<any> = {
             state: {
               routes: [
                 { name: "GroupDetail", params: { groupId, groupName: "" } },
+              ],
+            },
+          },
+        ],
+      };
+    }
+    // Task #1604 — academy public profile share link: academy/<slug>
+    // Lands on AcademySlugResolver which resolves slug → academyId then
+    // navigates to AcademyPublicProfile (PlayerAcademyProfileScreen).
+    const academyMatch = ACADEMY_SLUG_PATH_RE.exec(clean);
+    if (academyMatch) {
+      const slug = academyMatch[1];
+      return {
+        routes: [
+          {
+            name: "PlayerV2",
+            state: {
+              index: 1,
+              routes: [
+                { name: "PlayerV2Home" },
+                { name: "AcademySlugResolver", params: { slug } },
               ],
             },
           },

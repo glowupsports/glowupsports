@@ -714,6 +714,23 @@ import { Router, type Request, type Response } from "express";
 
   // ==================== ACADEMY PUBLIC PROFILE ====================
 
+  // Task #1604 — resolve academy slug to academyId (used by the share deep-link)
+  // IMPORTANT: this literal route must be registered BEFORE /api/academies/:id/profile
+  // so Express does not treat "by-slug" as the :id segment.
+  router.get("/api/academies/by-slug/:slug", async (req: Request, res: Response) => {
+    try {
+      const { slug } = req.params;
+      const academy = await storage.getAcademyBySlug(slug);
+      if (!academy) {
+        return res.status(404).json({ error: "Academy not found" });
+      }
+      res.json({ academyId: academy.id });
+    } catch (error) {
+      console.error("Get academy by slug error:", error);
+      res.status(500).json({ error: "Failed to resolve academy slug" });
+    }
+  });
+
   // Get academy public profile (detailed view with coaches)
   router.get("/api/academies/:id/profile", async (req: Request, res: Response) => {
     try {
