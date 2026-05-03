@@ -704,9 +704,10 @@ router.get("/spending-limit", async (req: AuthenticatedRequest, res) => {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
 
-    const rows = await db.execute(drizzleSql`
+    const limitResult = await db.execute(drizzleSql`
       SELECT arena_monthly_spending_limit FROM players WHERE id = ${playerId} LIMIT 1
-    `) as unknown as Record<string, unknown>[];
+    `);
+    const rows = ((limitResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
 
     const limit =
       rows[0]?.arena_monthly_spending_limit != null
@@ -716,12 +717,13 @@ router.get("/spending-limit", async (req: AuthenticatedRequest, res) => {
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
-    const spentRows = await db.execute(drizzleSql`
+    const spentResult = await db.execute(drizzleSql`
       SELECT COALESCE(SUM(price_cents), 0) AS total
       FROM arena_coin_purchases
       WHERE player_id = ${playerId}
         AND created_at >= ${startOfMonth.toISOString()}
-    `) as unknown as Record<string, unknown>[];
+    `);
+    const spentRows = ((spentResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
     const spent = Number(spentRows[0]?.total ?? 0);
 
     res.json({ limit, spent, remaining: limit !== null ? Math.max(0, limit - spent) : null, unit: "cents" });
@@ -749,17 +751,18 @@ router.post("/spending-limit", async (req: AuthenticatedRequest, res) => {
     // Authorization: verify the requesting parent owns / is linked to targetPlayerId.
     // Platform owners and admins bypass this check.
     if (!["platform_owner", "admin"].includes(role ?? "")) {
-      const linked = await db.execute(drizzleSql`
+      const linkedResult = await db.execute(drizzleSql`
         SELECT 1
         FROM parent_player_relations
         WHERE parent_user_id = ${requestingUserId}
           AND player_id = ${targetPlayerId}
         LIMIT 1
-      `) as unknown as Record<string, unknown>[];
+      `);
+      const linked = ((linkedResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
 
       // Also check the newer family_members table (symmetric model)
       if (linked.length === 0) {
-        const familyLinked = await db.execute(drizzleSql`
+        const familyLinkedResult = await db.execute(drizzleSql`
           SELECT 1
           FROM family_members fm_parent
           JOIN family_members fm_child ON fm_child.family_group_id = fm_parent.family_group_id
@@ -768,7 +771,8 @@ router.post("/spending-limit", async (req: AuthenticatedRequest, res) => {
           )
           AND fm_child.player_id = ${targetPlayerId}
           LIMIT 1
-        `) as unknown as Record<string, unknown>[];
+        `);
+        const familyLinked = ((familyLinkedResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
 
         if (familyLinked.length === 0) {
           return res.status(403).json({ error: "You are not linked as a parent of this player" });

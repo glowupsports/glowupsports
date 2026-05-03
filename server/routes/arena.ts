@@ -1269,7 +1269,7 @@ router.get("/trophy-room", async (req: AuthenticatedRequest, res) => {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
 
-    const [pinsRows, hofRows] = await Promise.all([
+    const [pinsResult, hofResult] = await Promise.all([
       db.execute(drizzleSql`
         SELECT id, trophy_type, label, description, accent_color, earned_at, pinned_at
         FROM arena_trophy_room_pins
@@ -1284,8 +1284,10 @@ router.get("/trophy-room", async (req: AuthenticatedRequest, res) => {
         LIMIT 50
       `),
     ]);
+    const pinsRows = ((pinsResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
+    const hofRows  = ((hofResult  as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
 
-    const statsRow = await db.execute(drizzleSql`
+    const statsResult = await db.execute(drizzleSql`
       SELECT
         COALESCE(cc.arena_wins, 0) AS total_wins,
         COALESCE(cc.arena_wins, 0) + COALESCE(cc.arena_losses, 0) AS total_battles,
@@ -1294,13 +1296,14 @@ router.get("/trophy-room", async (req: AuthenticatedRequest, res) => {
       FROM arena_champion_cards cc
       WHERE cc.player_id = ${playerId}
       LIMIT 1
-    `) as unknown as Array<Record<string, unknown>>;
+    `);
+    const statsRow = ((statsResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
 
-    const sr = (statsRow as unknown as Array<Record<string, unknown>>)[0] ?? {};
+    const sr = statsRow[0] ?? {};
     const totalWins    = Number(sr.total_wins ?? 0);
     const totalBattles = Number(sr.total_battles ?? 0);
 
-    const pins = (pinsRows as unknown as Array<Record<string, unknown>>).map((r) => ({
+    const pins = pinsRows.map((r) => ({
       id:          String(r.id),
       trophyType:  String(r.trophy_type ?? "default"),
       label:       String(r.label ?? ""),
@@ -1310,7 +1313,7 @@ router.get("/trophy-room", async (req: AuthenticatedRequest, res) => {
       accentColor: r.accent_color as string | undefined,
     }));
 
-    const hallOfFame = (hofRows as unknown as Array<Record<string, unknown>>).map((r) => ({
+    const hallOfFame = hofRows.map((r) => ({
       id:              String(r.id),
       playerId:        String(r.player_id ?? ""),
       playerName:      String(r.player_name ?? ""),
@@ -1530,7 +1533,7 @@ router.get("/academy-clash", async (req: AuthenticatedRequest, res) => {
     const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq(players.id, playerId)).limit(1);
     const myAcademyId = player?.academyId ?? null;
 
-    const [activeRows, historyRows] = await Promise.all([
+    const [activeResult, historyResult] = await Promise.all([
       db.execute(drizzleSql`
         SELECT * FROM academy_clashes
         WHERE status IN ('pending', 'active')
@@ -1546,6 +1549,8 @@ router.get("/academy-clash", async (req: AuthenticatedRequest, res) => {
         LIMIT 20
       `),
     ]);
+    const activeRows  = ((activeResult  as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
+    const historyRows = ((historyResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
 
     const mapClash = (r: Record<string, unknown>) => ({
       id:                   String(r.id),
@@ -1565,19 +1570,20 @@ router.get("/academy-clash", async (req: AuthenticatedRequest, res) => {
     });
 
     // Player contribution stats
-    const [myRecord] = await db.execute(drizzleSql`
+    const myRecordResult = await db.execute(drizzleSql`
       SELECT
         COUNT(*) FILTER (WHERE winner_id = ${playerId}) AS wins,
         COUNT(*) FILTER (WHERE (initiator_id = ${playerId} OR opponent_id = ${playerId}) AND winner_id IS NOT NULL AND winner_id != ${playerId}) AS losses,
         COUNT(*) FILTER (WHERE initiator_id = ${playerId} OR opponent_id = ${playerId}) AS contributed
       FROM arena_battles
       WHERE battle_type = 'academy_clash'
-    `) as unknown as Array<Record<string, unknown>>;
+    `);
+    const myRecord = ((myRecordResult as unknown as { rows: Record<string, unknown>[] }).rows ?? [])[0];
 
     res.json({
       myAcademyId,
-      active:  (activeRows  as unknown as Array<Record<string, unknown>>).map(mapClash),
-      history: (historyRows as unknown as Array<Record<string, unknown>>).map(mapClash),
+      active:  activeRows.map(mapClash),
+      history: historyRows.map(mapClash),
       myRecord: myRecord ? {
         wins:               Number(myRecord.wins ?? 0),
         losses:             Number(myRecord.losses ?? 0),
@@ -1731,15 +1737,19 @@ router.get("/tournaments", async (req: AuthenticatedRequest, res) => {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
 
-    const [activeRows, upcomingRows, pastRows, regRows] = await Promise.all([
+    const [activeResult, upcomingResult, pastResult, regResult] = await Promise.all([
       db.execute(drizzleSql`SELECT * FROM arena_tournaments WHERE status = 'active' ORDER BY starts_at ASC LIMIT 20`),
       db.execute(drizzleSql`SELECT * FROM arena_tournaments WHERE status IN ('upcoming','registration') ORDER BY starts_at ASC LIMIT 20`),
       db.execute(drizzleSql`SELECT * FROM arena_tournaments WHERE status = 'completed' ORDER BY ends_at DESC LIMIT 20`),
       db.execute(drizzleSql`SELECT tournament_id, wins, losses, rank FROM arena_tournament_registrations WHERE player_id = ${playerId}`),
     ]);
+    const activeRows   = ((activeResult   as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
+    const upcomingRows = ((upcomingResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
+    const pastRows     = ((pastResult     as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
+    const regRows      = ((regResult      as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
 
     const regMap = new Map<string, { wins: number; losses: number; rank: number | null }>(
-      (regRows as unknown as Array<Record<string, unknown>>).map((r) => [
+      regRows.map((r) => [
         String(r.tournament_id),
         { wins: Number(r.wins ?? 0), losses: Number(r.losses ?? 0), rank: r.rank != null ? Number(r.rank) : null },
       ]),
@@ -1769,9 +1779,9 @@ router.get("/tournaments", async (req: AuthenticatedRequest, res) => {
     };
 
     res.json({
-      active:   (activeRows   as unknown as Array<Record<string, unknown>>).map(mapT),
-      upcoming: (upcomingRows as unknown as Array<Record<string, unknown>>).map(mapT),
-      past:     (pastRows     as unknown as Array<Record<string, unknown>>).map(mapT),
+      active:   activeRows.map(mapT),
+      upcoming: upcomingRows.map(mapT),
+      past:     pastRows.map(mapT),
     });
   } catch (err) {
     console.error("[arena] GET /tournaments:", err);
@@ -2256,14 +2266,15 @@ router.get("/status", async (req: AuthenticatedRequest, res) => {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
 
-    const [row] = await db.execute(drizzleSql`
+    const statusResult = await db.execute(drizzleSql`
       SELECT
         hot_form, undefeated_streak, battle_shields, ribbon_holder,
         arena_mmr, arena_wins, arena_losses, battle_streak, rarity_label
       FROM arena_champion_cards
       WHERE player_id = ${playerId}
       LIMIT 1
-    `) as unknown as Array<Record<string, unknown>>;
+    `);
+    const row = ((statusResult as unknown as { rows: Record<string, unknown>[] }).rows ?? [])[0];
 
     if (!row) return res.json({ hasCard: false });
 
@@ -2285,14 +2296,16 @@ router.get("/status", async (req: AuthenticatedRequest, res) => {
       weeklyPackGranted = packResult.granted;
     }
 
-    const moodRow = await db.execute(drizzleSql`
+    const moodResult = await db.execute(drizzleSql`
       SELECT mood_modifier FROM arena_player_cards WHERE player_id = ${playerId} LIMIT 1
-    `) as unknown as Array<Record<string, unknown>>;
+    `);
+    const moodRow = ((moodResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
 
     // Re-fetch shields after potential grant so the client always sees the up-to-date count
-    const [updatedCard] = await db.execute(drizzleSql`
+    const updatedCardResult = await db.execute(drizzleSql`
       SELECT battle_shields FROM arena_champion_cards WHERE player_id = ${playerId} LIMIT 1
-    `) as unknown as Array<{ battle_shields: number }>;
+    `);
+    const updatedCard = ((updatedCardResult as unknown as { rows: { battle_shields: number }[] }).rows ?? [])[0];
 
     res.json({
       hasCard:             true,
@@ -2305,7 +2318,7 @@ router.get("/status", async (req: AuthenticatedRequest, res) => {
       arenaLosses:         Number(row.arena_losses ?? 0),
       battleStreak:        Number(row.battle_streak ?? 0),
       rarityLabel:         String(row.rarity_label ?? "Common I"),
-      moodModifier:        Number((moodRow as unknown as Array<Record<string, unknown>>)[0]?.mood_modifier ?? 0),
+      moodModifier:        Number(moodRow[0]?.mood_modifier ?? 0),
       weeklyShieldGranted:   shieldGrant.granted,
       shieldsGrantedCount:   shieldGrant.shieldsGranted,
       hasArenaPass:          hasArenaPassForPerks,
@@ -2321,12 +2334,13 @@ router.get("/status", async (req: AuthenticatedRequest, res) => {
 // ── GET /api/arena/hall-of-fame ───────────────────────────────────────────────
 router.get("/hall-of-fame", async (req: AuthenticatedRequest, res) => {
   try {
-    const rows = await db.execute(drizzleSql`
+    const hofResult = await db.execute(drizzleSql`
       SELECT id, player_id, player_name, profile_photo_url, achievement, season, inducted_at
       FROM arena_hall_of_fame
       ORDER BY inducted_at DESC
       LIMIT 100
-    `) as unknown as Array<Record<string, unknown>>;
+    `);
+    const rows = ((hofResult as unknown as { rows: Record<string, unknown>[] }).rows ?? []) as Record<string, unknown>[];
 
     const entries = rows.map((r) => ({
       id:             String(r.id),
