@@ -222,51 +222,58 @@ const INTRO_SECTIONS = [
 
 function ArenaIntroModal({ onDismiss }: { onDismiss: () => void }) {
   const insets = useSafeAreaInsets();
-  const slideY = new Animated.Value(60);
-  const opacity = new Animated.Value(0);
+  const slideY = React.useRef(new Animated.Value(60)).current;
+  const opacity = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
       Animated.spring(slideY, { toValue: 0, tension: 70, friction: 10, useNativeDriver: true }),
     ]).start();
-  }, []);
+  }, [opacity, slideY]);
 
   return (
     <Modal visible animationType="none" transparent>
       <View style={introStyles.overlay}>
-        <Animated.View style={[introStyles.sheet, { transform: [{ translateY: slideY }], opacity, paddingBottom: insets.bottom + 24 }]}>
+        <Animated.View style={[introStyles.sheet, { transform: [{ translateY: slideY }], opacity }]}>
           {/* Handle */}
           <View style={introStyles.handle} />
 
-          {/* Header */}
-          <View style={introStyles.headerRow}>
-            <View style={introStyles.logoCircle}>
-              <Feather name="zap" size={22} color={Colors.dark.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={introStyles.sheetTitle}>Welcome to the Arena</Text>
-              <Text style={introStyles.sheetSubtitle}>{"Here's how everything works"}</Text>
-            </View>
-          </View>
-
-          {/* Sections */}
-          {INTRO_SECTIONS.map((s) => (
-            <View key={s.title} style={introStyles.section}>
-              <View style={[introStyles.sectionIcon, { backgroundColor: s.color + "20" }]}>
-                <Feather name={s.icon} size={18} color={s.color} />
+          {/* Scrollable content */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[introStyles.scrollContent, { paddingBottom: insets.bottom + 24 }]}
+            bounces={false}
+          >
+            {/* Header */}
+            <View style={introStyles.headerRow}>
+              <View style={introStyles.logoCircle}>
+                <Feather name="zap" size={22} color={Colors.dark.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={introStyles.sectionTitle}>{s.title}</Text>
-                <Text style={introStyles.sectionBody}>{s.body}</Text>
+                <Text style={introStyles.sheetTitle}>Welcome to the Arena</Text>
+                <Text style={introStyles.sheetSubtitle}>{"Here's how everything works"}</Text>
               </View>
             </View>
-          ))}
 
-          {/* CTA */}
-          <Pressable style={introStyles.cta} onPress={onDismiss}>
-            <Text style={introStyles.ctaText}>{"Let's go!"}</Text>
-          </Pressable>
+            {/* Sections */}
+            {INTRO_SECTIONS.map((s) => (
+              <View key={s.title} style={introStyles.section}>
+                <View style={[introStyles.sectionIcon, { backgroundColor: s.color + "20" }]}>
+                  <Feather name={s.icon} size={18} color={s.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={introStyles.sectionTitle}>{s.title}</Text>
+                  <Text style={introStyles.sectionBody}>{s.body}</Text>
+                </View>
+              </View>
+            ))}
+
+            {/* CTA */}
+            <Pressable style={introStyles.cta} onPress={onDismiss}>
+              <Text style={introStyles.ctaText}>{"Let's go!"}</Text>
+            </Pressable>
+          </ScrollView>
         </Animated.View>
       </View>
     </Modal>
@@ -283,11 +290,10 @@ const introStyles = StyleSheet.create({
     backgroundColor: Colors.dark.backgroundDefault,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingHorizontal: Spacing.xl,
     paddingTop: 12,
     borderWidth: 1,
     borderColor: "rgba(200,255,61,0.15)",
-    gap: Spacing.lg,
+    maxHeight: "85%",
   },
   handle: {
     width: 40,
@@ -296,6 +302,11 @@ const introStyles = StyleSheet.create({
     borderRadius: 2,
     alignSelf: "center",
     marginBottom: 4,
+  },
+  scrollContent: {
+    gap: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: 4,
   },
   headerRow: {
     flexDirection: "row",
