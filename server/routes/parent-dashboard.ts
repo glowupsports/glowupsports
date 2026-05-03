@@ -336,4 +336,107 @@ router.get("/api/parent/children/:playerId/session-ratings", authMiddleware, asy
   }
 });
 
+// ── POST /api/parent/arena-spending-limit ─────────────────────────────────────
+// Set a monthly IAP spending limit (in GlowCoins) for a child player.
+// Enforced in the IAP verify endpoints before any purchase is credited.
+router.post(
+  "/api/parent/arena-spending-limit",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const requestingUserId = req.user?.userId;
+      const role = req.user?.role;
+
+      if (!requestingUserId) return res.status(401).json({ error: "Authentication required" });
+
+      if (!["parent", "platform_owner", "admin"].includes(role ?? "")) {
+        return res.status(403).json({ error: "Parent account required to set spending limits" });
+      }
+
+      const { targetPlayerId, limitCoins } = req.body;
+      if (!targetPlayerId) return res.status(400).json({ error: "targetPlayerId required" });
+
+      // Platform owners and admins bypass the parent-child link check.
+      if (!["platform_owner", "admin"].includes(role ?? "")) {
+        const childIds = await getCallerChildPlayerIds(requestingUserId);
+        if (!childIds.includes(targetPlayerId)) {
+          return res.status(403).json({ error: "You are not linked as a parent of this player" });
+        }
+      }
+
+      const limit = limitCoins === null || limitCoins === undefined ? null : parseInt(String(limitCoins));
+      if (limit !== null && (isNaN(limit) || limit < 0)) {
+        return res.status(400).json({ error: "limitCoins must be a non-negative integer or null to remove limit" });
+      }
+
+      const { db: dbInstance } = await import("../db");
+      const { sql: sqlTag } = await import("drizzle-orm");
+      await dbInstance.execute(sqlTag`
+        UPDATE players SET arena_monthly_spending_limit = ${limit} WHERE id = ${targetPlayerId}
+      `);
+
+      return res.json({ success: true, targetPlayerId, limitCoins: limit });
+    } catch (error) {
+      console.error("Error setting arena spending limit:", error);
+      return res.status(500).json({ error: "Failed to set spending limit" });
+    }
+  },
+);
+
+// ── GET /api/parent/arena-spending-limit ──────────────────────────────────────
+// Returns the current spending limit and month-to-date spend for a child player.
+router.get(
+  "/api/parent/arena-spending-limit",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const requestingUserId = req.user?.userId;
+      const role = req.user?.role;
+
+      if (!requestingUserId) return res.status(401).json({ error: "Authentication required" });
+      if (!["parent", "platform_owner", "admin"].includes(role ?? "")) {
+        return res.status(403).json({ error: "Parent account required" });
+      }
+
+      const { targetPlayerId } = req.query;
+      if (!targetPlayerId) return res.status(400).json({ error: "targetPlayerId required" });
+
+      if (!["platform_owner", "admin"].includes(role ?? "")) {
+        const childIds = await getCallerChildPlayerIds(requestingUserId);
+        if (!childIds.includes(String(targetPlayerId))) {
+          return res.status(403).json({ error: "You are not linked as a parent of this player" });
+        }
+      }
+
+      const { db: dbInstance } = await import("../db");
+      const { sql: sqlTag } = await import("drizzle-orm");
+
+      const rows = await dbInstance.execute(sqlTag`
+        SELECT arena_monthly_spending_limit FROM players WHERE id = ${String(targetPlayerId)} LIMIT 1
+      `) as unknown as Record<string, unknown>[];
+      const limitCoins = rows[0]?.arena_monthly_spending_limit != null ? Number(rows[0].arena_monthly_spending_limit) : null;
+
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const spentRows = await dbInstance.execute(sqlTag`
+        SELECT COALESCE(SUM(coins_amount), 0) AS total FROM arena_coin_purchases
+        WHERE player_id = ${String(targetPlayerId)} AND created_at >= ${startOfMonth.toISOString()}
+      `) as unknown as Record<string, unknown>[];
+      const spent = Number(spentRows[0]?.total ?? 0);
+
+      return res.json({
+        targetPlayerId,
+        limitCoins,
+        spent,
+        remaining: limitCoins !== null ? Math.max(0, limitCoins - spent) : null,
+      });
+    } catch (error) {
+      console.error("Error fetching arena spending limit:", error);
+      return res.status(500).json({ error: "Failed to fetch spending limit" });
+    }
+  },
+);
+
 export default router;

@@ -8976,16 +8976,17 @@ export const arenaTrophyRoomPins = pgTable("arena_trophy_room_pins", {
 // ── Arena Predictions ─────────────────────────────────────────────────────────
 export const arenaPredictions = pgTable("arena_predictions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  battleId: varchar("battle_id").notNull(),
-  predictorId: varchar("predictor_id").notNull(),
+  playerId: varchar("player_id"),    // nullable in Supabase — ensureArenaMigrations adds via ALTER TABLE (may be null before migration)
+  matchId: varchar("match_id"),
   predictedWinnerId: varchar("predicted_winner_id").notNull(),
-  wageredCoins: integer("wagered_coins").default(0),
-  resolved: boolean("resolved").notNull().default(false),
-  won: boolean("won"),
-  coinsAwarded: integer("coins_awarded").default(0),
+  wagerCoins: integer("wager_coins").notNull().default(0),
+  isCorrect: boolean("is_correct"),
+  payoutCoins: integer("payout_coins"),
+  resolvedAt: timestamp("resolved_at"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (t) => [
-  index("arena_predictions_battle_idx").on(t.battleId),
+  index("arena_predictions_match_idx").on(t.matchId),
+  unique("arena_predictions_player_match_unique").on(t.playerId, t.matchId),
 ]);
 
 // ── Academy Clashes ────────────────────────────────────────────────────────────

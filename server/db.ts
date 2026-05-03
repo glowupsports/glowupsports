@@ -1533,6 +1533,20 @@ pool.query('SELECT 1').then(async () => {
       )
     `);
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS arena_sponsor_packs (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        name TEXT NOT NULL,
+        sponsor_name TEXT NOT NULL,
+        pack_art_url TEXT,
+        frame_variant TEXT NOT NULL DEFAULT 'sponsor_default',
+        available_from TIMESTAMP NOT NULL DEFAULT NOW(),
+        available_until TIMESTAMP NOT NULL DEFAULT NOW() + INTERVAL '7 days',
+        coin_price INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS arena_cosmetics_unlocked (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
         player_id VARCHAR NOT NULL,

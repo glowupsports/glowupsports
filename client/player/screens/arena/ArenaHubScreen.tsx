@@ -669,6 +669,39 @@ export default function ArenaHubScreen() {
               />
             </View>
 
+            {/* Phase 4 Feature Grid */}
+            <Text style={styles.sectionTitle}>Glow Economy</Text>
+            <View style={styles.featureGrid}>
+              <FeatureCard
+                icon="shopping-bag"
+                label="Arena Shop"
+                sublabel="Coins, Packs & Pass"
+                onPress={() => navigation.navigate("ArenaShop")}
+                color="#00B0FF"
+              />
+              <FeatureCard
+                icon="award"
+                label="Trophy Room"
+                sublabel="Hall of Fame"
+                onPress={() => navigation.navigate("ArenaTrophyRoom")}
+                color="#FFD700"
+              />
+              <FeatureCard
+                icon="flag"
+                label="Academy Clash"
+                sublabel="Rival academies"
+                onPress={() => navigation.navigate("ArenaAcademyClash")}
+                color="#FF4D4D"
+              />
+              <FeatureCard
+                icon="globe"
+                label="Tournament"
+                sublabel="Global rankings"
+                onPress={() => navigation.navigate("ArenaGlobalTournament")}
+                color="#C040FB"
+              />
+            </View>
+
             {/* Active missions preview */}
             {activeMissions.length > 0 && (
               <>

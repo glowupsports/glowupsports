@@ -90,6 +90,7 @@ import playerAiCoachDataRouter from "./routes/player-ai-coach-data";
 import techniqueAnalysisRouter from "./routes/technique-analysis";
 import quizRouter from "./routes/quiz";
 import arenaRouter from "./routes/arena";
+import arenaMonetisationRouter from "./routes/arena-monetisation";
 import matchResultsRouter from "./routes/match-results";
 import { diagnosticsLimiter } from "./rateLimiter";
 
@@ -452,6 +453,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(techniqueAnalysisRouter);
   app.use("/api/quiz", quizRouter);
   app.use("/api/arena", arenaRouter);
+  app.use("/api/arena/monetisation", arenaMonetisationRouter);
+  // Phase 4 spec-required IAP paths: POST /api/arena/iap/verify, GET /api/arena/iap/products
+  app.use("/api/arena/iap", arenaMonetisationRouter);
 
   // ==================== USER ONBOARDING STATE ====================
 

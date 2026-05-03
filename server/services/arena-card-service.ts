@@ -212,6 +212,28 @@ export async function generatePlayerCard(playerId: string): Promise<void> {
         createdAt: now,
         updatedAt: now,
       });
+
+      // ── Capture the FIRST-EVER Blue Level 1 baseline (used by grantLegacyRookieCard).
+      // ON CONFLICT DO NOTHING ensures the baseline is written exactly once, never updated.
+      await db.execute(drizzleSql`
+        INSERT INTO arena_player_card_baselines
+          (player_id, rarity_tier, rarity_label, stat_power, stat_technique,
+           stat_mental, stat_tactics, player_name, photo_url, arena_mmr, captured_at)
+        VALUES (
+          ${playerId},
+          ${rarity.tier},
+          ${rarity.label},
+          ${stats.power},
+          ${stats.technique},
+          ${stats.mental},
+          ${stats.tactics},
+          ${player.name ?? ""},
+          ${player.profilePhotoUrl ?? null},
+          ${player.glowMmr ?? 1000},
+          ${now}
+        )
+        ON CONFLICT (player_id) DO NOTHING
+      `);
     }
   } catch (err) {
     console.error("[ArenaCardService] generatePlayerCard failed:", err);
@@ -327,28 +349,39 @@ export async function backfillAllCards(): Promise<{ players: number; coaches: nu
 export async function awardConqueredCard(
   winnerId: string,
   loserId: string,
-  options: { isNemesis?: boolean; preferHighRarity?: boolean } = {},
+  options: { isNemesis?: boolean; preferHighRarity?: boolean; guaranteedRarity?: string } = {},
 ): Promise<void> {
   try {
-    // For underdog bonus (preferHighRarity=true), try to find loser's highest rarity card.
-    // Fall back to any card if no high-rarity card is found.
+    // Priority order for rarity tiers (higher = better).
+    const rarityRank: Record<string, number> = {
+      legendary: 5, legendary_i: 5, legendary_ii: 4,
+      epic: 3, epic_i: 3, epic_ii: 3,
+      rare: 2, rare_i: 2, rare_ii: 2,
+      uncommon: 1, uncommon_i: 1,
+      common: 0, common_i: 0,
+    };
+
+    // For underdog bonus (preferHighRarity=true) or guaranteed minimum rarity, find best card.
     let loserCard: { id: string } | undefined;
 
-    if (options.preferHighRarity) {
-      const highRarityCards = await db
+    if (options.preferHighRarity || options.guaranteedRarity) {
+      const allCards = await db
         .select({ id: arenaPlayerCards.id, rarityTier: arenaPlayerCards.rarityTier })
         .from(arenaPlayerCards)
         .where(eq(arenaPlayerCards.playerId, loserId));
 
-      // Priority: legendary > epic > rare > uncommon > common
-      const rarityRank: Record<string, number> = {
-        legendary: 5, legendary_i: 5, legendary_ii: 4,
-        epic: 3, epic_i: 3, epic_ii: 3,
-        rare: 2, rare_i: 2, rare_ii: 2,
-        uncommon: 1, uncommon_i: 1,
-        common: 0, common_i: 0,
-      };
-      const sorted = highRarityCards.sort((a, b) => (rarityRank[b.rarityTier] ?? 0) - (rarityRank[a.rarityTier] ?? 0));
+      let candidates = allCards;
+
+      // Filter to minimum rarity when guaranteedRarity is set; fall back to all if none qualify.
+      if (options.guaranteedRarity) {
+        const minRank = rarityRank[options.guaranteedRarity] ?? 0;
+        const qualified = allCards.filter((c) => (rarityRank[c.rarityTier] ?? 0) >= minRank);
+        if (qualified.length > 0) candidates = qualified;
+      }
+
+      const sorted = candidates.sort(
+        (a, b) => (rarityRank[b.rarityTier] ?? 0) - (rarityRank[a.rarityTier] ?? 0),
+      );
       loserCard = sorted[0];
     }
 

@@ -77,9 +77,10 @@ function eloMMRDelta(myMmr: number, oppMmr: number, win: boolean, K = 32): numbe
 
 // ── Startup Migration ─────────────────────────────────────────────────────────
 
-/** Ensure Phase 3 columns exist (idempotent — uses ADD COLUMN IF NOT EXISTS). */
+/** Ensure Phase 3 + Phase 4 columns exist (idempotent — uses ADD COLUMN IF NOT EXISTS). */
 export async function ensureArenaMigrations(): Promise<void> {
   try {
+    // ── Phase 3 ──────────────────────────────────────────────────────────────
     await db.execute(drizzleSql`
       ALTER TABLE arena_battles
         ADD COLUMN IF NOT EXISTS is_ranked boolean NOT NULL DEFAULT true,
@@ -114,9 +115,755 @@ export async function ensureArenaMigrations(): Promise<void> {
         created_at timestamptz DEFAULT NOW()
       )
     `);
+
+    // ── Phase 4 ──────────────────────────────────────────────────────────────
+
+    // arena_champion_cards: hot_form, undefeated_streak, battle_shields, ribbon_holder
+    await db.execute(drizzleSql`
+      ALTER TABLE arena_champion_cards
+        ADD COLUMN IF NOT EXISTS hot_form boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS undefeated_streak integer NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS battle_shields integer NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS ribbon_holder boolean NOT NULL DEFAULT false
+    `);
+
+    // arena_player_cards: mood_modifier (−10 to +10 applied to stats in battles)
+    await db.execute(drizzleSql`
+      ALTER TABLE arena_player_cards
+        ADD COLUMN IF NOT EXISTS mood_modifier integer NOT NULL DEFAULT 0
+    `);
+
+    // players: arena_monthly_spending_limit (coins, null = no limit)
+    await db.execute(drizzleSql`
+      ALTER TABLE players
+        ADD COLUMN IF NOT EXISTS arena_monthly_spending_limit integer
+    `);
+
+    // arena_cosmetics_unlocked: ensure table has cosmetic_type, source columns
+    // NOTE: db.ts may have created this table with cosmetic_key instead of cosmetic_id.
+    // CREATE TABLE IF NOT EXISTS is a no-op in that case; ALTER TABLE adds the missing columns.
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_cosmetics_unlocked (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id varchar NOT NULL,
+        cosmetic_id varchar NOT NULL,
+        cosmetic_name varchar NOT NULL DEFAULT '',
+        cosmetic_type varchar NOT NULL DEFAULT 'card_border',
+        source varchar NOT NULL DEFAULT 'iap',
+        unlocked_at timestamptz DEFAULT NOW(),
+        UNIQUE(player_id, cosmetic_id)
+      )
+    `);
+    await db.execute(drizzleSql`ALTER TABLE arena_cosmetics_unlocked ADD COLUMN IF NOT EXISTS cosmetic_id varchar NOT NULL DEFAULT ''`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_cosmetics_unlocked ADD COLUMN IF NOT EXISTS cosmetic_name varchar NOT NULL DEFAULT ''`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_cosmetics_unlocked ADD COLUMN IF NOT EXISTS cosmetic_type varchar NOT NULL DEFAULT 'card_border'`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_cosmetics_unlocked ADD COLUMN IF NOT EXISTS source varchar NOT NULL DEFAULT 'iap'`).catch(() => undefined);
+
+    // academy_arena_revenue_monthly: monthly payout model (academy_id, month uniquely keyed)
+    // Spec: academy_id, month (date), total_revenue_coins, share_coins, status (pending/paid)
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS academy_arena_revenue_monthly (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        academy_id varchar NOT NULL,
+        month date NOT NULL,
+        total_revenue_coins integer NOT NULL DEFAULT 0,
+        share_coins integer NOT NULL DEFAULT 0,
+        status varchar NOT NULL DEFAULT 'pending',
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW(),
+        UNIQUE(academy_id, month)
+      )
+    `);
+
+    // arena_coin_purchases: idempotency + spending-limit tracking
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_coin_purchases (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id varchar NOT NULL,
+        product_id varchar NOT NULL,
+        transaction_id varchar,
+        coins_amount integer NOT NULL DEFAULT 0,
+        created_at timestamptz DEFAULT NOW(),
+        UNIQUE(transaction_id)
+      )
+    `);
+
+    // arena_iap_pack_purchases: idempotency for pack IAPs
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_iap_pack_purchases (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id varchar NOT NULL,
+        product_id varchar NOT NULL,
+        transaction_id varchar,
+        pack_id varchar NOT NULL,
+        created_at timestamptz DEFAULT NOW(),
+        UNIQUE(transaction_id)
+      )
+    `);
+
+    // arena_predictions: match prediction table (predictions on real player_matches)
+    // NOTE: db.ts may have already created this table with legacy columns
+    // (battle_id, predictor_id, wagered_coins, resolved, won, coins_awarded).
+    // The CREATE TABLE IF NOT EXISTS is a no-op in that case; the ALTER TABLE
+    // statements below add the Phase 4 columns that routes depend on.
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_predictions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id varchar NOT NULL,
+        match_id varchar,
+        battle_id varchar,
+        predicted_winner_id varchar NOT NULL,
+        wager_coins integer NOT NULL DEFAULT 0,
+        is_correct boolean,
+        payout_coins integer,
+        created_at timestamptz DEFAULT NOW(),
+        resolved_at timestamptz
+      )
+    `);
+    // Idempotent migrations — add columns that Phase 4 routes expect
+    await db.execute(drizzleSql`ALTER TABLE arena_predictions ADD COLUMN IF NOT EXISTS player_id varchar`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_predictions ADD COLUMN IF NOT EXISTS match_id varchar`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_predictions ADD COLUMN IF NOT EXISTS predicted_winner_id varchar`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_predictions ADD COLUMN IF NOT EXISTS wager_coins integer NOT NULL DEFAULT 0`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_predictions ADD COLUMN IF NOT EXISTS is_correct boolean`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_predictions ADD COLUMN IF NOT EXISTS payout_coins integer`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_predictions ADD COLUMN IF NOT EXISTS resolved_at timestamptz`).catch(() => undefined);
+    await db.execute(drizzleSql`
+      ALTER TABLE arena_predictions ADD CONSTRAINT arena_predictions_player_match_unique
+        UNIQUE (player_id, match_id)
+    `).catch(() => undefined);
+
+    // academy_clashes: academy vs academy clash
+    // NOTE: canonical columns come from db.ts initializeDatabase() (academy_a_id / academy_b_id /
+    // academy_a_score / academy_b_score). This CREATE TABLE IF NOT EXISTS is a no-op when db.ts
+    // has already created the table; the ALTER TABLE statements below add any extra Phase 4 columns.
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS academy_clashes (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        academy_a_id VARCHAR NOT NULL,
+        academy_b_id VARCHAR NOT NULL,
+        academy_a_score INTEGER NOT NULL DEFAULT 0,
+        academy_b_score INTEGER NOT NULL DEFAULT 0,
+        status VARCHAR NOT NULL DEFAULT 'pending',
+        winner_id VARCHAR,
+        start_date DATE,
+        end_date DATE,
+        total_battles INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    // Add extended Phase 4 columns if missing (idempotent)
+    await db.execute(drizzleSql`ALTER TABLE academy_clashes ADD COLUMN IF NOT EXISTS total_battles INTEGER NOT NULL DEFAULT 0`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE academy_clashes ADD COLUMN IF NOT EXISTS academy_a_name TEXT NOT NULL DEFAULT ''`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE academy_clashes ADD COLUMN IF NOT EXISTS academy_b_name TEXT NOT NULL DEFAULT ''`).catch(() => undefined);
+
+    // arena_tournaments: global tournament table
+    // NOTE: db.ts may have created this with start_date/end_date instead of starts_at/ends_at.
+    // CREATE TABLE IF NOT EXISTS is a no-op in that case; ALTER TABLE adds the columns routes need.
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_tournaments (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        name varchar NOT NULL,
+        tournament_type varchar NOT NULL DEFAULT 'global',
+        status varchar NOT NULL DEFAULT 'upcoming',
+        max_participants integer NOT NULL DEFAULT 64,
+        current_participants integer NOT NULL DEFAULT 0,
+        entry_fee_coins integer NOT NULL DEFAULT 0,
+        prize_pool_coins integer NOT NULL DEFAULT 0,
+        starts_at timestamptz NOT NULL DEFAULT NOW(),
+        ends_at timestamptz NOT NULL DEFAULT NOW(),
+        registration_deadline timestamptz NOT NULL DEFAULT NOW(),
+        winner_id varchar,
+        winner_name varchar,
+        created_at timestamptz DEFAULT NOW()
+      )
+    `);
+    // Idempotent migrations — add Phase 4 columns if upgrading from db.ts legacy schema
+    await db.execute(drizzleSql`ALTER TABLE arena_tournaments ADD COLUMN IF NOT EXISTS tournament_type varchar NOT NULL DEFAULT 'global'`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_tournaments ADD COLUMN IF NOT EXISTS current_participants integer NOT NULL DEFAULT 0`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_tournaments ADD COLUMN IF NOT EXISTS prize_pool_coins integer NOT NULL DEFAULT 0`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_tournaments ADD COLUMN IF NOT EXISTS starts_at timestamptz`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_tournaments ADD COLUMN IF NOT EXISTS ends_at timestamptz`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_tournaments ADD COLUMN IF NOT EXISTS registration_deadline timestamptz`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_tournaments ADD COLUMN IF NOT EXISTS winner_id varchar`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_tournaments ADD COLUMN IF NOT EXISTS winner_name varchar`).catch(() => undefined);
+
+    // arena_tournament_registrations
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_tournament_registrations (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tournament_id varchar NOT NULL,
+        player_id varchar NOT NULL,
+        wins integer NOT NULL DEFAULT 0,
+        losses integer NOT NULL DEFAULT 0,
+        rank integer,
+        registered_at timestamptz DEFAULT NOW(),
+        UNIQUE(tournament_id, player_id)
+      )
+    `);
+
+    // arena_trophy_room_pins
+    // NOTE: db.ts may have created this with pinned_card_id/pin_slot instead of trophy_type/label/etc.
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_trophy_room_pins (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id varchar NOT NULL,
+        trophy_type varchar NOT NULL DEFAULT 'default',
+        label varchar NOT NULL DEFAULT '',
+        description varchar NOT NULL DEFAULT '',
+        accent_color varchar,
+        earned_at timestamptz DEFAULT NOW(),
+        pinned_at timestamptz DEFAULT NOW()
+      )
+    `);
+    await db.execute(drizzleSql`ALTER TABLE arena_trophy_room_pins ADD COLUMN IF NOT EXISTS trophy_type varchar NOT NULL DEFAULT 'default'`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_trophy_room_pins ADD COLUMN IF NOT EXISTS label varchar NOT NULL DEFAULT ''`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_trophy_room_pins ADD COLUMN IF NOT EXISTS description varchar NOT NULL DEFAULT ''`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_trophy_room_pins ADD COLUMN IF NOT EXISTS accent_color varchar`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_trophy_room_pins ADD COLUMN IF NOT EXISTS earned_at timestamptz`).catch(() => undefined);
+
+    // arena_hall_of_fame
+    // NOTE: db.ts may have created this with achievement/rank/mmr_at_entry/entered_at columns.
+    // Routes need player_name, profile_photo_url, season, inducted_at.
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_hall_of_fame (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id varchar NOT NULL,
+        player_name varchar NOT NULL DEFAULT '',
+        profile_photo_url varchar,
+        achievement varchar NOT NULL DEFAULT '',
+        season varchar NOT NULL DEFAULT '',
+        inducted_at timestamptz DEFAULT NOW()
+      )
+    `);
+    await db.execute(drizzleSql`ALTER TABLE arena_hall_of_fame ADD COLUMN IF NOT EXISTS player_name varchar NOT NULL DEFAULT ''`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_hall_of_fame ADD COLUMN IF NOT EXISTS profile_photo_url varchar`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_hall_of_fame ADD COLUMN IF NOT EXISTS season varchar NOT NULL DEFAULT ''`).catch(() => undefined);
+    await db.execute(drizzleSql`ALTER TABLE arena_hall_of_fame ADD COLUMN IF NOT EXISTS inducted_at timestamptz`).catch(() => undefined);
+
+    // arena_champion_cards: last_shield_grant_at tracks the most recent weekly shield grant
+    await db.execute(drizzleSql`
+      ALTER TABLE arena_champion_cards ADD COLUMN IF NOT EXISTS last_shield_grant_at timestamptz
+    `);
+    // Arena Pass recurring rewards tracking: daily 100 coins, weekly free Bronze pack
+    await db.execute(drizzleSql`
+      ALTER TABLE arena_champion_cards ADD COLUMN IF NOT EXISTS last_daily_coins_at timestamptz
+    `);
+    await db.execute(drizzleSql`
+      ALTER TABLE arena_champion_cards ADD COLUMN IF NOT EXISTS last_weekly_pack_at timestamptz
+    `);
+
+    // arena_coin_purchases: price_cents — real IAP price in euro cents for accurate
+    // spending-limit enforcement (replaces approximate coin-equivalent accounting)
+    await db.execute(drizzleSql`
+      ALTER TABLE arena_coin_purchases ADD COLUMN IF NOT EXISTS price_cents integer NOT NULL DEFAULT 0
+    `);
+
+    // academy_arena_revenue_monthly: cents-based revenue columns
+    // total_revenue_cents / share_cents hold real IAP pack revenue / 12% share in euro cents
+    await db.execute(drizzleSql`
+      ALTER TABLE academy_arena_revenue_monthly ADD COLUMN IF NOT EXISTS total_revenue_cents integer NOT NULL DEFAULT 0
+    `);
+    await db.execute(drizzleSql`
+      ALTER TABLE academy_arena_revenue_monthly ADD COLUMN IF NOT EXISTS share_cents integer NOT NULL DEFAULT 0
+    `);
+
+    // arena_battles: shield_used_by — set when a player pre-activates a Battle Shield
+    await db.execute(drizzleSql`
+      ALTER TABLE arena_battles ADD COLUMN IF NOT EXISTS shield_used_by varchar
+    `);
+
+    // players: broadcast_mode column (on_air | rest_day | streak_at_risk | null)
+    // Used by syncCardMood to derive the mood_modifier for arena_player_cards.
+    await db.execute(drizzleSql`
+      ALTER TABLE players ADD COLUMN IF NOT EXISTS broadcast_mode text
+    `);
+
+    // arena_player_card_baselines: immutable first-ever card stats captured once
+    // when the player's card is first generated. Used by grantLegacyRookieCard.
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_player_card_baselines (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id varchar NOT NULL UNIQUE,
+        rarity_tier text NOT NULL DEFAULT 'common_i',
+        rarity_label text NOT NULL DEFAULT 'Common I',
+        stat_power integer NOT NULL DEFAULT 0,
+        stat_technique integer NOT NULL DEFAULT 0,
+        stat_mental integer NOT NULL DEFAULT 0,
+        stat_tactics integer NOT NULL DEFAULT 0,
+        player_name text NOT NULL DEFAULT '',
+        photo_url text,
+        arena_mmr integer NOT NULL DEFAULT 1000,
+        captured_at timestamptz DEFAULT NOW()
+      )
+    `);
+
   } catch (err) {
     console.error("[ArenaBattleService] ensureArenaMigrations:", err);
   }
+}
+
+// ── Phase 4: Undefeated Ribbon & Hot Form ─────────────────────────────────────
+
+/**
+ * Called after every arena battle resolves. Updates:
+ *  - undefeated_streak: increments on win, resets on loss (unless shield pre-activated)
+ *  - hot_form: true if 3+ consecutive wins
+ *  - battle_shields: grants 1 shield per 5-win streak (max 3 shields)
+ *
+ * @param shieldUsedByLoser - true when the loser pre-activated a Battle Shield before the battle.
+ *   In that case the shield was already deducted at activation; the streak is protected (no reset).
+ */
+export async function updatePhase4BattleStats(
+  winnerId: string,
+  loserId: string,
+  shieldUsedByLoser = false,
+): Promise<void> {
+  try {
+    // ── Winner: increment undefeated streak and maybe earn a streak-based shield (1 per 5 wins, max 3).
+    // NOTE: hot_form is managed separately by syncHotForm (attendance-based, not win-streak).
+    await db.execute(drizzleSql`
+      UPDATE arena_champion_cards
+      SET
+        undefeated_streak = COALESCE(undefeated_streak, 0) + 1,
+        battle_shields = LEAST(
+          COALESCE(battle_shields, 0) +
+            CASE WHEN (COALESCE(undefeated_streak, 0) + 1) % 5 = 0 THEN 1 ELSE 0 END,
+          3
+        )
+      WHERE player_id = ${winnerId}
+    `);
+
+    // ── Loser: if a Battle Shield was pre-activated, streak is preserved (shield already deducted).
+    // Otherwise reset streak and hot_form.
+    if (!shieldUsedByLoser) {
+      await db.execute(drizzleSql`
+        UPDATE arena_champion_cards
+        SET undefeated_streak = 0, hot_form = false
+        WHERE player_id = ${loserId}
+      `);
+    }
+    // When shieldUsedByLoser=true: shield was consumed at activation; streak survives untouched.
+  } catch (err) {
+    console.error("[ArenaBattleService] updatePhase4BattleStats:", err);
+  }
+}
+
+/**
+ * Grants weekly Battle Shields to a player if a full week has elapsed since the last grant.
+ * - 1 shield/week for standard players; 2 shields/week for Arena Pass holders.
+ * - Cap: max 5 shields total.
+ * Called from GET /api/arena/status so players receive their shields on their first weekly visit.
+ */
+export async function grantWeeklyShieldsIfDue(
+  playerId: string,
+  hasArenaPass: boolean,
+): Promise<{ granted: boolean; shieldsGranted: number }> {
+  try {
+    const [card] = await db.execute(drizzleSql`
+      SELECT battle_shields, last_shield_grant_at
+      FROM arena_champion_cards WHERE player_id = ${playerId} LIMIT 1
+    `) as unknown as Array<{ battle_shields: number; last_shield_grant_at: string | null }>;
+
+    if (!card) return { granted: false, shieldsGranted: 0 };
+
+    const lastGrant = card.last_shield_grant_at ? new Date(card.last_shield_grant_at) : null;
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    if (lastGrant && lastGrant > oneWeekAgo) {
+      return { granted: false, shieldsGranted: 0 }; // Already granted this week
+    }
+
+    const shieldsToGrant = hasArenaPass ? 2 : 1;
+    await db.execute(drizzleSql`
+      UPDATE arena_champion_cards
+      SET
+        battle_shields      = LEAST(COALESCE(battle_shields, 0) + ${shieldsToGrant}, 5),
+        last_shield_grant_at = NOW()
+      WHERE player_id = ${playerId}
+    `);
+
+    return { granted: true, shieldsGranted: shieldsToGrant };
+  } catch (err) {
+    console.error("[ArenaBattleService] grantWeeklyShieldsIfDue:", err);
+    return { granted: false, shieldsGranted: 0 };
+  }
+}
+
+/**
+ * Arena Pass perk: 100 GlowCoins per day (spec line 14).
+ * Idempotent — only grants once per calendar day tracked via last_daily_coins_at.
+ * Only call for players confirmed to have an active Arena Pass.
+ */
+export async function grantDailyArenaPassCoins(
+  playerId: string,
+): Promise<{ granted: boolean }> {
+  try {
+    const [card] = await db.execute(drizzleSql`
+      SELECT last_daily_coins_at FROM arena_champion_cards WHERE player_id = ${playerId} LIMIT 1
+    `) as unknown as Array<{ last_daily_coins_at: string | null }>;
+
+    if (!card) return { granted: false };
+
+    const lastGrant = card.last_daily_coins_at ? new Date(card.last_daily_coins_at) : null;
+    // Check same UTC calendar day
+    const now = new Date();
+    const todayUTC = `${now.getUTCFullYear()}-${now.getUTCMonth()}-${now.getUTCDate()}`;
+    const lastGrantDay = lastGrant
+      ? `${lastGrant.getUTCFullYear()}-${lastGrant.getUTCMonth()}-${lastGrant.getUTCDate()}`
+      : null;
+
+    if (lastGrantDay === todayUTC) {
+      return { granted: false }; // Already granted today
+    }
+
+    await db.execute(drizzleSql`
+      UPDATE arena_champion_cards SET last_daily_coins_at = NOW() WHERE player_id = ${playerId}
+    `);
+    await db.update(players)
+      .set({ glowCoins: drizzleSql`COALESCE(glow_coins, 0) + 100` })
+      .where(eq(players.id, playerId));
+
+    return { granted: true };
+  } catch (err) {
+    console.error("[ArenaBattleService] grantDailyArenaPassCoins:", err);
+    return { granted: false };
+  }
+}
+
+/**
+ * Arena Pass perk: 1 free Bronze Pack per week (spec line 14).
+ * Idempotent — only grants once per 7-day window tracked via last_weekly_pack_at.
+ * Only call for players confirmed to have an active Arena Pass.
+ * Opens the pack silently — cards are credited to the player's collection.
+ */
+export async function grantWeeklyArenaPassBronzePack(
+  playerId: string,
+): Promise<{ granted: boolean; cards?: unknown[] }> {
+  try {
+    const [card] = await db.execute(drizzleSql`
+      SELECT last_weekly_pack_at FROM arena_champion_cards WHERE player_id = ${playerId} LIMIT 1
+    `) as unknown as Array<{ last_weekly_pack_at: string | null }>;
+
+    if (!card) return { granted: false };
+
+    const lastGrant = card.last_weekly_pack_at ? new Date(card.last_weekly_pack_at) : null;
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    if (lastGrant && lastGrant > oneWeekAgo) {
+      return { granted: false }; // Already granted this week
+    }
+
+    // Find the Bronze Pack definition
+    const [pack] = await db.execute(drizzleSql`
+      SELECT id FROM arena_packs WHERE LOWER(name) LIKE '%bronze%' AND is_active = true LIMIT 1
+    `) as unknown as Array<{ id: string }>;
+
+    if (!pack?.id) {
+      console.warn("[ArenaBattleService] grantWeeklyArenaPassBronzePack: no active Bronze pack found");
+      return { granted: false };
+    }
+
+    // Mark grant timestamp first (prevents double-grant in concurrent requests)
+    await db.execute(drizzleSql`
+      UPDATE arena_champion_cards SET last_weekly_pack_at = NOW() WHERE player_id = ${playerId}
+    `);
+
+    // Open the pack for free (freeOpen=true skips coin deduction)
+    const { openPack } = await import("./arena-card-service");
+    const result = await openPack(playerId, String(pack.id), true);
+
+    return { granted: true, cards: result.cards ?? [] };
+  } catch (err) {
+    console.error("[ArenaBattleService] grantWeeklyArenaPassBronzePack:", err);
+    return { granted: false };
+  }
+}
+
+// ── Phase 4: Undefeated Ribbon (real-match triggered) ────────────────────────
+
+/**
+ * Called after every CONFIRMED real match result (not arena battles).
+ *
+ * - Winner reaches 10+ consecutive real wins → ribbon_holder = true on their champion card.
+ * - If the loser previously held the ribbon → ribbon transfers to winner + loser loses ribbon.
+ * - On ribbon transfer: winner receives a guaranteed Rare card drop.
+ *
+ * Consecutive win streak is tracked separately from arena battle undefeated_streak using
+ * the players table (glow_mmr wins) — we count consecutive match_results wins here inline.
+ */
+export async function checkAndUpdateUndefeatedRibbon(
+  winnerId: string,
+  loserId: string,
+): Promise<void> {
+  try {
+    // Count consecutive wins for the winner by walking back match_results in date order.
+    // A "consecutive" streak ends the first time the player didn't win a confirmed result.
+    const winnerMatchRows = await db.execute(drizzleSql`
+      SELECT logged_player_won, player_id
+      FROM match_results
+      WHERE (player_id = ${winnerId} OR opponent_id = ${winnerId})
+        AND status IN ('confirmed', 'auto_confirmed')
+      ORDER BY played_at DESC
+      LIMIT 20
+    `) as unknown as Array<{ logged_player_won: boolean; player_id: string }>;
+
+    let streak = 0;
+    for (const row of winnerMatchRows) {
+      const thisPlayerWon =
+        row.player_id === winnerId ? row.logged_player_won : !row.logged_player_won;
+      if (thisPlayerWon) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    // Check if loser currently holds the ribbon
+    const [loserCard] = await db.execute(drizzleSql`
+      SELECT ribbon_holder FROM arena_champion_cards WHERE player_id = ${loserId} LIMIT 1
+    `) as unknown as Array<{ ribbon_holder: boolean }>;
+    const loserHadRibbon = Boolean(loserCard?.ribbon_holder);
+
+    // Transfer ribbon if loser held it, or grant if winner hit the 10-win threshold
+    const winnerEarnsRibbon = streak >= 10 || loserHadRibbon;
+
+    if (loserHadRibbon) {
+      // Strip ribbon from loser
+      await db.execute(drizzleSql`
+        UPDATE arena_champion_cards SET ribbon_holder = false WHERE player_id = ${loserId}
+      `);
+    }
+
+    if (winnerEarnsRibbon) {
+      // Grant ribbon to winner — upsert in case champion card doesn't exist yet
+      await db.execute(drizzleSql`
+        UPDATE arena_champion_cards SET ribbon_holder = true WHERE player_id = ${winnerId}
+      `);
+    }
+
+    if (loserHadRibbon) {
+      // Award guaranteed Rare card drop to the ribbon-stealer
+      try {
+        const { awardConqueredCard } = await import("./arena-card-service");
+        await awardConqueredCard(winnerId, loserId, { isNemesis: false, guaranteedRarity: "rare" });
+      } catch {
+        // Non-critical — ribbon transfer still happened
+      }
+    }
+  } catch (err) {
+    console.error("[ArenaBattleService] checkAndUpdateUndefeatedRibbon:", err);
+  }
+}
+
+// ── Phase 4: Hot Form Sync (attendance-based, reset Monday) ──────────────────
+
+/**
+ * Sets hot_form on a player's arena_champion_cards based on weekly session attendance.
+ * Spec: 3+ sessions attended in the current ISO week → hot_form = true; flame badge
+ * shown on the card with +8 to all stats for that week. Resets Monday midnight.
+ *
+ * Call this from a daily/session-completion hook and from the weekly Monday cron.
+ */
+export async function syncHotForm(playerId: string): Promise<void> {
+  try {
+    // Count sessions attended this ISO week (Monday 00:00 → now).
+    // session_players has no created_at; join to sessions on session_id to filter by start_time.
+    const [row] = await db.execute(drizzleSql`
+      SELECT COUNT(*) AS sessions_this_week
+      FROM session_players sp
+      JOIN sessions s ON s.id = sp.session_id
+      WHERE sp.player_id = ${playerId}
+        AND sp.attendance_status IN ('present', 'late')
+        AND s.start_time >= date_trunc('week', NOW())
+    `) as unknown as Array<Record<string, unknown>>;
+
+    const sessionsThisWeek = Number(row?.sessions_this_week ?? 0);
+    const hotForm = sessionsThisWeek >= 3;
+
+    await db.execute(drizzleSql`
+      UPDATE arena_champion_cards
+      SET hot_form = ${hotForm}
+      WHERE player_id = ${playerId}
+    `);
+  } catch {
+    // Non-critical — best effort
+  }
+}
+
+// ── Phase 4: Card Mood Sync (broadcast_mode-based, hourly cron) ───────────────
+
+/**
+ * Syncs mood_modifier on arena_player_cards based on the player's broadcast_mode:
+ *   on_air        → +5 all stats  (player is active / on a streak)
+ *   rest_day      → -3 all stats  (player is resting)
+ *   streak_at_risk → -5 Mental    (represented as -5 overall mood)
+ *   null/other    → 0             (neutral)
+ *
+ * Called hourly via cron (or on-demand). Updates mood_modifier which is applied
+ * during calculateSquadPower in battle resolution.
+ */
+export async function syncCardMood(playerId: string): Promise<void> {
+  try {
+    // Read the player's current broadcast_mode
+    const [playerRow] = await db.execute(drizzleSql`
+      SELECT broadcast_mode FROM players WHERE id = ${playerId} LIMIT 1
+    `) as unknown as Array<Record<string, unknown>>;
+
+    const mode = String(playerRow?.broadcast_mode ?? "");
+    let moodModifier = 0;
+    if (mode === "on_air")          moodModifier = 5;
+    else if (mode === "rest_day")   moodModifier = -3;
+    else if (mode === "streak_at_risk") moodModifier = -5;
+
+    await db.execute(drizzleSql`
+      UPDATE arena_player_cards
+      SET mood_modifier = ${moodModifier}
+      WHERE player_id = ${playerId}
+    `);
+  } catch {
+    // Non-critical
+  }
+}
+
+// ── Phase 4: Legacy Rookie Card ───────────────────────────────────────────────
+
+/**
+ * Grants a Legacy Rookie Card variant when a player reaches Glow Rank 1 (Professional).
+ *
+ * Spec: The card must capture the player's FIRST-EVER Blue Ball Level 1 stats, not their
+ * current (promoted) stats. We store the earliest snapshot in `arena_player_card_baselines`
+ * the moment the player card is first generated (see generatePlayerCard in arena-card-service.ts).
+ * At promotion time we read that frozen baseline, copy it into `arena_legacy_rookie_snapshots`,
+ * and link it as a collected card so future stat changes never affect the rookie card.
+ */
+export async function grantLegacyRookieCard(playerId: string): Promise<void> {
+  try {
+    // Ensure snapshot table exists (idempotent migration guard)
+    await db.execute(drizzleSql`
+      CREATE TABLE IF NOT EXISTS arena_legacy_rookie_snapshots (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        player_id VARCHAR NOT NULL UNIQUE,
+        rarity_tier TEXT NOT NULL DEFAULT 'common_i',
+        rarity_label TEXT NOT NULL DEFAULT 'Common I',
+        stat_power INTEGER NOT NULL DEFAULT 0,
+        stat_technique INTEGER NOT NULL DEFAULT 0,
+        stat_mental INTEGER NOT NULL DEFAULT 0,
+        stat_tactics INTEGER NOT NULL DEFAULT 0,
+        player_name TEXT NOT NULL DEFAULT '',
+        photo_url TEXT,
+        arena_mmr INTEGER NOT NULL DEFAULT 1000,
+        snapshotted_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Idempotent — only one Legacy Rookie Card per player
+    const [existingSnap] = await db.execute(drizzleSql`
+      SELECT id FROM arena_legacy_rookie_snapshots WHERE player_id = ${playerId} LIMIT 1
+    `) as unknown as Array<Record<string, unknown>>;
+    if (existingSnap) return;
+
+    // ── Read the FIRST-EVER Blue Level 1 baseline (populated by generatePlayerCard on first call)
+    // Falls back to the current arena_player_cards row only if no baseline exists yet,
+    // which should be rare (baseline is written on the very first card generation).
+    const [baseline] = await db.execute(drizzleSql`
+      SELECT rarity_tier, rarity_label, stat_power, stat_technique, stat_mental,
+             stat_tactics, player_name, photo_url, arena_mmr
+      FROM arena_player_card_baselines
+      WHERE player_id = ${playerId}
+      LIMIT 1
+    `) as unknown as Array<Record<string, unknown>>;
+
+    const src = baseline ?? await (async () => {
+      const [cur] = await db.execute(drizzleSql`
+        SELECT rarity_tier, rarity_label, stat_power, stat_technique, stat_mental,
+               stat_tactics, player_name, photo_url, arena_mmr
+        FROM arena_player_cards
+        WHERE player_id = ${playerId}
+        LIMIT 1
+      `) as unknown as Array<Record<string, unknown>>;
+      return cur;
+    })();
+    if (!src) return;
+
+    // Insert the frozen snapshot using the earliest-recorded stats
+    const [snap] = await db.execute(drizzleSql`
+      INSERT INTO arena_legacy_rookie_snapshots
+        (player_id, rarity_tier, rarity_label, stat_power, stat_technique, stat_mental,
+         stat_tactics, player_name, photo_url, arena_mmr, snapshotted_at)
+      VALUES (
+        ${playerId},
+        ${String(src.rarity_tier ?? "common_i")},
+        ${String(src.rarity_label ?? "Common I")},
+        ${Number(src.stat_power ?? 0)},
+        ${Number(src.stat_technique ?? 0)},
+        ${Number(src.stat_mental ?? 0)},
+        ${Number(src.stat_tactics ?? 0)},
+        ${String(src.player_name ?? "")},
+        ${src.photo_url ? String(src.photo_url) : null},
+        ${Number(src.arena_mmr ?? 1000)},
+        NOW()
+      )
+      RETURNING id
+    `) as unknown as Array<Record<string, unknown>>;
+
+    if (!snap?.id) return;
+
+    // Create the collected card entry pointing to the immutable snapshot
+    await db.execute(drizzleSql`
+      INSERT INTO player_collected_cards
+        (owner_id, card_type, card_ref_id, source, card_variant, conquered_ribbon, is_nemesis, created_at)
+      VALUES (${playerId}, 'player', ${String(snap.id)}, 'reward', 'legacy_rookie', false, false, NOW())
+      ON CONFLICT DO NOTHING
+    `);
+
+    console.log(`[Arena] Granted Legacy Rookie Card (Blue Lv1 baseline) to player ${playerId}`);
+  } catch (err) {
+    console.error("[ArenaBattleService] grantLegacyRookieCard:", err);
+  }
+}
+
+// ── Phase 4: Predictions Auto-Resolution ─────────────────────────────────────
+
+/**
+ * Resolves all pending arena_predictions for a completed match.
+ * Pays out 1.8× stake to correct predictors; incorrect predictors lose their stake.
+ * Safe to call multiple times — already-resolved rows are skipped.
+ *
+ * Called automatically from live-scoring finalizeMatch and from the admin
+ * POST /api/arena/predictions/resolve endpoint.
+ */
+export async function resolveMatchPredictions(
+  matchId: string,
+  actualWinnerId: string,
+): Promise<{ resolved: number; payouts: number }> {
+  const pendingRows = await db.execute(drizzleSql`
+    SELECT id, player_id, predicted_winner_id, wager_coins
+    FROM arena_predictions
+    WHERE match_id = ${matchId} AND resolved_at IS NULL
+  `) as unknown as Array<Record<string, unknown>>;
+
+  let payouts = 0;
+  for (const row of pendingRows) {
+    const isCorrect = String(row.predicted_winner_id) === actualWinnerId;
+    const wager = Number(row.wager_coins ?? 0);
+    const payout = isCorrect ? Math.round(wager * 1.8) : 0;
+
+    if (payout > 0) {
+      await db.execute(drizzleSql`
+        UPDATE players SET glow_coins = glow_coins + ${payout} WHERE id = ${String(row.player_id)}
+      `);
+      payouts++;
+    }
+
+    await db.execute(drizzleSql`
+      UPDATE arena_predictions
+      SET is_correct = ${isCorrect}, payout_coins = ${payout}, resolved_at = NOW()
+      WHERE id = ${String(row.id)}
+    `);
+  }
+
+  return { resolved: pendingRows.length, payouts };
 }
 
 // ── Squad Builder ─────────────────────────────────────────────────────────────
@@ -466,6 +1213,13 @@ async function settleBattle(
     }
     await checkAndClaimArenaWinBounty(winnerId, loserId);
     await incrementMissionProgress(winnerId, "win_battle", 1);
+    // Phase 4: update streak, hot_form, and streak-based shields.
+    // Check whether the loser pre-activated a Battle Shield before the battle.
+    const [battleMeta] = await db.execute(drizzleSql`
+      SELECT shield_used_by FROM arena_battles WHERE id = ${battleId} LIMIT 1
+    `) as unknown as Array<{ shield_used_by: string | null }>;
+    const shieldUsedByLoser = Boolean(battleMeta?.shield_used_by && battleMeta.shield_used_by === loserId);
+    await updatePhase4BattleStats(winnerId, loserId, shieldUsedByLoser);
   } else {
     // Draw: refund wagers
     if (wagerCoins > 0) {

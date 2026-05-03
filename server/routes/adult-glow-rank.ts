@@ -14,7 +14,7 @@ import { db } from "../db";
 import { players, adultGlowMatches, adultSkillAssessments, dssSpeelsterkteThresholds, arenaAbilityCards, playerAbilityCards } from "@shared/schema";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { awardConqueredCard } from "../services/arena-card-service";
-import { checkAndClaimRealMatchBounty, checkIsNemesisConquest } from "../services/arena-battle-service";
+import { checkAndClaimRealMatchBounty, checkIsNemesisConquest, grantLegacyRookieCard } from "../services/arena-battle-service";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { fireQuestEvent } from "../services/quest-events";
 import { updateGlowRankAfterMatch, getRankInfo, getAllRanks, getSkillRubric, getSkillRubricsByPillar, getUnlockedSkillGates, mmrToRank, calculateExpectedScore, mmrToDssRating, formatDssRating, getDssBracket, estimateMatchesToNextRank, getPlayerRatingStatus, updateDoublesRatings, type MatchResult, type PlayerMatchStats } from "../services/glow-rank-engine-adult";
@@ -415,6 +415,13 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
 
           // Claim bounties for beating this player in a real match
           await checkAndClaimRealMatchBounty(playerId, opponentId);
+
+          // Grant Legacy Rookie Card snapshot when player first reaches Glow Rank 1 (Professional)
+          if (result.promoted && result.newRank === 1) {
+            await grantLegacyRookieCard(playerId).catch((err) => {
+              console.error("[adult-glow/match] grantLegacyRookieCard failed", err);
+            });
+          }
         } catch (err) {
           console.error("[adult-glow/match] post-win rewards failed", { playerId, opponentId, err });
         }

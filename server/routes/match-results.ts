@@ -12,7 +12,7 @@ import {
 } from "../auth";
 import { getPlayerPushTokens, sendPushNotification } from "../pushNotifications";
 import { awardConqueredCard } from "../services/arena-card-service";
-import { checkAndClaimRealMatchBounty, checkIsNemesisConquest } from "../services/arena-battle-service";
+import { checkAndClaimRealMatchBounty, checkIsNemesisConquest, checkAndUpdateUndefeatedRibbon } from "../services/arena-battle-service";
 
 const router = Router();
 
@@ -70,6 +70,11 @@ async function autoConfirmStale(): Promise<void> {
       await checkAndClaimRealMatchBounty(winnerId, loserId);
     } catch (err) {
       console.error("[match-results] autoConfirm bounty failed", { winnerId, loserId, err });
+    }
+    try {
+      await checkAndUpdateUndefeatedRibbon(winnerId, loserId);
+    } catch (err) {
+      console.error("[match-results] autoConfirm ribbon failed", { winnerId, loserId, err });
     }
   }
 }
@@ -302,6 +307,9 @@ router.post(
           }));
         checkAndClaimRealMatchBounty(winnerId, loserId).catch((err) => {
           console.error("[match-results] confirm bounty failed", { winnerId, loserId, err });
+        });
+        checkAndUpdateUndefeatedRibbon(winnerId, loserId).catch((err) => {
+          console.error("[match-results] confirm ribbon failed", { winnerId, loserId, err });
         });
       }
 

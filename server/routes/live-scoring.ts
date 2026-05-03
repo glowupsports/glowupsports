@@ -22,6 +22,7 @@ import {
   type MatchResult,
   type PlayerMatchStats,
 } from "../services/glow-rank-engine-adult";
+import { resolveMatchPredictions } from "../services/arena-battle-service";
 
 const router = Router();
 
@@ -416,6 +417,27 @@ async function finalizeMatch(
       }
     } catch (rankErr) {
       console.error("[LiveScoring] Error updating Glow Rank:", rankErr);
+    }
+  }
+
+  // Auto-resolve any arena predictions placed on this match.
+  // Predictions are placed using player_matches.id (the pre-arranged match), not
+  // live_matches.id.  Look up the player_matches record by participants so we
+  // resolve with the correct ID that predictors used when placing their bets.
+  if (winnerId) {
+    try {
+      // Try to find the linked player_matches record by participant pair
+      const pmRows = await db.execute(sql`
+        SELECT id FROM player_matches
+        WHERE (initiator_id = ${match.creatorId} AND receiver_id = ${opponentId})
+           OR (initiator_id = ${opponentId}          AND receiver_id = ${match.creatorId})
+        ORDER BY proposed_date DESC
+        LIMIT 1
+      `) as unknown as Array<Record<string, unknown>>;
+      const playerMatchId: string = pmRows[0]?.id ? String(pmRows[0].id) : matchId;
+      await resolveMatchPredictions(playerMatchId, winnerId);
+    } catch (predErr) {
+      console.error("[LiveScoring] Error resolving match predictions:", predErr);
     }
   }
 
