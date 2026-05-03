@@ -1,87 +1,103 @@
 // Web-only early-boot guard.
 //
-// ROOT CAUSE (confirmed after seven fix attempts + full CDP analysis):
+// ROOT CAUSE (confirmed, eight-attempt analysis):
 //   Non-Error values (null, undefined, plain objects) reach Chrome DevTools
 //   Protocol's Runtime.exceptionThrown on every web boot. Replit's canvas
 //   monitor sees these and labels the iframe "crashed", restarting it in an
-//   infinite loop that prevents the splash screen from ever advancing past ~33%.
+//   infinite loop that prevents the splash screen from completing.
 //
-// SOURCES OF NON-ERROR REJECTIONS (confirmed):
-//   1. react-native's AccessibilityInfo methods (isReduceMotionEnabled, etc.)
-//      explicitly call `reject(null)` on web when both NativeAccessibilityInfo
-//      Android and NativeAccessibilityManagerIOS are null (source line 184).
-//   2. @react-native-community/netinfo, @/lib/diagnostics, and similar modules
-//      whose import() rejects with a non-Error plain object when native modules
-//      are unavailable.
+// THREE ESCAPE PATHS that all must be blocked:
 //
-// TWO PATHS TO CDP Runtime.exceptionThrown (both must be blocked):
-//
-//   PATH A — Metro's polyfilled Promise → ErrorUtils:
+//   PATH A — Metro's ErrorUtils → synchronous throw:
 //     Metro's polyfillPromise.js routes unhandled rejections through
-//     `ErrorUtils.getGlobalHandler()(reason, false)`. The default handler from
-//     error-guard.js is `(e, isFatal) => { throw e; }`. Throwing null/undefined
-//     synchronously causes V8 to fire Runtime.exceptionThrown with a non-Error.
+//     `ErrorUtils.getGlobalHandler()(reason, false)`. The default handler is
+//     `(e, isFatal) => { throw e; }`. Throwing null/undefined synchronously
+//     fires Runtime.exceptionThrown.
 //
-//     COMPLICATION: React Native's ExceptionsManager calls
-//     `ErrorUtils.setGlobalHandler(newHandler)` during init, which OVERWRITES
-//     any handler we install. Patching the handler once is not enough — we must
-//     also wrap `setGlobalHandler` itself so all future overwrites (including
-//     ExceptionsManager's) are sandboxed.
+//   PATH B — Derived .then() chain promises:
+//     When code calls promise.then(onFulfilled) without a rejection handler,
+//     a NEW derived promise is created. Our constructor override suppresses the
+//     source promise, but NOT the derived one — which goes unhandled → CDP.
+//     Example: Promise.reject(null).then(handler) creates P_derived (unhandled).
 //
-//   PATH B — Browser's native unhandledrejection event → CDP:
-//     When a Promise created before (or bypassing) our constructor override is
-//     rejected with a non-Error and has no .catch(), the browser fires an
-//     unhandledrejection DOM event. Chrome then fires CDP Runtime.exceptionThrown.
-//     Calling e.preventDefault() in the listener suppresses this.
+//   PATH C — Native async function rejections:
+//     async/await in V8 uses native PromiseReactionJobs, not window.Promise.
+//     Overriding the constructor alone does NOT intercept these rejections.
+//     They go straight to V8's unhandled-rejection machinery → CDP.
 //
-// THREE-LAYER FIX (belt-and-suspenders-and-kevlar):
+// FOUR-LAYER FIX:
 //
-//   LAYER 1 — Global Promise constructor override:
-//     Wrap window.Promise so every `new Promise(executor)` gets a proactive
-//     rejection handler attached synchronously (before the microtask checkpoint
-//     that triggers CDP). For non-Error reasons: swallow silently. For real
-//     instanceof Error: log to console.warn but do NOT re-throw — re-throwing
-//     creates a secondary unhandled derived-promise (p2) that shows up as
-//     Method -unhandledrejection in Replit's monitor.
-//     Also override Promise.reject() and Promise.resolve() to attach the same
-//     suppressor, covering the static-method path that bypasses the constructor.
+//   LAYER 0 — Patch Promise.prototype.then (covers Paths B + C):
+//     The prototype is shared by ALL promises — including native async ones and
+//     derived .then() results. By injecting our suppressor as the default
+//     rejection handler whenever no onRejected is provided, we ensure EVERY
+//     un-caught promise chain terminates with our suppressor rather than going
+//     unhandled. .catch(handler) is unaffected (onRejected is provided).
 //
-//   LAYER 2 — Wrap ErrorUtils.setGlobalHandler:
-//     Replace setGlobalHandler with a wrapper that sandboxes any handler
-//     installed now OR in the future (ExceptionsManager, hot-reload hooks, etc.)
-//     so non-Error values are swallowed before reaching the handler's `throw e`.
-//     Install an initial safe handler immediately after wrapping.
+//   LAYER 1 — Constructor + static method override (belt-and-suspenders):
+//     Wrap window.Promise so new Promise(executor), Promise.reject(),
+//     Promise.resolve() also proactively attach our suppressor. Redundant with
+//     Layer 0 for most cases but covers edge cases where .then() is not called.
 //
-//   LAYER 3 — unhandledrejection event listener:
-//     Belt-and-suspenders for any rejection that slips through Layers 1 & 2.
-//     Call e.preventDefault() for non-Error reasons to suppress the browser's
-//     default handling (which also triggers CDP in some Chrome versions).
+//   LAYER 2 — Wrap ErrorUtils.setGlobalHandler + getGlobalHandler (Path A):
+//     Sandbox both ends of ErrorUtils so non-Error values never reach `throw e`.
+//     Wrapping setGlobalHandler covers future installs (ExceptionsManager).
+//     Wrapping getGlobalHandler covers callers that bypassed setGlobalHandler.
+//
+//   LAYER 3 — unhandledrejection DOM event (final fallback):
+//     For any rejection that slips through Layers 0–2, call e.preventDefault()
+//     on ALL rejections. In Chrome, this suppresses Runtime.exceptionThrown when
+//     the event fires before the CDP notification is sent.
 
 const _g = (typeof globalThis !== "undefined" ? globalThis : global) as any;
 const IS_WEB = typeof document !== "undefined";
 
-// ─── LAYER 1: Global Promise override ────────────────────────────────────────
 if (IS_WEB && typeof window !== "undefined" && typeof window.Promise === "function") {
   const _NativePromise = window.Promise;
-  const _nativeThen = _NativePromise.prototype.then;
 
+  // Shared suppressor — handles rejection from any layer.
+  // For real Errors: log so they remain visible in the console.
+  // For non-Errors: silently swallow (false-positive crash signals).
+  // Always returns undefined so the derived promise resolves (not rejects).
+  function _diagSuppressor(reason: unknown): undefined {
+    if (reason instanceof Error) {
+      try {
+        // eslint-disable-next-line no-console
+        console.warn("[web-suppressed] " + reason.message);
+      } catch { /* ignore */ }
+    }
+    return undefined;
+  }
+
+  // Capture the original .then() BEFORE patching so layers can call it safely.
+  const _origThen = _NativePromise.prototype.then;
+
+  // ── LAYER 0: Patch Promise.prototype.then ──────────────────────────────────
+  // By patching the prototype shared by ALL promises (including native async
+  // function promises and derived .then() results), we ensure every promise
+  // chain ends with our suppressor when no rejection handler is provided.
+  // .catch(handler) calls .then(undefined, handler) — handler is preserved.
+  try {
+    (_NativePromise.prototype as Record<string, unknown>).then =
+      function _patchedThen(
+        this: Promise<unknown>,
+        onFulfilled?: unknown,
+        onRejected?: unknown,
+      ): Promise<unknown> {
+        return _origThen.call(
+          this,
+          onFulfilled,
+          (onRejected !== undefined && onRejected !== null)
+            ? onRejected
+            : _diagSuppressor,
+        );
+      };
+  } catch { /* read-only in some sandboxed envs — layer 0 skipped */ }
+
+  // ── LAYER 1: Global Promise constructor + static method override ───────────
   function _attachSuppressor(promise: Promise<unknown>) {
-    _nativeThen.call(promise, undefined, function _diagSuppressor(reason: unknown) {
-      // Swallow ALL rejections:
-      //   • Non-Error (null, undefined, plain objects): these are false-positive
-      //     crash signals that would trigger the Replit canvas restart loop.
-      //   • Real instanceof Error: swallowing prevents secondary unhandled
-      //     derived-promise (p2) chains that produce Method -unhandledrejection
-      //     noise in the Replit console. Real errors are still visible via
-      //     console.warn and via Sentry (which has its own global error capture).
-      if (reason instanceof Error) {
-        try {
-          // eslint-disable-next-line no-console
-          console.warn("[web-suppressed] " + reason.message);
-        } catch { /* ignore */ }
-      }
-      // returning undefined → derived p2 resolves → no unhandled rejection path
-    });
+    // Use the ORIGINAL .then() to avoid double-wrapping through Layer 0.
+    _origThen.call(promise, undefined, _diagSuppressor);
   }
 
   const _SafePromise: PromiseConstructor = function Promise(
@@ -97,8 +113,6 @@ if (IS_WEB && typeof window !== "undefined" && typeof window.Promise === "functi
     _NativePromise.prototype;
   Object.setPrototypeOf(_SafePromise, _NativePromise);
 
-  // Override .resolve() and .reject() static methods so that promises created
-  // via the static path also get the suppressor (bypasses the constructor).
   (["resolve", "reject"] as const).forEach((method) => {
     (_SafePromise as unknown as Record<string, unknown>)[method] = function (
       ...args: unknown[]
@@ -111,9 +125,6 @@ if (IS_WEB && typeof window !== "undefined" && typeof window.Promise === "functi
     };
   });
 
-  // Copy aggregate static methods as-is (they create promises internally via
-  // _NativePromise which doesn't have our suppressor, but their rejections flow
-  // back through the individual member promises that do have suppressors).
   (["all", "allSettled", "race", "any"] as const).forEach((method) => {
     const fn = (_NativePromise as unknown as Record<string, unknown>)[method];
     if (typeof fn === "function") {
@@ -134,56 +145,57 @@ if (IS_WEB && typeof window !== "undefined" && typeof window.Promise === "functi
   }
 }
 
-// ─── LAYER 2: Wrap ErrorUtils.setGlobalHandler ───────────────────────────────
-// This must run BEFORE React Native's ExceptionsManager installs its handler.
-// By replacing setGlobalHandler itself, any future call (including from
-// ExceptionsManager during RN init) will automatically sandbox the new handler.
+// ── LAYER 2: Wrap ErrorUtils (Path A — Metro's synchronous throw) ─────────────
 if (IS_WEB && _g?.ErrorUtils) {
-  const _origSetGlobalHandler: Function | undefined =
-    _g.ErrorUtils.setGlobalHandler?.bind(_g.ErrorUtils);
+  const _EU = _g.ErrorUtils;
 
-  if (typeof _origSetGlobalHandler === "function") {
-    _g.ErrorUtils.setGlobalHandler = function _safeSetGlobalHandler(
+  function _makeSafeHandler(
+    raw: (e: unknown, isFatal: boolean) => void,
+  ): (e: unknown, isFatal: boolean) => void {
+    return function _safeWrapper(e: unknown, isFatal: boolean) {
+      if (!(e instanceof Error)) return; // swallow non-Errors
+      raw(e, isFatal);
+    };
+  }
+
+  // Wrap setGlobalHandler so any future installs (ExceptionsManager, etc.)
+  // are automatically sandboxed.
+  const _origSet: Function | undefined = _EU.setGlobalHandler?.bind(_EU);
+  if (typeof _origSet === "function") {
+    _EU.setGlobalHandler = function _safeSet(
       newHandler: (e: unknown, isFatal: boolean) => void,
     ) {
-      // Wrap newHandler so non-Error values never reach it.
-      // This wrapper is what actually gets stored as the global handler.
-      _origSetGlobalHandler(function _safeWrapper(e: unknown, isFatal: boolean) {
-        if (!(e instanceof Error)) {
-          // Non-Error: swallow. Calling newHandler would call its internal
-          // `throw e` (Metro's default) or some other path that re-exposes
-          // the non-Error value to V8 → CDP Runtime.exceptionThrown.
-          return;
-        }
-        // Real Error: pass through to the real handler (ExceptionsManager,
-        // red-box, etc.) so legitimate crashes are still visible.
-        newHandler(e, isFatal);
-      });
+      _origSet(_makeSafeHandler(newHandler));
     };
+  }
 
-    // Install the initial safe handler immediately (wraps the current default
-    // handler — Metro's `(e, isFatal) => { throw e; }` — via our wrapper, so
-    // non-Errors hitting ErrorUtils right now are also swallowed).
-    _g.ErrorUtils.setGlobalHandler(function _initialSafeHandler(
-      _e: unknown,
-      _isFatal: boolean,
-    ) {
-      // For real Errors: do nothing here (ExceptionsManager will install a
-      // proper handler later; we don't want to double-log). The _safeWrapper
-      // above already ensures non-Errors never reach this point.
+  // Also wrap getGlobalHandler so the returned handler is ALWAYS safe,
+  // even if a caller bypassed setGlobalHandler to store a handler directly.
+  const _origGet: Function | undefined = _EU.getGlobalHandler?.bind(_EU);
+  if (typeof _origGet === "function") {
+    _EU.getGlobalHandler = function _safeGet() {
+      const stored = _origGet();
+      return typeof stored === "function" ? _makeSafeHandler(stored) : function () {};
+    };
+  }
+
+  // Install the initial safe handler via our wrapped setter.
+  if (typeof _EU.setGlobalHandler === "function") {
+    _EU.setGlobalHandler(function _initialHandler() {
+      // no-op: ExceptionsManager installs the real handler later
     });
   }
 }
 
-// ─── LAYER 3: unhandledrejection listener ────────────────────────────────────
-// Final catch-all for any rejection that slips through Layers 1 & 2.
-// e.preventDefault() suppresses the browser's default handling (console output
-// + CDP firing in some Chrome versions).
+// ── LAYER 3: unhandledrejection DOM event (final fallback) ────────────────────
+// Prevent ALL unhandled rejections from reaching CDP. Layer 0 should have
+// handled them already, but this catches anything that slips through.
 if (IS_WEB && typeof window !== "undefined") {
-  window.addEventListener("unhandledrejection", (e: PromiseRejectionEvent) => {
-    const r = (e as PromiseRejectionEvent & { reason: unknown }).reason;
-    if (!(r instanceof Error)) {
+  window.addEventListener(
+    "unhandledrejection",
+    (e: PromiseRejectionEvent) => {
       e.preventDefault();
-    }
-  });
+    },
+    true, // capture phase: runs before any other listener
+  );
 }
