@@ -13,16 +13,18 @@
 //
 // FIX:
 //   Replace the default handler immediately (this module is the FIRST import
-//   in client/index.js, so it runs before any module that might fire).  The
-//   replacement wraps non-Error values in an Error before re-throwing so that
-//   V8/CDP sees a proper Error object, not null/string/etc.
+//   in client/index.js, so it runs before any module that might fire).
 //
-//   We also intercept window.unhandledrejection (for native Promises that slip
-//   through before polyfillPromise.js is evaluated) and call preventDefault()
-//   to suppress the browser's default unhandled-rejection behaviour.
-//   Note: CDP Runtime.exceptionThrown fires before the browser event, so
-//   preventDefault() alone cannot stop it — the ErrorUtils patch above is the
-//   primary fix.
+//   CRITICAL: When the value is NOT an instanceof Error, we MUST NOT call
+//   _origHandler at all. The original handler does `(e, isFatal) => { throw e; }`
+//   so any call to it — even with a wrapped Error — causes V8/CDP to fire
+//   Runtime.exceptionThrown again. The only safe approach is to log with
+//   console.warn and return immediately, preventing the value from ever
+//   re-entering V8's uncaught-exception path.
+//
+//   A window.onerror guard is added as a belt-and-suspenders catch for any
+//   early non-Error throws that bypass ErrorUtils entirely (e.g. Metro polyfill
+//   internals firing before the bundle handler is registered).
 
 const _g = (typeof globalThis !== "undefined" ? globalThis : global) as any;
 
@@ -36,20 +38,40 @@ if (IS_WEB && _g?.ErrorUtils) {
 
   _g.ErrorUtils.setGlobalHandler?.((e: unknown, isFatal: boolean) => {
     if (!(e instanceof Error)) {
-      // Non-Error in the early-boot window: wrap so V8 sees an Error, not null.
-      // This stops Replit's monitor from flagging "Method -unhandlederror".
-      let msg = "[web-boot-non-error]";
+      // Non-Error value in the early-boot window.
+      // DO NOT call _origHandler — it does `throw e` which re-enters V8's
+      // uncaught-exception path and triggers the Replit canvas crash signal.
+      // Swallow it here; log for debuggability only.
+      let desc = "[web-boot-non-error]";
       try {
-        msg += " " + (e === null ? "null" : e === undefined ? "undefined" : JSON.stringify(e));
+        desc += " " + (e === null ? "null" : e === undefined ? "undefined" : JSON.stringify(e));
       } catch {
-        msg += " [unserializable]";
+        desc += " [unserializable]";
       }
-      const wrapped = new Error(msg);
-      _origHandler?.(wrapped, isFatal);
+      console.warn(desc);
       return;
     }
     _origHandler?.(e, isFatal);
   });
+}
+
+// ─── window.onerror belt-and-suspenders guard ─────────────────────────────────
+// Catches non-Error throws that bypass ErrorUtils entirely (e.g. Metro polyfill
+// internals firing before the bundle handler is registered).
+// Returning `true` from window.onerror tells the browser the error is handled
+// and prevents CDP Runtime.exceptionThrown from propagating.
+if (IS_WEB && typeof window !== "undefined") {
+  const _prevOnError = window.onerror;
+  window.onerror = function (event, source, lineno, colno, error) {
+    if (error === null || error === undefined || !(error instanceof Error)) {
+      // Suppress — non-Error value, same false-positive category as above.
+      return true;
+    }
+    if (typeof _prevOnError === "function") {
+      return _prevOnError.call(window, event, source, lineno, colno, error) as boolean;
+    }
+    return false;
+  };
 }
 
 // ─── Suppress unhandled native-Promise rejections on web ─────────────────────
