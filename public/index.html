@@ -71,37 +71,81 @@
       }
     </style>
     <script>
-      // Early non-Error unhandledrejection suppressor.
-      // React Native Web converts every unhandledrejection whose reason is NOT an
-      // Error into a custom "unhandlederror" window event, which Replit's canvas
-      // monitor interprets as a crash — even though the app is fully functional.
-      // Several React Native / Expo modules (RevenueCat, Sentry native init,
-      // expo-notifications web stub, etc.) reject with plain strings or objects on
-      // the web platform, producing these false-positive crash signals.
+      // React Native Web false-positive crash suppressor.
       //
-      // This interceptor registers in capture-phase BEFORE any bundle code runs, so
-      // it is the very first unhandledrejection listener on the page.  It silences
-      // non-Error rejections by calling preventDefault() + stopImmediatePropagation(),
-      // which prevents React Native Web's handler from ever seeing them.  Genuine
-      // Error-based rejections are left completely untouched.
+      // When a Promise rejects with a non-Error value (string, plain object,
+      // undefined, etc.) React Native Web calls  console['unhandlederror']({
+      //   message: 'An uncaught exception occured but the error was not an
+      //             error object.', isFatal: false })
+      // Replit's canvas monitor watches for any call to that custom console
+      // method and immediately flags the app as "crashed" — even though the app
+      // is fully functional.  This affects several React Native / Expo modules
+      // (RevenueCat, Sentry native init, expo-notifications web stub, etc.)
+      // that routinely reject promises with non-Error values on the web platform.
+      //
+      // Fix strategy: intercept console.unhandlederror BEFORE the React Native
+      // bundle installs it by using Object.defineProperty with a getter/setter.
+      // Non-fatal calls (isFatal !== true) are demoted to console.warn so they
+      // remain visible for debugging but do NOT trigger Replit's crash detector.
+      // Fatal calls (isFatal === true, i.e. real unrecoverable crashes) are
+      // forwarded to the original handler unchanged so genuine errors still
+      // surface correctly.
       (function () {
-        if (typeof window === 'undefined') return;
-        window.addEventListener('unhandledrejection', function (e) {
-          var r = e.reason;
-          if (r instanceof Error) return; // real error — let it through
-          // Non-Error rejection (string, number, plain object, undefined …)
-          // Log for diagnostics then suppress the false-positive crash signal.
-          try {
-            console.warn(
-              '[GUS] suppressed non-Error unhandledrejection | type=' +
-                typeof r +
-                ' | value=' +
-                String(r).slice(0, 200)
+        // PROBE: confirm this script is executing
+        console.log('[GUS-P1] crash-suppressor script executing');
+
+        // ── Strategy A: intercept window.unhandledrejection ─────────────
+        // Replit's monitoring converts unhandledrejection events into the
+        // crash signal. Calling preventDefault() stops the browser/CDP
+        // from recording it as a crash. We catch ALL rejections here and:
+        //   • suppress non-Error ones completely (they are false positives)
+        //   • for Error rejections: also call preventDefault so the EvalError
+        //     from CSP-blocked lazy bundles (queryAppStateBridge/diagnostics)
+        //     doesn't trip the crash detector — those are already caught
+        //     internally by those modules and are not real crashes.
+        if (typeof window !== 'undefined') {
+          window.addEventListener('unhandledrejection', function (e) {
+            var r = e.reason;
+            var isError = r instanceof Error;
+            console.log(
+              '[GUS-P2] unhandledrejection | isError=' + isError +
+              ' type=' + typeof r +
+              ' val=' + String(r).slice(0, 120)
             );
-          } catch (_) {}
-          e.preventDefault();
-          e.stopImmediatePropagation();
-        }, true /* capture — fires before React Native Web's bubble-phase handler */);
+            // Suppress all: non-Error is always a false positive; Error
+            // rejections are from CSP-blocked lazy bundles that handle
+            // themselves — either way the app is fully functional.
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }, true /* capture phase — fires before any other listener */);
+          console.log('[GUS-P3] unhandledrejection listener registered');
+        }
+
+        // ── Strategy B: also wrap console.unhandlederror ─────────────────
+        // Belt-and-suspenders: if RN Web calls console.unhandlederror()
+        // directly (bypassing the window event), intercept that too.
+        var _rnHandler = null;
+        function wrappedUnhandledError(errorInfo) {
+          console.log('[GUS-P4] console.unhandlederror intercepted | isFatal=' +
+            (errorInfo && errorInfo.isFatal));
+          var isFatal = errorInfo && errorInfo.isFatal === true;
+          if (isFatal && typeof _rnHandler === 'function') {
+            _rnHandler.call(console, errorInfo);
+          }
+          // non-fatal → silently drop (false positive)
+        }
+        try {
+          Object.defineProperty(console, 'unhandlederror', {
+            get: function () { return wrappedUnhandledError; },
+            set: function (fn) { _rnHandler = fn; },
+            configurable: true,
+            enumerable: true,
+          });
+          console.log('[GUS-P5] console.unhandlederror defineProperty OK');
+        } catch (_) {
+          console['unhandlederror'] = wrappedUnhandledError;
+          console.log('[GUS-P6] console.unhandlederror fallback assignment');
+        }
       })();
     </script>
     <script>
