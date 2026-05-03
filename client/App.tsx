@@ -448,6 +448,10 @@ export default function App() {
   useEffect(() => {
     // Drain any diagnostics reports that failed to send during a previous
     // crash session. Runs once per app cold-start; safe to fire-and-forget.
+    // Skip on web — the module has no meaningful work to do there and
+    // a failed import() rejects with a non-Error which triggers a false
+    // crash signal in Replit's canvas monitor.
+    if (Platform.OS === "web") return;
     import("@/lib/diagnostics")
       .then(({ drainPendingDiagnostics }) => drainPendingDiagnostics())
       .catch((err) => {
@@ -463,6 +467,12 @@ export default function App() {
     // intentionally never fires `setFocused(true)` synchronously, so
     // it doesn't perturb the cold-start render. See
     // client/lib/queryAppStateBridge.ts for the full rationale.
+    //
+    // Skip on web — @react-native-community/netinfo has no browser
+    // entry point so the import() rejects with a non-Error plain object,
+    // triggering a false crash signal in Replit's canvas monitor.
+    // React Query's built-in web focus/online listeners are sufficient.
+    if (Platform.OS === "web") return;
     let stop: (() => void) | undefined;
     import("@/lib/queryAppStateBridge")
       .then(({ startQueryAppStateBridge }) => {

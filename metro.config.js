@@ -69,6 +69,15 @@ config.resolver = {
         type: "sourceFile",
       };
     }
+    if (platform === "web" && moduleName === "expo-notifications") {
+      return {
+        filePath: path.resolve(
+          __dirname,
+          "client/shims/expo-notifications.web.ts",
+        ),
+        type: "sourceFile",
+      };
+    }
     if (platform === "web" && moduleName === "react-native-pager-view") {
       return {
         filePath: path.resolve(
