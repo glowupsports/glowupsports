@@ -6519,10 +6519,12 @@ router.get(
 
       // Fetch all coaches and their user info
       const coachMap: Record<string, string> = {};
+      const coachPhotoMap: Record<string, string | null> = {};
       for (const coachId of coachIds) {
         const coach = await storage.getCoach(coachId);
         if (coach) {
           coachMap[coachId] = coach.name || "Coach";
+          coachPhotoMap[coachId] = coach.photoUrl ?? null;
         }
       }
 
@@ -6668,6 +6670,7 @@ router.get(
             })(),
           },
           coachName: session.coachId ? coachMap[session.coachId] || null : null,
+          coachPhotoUrl: session.coachId ? coachPhotoMap[session.coachId] ?? null : null,
           // Task #1101 — surface payment fields so the player schedule UI can
           // render a "Paid" indicator + currency-formatted price for sessions
           // that were paid for online (e.g. drop-in card-paid lessons).

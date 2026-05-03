@@ -36,7 +36,7 @@ import {
   BallLevelColors,
   RoleColors,
 } from "@/constants/theme";
-import { apiRequest, getApiUrl, getAuthHeaders, getStaticAssetsUrl } from "@/lib/query-client";import {
+import { apiRequest, getApiUrl, getAuthHeaders, getStaticAssetsUrl, buildPhotoUrl } from "@/lib/query-client";import {
   useSport,
   SPORT_DEFINITIONS,
   getSportColor,
@@ -154,6 +154,7 @@ interface SessionData {
     locationLng?: number | null;
   } | null;
   coachName: string | null;
+  coachPhotoUrl?: string | null;
   // Task #1101 — payment surfacing for paid-online (Stripe) lessons.
   paymentStatus?: string | null;
   price?: string | null;
@@ -197,6 +198,7 @@ interface ScheduledItem {
   title: string;
   subtitle: string;
   coachName: string;
+  coachPhotoUrl?: string | null;
   courtName: string;
   locationId?: string | null;
   locationName?: string | null;
@@ -607,6 +609,7 @@ export default function PlayerScheduleScreen() {
           title: s.session.title || getTypeLabel(s.session.sessionType),
           subtitle: s.coachName || "Coach",
           coachName: s.coachName || "",
+          coachPhotoUrl: s.coachPhotoUrl ?? null,
           courtName: s.session.courtName || "",
           locationId: s.session.locationId || null,
           locationName: s.session.locationName || null,
@@ -857,6 +860,7 @@ export default function PlayerScheduleScreen() {
           startTimeUtc: s.session.startTime,
           endTimeUtc: s.session.endTime || null,
           coachName: s.coachName || null,
+          coachPhotoUrl: s.coachPhotoUrl ?? null,
           courtName: s.session.courtName || null,
           locationName: s.session.locationName || null,
           durationMinutes,
@@ -2112,7 +2116,22 @@ function DayHero({
         <View style={styles.heroDetailsRow}>
           {primary.coachName ? (
             <View style={styles.heroDetailItem}>
-              <Feather name="user" size={13} color={TextColors.muted} />
+              {(() => {
+                const uri = primary.coachPhotoUrl ? buildPhotoUrl(primary.coachPhotoUrl) : null;
+                return uri ? (
+                  <ExpoImage
+                    source={{ uri }}
+                    style={styles.heroCoachAvatar}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={styles.heroCoachAvatarPlaceholder}>
+                    <Text style={styles.heroCoachAvatarInitial}>
+                      {primary.coachName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                );
+              })()}
               <Text style={styles.heroDetailText}>{primary.coachName}</Text>
             </View>
           ) : null}
@@ -2188,6 +2207,18 @@ function DayHero({
                   {it.startTime}
                   {it.endTime ? `\n${it.endTime}` : ""}
                 </Text>
+                {it.coachName ? (() => {
+                  const uri = it.coachPhotoUrl ? buildPhotoUrl(it.coachPhotoUrl) : null;
+                  return uri ? (
+                    <ExpoImage source={{ uri }} style={styles.secondaryCoachAvatar} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.secondaryCoachAvatarPlaceholder, { borderColor: c }]}>
+                      <Text style={[styles.secondaryCoachAvatarInitial, { color: c }]}>
+                        {it.coachName.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  );
+                })() : null}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.secondaryTitle} numberOfLines={1} ellipsizeMode="tail">
                     {it.title}
@@ -2736,6 +2767,24 @@ const styles = makeReactiveStyles(() =>
       fontSize: 13,
       color: TextColors.secondary,
     },
+    heroCoachAvatar: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+    },
+    heroCoachAvatarPlaceholder: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: Colors.dark.primary + "40",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    heroCoachAvatarInitial: {
+      fontSize: 10,
+      fontWeight: "700",
+      color: Colors.dark.primary,
+    },
     travelPill: {
       flexDirection: "row",
       alignItems: "center",
@@ -2869,6 +2918,23 @@ const styles = makeReactiveStyles(() =>
       fontSize: 12,
       color: TextColors.muted,
       marginTop: 1,
+    },
+    secondaryCoachAvatar: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+    },
+    secondaryCoachAvatarPlaceholder: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+    },
+    secondaryCoachAvatarInitial: {
+      fontSize: 10,
+      fontWeight: "700",
     },
 
     // FAB

@@ -86,6 +86,7 @@ export interface HistoryItem {
   localStartTime?: string | null;
   localEndTime?: string | null;
   coachName?: string | null;
+  coachPhotoUrl?: string | null;
   courtName?: string | null;
   locationName?: string | null;
   durationMinutes?: number | null;
@@ -697,13 +698,30 @@ export function HistoryTab({
           const place = item.courtName || item.locationName || "";
           const subMetaLine = [item.coachName, place].filter(Boolean).join(" \u00B7 ");
 
+          const coachUri = item.coachPhotoUrl ? buildPhotoUrl(item.coachPhotoUrl) : null;
           return (
             <Pressable
               key={item.key}
               style={historyStyles.row}
               onPress={() => onSelectItem?.(item)}
             >
-              <View style={[historyStyles.dot, { backgroundColor: item.accentColor }]} />
+              {item.coachName ? (
+                coachUri ? (
+                  <ExpoImage
+                    source={{ uri: coachUri }}
+                    style={historyStyles.coachAvatar}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={[historyStyles.coachAvatarPlaceholder, { backgroundColor: item.accentColor + "33" }]}>
+                    <Text style={[historyStyles.coachAvatarInitial, { color: item.accentColor }]}>
+                      {item.coachName.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )
+              ) : (
+                <View style={[historyStyles.dot, { backgroundColor: item.accentColor }]} />
+              )}
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={historyStyles.title} numberOfLines={1} ellipsizeMode="tail">
                   {item.title}
@@ -1647,6 +1665,22 @@ const historyStyles = makeReactiveStyles(() => StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  coachAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  coachAvatarPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  coachAvatarInitial: {
+    fontSize: 12,
+    fontWeight: "700",
   },
   title: {
     ...Typography.body,

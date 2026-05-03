@@ -24,7 +24,8 @@ import * as Haptics from "expo-haptics";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, interpolate, runOnJS, FadeIn, withSequence, withRepeat, withDelay } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
-import { apiRequest, apiFetch } from "@/lib/query-client";
+import { apiRequest, apiFetch, buildPhotoUrl } from "@/lib/query-client";
+import { Image as ExpoImage } from "expo-image";
 import { AnimatedCheck } from "@/components/AnimatedCheck";import BookingCoachCard from "./BookingCoachCard";
 import CoachProfileDrawer from "./CoachProfileDrawer";
 import { CourtBookingPicker } from "./CourtBookingPicker";
@@ -2300,10 +2301,31 @@ export default function PlayerBookingWizard({
 
                 {/* Coach */}
                 <View style={styles.confirmRow}>
-                  <Ionicons name="person" size={18} color={Colors.dark.primary} />
-                  <Text style={styles.confirmText}>
-                    Coach: {"coachName" in sessionInfo ? sessionInfo.coachName : ""}
-                  </Text>
+                  {(() => {
+                    const coachPhotoUrl = "coachPhotoUrl" in sessionInfo ? sessionInfo.coachPhotoUrl : null;
+                    const photoUri = buildPhotoUrl(coachPhotoUrl);
+                    const coachName = "coachName" in sessionInfo ? sessionInfo.coachName : "";
+                    return (
+                      <>
+                        {photoUri ? (
+                          <ExpoImage
+                            source={{ uri: photoUri }}
+                            style={styles.confirmCoachAvatar}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View style={styles.confirmCoachAvatarPlaceholder}>
+                            <Text style={styles.confirmCoachAvatarInitial}>
+                              {(coachName || "C").charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        <Text style={styles.confirmText}>
+                          Coach: {coachName}
+                        </Text>
+                      </>
+                    );
+                  })()}
                 </View>
 
                 {/* Players for group */}
@@ -3410,6 +3432,24 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+  },
+  confirmCoachAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  confirmCoachAvatarPlaceholder: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.dark.primary + "40",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  confirmCoachAvatarInitial: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.primary,
   },
   confirmText: {
     fontSize: 16,
