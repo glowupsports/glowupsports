@@ -9056,12 +9056,12 @@ router.get(
         LEFT JOIN session_checkins sc
           ON sc.session_id = s.id AND sc.player_id = ${playerId}
         LEFT JOIN (
-          SELECT source_id, SUM(amount) AS total_xp
+          SELECT session_id, SUM(xp_amount) AS total_xp
           FROM xp_transactions
           WHERE player_id = ${playerId}
             AND source = 'session'
-          GROUP BY source_id
-        ) xp ON xp.source_id = s.id
+          GROUP BY session_id
+        ) xp ON xp.session_id = s.id
         LEFT JOIN (
           SELECT context_id, MAX(new_level) AS new_level
           FROM player_xp_events

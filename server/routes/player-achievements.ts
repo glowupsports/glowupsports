@@ -27,7 +27,7 @@ async function getPlayerStats(playerId: string): Promise<PlayerStats | null> {
   const res = await pool.query(
     `SELECT
        p.level,
-       p.xp,
+       p.total_xp AS xp,
        p.glow_score,
        p.streak,
        COUNT(DISTINCT sp.session_id) FILTER (WHERE sp.attended = true) AS sessions_attended,
@@ -290,9 +290,9 @@ router.get(
         `SELECT MAX(weekly_count) AS max_weekly_sessions,
                 MAX(weekly_xp)   AS max_weekly_xp
            FROM (
-             SELECT DATE_TRUNC('week', s.date::date) AS week_start,
-                    COUNT(*)                         AS weekly_count,
-                    COALESCE(SUM(sp.xp_earned), 0)  AS weekly_xp
+             SELECT DATE_TRUNC('week', s.start_time::date) AS week_start,
+                    COUNT(*)                               AS weekly_count,
+                    COALESCE(SUM(sp.xp_awarded), 0)        AS weekly_xp
                FROM session_players sp
                JOIN sessions s ON s.id = sp.session_id
               WHERE sp.player_id = $1 AND sp.attended = true
@@ -306,7 +306,7 @@ router.get(
       // against INTERVAL '14 days' — not the integer 14.
       const streakHistoryRes = await pool.query(
         `WITH attended_dates AS (
-           SELECT DISTINCT DATE_TRUNC('day', s.date::date) AS day
+           SELECT DISTINCT DATE_TRUNC('day', s.start_time::date) AS day
              FROM session_players sp
              JOIN sessions s ON s.id = sp.session_id
             WHERE sp.player_id = $1 AND sp.attended = true

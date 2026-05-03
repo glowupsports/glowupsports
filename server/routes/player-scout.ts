@@ -14,7 +14,7 @@
 import { Router } from "express";
 import type { Response } from "express";
 import { db } from "../db";
-import { players, adultGlowMatches, userSocialProfiles } from "@shared/schema";
+import { players, adultGlowMatches, userSocialProfiles, users } from "@shared/schema";
 import { eq, and, gte, desc } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware } from "../auth";
 import type { AuthenticatedRequest } from "../auth";
@@ -70,10 +70,14 @@ router.get(
         return;
       }
 
-      // Fetch privacy settings
-      const socialProfile = opponent.userId
+      // Fetch privacy settings — players don't have userId; look up via users table
+      const linkedUser = await db.query.users.findFirst({
+        where: eq(users.playerId, opponentId),
+        columns: { id: true },
+      });
+      const socialProfile = linkedUser
         ? await db.query.userSocialProfiles.findFirst({
-            where: eq(userSocialProfiles.userId, opponent.userId),
+            where: eq(userSocialProfiles.userId, linkedUser.id),
           })
         : null;
 

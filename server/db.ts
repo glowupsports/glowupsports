@@ -1259,7 +1259,6 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] USTA assessment seed skipped:', e.message);
   }
 
-<<<<<<< HEAD
   // ── Glow Arena Tables (Phase 1) ──────────────────────────────────────────────
   try {
     await pool.query(`
@@ -1600,6 +1599,23 @@ pool.query('SELECT 1').then(async () => {
     console.log('[Database] match_results migration applied');
   } catch (e: any) {
     console.log('[Database] match_results migration skipped:', e.message);
+  }
+
+  // Task #1581 — Venue profile columns (opening_hours on academies, indoor on courts)
+  try {
+    await pool.query(`ALTER TABLE academies ADD COLUMN IF NOT EXISTS opening_hours JSONB`);
+    await pool.query(`ALTER TABLE courts ADD COLUMN IF NOT EXISTS indoor BOOLEAN DEFAULT false`);
+    console.log('[Database] venue profile columns (opening_hours, indoor) applied');
+  } catch (e: any) {
+    console.log('[Database] venue profile columns migration skipped:', e.message);
+  }
+
+  // open_matches.linked_challenge_id — cross-cancel column added by Task #1362
+  try {
+    await pool.query(`ALTER TABLE open_matches ADD COLUMN IF NOT EXISTS linked_challenge_id VARCHAR REFERENCES match_challenges(id) ON DELETE SET NULL`);
+    console.log('[Database] open_matches.linked_challenge_id migration applied');
+  } catch (e: any) {
+    console.log('[Database] open_matches.linked_challenge_id migration skipped:', e.message);
   }
 }).catch((err) => {
   console.error('[Database] Connection test FAILED:', err.message);
