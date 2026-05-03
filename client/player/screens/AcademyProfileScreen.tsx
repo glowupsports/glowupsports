@@ -20,6 +20,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { GuestPromptModal, useGuestGuard } from "@/components/GuestPromptModal";
 interface AcademyProfile {
   id: string;
   name: string;
@@ -112,6 +113,7 @@ export default function AcademyProfileScreen() {
   const { t } = useTranslation();
 
   const academyId = route.params?.academyId;
+  const { isGuest, guardAction, promptProps } = useGuestGuard();
 
   const { data: profileData, isLoading } = useQuery<{ profile: AcademyProfile }>({
     queryKey: ["/api/academies", academyId, "profile"],
@@ -332,6 +334,11 @@ export default function AcademyProfileScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
+      <GuestPromptModal
+        {...promptProps}
+        message="Sign up to join this academy and access all features."
+      />
+
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.md }]}>
         {pendingRequest ? (
           <View style={styles.pendingBadge}>
@@ -344,7 +351,7 @@ export default function AcademyProfileScreen() {
         ) : (
           <Pressable
             style={[styles.joinButton, joinMutation.isPending && styles.buttonDisabled]}
-            onPress={() => joinMutation.mutate(isOpenJoin)}
+            onPress={() => guardAction(() => joinMutation.mutate(isOpenJoin))}
             disabled={joinMutation.isPending}
           >
             {joinMutation.isPending ? (
