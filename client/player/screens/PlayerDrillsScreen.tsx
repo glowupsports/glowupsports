@@ -16,6 +16,7 @@ import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { DrillDetailSheet } from "@/player/components/DrillDetailSheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,41 @@ interface DrillsData {
   grouped: Record<string, DrillItem[]>;
   assigned: AssignedDrill[];
   savedIds: string[];
+}
+
+interface DrillStats {
+  totalLogs: number;
+  weeklyLogs: number;
+  currentStreak: number;
+}
+
+// ─── Stats Banner ─────────────────────────────────────────────────────────────
+
+function DrillStatsBanner({ stats }: { stats: DrillStats | undefined }) {
+  if (!stats) return null;
+  const { totalLogs, weeklyLogs, currentStreak } = stats;
+
+  return (
+    <View style={s.statsBanner}>
+      <View style={s.statItem}>
+        <Ionicons name="flash" size={18} color={GlowColors.primary} />
+        <Text style={s.statValue}>{weeklyLogs}</Text>
+        <Text style={s.statLabel}>{weeklyLogs === 1 ? "drill this week" : "drills this week"}</Text>
+      </View>
+      <View style={s.statsDivider} />
+      <View style={s.statItem}>
+        <Ionicons name="flame" size={18} color="#F97316" />
+        <Text style={[s.statValue, currentStreak > 0 && { color: "#F97316" }]}>{currentStreak}</Text>
+        <Text style={s.statLabel}>{currentStreak === 1 ? "day streak" : "days streak"}</Text>
+      </View>
+      <View style={s.statsDivider} />
+      <View style={s.statItem}>
+        <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+        <Text style={[s.statValue, { color: "#10B981" }]}>{totalLogs}</Text>
+        <Text style={s.statLabel}>total logged</Text>
+      </View>
+    </View>
+  );
 }
 
 // ─── Category config ─────────────────────────────────────────────────────────
@@ -286,10 +322,21 @@ export default function PlayerDrillsScreen() {
     staleTime: 30 * 1000,
   });
 
+  const { data: drillStats, refetch: refetchStats } = useQuery<DrillStats>({
+    queryKey: ["/api/player/me/drills/stats"],
+    queryFn: async () => {
+      const url = new URL("/api/player/me/drills/stats", getApiUrl());
+      const res = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
+    staleTime: 60 * 1000,
+  });
+
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    try { await refetch(); } finally { setIsRefreshing(false); }
-  }, [refetch]);
+    try { await Promise.all([refetch(), refetchStats()]); } finally { setIsRefreshing(false); }
+  }, [refetch, refetchStats]);
 
   const handleSaveDrill = useCallback(async (drillId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -342,6 +389,9 @@ export default function PlayerDrillsScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={GlowColors.primary} />}
       >
+        {/* Stats banner */}
+        {!search ? <DrillStatsBanner stats={drillStats} /> : null}
+
         {/* Search bar */}
         <View style={s.searchBar}>
           <Ionicons name="search-outline" size={16} color={Colors.dark.textMuted} />
@@ -404,6 +454,8 @@ export default function PlayerDrillsScreen() {
           onSave={() => handleSaveDrill(selectedDrill.id)}
           onLogged={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/player/me/drills"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/player/me/drills/stats"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/player/me/drills", selectedDrill.id, "stats"] });
           }}
         />
       ) : null}
@@ -508,6 +560,41 @@ const s = makeReactiveStyles(() =>
     diffText: { fontSize: 10, fontWeight: "700" },
     durationRow: { flexDirection: "row", alignItems: "center", gap: 3 },
     durationText: { fontSize: 10, color: Colors.dark.textMuted, fontWeight: "500" },
+
+    // Stats banner
+    statsBanner: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginHorizontal: Spacing.lg,
+      backgroundColor: Colors.dark.chipBackground,
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1,
+      borderColor: Colors.dark.chipBorder,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.lg,
+    },
+    statItem: {
+      flex: 1,
+      alignItems: "center",
+      gap: 3,
+    },
+    statValue: {
+      fontSize: 20,
+      fontWeight: "900",
+      color: Colors.dark.text,
+    },
+    statLabel: {
+      fontSize: 10,
+      color: Colors.dark.textMuted,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    statsDivider: {
+      width: 1,
+      height: 32,
+      backgroundColor: Colors.dark.chipBorder,
+    },
 
     // Empty state
     empty: { alignItems: "center", justifyContent: "center", gap: Spacing.md, paddingVertical: 60, paddingHorizontal: Spacing.xl },

@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { db } from "../db";
 import { drills, playerSavedDrills, playerDrillLogs, coachAssignedDrills, coaches } from "../../shared/schema";
-import { eq, and, desc, isNull, inArray } from "drizzle-orm";
+import { eq, and, desc, isNull, inArray, gte } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, requireRole } from "../auth";
 import { awardXP } from "../services/xp-service";
 
@@ -229,6 +229,82 @@ router.post("/api/player/me/drills/:id/log", authMiddleware, async (req: Authent
   } catch (error) {
     console.error("[POST /api/player/me/drills/:id/log]", error);
     res.status(500).json({ error: "Failed to log drill" });
+  }
+});
+
+// GET player drill stats (total logs, weekly logs, current streak)
+router.get("/api/player/me/drills/stats", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player access required" });
+
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+    const [allLogs, weeklyLogs] = await Promise.all([
+      db.select({ id: playerDrillLogs.id, createdAt: playerDrillLogs.createdAt })
+        .from(playerDrillLogs)
+        .where(eq(playerDrillLogs.playerId, playerId))
+        .orderBy(desc(playerDrillLogs.createdAt)),
+      db.select({ id: playerDrillLogs.id })
+        .from(playerDrillLogs)
+        .where(and(eq(playerDrillLogs.playerId, playerId), gte(playerDrillLogs.createdAt, oneWeekAgo))),
+    ]);
+
+    // Compute streak: consecutive calendar days (today backwards) with at least one log
+    const datesWithLogs = new Set(
+      allLogs.map(log => {
+        const d = new Date(log.createdAt!);
+        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      })
+    );
+
+    let streak = 0;
+    const today = new Date();
+    for (let i = 0; i <= 365; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (datesWithLogs.has(key)) {
+        streak++;
+      } else if (i === 0) {
+        // today has no log yet — streak starts from yesterday
+        continue;
+      } else {
+        break;
+      }
+    }
+
+    res.json({ totalLogs: allLogs.length, weeklyLogs: weeklyLogs.length, currentStreak: streak });
+  } catch (error) {
+    console.error("[GET /api/player/me/drills/stats]", error);
+    res.status(500).json({ error: "Failed to fetch drill stats" });
+  }
+});
+
+// GET per-drill stats for a player (personal best duration, avg rating, total logs)
+router.get("/api/player/me/drills/:id/stats", authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player access required" });
+    const drillId = req.params.id;
+
+    const logs = await db
+      .select({ durationDone: playerDrillLogs.durationDone, rating: playerDrillLogs.rating })
+      .from(playerDrillLogs)
+      .where(and(eq(playerDrillLogs.playerId, playerId), eq(playerDrillLogs.drillId, drillId)));
+
+    const totalLogs = logs.length;
+    const durations = logs.map(l => l.durationDone).filter((d): d is number => d !== null && d !== undefined);
+    const ratings = logs.map(l => l.rating).filter((r): r is number => r !== null && r !== undefined);
+
+    const bestDuration = durations.length > 0 ? Math.max(...durations) : null;
+    const avgRating = ratings.length > 0 ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10 : null;
+
+    res.json({ totalLogs, bestDuration, avgRating });
+  } catch (error) {
+    console.error("[GET /api/player/me/drills/:id/stats]", error);
+    res.status(500).json({ error: "Failed to fetch drill stats" });
   }
 });
 

@@ -13,6 +13,8 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { DrillLogModal } from "@/player/components/DrillLogModal";
 import type { DrillItem } from "@/player/screens/PlayerDrillsScreen";
+import { useQuery } from "@tanstack/react-query";
+import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 
 const CATEGORY_CONFIG: Record<string, { icon: string; color: string }> = {
   "Serve": { icon: "arrow-up-circle-outline", color: "#6366F1" },
@@ -38,9 +40,26 @@ interface Props {
   onLogged?: () => void;
 }
 
+interface DrillPerStats {
+  totalLogs: number;
+  bestDuration: number | null;
+  avgRating: number | null;
+}
+
 export function DrillDetailSheet({ drill, onClose, onSave, onLogged }: Props) {
   const insets = useSafeAreaInsets();
   const [showLog, setShowLog] = useState(false);
+
+  const { data: drillStats } = useQuery<DrillPerStats>({
+    queryKey: ["/api/player/me/drills", drill.id, "stats"],
+    queryFn: async () => {
+      const url = new URL(`/api/player/me/drills/${drill.id}/stats`, getApiUrl());
+      const res = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error("Failed to fetch drill stats");
+      return res.json();
+    },
+    staleTime: 30 * 1000,
+  });
 
   const cat = drill.category ?? "Other";
   const cfg = CATEGORY_CONFIG[cat] ?? CATEGORY_CONFIG["Other"];
@@ -105,6 +124,33 @@ export function DrillDetailSheet({ drill, onClose, onSave, onLogged }: Props) {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: Spacing.md }}
           >
+            {/* Personal stats */}
+            {drillStats && drillStats.totalLogs > 0 ? (
+              <View style={s.statsSection}>
+                <View style={s.statsRow}>
+                  <View style={s.statsCell}>
+                    <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                    <Text style={s.statsCellValue}>{drillStats.totalLogs}</Text>
+                    <Text style={s.statsCellLabel}>{drillStats.totalLogs === 1 ? "session" : "sessions"}</Text>
+                  </View>
+                  {drillStats.bestDuration !== null ? (
+                    <View style={s.statsCell}>
+                      <Ionicons name="time" size={14} color={GlowColors.primary} />
+                      <Text style={s.statsCellValue}>{drillStats.bestDuration}m</Text>
+                      <Text style={s.statsCellLabel}>best session</Text>
+                    </View>
+                  ) : null}
+                  {drillStats.avgRating !== null ? (
+                    <View style={s.statsCell}>
+                      <Ionicons name="star" size={14} color="#FFD700" />
+                      <Text style={s.statsCellValue}>{drillStats.avgRating.toFixed(1)}</Text>
+                      <Text style={s.statsCellLabel}>avg rating</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+
             {/* Description */}
             {description ? (
               <View style={s.section}>
@@ -270,4 +316,34 @@ const s = StyleSheet.create({
   },
   logBtnPressed: { opacity: 0.8 },
   logBtnText: { fontSize: 16, fontWeight: "800", color: "#000" },
+
+  // Per-drill stats
+  statsSection: {
+    backgroundColor: Colors.dark.chipBackground,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.chipBorder,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+  },
+  statsCell: {
+    alignItems: "center",
+    gap: 3,
+    flex: 1,
+  },
+  statsCellValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: Colors.dark.text,
+  },
+  statsCellLabel: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
 });
