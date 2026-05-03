@@ -1476,6 +1476,11 @@ import { Router, type Request, type Response } from "express";
           await ifTable("credit_shadow_diff",
             `UPDATE credit_shadow_diff SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
 
+          // Task #1610: player_drill_logs — historical completion records;
+          // no unique constraint on player_id alone, so a straight UPDATE is safe.
+          await ifTable("player_drill_logs",
+            `UPDATE player_drill_logs SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
           // Core coaching records
           await client.query(`UPDATE player_notes SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
           await client.query(`UPDATE player_subscriptions SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
@@ -1830,6 +1835,17 @@ import { Router, type Request, type Response } from "express";
           // just drop the source's outstanding holds.
           await ifTable("slot_reservations",
             `DELETE FROM slot_reservations WHERE player_id = $1`, [sourceId]);
+
+          // Task #1610: drill library — player_saved_drills has a UNIQUE(player_id,
+          // drill_id) constraint so transfer would conflict when both players have
+          // saved the same drill. Drop the source's bookmarks instead.
+          await ifTable("player_saved_drills",
+            `DELETE FROM player_saved_drills WHERE player_id = $1`, [sourceId]);
+
+          // coach_assigned_drills has UNIQUE(coach_id, player_id, drill_id);
+          // assignments were made specifically to the source player, drop them.
+          await ifTable("coach_assigned_drills",
+            `DELETE FROM coach_assigned_drills WHERE player_id = $1`, [sourceId]);
 
           // Spotlight nominations: drop both sides
           // (UNIQUE(nominator, week_start) means transfer would conflict).

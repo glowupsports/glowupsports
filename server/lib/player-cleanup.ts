@@ -202,6 +202,11 @@ export const KNOWN_PLAYER_FK_TABLES: ReadonlySet<string> = new Set([
   "video_feedback",
   "beta_feedback",
 
+  // Drill library (Task #1610)
+  "player_saved_drills",
+  "player_drill_logs",
+  "coach_assigned_drills",
+
   // Devices / users (users.player_id is nulled, not deleted)
   "push_device_tokens",
   "users",
@@ -412,6 +417,23 @@ export const GUARDED_PLAYER_DELETE_STATEMENTS: readonly GuardedPlayerDeleteState
     table: "slot_reservations",
     mergeNote: "Part B: deleted (ephemeral 5-min TTL hold).",
     sql: `DELETE FROM slot_reservations WHERE player_id = $1`,
+  },
+
+  // Task #1610: drill library tables.
+  {
+    table: "player_saved_drills",
+    mergeNote: "Part B: deleted (player-specific bookmarks, not transferable across accounts).",
+    sql: `DELETE FROM player_saved_drills WHERE player_id = $1`,
+  },
+  {
+    table: "player_drill_logs",
+    mergeNote: "Part A: transferred (historical completion records).",
+    sql: `DELETE FROM player_drill_logs WHERE player_id = $1`,
+  },
+  {
+    table: "coach_assigned_drills",
+    mergeNote: "Part B: deleted (assignments were made to the source player specifically).",
+    sql: `DELETE FROM coach_assigned_drills WHERE player_id = $1`,
   },
 ];
 
