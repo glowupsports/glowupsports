@@ -93,7 +93,8 @@ if (IS_WEB && typeof window !== "undefined" && typeof window.Promise === "functi
     return promise;
   } as unknown as PromiseConstructor;
 
-  _SafePromise.prototype = _NativePromise.prototype;
+  (_SafePromise as unknown as Record<string, unknown>).prototype =
+    _NativePromise.prototype;
   Object.setPrototypeOf(_SafePromise, _NativePromise);
 
   // Override .resolve() and .reject() static methods so that promises created
