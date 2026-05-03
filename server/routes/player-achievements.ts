@@ -30,7 +30,7 @@ async function getPlayerStats(playerId: string): Promise<PlayerStats | null> {
        p.total_xp AS xp,
        p.glow_score,
        p.streak,
-       COUNT(DISTINCT sp.session_id) FILTER (WHERE sp.attended = true) AS sessions_attended,
+       COUNT(DISTINCT sp.session_id) FILTER (WHERE sp.attendance_status IN ('present', 'late')) AS sessions_attended,
        COUNT(DISTINCT lm.id) AS matches_played
      FROM players p
      LEFT JOIN session_players sp ON sp.player_id = p.id
@@ -295,7 +295,7 @@ router.get(
                     COALESCE(SUM(sp.xp_awarded), 0)        AS weekly_xp
                FROM session_players sp
                JOIN sessions s ON s.id = sp.session_id
-              WHERE sp.player_id = $1 AND sp.attended = true
+              WHERE sp.player_id = $1 AND sp.attendance_status IN ('present', 'late')
               GROUP BY 1
            ) w`,
         [playerId],
@@ -309,7 +309,7 @@ router.get(
            SELECT DISTINCT DATE_TRUNC('day', s.start_time::date) AS day
              FROM session_players sp
              JOIN sessions s ON s.id = sp.session_id
-            WHERE sp.player_id = $1 AND sp.attended = true
+            WHERE sp.player_id = $1 AND sp.attendance_status IN ('present', 'late')
             ORDER BY 1
          ),
          gaps AS (
@@ -338,7 +338,7 @@ router.get(
 
       // Total sessions
       const totalSessionsRes = await pool.query(
-        `SELECT COUNT(*) AS total FROM session_players WHERE player_id = $1 AND attended = true`,
+        `SELECT COUNT(*) AS total FROM session_players WHERE player_id = $1 AND attendance_status IN ('present', 'late')`,
         [playerId],
       );
 
