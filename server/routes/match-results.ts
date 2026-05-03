@@ -11,6 +11,8 @@ import {
   type AuthenticatedRequest,
 } from "../auth";
 import { getPlayerPushTokens, sendPushNotification } from "../pushNotifications";
+import { awardConqueredCard } from "../services/arena-card-service";
+import { checkAndClaimRealMatchBounty, checkIsNemesisConquest } from "../services/arena-battle-service";
 
 const router = Router();
 
@@ -40,13 +42,36 @@ function formatScoreDisplay(sets: { p: number; o: number }[]): string {
 
 async function autoConfirmStale(): Promise<void> {
   const cutoff = new Date(Date.now() - AUTO_CONFIRM_MS).toISOString();
-  await pool.query(
+
+  // Atomically claim only rows that are still 'pending' — UPDATE … RETURNING
+  // prevents any concurrent invocation from processing the same row twice.
+  const { rows: claimed } = await pool.query<MatchResultRow>(
     `UPDATE match_results
         SET status = 'auto_confirmed', confirmed_at = NOW()
       WHERE status = 'pending'
-        AND created_at < $1`,
+        AND created_at < $1
+      RETURNING *`,
     [cutoff],
   );
+
+  // Award card + bounty only for rows we exclusively claimed in this run.
+  for (const row of claimed) {
+    if (!row.opponent_id || !row.player_id) continue;
+    const winnerId = row.logged_player_won ? row.player_id : row.opponent_id;
+    const loserId  = row.logged_player_won ? row.opponent_id : row.player_id;
+    try {
+      const isNemesis = await checkIsNemesisConquest(winnerId, loserId);
+      await awardConqueredCard(winnerId, loserId, { isNemesis });
+    } catch (err) {
+      console.error("[match-results] autoConfirm awardConqueredCard failed", { winnerId, loserId, err });
+      try { await awardConqueredCard(winnerId, loserId); } catch { /* logged above */ }
+    }
+    try {
+      await checkAndClaimRealMatchBounty(winnerId, loserId);
+    } catch (err) {
+      console.error("[match-results] autoConfirm bounty failed", { winnerId, loserId, err });
+    }
+  }
 }
 
 async function enrichRows(
@@ -264,6 +289,21 @@ router.post(
         `UPDATE match_results SET status = 'confirmed', confirmed_at = NOW() WHERE id = $1`,
         [id],
       );
+
+      // Award conquered card to the actual winner regardless of who logged the match.
+      // logged_player_won=true → row.player_id won; false → row.opponent_id won.
+      if (row.player_id && row.opponent_id) {
+        const winnerId = row.logged_player_won ? row.player_id : row.opponent_id;
+        const loserId  = row.logged_player_won ? row.opponent_id : row.player_id;
+        checkIsNemesisConquest(winnerId, loserId)
+          .then((isNemesis) => awardConqueredCard(winnerId, loserId, { isNemesis }))
+          .catch(() => awardConqueredCard(winnerId, loserId).catch((err) => {
+            console.error("[match-results] confirm awardConqueredCard failed", { winnerId, loserId, err });
+          }));
+        checkAndClaimRealMatchBounty(winnerId, loserId).catch((err) => {
+          console.error("[match-results] confirm bounty failed", { winnerId, loserId, err });
+        });
+      }
 
       res.json({ ok: true });
     } catch (err) {

@@ -55,6 +55,30 @@ import {
   getDailyChallenge,
   claimDailyChallengeTier,
 } from "../services/arena-card-service";
+import {
+  calculateSquadPower,
+  saveSquad,
+  getSquad,
+  challengePlayer,
+  acceptBattle,
+  declineBattle,
+  playTurn,
+  getBattleState,
+  getCurrentSeason,
+  getLeaderboard,
+  placeBounty,
+  getActiveBounties,
+  getMostWantedBounties,
+  applyCoachPowerup,
+  getPlayerBattleHistory,
+  applyGhostPenalties,
+  getStolenCardsInfo,
+  checkIsNemesisConquest,
+  ensureArenaMigrations,
+} from "../services/arena-battle-service";
+
+// Run Phase 3 migrations on startup (idempotent — ADD COLUMN IF NOT EXISTS)
+ensureArenaMigrations().catch((err) => console.error("[arena] Migration failed:", err));
 
 const router = Router();
 router.use(authMiddleware);
@@ -709,6 +733,462 @@ router.post("/admin/backfill", async (req: AuthenticatedRequest, res) => {
   } catch (err) {
     console.error("[arena] POST /admin/backfill:", err);
     res.status(500).json({ error: "Backfill failed" });
+  }
+});
+
+// ── Phase 3 Routes ────────────────────────────────────────────────────────────
+
+// ── GET /api/arena/squad ──────────────────────────────────────────────────────
+router.get("/squad", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const squad = await getSquad(playerId);
+    res.json(squad ?? null);
+  } catch (err) {
+    console.error("[arena] GET /squad:", err);
+    res.status(500).json({ error: "Failed to fetch squad" });
+  }
+});
+
+// ── GET /api/arena/squad/collection ──────────────────────────────────────────
+// Returns collected player+coach cards enriched with stat data for squad building
+router.get("/squad/collection", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+
+    const collected = await db
+      .select({
+        id: playerCollectedCards.id,
+        cardType: playerCollectedCards.cardType,
+        cardRefId: playerCollectedCards.cardRefId,
+        source: playerCollectedCards.source,
+        conqueredRibbon: playerCollectedCards.conqueredRibbon,
+        isNemesis: playerCollectedCards.isNemesis,
+        cardVariant: playerCollectedCards.cardVariant,
+      })
+      .from(playerCollectedCards)
+      .where(eq(playerCollectedCards.ownerId, playerId));
+
+    const enriched = await Promise.all(
+      collected.map(async (c) => {
+        if (c.cardType === "player") {
+          const [pc] = await db
+            .select({
+              id: arenaPlayerCards.id,
+              playerId: arenaPlayerCards.playerId,
+              playerName: arenaPlayerCards.playerName,
+              rarityTier: arenaPlayerCards.rarityTier,
+              statPower: arenaPlayerCards.statPower,
+              statTechnique: arenaPlayerCards.statTechnique,
+              statMental: arenaPlayerCards.statMental,
+              statTactics: arenaPlayerCards.statTactics,
+            })
+            .from(arenaPlayerCards)
+            .where(eq(arenaPlayerCards.id, c.cardRefId))
+            .limit(1);
+          return {
+            id: c.id,
+            cardType: c.cardType,
+            cardRefId: c.cardRefId,
+            source: c.source,
+            conqueredRibbon: c.conqueredRibbon,
+            isNemesis: c.isNemesis,
+            cardVariant: c.cardVariant,
+            rarityTier: pc?.rarityTier ?? "common_i",
+            statPower: pc?.statPower ?? 0,
+            statTechnique: pc?.statTechnique ?? 0,
+            statMental: pc?.statMental ?? 0,
+            statTactics: pc?.statTactics ?? 0,
+            playerName: pc?.playerName ?? "Unknown",
+          };
+        } else {
+          const { arenaCoachCards, coaches } = await import("@shared/schema");
+          const [cc] = await db
+            .select({
+              id: arenaCoachCards.id,
+              coachId: arenaCoachCards.coachId,
+              coachName: arenaCoachCards.coachName,
+              rarityTier: arenaCoachCards.rarityTier,
+              statCoachingPower: arenaCoachCards.statCoachingPower,
+            })
+            .from(arenaCoachCards)
+            .where(eq(arenaCoachCards.id, c.cardRefId))
+            .limit(1);
+          return {
+            id: c.id,
+            cardType: c.cardType,
+            cardRefId: c.cardRefId,
+            source: c.source,
+            conqueredRibbon: c.conqueredRibbon,
+            isNemesis: c.isNemesis,
+            cardVariant: c.cardVariant,
+            rarityTier: cc?.rarityTier ?? "common_i",
+            statPower: cc?.statCoachingPower ?? 0,
+            coachName: cc?.coachName ?? "Unknown",
+          };
+        }
+      }),
+    );
+
+    res.json({ cards: enriched });
+  } catch (err) {
+    console.error("[arena] GET /squad/collection:", err);
+    res.status(500).json({ error: "Failed to fetch collection" });
+  }
+});
+
+// ── POST /api/arena/squad/preview ─────────────────────────────────────────────
+router.post("/squad/preview", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const { starterIds = [], benchIds = [], coachCardId } = req.body;
+    const result = await calculateSquadPower(playerId, starterIds, benchIds, coachCardId);
+    res.json({
+      squadPower: result.power,
+      starters: result.starters,
+      bench: result.bench,
+      coachCard: result.coachCard,
+      powerBreakdown: result.breakdown,
+    });
+  } catch (err) {
+    console.error("[arena] POST /squad/preview:", err);
+    res.status(500).json({ error: "Failed to preview squad" });
+  }
+});
+
+// ── POST /api/arena/squad/save ────────────────────────────────────────────────
+router.post("/squad/save", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const { squadName = "My Squad", starterIds = [], benchIds = [], coachCardId } = req.body;
+    const squad = await saveSquad(playerId, squadName, starterIds, benchIds, coachCardId);
+    res.json(squad);
+  } catch (err) {
+    console.error("[arena] POST /squad/save:", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to save squad" });
+  }
+});
+
+// ── POST /api/arena/battles/challenge ─────────────────────────────────────────
+router.post("/battles/challenge", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+
+    // Academy-member-only: load initiator's academyId
+    const [me] = await db.select({ academyId: players.academyId }).from(players).where(eq(players.id, playerId)).limit(1);
+
+    const { opponentId, wagerCoins, wagerCardIdInitiator, isRanked, battleType } = req.body;
+    if (!opponentId) return res.status(400).json({ error: "opponentId required" });
+    const result = await challengePlayer(playerId, opponentId, {
+      wagerCoins,
+      wagerCardIdInitiator,
+      isRanked,
+      battleType,
+      academyId: me?.academyId ?? undefined,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[arena] POST /battles/challenge:", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to challenge" });
+  }
+});
+
+// ── POST /api/arena/battles/:id/accept ────────────────────────────────────────
+router.post("/battles/:id/accept", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const { wagerCardIdOpponent } = req.body;
+    const result = await acceptBattle(req.params.id, playerId, wagerCardIdOpponent ?? null);
+    res.json(result);
+  } catch (err) {
+    console.error("[arena] POST /battles/:id/accept:", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to accept battle" });
+  }
+});
+
+// ── POST /api/arena/battles/:id/decline ───────────────────────────────────────
+router.post("/battles/:id/decline", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const result = await declineBattle(req.params.id, playerId);
+    res.json(result);
+  } catch (err) {
+    console.error("[arena] POST /battles/:id/decline:", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to decline battle" });
+  }
+});
+
+// ── POST /api/arena/battles/:id/turn ──────────────────────────────────────────
+router.post("/battles/:id/turn", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const { abilityCardId } = req.body;
+    const result = await playTurn(req.params.id, playerId, abilityCardId);
+    res.json(result);
+  } catch (err) {
+    console.error("[arena] POST /battles/:id/turn:", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to play turn" });
+  }
+});
+
+// ── GET /api/arena/battles/:id/state ──────────────────────────────────────────
+router.get("/battles/:id/state", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const state = await getBattleState(req.params.id, playerId);
+    res.json(state);
+  } catch (err) {
+    console.error("[arena] GET /battles/:id/state:", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to get battle state" });
+  }
+});
+
+// ── GET /api/arena/battles (player's pending/active battles) ──────────────────
+router.get("/battles", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const { arenaBattles: arenaBattlesTable } = await import("@shared/schema");
+    const { or } = await import("drizzle-orm");
+    const battles = await db
+      .select()
+      .from(arenaBattlesTable)
+      .where(
+        and(
+          or(eq(arenaBattlesTable.initiatorId, playerId), eq(arenaBattlesTable.opponentId, playerId)),
+          or(eq(arenaBattlesTable.status, "pending"), eq(arenaBattlesTable.status, "active")),
+        ),
+      )
+      .orderBy(desc(arenaBattlesTable.createdAt))
+      .limit(20);
+    res.json({ battles });
+  } catch (err) {
+    console.error("[arena] GET /battles:", err);
+    res.status(500).json({ error: "Failed to fetch battles" });
+  }
+});
+
+// ── GET /api/arena/battle-history ─────────────────────────────────────────────
+router.get("/battle-history", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const history = await getPlayerBattleHistory(playerId, 30);
+    res.json({ history });
+  } catch (err) {
+    console.error("[arena] GET /battle-history:", err);
+    res.status(500).json({ error: "Failed to fetch battle history" });
+  }
+});
+
+// ── GET /api/arena/season/current ─────────────────────────────────────────────
+router.get("/season/current", async (req: AuthenticatedRequest, res) => {
+  try {
+    const result = await getCurrentSeason();
+    res.json(result);
+  } catch (err) {
+    console.error("[arena] GET /season/current:", err);
+    res.status(500).json({ error: "Failed to fetch season" });
+  }
+});
+
+// ── GET /api/arena/leaderboard ────────────────────────────────────────────────
+router.get("/leaderboard", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+
+    const scope = (req.query.scope as "global" | "academy") ?? "global";
+    const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq(players.id, playerId)).limit(1);
+
+    const entries = await getLeaderboard(scope, player?.academyId ?? undefined, 50);
+
+    // Find current player's entry — first check top-50 slice, then fall back to
+    // a dedicated rank query so the sticky "my row" works even outside the top slice.
+    let myEntry = entries.find((e) => e.playerId === playerId) ?? null;
+    if (!myEntry) {
+      // Compute rank independently: count players with higher MMR + 1
+      const rankRow = await db.execute(drizzleSql`
+        SELECT cc.player_id, cc.arena_mmr, cc.arena_wins, cc.arena_losses,
+               COALESCE(cc.rarity_label, 'Common I') AS rarity_label,
+               COALESCE(cc.battle_streak, 0) AS battle_streak,
+               p.name AS player_name, p.profile_photo_url,
+               (SELECT COUNT(*) + 1 FROM arena_champion_cards cc2
+                JOIN players p2 ON p2.id = cc2.player_id
+                WHERE cc2.arena_mmr > cc.arena_mmr
+                  ${scope === "academy" && player?.academyId ? drizzleSql`AND p2.academy_id = ${player.academyId}` : drizzleSql``}
+               ) AS rank
+        FROM arena_champion_cards cc
+        JOIN players p ON p.id = cc.player_id
+        WHERE cc.player_id = ${playerId}
+        LIMIT 1
+      `) as unknown as Array<Record<string, unknown>>;
+      if (rankRow.length > 0) {
+        const r = rankRow[0];
+        myEntry = {
+          rank: Number(r.rank ?? 0),
+          playerId,
+          playerName: String(r.player_name ?? ""),
+          profilePhotoUrl: r.profile_photo_url as string | null,
+          arenaMmr: Number(r.arena_mmr ?? 1000),
+          arenaWins: Number(r.arena_wins ?? 0),
+          arenaLosses: Number(r.arena_losses ?? 0),
+          rarityLabel: String(r.rarity_label ?? "Common I"),
+          battleStreak: Number(r.battle_streak ?? 0),
+        };
+      }
+    }
+
+    res.json({ entries, myEntry });
+  } catch (err) {
+    console.error("[arena] GET /leaderboard:", err);
+    res.status(500).json({ error: "Failed to fetch leaderboard" });
+  }
+});
+
+// ── GET /api/arena/bounties/most-wanted ──────────────────────────────────────
+router.get("/bounties/most-wanted", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const wanted = await getMostWantedBounties();
+    res.json({ wanted });
+  } catch (err) {
+    console.error("[arena] GET /bounties/most-wanted:", err);
+    res.status(500).json({ error: "Failed to fetch most wanted bounties" });
+  }
+});
+
+// ── GET /api/arena/bounties ───────────────────────────────────────────────────
+router.get("/bounties", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const bounties = await getActiveBounties(playerId);
+    res.json({ bounties });
+  } catch (err) {
+    console.error("[arena] GET /bounties:", err);
+    res.status(500).json({ error: "Failed to fetch bounties" });
+  }
+});
+
+// ── GET /api/arena/bounties/active ────────────────────────────────────────────
+router.get("/bounties/active", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const bounties = await getActiveBounties(playerId);
+    res.json({ bounties });
+  } catch (err) {
+    console.error("[arena] GET /bounties/active:", err);
+    res.status(500).json({ error: "Failed to fetch bounties" });
+  }
+});
+
+// ── POST /api/arena/bounties ──────────────────────────────────────────────────
+router.post("/bounties", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const { targetPlayerId, bountyCoins, desiredCardPlayerId } = req.body;
+    if (!targetPlayerId || !bountyCoins) return res.status(400).json({ error: "targetPlayerId and bountyCoins required" });
+    const result = await placeBounty(playerId, targetPlayerId, parseInt(bountyCoins), desiredCardPlayerId ?? null);
+    res.json(result);
+  } catch (err) {
+    console.error("[arena] POST /bounties:", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to place bounty" });
+  }
+});
+
+// ── GET /api/arena/nemesis/stolen-cards ───────────────────────────────────────
+router.get("/nemesis/stolen-cards", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+    const stolen = await getStolenCardsInfo(playerId);
+    res.json({ stolen });
+  } catch (err) {
+    console.error("[arena] GET /nemesis/stolen-cards:", err);
+    res.status(500).json({ error: "Failed to fetch stolen cards" });
+  }
+});
+
+// ── GET /api/arena/my-abilities ───────────────────────────────────────────────
+router.get("/my-abilities", async (req: AuthenticatedRequest, res) => {
+  try {
+    const playerId = req.user?.playerId;
+    if (!playerId) return res.status(403).json({ error: "Player account required" });
+
+    const playerCards = await db
+      .select({
+        id: playerAbilityCards.abilityCardId,
+        quantity: playerAbilityCards.quantity,
+      })
+      .from(playerAbilityCards)
+      .where(and(eq(playerAbilityCards.playerId, playerId)))
+      .limit(30);
+
+    if (playerCards.length === 0) { res.json({ cards: [] }); return; }
+
+    const cardIds = playerCards.map((c) => c.id);
+    const cards = await db.select().from(arenaAbilityCards).where(inArray(arenaAbilityCards.id, cardIds));
+
+    const enriched = cards.map((c) => {
+      const owned = playerCards.find((p) => p.id === c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        type: c.type ?? "attack",
+        rarity: c.rarity ?? "common",
+        basePower: c.basePower ?? 10,
+        isClutch: c.isClutch ?? false,
+        description: c.description,
+        quantity: owned?.quantity ?? 1,
+      };
+    });
+
+    res.json({ cards: enriched });
+  } catch (err) {
+    console.error("[arena] GET /my-abilities:", err);
+    res.status(500).json({ error: "Failed to fetch abilities" });
+  }
+});
+
+// ── POST /api/arena/coach/powerup/:playerId ────────────────────────────────────
+router.post("/coach/powerup/:playerId", async (req: AuthenticatedRequest, res) => {
+  try {
+    const coachId = req.user?.coachId;
+    if (!coachId) return res.status(403).json({ error: "Coach account required" });
+    const { playerId } = req.params;
+    const { statBoosted = "power", boostAmount = 10 } = req.body;
+    const result = await applyCoachPowerup(coachId, playerId, statBoosted, boostAmount);
+    res.json(result);
+  } catch (err) {
+    console.error("[arena] POST /coach/powerup:", err);
+    res.status(400).json({ error: err instanceof Error ? err.message : "Failed to apply powerup" });
+  }
+});
+
+// ── POST /api/arena/admin/ghost-penalties ─────────────────────────────────────
+router.post("/admin/ghost-penalties", async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!["platform_owner", "admin"].includes(req.user?.role ?? "")) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    await applyGhostPenalties();
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[arena] POST /admin/ghost-penalties:", err);
+    res.status(500).json({ error: "Failed to apply ghost penalties" });
   }
 });
 

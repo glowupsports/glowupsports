@@ -375,7 +375,7 @@ export default function ArenaHubScreen() {
               </View>
             </View>
 
-            {/* Phase 2 Feature Grid */}
+            {/* Feature Grid */}
             <Text style={styles.sectionTitle}>Arena Features</Text>
             <View style={styles.featureGrid}>
               <FeatureCard
@@ -421,6 +421,39 @@ export default function ArenaHubScreen() {
                 sublabel="Champion card"
                 onPress={handleCardPress}
                 color={Colors.dark.primary}
+              />
+            </View>
+
+            {/* Phase 3 Feature Grid */}
+            <Text style={styles.sectionTitle}>Battle Zone</Text>
+            <View style={styles.featureGrid}>
+              <FeatureCard
+                icon="users"
+                label="Squad Builder"
+                sublabel="Build your team"
+                onPress={() => navigation.navigate("ArenaSquadBuilder")}
+                color="#4DA3FF"
+              />
+              <FeatureCard
+                icon="crosshair"
+                label="Battle Arena"
+                sublabel="Challenge rivals"
+                onPress={() => navigation.navigate("ArenaBattle")}
+                color="#FF4D4D"
+              />
+              <FeatureCard
+                icon="trending-up"
+                label="Leaderboard"
+                sublabel="Season rankings"
+                onPress={() => navigation.navigate("ArenaLeaderboard")}
+                color="#FFD700"
+              />
+              <FeatureCard
+                icon="alert-octagon"
+                label="Bounties"
+                sublabel="Place & claim"
+                onPress={() => navigation.navigate("ArenaBounty")}
+                color="#C040FB"
               />
             </View>
 

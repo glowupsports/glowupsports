@@ -324,26 +324,56 @@ export async function backfillAllCards(): Promise<{ players: number; coaches: nu
 
 // ── Award conquered card ───────────────────────────────────────────────────────
 
-export async function awardConqueredCard(winnerId: string, loserId: string): Promise<void> {
+export async function awardConqueredCard(
+  winnerId: string,
+  loserId: string,
+  options: { isNemesis?: boolean; preferHighRarity?: boolean } = {},
+): Promise<void> {
   try {
-    const [loserCard] = await db
-      .select({ id: arenaPlayerCards.id })
-      .from(arenaPlayerCards)
-      .where(eq(arenaPlayerCards.playerId, loserId))
-      .limit(1);
+    // For underdog bonus (preferHighRarity=true), try to find loser's highest rarity card.
+    // Fall back to any card if no high-rarity card is found.
+    let loserCard: { id: string } | undefined;
+
+    if (options.preferHighRarity) {
+      const highRarityCards = await db
+        .select({ id: arenaPlayerCards.id, rarityTier: arenaPlayerCards.rarityTier })
+        .from(arenaPlayerCards)
+        .where(eq(arenaPlayerCards.playerId, loserId));
+
+      // Priority: legendary > epic > rare > uncommon > common
+      const rarityRank: Record<string, number> = {
+        legendary: 5, legendary_i: 5, legendary_ii: 4,
+        epic: 3, epic_i: 3, epic_ii: 3,
+        rare: 2, rare_i: 2, rare_ii: 2,
+        uncommon: 1, uncommon_i: 1,
+        common: 0, common_i: 0,
+      };
+      const sorted = highRarityCards.sort((a, b) => (rarityRank[b.rarityTier] ?? 0) - (rarityRank[a.rarityTier] ?? 0));
+      loserCard = sorted[0];
+    }
+
+    if (!loserCard) {
+      const [found] = await db
+        .select({ id: arenaPlayerCards.id })
+        .from(arenaPlayerCards)
+        .where(eq(arenaPlayerCards.playerId, loserId))
+        .limit(1);
+      loserCard = found;
+    }
 
     if (!loserCard) return;
 
+    // Spec: winner always gets an additional copy — no duplicate suppression.
     await db.insert(playerCollectedCards).values({
       ownerId: winnerId,
       cardType: "player",
       cardRefId: loserCard.id,
-      source: "real_match",
+      source: "real_match_victory",
       conqueredRibbon: true,
-      isNemesis: false,
+      isNemesis: options.isNemesis ?? false,
       isFirstEdition: false,
       cardVariant: "conquered",
-    });
+    }).onConflictDoNothing();
   } catch (err) {
     console.error("[ArenaCardService] awardConqueredCard failed:", err);
   }

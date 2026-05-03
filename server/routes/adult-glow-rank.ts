@@ -11,8 +11,10 @@
 
 import { Router } from "express";
 import { db } from "../db";
-import { players, adultGlowMatches, adultSkillAssessments, dssSpeelsterkteThresholds } from "@shared/schema";
+import { players, adultGlowMatches, adultSkillAssessments, dssSpeelsterkteThresholds, arenaAbilityCards, playerAbilityCards } from "@shared/schema";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
+import { awardConqueredCard } from "../services/arena-card-service";
+import { checkAndClaimRealMatchBounty, checkIsNemesisConquest } from "../services/arena-battle-service";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { fireQuestEvent } from "../services/quest-events";
 import { updateGlowRankAfterMatch, getRankInfo, getAllRanks, getSkillRubric, getSkillRubricsByPillar, getUnlockedSkillGates, mmrToRank, calculateExpectedScore, mmrToDssRating, formatDssRating, getDssBracket, estimateMatchesToNextRank, getPlayerRatingStatus, updateDoublesRatings, type MatchResult, type PlayerMatchStats } from "../services/glow-rank-engine-adult";
@@ -361,6 +363,62 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
     fireQuestEvent(playerId, "log_match").catch(() => {});
     if (didWin) {
       fireQuestEvent(playerId, "win_match").catch(() => {});
+      // Arena card steal + underdog rewards — fire-and-forget after response is sent.
+      // Uses top-level imports; no nested dynamic import chains.
+      void (async () => {
+        try {
+          const RARITY_RANK: Record<string, number> = {
+            common_i: 0, common_ii: 1, common_iii: 2,
+            rare_i: 3, rare_ii: 4, rare_iii: 5,
+            epic_i: 6, epic_ii: 7, epic_iii: 8,
+            legendary_i: 9, legendary_ii: 10, legendary_iii: 11,
+            mythic: 12,
+          };
+          const [winnerRows, loserRows] = await Promise.all([
+            db.execute(sql`SELECT rarity_tier FROM arena_champion_cards WHERE player_id = ${playerId} LIMIT 1`) as unknown as Promise<Array<Record<string, unknown>>>,
+            db.execute(sql`SELECT rarity_tier FROM arena_champion_cards WHERE player_id = ${opponentId} LIMIT 1`) as unknown as Promise<Array<Record<string, unknown>>>,
+          ]);
+          const winnerRarityTier = (winnerRows?.[0]?.rarity_tier as string | undefined) ?? "common_i";
+          const loserRarityTier  = (loserRows?.[0]?.rarity_tier as string | undefined) ?? "common_i";
+          const winnerRank = RARITY_RANK[winnerRarityTier] ?? 0;
+          const loserRank  = RARITY_RANK[loserRarityTier] ?? 0;
+          const rarityGap  = loserRank - winnerRank; // positive = winner is underdog
+          const isUnderdog = rarityGap > 0;
+
+          // Guaranteed card steal (preferHighRarity when underdog by rarity tier)
+          const isNemesisConquest = await checkIsNemesisConquest(playerId, opponentId).catch(() => false);
+          await awardConqueredCard(playerId, opponentId, { isNemesis: isNemesisConquest, preferHighRarity: isUnderdog }).catch((err) => {
+            console.error("[adult-glow/match] awardConqueredCard failed", { playerId, opponentId, err });
+          });
+
+          // Loser is Mythic: award winner a random Legendary ability card
+          if (loserRarityTier === "mythic") {
+            const legendaryCards = await db.select({ id: arenaAbilityCards.id })
+              .from(arenaAbilityCards)
+              .where(eq(arenaAbilityCards.rarity, "legendary"))
+              .limit(5);
+            if (legendaryCards.length > 0) {
+              const chosen = legendaryCards[Math.floor(Math.random() * legendaryCards.length)];
+              await db.execute(sql`
+                INSERT INTO player_ability_cards (player_id, ability_card_id, quantity, acquired_at)
+                VALUES (${playerId}, ${chosen.id}, 1, NOW())
+                ON CONFLICT (player_id, ability_card_id) DO UPDATE SET quantity = player_ability_cards.quantity + 1
+              `);
+            }
+          }
+
+          // Rarity gap >= 3 tiers: bonus GlowCoins for the underdog upset
+          if (rarityGap >= 3) {
+            const bonusCoins = Math.min(rarityGap * 25, 200);
+            await db.execute(sql`UPDATE players SET glow_coins = COALESCE(glow_coins,0) + ${bonusCoins} WHERE id = ${playerId}`);
+          }
+
+          // Claim bounties for beating this player in a real match
+          await checkAndClaimRealMatchBounty(playerId, opponentId);
+        } catch (err) {
+          console.error("[adult-glow/match] post-win rewards failed", { playerId, opponentId, err });
+        }
+      })();
     }
 
     res.json({

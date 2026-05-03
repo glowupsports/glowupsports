@@ -2634,7 +2634,10 @@ import { getPlayerHealthSnapshot } from "./player-health";
         let systemPrompt = buildCoachingSystemPrompt(ctx);
 
         // Inject player health snapshot so coaching advice is recovery-aware
-        const healthSnapshot = getPlayerHealthSnapshot(playerId);
+        const healthSnapshot = (await getPlayerHealthSnapshot(playerId)) as {
+          playerId: string; sleep_quality: string | null; recovery_status: string | null;
+          steps_today: number | null; recorded_at: string;
+        } | null;
         if (healthSnapshot) {
           const healthParts: string[] = [];
           if (healthSnapshot.recovery_status) healthParts.push(`Recovery status: ${healthSnapshot.recovery_status}`);
@@ -3139,7 +3142,10 @@ import { getPlayerHealthSnapshot } from "./player-health";
         let systemPrompt = buildPlayerSelfSystemPrompt(ctx);
 
         // Inject player health snapshot so coaching advice is recovery-aware
-        const healthSnapshotSelf = getPlayerHealthSnapshot(playerId);
+        const healthSnapshotSelf = (await getPlayerHealthSnapshot(playerId)) as {
+          playerId: string; sleep_quality: string | null; recovery_status: string | null;
+          steps_today: number | null; recorded_at: string;
+        } | null;
         if (healthSnapshotSelf) {
           const healthPartsSelf: string[] = [];
           if (healthSnapshotSelf.recovery_status) healthPartsSelf.push(`Recovery status: ${healthSnapshotSelf.recovery_status}`);

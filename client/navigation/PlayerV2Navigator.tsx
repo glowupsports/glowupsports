@@ -125,6 +125,10 @@ import MyCollectionScreen from "@/player/screens/arena/MyCollectionScreen";
 import CardGalleryScreen from "@/player/screens/arena/CardGalleryScreen";
 import QuickDrawScreen from "@/player/screens/arena/QuickDrawScreen";
 import DailyChallengeScreen from "@/player/screens/arena/DailyChallengeScreen";
+import SquadBuilderScreen from "@/player/screens/arena/SquadBuilderScreen";
+import BattleScreen from "@/player/screens/arena/BattleScreen";
+import ArenaLeaderboardScreen from "@/player/screens/arena/ArenaLeaderboardScreen";
+import ArenaBountyScreen from "@/player/screens/arena/ArenaBountyScreen";
 
 // ─── Stack param list — mirrors PlayerStackParamList minus PlayerTabs ────────
 export type PlayerV2StackParamList = {
@@ -258,6 +262,10 @@ export type PlayerV2StackParamList = {
   ArenaGallery: undefined;
   ArenaQuickDraw: undefined;
   ArenaDailyChallenge: undefined;
+  ArenaSquadBuilder: undefined;
+  ArenaBattle: { battleId?: string; opponentId?: string; opponentName?: string } | undefined;
+  ArenaLeaderboard: undefined;
+  ArenaBounty: undefined;
   // Legacy redirects (no-op)
   Schedule: undefined;
   Quests: undefined;
@@ -686,6 +694,10 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="ArenaGallery" component={CardGalleryScreen} options={{ presentation: "card", headerShown: true, headerTitle: "The Exchange", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaQuickDraw" component={QuickDrawScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Quick Draw", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaDailyChallenge" component={DailyChallengeScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Missions", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaSquadBuilder" component={SquadBuilderScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Squad Builder", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaBattle" component={BattleScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Battle", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaLeaderboard" component={ArenaLeaderboardScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Leaderboard", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+        <Stack.Screen name="ArenaBounty" component={ArenaBountyScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Bounty Board", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
 
         {/* ── Legacy redirects (no-op — Growth tab handles these internally) ── */}
         <Stack.Screen name="Schedule" component={NoOpScreen} options={{ headerShown: false }} />
