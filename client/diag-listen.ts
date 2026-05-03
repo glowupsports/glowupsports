@@ -25,7 +25,7 @@
 //     Overriding the constructor alone does NOT intercept these rejections.
 //     They go straight to V8's unhandled-rejection machinery → CDP.
 //
-// FOUR-LAYER FIX:
+// FIVE-LAYER FIX:
 //
 //   LAYER 0 — Patch Promise.prototype.then (covers Paths B + C):
 //     The prototype is shared by ALL promises — including native async ones and
@@ -39,10 +39,15 @@
 //     Promise.resolve() also proactively attach our suppressor. Redundant with
 //     Layer 0 for most cases but covers edge cases where .then() is not called.
 //
-//   LAYER 2 — Wrap ErrorUtils.setGlobalHandler + getGlobalHandler (Path A):
-//     Sandbox both ends of ErrorUtils so non-Error values never reach `throw e`.
-//     Wrapping setGlobalHandler covers future installs (ExceptionsManager).
-//     Wrapping getGlobalHandler covers callers that bypassed setGlobalHandler.
+//   LAYER 2 — Wrap ErrorUtils fully (Path A) — two sub-fixes applied:
+//     a) Timing gap: ErrorUtils may not exist when this module evaluates.
+//        Metro assigns it during polyfill setup. Fix: Object.defineProperty
+//        intercepts the assignment so we patch immediately when it lands.
+//     b) Direct-call gap: reportFatalError/reportError call _globalHandler as
+//        a private variable, bypassing setGlobalHandler/getGlobalHandler.
+//        Fix: wrap those two methods so non-Errors are swallowed before they
+//        can reach ExceptionsManager's handler (which creates SyntheticError
+//        and throws, firing Runtime.exceptionThrown before window.onerror).
 //
 //   LAYER 3 — unhandledrejection DOM event (final fallback):
 //     For any rejection that slips through Layers 0–2, call e.preventDefault()
@@ -148,44 +153,111 @@ if (IS_WEB && typeof window !== "undefined" && typeof window.Promise === "functi
 }
 
 // ── LAYER 2: Wrap ErrorUtils (Path A — Metro's synchronous throw) ─────────────
-if (IS_WEB && _g?.ErrorUtils) {
-  const _EU = _g.ErrorUtils;
+//
+// TWO GAPS the original implementation had:
+//
+//   GAP A — Timing: ErrorUtils may not exist in globalThis at module-load
+//     time. Metro assigns it during polyfill setup, AFTER diag-listen.ts
+//     evaluates. The old `if (_g?.ErrorUtils)` check silently skipped the
+//     entire layer when that happened. Fix: also intercept the assignment
+//     via Object.defineProperty so we patch it the moment it lands.
+//
+//   GAP B — Direct call: reportFatalError / reportError call the private
+//     _globalHandler variable directly, bypassing both setGlobalHandler and
+//     getGlobalHandler wrappers entirely. So even when the wrappers were in
+//     place, a non-Error flowing through reportFatalError still reached
+//     ExceptionsManager's handler, which wrapped it in SyntheticError and
+//     threw — triggering Runtime.exceptionThrown via CDP before window.onerror
+//     could intercept. Fix: wrap reportFatalError + reportError too.
+//
+if (IS_WEB) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function _patchErrorUtils(eu: any) {
+    if (!eu || eu.__diagPatched) return;
+    eu.__diagPatched = true;
 
-  function _makeSafeHandler(
-    raw: (e: unknown, isFatal: boolean) => void,
-  ): (e: unknown, isFatal: boolean) => void {
-    return function _safeWrapper(e: unknown, isFatal: boolean) {
-      if (!(e instanceof Error)) return; // swallow non-Errors
-      raw(e, isFatal);
-    };
+    function _makeSafeHandler(
+      raw: (e: unknown, isFatal: boolean) => void,
+    ): (e: unknown, isFatal: boolean) => void {
+      return function _safeWrapper(e: unknown, isFatal: boolean) {
+        if (!(e instanceof Error)) return; // swallow non-Errors
+        raw(e, isFatal);
+      };
+    }
+
+    // Wrap setGlobalHandler so future installs (ExceptionsManager, Sentry)
+    // are automatically sandboxed.
+    const _origSet: Function | undefined = eu.setGlobalHandler?.bind(eu);
+    if (typeof _origSet === "function") {
+      eu.setGlobalHandler = function _safeSet(
+        newHandler: (e: unknown, isFatal: boolean) => void,
+      ) {
+        _origSet(_makeSafeHandler(newHandler));
+      };
+    }
+
+    // Wrap getGlobalHandler so callers that bypassed setGlobalHandler are safe.
+    const _origGet: Function | undefined = eu.getGlobalHandler?.bind(eu);
+    if (typeof _origGet === "function") {
+      eu.getGlobalHandler = function _safeGet() {
+        const stored = _origGet();
+        return typeof stored === "function"
+          ? _makeSafeHandler(stored as (e: unknown, isFatal: boolean) => void)
+          : function () {};
+      };
+    }
+
+    // Wrap reportFatalError + reportError — these call _globalHandler as a
+    // PRIVATE variable, bypassing both get/setGlobalHandler wrappers above
+    // (GAP B). Without this, non-Errors still reach ExceptionsManager which
+    // wraps them in SyntheticError and throws, firing Runtime.exceptionThrown
+    // via CDP before window.onerror can intercept it.
+    const _origReportFatal: Function | undefined = eu.reportFatalError?.bind(eu);
+    if (typeof _origReportFatal === "function") {
+      eu.reportFatalError = function _safeReportFatal(error: unknown) {
+        if (!(error instanceof Error)) return; // swallow non-Errors
+        _origReportFatal(error);
+      };
+    }
+
+    const _origReportError: Function | undefined = eu.reportError?.bind(eu);
+    if (typeof _origReportError === "function") {
+      eu.reportError = function _safeReportError(error: unknown) {
+        if (!(error instanceof Error)) return; // swallow non-Errors
+        _origReportError(error);
+      };
+    }
+
+    // Install initial safe no-op handler via our wrapped setter.
+    if (typeof eu.setGlobalHandler === "function") {
+      eu.setGlobalHandler(function _initialHandler() {
+        // no-op: ExceptionsManager installs the real handler later
+      });
+    }
   }
 
-  // Wrap setGlobalHandler so any future installs (ExceptionsManager, etc.)
-  // are automatically sandboxed.
-  const _origSet: Function | undefined = _EU.setGlobalHandler?.bind(_EU);
-  if (typeof _origSet === "function") {
-    _EU.setGlobalHandler = function _safeSet(
-      newHandler: (e: unknown, isFatal: boolean) => void,
-    ) {
-      _origSet(_makeSafeHandler(newHandler));
-    };
-  }
+  // Patch immediately if ErrorUtils is already present at module-load time.
+  if (_g?.ErrorUtils) _patchErrorUtils(_g.ErrorUtils);
 
-  // Also wrap getGlobalHandler so the returned handler is ALWAYS safe,
-  // even if a caller bypassed setGlobalHandler to store a handler directly.
-  const _origGet: Function | undefined = _EU.getGlobalHandler?.bind(_EU);
-  if (typeof _origGet === "function") {
-    _EU.getGlobalHandler = function _safeGet() {
-      const stored = _origGet();
-      return typeof stored === "function" ? _makeSafeHandler(stored) : function () {};
-    };
-  }
-
-  // Install the initial safe handler via our wrapped setter.
-  if (typeof _EU.setGlobalHandler === "function") {
-    _EU.setGlobalHandler(function _initialHandler() {
-      // no-op: ExceptionsManager installs the real handler later
+  // Intercept future assignment of ErrorUtils to globalThis (GAP A fix).
+  // Metro assigns ErrorUtils during polyfill setup, after this module runs.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let _euStorage: any = _g?.ErrorUtils;
+  try {
+    Object.defineProperty(_g, "ErrorUtils", {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return _euStorage;
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      set(val: any) {
+        _euStorage = val;
+        _patchErrorUtils(val);
+      },
     });
+  } catch {
+    /* defineProperty may fail in restricted envs — immediate patch above is the fallback */
   }
 }
 
