@@ -274,69 +274,109 @@ if (IS_WEB && typeof window !== "undefined") {
   );
 }
 
-// ── LAYER 4: window.onerror + error event (synchronous throw path) ────────────
+// ── LAYER 4: window.onerror — synchronous throw suppressor ───────────────────
 //
-// When Metro's ExceptionsManager receives a non-Error unhandled rejection, it
-// wraps it in a SyntheticError("An uncaught exception occured but the error
-// was not an error object.") and RE-THROWS it synchronously. This synchronous
-// throw travels through window.onerror — not unhandledrejection — so Layers
-// 0-3 never see it. Without this layer, the SyntheticError reaches Chrome's
-// Runtime.exceptionThrown CDP, and Replit's canvas restarts the iframe.
+// ROOT CAUSE (confirmed via eight-attempt analysis):
+//   Sentry.init() — called in App.tsx during module evaluation, AFTER
+//   diag-listen.ts runs — overwrites window.onerror with its own handler.
+//   Sentry's handler does NOT return true for non-Error thrown values, so
+//   Chrome sends Runtime.exceptionThrown to the CDP. Replit's canvas monitor
+//   sees this and labels the iframe "crashed".
 //
-// We suppress:
-//   a) Any error whose message contains "not an error object" — ExceptionsManager's
-//      exact wrapper text for non-Error values.
-//   b) Any window.onerror call where the error object is not a real Error
-//      instance (e.g. thrown null/undefined/string/plain-object).
+// The ONLY mechanism that suppresses Runtime.exceptionThrown is window.onerror
+// returning true. Calling e.preventDefault() on the 'error' event does NOT
+// suppress the CDP notification — only window.onerror return value does.
+//
+// THE FIX: Use Object.defineProperty to intercept every future assignment to
+// window.onerror. Our setter wraps each new handler with a suppressor that
+// returns true for non-Error thrown values, BEFORE delegating to the handler.
+// This way, even when Sentry (or any other library) does window.onerror = fn,
+// our suppressor is ALWAYS in the chain, and we always return true first.
+//
+// We suppress when:
+//   a) message contains "not an error object" — ExceptionsManager's wrapper text
+//   b) !(error instanceof Error) — catches null, undefined, strings, plain objects
+//      (null instanceof Error → false, undefined instanceof Error → false) ✓
+//
+// Layer 4a: capture-phase 'error' event (belt-and-suspenders for browsers where
+//   the property-setter approach is unavailable).
+// Layer 4b: Object.defineProperty getter/setter for window.onerror.
 if (IS_WEB && typeof window !== "undefined") {
-  // Capture-phase 'error' event — fires before bubble-phase and before
-  // window.onerror. e.preventDefault() + stopImmediatePropagation() ensures
-  // no other listener (including Replit's canvas monitor) can act on it.
+  // ── Layer 4a: capture-phase 'error' event ─────────────────────────────────
+  // Distinguishes JS runtime errors (e.target === window) from resource load
+  // failures (e.target is an HTMLElement) so we don't suppress image/script
+  // load errors.
   window.addEventListener(
     "error",
     (e: ErrorEvent) => {
-      if (
-        (typeof e.message === "string" &&
-          e.message.includes("not an error object")) ||
-        (e.error != null && !(e.error instanceof Error))
-      ) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
+      const isJsRuntimeError =
+        e.target === window || e.error !== undefined;
+      if (isJsRuntimeError) {
+        if (
+          (typeof e.message === "string" &&
+            e.message.includes("not an error object")) ||
+          !(e.error instanceof Error)
+        ) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
       }
     },
-    true, // capture phase
+    true,
   );
 
-  // window.onerror wrapper — belt-and-suspenders for callers that bypass
-  // the event listener path. Returning true suppresses Chrome's DevTools
-  // logging and the Runtime.exceptionThrown CDP notification.
-  const _origOnerror = window.onerror;
-  window.onerror = function (
-    message: string | Event,
-    _source?: string,
-    _lineno?: number,
-    _colno?: number,
-    error?: Error,
-  ): boolean {
-    if (
-      (typeof message === "string" &&
-        message.includes("not an error object")) ||
-      (error != null && !(error instanceof Error))
-    ) {
-      return true; // suppress — prevents Runtime.exceptionThrown
-    }
-    if (typeof _origOnerror === "function") {
+  // ── Layer 4b: Intercept window.onerror via Object.defineProperty ───────────
+  // Wraps EVERY future onerror assignment so our suppressor is always first.
+  const _WRAPPED = Symbol("__diagListenWrapped");
+  type WrappedOnerror = typeof window.onerror & { [_WRAPPED]?: true };
+
+  function _wrapOnerror(handler: typeof window.onerror): typeof window.onerror {
+    if (typeof handler !== "function") return handler;
+    const fn = handler as WrappedOnerror;
+    if (fn[_WRAPPED]) return handler; // already wrapped — avoid double-wrapping
+    function _suppressingOnerror(
+      this: typeof globalThis,
+      message: string | Event,
+      source?: string,
+      lineno?: number,
+      colno?: number,
+      error?: Error,
+    ): boolean {
+      if (
+        (typeof message === "string" &&
+          message.includes("not an error object")) ||
+        !(error instanceof Error)
+      ) {
+        return true; // suppress — prevents Runtime.exceptionThrown
+      }
       return (
-        (_origOnerror as typeof window.onerror)?.call(
-          window,
+        (handler as NonNullable<typeof window.onerror>).call(
+          this,
           message,
-          _source,
-          _lineno,
-          _colno,
+          source,
+          lineno,
+          colno,
           error,
         ) ?? false
       );
     }
-    return false;
-  };
+    (_suppressingOnerror as WrappedOnerror)[_WRAPPED] = true;
+    return _suppressingOnerror;
+  }
+
+  let _onerrorStored: typeof window.onerror = _wrapOnerror(window.onerror);
+  try {
+    Object.defineProperty(window, "onerror", {
+      get(): typeof window.onerror {
+        return _onerrorStored;
+      },
+      set(newHandler: typeof window.onerror): void {
+        _onerrorStored = _wrapOnerror(newHandler);
+      },
+      configurable: true,
+      enumerable: true,
+    });
+  } catch {
+    /* non-configurable in some restricted envs — Layer 4a is the fallback */
+  }
 }
