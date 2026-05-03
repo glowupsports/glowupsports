@@ -15,12 +15,15 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { writeBackTennisWorkout } from "@/player/services/healthService";
 
 interface PostSessionCheckInModalProps {
   visible: boolean;
   sessionId: string;
   sessionTitle?: string;
   coachName?: string;
+  sessionStartTime?: Date;
+  sessionDurationMinutes?: number;
   onClose: () => void;
   onSuccess?: (xpAwarded: number) => void;
 }
@@ -77,6 +80,8 @@ export function PostSessionCheckInModal({
   sessionId,
   sessionTitle,
   coachName,
+  sessionStartTime,
+  sessionDurationMinutes,
   onClose,
   onSuccess,
 }: PostSessionCheckInModalProps) {
@@ -116,6 +121,13 @@ export function PostSessionCheckInModal({
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/session-history"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/checkin-insight"] });
+
+      // Write the completed tennis session to Apple Health / Google Health
+      const endTime = new Date();
+      const durationMinutes = sessionDurationMinutes ?? 60;
+      const startTime = sessionStartTime ?? new Date(endTime.getTime() - durationMinutes * 60_000);
+      writeBackTennisWorkout({ startTime, endTime, durationMinutes }).catch(() => {});
+
       setTimeout(() => {
         onSuccess?.(xp);
         onClose();

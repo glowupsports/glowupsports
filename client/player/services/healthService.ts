@@ -173,6 +173,10 @@ export function computeRecoveryStatus(
 
 // ─── Workout write-back ───────────────────────────────────────────────────
 // Called after a session is marked complete. Estimates 8 kcal/min for tennis.
+//
+// Requires a custom native build — not available in Expo Go.
+// iOS:     react-native-health   → AppleHealthKit.saveWorkout
+// Android: react-native-health-connect → insertRecords([ExerciseSession, ActiveCaloriesBurned])
 
 export async function writeBackTennisWorkout(params: {
   startTime: Date;
@@ -181,19 +185,76 @@ export async function writeBackTennisWorkout(params: {
 }): Promise<boolean> {
   const platform = getHealthPlatform();
   const { connected } = await getHealthConnectionState();
+
+  // Graceful no-op for Expo Go and web — native builds only
   if (!connected || platform === "web" || platform === "expo_go") return false;
 
+  const activeCalories = Math.round(params.durationMinutes * 8);
+
   try {
-    const activeCalories = Math.round(params.durationMinutes * 8);
-    console.log("[healthService] Would write tennis workout:", {
-      start: params.startTime.toISOString(),
-      end: params.endTime.toISOString(),
-      calories: activeCalories,
-    });
-    return true;
-  } catch {
-    return false;
+    if (platform === "ios") {
+      const { default: AppleHealthKit, HealthInputOptions } = await import(
+        "react-native-health"
+      );
+
+      return await new Promise<boolean>((resolve) => {
+        AppleHealthKit.saveWorkout(
+          {
+            type: HealthInputOptions.Workout.Tennis,
+            startDate: params.startTime.toISOString(),
+            endDate: params.endTime.toISOString(),
+            energyBurned: activeCalories,
+            energyBurnedUnit: "calorie",
+          },
+          (err) => {
+            if (err) {
+              console.warn("[healthService] HealthKit saveWorkout error:", err);
+              resolve(false);
+            } else {
+              console.log("[healthService] Tennis workout written to Apple Health", {
+                start: params.startTime.toISOString(),
+                end: params.endTime.toISOString(),
+                activeCalories,
+              });
+              resolve(true);
+            }
+          },
+        );
+      });
+    }
+
+    if (platform === "android") {
+      const { insertRecords, ExerciseSessionType } = await import(
+        "react-native-health-connect"
+      );
+
+      await insertRecords([
+        {
+          recordType: "ExerciseSession",
+          startTime: params.startTime.toISOString(),
+          endTime: params.endTime.toISOString(),
+          exerciseType: ExerciseSessionType.TENNIS,
+        },
+        {
+          recordType: "ActiveCaloriesBurned",
+          startTime: params.startTime.toISOString(),
+          endTime: params.endTime.toISOString(),
+          energy: { value: activeCalories, unit: "kilocalories" },
+        },
+      ]);
+
+      console.log("[healthService] Tennis workout written to Health Connect", {
+        start: params.startTime.toISOString(),
+        end: params.endTime.toISOString(),
+        activeCalories,
+      });
+      return true;
+    }
+  } catch (err) {
+    console.warn("[healthService] writeBackTennisWorkout failed:", err);
   }
+
+  return false;
 }
 
 // ─── Summary for AI coach ────────────────────────────────────────────────
