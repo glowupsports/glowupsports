@@ -521,7 +521,18 @@ export default function PlayScreen() {
       academy?: { id: string; name: string } | null;
     } | null;
     bookingInvites: { booking_invite_guests: { status: string } }[];
-    openMatches: { id: string }[];
+    openMatches: {
+      id: string;
+      title?: string | null;
+      matchType?: string | null;
+      preferredDate?: string | null;
+      preferredTime?: string | null;
+      currentPlayers?: number | null;
+      maxPlayers?: number | null;
+      playerName?: string | null;
+      hostBallLevel?: string | null;
+      requiredBallLevel?: string | null;
+    }[];
     corporate: {
       corporateAccount: { companyName: string; creditBalance: number } | null;
       member: { inviteStatus: string } | null;
@@ -3289,7 +3300,7 @@ export default function PlayScreen() {
           {/* Variant 1 cleanup: shared Filter pill + bottom-sheet drives both
             Group Lessons (level / day / scope) and Players (level / scope).
             Defaults are hidden from the inline summary so chrome stays calm. */}
-          {activeTab === "Group Lessons" || activeTab === "Players"
+          {(activeTab === "Group Lessons" || activeTab === "Players") && playSection !== "Matches"
             ? (() => {
                 const summary: {
                   key: string;
@@ -3743,6 +3754,93 @@ export default function PlayScreen() {
               {renderCourtsNearYou()}
             </>
           ) : activeTab === "Players" ? (
+            playSection === "Matches" ? (
+              <>
+                {/* Open Matches list for Matches section */}
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionTitleRow}>
+                    <Ionicons name="tennisball" size={20} color={Colors.dark.textMuted} />
+                    <Text style={styles.sectionTitle}>Open Matches</Text>
+                    {openMatchesList && openMatchesList.length > 0 ? (
+                      <Text style={styles.playerCount}>({openMatchesList.length})</Text>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      navigation.navigate("OpenMatches" as never);
+                    }}
+                  >
+                    <Text style={styles.seeAllText}>See all</Text>
+                  </Pressable>
+                </View>
+
+                {openMatchesList && openMatchesList.length > 0 ? (
+                  openMatchesList.slice(0, 5).map((match) => (
+                    <Pressable
+                      key={match.id}
+                      style={styles.matchListRow}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        navigation.navigate("OpenMatches" as never);
+                      }}
+                    >
+                      <View style={styles.matchListIcon}>
+                        <Ionicons name="tennisball" size={16} color={Colors.dark.primary} />
+                      </View>
+                      <View style={styles.matchListInfo}>
+                        <Text style={styles.matchListTitle} numberOfLines={1}>
+                          {match.title ?? `${match.matchType ?? "Match"} with ${match.playerName ?? "Player"}`}
+                        </Text>
+                        {match.preferredDate ? (
+                          <Text style={styles.matchListMeta} numberOfLines={1}>
+                            {new Date(match.preferredDate).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                            {match.preferredTime ? ` · ${match.preferredTime.slice(0, 5)}` : ""}
+                            {match.currentPlayers != null && match.maxPlayers != null
+                              ? ` · ${match.currentPlayers}/${match.maxPlayers} players`
+                              : ""}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+                    </Pressable>
+                  ))
+                ) : (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="tennisball-outline" size={48} color={Colors.dark.textMuted} />
+                    <Text style={styles.emptyTitle}>No open matches</Text>
+                    <Text style={styles.emptySubtitle}>Post an open match to find a game</Text>
+                  </View>
+                )}
+
+                {/* Match History */}
+                <View style={[styles.sectionHeader, { marginTop: Spacing.lg }]}>
+                  <View style={styles.sectionTitleRow}>
+                    <Ionicons name="time" size={20} color={Colors.dark.textMuted} />
+                    <Text style={styles.sectionTitle}>Match History</Text>
+                  </View>
+                </View>
+                <Pressable
+                  style={styles.matchListRow}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigation.navigate("MatchHistory" as never);
+                  }}
+                >
+                  <View style={styles.matchListIcon}>
+                    <Ionicons name="bar-chart" size={16} color={Colors.dark.primary} />
+                  </View>
+                  <View style={styles.matchListInfo}>
+                    <Text style={styles.matchListTitle}>My Match History</Text>
+                    <Text style={styles.matchListMeta}>View your wins, losses and logged results</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+                </Pressable>
+              </>
+            ) : (
             <>
               {/* Task #1070 — discovery rows that make Play feel alive even
                   when local pickings are slim. */}
@@ -3929,6 +4027,7 @@ export default function PlayScreen() {
                 </View>
               )}
             </>
+            )
           ) : (
             <>
               {/* Leaderboard Tab */}
@@ -4768,6 +4867,43 @@ const styles = makeReactiveStyles(() =>
       backgroundColor: Colors.dark.backgroundElevated,
       borderWidth: 1,
       borderColor: Colors.dark.border,
+    },
+    seeAllText: {
+      ...Typography.caption,
+      color: Colors.dark.primary,
+      fontWeight: "600",
+    },
+    matchListRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+      paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.lg,
+      backgroundColor: Colors.dark.backgroundElevated,
+      borderRadius: BorderRadius.md,
+      marginHorizontal: Spacing.lg,
+      marginBottom: Spacing.xs,
+    },
+    matchListIcon: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: Colors.dark.backgroundRoot,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    matchListInfo: {
+      flex: 1,
+      gap: 2,
+    },
+    matchListTitle: {
+      ...Typography.body,
+      color: Colors.dark.text,
+      fontWeight: "600",
+    },
+    matchListMeta: {
+      ...Typography.caption,
+      color: Colors.dark.textMuted,
     },
     chatButton: {
       position: "relative",
