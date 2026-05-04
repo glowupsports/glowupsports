@@ -33,7 +33,6 @@ import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useFamily } from "@/player/context/FamilyContext";
-import FamilyQuickSwitch from "@/player/components/FamilyQuickSwitch";
 import { useSport, getSportLabel, getSportIcon, SPORT_DEFINITIONS } from "@/player/context/SportContext";
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 import {
@@ -2765,11 +2764,6 @@ export default function PlayScreen() {
               <Ionicons name="search" size={16} color={Colors.dark.textMuted} />
             </Pressable>
           </View>
-          {isFamily ? (
-            <View style={styles.familySwitchRow}>
-              <FamilyQuickSwitch />
-            </View>
-          ) : null}
         </View>
 
         {playSection !== "Arena" ? (
@@ -3212,10 +3206,12 @@ export default function PlayScreen() {
           ))}
         </View>
 
-        {/* Arena section — inline ArenaHubScreen */}
-        {playSection === "Arena" ? (
+        {/* Arena — always mounted for keep-alive, shown/hidden via display */}
+        <View style={{ display: playSection === "Arena" ? "flex" : "none" }}>
           <ArenaHubScreen embedded embeddedTopPadding={0} />
-        ) : (
+        </View>
+        {/* Matches / Lessons content — hidden when Arena is active */}
+        <View style={{ display: playSection !== "Arena" ? "flex" : "none" }}>
           <>
             {/* AVAILABLE SLOTS STRIP — Task #1570 — Lessons only */}
             {playSection === "Lessons" ? (
@@ -4177,7 +4173,7 @@ export default function PlayScreen() {
           )}
         </Animated.ScrollView>
           </>
-        )}
+        </View>
       </Animated.View>
 
       {/* Session Info Modal with static map */}
@@ -4772,18 +4768,6 @@ const styles = makeReactiveStyles(() =>
       backgroundColor: Colors.dark.backgroundElevated,
       borderWidth: 1,
       borderColor: Colors.dark.border,
-    },
-    familySwitchRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: Spacing.sm,
-      marginTop: Spacing.xs,
-    },
-    familyViewingText: {
-      ...Typography.caption,
-      color: Colors.dark.primary,
-      fontWeight: "600",
     },
     chatButton: {
       position: "relative",
