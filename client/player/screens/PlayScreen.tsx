@@ -3101,7 +3101,7 @@ export default function PlayScreen() {
             {/* Variant 1 cleanup: secondary chips collapsed into a compact
                 icon-row (Invites · My Games · Prefs). Reuses existing nav
                 handlers; no functional changes. */}
-            {playSection === "Lessons" ? (
+            {playSection === "Matches" ? (
             <View style={styles.compactChipsRow}>
               <Pressable
                 style={[
