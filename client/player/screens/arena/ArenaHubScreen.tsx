@@ -434,10 +434,16 @@ function CompactMissionBar({ mission }: { mission: Mission }) {
 }
 
 // ── Main Hub Screen ────────────────────────────────────────────────────────────
-export default function ArenaHubScreen() {
+interface ArenaHubEmbeddedProps {
+  embedded?: boolean;
+  embeddedTopPadding?: number;
+}
+
+export default function ArenaHubScreen({ embedded = false, embeddedTopPadding = 0 }: ArenaHubEmbeddedProps = {}) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
+  const _headerHeightNav = useHeaderHeight();
+  const headerHeight = embedded ? embeddedTopPadding : _headerHeightNav;
   const queryClient = useQueryClient();
   const [showLoginReward, setShowLoginReward] = useState(false);
   const [loginRewardDismissed, setLoginRewardDismissed] = useState(false);
@@ -472,6 +478,7 @@ export default function ArenaHubScreen() {
 
   // Header info button
   useLayoutEffect(() => {
+    if (embedded) return;
     navigation.setOptions({
       headerRight: () => (
         <HeaderButton onPress={handleShowIntro}>
@@ -479,7 +486,7 @@ export default function ArenaHubScreen() {
         </HeaderButton>
       ),
     });
-  }, [navigation, handleShowIntro]);
+  }, [navigation, handleShowIntro, embedded]);
 
   const handleCardPress = useCallback(() => {
     navigation.navigate("ArenaMyCard");

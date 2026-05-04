@@ -53,6 +53,7 @@ import { SkeletonSessionCard } from "@/components/SkeletonLoader";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import AvailableSlotsStrip from "@/player/components/AvailableSlotsStrip";
 import type { AvailableTodaySlot } from "@/player/components/PlayNowCard";
+import ArenaHubScreen from "@/player/screens/arena/ArenaHubScreen";
 // react-native-maps is a native module. On builds where the native side
 // isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
 // build, a missing/expired Google Maps key, or a future SDK upgrade) the
@@ -248,6 +249,9 @@ interface NearbyCourt {
 }
 
 const TAB_OPTIONS = ["Group Lessons", "Players", "Leaderboard"] as const;
+const PLAY_SECTION_OPTIONS = ["Matches", "Lessons", "Arena"] as const;
+type PlaySection = (typeof PLAY_SECTION_OPTIONS)[number];
+const MATCH_SUB_TABS = ["Players", "Leaderboard"] as const;
 
 const _BALL_LEVELS = [
   "my_level",
@@ -346,17 +350,36 @@ export default function PlayScreen() {
     useSport();
   const [showPlayModal, setShowPlayModal] = useState(false);
   const [playModalStep, setPlayModalStep] = useState<"sport" | "type">("type");
-  const initialTab = route.params?.initialTab || "Group Lessons";
+  const initialTab = route.params?.initialTab || "Players";
   const [activeTab, setActiveTab] =
-    useState<(typeof TAB_OPTIONS)[number]>(initialTab);
+    useState<(typeof TAB_OPTIONS)[number]>(
+      initialTab === "Group Lessons" ? "Group Lessons" : initialTab === "Leaderboard" ? "Leaderboard" : "Players",
+    );
+  const [playSection, setPlaySection] = useState<PlaySection>(
+    initialTab === "Group Lessons" ? "Lessons" : "Matches",
+  );
 
   useEffect(() => {
     const tab = route.params?.initialTab;
     if (tab) {
-      setActiveTab(tab);
+      if (tab === "Group Lessons") {
+        setPlaySection("Lessons");
+        setActiveTab("Group Lessons");
+      } else if (tab === "Players" || tab === "Leaderboard") {
+        setPlaySection("Matches");
+        setActiveTab(tab);
+      }
       navigation.setParams({ initialTab: undefined });
     }
   }, [route.params?.initialTab]);
+
+  useEffect(() => {
+    if (playSection === "Lessons") {
+      setActiveTab("Group Lessons");
+    } else if (playSection === "Matches") {
+      setActiveTab((prev) => (prev === "Group Lessons" ? "Players" : prev));
+    }
+  }, [playSection]);
 
   const [brokenAvatars, setBrokenAvatars] = useState<Set<string>>(new Set());
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
@@ -2734,6 +2757,7 @@ export default function PlayScreen() {
               style={styles.playHeaderSearchBtn}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setPlaySection("Matches");
                 setActiveTab("Players");
               }}
               accessibilityLabel="Search players"
@@ -2744,18 +2768,11 @@ export default function PlayScreen() {
           {isFamily ? (
             <View style={styles.familySwitchRow}>
               <FamilyQuickSwitch />
-              {activePlayerId && familyData ? (
-                <Text style={styles.familyViewingText}>
-                  Viewing for{" "}
-                  {familyData.members.find((m) => m.id === activePlayerId)
-                    ?.name || ""}
-                </Text>
-              ) : null}
             </View>
           ) : null}
         </View>
 
-        {activeTab === "Group Lessons" ? (
+        {playSection === "Lessons" ? (
           <>
             {isMultiSport ? (
               <SportSwitcherChips style={styles.sportChipsRow} />
@@ -3163,39 +3180,65 @@ export default function PlayScreen() {
       </Animated.View>
 
       <Animated.View style={[styles.mainContent, animatedMainContentStyle]}>
-        {/* AVAILABLE SLOTS STRIP — Task #1570 */}
-        <AvailableSlotsStrip
-          onBookSlot={(_slot: AvailableTodaySlot) => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate("LessonBooking");
-          }}
-          onBookNow={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            navigation.navigate("LessonBooking");
-          }}
-        />
+        {/* Section switcher: Matches | Lessons | Arena */}
         <View style={styles.tabs}>
-          {TAB_OPTIONS.map((tab) => (
+          {PLAY_SECTION_OPTIONS.map((section) => (
             <Pressable
-              key={tab}
-              style={[styles.tab, activeTab === tab && styles.tabActive]}
-              onPress={() => setActiveTab(tab)}
+              key={section}
+              style={[styles.tab, playSection === section && styles.tabActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setPlaySection(section);
+              }}
             >
               <Text
                 style={[
                   styles.tabText,
-                  activeTab === tab && styles.tabTextActive,
+                  playSection === section && styles.tabTextActive,
                 ]}
               >
-                {tab === "Group Lessons"
-                  ? t("player.play.groupLessons")
-                  : tab === "Players"
-                    ? t("player.play.players")
-                    : "Leaderboard"}
+                {section}
               </Text>
             </Pressable>
           ))}
         </View>
+
+        {/* Arena section — inline ArenaHubScreen */}
+        {playSection === "Arena" ? (
+          <ArenaHubScreen embedded embeddedTopPadding={0} />
+        ) : (
+          <>
+            {/* AVAILABLE SLOTS STRIP — Task #1570 */}
+            <AvailableSlotsStrip
+              onBookSlot={(_slot: AvailableTodaySlot) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                navigation.navigate("LessonBooking");
+              }}
+              onBookNow={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                navigation.navigate("LessonBooking");
+              }}
+            />
+
+            {/* Sub-tabs for Matches section */}
+            {playSection === "Matches" ? (
+              <View style={styles.subTabs}>
+                {MATCH_SUB_TABS.map((tab) => (
+                  <Pressable
+                    key={tab}
+                    style={[styles.subTab, activeTab === tab && styles.subTabActive]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setActiveTab(tab);
+                    }}
+                  >
+                    <Text style={[styles.subTabText, activeTab === tab && styles.subTabTextActive]}>
+                      {tab === "Players" ? t("player.play.players") : "Leaderboard"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
 
         <Animated.ScrollView
           style={styles.content}
@@ -4119,6 +4162,8 @@ export default function PlayScreen() {
             </>
           )}
         </Animated.ScrollView>
+          </>
+        )}
       </Animated.View>
 
       {/* Session Info Modal with static map */}
@@ -5041,6 +5086,33 @@ const styles = makeReactiveStyles(() =>
     tabTextActive: {
       color: Colors.dark.text,
       fontWeight: "600",
+    },
+    subTabs: {
+      flexDirection: "row",
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.sm,
+      gap: Spacing.sm,
+    },
+    subTab: {
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 5,
+      borderRadius: BorderRadius.full,
+      borderWidth: 1,
+      borderColor: Colors.dark.border,
+      backgroundColor: Colors.dark.backgroundSecondary,
+    },
+    subTabActive: {
+      backgroundColor: Colors.dark.primary + "20",
+      borderColor: Colors.dark.primary,
+    },
+    subTabText: {
+      fontSize: 12,
+      color: Colors.dark.textMuted,
+      fontWeight: "500",
+    },
+    subTabTextActive: {
+      color: Colors.dark.primary,
+      fontWeight: "700",
     },
     filterRow: {
       marginTop: Spacing.sm,

@@ -300,7 +300,7 @@ const TAB_FEATURE_KEYS: Record<string, string> = {
 // ── Gap 2: Last-used tab restore ─────────────────────────────────────────────
 // Mirrors useResolvedInitialTab from PlayerNavigator exactly.
 type PlayerRole = "free" | "academy";
-const TAB_STORAGE_KEY = "player:tabs:lastUsed:v1";
+const TAB_STORAGE_KEY = "player:tabs:lastUsed:v2";
 
 interface StoredTabState {
   role: PlayerRole;
@@ -421,7 +421,6 @@ function PlayerV2TabView() {
     { key: "Community", label: "Social", icon: "people-outline",          iconFocused: "people",          component: CommunityScreen, badge: hasCommunityUnread },
     { key: "PlayStack", label: "Play",   icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator,     keepAlive: false },
     { key: "Growth",    label: "Growth", icon: "trending-up-outline",     iconFocused: "trending-up",     component: ProgressStackNavigator, keepAlive: false },
-    { key: "ArenaHub",  label: "Arena",  icon: "flash-outline",           iconFocused: "flash",           component: ArenaHubScreen,         keepAlive: false },
     { key: "Profile",   label: "Me",     icon: "person-outline",          iconFocused: "person",          component: PlayerProfileScreen },
   ], [hasCommunityUnread]);
 
