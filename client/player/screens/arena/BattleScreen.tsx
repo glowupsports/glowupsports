@@ -553,7 +553,7 @@ export default function BattleScreen() {
       {/* Post-battle buttons */}
       {isComplete && (
         <View style={[styles.attackBar, { paddingBottom: insets.bottom + Spacing.md }]}>
-          <Pressable style={styles.attackBtn} onPress={() => navigation.navigate("ArenaHub")}>
+          <Pressable style={styles.attackBtn} onPress={() => navigation.goBack()}>
             <Feather name="home" size={16} color="#000" />
             <Text style={styles.attackBtnText}>Back to Arena</Text>
           </Pressable>

@@ -118,7 +118,6 @@ import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
-import ArenaHubScreen from "@/player/screens/arena/ArenaHubScreen";
 import MyCardScreen from "@/player/screens/arena/MyCardScreen";
 import PackOpeningScreen from "@/player/screens/arena/PackOpeningScreen";
 import MyCollectionScreen from "@/player/screens/arena/MyCollectionScreen";
@@ -695,7 +694,6 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="CompanyContactDashboard" component={CompanyContactDashboardScreen} options={{ headerShown: false }} />
 
         {/* ── Arena ── */}
-        <Stack.Screen name="ArenaHub" component={ArenaHubScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Glow Arena", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaMyCard" component={MyCardScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Card", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaPackShop" component={PackOpeningScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Pack Shop", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaMyCollection" component={MyCollectionScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Collection", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />

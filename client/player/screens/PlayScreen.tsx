@@ -2772,14 +2772,59 @@ export default function PlayScreen() {
           ) : null}
         </View>
 
-        {playSection === "Lessons" ? (
+        {playSection !== "Arena" ? (
           <>
-            {isMultiSport ? (
+            {isMultiSport && playSection === "Lessons" ? (
               <SportSwitcherChips style={styles.sportChipsRow} />
             ) : null}
 
-            {/* Unified Play Hub — Variant 1 cleanup: calmer cards, only the
-                primary "Take a lesson" CTA carries the neon highlight. */}
+            {/* Matches section hero row — Find a Match + Open Matches */}
+            {playSection === "Matches" ? (
+              <View style={styles.heroRow}>
+                <Pressable
+                  style={styles.heroCard}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setPlayModalStep(isMultiSport ? "sport" : "type");
+                    setShowPlayModal(true);
+                  }}
+                >
+                  <View style={styles.heroCardIcon}>
+                    <Ionicons name="flame" size={18} color={Colors.dark.text} />
+                  </View>
+                  <Text style={styles.heroCardLabel} numberOfLines={1}>
+                    Find a Match
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.heroCard}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    navigation.navigate("OpenMatches" as never);
+                  }}
+                >
+                  <View style={styles.heroCardIcon}>
+                    <Ionicons
+                      name="tennisball"
+                      size={18}
+                      color={Colors.dark.text}
+                    />
+                  </View>
+                  <Text style={styles.heroCardLabel} numberOfLines={1}>
+                    Open Matches
+                  </Text>
+                  {openMatchesCount > 0 ? (
+                    <Text style={styles.heroCardCount} numberOfLines={1}>
+                      {openMatchesCount} open
+                    </Text>
+                  ) : null}
+                </Pressable>
+              </View>
+            ) : null}
+
+            {/* Lessons section hero row — Take a lesson */}
+            {playSection === "Lessons" ? (
             <View style={styles.heroRow}>
               <Pressable
                 style={[styles.heroCard, styles.heroCardHighlighted]}
@@ -2819,46 +2864,8 @@ export default function PlayScreen() {
                 ) : null}
               </Pressable>
 
-              <Pressable
-                style={styles.heroCard}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  setPlayModalStep(isMultiSport ? "sport" : "type");
-                  setShowPlayModal(true);
-                }}
-              >
-                <View style={styles.heroCardIcon}>
-                  <Ionicons name="flame" size={18} color={Colors.dark.text} />
-                </View>
-                <Text style={styles.heroCardLabel} numberOfLines={1}>
-                  Find a Match
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.heroCard}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  navigation.navigate("OpenMatches" as never);
-                }}
-              >
-                <View style={styles.heroCardIcon}>
-                  <Ionicons
-                    name="tennisball"
-                    size={18}
-                    color={Colors.dark.text}
-                  />
-                </View>
-                <Text style={styles.heroCardLabel} numberOfLines={1}>
-                  Open Matches
-                </Text>
-                {openMatchesCount > 0 ? (
-                  <Text style={styles.heroCardCount} numberOfLines={1}>
-                    {openMatchesCount} open
-                  </Text>
-                ) : null}
-              </Pressable>
             </View>
+            ) : null}
 
             {/* Play Modal - unified entry point: sport (if multi) then match type */}
             <Modal
@@ -3091,6 +3098,7 @@ export default function PlayScreen() {
             {/* Variant 1 cleanup: secondary chips collapsed into a compact
                 icon-row (Invites · My Games · Prefs). Reuses existing nav
                 handlers; no functional changes. */}
+            {playSection === "Lessons" ? (
             <View style={styles.compactChipsRow}>
               <Pressable
                 style={[
@@ -3175,6 +3183,7 @@ export default function PlayScreen() {
                 <Text style={styles.compactChipText}>More</Text>
               </Pressable>
             </View>
+            ) : null}
           </>
         ) : null}
       </Animated.View>
@@ -3208,37 +3217,42 @@ export default function PlayScreen() {
           <ArenaHubScreen embedded embeddedTopPadding={0} />
         ) : (
           <>
-            {/* AVAILABLE SLOTS STRIP — Task #1570 */}
-            <AvailableSlotsStrip
-              onBookSlot={(_slot: AvailableTodaySlot) => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                navigation.navigate("LessonBooking");
-              }}
-              onBookNow={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                navigation.navigate("LessonBooking");
-              }}
-            />
-
-            {/* Sub-tabs for Matches section */}
-            {playSection === "Matches" ? (
-              <View style={styles.subTabs}>
-                {MATCH_SUB_TABS.map((tab) => (
-                  <Pressable
-                    key={tab}
-                    style={[styles.subTab, activeTab === tab && styles.subTabActive]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setActiveTab(tab);
-                    }}
-                  >
-                    <Text style={[styles.subTabText, activeTab === tab && styles.subTabTextActive]}>
-                      {tab === "Players" ? t("player.play.players") : "Leaderboard"}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+            {/* AVAILABLE SLOTS STRIP — Task #1570 — Lessons only */}
+            {playSection === "Lessons" ? (
+              <AvailableSlotsStrip
+                onBookSlot={(_slot: AvailableTodaySlot) => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  navigation.navigate("LessonBooking");
+                }}
+                onBookNow={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  navigation.navigate("LessonBooking");
+                }}
+              />
             ) : null}
+
+            {/* Section inner tabs: Group Lessons | Players | Leaderboard for Lessons;
+                Players | Leaderboard for Matches */}
+            <View style={styles.subTabs}>
+              {(playSection === "Lessons" ? TAB_OPTIONS : MATCH_SUB_TABS).map((tab) => (
+                <Pressable
+                  key={tab}
+                  style={[styles.subTab, activeTab === tab && styles.subTabActive]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveTab(tab);
+                  }}
+                >
+                  <Text style={[styles.subTabText, activeTab === tab && styles.subTabTextActive]}>
+                    {tab === "Group Lessons"
+                      ? "Group Lessons"
+                      : tab === "Players"
+                        ? t("player.play.players")
+                        : "Leaderboard"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
 
         <Animated.ScrollView
           style={styles.content}
