@@ -3216,11 +3216,11 @@ export default function PlayScreen() {
         </View>
 
         {/* Arena — always mounted for keep-alive, shown/hidden via display */}
-        <View style={{ display: playSection === "Arena" ? "flex" : "none" }}>
+        <View style={{ display: playSection === "Arena" ? "flex" : "none", flex: 1 }}>
           <ArenaHubScreen embedded embeddedTopPadding={0} />
         </View>
         {/* Matches / Lessons content — hidden when Arena is active */}
-        <View style={{ display: playSection !== "Arena" ? "flex" : "none" }}>
+        <View style={{ display: playSection !== "Arena" ? "flex" : "none", flex: 1 }}>
           <>
             {/* AVAILABLE SLOTS STRIP — Task #1570 — Lessons only */}
             {playSection === "Lessons" ? (
