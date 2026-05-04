@@ -1,13 +1,13 @@
 import { Router, type Response } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
-  import { eq, sql, and, inArray, lte } from "drizzle-orm";
+  import { eq, sql, and, inArray, lte, gte, ne, count } from "drizzle-orm";
   import { authMiddlewareWithFreshData as authMiddleware, requireAcademy, validatePlayerOwnership, validateNotificationOwnership, type AuthenticatedRequest } from "../auth";
   import { z } from "zod";
   import { fromZodError } from "zod-validation-error";
   import { sanitizeMessage } from "../utils/sanitize";
   import { updatePillarProgress } from "../utils/pillarProgress";  import { apiCache, CACHE_KEYS } from "../cache";
-  import { coaches, players, coachingSeries, seriesPlayers, conversations, messages, messageMentions, playerNotifications, seriesReminderLog } from "@shared/schema";
+  import { coaches, players, sessions, sessionPlayers, coachingSeries, seriesPlayers, conversations, messages, messageMentions, playerNotifications, seriesReminderLog } from "@shared/schema";
   import { broadcastNewMessage } from "../websocket";
   import { sendNewMessageNotification, getPlayerPushTokens, getCoachPushTokens, sendPushNotification } from "../pushNotifications";
   import { resolveConversationMentions, extractMentionHandles, type ResolvedConversationMention } from "../utils/conversationMentions"; import { checkConnection as checkCalendarConnection } from "../googleCalendarService";
@@ -2684,6 +2684,108 @@ const _coachXpCache = new Map<string, { data: unknown; expiresAt: number }>();
         res
           .status(500)
           .json({ error: "Couldn't suggest a practice match. Try again." });
+      }
+    },
+  );
+
+  // ==================== SESSION TRANSFER ====================
+
+  // GET upcoming sessions for a coach (admin use — session transfer flow)
+  router.get(
+    "/api/admin/coaches/:coachId/upcoming-sessions",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId!;
+        const { coachId } = req.params;
+
+        // Verify the coach belongs to this academy
+        const coach = await db.query.coaches.findFirst({
+          where: and(eq(coaches.id, coachId), eq(coaches.academyId, academyId)),
+        });
+        if (!coach) {
+          return res.status(404).json({ error: "Coach not found in this academy" });
+        }
+
+        // Fetch upcoming non-cancelled sessions with player counts
+        const upcomingSessions = await db
+          .select({
+            id: sessions.id,
+            title: sessions.title,
+            startTime: sessions.startTime,
+            endTime: sessions.endTime,
+            duration: sessions.duration,
+            sessionType: sessions.sessionType,
+            status: sessions.status,
+            seriesId: sessions.seriesId,
+            playerCount: count(sessionPlayers.id),
+          })
+          .from(sessions)
+          .leftJoin(sessionPlayers, eq(sessionPlayers.sessionId, sessions.id))
+          .where(
+            and(
+              eq(sessions.coachId, coachId),
+              eq(sessions.academyId, academyId),
+              gte(sessions.startTime, new Date()),
+              ne(sessions.status, "cancelled"),
+            ),
+          )
+          .groupBy(sessions.id)
+          .orderBy(sessions.startTime);
+
+        res.json(upcomingSessions);
+      } catch (error) {
+        console.error("Error fetching upcoming sessions for transfer:", error);
+        res.status(500).json({ error: "Failed to fetch upcoming sessions" });
+      }
+    },
+  );
+
+  // POST bulk-transfer selected sessions to another coach
+  router.post(
+    "/api/admin/sessions/transfer",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId!;
+        const schema = z.object({
+          sessionIds: z.array(z.string()).min(1, "Select at least one session"),
+          toCoachId: z.string(),
+        });
+        const parsed = schema.safeParse(req.body);
+        if (!parsed.success) {
+          return res.status(400).json({ error: fromZodError(parsed.error).toString() });
+        }
+        const { sessionIds, toCoachId } = parsed.data;
+
+        // Verify target coach belongs to this academy
+        const targetCoach = await db.query.coaches.findFirst({
+          where: and(eq(coaches.id, toCoachId), eq(coaches.academyId, academyId)),
+        });
+        if (!targetCoach) {
+          return res.status(404).json({ error: "Target coach not found in this academy" });
+        }
+
+        // Safety: only transfer upcoming, non-cancelled sessions in this academy
+        const result = await db
+          .update(sessions)
+          .set({ coachId: toCoachId })
+          .where(
+            and(
+              inArray(sessions.id, sessionIds),
+              eq(sessions.academyId, academyId),
+              gte(sessions.startTime, new Date()),
+              ne(sessions.status, "cancelled"),
+            ),
+          );
+
+        const transferred = (result as any).rowCount ?? sessionIds.length;
+        res.json({ transferred, toCoachName: targetCoach.name });
+      } catch (error) {
+        console.error("Error transferring sessions:", error);
+        res.status(500).json({ error: "Failed to transfer sessions" });
       }
     },
   );

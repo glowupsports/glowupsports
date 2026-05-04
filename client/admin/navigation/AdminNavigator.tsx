@@ -15,6 +15,7 @@ import AdminSubscriptionsScreen from "@/admin/screens/AdminSubscriptionsScreen";
 import AdminRolesPermissionsScreen from "@/admin/screens/AdminRolesPermissionsScreen";
 import AdminEquipmentScreen from "@/admin/screens/AdminEquipmentScreen";
 import AdminCorporateAccountsScreen from "@/admin/screens/AdminCorporateAccountsScreen";
+import AdminTransferSessionsScreen from "@/admin/screens/AdminTransferSessionsScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { Colors } from "@/constants/theme";
@@ -49,6 +50,7 @@ export type AdminStackParamList = {
   AdminReports: undefined;
   AdminEquipment: undefined;
   AdminCorporateAccounts: undefined;
+  AdminTransferSessions: { fromCoachId?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -203,6 +205,7 @@ function AdminStackNavigator() {
       <Stack.Screen name="AdminRolesPermissions" component={AdminRolesPermissionsScreen} />
       <Stack.Screen name="AdminEquipment" component={AdminEquipmentScreen} />
       <Stack.Screen name="AdminCorporateAccounts" component={AdminCorporateAccountsScreen} />
+      <Stack.Screen name="AdminTransferSessions" component={AdminTransferSessionsScreen} />
     </Stack.Navigator>
   );
 }

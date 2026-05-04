@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, TextInput, Modal, Alert, ScrollView } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -91,6 +92,7 @@ const PAYMENT_METHODS = [
 ];
 
 export default function AdminCoachesScreen() {
+  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -611,6 +613,20 @@ export default function AdminCoachesScreen() {
                   </View>
                 )}
               </View>
+
+              <Pressable
+                style={styles.transferSessionsButton}
+                onPress={() => {
+                  const coachId = selectedCoachId;
+                  closeDetailModal();
+                  setTimeout(() => {
+                    navigation.navigate("AdminTransferSessions", { fromCoachId: coachId });
+                  }, 300);
+                }}
+              >
+                <Ionicons name="swap-horizontal-outline" size={20} color={Colors.dark.primary} />
+                <Text style={styles.transferSessionsText}>Transfer Sessions to Another Coach</Text>
+              </Pressable>
 
               <Pressable 
                 style={styles.sendOverviewButton}
@@ -1339,6 +1355,23 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     marginTop: Spacing.sm,
+  },
+  transferSessionsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${Colors.dark.primary}15`,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}30`,
+  },
+  transferSessionsText: {
+    ...Typography.body,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   sendOverviewButton: {
     flexDirection: "row",
