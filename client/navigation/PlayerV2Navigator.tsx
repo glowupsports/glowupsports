@@ -258,7 +258,6 @@ export type PlayerV2StackParamList = {
   CorporateBenefits: undefined;
   CompanyContactDashboard: undefined;
   // Arena
-  ArenaHub: undefined;
   ArenaMyCard: undefined;
   ArenaPackShop: undefined;
   ArenaMyCollection: undefined;

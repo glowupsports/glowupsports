@@ -32,7 +32,6 @@ import { openDirections as openMapsDirections } from "@/lib/maps";
 import { formatSessionTimeWithRelativeDay } from "@/lib/dateUtils";
 import { apiRequest, getApiUrl, buildPhotoUrl } from "@/lib/query-client";
 import { useTabNavigation } from "@/components/TabNavigationContext";
-import { useFamily } from "@/player/context/FamilyContext";
 import { useSport, getSportLabel, getSportIcon, SPORT_DEFINITIONS } from "@/player/context/SportContext";
 import { SportSwitcherChips } from "@/player/components/SportSwitcherChips";
 import {
@@ -344,7 +343,6 @@ export default function PlayScreen() {
   const route = useRoute<RouteProp<PlayStackParamList, "Play">>();
   const queryClient = useQueryClient();
   const { navigateToTab } = useTabNavigation();
-  const { isFamily, familyData, activePlayerId } = useFamily();
   const { isMultiSport, activeSports, activeSport, setActiveSport } =
     useSport();
   const [showPlayModal, setShowPlayModal] = useState(false);
