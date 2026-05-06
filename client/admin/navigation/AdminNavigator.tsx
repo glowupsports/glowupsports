@@ -16,6 +16,8 @@ import AdminRolesPermissionsScreen from "@/admin/screens/AdminRolesPermissionsSc
 import AdminEquipmentScreen from "@/admin/screens/AdminEquipmentScreen";
 import AdminCorporateAccountsScreen from "@/admin/screens/AdminCorporateAccountsScreen";
 import AdminTransferSessionsScreen from "@/admin/screens/AdminTransferSessionsScreen";
+import AdminConversationsScreen from "@/admin/screens/AdminConversationsScreen";
+import AdminConversationDetailScreen from "@/admin/screens/AdminConversationDetailScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { Colors } from "@/constants/theme";
@@ -51,6 +53,8 @@ export type AdminStackParamList = {
   AdminEquipment: undefined;
   AdminCorporateAccounts: undefined;
   AdminTransferSessions: { fromCoachId?: string } | undefined;
+  AdminConversations: undefined;
+  AdminConversationDetail: { conversationId: string; coachName: string | null; playerName: string | null };
 };
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -78,12 +82,13 @@ const ROUTE_TO_TAB: Record<DesktopAdminRoute, string | null> = {
   AdminCourts: null,
   AdminClasses: "AdminClasses",
   AdminSettings: "AdminSettings",
+  AdminConversations: null,
 };
 
-type SpecialRoute = "AdminRolesPermissions" | "AdminPayments" | "AdminSubscriptions" | "AdminCourts" | "AdminFinance";
+type SpecialRoute = "AdminRolesPermissions" | "AdminPayments" | "AdminSubscriptions" | "AdminCourts" | "AdminFinance" | "AdminConversations";
 
 function isSpecialRoute(route: DesktopAdminRoute): route is SpecialRoute {
-  return route === "AdminRolesPermissions" || route === "AdminPayments" || route === "AdminSubscriptions" || route === "AdminCourts" || route === "AdminFinance";
+  return route === "AdminRolesPermissions" || route === "AdminPayments" || route === "AdminSubscriptions" || route === "AdminCourts" || route === "AdminFinance" || route === "AdminConversations";
 }
 
 const TAB_KEY_TO_ROUTE: Partial<Record<string, DesktopAdminRoute>> = {
@@ -135,6 +140,9 @@ function DesktopAdminContent() {
             break;
           case "AdminFinance":
             setSpecialContent(<AdminPaymentsScreen />);
+            break;
+          case "AdminConversations":
+            setSpecialContent(<AdminConversationsScreen />);
             break;
         }
       } else {
@@ -206,6 +214,8 @@ function AdminStackNavigator() {
       <Stack.Screen name="AdminEquipment" component={AdminEquipmentScreen} />
       <Stack.Screen name="AdminCorporateAccounts" component={AdminCorporateAccountsScreen} />
       <Stack.Screen name="AdminTransferSessions" component={AdminTransferSessionsScreen} />
+      <Stack.Screen name="AdminConversations" component={AdminConversationsScreen} />
+      <Stack.Screen name="AdminConversationDetail" component={AdminConversationDetailScreen} />
     </Stack.Navigator>
   );
 }

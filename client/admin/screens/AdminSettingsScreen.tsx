@@ -551,6 +551,26 @@ export default function AdminSettingsScreen() {
           </View>
 
           <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Safeguarding &amp; Oversight</Text>
+            <Pressable
+              style={[styles.menuCard, CardStyles.elevated]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.navigate("AdminConversations" as never);
+              }}
+            >
+              <View style={styles.menuContent}>
+                <Ionicons name="chatbubbles-outline" size={24} color={Colors.dark.primary} />
+                <View style={styles.menuText}>
+                  <Text style={styles.menuTitle}>Conversations</Text>
+                  <Text style={styles.menuSubtitle}>Read-only oversight of coach-player chats</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+              </View>
+            </Pressable>
+          </View>
+
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>User Management</Text>
             <Pressable 
               style={[styles.menuCard, CardStyles.elevated]}

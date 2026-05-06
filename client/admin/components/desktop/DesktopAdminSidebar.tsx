@@ -16,7 +16,8 @@ export type DesktopAdminRoute =
   | "AdminFinance"
   | "AdminCourts"
   | "AdminClasses"
-  | "AdminSettings";
+  | "AdminSettings"
+  | "AdminConversations";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -47,6 +48,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { route: "AdminPlayers", label: "Players", icon: "person-outline" },
       { route: "AdminCoaches", label: "Coaches", icon: "people-outline" },
+      { route: "AdminConversations", label: "Conversations", icon: "chatbubbles-outline" },
       { route: "AdminRolesPermissions", label: "Roles & Permissions", icon: "shield-outline" },
     ],
   },

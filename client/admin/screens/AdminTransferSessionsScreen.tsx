@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.sm,
   },
   headerTitle: {
-    ...Typography.heading,
+    ...Typography.heading1,
     flex: 1,
     color: Colors.dark.text,
   },
