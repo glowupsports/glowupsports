@@ -13,6 +13,7 @@ import { formatCredits } from "@/lib/dateUtils";
 
 import { styles } from "./playersStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { useCoach } from "@/coach/context/CoachContext";
 
 const _TAB_BAR_HEIGHT = 80;
 
@@ -139,6 +140,8 @@ export function GamingPlayerCard({
   onPendingPayment?: () => void;
   juniorAssessmentBadge?: { passed: boolean; percentage: number; assessedAt?: string } | null;
 }) {
+  const { coach } = useCoach();
+  const isHeadCoach = coach?.role === "head_coach";
   const levelColor = getPlayerLevelColor(player.ballLevel ?? "green");
   const levelTextColor = getPlayerLevelTextColor(player.ballLevel ?? "green");
   const effectiveStatus = player.onHoliday ? "holiday" : player.status;
@@ -348,7 +351,7 @@ export function GamingPlayerCard({
                   {(player.ballLevel ?? "green").toUpperCase()}
                 </Text>
               </View>
-              {(() => {
+              {isHeadCoach && (() => {
                 const credits = player.remainingCredits;
                 const byType = player.creditsByType;
 
