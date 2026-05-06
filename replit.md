@@ -40,7 +40,8 @@ The AI Coach tab and the Home tab use god-routes for data fetching to prevent pa
 
 ### CRITICAL: Lint baseline (Task #1469)
 `npm run lint` (= `npx expo lint`) is the canonical lint gate. The current
-healthy baseline is **0 errors / ~325 warnings**.
+healthy baseline is **0 errors / ~805 warnings** (updated post tasks #1663–#1665;
+bulk of warnings are pre-existing `Array<T>` style violations in arena service files).
 
 **Never disable `@typescript-eslint/no-unused-vars` to bury new warnings.**
 The rule is configured (in `eslint.config.js`) to honour the conventional
@@ -85,6 +86,9 @@ The platform uses a dark-themed premium sports aesthetic with Neon Green, White,
 - **Internationalization**: `i18next` and `react-i18next` (English, Arabic (RTL), Indonesian).
 - **Timezone Handling**: Academy-specific IANA timezones using `AT TIME ZONE` in PostgreSQL.
 - **Core Features**: Credit System (V2 ledger), Gamification (Glow Leveling OS, Adult Glow DSS Rating System, 50-level XP Engine), Player Assessment (Baseline, Skill Evidence via video), Session & Match Management, Player Onboarding (17-step), User Onboarding & Guidance.
+- **Coach Role Permissions** (Task #1663): Four coach roles (head_coach / coach / assistant / intern) selectable at creation and editable later. Only head_coach sees player phone, email, parent contact. Backend redacts sensitive fields; coach UI hides them with "Head Coach access only" notice.
+- **Admin Chat Oversight** (Task #1664): Academy owner and admin can read all coach-player conversations in a dedicated Conversations screen (paginated, read-only). Accessible from admin navigation.
+- **Supervisor Mode** (Task #1665): Academy owner taps "Coach" in mode switcher → coach-picker sheet → opens full coach dashboard for any selected coach in read-only supervisor mode. Persistent banner shows "Viewing as [Name]". All write actions blocked.
 - **Role-Specific Applications**: Dedicated applications for Coaches, Players, Platform Owners, and Service Providers.
 - **Market & Community**: Glow Market, Community Marketplace, Player Chat, Group Social Hub (Events with RSVP, Chat), Coach & Academy Posts.
 - **Academy Management**: Session Waitlist, Tournament Management, Ladder System, Multiple Locations, Live Scoring, Free Player Mode.
