@@ -335,6 +335,90 @@ function getCleanSessionTitle(session: PlaySession): string {
   return title;
 }
 
+function _computeCountdown(
+  startTime: string,
+  now: Date,
+): { text: string; urgent: boolean } {
+  const sessionDate = new Date(startTime);
+  const diff = sessionDate.getTime() - now.getTime();
+  if (diff <= 0) return { text: "Starting Now", urgent: true };
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+  if (hours > 24) {
+    const days = Math.floor(hours / 24);
+    return { text: `${days}d ${hours % 24}h left`, urgent: false };
+  }
+  if (hours > 0) {
+    return { text: `${hours}h ${minutes}m left`, urgent: hours < 2 };
+  }
+  if (minutes > 0) {
+    return { text: `${minutes}m ${seconds}s left`, urgent: minutes < 30 };
+  }
+  return { text: `${seconds}s left`, urgent: true };
+}
+
+const _liveCountdownStyles = StyleSheet.create({
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(34, 211, 238, 0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  badgeUrgent: {
+    backgroundColor: Colors.dark.error + "20",
+    borderColor: Colors.dark.error + "40",
+  },
+  text: {
+    color: Colors.dark.primary,
+    fontWeight: "600" as const,
+    fontSize: 11,
+  },
+  textUrgent: {
+    color: Colors.dark.error,
+  },
+});
+
+const LiveCountdown = React.memo(function LiveCountdown({
+  startTime,
+}: {
+  startTime: string;
+}) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const countdown = _computeCountdown(startTime, now);
+  return (
+    <View
+      style={[
+        _liveCountdownStyles.badge,
+        countdown.urgent ? _liveCountdownStyles.badgeUrgent : undefined,
+      ]}
+    >
+      <Ionicons
+        name="timer-outline"
+        size={11}
+        color={countdown.urgent ? Colors.dark.error : Colors.dark.primary}
+      />
+      <Text
+        style={[
+          _liveCountdownStyles.text,
+          countdown.urgent ? _liveCountdownStyles.textUrgent : undefined,
+        ]}
+      >
+        {countdown.text}
+      </Text>
+    </View>
+  );
+});
+
 export default function PlayScreen() {
   useThemeReactivity();
   const { t } = useTranslation();
@@ -380,7 +464,6 @@ export default function PlayScreen() {
 
   const [brokenAvatars, setBrokenAvatars] = useState<Set<string>>(new Set());
   const [joiningSessionId, setJoiningSessionId] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [playerSearchQuery, setPlayerSearchQuery] = useState("");
   const [selectedBallLevel, setSelectedBallLevel] =
     useState<string>("my_level");
@@ -742,49 +825,6 @@ export default function PlayScreen() {
     profileData?.player?.ballLevel?.toLowerCase() || "glow";
   const playerAcademyId = profileData?.academy?.id || null;
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const getCountdownText = (startTime: string) => {
-    const sessionDate = new Date(startTime);
-    const now = currentTime;
-    const diff = sessionDate.getTime() - now.getTime();
-
-    if (diff <= 0)
-      return { text: "Starting Now", urgent: true, expired: false };
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-    if (hours > 24) {
-      const days = Math.floor(hours / 24);
-      return {
-        text: `${days}d ${hours % 24}h left`,
-        urgent: false,
-        expired: false,
-      };
-    }
-    if (hours > 0) {
-      return {
-        text: `${hours}h ${minutes}m left`,
-        urgent: hours < 2,
-        expired: false,
-      };
-    }
-    if (minutes > 0) {
-      return {
-        text: `${minutes}m ${seconds}s left`,
-        urgent: minutes < 30,
-        expired: false,
-      };
-    }
-    return { text: `${seconds}s left`, urgent: true, expired: false };
-  };
 
   // Task #1033 — free players (no academy) cannot use "mine" but can still
   // pick country vs worldwide. Default them to "country" to keep discovery
@@ -1303,35 +1343,7 @@ export default function PlayScreen() {
                           +{session.xpReward} XP
                         </Text>
                       </View>
-                      {(() => {
-                        const countdown = getCountdownText(session.startTime);
-                        return (
-                          <View
-                            style={[
-                              styles.countdownBadgeSmall,
-                              countdown.urgent && styles.countdownUrgent,
-                            ]}
-                          >
-                            <Ionicons
-                              name="timer-outline"
-                              size={11}
-                              color={
-                                countdown.urgent
-                                  ? Colors.dark.error
-                                  : Colors.dark.primary
-                              }
-                            />
-                            <Text
-                              style={[
-                                styles.countdownTextSmall,
-                                countdown.urgent && styles.countdownTextUrgent,
-                              ]}
-                            >
-                              {countdown.text}
-                            </Text>
-                          </View>
-                        );
-                      })()}
+                      <LiveCountdown startTime={session.startTime} />
                     </View>
                   </View>
                   {session.ballLevel &&
