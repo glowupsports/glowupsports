@@ -2818,6 +2818,36 @@ router.post(
   },
 );
 
+// Admin - Update coach role
+router.patch(
+  "/api/admin/coaches/:coachId/role",
+  authMiddleware,
+  requireRole("admin", "academy_owner", "platform_owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { coachId } = req.params;
+      const { role } = req.body;
+      const academyId = req.user?.currentAcademyId;
+
+      const validRoles = ["head_coach", "coach", "assistant", "intern"];
+      if (!role || !validRoles.includes(role)) {
+        return res.status(400).json({ error: "Invalid role. Must be one of: head_coach, coach, assistant, intern" });
+      }
+
+      const coach = await storage.getCoach(coachId);
+      if (!coach || (academyId && coach.academyId !== academyId)) {
+        return res.status(404).json({ error: "Coach not found" });
+      }
+
+      const updated = await storage.updateCoach(coachId, { role }, academyId || undefined);
+      res.json({ success: true, coach: updated });
+    } catch (error) {
+      console.error("Update coach role error:", error);
+      res.status(500).json({ error: "Failed to update coach role" });
+    }
+  },
+);
+
 // Admin - Get revenue report by month
 router.get(
   "/api/admin/revenue",
@@ -2940,6 +2970,14 @@ router.get(
       ) {
         return res.status(404).json({ error: "Player not found" });
       }
+
+      // Determine if calling coach has head_coach role — only head coaches see contact details
+      let callerCoachRole: string | null = null;
+      if (userRole === "coach" && req.user?.coachId) {
+        const callerCoach = await storage.getCoach(req.user.coachId);
+        callerCoachRole = callerCoach?.role || "coach";
+      }
+      const canSeeContactDetails = userRole !== "coach" || callerCoachRole === "head_coach";
 
       const coach = player.coachId
         ? await storage.getCoach(player.coachId)
@@ -3180,16 +3218,16 @@ router.get(
         player: {
           id: player.id,
           name: player.name,
-          email: player.email,
-          phone: player.phone,
+          email: canSeeContactDetails ? player.email : undefined,
+          phone: canSeeContactDetails ? player.phone : undefined,
           ballLevel: player.ballLevel,
           level: currentLevel,
           totalXp: xpProgress,
           glowScore: player.glowScore || 0,
           coachName: coach?.name || "Unassigned",
           parentName: player.parentName,
-          parentPhone: player.parentPhone,
-          parentEmail: player.parentEmail,
+          parentPhone: canSeeContactDetails ? player.parentPhone : undefined,
+          parentEmail: canSeeContactDetails ? player.parentEmail : undefined,
           medicalNotes: player.medicalNotes,
           dateOfBirth: player.dateOfBirth,
         },

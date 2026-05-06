@@ -728,9 +728,21 @@ import { Router, type Request, type Response } from "express";
           }
         }
 
+        // Determine contact-details visibility for coach callers
+        let canSeeContactDetails = true;
+        if (role === "coach" && req.user?.coachId) {
+          const callerCoach = await storage.getCoach(req.user.coachId);
+          canSeeContactDetails = callerCoach?.role === "head_coach";
+        }
+
         // Map player data with last lesson dates and lesson-status fields
         const playersWithLessonDates = playerList.map((player) => ({
           ...player,
+          // Strip sensitive contact fields for non-head-coach callers
+          email: canSeeContactDetails ? player.email : undefined,
+          phone: canSeeContactDetails ? player.phone : undefined,
+          parentPhone: canSeeContactDetails ? player.parentPhone : undefined,
+          parentEmail: canSeeContactDetails ? player.parentEmail : undefined,
           lastLessonDate: lastLessonMap.get(player.id)?.startTime || null,
           activeGroupsCount: activeGroupMap.get(player.id) ?? 0,
           pausedGroupsCount: pausedGroupMap.get(player.id) ?? 0,
@@ -1144,6 +1156,23 @@ import { Router, type Request, type Response } from "express";
           return res.status(404).json({ error: "Player not found" });
         }
 
+        // Redact contact fields for non-head-coach callers
+        let canSeeContactDetails = true;
+        if (req.user?.role === "coach" && req.user?.coachId) {
+          const callerCoach = await storage.getCoach(req.user.coachId);
+          canSeeContactDetails = callerCoach?.role === "head_coach";
+        }
+
+        if (!canSeeContactDetails) {
+          return res.json({
+            ...player,
+            email: undefined,
+            phone: undefined,
+            parentPhone: undefined,
+            parentEmail: undefined,
+          });
+        }
+
         res.json(player);
       } catch (error) {
         console.error("Error fetching player:", error);
@@ -1167,8 +1196,22 @@ import { Router, type Request, type Response } from "express";
           return res.status(404).json({ error: "Player not found" });
         }
 
+        // Server-side guard: non-head-coach callers may not modify contact fields
+        const callerRole = req.user?.role;
+        const body = { ...req.body };
+        if (callerRole === "coach" && req.user?.coachId) {
+          const callerCoach = await storage.getCoach(req.user.coachId);
+          if (callerCoach?.role !== "head_coach") {
+            delete body.email;
+            delete body.phone;
+            delete body.parentEmail;
+            delete body.parentPhone;
+            delete body.parentReporting;
+          }
+        }
+
         // Validate and transform the update data
-        const parseResult = updatePlayerSchema.safeParse(req.body);
+        const parseResult = updatePlayerSchema.safeParse(body);
         if (!parseResult.success) {
           return res.status(400).json({
             error: "Validation failed",

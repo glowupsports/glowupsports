@@ -5493,6 +5493,8 @@ import fs from "fs";
   );
 
   // Export players as CSV (returns JSON with CSV data for cross-platform compatibility)
+  // NOTE: requireRole("owner", "academy_owner", "platform_owner") means coaches (role="coach")
+  // cannot reach this endpoint at all. No additional contact-field redaction is needed here.
   router.get(
     "/api/owner/export/players",
     authMiddleware,

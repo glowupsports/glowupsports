@@ -1056,31 +1056,47 @@ export function PlayerDetailView({
 
   const updatePlayerMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("PATCH", `/api/players/${player.id}`, {
+      const isHeadCoach = coach?.role === "head_coach";
+      const payload: Record<string, unknown> = {
         name: editName.trim(),
-        email: editEmail.trim() || null,
-        phone: editPhone.trim() || null,
         ballLevel: editBallLevel || null,
-        parentEmail: editParentEmail.trim() || null,
-        parentReporting: editParentReporting,
-      });
+      };
+      if (isHeadCoach) {
+        payload.email = editEmail.trim() || null;
+        payload.phone = editPhone.trim() || null;
+        payload.parentEmail = editParentEmail.trim() || null;
+        payload.parentReporting = editParentReporting;
+      }
+      const res = await apiRequest("PATCH", `/api/players/${player.id}`, payload);
       return res.json();
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const isHeadCoach = coach?.role === "head_coach";
       setLocalPlayer((prev) => ({
         ...prev,
         name: editName.trim(),
-        email: editEmail.trim() || null,
-        phone: editPhone.trim() || null,
         ballLevel: editBallLevel || null,
-        parentEmail: editParentEmail.trim() || null,
-        parentReporting: editParentReporting,
+        ...(isHeadCoach
+          ? {
+              email: editEmail.trim() || null,
+              phone: editPhone.trim() || null,
+              parentEmail: editParentEmail.trim() || null,
+              parentReporting: editParentReporting,
+            }
+          : {}),
       }));
       queryClient.setQueryData<Player[]>(["/api/players?withCredits=true"], (old) =>
         old?.map((p) =>
           p.id === player.id
-            ? { ...p, name: editName.trim(), email: editEmail.trim() || null, phone: editPhone.trim() || null, ballLevel: editBallLevel || null, parentEmail: editParentEmail.trim() || null, parentReporting: editParentReporting }
+            ? {
+                ...p,
+                name: editName.trim(),
+                ballLevel: editBallLevel || null,
+                ...(isHeadCoach
+                  ? { email: editEmail.trim() || null, phone: editPhone.trim() || null, parentEmail: editParentEmail.trim() || null, parentReporting: editParentReporting }
+                  : {}),
+              }
             : p
         )
       );
@@ -1941,20 +1957,31 @@ export function PlayerDetailView({
         <CollapsibleSection title="Basic Info" icon="person-outline" iconColor={Colors.dark.tabIconDefault}>
           <View style={styles.infoSection}>
             <View style={styles.infoCard}>
-              {localPlayer.email ? (
-                <View>
-                  <View style={styles.infoRow}>
-                    <Ionicons name="mail-outline" size={20} color={Colors.dark.tabIconDefault} />
-                    <Text style={styles.infoText}>{localPlayer.email}</Text>
-                  </View>
-                </View>
-              ) : null}
-              {localPlayer.phone ? (
+              {coach?.role === "head_coach" ? (
+                <>
+                  {localPlayer.email ? (
+                    <View>
+                      <View style={styles.infoRow}>
+                        <Ionicons name="mail-outline" size={20} color={Colors.dark.tabIconDefault} />
+                        <Text style={styles.infoText}>{localPlayer.email}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+                  {localPlayer.phone ? (
+                    <View style={styles.infoRow}>
+                      <Ionicons name="call-outline" size={20} color={Colors.dark.tabIconDefault} />
+                      <Text style={styles.infoText}>{localPlayer.phone}</Text>
+                    </View>
+                  ) : null}
+                </>
+              ) : (
                 <View style={styles.infoRow}>
-                  <Ionicons name="call-outline" size={20} color={Colors.dark.tabIconDefault} />
-                  <Text style={styles.infoText}>{localPlayer.phone}</Text>
+                  <Ionicons name="lock-closed-outline" size={16} color={Colors.dark.textMuted} />
+                  <Text style={[styles.infoText, { color: Colors.dark.textMuted, fontSize: 13 }]}>
+                    Contact details — Head Coach access only
+                  </Text>
                 </View>
-              ) : null}
+              )}
               {player.skillLevel ? (
                 <View style={styles.infoRow}>
                   <Ionicons name="trophy-outline" size={20} color={Colors.dark.tabIconDefault} />
@@ -1991,8 +2018,8 @@ export function PlayerDetailView({
             </View>
           ) : null}
 
-          {/* Parent Reporting Section */}
-          {(localPlayer.parentEmail || (localPlayer.age && localPlayer.age < 18)) ? (
+          {/* Parent Reporting Section — gated to head_coach */}
+          {coach?.role === "head_coach" && (localPlayer.parentEmail || (localPlayer.age && localPlayer.age < 18)) ? (
             <View style={{ marginTop: 12, gap: 8 }}>
               {localPlayer.parentEmail ? (
                 <View style={[styles.infoCard, { gap: 10 }]}>
@@ -2088,48 +2115,57 @@ export function PlayerDetailView({
               />
             </View>
 
-            <View style={{ gap: 8 }}>
-              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>EMAIL</Text>
-              <TextInput
-                style={{
-                  backgroundColor: Colors.dark.backgroundDefault,
-                  borderRadius: 10,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  fontSize: 15,
-                  color: Colors.dark.text,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.1)",
-                }}
-                value={editEmail}
-                onChangeText={setEditEmail}
-                placeholder="Email address"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
+            {coach?.role === "head_coach" ? (
+              <>
+                <View style={{ gap: 8 }}>
+                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>EMAIL</Text>
+                  <TextInput
+                    style={{
+                      backgroundColor: Colors.dark.backgroundDefault,
+                      borderRadius: 10,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      fontSize: 15,
+                      color: Colors.dark.text,
+                      borderWidth: 1,
+                      borderColor: "rgba(255,255,255,0.1)",
+                    }}
+                    value={editEmail}
+                    onChangeText={setEditEmail}
+                    placeholder="Email address"
+                    placeholderTextColor={Colors.dark.tabIconDefault}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
 
-            <View style={{ gap: 8 }}>
-              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>PHONE</Text>
-              <TextInput
-                style={{
-                  backgroundColor: Colors.dark.backgroundDefault,
-                  borderRadius: 10,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  fontSize: 15,
-                  color: Colors.dark.text,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.1)",
-                }}
-                value={editPhone}
-                onChangeText={setEditPhone}
-                placeholder="Phone number"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                keyboardType="phone-pad"
-              />
-            </View>
+                <View style={{ gap: 8 }}>
+                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>PHONE</Text>
+                  <TextInput
+                    style={{
+                      backgroundColor: Colors.dark.backgroundDefault,
+                      borderRadius: 10,
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      fontSize: 15,
+                      color: Colors.dark.text,
+                      borderWidth: 1,
+                      borderColor: "rgba(255,255,255,0.1)",
+                    }}
+                    value={editPhone}
+                    onChangeText={setEditPhone}
+                    placeholder="Phone number"
+                    placeholderTextColor={Colors.dark.tabIconDefault}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </>
+            ) : (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 2 }}>
+                <Ionicons name="lock-closed-outline" size={14} color={Colors.dark.textMuted} />
+                <Text style={{ color: Colors.dark.textMuted, fontSize: 13 }}>Phone &amp; email — Head Coach access only</Text>
+              </View>
+            )}
 
             <View style={{ gap: 8 }}>
               <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>BALL LEVEL</Text>
@@ -2159,53 +2195,57 @@ export function PlayerDetailView({
               </View>
             </View>
 
-            <View style={{ gap: 8 }}>
-              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>PARENT EMAIL</Text>
-              <TextInput
-                style={{
-                  backgroundColor: Colors.dark.backgroundDefault,
-                  borderRadius: 10,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  fontSize: 15,
-                  color: Colors.dark.text,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.1)",
-                }}
-                value={editParentEmail}
-                onChangeText={setEditParentEmail}
-                placeholder="Parent email (for monthly reports)"
-                placeholderTextColor={Colors.dark.tabIconDefault}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>Monthly parent reporting</Text>
-                <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>AI progress letter sent on the 1st of each month</Text>
+            {coach?.role === "head_coach" ? (
+              <View style={{ gap: 8 }}>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>PARENT EMAIL</Text>
+                <TextInput
+                  style={{
+                    backgroundColor: Colors.dark.backgroundDefault,
+                    borderRadius: 10,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    fontSize: 15,
+                    color: Colors.dark.text,
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.1)",
+                  }}
+                  value={editParentEmail}
+                  onChangeText={setEditParentEmail}
+                  placeholder="Parent email (for monthly reports)"
+                  placeholderTextColor={Colors.dark.tabIconDefault}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
               </View>
-              <Pressable
-                style={{
-                  width: 48,
-                  height: 28,
-                  borderRadius: 14,
-                  backgroundColor: editParentReporting ? Colors.dark.primary : "rgba(255,255,255,0.15)",
-                  justifyContent: "center",
-                  paddingHorizontal: 3,
-                }}
-                onPress={() => setEditParentReporting(!editParentReporting)}
-              >
-                <View style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  backgroundColor: "#fff",
-                  alignSelf: editParentReporting ? "flex-end" : "flex-start",
-                }} />
-              </Pressable>
-            </View>
+            ) : null}
+
+            {coach?.role === "head_coach" ? (
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>Monthly parent reporting</Text>
+                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>AI progress letter sent on the 1st of each month</Text>
+                </View>
+                <Pressable
+                  style={{
+                    width: 48,
+                    height: 28,
+                    borderRadius: 14,
+                    backgroundColor: editParentReporting ? Colors.dark.primary : "rgba(255,255,255,0.15)",
+                    justifyContent: "center",
+                    paddingHorizontal: 3,
+                  }}
+                  onPress={() => setEditParentReporting(!editParentReporting)}
+                >
+                  <View style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    backgroundColor: "#fff",
+                    alignSelf: editParentReporting ? "flex-end" : "flex-start",
+                  }} />
+                </Pressable>
+              </View>
+            ) : null}
 
             <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
               <Pressable

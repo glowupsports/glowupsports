@@ -91,6 +91,47 @@ const PAYMENT_METHODS = [
   { value: "card", label: "Card", icon: "card-outline" as const },
 ];
 
+const ROLE_OPTIONS = [
+  { value: "head_coach", label: "Head Coach" },
+  { value: "coach", label: "Coach" },
+  { value: "assistant", label: "Assistant" },
+  { value: "intern", label: "Intern" },
+];
+
+const PERMISSION_ROWS: { label: string; roles: string[] }[] = [
+  { label: "In-app chat with players", roles: ["intern", "assistant", "coach", "head_coach"] },
+  { label: "Plan & accept sessions", roles: ["intern", "assistant", "coach", "head_coach"] },
+  { label: "View player progress & stats", roles: ["intern", "assistant", "coach", "head_coach"] },
+  { label: "Add session feedback", roles: ["assistant", "coach", "head_coach"] },
+  { label: "Edit player info", roles: ["coach", "head_coach"] },
+  { label: "Player phone & email", roles: ["head_coach"] },
+  { label: "Parent contact details", roles: ["head_coach"] },
+  { label: "Export player data (CSV)", roles: ["head_coach"] },
+];
+
+function RolePermissionCard({ selectedRole }: { selectedRole: string }) {
+  return (
+    <View style={permStyles.permCard}>
+      <Text style={permStyles.permTitle}>Permissions for this role</Text>
+      {PERMISSION_ROWS.map((row) => {
+        const granted = row.roles.includes(selectedRole);
+        return (
+          <View key={row.label} style={permStyles.permRow}>
+            <Ionicons
+              name={granted ? "checkmark-circle" : "close-circle"}
+              size={16}
+              color={granted ? Colors.dark.successNeon : Colors.dark.textMuted}
+            />
+            <Text style={[permStyles.permLabel, !granted && permStyles.permLabelOff]}>
+              {row.label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function AdminCoachesScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -111,6 +152,7 @@ export default function AdminCoachesScreen() {
     phone: "",
     specialty: "",
     hourlyRate: "",
+    role: "coach",
   });
 
   const { data: coaches = [], isLoading, error, refetch } = useQuery<Coach[]>({
@@ -143,7 +185,7 @@ export default function AdminCoachesScreen() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", email: "", phone: "", specialty: "", hourlyRate: "" });
+    setFormData({ name: "", email: "", phone: "", specialty: "", hourlyRate: "", role: "coach" });
     setEditingCoach(null);
   };
   const openAddModal = () => {
@@ -203,6 +245,20 @@ export default function AdminCoachesScreen() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/coaches", variables.coachId, "stats"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    },
+    onError: (err: Error) => {
+      Alert.alert("Error", err.message);
+    },
+  });
+
+  const updateCoachRoleMutation = useMutation({
+    mutationFn: async ({ coachId, role }: { coachId: string; role: string }) => {
+      return apiRequest("PATCH", `/api/admin/coaches/${coachId}/role`, { role });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/coaches", selectedCoachId, "stats"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
       Alert.alert("Error", err.message);
@@ -394,6 +450,7 @@ export default function AdminCoachesScreen() {
                   phone: stats.coach.phone || "",
                   specialty: stats.coach.specialty || "",
                   hourlyRate: stats.finance?.hourlyRate?.toString() || "",
+                  role: stats.coach.role || "coach",
                 });
                 closeDetailModal();
                 setShowAddModal(true);
@@ -426,17 +483,42 @@ export default function AdminCoachesScreen() {
                   <Ionicons name="person" size={40} color={Colors.dark.primary} />
                 </View>
                 <Text style={styles.profileName}>{stats.coach.name}</Text>
-                <View style={[styles.roleBadge, { backgroundColor: `${getRoleColor(stats.coach.role)}20` }]}>
-                  <Text style={[styles.roleText, { color: getRoleColor(stats.coach.role) }]}>
-                    {getRoleLabel(stats.coach.role)}
-                  </Text>
-                </View>
                 {stats.coach.email ? (
                   <Text style={styles.profileEmail}>{stats.coach.email}</Text>
                 ) : null}
                 {stats.coach.phone ? (
                   <Text style={styles.profilePhone}>{stats.coach.phone}</Text>
                 ) : null}
+              </View>
+
+              {/* Role editor in detail drawer */}
+              <View style={[styles.section, CardStyles.elevated]}>
+                <Text style={styles.sectionTitle}>Coach Role</Text>
+                <View style={permStyles.rolePicker}>
+                  {ROLE_OPTIONS.map((opt) => {
+                    const isSelected = (stats.coach.role || "coach") === opt.value;
+                    const color = getRoleColor(opt.value);
+                    return (
+                      <Pressable
+                        key={opt.value}
+                        style={[
+                          permStyles.roleOption,
+                          isSelected && { backgroundColor: `${color}25`, borderColor: color },
+                        ]}
+                        onPress={() => {
+                          if (selectedCoachId && !isSelected) {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            updateCoachRoleMutation.mutate({ coachId: selectedCoachId, role: opt.value });
+                          }
+                        }}
+                      >
+                        <Text style={[permStyles.roleOptionText, isSelected && { color }]}>
+                          {opt.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
 
               {stats.coach.bio ? (
@@ -934,6 +1016,34 @@ export default function AdminCoachesScreen() {
                 placeholder="e.g., Junior Training, Advanced"
                 placeholderTextColor={Colors.dark.textMuted}
               />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Role</Text>
+              <View style={permStyles.rolePicker}>
+                {ROLE_OPTIONS.map((opt) => {
+                  const isSelected = formData.role === opt.value;
+                  const color = getRoleColor(opt.value);
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      style={[
+                        permStyles.roleOption,
+                        isSelected && { backgroundColor: `${color}25`, borderColor: color },
+                      ]}
+                      onPress={() => {
+                        setFormData((prev) => ({ ...prev, role: opt.value }));
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[permStyles.roleOptionText, isSelected && { color }]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <RolePermissionCard selectedRole={formData.role} />
             </View>
 
             <View style={styles.formGroup}>
@@ -1535,6 +1645,58 @@ const styles = StyleSheet.create({
   paymentConfirmText: {
     ...Typography.body,
     color: Colors.dark.text,
+    fontWeight: "600",
+  },
+});
+
+const permStyles = StyleSheet.create({
+  permCard: {
+    marginTop: Spacing.md,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    gap: Spacing.sm,
+  },
+  permTitle: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    fontWeight: "700",
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.5,
+    marginBottom: Spacing.xs,
+  },
+  permRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: Spacing.sm,
+  },
+  permLabel: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  permLabelOff: {
+    color: Colors.dark.textMuted,
+  },
+  rolePicker: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  roleOption: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  roleOptionText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
     fontWeight: "600",
   },
 });
