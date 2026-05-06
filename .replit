@@ -20,7 +20,7 @@ externalPort = 8081
 
 [[ports]]
 localPort = 8082
-externalPort = 3001
+externalPort = 3003
 
 [[ports]]
 localPort = 23636
@@ -32,7 +32,7 @@ externalPort = 3000
 
 [[ports]]
 localPort = 23638
-externalPort = 3002
+externalPort = 3001
 
 [env]
 PORT = "5000"

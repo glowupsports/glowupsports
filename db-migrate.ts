@@ -42,8 +42,15 @@ async function addConstraintIfMissing(
 ) {
   await client.query(`
     DO $$ BEGIN
+      -- Guard: skip entirely if the table doesn't exist yet
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = '${table}'
+      ) THEN
+        NULL; -- table not yet created; drizzle push will handle constraint creation
+
       -- Case A: constraint already exists
-      IF EXISTS (
+      ELSIF EXISTS (
         SELECT 1 FROM pg_constraint
         WHERE conname = '${constraintName}' AND contype = 'u'
       ) THEN
@@ -105,14 +112,25 @@ async function addUniqueIndexIfMissing(
   indexName: string,
   ddl: string,
 ) {
-  await client.query(`
-    DO $$ BEGIN
-      IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '${indexName}') THEN
-        ${ddl};
-      END IF;
-    END $$
-  `);
-  console.log(`[db-migrate] ${indexName} — OK`);
+  try {
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '${indexName}') THEN
+          ${ddl};
+        END IF;
+      END $$
+    `);
+    console.log(`[db-migrate] ${indexName} — OK`);
+  } catch (err: unknown) {
+    const pg = err as { code?: string; message?: string };
+    if (pg.code === "42P01") {
+      // Table referenced by this index doesn't exist yet; drizzle push will
+      // create both the table and the index when the schema is applied.
+      console.warn(`[db-migrate] ${indexName} — SKIPPED (table not yet created)`);
+    } else {
+      throw err;
+    }
+  }
 }
 
 async function run() {
@@ -784,6 +802,35 @@ async function run() {
       "release_notes_cache_unique_idx",
       `CREATE UNIQUE INDEX release_notes_cache_unique_idx
          ON release_notes_cache (version, role, locale)`);
+
+    // ── Backfill default availability for coaches with zero rows (Task #1692) ──
+    // Idempotent: coaches that already have rows are skipped by the NOT EXISTS guard.
+    {
+      const zeroAvailCoaches = await client.query(`
+        SELECT c.id, c.academy_id
+        FROM coaches c
+        WHERE NOT EXISTS (
+          SELECT 1 FROM coach_availability ca WHERE ca.coach_id = c.id
+        )
+      `);
+      let backfillCount = 0;
+      for (const row of zeroAvailCoaches.rows) {
+        for (let weekday = 0; weekday <= 6; weekday++) {
+          await client.query(
+            `INSERT INTO coach_availability
+               (id, coach_id, academy_id, weekday, start_time, end_time, slot_duration, is_active)
+             VALUES
+               (gen_random_uuid()::text, $1, $2, $3, '07:00', '22:00', 60, true)
+             ON CONFLICT DO NOTHING`,
+            [row.id, row.academy_id, weekday],
+          );
+        }
+        backfillCount++;
+      }
+      console.log(
+        `[db-migrate] coach_availability backfill — ${backfillCount} coaches seeded with default Mon–Sun schedule`,
+      );
+    }
 
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(

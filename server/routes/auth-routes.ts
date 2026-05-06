@@ -1453,6 +1453,20 @@ import { Router, type Request, type Response } from "express";
             totalXp: 0,
           });
 
+          // Seed default Mon-Sun availability (07:00-22:00) so the coach is
+          // immediately visible in the booking flow before they customise it.
+          for (let weekday = 0; weekday <= 6; weekday++) {
+            await storage.createCoachAvailability({
+              coachId: coach.id,
+              academyId: invite.academyId,
+              weekday,
+              startTime: "07:00",
+              endTime: "22:00",
+              slotDuration: 60,
+              isActive: true,
+            });
+          }
+
           // Create player profile for owner (they can also play)
           const player = await storage.createPlayer({
             name: fullName,
@@ -1497,6 +1511,20 @@ import { Router, type Request, type Response } from "express";
             level: 1,
             totalXp: 0,
           });
+
+          // Seed default Mon-Sun availability (07:00-22:00) so the coach is
+          // immediately visible in the booking flow before they customise it.
+          for (let weekday = 0; weekday <= 6; weekday++) {
+            await storage.createCoachAvailability({
+              coachId: coach.id,
+              academyId: invite.academyId,
+              weekday,
+              startTime: "07:00",
+              endTime: "22:00",
+              slotDuration: 60,
+              isActive: true,
+            });
+          }
 
           // Create user account
           const user = await storage.createUser({

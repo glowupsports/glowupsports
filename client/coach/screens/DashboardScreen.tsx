@@ -2871,6 +2871,15 @@ export default function DashboardScreen() {
         onAction: () => navigation.navigate("Templates" as never),
         isCompleted: false,
       },
+      {
+        id: "setup_availability",
+        icon: "time",
+        title: "Review Your Availability",
+        description: "We set a default schedule (Mon\u2013Sun 07:00\u201322:00). Tap to customise when you\u2019re actually free.",
+        actionLabel: "Go to Availability",
+        onAction: () => navigation.navigate("Availability" as never),
+        isCompleted: false,
+      },
     ];
   }, [coach, calendarData, navigation, navigateToTab]);
 
