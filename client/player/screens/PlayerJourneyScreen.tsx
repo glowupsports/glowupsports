@@ -405,7 +405,7 @@ function SkillDetailModal({
             </View>
 
             <Text style={styles.skillBreakdownTitle}>Skill Details</Text>
-            {breakdown.skills.map((skill, index) => (
+            {(breakdown.skills ?? []).map((skill, index) => (
               <View key={index} style={styles.skillRow}>
                 <Text style={styles.skillRowName}>{skill.name}</Text>
                 <View style={styles.skillRowBar}>

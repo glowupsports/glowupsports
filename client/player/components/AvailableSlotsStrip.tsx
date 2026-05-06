@@ -32,7 +32,7 @@ function formatSlotTime(timeStr: string): string {
   return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
-export default function AvailableSlotsStrip({ onBookSlot, onBookNow }: AvailableSlotsStripProps) {
+function AvailableSlotsStrip({ onBookSlot, onBookNow }: AvailableSlotsStripProps) {
   const { user, isGuest } = useAuth();
   const queryClient = useQueryClient();
 
@@ -260,3 +260,5 @@ const s = StyleSheet.create({
     color: "#fff",
   },
 });
+
+export default React.memo(AvailableSlotsStrip);

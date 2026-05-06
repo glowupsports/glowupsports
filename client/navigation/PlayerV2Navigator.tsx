@@ -18,6 +18,7 @@ import { PlayerLevelProvider } from "@/player/context/PlayerLevelContext";
 import { CartProvider } from "@/player/contexts/CartContext";
 import { useChatState } from "@/coach/context/ChatStateContext";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
+import { TabResetContext, withIsolatedTabBoundary } from "@/components/IsolatedTabBoundary";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiFetch } from "@/lib/query-client";
@@ -134,6 +135,14 @@ import ArenaShopScreen from "@/player/screens/arena/ArenaShopScreen";
 import TrophyRoomScreen from "@/player/screens/arena/TrophyRoomScreen";
 import AcademyClashScreen from "@/player/screens/arena/AcademyClashScreen";
 import GlobalTournamentScreen from "@/player/screens/arena/GlobalTournamentScreen";
+
+// ── Isolated tab wrappers (one per tab — defined at module scope so the HOC
+//    is never re-created on re-render, preserving component identity). ────────
+const IsolatedHome = withIsolatedTabBoundary(ProPlayerHomeDiagnosticScreen, "Home");
+const IsolatedCommunity = withIsolatedTabBoundary(CommunityScreen, "Community");
+const IsolatedPlayStack = withIsolatedTabBoundary(PlayStackNavigator, "PlayStack");
+const IsolatedGrowth = withIsolatedTabBoundary(ProgressStackNavigator, "Growth");
+const IsolatedProfile = withIsolatedTabBoundary(PlayerProfileScreen, "Profile");
 
 // ─── Stack param list — mirrors PlayerStackParamList minus PlayerTabs ────────
 export type PlayerV2StackParamList = {
@@ -417,11 +426,11 @@ function PlayerV2TabView() {
   const hasCommunityUnread = (communityUnread?.count ?? 0) > 0;
 
   const tabs: TabConfig[] = useMemo(() => [
-    { key: "Home",      label: "Home",   icon: "home-outline",            iconFocused: "home",            component: ProPlayerHomeDiagnosticScreen },
-    { key: "Community", label: "Social", icon: "people-outline",          iconFocused: "people",          component: CommunityScreen, badge: hasCommunityUnread },
-    { key: "PlayStack", label: "Play",   icon: "game-controller-outline", iconFocused: "game-controller", component: PlayStackNavigator,     keepAlive: false },
-    { key: "Growth",    label: "Growth", icon: "trending-up-outline",     iconFocused: "trending-up",     component: ProgressStackNavigator, keepAlive: false },
-    { key: "Profile",   label: "Me",     icon: "person-outline",          iconFocused: "person",          component: PlayerProfileScreen },
+    { key: "Home",      label: "Home",   icon: "home-outline",            iconFocused: "home",            component: IsolatedHome },
+    { key: "Community", label: "Social", icon: "people-outline",          iconFocused: "people",          component: IsolatedCommunity, badge: hasCommunityUnread },
+    { key: "PlayStack", label: "Play",   icon: "game-controller-outline", iconFocused: "game-controller", component: IsolatedPlayStack,  keepAlive: false },
+    { key: "Growth",    label: "Growth", icon: "trending-up-outline",     iconFocused: "trending-up",     component: IsolatedGrowth,     keepAlive: false },
+    { key: "Profile",   label: "Me",     icon: "person-outline",          iconFocused: "person",          component: IsolatedProfile },
   ], [hasCommunityUnread]);
 
   const validTabKeys = useMemo(() => new Set(tabs.map((tab) => tab.key)), [tabs]);
@@ -496,17 +505,19 @@ function PlayerV2TabView() {
   }, [openDrawer]);
 
   return (
-    <SwipeableTabBar
-      tabs={tabs}
-      initialPage={initialPage >= 0 ? initialPage : 0}
-      primaryColor={Colors.dark.primary}
-      secondaryColor={Colors.dark.primary}
-      onEdgeSwipeLeft={handleEdgeSwipeLeft}
-      onPageChange={handlePageChange}
-      renderOverlay={renderOverlay}
-      centerButtonConfig={drawerOpen ? undefined : playCenterButton}
-      hideTabBar={isChatExpanded}
-    />
+    <TabResetContext.Provider value={currentTabKey}>
+      <SwipeableTabBar
+        tabs={tabs}
+        initialPage={initialPage >= 0 ? initialPage : 0}
+        primaryColor={Colors.dark.primary}
+        secondaryColor={Colors.dark.primary}
+        onEdgeSwipeLeft={handleEdgeSwipeLeft}
+        onPageChange={handlePageChange}
+        renderOverlay={renderOverlay}
+        centerButtonConfig={drawerOpen ? undefined : playCenterButton}
+        hideTabBar={isChatExpanded}
+      />
+    </TabResetContext.Provider>
   );
 }
 

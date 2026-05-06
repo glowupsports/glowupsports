@@ -109,6 +109,7 @@ import { BetaFeedbackButton } from "@/player/components/BetaFeedbackButton";
 import { GlowAssessmentCard } from "@/player/components/GlowAssessmentCard";
 import AchievementCelebrationModal from "@/player/components/AchievementCelebrationModal";
 import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
+import { useSafeEffect } from "@/hooks/useSafeEffect";
 import { WellnessSnapshotCard } from "@/player/components/WellnessSnapshotCard";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
@@ -431,12 +432,12 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     return today >= start && today <= end;
   }, []);
 
-  useEffect(() => {
+  useSafeEffect(() => {
     if (isRamadan) {
       const key = `@glow_ramadan_dismissed_${new Date().getFullYear()}`;
       AsyncStorage.getItem(key).then((val) => {
         if (val === "true") setRamadanDismissed(true);
-      });
+      }).catch(() => {});
     }
   }, [isRamadan]);
 
@@ -456,7 +457,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     const now = Date.now();
     const FOUR_HRS = 4 * 60 * 60 * 1000;
 
-    const candidate = sessionHistoryForTrigger.sessions.find((s) => {
+    const candidate = sessionHistoryForTrigger.sessions?.find((s) => {
       if (s.checkin != null) return false;
       const endTime = s.endTime ? new Date(s.endTime).getTime() : new Date(s.startTime).getTime() + 60 * 60 * 1000;
       const elapsed = now - endTime;

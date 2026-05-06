@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useInterval } from "@/hooks/useInterval";
+import { useSafeEffect } from "@/hooks/useSafeEffect";
 import {
   View,
   Text,
@@ -118,12 +120,9 @@ type TabKey = "chat" | "mirror" | "plan";
 
 function TypingIndicator() {
   const [dots, setDots] = useState(".");
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDots((d) => (d.length >= 3 ? "." : d + "."));
-    }, 450);
-    return () => clearInterval(interval);
-  }, []);
+  useInterval(() => {
+    setDots((d) => (d.length >= 3 ? "." : d + "."));
+  }, 450);
   return (
     <View style={styles.aiBubbleRow}>
       <View style={styles.aiAvatar}>
@@ -1680,7 +1679,7 @@ export default function PlayerAICoachScreen() {
     }
   };
 
-  useEffect(() => {
+  useSafeEffect(() => {
     AsyncStorage.getItem(AI_COACH_INTRO_SEEN_KEY).then((val) => {
       if (!val) {
         setShowIntroModal(true);

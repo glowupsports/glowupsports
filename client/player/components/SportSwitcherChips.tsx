@@ -10,7 +10,7 @@ interface SportSwitcherChipsProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function SportSwitcherChips({ style }: SportSwitcherChipsProps) {
+function SportSwitcherChips({ style }: SportSwitcherChipsProps) {
   const { activeSports, activeSport, setActiveSport, isMultiSport } = useSport();
 
   if (!isMultiSport) return null;
@@ -75,3 +75,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.textMuted,
   },
 }));
+
+const _memoSportSwitcherChips = React.memo(SportSwitcherChips);
+export { _memoSportSwitcherChips as SportSwitcherChips };

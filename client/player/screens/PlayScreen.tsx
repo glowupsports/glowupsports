@@ -1797,10 +1797,10 @@ export default function PlayScreen() {
               ) : null}
 
               {/* Participants Section - Below buttons */}
-              {session.players.length > 0 ? (
+              {(session.players ?? []).length > 0 ? (
                 <View style={styles.participantsRow}>
                   <View style={styles.epicAvatarStack}>
-                    {session.players.slice(0, 6).map((player, index) => (
+                    {(session.players ?? []).slice(0, 6).map((player, index) => (
                       <View
                         key={player.id}
                         style={[
@@ -4368,10 +4368,10 @@ export default function PlayScreen() {
                 </View>
 
                 {/* Enrolled players avatar stack */}
-                {selectedSession.players.length > 0 ? (
+                {(selectedSession.players ?? []).length > 0 ? (
                   <View style={styles.sessionInfoPlayersRow}>
                     <View style={styles.epicAvatarStack}>
-                      {selectedSession.players
+                      {(selectedSession.players ?? [])
                         .slice(0, 6)
                         .map((player, index) => (
                           <View
@@ -4409,12 +4409,12 @@ export default function PlayScreen() {
                         ))}
                     </View>
                     <Text style={styles.sessionInfoPlayerNames}>
-                      {selectedSession.players
+                      {(selectedSession.players ?? [])
                         .slice(0, 3)
                         .map((p) => p.name.split(" ")[0])
                         .join(", ")}
-                      {selectedSession.players.length > 3
-                        ? ` +${selectedSession.players.length - 3}`
+                      {(selectedSession.players ?? []).length > 3
+                        ? ` +${(selectedSession.players ?? []).length - 3}`
                         : ""}
                     </Text>
                   </View>

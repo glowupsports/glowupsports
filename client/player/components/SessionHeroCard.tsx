@@ -222,7 +222,7 @@ const gamingStyles = makeReactiveStyles(() => StyleSheet.create({
   },
 }));
 
-export function SessionHeroCard({
+function SessionHeroCard({
   onCheckIn: _onCheckIn,
   onCancel,
   onExtend,
@@ -3962,3 +3962,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 14,
   },
 }));
+
+const _memoSessionHeroCard = React.memo(SessionHeroCard);
+export { _memoSessionHeroCard as SessionHeroCard };

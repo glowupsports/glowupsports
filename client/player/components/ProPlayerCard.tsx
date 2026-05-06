@@ -61,7 +61,7 @@ interface ProPlayerCardProps {
   accessibilityLabel?: string;
 }
 
-export function ProPlayerCard({ 
+function ProPlayerCard({ 
   player, 
   credits, 
   academyName,
@@ -983,3 +983,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: Colors.dark.buttonText,
   },
 }));
+
+const _memoProPlayerCard = React.memo(ProPlayerCard);
+export { _memoProPlayerCard as ProPlayerCard };

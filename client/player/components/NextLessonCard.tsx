@@ -49,7 +49,7 @@ function formatTimeRange(start: string, end?: string): string {
   return `${start} - ${end}`;
 }
 
-export default function NextLessonCard({
+function NextLessonCard({
   nextSession,
   onBookLesson,
   getTypeLabel,
@@ -236,3 +236,5 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     color: "#0A0A0A",
   },
 }));
+
+export default React.memo(NextLessonCard);
