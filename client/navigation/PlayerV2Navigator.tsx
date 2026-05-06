@@ -121,7 +121,7 @@ import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
-import { PlayerDesktopShell } from "@/components/PlayerDesktopShell";
+import { PlayerDesktopShell, PLAYER_DESKTOP_SIDEBAR_WIDTH, PLAYER_DESKTOP_CONTENT_MAX_WIDTH } from "@/components/PlayerDesktopShell";
 import { WEB_DESKTOP_BREAKPOINT } from "@/components/WebContainer";
 import MyCardScreen from "@/player/screens/arena/MyCardScreen";
 import PackOpeningScreen from "@/player/screens/arena/PackOpeningScreen";
@@ -508,6 +508,12 @@ function PlayerV2TabView() {
     openDrawer();
   }, [openDrawer]);
 
+  // On desktop, tell SwipeableTabBar exactly how wide its content column is
+  // (sidebar consumed + content cap) so page items size correctly.
+  const playerDesktopContainerWidth = isDesktop
+    ? Math.min(width - PLAYER_DESKTOP_SIDEBAR_WIDTH, PLAYER_DESKTOP_CONTENT_MAX_WIDTH)
+    : undefined;
+
   const tabBar = (
     <SwipeableTabBar
       tabs={tabs}
@@ -519,16 +525,13 @@ function PlayerV2TabView() {
       renderOverlay={isDesktop ? undefined : renderOverlay}
       centerButtonConfig={isDesktop ? undefined : (drawerOpen ? undefined : playCenterButton)}
       hideTabBar={isDesktop || isChatExpanded}
+      desktopContainerWidth={playerDesktopContainerWidth}
     />
   );
 
   return (
     <TabResetContext.Provider value={currentTabKey}>
-      {isDesktop ? (
-        <PlayerDesktopShell>
-          {tabBar}
-        </PlayerDesktopShell>
-      ) : tabBar}
+      {tabBar}
     </TabResetContext.Provider>
   );
 }
@@ -568,6 +571,8 @@ function PlayerV2StackWithDrawer() {
   const navigation = useNavigation<any>();
   const { setOpenDrawer, syncDrawerOpen } = usePlayerDrawer();
   const { navigateToTab } = useTabNavigation();
+  const { width } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === "web" && width >= WEB_DESKTOP_BREAKPOINT;
 
   // Register the drawer-open callback so PlayerV2TabView's edge-swipe
   // and the drawer icon both work correctly.
@@ -601,7 +606,10 @@ function PlayerV2StackWithDrawer() {
     [navigation, navigateToTab],
   );
 
-  return (
+  // On desktop web the sidebar shell lives here (not inside PlayerV2TabView)
+  // so it persists across every push screen — FamilyLobby, ChatRoom, etc.
+  // The shell renders sidebar left + children in the capped content column.
+  const stackContent = (
     <View style={styles.flex}>
       <GuestIntentConsumer />
       <Stack.Navigator screenOptions={{ headerShown: false, animation: "none", gestureEnabled: false }}>
@@ -749,6 +757,10 @@ function PlayerV2StackWithDrawer() {
       />
     </View>
   );
+
+  return isDesktopWeb ? (
+    <PlayerDesktopShell>{stackContent}</PlayerDesktopShell>
+  ) : stackContent;
 }
 
 function NoOpScreen() {

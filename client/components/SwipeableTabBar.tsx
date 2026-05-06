@@ -219,6 +219,11 @@ interface SwipeableTabBarProps {
   dividerAfterIndices?: number[];
   hideTabBar?: boolean;
   centerButtonConfig?: CenterButtonConfig;
+  // Optional override for the desktop-web content column width.
+  // When provided, replaces the default (windowWidth - 240) calculation so
+  // role-specific shells (e.g. the 220px player sidebar with 860px cap) can
+  // supply the exact available width without hard-coding it in this component.
+  desktopContainerWidth?: number;
 }
 
 export function SwipeableTabBar({ 
@@ -233,6 +238,7 @@ export function SwipeableTabBar({
   dividerAfterIndices = [],
   hideTabBar = false,
   centerButtonConfig,
+  desktopContainerWidth,
 }: SwipeableTabBarProps) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -264,9 +270,14 @@ export function SwipeableTabBar({
 
   const isWeb = Platform.OS === "web";
   const isDesktopWeb = isWeb && windowWidth >= 1024;
+  // On desktop web, `desktopContainerWidth` (if passed) wins — it lets each
+  // role-specific shell (e.g. PlayerDesktopShell with its 220px sidebar and
+  // 860px content cap) supply the exact available width without polluting this
+  // shared component with role-specific numbers. Default 240 preserves the
+  // pre-existing coach-desktop behaviour until a coach shell passes its own value.
   const containerWidth = isWeb
     ? isDesktopWeb
-      ? windowWidth - 240
+      ? (desktopContainerWidth !== undefined ? desktopContainerWidth : windowWidth - 240)
       : Math.min(windowWidth, 480)
     : windowWidth;
 
