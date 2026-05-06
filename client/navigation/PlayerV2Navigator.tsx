@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { View, StyleSheet, Platform } from "react-native";
+import { View, StyleSheet, Platform, useWindowDimensions } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
@@ -121,6 +121,8 @@ import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { PlayerDesktopShell } from "@/components/PlayerDesktopShell";
+import { WEB_DESKTOP_BREAKPOINT } from "@/components/WebContainer";
 import MyCardScreen from "@/player/screens/arena/MyCardScreen";
 import PackOpeningScreen from "@/player/screens/arena/PackOpeningScreen";
 import MyCollectionScreen from "@/player/screens/arena/MyCollectionScreen";
@@ -399,6 +401,8 @@ function PlayerV2TabView() {
   const { user } = useAuth();
   const { isChatExpanded } = useChatState();
   const { navigateToTab } = useTabNavigation();
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === "web" && width >= WEB_DESKTOP_BREAKPOINT;
   const { openDrawer, isOpen: drawerOpen } = usePlayerDrawer();
 
   // Gap 5: feature tracking
@@ -504,19 +508,27 @@ function PlayerV2TabView() {
     openDrawer();
   }, [openDrawer]);
 
+  const tabBar = (
+    <SwipeableTabBar
+      tabs={tabs}
+      initialPage={initialPage >= 0 ? initialPage : 0}
+      primaryColor={Colors.dark.primary}
+      secondaryColor={Colors.dark.primary}
+      onEdgeSwipeLeft={handleEdgeSwipeLeft}
+      onPageChange={handlePageChange}
+      renderOverlay={isDesktop ? undefined : renderOverlay}
+      centerButtonConfig={isDesktop ? undefined : (drawerOpen ? undefined : playCenterButton)}
+      hideTabBar={isDesktop || isChatExpanded}
+    />
+  );
+
   return (
     <TabResetContext.Provider value={currentTabKey}>
-      <SwipeableTabBar
-        tabs={tabs}
-        initialPage={initialPage >= 0 ? initialPage : 0}
-        primaryColor={Colors.dark.primary}
-        secondaryColor={Colors.dark.primary}
-        onEdgeSwipeLeft={handleEdgeSwipeLeft}
-        onPageChange={handlePageChange}
-        renderOverlay={renderOverlay}
-        centerButtonConfig={drawerOpen ? undefined : playCenterButton}
-        hideTabBar={isChatExpanded}
-      />
+      {isDesktop ? (
+        <PlayerDesktopShell>
+          {tabBar}
+        </PlayerDesktopShell>
+      ) : tabBar}
     </TabResetContext.Provider>
   );
 }

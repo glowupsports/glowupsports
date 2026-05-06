@@ -104,6 +104,7 @@ The platform uses a dark-themed premium sports aesthetic with Neon Green, White,
 - **Player Match & Score Tracking**: Players self-log match results (opponent, date, score, win/loss). In-app opponents confirm via push notification. `MatchHistoryScreen` unifies live-scored and self-logged results. Confirmed wins count toward leaderboards.
 - **Updates**: What's New Modal (role and locale-aware carousel).
 - **AI Technique Feedback**: Players upload short video clips for AI analysis. Videos and thumbnails stored in Replit Object Storage. Coach-sharing privacy toggle. Purging deletes GCS objects.
+- **Player Desktop Sidebar Shell** (Task #1700): On web at ≥1024px, a 240px dark sidebar replaces the mobile tab bar. Sidebar shows logo, academy name, 5 nav items (Home/Social/Play/Growth/Me) with active-tab highlight via `registerActiveTabListener`, and a player avatar/badge panel. Implemented in `client/components/PlayerDesktopShell.tsx`; wired into `PlayerV2TabView` in `PlayerV2Navigator.tsx`.
 
 ## External Dependencies
 
