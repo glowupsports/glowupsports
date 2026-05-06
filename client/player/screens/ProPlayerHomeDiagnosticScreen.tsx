@@ -74,7 +74,6 @@ import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
-import { TodaysFocusCard } from "@/player/components/TodaysFocusCard";
 import type { FocusCard } from "@/player/components/TodaysFocusCard";
 import { StreakMilestoneBanner } from "@/player/components/StreakMilestoneBanner";
 import { NewPlayerGuideCard } from "@/player/components/NewPlayerGuideCard";
@@ -103,7 +102,6 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
-import { TrainingLoadCard } from "@/player/components/TrainingLoadCard";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { AICoachHomeCard } from "@/player/components/AICoachHomeCard";
 import { PostSessionCheckInModal } from "@/player/components/PostSessionCheckInModal";
@@ -669,14 +667,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     [insets.top, insets.bottom],
   );
 
-  const handleFocusCTA = useCallback((action: string) => {
-    if (action === "view_session" || action === "book_session") {
-      handleBookLesson();
-    } else if (action === "open_quests") {
-      track("home:focus_cta_quests");
-      navigateToTab("Growth", { screen: "QuestsMain" });
-    }
-  }, [handleBookLesson, navigateToTab, track]);
 
   // ── DNA completion for NewPlayerGuideCard ─────────────────────────────────
   const dnaPct = useMemo(() => {
@@ -796,13 +786,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
             <StreakMilestoneBanner streak={player.streak} />
           ) : null}
 
-          {/* TODAY'S FOCUS CARD */}
-          {!isGuest && homeData?.dailyFocus ? (
-            <TodaysFocusCard
-              focus={homeData.dailyFocus}
-              onCTA={handleFocusCTA}
-            />
-          ) : null}
 
           {/* NEW PLAYER ONBOARDING GUIDE */}
           {!isGuest && isNewPlayer ? (
@@ -860,10 +843,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           {/* WELCOME / GUIDE */}
           <WelcomeGuideCard />
 
-          {/* TRAINING LOAD */}
-          <LazyOnScroll prefetchOffset={300} minHeight={130}>
-            <TrainingLoadCard />
-          </LazyOnScroll>
 
           {/* COACHES RAIL */}
           {!isGuest ? (

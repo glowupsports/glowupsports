@@ -686,7 +686,7 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="Training" component={PlayerTrainingScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="TrainingDetail" component={TrainingDetailScreen} options={{ presentation: "card" }} />
         <Stack.Screen name="SkillDetail" component={SkillDetailScreen} options={{ presentation: "card" }} />
-        <Stack.Screen name="Journey" component={PlayerJourneyScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="Journey" component={PlayerJourneyScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Journey", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerBackTitle: "Back" }} />
 
         {/* ── Corporate ── */}
         <Stack.Screen name="CorporateBenefits" component={CorporateBenefitsScreen} options={{ headerShown: false }} />
