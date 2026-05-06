@@ -1,0 +1,190 @@
+{
+  "id": "30046a25-c99c-4023-8f79-46ef39a37784",
+  "createdAt": "2026-05-06T07:53:37.189Z",
+  "runtimeVersion": "1.3.6",
+  "launchAsset": {
+    "key": "bundle-1778054017189-588",
+    "contentType": "application/javascript",
+    "url": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g-ykoo8bzq.spock.replit.dev/1778054017189-588/_expo/static/js/android/bundle.js"
+  },
+  "assets": [],
+  "metadata": {},
+  "extra": {
+    "eas": {
+      "projectId": "ce3ccb00-0553-4abc-a038-1a93b7483738"
+    },
+    "expoClient": {
+      "name": "Glow Up Sports",
+      "slug": "glow-up-sports-qimo0pvm-ks03bklnmcri",
+      "version": "1.3.6",
+      "updates": {
+        "enabled": true,
+        "checkAutomatically": "ON_LOAD",
+        "fallbackToCacheTimeout": 0,
+        "url": "https://u.expo.dev/ce3ccb00-0553-4abc-a038-1a93b7483738"
+      },
+      "orientation": "portrait",
+      "icon": "./assets/images/icon.png",
+      "scheme": "glowupsports",
+      "userInterfaceStyle": "dark",
+      "newArchEnabled": true,
+      "ios": {
+        "version": "1.3.6",
+        "runtimeVersion": "1.3.6",
+        "supportsTablet": true,
+        "bundleIdentifier": "com.glowupsports.app",
+        "infoPlist": {
+          "ITSAppUsesNonExemptEncryption": false,
+          "NSLocationWhenInUseUsageDescription": "Glow Up Sports uses your location to find tennis players near you and show how far away they are.",
+          "NSCameraUsageDescription": "Glow Up Sports uses your camera to record skill evidence videos for coach review and to capture photos for your player profile and community posts.",
+          "NSMicrophoneUsageDescription": "Glow Up Sports uses your microphone to record audio during skill evidence videos so your coach can give accurate feedback.",
+          "NSPhotoLibraryUsageDescription": "Glow Up Sports accesses your photo library so you can upload a profile photo, add quest evidence, and share photos in the community feed."
+        },
+        "config": {
+          "googleMapsApiKey": "AIzaSyAJCK_WDI_jIHfrdixQ42eAajF8JtfqthM"
+        }
+      },
+      "android": {
+        "version": "1.3.6",
+        "runtimeVersion": "1.3.6",
+        "adaptiveIcon": {
+          "backgroundColor": "#051820",
+          "foregroundImage": "./assets/images/android-icon-foreground.png",
+          "backgroundImage": "./assets/images/android-icon-background.png",
+          "monochromeImage": "./assets/images/android-icon-monochrome.png",
+          "foregroundImageUrl": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g-ykoo8bzq.spock.replit.dev/assets/./assets/images/android-icon-foreground.png",
+          "monochromeImageUrl": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g-ykoo8bzq.spock.replit.dev/assets/./assets/images/android-icon-monochrome.png",
+          "backgroundImageUrl": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g-ykoo8bzq.spock.replit.dev/assets/./assets/images/android-icon-background.png"
+        },
+        "edgeToEdgeEnabled": true,
+        "predictiveBackGestureEnabled": false,
+        "package": "com.glowupsports.app",
+        "permissions": [
+          "android.permission.INTERNET",
+          "android.permission.ACCESS_NETWORK_STATE",
+          "android.permission.CAMERA",
+          "android.permission.RECORD_AUDIO",
+          "android.permission.ACCESS_COARSE_LOCATION",
+          "android.permission.ACCESS_FINE_LOCATION"
+        ],
+        "googleServicesFile": "{\n  \"project_info\": {\n    \"project_number\": \"1080592478669\",\n    \"project_id\": \"glowup-sports\",\n    \"storage_bucket\": \"glowup-sports.firebasestorage.app\"\n  },\n  \"client\": [\n    {\n      \"client_info\": {\n        \"mobilesdk_app_id\": \"1:1080592478669:android:1e990a68d626dcba3ad484\",\n        \"android_client_info\": {\n          \"package_name\": \"com.glowupsports.app\"\n        }\n      },\n      \"oauth_client\": [],\n      \"api_key\": [\n        {\n          \"current_key\": \"AIzaSyDig1nmWBrNvftTEoXlS0mrzE8PZEkvm0U\"\n        }\n      ],\n      \"services\": {\n        \"appinvite_service\": {\n          \"other_platform_oauth_client\": []\n        }\n      }\n    }\n  ],\n  \"configuration_version\": \"1\"\n}\n",
+        "config": {
+          "googleMaps": {
+            "apiKey": "AIzaSyAJCK_WDI_jIHfrdixQ42eAajF8JtfqthM"
+          }
+        }
+      },
+      "web": {
+        "output": "single",
+        "favicon": "./assets/images/favicon.png"
+      },
+      "plugins": [
+        [
+          "expo-splash-screen",
+          {
+            "image": "./assets/images/splash-icon.png",
+            "imageWidth": 200,
+            "resizeMode": "contain",
+            "backgroundColor": "#051820",
+            "dark": {
+              "backgroundColor": "#051820"
+            }
+          }
+        ],
+        "expo-web-browser",
+        "expo-camera",
+        "expo-image-picker",
+        [
+          "expo-location",
+          {
+            "isAndroidBackgroundLocationEnabled": false
+          }
+        ],
+        [
+          "expo-notifications",
+          {
+            "icon": "./assets/images/notification-icon.png",
+            "color": "#00E676",
+            "defaultChannel": "default"
+          }
+        ],
+        [
+          "@sentry/react-native/expo",
+          {
+            "url": "https://sentry.io/",
+            "project": "react-native",
+            "organization": "glowupsports"
+          }
+        ]
+      ],
+      "experiments": {
+        "reactCompiler": false
+      },
+      "extra": {
+        "eas": {
+          "projectId": "ce3ccb00-0553-4abc-a038-1a93b7483738"
+        }
+      },
+      "_internal": {
+        "isDebug": false,
+        "projectRoot": "/home/runner/workspace",
+        "dynamicConfigPath": "/home/runner/workspace/app.config.js",
+        "staticConfigPath": "/home/runner/workspace/app.json",
+        "packageJsonPath": "/home/runner/workspace/package.json",
+        "pluginHistory": {
+          "expo-splash-screen": {
+            "name": "expo-splash-screen",
+            "version": "31.0.13"
+          },
+          "expo-web-browser": {
+            "name": "expo-web-browser",
+            "version": "15.0.10"
+          },
+          "expo-camera": {
+            "name": "expo-camera",
+            "version": "17.0.10"
+          },
+          "expo-image-picker": {
+            "name": "expo-image-picker",
+            "version": "17.0.10"
+          },
+          "expo-location": {
+            "name": "expo-location",
+            "version": "19.0.8"
+          },
+          "expo-notifications": {
+            "name": "expo-notifications",
+            "version": "0.32.16"
+          },
+          "@sentry/react-native": {
+            "name": "@sentry/react-native",
+            "version": "7.2.0"
+          }
+        }
+      },
+      "sdkVersion": "54.0.0",
+      "platforms": [
+        "ios",
+        "android",
+        "web"
+      ],
+      "androidStatusBar": {
+        "backgroundColor": "#051820"
+      },
+      "iconUrl": "https://81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g-ykoo8bzq.spock.replit.dev/assets/./assets/images/icon.png",
+      "hostUri": "81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g-ykoo8bzq.spock.replit.dev/android"
+    },
+    "expoGo": {
+      "debuggerHost": "81de32e9-0d70-4ba8-89e4-d7d5a668d2f1-00-mmcbv7admw7g-ykoo8bzq.spock.replit.dev/android",
+      "developer": {
+        "tool": "expo-cli",
+        "projectRoot": "/home/runner/workspace"
+      },
+      "packagerOpts": {
+        "dev": false
+      },
+      "mainModuleName": "client/index"
+    },
+    "scopeKey": "@anonymous/glow-up-sports-qimo0pvm-ks03bklnmcri-a838c46b-0f64-4589-8496-57125b5795c9"
+  }
+}

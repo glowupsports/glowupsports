@@ -24,6 +24,8 @@ import { apiFetch } from "@/lib/query-client";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { consumePendingGuestIntent, hasPendingGuestIntent } from "@/lib/guestIntent";
 
+import { HeaderButton } from "@react-navigation/elements";
+import Feather from "@expo/vector-icons/Feather";
 import PlayerIdentityDrawer from "@/components/PlayerIdentityDrawer";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 
@@ -686,7 +688,7 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="Training" component={PlayerTrainingScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="TrainingDetail" component={TrainingDetailScreen} options={{ presentation: "card" }} />
         <Stack.Screen name="SkillDetail" component={SkillDetailScreen} options={{ presentation: "card" }} />
-        <Stack.Screen name="Journey" component={PlayerJourneyScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Journey", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerBackTitle: "Back" }} />
+        <Stack.Screen name="Journey" component={PlayerJourneyScreen} options={({ navigation }) => ({ presentation: "card", headerShown: true, headerTitle: "My Journey", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerBackTitle: "Back", headerLeft: () => (<HeaderButton onPress={() => navigation.goBack()}><Feather name="arrow-left" size={22} color={Colors.dark.text} /></HeaderButton>) })} />
 
         {/* ── Corporate ── */}
         <Stack.Screen name="CorporateBenefits" component={CorporateBenefitsScreen} options={{ headerShown: false }} />
