@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, Alert, Switch } from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert, Switch, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -139,103 +139,110 @@ export default function PrivacySettingsScreen({
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + Spacing.xl }]}>
-      <View style={styles.header}>
-        {!isOnboarding && onGoBack && (
-          <Pressable 
-            style={styles.backButton} 
-            onPress={onGoBack}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="chevron-back" size={24} color={TextColors.primary} />
-          </Pressable>
-        )}
-        <View style={styles.headerContent}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="shield-checkmark" size={32} color={Colors.dark.accentText} />
-          </View>
-          <Text style={styles.title}>Privacy Settings</Text>
-          <Text style={styles.subtitle}>
-            {isOnboarding 
-              ? "Choose who can find you in the app"
-              : "Update your visibility preferences"
-            }
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.optionsContainer}>
-        {PRIVACY_OPTIONS.map((option) => {
-          const isSelected = selected === option.id;
-          
-          return (
-            <Pressable
-              key={option.id}
-              style={[
-                styles.optionCard,
-                isSelected && styles.optionCardSelected,
-                isSelected && { borderColor: option.color },
-              ]}
-              onPress={() => handleSelect(option.id)}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          {!isOnboarding && onGoBack && (
+            <Pressable 
+              style={styles.backButton} 
+              onPress={onGoBack}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              {isSelected && (
-                <LinearGradient
-                  colors={[`${option.color}15`, `${option.color}05`]}
-                  style={StyleSheet.absoluteFillObject}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                />
-              )}
-              
-              <View style={styles.optionContent}>
-                <View style={[styles.optionIcon, { backgroundColor: `${option.color}20` }]}>
-                  <Ionicons name={option.icon} size={24} color={option.color} />
-                </View>
-                
-                <View style={styles.optionText}>
-                  <Text style={styles.optionTitle}>{option.title}</Text>
-                  <Text style={styles.optionDescription}>{option.description}</Text>
-                </View>
-                
-                <View style={[
-                  styles.radioOuter,
-                  isSelected && { borderColor: option.color },
-                ]}>
-                  {isSelected && (
-                    <View style={[styles.radioInner, { backgroundColor: option.color }]} />
-                  )}
-                </View>
-              </View>
+              <Ionicons name="chevron-back" size={24} color={TextColors.primary} />
             </Pressable>
-          );
-        })}
-      </View>
-
-      <View style={styles.infoCard}>
-        <Ionicons name="information-circle-outline" size={20} color={TextColors.muted} />
-        <Text style={styles.infoText}>
-          You can change this anytime in Settings. Your choice affects who can see your profile and invite you to matches.
-        </Text>
-      </View>
-
-      <View style={styles.coachSectionCard}>
-        <View style={styles.coachSectionRow}>
-          <View style={styles.coachSectionIcon}>
-            <Ionicons name="videocam-outline" size={22} color={GlowColors.primary} />
-          </View>
-          <View style={styles.coachSectionText}>
-            <Text style={styles.coachSectionTitle}>Share Technique Analyses</Text>
-            <Text style={styles.coachSectionSub}>
-              Allow your coach to view your AI technique feedback by default
+          )}
+          <View style={styles.headerContent}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="shield-checkmark" size={32} color={Colors.dark.accentText} />
+            </View>
+            <Text style={styles.title}>Privacy Settings</Text>
+            <Text style={styles.subtitle}>
+              {isOnboarding 
+                ? "Choose who can find you in the app"
+                : "Update your visibility preferences"
+              }
             </Text>
           </View>
-          <Switch
-            value={shareWithCoach}
-            onValueChange={handleCoachShareToggle}
-            trackColor={{ false: Backgrounds.card, true: GlowColors.primary }}
-            thumbColor="#fff"
-          />
         </View>
-      </View>
+
+        <View style={styles.optionsContainer}>
+          {PRIVACY_OPTIONS.map((option) => {
+            const isSelected = selected === option.id;
+            
+            return (
+              <Pressable
+                key={option.id}
+                style={[
+                  styles.optionCard,
+                  isSelected && styles.optionCardSelected,
+                  isSelected && { borderColor: option.color },
+                ]}
+                onPress={() => handleSelect(option.id)}
+              >
+                {isSelected && (
+                  <LinearGradient
+                    colors={[`${option.color}15`, `${option.color}05`]}
+                    style={StyleSheet.absoluteFillObject}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  />
+                )}
+                
+                <View style={styles.optionContent}>
+                  <View style={[styles.optionIcon, { backgroundColor: `${option.color}20` }]}>
+                    <Ionicons name={option.icon} size={24} color={option.color} />
+                  </View>
+                  
+                  <View style={styles.optionText}>
+                    <Text style={styles.optionTitle}>{option.title}</Text>
+                    <Text style={styles.optionDescription}>{option.description}</Text>
+                  </View>
+                  
+                  <View style={[
+                    styles.radioOuter,
+                    isSelected && { borderColor: option.color },
+                  ]}>
+                    {isSelected && (
+                      <View style={[styles.radioInner, { backgroundColor: option.color }]} />
+                    )}
+                  </View>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.infoCard}>
+          <Ionicons name="information-circle-outline" size={20} color={TextColors.muted} />
+          <Text style={styles.infoText}>
+            You can change this anytime in Settings. Your choice affects who can see your profile and invite you to matches.
+          </Text>
+        </View>
+
+        <View style={styles.coachSectionCard}>
+          <View style={styles.coachSectionRow}>
+            <View style={styles.coachSectionIcon}>
+              <Ionicons name="videocam-outline" size={22} color={GlowColors.primary} />
+            </View>
+            <View style={styles.coachSectionText}>
+              <Text style={styles.coachSectionTitle}>Share Technique Analyses</Text>
+              <Text style={styles.coachSectionSub}>
+                Allow your coach to view your AI technique feedback by default
+              </Text>
+            </View>
+            <Switch
+              value={shareWithCoach}
+              onValueChange={handleCoachShareToggle}
+              trackColor={{ false: Backgrounds.card, true: GlowColors.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
+      </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
         <Pressable
@@ -266,7 +273,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Backgrounds.card,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
   },
   header: {
     marginBottom: Spacing.xl,
@@ -303,7 +316,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     textAlign: "center",
   },
   optionsContainer: {
-    flex: 1,
     gap: Spacing.md,
   },
   optionCard: {
@@ -404,7 +416,9 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     lineHeight: 16,
   },
   footer: {
-    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    backgroundColor: Backgrounds.card,
   },
   confirmButton: {
     height: 56,
