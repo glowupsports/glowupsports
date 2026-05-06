@@ -14,6 +14,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Sentry from "@sentry/react-native";
@@ -86,7 +88,7 @@ function StatBadge({
 
 export default function CoachProfileScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const queryClient = useQueryClient();
   const { coach } = useCoach();
   const { refreshAuth } = useAuth();
@@ -516,9 +518,11 @@ export default function CoachProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>PUBLIC PROFILE</Text>
 
-          {/* Task #1112: when the coach is opted-in publicly but has nothing
-              to show (no photo, no quote, no specialty) explain why they
-              aren't appearing in the public coach rail. */}
+          {/* Task #1112 / Task #1685: when the coach is opted-in publicly but
+              has nothing to show (no photo, no quote, no specialty) explain
+              why they aren't appearing in the public coach rail.
+              Also remind them to set up their availability so players can
+              actually book slots once they appear in the directory. */}
           {(() => {
             const enabled = isEditing
               ? formData.publicProfileEnabled !== false
@@ -541,11 +545,25 @@ export default function CoachProfileScreen() {
                   color={Colors.dark.gold}
                   style={{ marginTop: 1 }}
                 />
-                <View style={{ flex: 1 }}>
+                <View style={{ flex: 1, gap: Spacing.xs }}>
                   <Text style={styles.hintTitle}>Complete your public profile</Text>
                   <Text style={styles.hintBody}>
-                    You&apos;re opted-in, but players won&apos;t see you in the public coach rail until you add a photo, a public quote, or a specialty.
+                    {"You're opted-in, but players won't see you in the public coach rail until you add at least one of: a profile photo, a public quote, or a specialty."}
                   </Text>
+                  <Text style={styles.hintBody}>
+                    {"Once visible, players can only book you if you've also set up your availability schedule."}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      navigation.navigate("Availability");
+                    }}
+                    style={styles.hintLink}
+                  >
+                    <Ionicons name="calendar-outline" size={13} color={Colors.dark.gold} />
+                    <Text style={styles.hintLinkText}>Set up availability schedule</Text>
+                    <Ionicons name="chevron-forward" size={13} color={Colors.dark.gold} />
+                  </Pressable>
                 </View>
               </View>
             );
@@ -594,7 +612,7 @@ export default function CoachProfileScreen() {
             onPress={() => {
               if (!coach?.id) return;
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              (navigation as any).navigate("CoachPublicPreview", { coachId: coach.id, previewMode: true });
+              navigation.navigate("CoachPublicPreview", { coachId: coach.id, previewMode: true });
             }}
           >
             <Ionicons name="eye-outline" size={18} color={Colors.dark.xpCyan} />
@@ -992,6 +1010,17 @@ const styles = StyleSheet.create({
     fontSize: Typography.caption.fontSize,
     color: Colors.dark.text,
     lineHeight: 18,
+  },
+  hintLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  hintLinkText: {
+    fontSize: Typography.caption.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.gold,
   },
   previewButton: {
     flexDirection: "row",

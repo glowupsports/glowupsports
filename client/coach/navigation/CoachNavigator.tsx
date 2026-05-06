@@ -85,7 +85,7 @@ export type CoachStackParamList = {
   History: undefined;
   Notifications: undefined;
   CoachProfile: undefined;
-  CoachPublicPreview: { coachId: string };
+  CoachPublicPreview: { coachId: string; previewMode?: boolean };
   ChatInbox: undefined;
   Availability: undefined;
   CourtPreferences: undefined;
