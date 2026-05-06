@@ -360,12 +360,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ username, password }),
       });
       
-      const data = await response.json();
-      
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        return {
+          success: false,
+          error: response.status >= 500
+            ? "The server is temporarily starting up. Please try again in a moment."
+            : "Unexpected server response. Please try again.",
+        };
+      }
+
       if (!response.ok) {
         return { success: false, error: data.error || "Login failed" };
       }
-      
+
       await saveAuthState(data.token, data.user, data.refreshToken);
       setAuthToken(data.token);
       await fetchUserData(data.token, true);
@@ -415,7 +425,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ identityToken, user: appleUser, email: email || undefined }),
       });
 
-      const data = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        return {
+          success: false,
+          error: response.status >= 500
+            ? "The server is temporarily starting up. Please try again in a moment."
+            : "Unexpected server response. Please try again.",
+        };
+      }
 
       if (!response.ok) {
         return { success: false, error: data.error || "Apple Sign-In failed", code: data.code };
@@ -460,7 +480,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }),
       });
 
-      const body = await response.json();
+      let body: any;
+      try {
+        body = await response.json();
+      } catch {
+        return {
+          success: false,
+          error: response.status >= 500
+            ? "The server is temporarily starting up. Please try again in a moment."
+            : "Unexpected server response. Please try again.",
+        };
+      }
 
       if (!response.ok) {
         return { success: false, error: body.error || "Apple Sign-In registration failed" };

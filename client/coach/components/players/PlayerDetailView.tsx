@@ -45,6 +45,7 @@ import CreateInvoiceModal from "@/admin/components/CreateInvoiceModal";
 import * as Clipboard from "expo-clipboard";
 import { styles } from "./playersStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { useAuth } from "@/coach/context/AuthContext";
 
 const TAB_BAR_HEIGHT = 80;
 
@@ -913,6 +914,11 @@ export function PlayerDetailView({
   }[];
 }) {
   const { coach, academy } = useCoach();
+  const { user } = useAuth();
+  const canSeePayments =
+    coach?.role === "head_coach" ||
+    user?.role === "academy_owner" ||
+    user?.role === "platform_owner";
   const { navigateToTab } = useTabNavigation();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
@@ -1935,18 +1941,22 @@ export function PlayerDetailView({
 
         <CoachTechniqueAnalysesSection playerId={player.id} />
 
-        <CollapsibleSection title="Packages" icon="ticket-outline" iconColor={Colors.dark.gold}>
-          <CoachCreditV2Panel playerId={player.id} />
-          {v2Enabled ? null : (
-            <PackagesCard playerId={player.id} playerName={localPlayer.name} />
-          )}
-        </CollapsibleSection>
+        {canSeePayments ? (
+          <CollapsibleSection title="Packages" icon="ticket-outline" iconColor={Colors.dark.gold}>
+            <CoachCreditV2Panel playerId={player.id} />
+            {v2Enabled ? null : (
+              <PackagesCard playerId={player.id} playerName={localPlayer.name} />
+            )}
+          </CollapsibleSection>
+        ) : null}
 
-        <PlayerPaymentsSection
-          playerStats={playerStats}
-          playerId={player.id}
-          playerName={localPlayer.name}
-        />
+        {canSeePayments ? (
+          <PlayerPaymentsSection
+            playerStats={playerStats}
+            playerId={player.id}
+            playerName={localPlayer.name}
+          />
+        ) : null}
 
         {isInvitePending && inviteData?.inviteCode ? (
           <CollapsibleSection title="Invite Code" icon="mail-outline" iconColor={Colors.dark.xpCyan}>
@@ -2485,7 +2495,7 @@ export function PlayerDetailView({
               setShowEditPlayer(true);
             },
           },
-          {
+          ...(canSeePayments ? [{
             id: "verify",
             label: localAuditVerified ? "Unverify Player" : "Verify Player",
             icon: localAuditVerified ? "checkmark-circle" : "checkmark-circle-outline",
@@ -2495,7 +2505,7 @@ export function PlayerDetailView({
             onPress: () => {
               auditVerifyMutation.mutate();
             },
-          },
+          }] : []),
           {
             id: "deep-assessment",
             label: "Deep Assessment",
@@ -2552,7 +2562,7 @@ export function PlayerDetailView({
               setShowMergeModal(true);
             },
           },
-          {
+          ...(canSeePayments ? [{
             id: "create-invoice",
             label: "Create Invoice",
             icon: "document-text-outline",
@@ -2560,15 +2570,14 @@ export function PlayerDetailView({
             onPress: () => {
               setShowCreateInvoiceModal(true);
             },
-          },
-          {
+          }, {
             id: "delete",
             label: "Delete Player",
             icon: "trash-outline",
             isLoading: deletePlayerMutation.isPending,
             isDestructive: true,
             onPress: handleDeletePlayer,
-          },
+          }] : []),
         ]}
       />
 
