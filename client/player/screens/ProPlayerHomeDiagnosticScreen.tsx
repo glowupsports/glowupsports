@@ -76,7 +76,6 @@ import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import type { FocusCard } from "@/player/components/TodaysFocusCard";
 import { StreakMilestoneBanner } from "@/player/components/StreakMilestoneBanner";
-import { NewPlayerGuideCard } from "@/player/components/NewPlayerGuideCard";
 import { HeroCarousel } from "@/player/components/HeroCarousel";
 import PlayerBookingWizard, { type AvailableSlot } from "@/player/components/PlayerBookingWizard";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
@@ -98,7 +97,6 @@ import { WelcomeGuideCard } from "@/player/components/WelcomeGuideCard";
 import { CoachesRail, JoinAcademySoftCard } from "@/player/components/CoachesRail";
 import { PlayersNearYouRow, CountryLeaderboardsEntry } from "@/player/components/DiscoveryRows";
 import SpotlightNominationModal from "@/player/components/SpotlightNominationModal";
-import { useTabNavigation } from "@/components/TabNavigationContext";
 import type { PlayerStackParamList } from "@/player/navigation/PlayerNavigator";
 import { RecentFeedbackCard } from "@/player/components/RecentFeedbackCard";
 import { UpcomingAppointmentCard } from "@/player/components/UpcomingAppointmentCard";
@@ -112,7 +110,6 @@ import { GlowAssessmentCard } from "@/player/components/GlowAssessmentCard";
 import AchievementCelebrationModal from "@/player/components/AchievementCelebrationModal";
 import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
 import { WellnessSnapshotCard } from "@/player/components/WellnessSnapshotCard";
-import PlayNowCard, { type AvailableTodaySlot } from "@/player/components/PlayNowCard";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -251,7 +248,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   const track = useTrackFeature();
   const { guardAction, promptProps } = useGuestGuard();
   const { isMultiSport, activeSports, activeSport } = useSport();
-  const { navigateToTab } = useTabNavigation();
 
   // ── Health recovery status (Task #1571) ───────────────────────────────────
   const [healthRecoveryStatus, setHealthRecoveryStatus] = useState<any>(null);
@@ -613,44 +609,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     // No fallback to nextSession — future sessions cannot be checked in
   }, [sessionHistoryForTrigger]);
 
-  const handleBookFromPlayNow = useCallback((slot?: AvailableTodaySlot) => {
-    guardAction(() => {
-      const today = new Date();
-      setBookingWizardPreselectedDate(today);
-      if (slot?.coachId) {
-        setBookingWizardPreselectedCoachId(slot.coachId);
-        // Task #1598: build an AvailableSlot hint so the wizard can auto-select
-        // and highlight the exact slot the player tapped in Play Now.
-        if (slot.time && slot.date) {
-          const addMinutes = (t: string, mins: number): string => {
-            const [h, m] = t.split(":").map(Number);
-            const total = h * 60 + m + mins;
-            return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-          };
-          setBookingWizardPreselectedSlot({
-            coachId: slot.coachId,
-            coachName: slot.coachName,
-            coachPhotoUrl: null,
-            courtId: "",
-            courtName: slot.courtName,
-            locationId: null,
-            locationName: slot.academyName,
-            startTime: `${slot.date}T${slot.time}:00.000Z`,
-            endTime: `${slot.date}T${addMinutes(slot.time, slot.durationMinutes)}:00.000Z`,
-            duration: slot.durationMinutes,
-          });
-        } else {
-          setBookingWizardPreselectedSlot(undefined);
-        }
-      } else {
-        setBookingWizardPreselectedCoachId(undefined);
-        setBookingWizardPreselectedSlot(undefined);
-      }
-      setBookingWizardSport(activeSport);
-      setShowBookingWizard(true);
-    });
-  }, [guardAction, activeSport]);
-
   const handleBookingSuccess = () => {
     setShowBookingWizard(false);
     setBookingWizardPreselectedDate(undefined);
@@ -667,39 +625,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     [insets.top, insets.bottom],
   );
 
-
-  // ── DNA completion for NewPlayerGuideCard ─────────────────────────────────
-  const dnaPct = useMemo(() => {
-    const p = homeData?.profile as Record<string, unknown> | null | undefined;
-    if (!p?.player) return 0;
-    const pp = p.player as Record<string, unknown>;
-    const DNA_FIELDS = [
-      !!pp.dominantHand, !!pp.backhandType, !!pp.height, !!pp.tshirtSize,
-      !!pp.playStyle, !!pp.tennisIdol,
-      Array.isArray(pp.enjoymentTags) && (pp.enjoymentTags as unknown[]).length > 0,
-      !!pp.shortTermGoal, !!pp.longTermDream,
-      Array.isArray(pp.typicalPlayTimes) && (pp.typicalPlayTimes as unknown[]).length > 0,
-      !!pp.profilePhotoUrl,
-    ];
-    const filled = DNA_FIELDS.filter(Boolean).length;
-    return Math.round((filled / DNA_FIELDS.length) * 100);
-  }, [homeData?.profile]);
-
-  const hasGoal = useMemo(() => {
-    const p = homeData?.profile as Record<string, unknown> | null | undefined;
-    if (!p?.player) return false;
-    const pp = p.player as Record<string, unknown>;
-    return !!pp.shortTermGoal;
-  }, [homeData?.profile]);
-
-  const sessionCount = useMemo(() => {
-    const ns = effectiveData?.nextSession;
-    return ns ? 1 : 0;
-  }, [effectiveData?.nextSession]);
-
-  const isNewPlayer = useMemo(() => {
-    return !effectiveData?.academy || (player.level <= 2 && dnaPct < 40 && sessionCount === 0);
-  }, [effectiveData?.academy, player.level, dnaPct, sessionCount]);
 
   return (
     <ScrollPositionContext.Provider value={scrollController.contextValue}>
@@ -787,16 +712,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           ) : null}
 
 
-          {/* NEW PLAYER ONBOARDING GUIDE */}
-          {!isGuest && isNewPlayer ? (
-            <NewPlayerGuideCard
-              dnaPct={dnaPct}
-              sessionCount={sessionCount}
-              hasGoal={hasGoal}
-              onBookSession={handleBookLesson}
-            />
-          ) : null}
-
           {/* BIRTHDAY BANNER */}
           {isBirthday ? (
             <BirthdayBanner playerName={player.name || "Champion"} playerAge={playerAge} />
@@ -815,20 +730,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
             <RamadanBonusCard onDismiss={handleDismissRamadan} />
           ) : null}
 
-          {/* PLAY NOW CARD — court availability widget */}
-          {!isGuest ? (
-            <PlayNowCard
-              hasTodaySession={(() => {
-                const ns = effectiveData?.nextSession;
-                if (!ns?.date) return false;
-                const today = new Date();
-                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-                return ns.date.startsWith(todayStr);
-              })()}
-              onBookNow={handleBookFromPlayNow}
-              onBrowseAll={() => navigateToTab("PlayStack", { screen: "Play" } as any)}
-            />
-          ) : null}
 
           {/* HERO CAROUSEL */}
           <HeroCarousel onBookSession={handleBookLesson} onRateSession={handleRateEndedSession} />
