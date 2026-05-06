@@ -803,6 +803,26 @@ async function run() {
       `CREATE UNIQUE INDEX release_notes_cache_unique_idx
          ON release_notes_cache (version, role, locale)`);
 
+    // ── Add skill_tags column to players and drills if missing (Task #1701) ──
+    // This column was declared in schema.ts but never applied to Supabase.
+    // Every getPlayer() call was throwing "column skill_tags does not exist"
+    // → /api/me returned 500 → auth context cleared → all players logged out.
+    await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS skill_tags jsonb;`);
+    console.log("[db-migrate] players.skill_tags — OK");
+
+    {
+      const drillsExists = await client.query(`
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'drills'
+      `);
+      if (drillsExists.rowCount && drillsExists.rowCount > 0) {
+        await client.query(`ALTER TABLE drills ADD COLUMN IF NOT EXISTS skill_tags jsonb DEFAULT '[]'::jsonb;`);
+        console.log("[db-migrate] drills.skill_tags — OK");
+      } else {
+        console.log("[db-migrate] drills.skill_tags — SKIPPED (table not yet created)");
+      }
+    }
+
     // ── Backfill default availability for coaches with zero rows (Task #1692) ──
     // Idempotent: coaches that already have rows are skipped by the NOT EXISTS guard.
     {
