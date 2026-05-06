@@ -16,7 +16,7 @@ const BORDER = "rgba(255,255,255,0.07)";
 const TEXT = "#F0F4F8";
 const MUTED = "#8A95A3";
 const BADGE_BG = "#EF4444";
-const SIDEBAR_WIDTH = 220;
+const SIDEBAR_WIDTH = 240;
 
 interface NavItem {
   key: string;
@@ -110,6 +110,22 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
               <Text style={styles.logoSub}>{academyName || "Tennis Academy"}</Text>
             </View>
           </View>
+
+          {coachName ? (
+            <View style={styles.coachSubheader}>
+              <View style={styles.coachSubheaderAvatar}>
+                <Text style={styles.coachSubheaderInitials}>
+                  {coachName.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.coachSubheaderMeta}>
+                <Text style={styles.coachSubheaderName} numberOfLines={1}>{coachName}</Text>
+                {academyName ? (
+                  <Text style={styles.coachSubheaderAcademy} numberOfLines={1}>{academyName}</Text>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.navSection}>
             <Text style={styles.navSectionLabel}>NAVIGATION</Text>
@@ -368,6 +384,49 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   logoutBtnHovered: {
     backgroundColor: "rgba(239,68,68,0.12)",
+  },
+  coachSubheader: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 10,
+    marginHorizontal: 14,
+    marginBottom: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: "rgba(200,255,61,0.05)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.12)",
+  },
+  coachSubheaderAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(200,255,61,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.3)",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    flexShrink: 0,
+  },
+  coachSubheaderInitials: {
+    fontSize: 13,
+    fontWeight: "700" as const,
+    color: ACCENT,
+  },
+  coachSubheaderMeta: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  coachSubheaderName: {
+    fontSize: 13,
+    fontWeight: "600" as const,
+    color: TEXT,
+  },
+  coachSubheaderAcademy: {
+    fontSize: 11,
+    color: MUTED,
   },
   mainArea: {
     flex: 1,

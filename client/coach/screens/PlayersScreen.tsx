@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Modal, Platform, Dimensions } from "react-native";
+import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -133,6 +134,7 @@ const _NOTE_CATEGORIES = [
 let persistedPlayerId: string | null = null;
 
 export default function PlayersScreen() {
+  const isDesktop = useDesktop();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { coach } = useCoach();
@@ -746,7 +748,7 @@ export default function PlayersScreen() {
     scrollY.value = 0;
   }, [rosterTab, headerTranslation, lastScrollY, scrollY]);
 
-  if (selectedPlayer) {
+  if (selectedPlayer && !isDesktop) {
     return (
       <PlayerDetailView
         player={selectedPlayer}
@@ -780,7 +782,8 @@ export default function PlayersScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDesktop ? localStyles.splitRoot : undefined]}>
+      <View style={isDesktop ? localStyles.listPanel : { flex: 1 }}>
       <Animated.View
         style={[localStyles.animatedHeader, { top: insets.top }, animatedHeaderStyle]}
         onLayout={(e) => {
@@ -1675,6 +1678,48 @@ export default function PlayersScreen() {
           <Text style={practicePairStyles.toastText}>{practicePairToast}</Text>
         </View>
       ) : null}
+      </View>{/* closes listPanel */}
+
+      {isDesktop ? (
+        <View style={localStyles.detailPanel}>
+          {selectedPlayer ? (
+            <PlayerDetailView
+              player={selectedPlayer}
+              impactedSessionIds={impactedSessionIds}
+              impactedSessions={impactedSessions}
+              onBack={() => {
+                persistedPlayerId = null;
+                setSelectedPlayer(null);
+                setImpactedSessionIds([]);
+                setImpactedSessions([]);
+              }}
+              onNavigateToPlayer={(targetId) => {
+                const target = players.find((p) => p.id === targetId) || pastPlayers.find((p) => p.id === targetId);
+                if (target) {
+                  persistedPlayerId = target.id;
+                  setSelectedPlayer(target);
+                } else {
+                  persistedPlayerId = null;
+                  setSelectedPlayer(null);
+                }
+              }}
+              insets={insets}
+              onAssessmentComplete={(result) => {
+                setAssessmentBadges((prev) => ({
+                  ...prev,
+                  [result.playerId]: { passed: result.passed, percentage: result.percentage, assessedAt: result.assessedAt },
+                }));
+              }}
+            />
+          ) : (
+            <View style={localStyles.emptyDetail}>
+              <Ionicons name="people-outline" size={52} color={Colors.dark.textMuted} />
+              <Text style={localStyles.emptyDetailTitle}>No player selected</Text>
+              <Text style={localStyles.emptyDetailSub}>Choose a player from the list to view their profile</Text>
+            </View>
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1689,6 +1734,38 @@ const localStyles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
+  },
+  splitRoot: {
+    flexDirection: "row",
+    flex: 1,
+  },
+  listPanel: {
+    width: 340,
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255,255,255,0.07)",
+    backgroundColor: Colors.dark.backgroundRoot,
+  },
+  detailPanel: {
+    flex: 1,
+    backgroundColor: "#0C1118",
+  },
+  emptyDetail: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 32,
+  },
+  emptyDetailTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+  },
+  emptyDetailSub: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
   },
 });
 

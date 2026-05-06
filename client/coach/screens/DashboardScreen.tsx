@@ -55,6 +55,7 @@ import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useTranslation } from "react-i18next";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { useDesktop } from "@/hooks/useDesktop";
 
 interface Player {
   id: string;
@@ -2143,7 +2144,68 @@ const bStyles = StyleSheet.create({
 // END BOOKING APPROVAL FLOW COMPONENTS
 // =====================================================================
 
+const desktopDashStyles = StyleSheet.create({
+  compactHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  compactHeaderLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  compactGreeting: {
+    fontSize: 18,
+    color: Colors.dark.textSecondary,
+    fontWeight: "400",
+  },
+  compactCoachName: {
+    fontSize: 18,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  compactDate: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+  },
+  compactHeaderRight: {
+    alignItems: "flex-end",
+  },
+  levelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.dark.primary + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "50",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  levelBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  cardsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 8,
+  },
+  gridItem: {
+    width: "50%",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+});
+
 export default function DashboardScreen() {
+  const isDesktop = useDesktop();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
@@ -2923,6 +2985,26 @@ export default function DashboardScreen() {
         <SquadVsSquadWidget />
 
         {/* === GAMING PLAYER CARD HEADER === */}
+        {isDesktop ? (
+          <View style={desktopDashStyles.compactHeader}>
+            <View style={desktopDashStyles.compactHeaderLeft}>
+              <Text style={desktopDashStyles.compactGreeting}>
+                {new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"},{" "}
+                <Text style={desktopDashStyles.compactCoachName}>{coach?.name || "Coach"}</Text>
+              </Text>
+              <Text style={desktopDashStyles.compactDate}>
+                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              </Text>
+            </View>
+            <View style={desktopDashStyles.compactHeaderRight}>
+              <View style={desktopDashStyles.levelBadge}>
+                <Ionicons name="flash" size={14} color={Colors.dark.primary} />
+                <Text style={desktopDashStyles.levelBadgeText}>Lv {coachXP.level}</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+        {!isDesktop ? (
         <View style={styles.playerCard}>
           {/* Neon border glow effect */}
           <Animated.View style={[styles.playerCardGlow, glowAnimatedStyle, { pointerEvents: "none" }]} />
@@ -3069,6 +3151,7 @@ export default function DashboardScreen() {
             </View>
           </LinearGradient>
         </View>
+        ) : null}{/* end !isDesktop gaming header */}
 
         {/* === BIRTHDAY OVERVIEW === */}
         <BirthdayOverviewCard />
@@ -3515,7 +3598,11 @@ export default function DashboardScreen() {
           </LinearGradient>
         </View>
 
+        {/* === LOWER CARDS (two-column grid on desktop) === */}
+        <View style={isDesktop ? desktopDashStyles.cardsGrid : undefined}>
+
         {/* === PENDING ATTENDANCE ALERT === */}
+        <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
         {pendingAttendanceSessions.length > 0 && (
           <PendingAttendanceCard
             sessions={pendingAttendanceSessions}
@@ -3538,8 +3625,10 @@ export default function DashboardScreen() {
             }}
           />
         )}
+        </View>{/* end gridItem: PendingAttendance */}
 
         {/* === PENDING FEEDBACK CARDS === */}
+        <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
         {pendingFeedbackSessions.length > 0 && (
           <PendingFeedbackCard
             sessions={pendingFeedbackSessions}
@@ -3567,8 +3656,10 @@ export default function DashboardScreen() {
             }}
           />
         )}
+        </View>{/* end gridItem: PendingFeedback */}
 
         {/* === POWER GAUGE - Gaming Energy HUD === */}
+        <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
         <View style={styles.gamingCard}>
           {/* Neon top accent */}
           <LinearGradient
@@ -3719,18 +3810,20 @@ export default function DashboardScreen() {
             )}
           </LinearGradient>
         </View>
+        </View>{/* end gridItem: PowerGauge */}
 
         {/* === SMART INSIGHTS - Quick contextual tips === */}
-        
+        <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
         <CoachInsightsPanel 
           insights={coachInsights}
           onInsightPress={(_insight) => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }}
         />
-        
+        </View>{/* end gridItem: SmartInsights */}
 
         {/* === COACH ANALYTICS - Gaming Insights HUD === */}
+        <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
         <View style={styles.gamingCard}>
           <LinearGradient
             colors={[Colors.dark.xpCyan + "60", "transparent", Colors.dark.primary + "60"]}
@@ -3799,14 +3892,20 @@ export default function DashboardScreen() {
             )}
           </LinearGradient>
         </View>
+        </View>{/* end gridItem: CoachAnalytics */}
 
         {/* === MATCH REVIEWS === */}
+        <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
         <CoachMatchReviewsCard coachId={coach?.id || null} navigation={navigation as any} pending={homeData?.pendingMatchReviews} />
+        </View>{/* end gridItem: MatchReviews */}
 
         {/* === ROSTER INSIGHTS === */}
+        <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
         <RosterInsightsCard />
+        </View>{/* end gridItem: RosterInsights */}
 
         {/* === ACTION QUEUE - Gaming Alerts HUD === */}
+        <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
         {alerts.length > 0 ? (
           <View style={styles.gamingCard}>
             <LinearGradient
@@ -3886,6 +3985,9 @@ export default function DashboardScreen() {
             </LinearGradient>
           </View>
         ) : null}
+        </View>{/* end gridItem: ActionQueue */}
+
+        </View>{/* end cardsGrid */}
 
       </ScrollView>
 
