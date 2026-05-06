@@ -29,7 +29,7 @@ interface SeriesSummaryCardProps {
 
 const _DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps) {
+function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps) {
   const { academy } = useCoach();
   const { data: seriesData, isLoading } = useQuery<SeriesSummary[]>({
     queryKey: ["/api/coach/series"],
@@ -188,6 +188,9 @@ export function SeriesSummaryCard({ onPress, onViewAll }: SeriesSummaryCardProps
     </View>
   );
 }
+
+const _memoSeriesSummaryCard = React.memo(SeriesSummaryCard);
+export { _memoSeriesSummaryCard as SeriesSummaryCard };
 
 function getTypeColor(type: string): string {
   switch (type) {

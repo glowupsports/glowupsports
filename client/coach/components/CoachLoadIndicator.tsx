@@ -17,7 +17,7 @@ interface CoachLoadIndicatorProps {
   maxHoursPerDay?: number;
 }
 
-export function CoachLoadIndicator({
+function CoachLoadIndicator({
   sessions,
   selectedDate,
   maxHoursPerDay = 8,
@@ -133,4 +133,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CoachLoadIndicator;
+const _memoCoachLoadIndicator = React.memo(CoachLoadIndicator);
+export { _memoCoachLoadIndicator as CoachLoadIndicator };
+export default _memoCoachLoadIndicator;

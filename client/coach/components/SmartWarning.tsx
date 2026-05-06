@@ -33,7 +33,7 @@ const LEVEL_CONFIG = {
   },
 };
 
-export function SmartWarning({
+function SmartWarning({
   message,
   level,
   visible,
@@ -191,4 +191,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SmartWarning;
+const _memoSmartWarning = React.memo(SmartWarning);
+export { _memoSmartWarning as SmartWarning };
+export default _memoSmartWarning;

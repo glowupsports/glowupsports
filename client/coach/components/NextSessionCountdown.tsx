@@ -47,7 +47,7 @@ interface NextSessionCountdownProps {
 
 type SessionState = "upcoming" | "live" | "ended";
 
-export function NextSessionCountdown({
+function NextSessionCountdown({
   session,
   onCancel,
   onDelay,
@@ -753,4 +753,6 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NextSessionCountdown;
+const _memoNextSessionCountdown = React.memo(NextSessionCountdown);
+export { _memoNextSessionCountdown as NextSessionCountdown };
+export default _memoNextSessionCountdown;

@@ -115,7 +115,7 @@ const _NOTE_CATEGORIES = [
   { value: "next-lesson", label: "Next Lesson", icon: "arrow-forward-outline" as const },
   { value: "general", label: "General", icon: "document-text-outline" as const },
 ];
-export function GamingPlayerCard({ 
+function GamingPlayerCard({ 
   player, 
   onPress, 
   getStatusBadge,
@@ -531,4 +531,7 @@ export function GamingPlayerCard({
     </>
   );
 }
+
+const _memoGamingPlayerCard = React.memo(GamingPlayerCard);
+export { _memoGamingPlayerCard as GamingPlayerCard };
 
