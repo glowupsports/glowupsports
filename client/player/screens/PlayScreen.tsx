@@ -335,6 +335,12 @@ function getCleanSessionTitle(session: PlaySession): string {
   return title;
 }
 
+// Task #1693: _computeCountdown and LiveCountdown are intentionally kept as
+// module-level pure function + memoised component so that the 1-second
+// setInterval lives entirely outside PlayScreen's render scope.
+// DO NOT inline this logic back into PlayScreen or add a `currentTime` state
+// to PlayScreen — doing so re-introduces the Android freeze regression fixed
+// in Task #1684.
 function _computeCountdown(
   startTime: string,
   now: Date,
