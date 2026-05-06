@@ -1116,6 +1116,15 @@ function setupErrorHandler(app: express.Application) {
         log(`[SemiPrivateRebalanceRepair] failed to schedule: ${(err as Error)?.message ?? err}`);
       }
 
+      // Task #1675 — Backfill: create a linked player account for every existing
+      // coach user that doesn't have one yet. Idempotent and non-blocking.
+      try {
+        const { backfillCoachPlayers } = await import("./startup/backfill-coach-players");
+        void backfillCoachPlayers();
+      } catch (err) {
+        log(`[BackfillCoachPlayers] failed to schedule: ${(err as Error)?.message ?? err}`);
+      }
+
       startReminderScheduler();
       startDailyTipScheduler();
       startMatchPrepNotificationScheduler();

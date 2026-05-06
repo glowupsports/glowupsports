@@ -4,7 +4,8 @@ import { Router, type Request, type Response } from "express";
   import { eq, and, isNotNull } from "drizzle-orm";
   import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
   import { z } from "zod";
-  import { fromZodError } from "zod-validation-error";import { users, loginSchema, playerRegisterSchema, coachInviteRegisterSchema, academyApplicationInputSchema } from "@shared/schema";
+  import { fromZodError } from "zod-validation-error";import { users, coaches, players, invites, loginSchema, playerRegisterSchema, coachInviteRegisterSchema, academyApplicationInputSchema } from "@shared/schema";
+  import { sanitizeName } from "@shared/textSanitize";
   import { calculateAgeFromDOB, getBallLevelFromAge, isValidDOB } from "@shared/ballLevel";
   import { authLimiter, inviteLimiter } from "../rateLimiter";
   import { hashPassword, verifyPassword, generateToken, generateRefreshToken, validatePassword, refreshAuthMiddleware } from "../auth";
@@ -1104,31 +1105,64 @@ import { Router, type Request, type Response } from "express";
 
         const hashedPassword = await hashPassword(password);
 
-        // Create coach profile
-        const coach = await storage.createCoach({
-          name,
-          email,
-          phone: phone || null,
-          tshirtSize: tshirtSize || null,
-          specialty: specialty || null,
-          academyId: invite.academyId,
-          role: invite.role || "coach",
-          level: 1,
-          totalXp: 0,
-        });
+        // Task #1675 — All registration writes are wrapped in a single DB
+        // transaction so a failure at any step (coach, user, player, or
+        // invite) rolls back all prior writes atomically. No partial state
+        // can remain in the database on error.
+        const sanitizedPlayerName = sanitizeName(name);
+        if (!sanitizedPlayerName) {
+          return res.status(400).json({ error: "Name is invalid after sanitization" });
+        }
 
-        // Create user account with username
-        const user = await storage.createUser({
-          username,
-          email,
-          password: hashedPassword,
-          role: invite.role || "coach",
-          academyId: invite.academyId,
-          coachId: coach.id,
-        });
+        const { user, linkedPlayerId } = await db.transaction(async (tx) => {
+          // 1. Create coach profile
+          const coachRows = await tx.insert(coaches).values({
+            name,
+            email: email.toLowerCase(),
+            phone: phone || null,
+            tshirtSize: tshirtSize || null,
+            specialty: specialty || null,
+            academyId: invite.academyId,
+            role: invite.role || "coach",
+            level: 1,
+            totalXp: 0,
+          }).returning();
+          const newCoach = coachRows[0];
 
-        // Mark invite as used
-        await storage.markInviteUsed(invite.id, user.id);
+          // 2. Create user account with username
+          const userRows = await tx.insert(users).values({
+            username: username.toLowerCase(),
+            email: email.toLowerCase(),
+            password: hashedPassword,
+            role: invite.role || "coach",
+            academyId: invite.academyId,
+            coachId: newCoach.id,
+          }).returning();
+          const newUser = userRows[0];
+
+          // 3. Create the coach's own linked player account so the mode
+          //    switcher "Player" option works immediately after registration.
+          const playerRows = await tx.insert(players).values({
+            name: sanitizedPlayerName,
+            email: email.toLowerCase(),
+            phone: phone || null,
+            academyId: invite.academyId,
+            coachId: newCoach.id,
+          }).returning();
+          const newPlayer = playerRows[0];
+
+          // 4. Link player back to the user row
+          await tx.update(users)
+            .set({ playerId: newPlayer.id })
+            .where(eq(users.id, newUser.id));
+
+          // 5. Mark invite as used
+          await tx.update(invites)
+            .set({ usedBy: newUser.id, usedAt: new Date() })
+            .where(eq(invites.id, invite.id));
+
+          return { coach: newCoach, user: newUser, linkedPlayerId: newPlayer.id };
+        });
 
         const coachRegJwtPayload = {
           userId: user.id,
@@ -1136,7 +1170,7 @@ import { Router, type Request, type Response } from "express";
           role: user.role,
           academyId: user.academyId,
           coachId: user.coachId,
-          playerId: user.playerId,
+          playerId: linkedPlayerId,
         };
         const authToken = generateToken(coachRegJwtPayload);
         const refreshToken = generateRefreshToken(coachRegJwtPayload);
@@ -1151,6 +1185,7 @@ import { Router, type Request, type Response } from "express";
             role: user.role,
             academyId: user.academyId,
             coachId: user.coachId,
+            playerId: linkedPlayerId,
           },
           message: "Welcome to the team!",
         });
