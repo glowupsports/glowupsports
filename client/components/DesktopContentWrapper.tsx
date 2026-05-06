@@ -35,10 +35,10 @@ const styles = StyleSheet.create({
   },
   outer: {
     flex: 1,
-    alignItems: "center",
   },
   inner: {
     flex: 1,
     width: "100%",
+    alignSelf: "center",
   },
 });

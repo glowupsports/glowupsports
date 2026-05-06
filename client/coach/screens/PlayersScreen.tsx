@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Modal, Platform, Dimensions } from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
+import { DesktopContentWrapper } from "@/components/DesktopContentWrapper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -782,6 +783,7 @@ export default function PlayersScreen() {
   }
 
   return (
+    <DesktopContentWrapper>
     <View style={[styles.container, isDesktop ? localStyles.splitRoot : undefined]}>
       <View style={isDesktop ? localStyles.listPanel : { flex: 1 }}>
       <Animated.View
@@ -1721,6 +1723,7 @@ export default function PlayersScreen() {
         </View>
       ) : null}
     </View>
+    </DesktopContentWrapper>
   );
 }
 

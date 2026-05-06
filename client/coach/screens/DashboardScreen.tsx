@@ -56,6 +56,7 @@ import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { useTranslation } from "react-i18next";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { useDesktop } from "@/hooks/useDesktop";
+import { DesktopContentWrapper } from "@/components/DesktopContentWrapper";
 
 interface Player {
   id: string;
@@ -2196,6 +2197,7 @@ const desktopDashStyles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     paddingHorizontal: 8,
+    width: "100%",
   },
   gridItem: {
     width: "50%",
@@ -2956,9 +2958,10 @@ export default function DashboardScreen() {
       {/* Collapsible Mode Switcher */}
       <CollapsibleModeSwitcher />
 
+      <DesktopContentWrapper>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.footerCollapsed + 100 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.footerCollapsed + 100 }, isDesktop ? { minWidth: "100%" } : undefined]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -3990,6 +3993,7 @@ export default function DashboardScreen() {
         </View>{/* end cardsGrid */}
 
       </ScrollView>
+      </DesktopContentWrapper>
 
       <CoachStatusPanel
         visible={showStatusPanel}
