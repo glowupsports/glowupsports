@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
   import { db, pool } from "../db";
   import { storage } from "../storage";
   import { eq, sql, and, inArray, count } from "drizzle-orm";
-  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
   
   function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
@@ -605,6 +605,24 @@ import { Router, type Request, type Response } from "express";
         // Always filter by academyId if set, even for platform_owner
         // This ensures consistency with delete/edit operations that require academy membership
         const effectiveAcademyId = academyId || undefined;
+
+        // Supervisor mode: academy owner viewing a specific coach's dashboard.
+        // Validate the supervisorCoachId belongs to the owner's academy.
+        // Player list is academy-scoped so the same data is returned — validation
+        // is here to enforce the security boundary before any data is fetched.
+        const supervisorCoachId = req.query.supervisorCoachId as string | undefined;
+        const isOwnerRole = role === "academy_owner" || role === "owner";
+        if (supervisorCoachId && isOwnerRole && effectiveAcademyId) {
+          const [targetCoach] = await db
+            .select({ id: coaches.id })
+            .from(coaches)
+            .where(and(eq(coaches.id, supervisorCoachId), eq(coaches.academyId, effectiveAcademyId)))
+            .limit(1);
+          if (!targetCoach) {
+            return res.status(403).json({ error: "Coach not found in your academy" });
+          }
+        }
+
         const { search, paginated, withCredits, status: statusFilter } = req.query;
         const usePagination = paginated === "true";
         const includeCredits = withCredits === "true";

@@ -12,7 +12,7 @@ import { authMiddlewareWithFreshData as authMiddleware, requireAcademy, type Aut
 import { sanitizeTemplateName } from "../utils/sanitize";
 import { utcToLocalTime, getFirstSessionDate, addDaysToLocalDate, ensureResolvableLocalTime } from "../utils/timezone";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, sessionFeedback, inSessionFeedback, xpTransactions, coachTimeBlocks, playerHolidays, playerNotifications } from "@shared/schema";
+import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, sessionFeedback, inSessionFeedback, xpTransactions, coachTimeBlocks, playerHolidays, playerNotifications, coaches } from "@shared/schema";
 const router = Router();
 
 function toDubaiTime(utcDate: Date): Date {
@@ -31,8 +31,26 @@ router.get(
   requireAcademy,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const coachId = req.user!.coachId;
+      const userRole = req.user!.role;
       const academyId = req.user!.academyId;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+
+      // Academy owners can pass ?supervisorCoachId to view a specific coach's series
+      const supervisorCoachId = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+      let coachId = req.user!.coachId;
+
+      if (supervisorCoachId && isOwnerRole) {
+        const targetCoach = await db
+          .select({ id: coaches.id, academyId: coaches.academyId })
+          .from(coaches)
+          .where(and(eq(coaches.id, supervisorCoachId), eq(coaches.academyId, academyId as string)))
+          .limit(1);
+        if (targetCoach.length === 0) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       if (!coachId) {
         return res.status(400).json({ error: "Coach ID required" });

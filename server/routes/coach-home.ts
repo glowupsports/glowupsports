@@ -43,11 +43,30 @@ function setCache(coachId: string, data: Record<string, unknown>): void {
 router.get(
   "/api/coach/me/home-data",
   authMiddleware,
-  requireRole("coach", "assistant", "platform_owner"),
+  requireRole("coach", "assistant", "platform_owner", "academy_owner", "owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const coachId = req.user?.coachId;
+      const userRole = req.user?.role;
       const academyId = req.user?.academyId;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+
+      // Academy owners can pass ?supervisorCoachId to view a specific coach's dashboard
+      const supervisorCoachId = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+      let coachId = req.user?.coachId;
+
+      if (supervisorCoachId && isOwnerRole) {
+        // Validate the requested coach belongs to the owner's academy
+        const targetCoach = await db
+          .select({ id: coaches.id, academyId: coaches.academyId })
+          .from(coaches)
+          .where(and(eq(coaches.id, supervisorCoachId), eq(coaches.academyId, academyId as string)))
+          .limit(1);
+        if (targetCoach.length === 0) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       if (!coachId) {
         return res.status(400).json({ error: "Coach profile not found" });

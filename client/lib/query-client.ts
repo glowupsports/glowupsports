@@ -1,4 +1,5 @@
 import logger from "./logger";
+import { Alert } from "react-native";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { getAuthToken, triggerUnauthorized, getCurrentAcademyId, getRefreshedToken } from "./auth";
 import { validateEnv, logEnvStatus } from "./env";
@@ -98,6 +99,22 @@ export function setActivePlayerOverride(playerId: string | null) {
   _activePlayerOverride = playerId;
 }
 
+// ── Supervisor (coach overview) mode ──────────────────────────────────────────
+// When an academy owner views a coach dashboard, these module-level vars are set
+// so every coach API read automatically includes ?supervisorCoachId and every
+// coach write mutation is blocked with an alert.
+let _supervisorCoachId: string | null = null;
+let _coachReadOnlyMode = false;
+
+export function setSupervisorQueryCoachId(id: string | null) {
+  _supervisorCoachId = id;
+}
+
+export function setCoachReadOnlyMode(enabled: boolean) {
+  _coachReadOnlyMode = enabled;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function getActivePlayerOverride(): string | null {
   return _activePlayerOverride;
 }
@@ -153,6 +170,19 @@ export async function apiRequest(
   route: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  // Block ALL write mutations when in supervisor read-only (coach overview) mode.
+  // Only /auth/* routes are exempt (token refresh, OTP flows).
+  if (_coachReadOnlyMode) {
+    const upper = method.toUpperCase();
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(upper) && !route.startsWith("/auth/")) {
+      Alert.alert(
+        "Not available in overview mode",
+        "This action is disabled while viewing as a coach. Exit overview mode to make changes.",
+      );
+      throw Object.assign(new Error("READ_ONLY_MODE"), { code: "READ_ONLY_MODE" });
+    }
+  }
+
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
@@ -178,6 +208,17 @@ export async function apiRequest(
 type UnauthorizedBehavior = "returnNull" | "throw";
 
 async function fetchWithRetry(url: URL, unauthorizedBehavior: UnauthorizedBehavior, retryCount = 0): Promise<any> {
+  // Inject supervisorCoachId for all coach-surface reads when in supervisor mode.
+  // This covers both /api/coach/* (home, series, calendar) and /api/players
+  // (academy-wide player list shown in the coach Players tab — data is the same
+  // for any coach in the academy, but the backend validates the supervisor param).
+  if (_supervisorCoachId && !url.searchParams.has("supervisorCoachId")) {
+    const coachSurfacePaths = ["/api/coach/", "/api/players"];
+    if (coachSurfacePaths.some((p) => url.pathname.startsWith(p))) {
+      url.searchParams.set("supervisorCoachId", _supervisorCoachId);
+    }
+  }
+
   const res = await fetch(url, {
     headers: getAuthHeaders(),
     credentials: "include",

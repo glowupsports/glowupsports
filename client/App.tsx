@@ -41,6 +41,8 @@ import { PlayerProvider } from "@/context/PlayerContext";
 import { AppModeProvider } from "@/context/AppModeContext";
 import { NetworkProvider } from "@/context/NetworkContext";
 import { CoachProvider } from "@/coach/context/CoachContext";
+import { SupervisorModeProvider } from "@/context/SupervisorModeContext";
+import { CoachPickerSheet } from "@/components/CoachPickerSheet";
 import { UIInteractionProvider } from "@/contexts/UIInteractionContext";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { CoachMarksProvider } from "@/components/CoachMarks";
@@ -544,6 +546,7 @@ export default function App() {
                   <UpdateController>
                     <NetworkProvider>
                       <AppModeProvider>
+                        <SupervisorModeProvider>
                         <AuthProvider>
                           <PlayerProvider>
                             <CoachProvider>
@@ -560,6 +563,7 @@ export default function App() {
                                             <ChatStateProvider>
                                               <NavigationContainerWithRef />
                                             </ChatStateProvider>
+                                            <CoachPickerSheet />
                                             <WhatsNewGate />
                                             <ForceUpdateGate />
                                           </RTLDirectionWrapper>
@@ -574,6 +578,7 @@ export default function App() {
                             </CoachProvider>
                           </PlayerProvider>
                         </AuthProvider>
+                        </SupervisorModeProvider>
                       </AppModeProvider>
                     </NetworkProvider>
                   </UpdateController>

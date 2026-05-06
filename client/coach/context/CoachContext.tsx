@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
+import { useSupervisorMode } from "@/context/SupervisorModeContext";
 
 interface Coach {
   id: string;
@@ -131,7 +132,9 @@ export function CoachProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const hasMigrated = useRef(false);
 
-  const coach: Coach | null = authCoach ? {
+  const { supervisorCoach } = useSupervisorMode();
+
+  const ownCoach: Coach | null = authCoach ? {
     id: authCoach.id,
     name: authCoach.name,
     email: authCoach.email,
@@ -146,6 +149,25 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     specialty: authCoach.specialty,
     bio: authCoach.bio,
   } : null;
+
+  // In supervisor mode, overlay with the selected coach's data
+  const coach: Coach | null = supervisorCoach
+    ? {
+        id: supervisorCoach.id,
+        name: supervisorCoach.name,
+        email: null,
+        phone: null,
+        role: supervisorCoach.role ?? null,
+        homeLocationId: null,
+        hourlyRate: null,
+        level: null,
+        totalXp: null,
+        academyId: supervisorCoach.academyId ?? ownCoach?.academyId ?? null,
+        photoUrl: supervisorCoach.photoUrl ?? null,
+        specialty: null,
+        bio: null,
+      }
+    : ownCoach;
 
   const academy: Academy | null = authAcademy ? {
     id: authAcademy.id,
@@ -215,6 +237,7 @@ export function CoachProvider({ children }: { children: ReactNode }) {
   };
 
   const dateStr = selectedDate.toISOString().split("T")[0];
+  // In supervisor mode, always pass coachId explicitly so the backend serves the right coach's data
   const calendarQueryPath = coach?.id 
     ? `/api/coach/calendar?coachId=${coach.id}&date=${dateStr}&view=${viewMode}` 
     : null;

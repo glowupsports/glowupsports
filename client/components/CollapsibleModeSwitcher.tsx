@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useAppMode, AppMode } from "@/context/AppModeContext";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useSupervisorMode } from "@/context/SupervisorModeContext";
+import { useAuth } from "@/coach/context/AuthContext";
 
 const PANEL_WIDTH = 200;
 
@@ -28,6 +30,8 @@ const modeConfig: Record<AppMode, { icon: keyof typeof Ionicons.glyphMap; label:
 export default function CollapsibleModeSwitcher() {
   const insets = useSafeAreaInsets();
   const { mode, setMode, availableModes } = useAppMode();
+  const { setShowCoachPicker, setSupervisorCoach } = useSupervisorMode();
+  const { user } = useAuth();
   const [showBackdrop, setShowBackdrop] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const slideX = useSharedValue(-PANEL_WIDTH);
@@ -73,6 +77,16 @@ export default function CollapsibleModeSwitcher() {
 
   const handleModeChange = (newMode: AppMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Academy owners get a coach picker instead of directly switching to coach mode
+    if (newMode === "coach" && (user?.role === "academy_owner" || user?.role === "owner")) {
+      setSupervisorCoach(null);
+      setIsOpen(false);
+      slideX.value = withSpring(-PANEL_WIDTH, { damping: 20, stiffness: 200 }, () => {
+        runOnJS(setShowBackdrop)(false);
+        runOnJS(setShowCoachPicker)(true);
+      });
+      return;
+    }
     setMode(newMode);
     setIsOpen(false);
     slideX.value = withSpring(-PANEL_WIDTH, {

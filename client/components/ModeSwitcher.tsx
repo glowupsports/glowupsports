@@ -5,6 +5,8 @@ import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useAppMode, AppMode } from "@/context/AppModeContext";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useSupervisorMode } from "@/context/SupervisorModeContext";
+import { useAuth } from "@/coach/context/AuthContext";
 
 interface ModeSwitcherProps {
   compact?: boolean;
@@ -22,6 +24,8 @@ const modeConfig: Record<AppMode, { icon: keyof typeof Ionicons.glyphMap; label:
 
 export default function ModeSwitcher({ compact = false }: ModeSwitcherProps) {
   const { mode, setMode, availableModes } = useAppMode();
+  const { setShowCoachPicker, setSupervisorCoach } = useSupervisorMode();
+  const { user } = useAuth();
 
   if (availableModes.length <= 1) {
     return null;
@@ -29,6 +33,12 @@ export default function ModeSwitcher({ compact = false }: ModeSwitcherProps) {
 
   const handleModeChange = (newMode: AppMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Academy owners get a coach picker instead of directly switching to coach mode
+    if (newMode === "coach" && (user?.role === "academy_owner" || user?.role === "owner")) {
+      setSupervisorCoach(null);
+      setShowCoachPicker(true);
+      return;
+    }
     setMode(newMode);
   };
 

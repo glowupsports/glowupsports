@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { StyleSheet, View, Platform, Text, Pressable, useWindowDimensions } from "react-native";
+import { StyleSheet, View, Platform, Text, Pressable, useWindowDimensions, Alert } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
@@ -36,6 +36,7 @@ import EvidenceCaptureScreen from "@/coach/screens/glow/EvidenceCaptureScreen";
 import LevelCardsScreen from "@/coach/screens/glow/LevelCardsScreen";
 import CoachCalibrationScreen from "@/coach/screens/glow/CoachCalibrationScreen";
 import { FeedbackPill } from "@/coach/components/FeedbackPill";
+import { useSupervisorMode } from "@/context/SupervisorModeContext";
 import MatchReviewScreen from "@/coach/screens/glow/MatchReviewScreen";
 import LessonTemplateLibraryScreen from "@/coach/screens/glow/LessonTemplateLibraryScreen";
 import WellbeingDetailScreen from "@/coach/screens/WellbeingDetailScreen";
@@ -51,6 +52,7 @@ import { PremiumAddPlayerFlow } from "@/coach/components/PremiumAddPlayerFlow";
 import { CoachChatFooter } from "@/coach/components/CoachChatFooter";
 import { useAuth } from "@/coach/context/AuthContext";
 import { useCoach } from "@/coach/context/CoachContext";
+import { useAppMode } from "@/context/AppModeContext";
 import { Colors } from "@/constants/theme";
 import { useTranslation } from "react-i18next";
 import { DesktopShell } from "@/components/DesktopShell";
@@ -539,8 +541,62 @@ interface CoachProfile {
   };
 }
 
+function SupervisorBanner() {
+  const { supervisorCoach, setSupervisorCoach, setShowCoachPicker } = useSupervisorMode();
+  const { setMode } = useAppMode();
+
+  if (!supervisorCoach) return null;
+
+  const handleSwitchCoach = () => {
+    // Keep the current supervisorCoach while the picker is open so the banner
+    // stays visible and coach mode state is preserved if the user dismisses
+    // without selecting.  The picker's onSelect will replace it with the new
+    // coach, and if the picker is dismissed, the old supervisor is unchanged.
+    setShowCoachPicker(true);
+  };
+
+  const handleExit = () => {
+    setSupervisorCoach(null);
+    setMode("academy_owner");
+  };
+
+  return (
+    <View style={bannerStyles.banner}>
+      <View style={bannerStyles.leftSection}>
+        <View style={bannerStyles.dot} />
+        <Text style={bannerStyles.label} numberOfLines={1}>
+          Viewing as{" "}
+          <Text style={bannerStyles.coachName}>{supervisorCoach.name}</Text>
+          {" · "}
+          <Text style={bannerStyles.readOnly}>Read Only</Text>
+        </Text>
+      </View>
+      <View style={bannerStyles.actions}>
+        <Pressable style={bannerStyles.switchBtn} onPress={handleSwitchCoach}>
+          <Text style={bannerStyles.switchText}>Switch</Text>
+        </Pressable>
+        <Pressable style={bannerStyles.exitBtn} onPress={handleExit}>
+          <Text style={bannerStyles.exitText}>Exit</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+export function useReadOnlyGuard() {
+  const { isReadOnly } = useSupervisorMode();
+  return (action: () => void) => {
+    if (isReadOnly) {
+      Alert.alert("Not available in overview mode", "This action is disabled while viewing as a coach.");
+      return;
+    }
+    action();
+  };
+}
+
 export default function CoachNavigator() {
   const { user, logout } = useAuth();
+  const { supervisorCoach } = useSupervisorMode();
   const queryClient = useQueryClient();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [activatingRoles, setActivatingRoles] = useState(false);
@@ -589,7 +645,8 @@ export default function CoachNavigator() {
 
   const coachOnboardingCompleted = profile?.coach?.onboardingCompleted ?? false;
   const hasAcademy = !!profile?.coach?.academyId;
-  const showOnboarding = user?.coachId && !coachOnboardingCompleted && !hasAcademy && onboardingComplete !== true;
+  // In supervisor mode, skip onboarding — owner is viewing a selected coach's dashboard
+  const showOnboarding = !supervisorCoach && user?.coachId && !coachOnboardingCompleted && !hasAcademy && onboardingComplete !== true;
 
   if (showOnboarding) {
     return <CoachOnboardingScreen onComplete={handleOnboardingComplete} />;
@@ -600,6 +657,7 @@ export default function CoachNavigator() {
       <IntakeModalProvider>
         <TabNavigationProvider>
           <View style={styles.container}>
+            <SupervisorBanner />
             <OfflineBanner />
             <CoachStackNavigator />
           </View>
@@ -609,6 +667,72 @@ export default function CoachNavigator() {
   );
 }
 
+
+const bannerStyles = StyleSheet.create({
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1A2332",
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.primary + "40",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  leftSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.primary,
+  },
+  label: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    flex: 1,
+  },
+  coachName: {
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  readOnly: {
+    color: Colors.dark.primary,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  switchBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "60",
+  },
+  switchText: {
+    fontSize: 11,
+    color: Colors.dark.primary,
+    fontWeight: "600",
+  },
+  exitBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.error + "20",
+    borderWidth: 1,
+    borderColor: Colors.dark.error + "60",
+  },
+  exitText: {
+    fontSize: 11,
+    color: Colors.dark.error,
+    fontWeight: "600",
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
