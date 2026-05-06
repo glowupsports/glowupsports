@@ -35,7 +35,7 @@ import { PlayerMonthlyReportsSection } from "./PlayerMonthlyReportsSection";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { JuniorAssessmentFlow } from "@/coach/components/JuniorAssessmentFlow";
 import { GlowAssessmentFlow } from "@/coach/components/GlowAssessmentFlow";
-import { ActionSheet } from "@/components/ActionSheet";
+import { ActionSheet, ActionSheetItem } from "@/components/ActionSheet";
 import { ScheduleExtraLessonModal } from "./ScheduleExtraLessonModal";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import type { AssessmentResult as JuniorAssessmentResult } from "@/coach/components/JuniorAssessmentFlow";
@@ -2498,14 +2498,14 @@ export function PlayerDetailView({
           ...(canSeePayments ? [{
             id: "verify",
             label: localAuditVerified ? "Unverify Player" : "Verify Player",
-            icon: localAuditVerified ? "checkmark-circle" : "checkmark-circle-outline",
+            icon: (localAuditVerified ? "checkmark-circle" : "checkmark-circle-outline") as ActionSheetItem["icon"],
             color: localAuditVerified ? Colors.dark.primary : Colors.dark.tabIconDefault,
             isLoading: auditVerifyMutation.isPending,
             keepOpenWhileLoading: true,
             onPress: () => {
               auditVerifyMutation.mutate();
             },
-          }] : []),
+          }] as ActionSheetItem[] : []),
           {
             id: "deep-assessment",
             label: "Deep Assessment",
@@ -2565,7 +2565,7 @@ export function PlayerDetailView({
           ...(canSeePayments ? [{
             id: "create-invoice",
             label: "Create Invoice",
-            icon: "document-text-outline",
+            icon: "document-text-outline" as ActionSheetItem["icon"],
             color: Colors.dark.successNeon,
             onPress: () => {
               setShowCreateInvoiceModal(true);
@@ -2573,11 +2573,11 @@ export function PlayerDetailView({
           }, {
             id: "delete",
             label: "Delete Player",
-            icon: "trash-outline",
+            icon: "trash-outline" as ActionSheetItem["icon"],
             isLoading: deletePlayerMutation.isPending,
             isDestructive: true,
             onPress: handleDeletePlayer,
-          }] : []),
+          }] as ActionSheetItem[] : []),
         ]}
       />
 
