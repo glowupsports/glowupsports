@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useInterval } from "@/hooks/useInterval";
 import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -213,12 +214,9 @@ function UpcomingMatchCard({ challenge, playerId }: { challenge: Challenge; play
   const isChallenger = String(challenge.challengerId) === String(playerId);
   const opponentName = isChallenger ? challenge.opponentName : challenge.challengerName;
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCountdown(getCountdown(challenge.scheduledDate, challenge.scheduledTime));
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [challenge.scheduledDate, challenge.scheduledTime]);
+  useInterval(() => {
+    setCountdown(getCountdown(challenge.scheduledDate, challenge.scheduledTime));
+  }, 60000);
 
   const countdownText =
     countdown.days > 0

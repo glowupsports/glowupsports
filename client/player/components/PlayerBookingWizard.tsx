@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useInterval } from "@/hooks/useInterval";
 import {
   View,
   Text,
@@ -618,25 +619,23 @@ export default function PlayerBookingWizard({
     },
   });
 
-  // Countdown timer — ticks every second when a reservation is active
-  useEffect(() => {
+  // Countdown timer — ticks every second when a reservation is active.
+  // When the hold expires (left === 0) we set reservationExpiresAt to null,
+  // which flips delayMs to null and pauses the interval automatically.
+  useInterval(() => {
     if (!reservationExpiresAt) return;
-    const tick = setInterval(() => {
-      const left = Math.max(0, Math.round((reservationExpiresAt.getTime() - Date.now()) / 1000));
-      setReservationSecondsLeft(left);
-      if (left === 0) {
-        clearInterval(tick);
-        activeReservationRef.current = null;
-        setReservationId(null);
-        setReservationExpiresAt(null);
-        setSelectedSlot(null);
-        setReservationError("Your hold expired — please pick a slot again.");
-        queryClient.invalidateQueries({ queryKey: [availabilityQueryUrl] });
-        AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
-      }
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [reservationExpiresAt]);
+    const left = Math.max(0, Math.round((reservationExpiresAt.getTime() - Date.now()) / 1000));
+    setReservationSecondsLeft(left);
+    if (left === 0) {
+      activeReservationRef.current = null;
+      setReservationId(null);
+      setReservationExpiresAt(null);
+      setSelectedSlot(null);
+      setReservationError("Your hold expired — please pick a slot again.");
+      queryClient.invalidateQueries({ queryKey: [availabilityQueryUrl] });
+      AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
+    }
+  }, reservationExpiresAt ? 1000 : null);
 
   // Task #1598 — Auto-select the preselected slot once the available slots load.
   // Matches by coachId + UTC time portion (HH:MM) extracted from the ISO startTime.

@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import { useInterval } from "@/hooks/useInterval";
 import { View, Text, StyleSheet, Pressable, Dimensions } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -197,20 +198,20 @@ function BroadcastOverlay({ mode, session: _session }: { mode: BroadcastMode; se
 function CountdownDisplay({ targetDate }: { targetDate: Date }) {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   
-  useEffect(() => {
-    const updateCountdown = () => {
-      const now = new Date();
-      const diff = Math.max(0, targetDate.getTime() - now.getTime());
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      setTimeLeft({ hours, minutes, seconds });
-    };
-    
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
+  const updateCountdown = useCallback(() => {
+    const now = new Date();
+    const diff = Math.max(0, targetDate.getTime() - now.getTime());
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    setTimeLeft({ hours, minutes, seconds });
   }, [targetDate]);
+
+  useEffect(() => {
+    updateCountdown();
+  }, [updateCountdown]);
+
+  useInterval(updateCountdown, 1000);
   
   const formatNum = (n: number) => n.toString().padStart(2, "0");
   

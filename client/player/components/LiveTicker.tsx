@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useInterval } from "@/hooks/useInterval";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from "react-native-reanimated";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -153,22 +154,15 @@ export function LiveTicker({ customItems, stats }: LiveTickerProps) {
   const translateX = useSharedValue(0);
   const opacity = useSharedValue(1);
 
-  useEffect(() => {
-    if (items.length <= 1) return;
-    
-    const interval = setInterval(() => {
-      opacity.value = withTiming(0, { duration: 300 });
-      
-      setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % items.length);
-        translateX.value = 20;
-        opacity.value = withTiming(1, { duration: 300 });
-        translateX.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
-      }, 300);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [items.length]);
+  useInterval(() => {
+    opacity.value = withTiming(0, { duration: 300 });
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % items.length);
+      translateX.value = 20;
+      opacity.value = withTiming(1, { duration: 300 });
+      translateX.value = withTiming(0, { duration: 400, easing: Easing.out(Easing.cubic) });
+    }, 300);
+  }, items.length > 1 ? 5000 : null);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,

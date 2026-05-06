@@ -1,5 +1,7 @@
 import logger from "@/lib/logger";
 import { getCounterDrillSearch } from "@/lib/scoutingUtils";
+import { useInterval } from "@/hooks/useInterval";
+import { useSafeEffect } from "@/hooks/useSafeEffect";
 import React, {
   useState,
   useEffect,
@@ -390,10 +392,7 @@ const LiveCountdown = React.memo(function LiveCountdown({
   startTime: string;
 }) {
   const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  useInterval(() => setNow(new Date()), 1000);
   const countdown = _computeCountdown(startTime, now);
   return (
     <View
@@ -500,7 +499,7 @@ export default function PlayScreen() {
   const [leaderboardSport, setLeaderboardSport] = useState<string>("all");
   const [leaderboardCity, setLeaderboardCity] = useState<string>("all");
 
-  useEffect(() => {
+  useSafeEffect(() => {
     AsyncStorage.getItem(SCOPE_KEY)
       .then((val) => {
         if (val === "all" || val === "mine" || val === "country") setScope(val);
@@ -762,7 +761,7 @@ export default function PlayScreen() {
   }, [profileData]);
 
   // One-shot reverse geocode when location permission is first granted
-  useEffect(() => {
+  useSafeEffect(() => {
     if (!locationPermission?.granted) return;
     if (geocodedRef.current) return; // already ran
     // Wait for profile data before checking what fields to fill
@@ -2021,7 +2020,7 @@ export default function PlayScreen() {
     enabled: nearbyCourtsEnabled,
   });
 
-  useEffect(() => {
+  useSafeEffect(() => {
     if (!locationPermission?.granted) return;
     Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
       .then((loc) => {

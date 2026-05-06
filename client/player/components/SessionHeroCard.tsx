@@ -1,4 +1,5 @@
 import logger from "@/lib/logger";
+import { useInterval } from "@/hooks/useInterval";
 import React, { useEffect, useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { View, Text, StyleSheet, Pressable, Modal, TextInput, Alert } from "react-native";
@@ -500,43 +501,42 @@ export function SessionHeroCard({
     }
   }, [sessionStatus, pulseValue]);
 
+  const timeToUse = sessionStatus === "live" ? minutesRemaining : minutesToNextSession;
+  const isCountingDown = !!(timeToUse && timeToUse > 0);
+
   useEffect(() => {
     // For live sessions, use minutesRemaining (time until session ends)
     // For upcoming sessions, use minutesToNextSession (time until session starts)
-    const timeToUse = sessionStatus === "live" ? minutesRemaining : minutesToNextSession;
-    
-    if (timeToUse && timeToUse > 0) {
-      const totalSeconds = timeToUse * 60;
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      const seconds = totalSeconds % 60;
-      setCountdown({ hours, minutes, seconds });
+    if (!isCountingDown || !timeToUse) return;
+    const totalSeconds = timeToUse * 60;
+    setCountdown({
+      hours: Math.floor(totalSeconds / 3600),
+      minutes: Math.floor((totalSeconds % 3600) / 60),
+      seconds: totalSeconds % 60,
+    });
+  }, [sessionStatus, minutesToNextSession, minutesRemaining, isCountingDown, timeToUse]);
 
-      const interval = setInterval(() => {
-        setCountdown(prev => {
-          let newSeconds = prev.seconds - 1;
-          let newMinutes = prev.minutes;
-          let newHours = prev.hours;
+  useInterval(() => {
+    setCountdown(prev => {
+      let newSeconds = prev.seconds - 1;
+      let newMinutes = prev.minutes;
+      let newHours = prev.hours;
 
-          if (newSeconds < 0) {
-            newSeconds = 59;
-            newMinutes -= 1;
-          }
-          if (newMinutes < 0) {
-            newMinutes = 59;
-            newHours -= 1;
-          }
-          if (newHours < 0) {
-            return { hours: 0, minutes: 0, seconds: 0 };
-          }
+      if (newSeconds < 0) {
+        newSeconds = 59;
+        newMinutes -= 1;
+      }
+      if (newMinutes < 0) {
+        newMinutes = 59;
+        newHours -= 1;
+      }
+      if (newHours < 0) {
+        return { hours: 0, minutes: 0, seconds: 0 };
+      }
 
-          return { hours: newHours, minutes: newMinutes, seconds: newSeconds };
-        });
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [sessionStatus, minutesToNextSession, minutesRemaining]);
+      return { hours: newHours, minutes: newMinutes, seconds: newSeconds };
+    });
+  }, isCountingDown ? 1000 : null);
 
   const livePulseStyle = useAnimatedStyle(() => {
     const backgroundColor = interpolateColor(
@@ -698,9 +698,43 @@ export function SessionHeroCard({
       });
     };
     update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
   }, [primaryChallenge?.id, primaryChallenge?.scheduledDate, primaryChallenge?.scheduledTime, acceptedChallenges.length, incomingChallenges.length]);
+
+  useInterval(() => {
+    if (!primaryChallenge) return;
+    const startTime = getChallengeStartTime(primaryChallenge);
+    const endTime = startTime + MATCH_DURATION_MS;
+    const isAccepted = acceptedChallenges.some((ac) => ac.id === primaryChallenge.id);
+    const now = Date.now();
+    if (isAccepted && now >= endTime) {
+      setChallengeLifecycle("post_match");
+      setChallengeElapsed({ hours: 0, minutes: 0, seconds: 0 });
+    } else if (isAccepted && now >= startTime && now < endTime) {
+      setChallengeLifecycle("match_live");
+      const elapsed = Math.floor((now - startTime) / 1000);
+      setChallengeElapsed({
+        hours: Math.floor(elapsed / 3600),
+        minutes: Math.floor((elapsed % 3600) / 60),
+        seconds: elapsed % 60,
+      });
+    } else {
+      if (incomingChallenges.length > 0) {
+        setChallengeLifecycle("incoming");
+      } else if (isAccepted) {
+        setChallengeLifecycle("confirmed");
+      } else {
+        setChallengeLifecycle("sent");
+      }
+    }
+    const diff = Math.max(0, startTime - now);
+    const totalSec = Math.floor(diff / 1000);
+    setChallengeCountdown({
+      days: Math.floor(totalSec / 86400),
+      hours: Math.floor((totalSec % 86400) / 3600),
+      minutes: Math.floor((totalSec % 3600) / 60),
+      seconds: totalSec % 60,
+    });
+  }, primaryChallenge ? 1000 : null);
 
   const cancelChallengeMutation = useMutation({
     mutationFn: async (challengeId: string) => {

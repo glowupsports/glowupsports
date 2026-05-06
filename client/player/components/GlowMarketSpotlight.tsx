@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useCallback } from "react";
+import React, { useRef, useEffect, useCallback, useState } from "react";
+import { useInterval } from "@/hooks/useInterval";
 import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
@@ -43,9 +44,12 @@ export function GlowMarketSpotlight() {
   const navigation = useNavigation<any>();
   const scrollRef = useRef<ScrollView>(null);
   const currentIndexRef = useRef(0);
-  const autoRotateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isUserScrollingRef = useRef(false);
+  // State-driven rotation — useInterval reads productsRef so callback is
+  // always fresh without needing to be in the dep array.
+  const [isAutoRotating, setIsAutoRotating] = useState(false);
+  const productsRef = useRef<ShopProduct[]>([]);
 
   const { data: shopData } = useQuery<ShopData>({
     queryKey: ["/api/player/shop"],
@@ -90,21 +94,27 @@ export function GlowMarketSpotlight() {
     currentIndexRef.current = clampedIndex;
   }, []);
 
+  // useInterval drives the auto-rotation — wraps every tick in try/catch so
+  // a throwing scrollToIndex never freezes the carousel or the Play tab.
+  useInterval(() => {
+    if (isUserScrollingRef.current) return;
+    const products = productsRef.current;
+    if (products.length === 0) return;
+    const nextIndex = (currentIndexRef.current + 1) % products.length;
+    scrollToIndex(nextIndex, products);
+  }, isAutoRotating ? AUTO_ROTATE_INTERVAL : null);
+
   const startAutoRotate = useCallback((products: ShopProduct[]) => {
-    if (products.length <= 1) return;
-    if (autoRotateTimerRef.current) clearInterval(autoRotateTimerRef.current);
-    autoRotateTimerRef.current = setInterval(() => {
-      if (isUserScrollingRef.current) return;
-      const nextIndex = (currentIndexRef.current + 1) % products.length;
-      scrollToIndex(nextIndex, products);
-    }, AUTO_ROTATE_INTERVAL);
-  }, [scrollToIndex]);
+    if (products.length <= 1) {
+      setIsAutoRotating(false);
+      return;
+    }
+    productsRef.current = products;
+    setIsAutoRotating(true);
+  }, []);
 
   const stopAutoRotate = useCallback(() => {
-    if (autoRotateTimerRef.current) {
-      clearInterval(autoRotateTimerRef.current);
-      autoRotateTimerRef.current = null;
-    }
+    setIsAutoRotating(false);
   }, []);
 
   const pauseAndResume = useCallback((products: ShopProduct[]) => {
@@ -123,6 +133,8 @@ export function GlowMarketSpotlight() {
     currentIndexRef.current = 0;
     if (featuredProducts.length > 1) {
       startAutoRotate(featuredProducts);
+    } else {
+      stopAutoRotate();
     }
     return () => {
       stopAutoRotate();
