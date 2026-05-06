@@ -263,7 +263,12 @@ export function SwipeableTabBar({
   const { registerPager, registerWebTabSetter, scrollEnabled, notifyActiveTab } = useTabNavigation();
 
   const isWeb = Platform.OS === "web";
-  const containerWidth = isWeb ? Math.min(windowWidth, 480) : windowWidth;
+  const isDesktopWeb = isWeb && windowWidth >= 1024;
+  const containerWidth = isWeb
+    ? isDesktopWeb
+      ? windowWidth - 240
+      : Math.min(windowWidth, 480)
+    : windowWidth;
 
   const webSetTab = useCallback((index: number) => {
     setCurrentIndex(index);
