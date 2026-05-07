@@ -53,7 +53,6 @@ import { SkeletonSessionCard } from "@/components/SkeletonLoader";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import AvailableSlotsStrip from "@/player/components/AvailableSlotsStrip";
 import type { AvailableTodaySlot } from "@/player/components/PlayNowCard";
-import ArenaHubScreen from "@/player/screens/arena/ArenaHubScreen";
 // react-native-maps is a native module. On builds where the native side
 // isn't linked (e.g. an OTA shipping the screen ahead of a fresh native
 // build, a missing/expired Google Maps key, or a future SDK upgrade) the
@@ -249,7 +248,7 @@ interface NearbyCourt {
 }
 
 const TAB_OPTIONS = ["Group Lessons", "Players", "Leaderboard"] as const;
-const PLAY_SECTION_OPTIONS = ["Matches", "Lessons", "Arena"] as const;
+const PLAY_SECTION_OPTIONS = ["Matches", "Lessons"] as const;
 type PlaySection = (typeof PLAY_SECTION_OPTIONS)[number];
 const MATCH_SUB_TABS = ["Players", "Leaderboard"] as const;
 
@@ -2786,8 +2785,7 @@ export default function PlayScreen() {
           </View>
         </View>
 
-        {playSection !== "Arena" ? (
-          <>
+        <>
             {isMultiSport && playSection === "Lessons" ? (
               <SportSwitcherChips style={styles.sportChipsRow} />
             ) : null}
@@ -3199,11 +3197,10 @@ export default function PlayScreen() {
             </View>
             ) : null}
           </>
-        ) : null}
       </Animated.View>
 
       <Animated.View style={[styles.mainContent, animatedMainContentStyle]}>
-        {/* Section switcher: Matches | Lessons | Arena */}
+        {/* Section switcher: Matches | Lessons */}
         <View style={styles.tabs}>
           {PLAY_SECTION_OPTIONS.map((section) => (
             <Pressable
@@ -3226,12 +3223,8 @@ export default function PlayScreen() {
           ))}
         </View>
 
-        {/* Arena — always mounted for keep-alive, shown/hidden via display */}
-        <View style={{ display: playSection === "Arena" ? "flex" : "none", flex: 1 }}>
-          <ArenaHubScreen embedded embeddedTopPadding={0} />
-        </View>
-        {/* Matches / Lessons content — hidden when Arena is active */}
-        <View style={{ display: playSection !== "Arena" ? "flex" : "none", flex: 1 }}>
+        {/* Matches / Lessons content */}
+        <View style={{ flex: 1 }}>
           <>
             {/* AVAILABLE SLOTS STRIP — Task #1570 — Lessons only */}
             {playSection === "Lessons" ? (
@@ -3847,6 +3840,31 @@ export default function PlayScreen() {
                     <Text style={styles.matchListMeta}>View your wins, losses and logged results</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+                </Pressable>
+
+                {/* Enter Arena entry card */}
+                <Pressable
+                  style={styles.arenaEntryCard}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    navigation.navigate("ArenaHub" as never);
+                  }}
+                >
+                  <LinearGradient
+                    colors={["rgba(200,255,61,0.18)", "rgba(200,255,61,0.06)"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.arenaEntryGradient}
+                  >
+                    <View style={styles.arenaEntryIconWrap}>
+                      <Ionicons name="shield" size={24} color={Colors.dark.primary} />
+                    </View>
+                    <View style={styles.arenaEntryText}>
+                      <Text style={styles.arenaEntryTitle}>Enter Arena</Text>
+                      <Text style={styles.arenaEntrySubtitle}>Collect. Battle. Conquer.</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.dark.primary} />
+                  </LinearGradient>
                 </Pressable>
               </>
             ) : (
@@ -4912,6 +4930,44 @@ const styles = makeReactiveStyles(() =>
     },
     matchListMeta: {
       ...Typography.caption,
+      color: Colors.dark.textMuted,
+    },
+    arenaEntryCard: {
+      marginHorizontal: Spacing.lg,
+      marginTop: Spacing.lg,
+      borderRadius: BorderRadius.md,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: "rgba(200,255,61,0.30)",
+    },
+    arenaEntryGradient: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.md,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.lg,
+    },
+    arenaEntryIconWrap: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "rgba(200,255,61,0.15)",
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: "rgba(200,255,61,0.30)",
+    },
+    arenaEntryText: {
+      flex: 1,
+      gap: 2,
+    },
+    arenaEntryTitle: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: Colors.dark.text,
+    },
+    arenaEntrySubtitle: {
+      fontSize: 12,
       color: Colors.dark.textMuted,
     },
     chatButton: {

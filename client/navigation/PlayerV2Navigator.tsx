@@ -123,6 +123,7 @@ import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { PlayerDesktopShell, PLAYER_DESKTOP_SIDEBAR_WIDTH, PLAYER_DESKTOP_CONTENT_MAX_WIDTH } from "@/components/PlayerDesktopShell";
 import { WEB_DESKTOP_BREAKPOINT } from "@/components/WebContainer";
+import ArenaHubScreen from "@/player/screens/arena/ArenaHubScreen";
 import MyCardScreen from "@/player/screens/arena/MyCardScreen";
 import PackOpeningScreen from "@/player/screens/arena/PackOpeningScreen";
 import MyCollectionScreen from "@/player/screens/arena/MyCollectionScreen";
@@ -271,6 +272,7 @@ export type PlayerV2StackParamList = {
   CorporateBenefits: undefined;
   CompanyContactDashboard: undefined;
   // Arena
+  ArenaHub: undefined;
   ArenaMyCard: undefined;
   ArenaPackShop: undefined;
   ArenaMyCollection: undefined;
@@ -726,6 +728,7 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="CompanyContactDashboard" component={CompanyContactDashboardScreen} options={{ headerShown: false }} />
 
         {/* ── Arena ── */}
+        <Stack.Screen name="ArenaHub" component={ArenaHubScreen} options={{ presentation: "card", headerShown: true, headerTransparent: true, headerTitle: "Glow Arena", headerTintColor: Colors.dark.text, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
         <Stack.Screen name="ArenaMyCard" component={MyCardScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Card", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaPackShop" component={PackOpeningScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Pack Shop", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaMyCollection" component={MyCollectionScreen} options={{ presentation: "card", headerShown: true, headerTitle: "My Collection", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
