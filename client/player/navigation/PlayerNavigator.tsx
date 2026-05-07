@@ -117,6 +117,7 @@ export type PlayerStackParamList = {
   Progress: undefined;
   Training: undefined;
   TrainingDetail: { sessionId: string };
+  CourtBookingConfirmation: { sessionId: string };
   SkillDetail: { domain: string };
   Journey: undefined;
   Settings: undefined;

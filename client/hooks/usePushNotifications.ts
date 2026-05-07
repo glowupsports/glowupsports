@@ -9,6 +9,7 @@ import { useAuth } from '@/coach/context/AuthContext';
 import { apiRequest, getApiUrl } from '@/lib/query-client';
 
 type DeepLinkData = {
+  type?: string;
   screen?: string;
   params?: Record<string, unknown>;
   playerId?: string;
@@ -84,6 +85,19 @@ export function usePushNotifications() {
           case 'Session':
             if (data.sessionId) {
               navigation.navigate('TrainingDetail', { sessionId: data.sessionId });
+            }
+            break;
+          case 'CourtBookingConfirmation':
+            if (data.sessionId) {
+              navigation.navigate('CourtBookingConfirmation', { sessionId: data.sessionId });
+            }
+            break;
+          case 'court_booking_proof':
+            if (data.sessionId) {
+              navigation.navigate('CoachCourtBookingProof', {
+                sessionId: data.sessionId,
+                seriesId: data.seriesId,
+              });
             }
             break;
           case 'MatchDetail':

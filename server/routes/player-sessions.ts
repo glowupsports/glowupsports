@@ -9322,5 +9322,277 @@ async function weeklyDigestHandler(req: AuthenticatedRequest, res: Response) {
 router.get("/api/player/me/weekly-digest", authMiddleware, requirePlayerOrOwner, weeklyDigestHandler);
 router.get("/api/player/me/weekly-digest-story", authMiddleware, requirePlayerOrOwner, weeklyDigestHandler);
 
+// ── Court Booking Confirmations (Task #1712) ──────────────────────────────────
+
+// GET /api/player/me/session/:sessionId/court-booking
+// Returns session info + court location so the player screen can render context.
+router.get(
+  "/api/player/me/session/:sessionId/court-booking",
+  authMiddleware,
+  requirePlayerOrOwner,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player account required" });
+
+      const [session] = await db
+        .select({
+          id: sessions.id,
+          startTime: sessions.startTime,
+          seriesId: sessions.seriesId,
+          courtLocation: coachingSeries.courtLocation,
+          locationName: locations.name,
+          coachName: coaches.name,
+        })
+        .from(sessions)
+        .leftJoin(coachingSeries, eq(coachingSeries.id, sessions.seriesId))
+        .leftJoin(locations, eq(locations.id, sessions.locationId))
+        .leftJoin(coaches, eq(coaches.id, sessions.coachId))
+        .where(eq(sessions.id, sessionId))
+        .limit(1);
+
+      if (!session) return res.status(404).json({ error: "Session not found" });
+
+      // Verify the requesting player is enrolled in this series
+      if (session.seriesId) {
+        const [enrollment] = await db
+          .select({ playerId: seriesPlayers.playerId })
+          .from(seriesPlayers)
+          .where(
+            and(
+              eq(seriesPlayers.seriesId, session.seriesId),
+              eq(seriesPlayers.playerId, playerId),
+              eq(seriesPlayers.status, "active")
+            )
+          )
+          .limit(1);
+        if (!enrollment) return res.status(403).json({ error: "Not enrolled in this class" });
+      }
+
+      const startDate = new Date(session.startTime);
+      const date = startDate.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+      const time = startDate.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      return res.json({
+        id: session.id,
+        date,
+        time,
+        coachName: session.coachName ?? null,
+        locationName: session.locationName ?? null,
+        courtLocation: session.courtLocation ?? null,
+      });
+    } catch (err) {
+      console.error("[court-booking] GET session info failed:", err);
+      return res.status(500).json({ error: "Failed to fetch session info" });
+    }
+  }
+);
+
+// GET /api/player/sessions/:sessionId/court-booking-confirmation
+// Returns the player's current confirmation record for this session (or null).
+router.get(
+  "/api/player/sessions/:sessionId/court-booking-confirmation",
+  authMiddleware,
+  requirePlayerOrOwner,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { sessionId } = req.params;
+      const playerId = req.user!.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player account required" });
+
+      const { courtBookingConfirmations } = await import("@shared/schema");
+      const { getSignedUrl } = await import("../objectStorage");
+
+      const [conf] = await db
+        .select()
+        .from(courtBookingConfirmations)
+        .where(
+          and(
+            eq(courtBookingConfirmations.sessionId, sessionId),
+            eq(courtBookingConfirmations.playerId, playerId)
+          )
+        )
+        .limit(1);
+
+      if (!conf) return res.json(null);
+
+      let screenshotUrl: string | null = conf.screenshotUrl ?? null;
+      if (conf.screenshotKey && !screenshotUrl) {
+        screenshotUrl = await getSignedUrl(conf.screenshotKey);
+      }
+
+      return res.json({ ...conf, screenshotUrl });
+    } catch (err) {
+      console.error("[court-booking] GET confirmation failed:", err);
+      return res.status(500).json({ error: "Failed to fetch confirmation" });
+    }
+  }
+);
+
+// POST /api/player/sessions/:sessionId/court-booking-confirmation
+// Player uploads a screenshot to confirm their court booking.
+router.post(
+  "/api/player/sessions/:sessionId/court-booking-confirmation",
+  authMiddleware,
+  requirePlayerOrOwner,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    const { courtScreenshotUpload, wrapUploadHandler } = await import("../upload-middleware");
+    const { uploadToObjectStorage } = await import("../objectStorage");
+    const { courtBookingConfirmations } = await import("@shared/schema");
+
+    wrapUploadHandler(courtScreenshotUpload.single("screenshot"), {
+      context: "CourtScreenshot",
+      maxBytes: 8 * 1024 * 1024,
+    })(req, res, async (err?: unknown) => {
+      if (err) return next(err);
+      try {
+        const { sessionId } = req.params;
+        const playerId = req.user!.playerId;
+        if (!playerId) return res.status(403).json({ error: "Player account required" });
+        if (!req.file) return res.status(400).json({ error: "Screenshot file required" });
+
+        // Look up the session to get seriesId + academyId and verify enrollment
+        const [session] = await db
+          .select({
+            seriesId: sessions.seriesId,
+            academyId: sessions.academyId,
+          })
+          .from(sessions)
+          .where(eq(sessions.id, sessionId))
+          .limit(1);
+        if (!session) return res.status(404).json({ error: "Session not found" });
+
+        // Verify the player is enrolled in this session
+        if (session.seriesId) {
+          // Series session: must be an active series member
+          const [enrollment] = await db
+            .select({ playerId: seriesPlayers.playerId })
+            .from(seriesPlayers)
+            .where(
+              and(
+                eq(seriesPlayers.seriesId, session.seriesId),
+                eq(seriesPlayers.playerId, playerId),
+                eq(seriesPlayers.status, "active")
+              )
+            )
+            .limit(1);
+          if (!enrollment) return res.status(403).json({ error: "Not enrolled in this class" });
+        } else {
+          // Non-series session: must appear in session_players
+          const [sessionPlayer] = await db
+            .select({ id: sessionPlayers.id })
+            .from(sessionPlayers)
+            .where(
+              and(
+                eq(sessionPlayers.sessionId, sessionId),
+                eq(sessionPlayers.playerId, playerId)
+              )
+            )
+            .limit(1);
+          if (!sessionPlayer) return res.status(403).json({ error: "Not enrolled in this session" });
+        }
+
+        // Upload to object storage
+        const fileName = `cs-${sessionId}-${playerId}-${Date.now()}.jpg`;
+        const screenshotKey = await uploadToObjectStorage(
+          req.file.path,
+          fileName,
+          "court-screenshots",
+          req.file.mimetype || "image/jpeg"
+        );
+
+        // Clean up temp file
+        fs.unlink(req.file.path, () => {});
+
+        // Upsert confirmation row
+        const now = new Date();
+        const existing = await db
+          .select({ id: courtBookingConfirmations.id })
+          .from(courtBookingConfirmations)
+          .where(
+            and(
+              eq(courtBookingConfirmations.sessionId, sessionId),
+              eq(courtBookingConfirmations.playerId, playerId)
+            )
+          )
+          .limit(1);
+
+        if (existing.length > 0) {
+          await db
+            .update(courtBookingConfirmations)
+            .set({
+              status: "pending",
+              screenshotKey,
+              screenshotUrl: null,
+              rejectionNote: null,
+              confirmedAt: null,
+              updatedAt: now,
+            })
+            .where(
+              and(
+                eq(courtBookingConfirmations.sessionId, sessionId),
+                eq(courtBookingConfirmations.playerId, playerId)
+              )
+            );
+        } else {
+          await db.insert(courtBookingConfirmations).values({
+            sessionId,
+            playerId,
+            seriesId: session.seriesId ?? undefined,
+            academyId: session.academyId ?? undefined,
+            status: "pending",
+            screenshotKey,
+          });
+        }
+
+        // Notify coach
+        try {
+          const [sessionCoach] = await db
+            .select({ coachId: sessions.coachId })
+            .from(sessions)
+            .where(eq(sessions.id, sessionId))
+            .limit(1);
+          const [playerRecord] = await db
+            .select({ name: players.name })
+            .from(players)
+            .where(eq(players.id, playerId))
+            .limit(1);
+          if (sessionCoach?.coachId) {
+            const { sendCoachNotification } = await import("../pushNotifications");
+            await sendCoachNotification(
+              sessionCoach.coachId,
+              "Court Booking Confirmed",
+              `${playerRecord?.name ?? "A player"} has uploaded their court booking screenshot.`,
+              {
+                type: "court_booking_proof",
+                screen: "court_booking_proof",
+                sessionId,
+                playerId,
+                ...(session.seriesId ? { seriesId: session.seriesId } : {}),
+              }
+            );
+          }
+        } catch (_notifErr) {
+          // Non-fatal: notification failure doesn't block upload
+        }
+
+        return res.json({ success: true, status: "pending" });
+      } catch (innerErr) {
+        console.error("[court-booking] POST confirmation failed:", innerErr);
+        return res.status(500).json({ error: "Failed to save confirmation" });
+      }
+    });
+  }
+);
+
 export { generateIcsToken };
 export default router;

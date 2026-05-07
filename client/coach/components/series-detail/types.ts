@@ -99,6 +99,9 @@ export interface SeriesDetail {
   locationLng?: number | null;
   courtId?: string | null;
   courtName?: string;
+  // Court booking confirmation flow (Task #1712)
+  courtLocation?: string | null;
+  courtReminderGroupIds?: string[] | null;
   players: Player[];
   sessions: SessionInstance[];
   stats: {
@@ -163,4 +166,4 @@ export interface CourtOption {
   color?: string;
 }
 
-export type TabId = "overview" | "timeline" | "feedback" | "progress" | "plan";
+export type TabId = "overview" | "timeline" | "feedback" | "progress" | "plan" | "courtbookings";

@@ -31,6 +31,7 @@ import { SeriesTimelineTab } from "./series-detail/SeriesTimelineTab";
 import { SeriesFeedbackTab } from "./series-detail/SeriesFeedbackTab";
 import { SeriesProgressTab } from "./series-detail/SeriesProgressTab";
 import { SeriesPlanTab } from "./series-detail/SeriesPlanTab";
+import { CourtBookingsTab } from "./series-detail/CourtBookingsTab";
 import { SeriesRestoreSessionModal } from "./series-detail/SeriesRestoreSessionModal";
 import { SeriesRescheduleSessionModal } from "./series-detail/SeriesRescheduleSessionModal";
 import { SeriesEditScheduleModal, type ScheduleChangeProposal } from "./series-detail/SeriesEditScheduleModal";
@@ -1667,6 +1668,16 @@ export default function SeriesDetailDrawer({
     <SeriesPlanTab series={series} />
   );
 
+  const renderCourtBookingsTab = () => {
+    if (!series) return null;
+    return (
+      <CourtBookingsTab
+        seriesId={series.id}
+        courtLocation={series.courtLocation ?? null}
+      />
+    );
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "overview":
@@ -1679,6 +1690,8 @@ export default function SeriesDetailDrawer({
         return renderProgressTab();
       case "plan":
         return renderPlanTab();
+      case "courtbookings":
+        return renderCourtBookingsTab();
       default:
         return null;
     }

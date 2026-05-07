@@ -852,6 +852,50 @@ async function run() {
       );
     }
 
+    // ── Court Booking Confirmations — Task #1712 ──────────────────────────────
+    {
+      // New columns on coaching_series
+      await client.query(`
+        ALTER TABLE coaching_series
+          ADD COLUMN IF NOT EXISTS court_location TEXT,
+          ADD COLUMN IF NOT EXISTS court_reminder_group_ids JSONB
+      `);
+      console.log("[db-migrate] coaching_series.court_location + court_reminder_group_ids — OK");
+
+      // New table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS court_booking_confirmations (
+          id          TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          session_id  TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+          player_id   TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+          series_id   TEXT REFERENCES coaching_series(id) ON DELETE SET NULL,
+          academy_id  TEXT REFERENCES academies(id),
+          status      TEXT NOT NULL DEFAULT 'pending',
+          screenshot_key  TEXT,
+          screenshot_url  TEXT,
+          rejection_note  TEXT,
+          confirmed_at    TIMESTAMPTZ,
+          created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      console.log("[db-migrate] court_booking_confirmations table — OK");
+
+      await client.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS court_booking_confirmations_session_player_idx
+          ON court_booking_confirmations (session_id, player_id)
+      `);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS court_booking_confirmations_session_idx
+          ON court_booking_confirmations (session_id)
+      `);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS court_booking_confirmations_player_idx
+          ON court_booking_confirmations (player_id)
+      `);
+      console.log("[db-migrate] court_booking_confirmations indexes — OK");
+    }
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

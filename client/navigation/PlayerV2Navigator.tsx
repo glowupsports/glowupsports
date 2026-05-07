@@ -118,6 +118,7 @@ import ClassDetailScreen from "@/player/screens/ClassDetailScreen";
 import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
 import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
+import CourtBookingConfirmationScreen from "@/player/screens/CourtBookingConfirmationScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -266,6 +267,7 @@ export type PlayerV2StackParamList = {
   // Training
   Training: undefined;
   TrainingDetail: { sessionId: string };
+  CourtBookingConfirmation: { sessionId: string };
   SkillDetail: { domain: string };
   Journey: undefined;
   // Corporate
@@ -720,6 +722,7 @@ function PlayerV2StackWithDrawer() {
         {/* ── Training ── */}
         <Stack.Screen name="Training" component={PlayerTrainingScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="TrainingDetail" component={TrainingDetailScreen} options={{ presentation: "card" }} />
+        <Stack.Screen name="CourtBookingConfirmation" component={CourtBookingConfirmationScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Court Booking", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
         <Stack.Screen name="SkillDetail" component={SkillDetailScreen} options={{ presentation: "card" }} />
         <Stack.Screen name="Journey" component={PlayerJourneyScreen} options={({ navigation }) => ({ presentation: "card", headerShown: true, headerTitle: "My Journey", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerBackTitle: "Back", headerLeft: () => (<HeaderButton onPress={() => navigation.goBack()}><Feather name="arrow-left" size={22} color={Colors.dark.text} /></HeaderButton>) })} />
 

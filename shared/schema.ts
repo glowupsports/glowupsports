@@ -1882,6 +1882,12 @@ export const coachingSeries = pgTable("coaching_series", {
   courtBookingNote: text("court_booking_note"),
   courtBookingUrl: text("court_booking_url"),
 
+  // Court booking confirmation flow (Task #1712)
+  // The community court location players must book (e.g. "Maple", "Sidra Tennis Club")
+  courtLocation: text("court_location"),
+  // Which lesson group IDs receive automated booking reminder pushes (null = all enrolled groups)
+  courtReminderGroupIds: jsonb("court_reminder_group_ids").$type<string[]>(),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1936,6 +1942,33 @@ export const seriesPlayers = pgTable("series_players", {
 export const insertSeriesPlayerSchema = createInsertSchema(seriesPlayers).omit({ id: true });
 export type InsertSeriesPlayer = z.infer<typeof insertSeriesPlayerSchema>;
 export type SeriesPlayer = typeof seriesPlayers.$inferSelect;
+
+// Court Booking Confirmations — Task #1712
+// One row per player per session. Players upload a screenshot proving they have
+// booked the community court required for their lesson.
+export const courtBookingConfirmations = pgTable("court_booking_confirmations", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  seriesId: varchar("series_id").references(() => coachingSeries.id, { onDelete: "set null" }),
+  academyId: varchar("academy_id").references(() => academies.id),
+  // "pending" = player acknowledged but hasn't uploaded proof yet
+  // "confirmed" = screenshot uploaded and accepted
+  // "rejected" = coach rejected the screenshot
+  status: text("status").notNull().default("pending"),
+  screenshotKey: text("screenshot_key"), // GCS object key under .private/court-screenshots/
+  screenshotUrl: text("screenshot_url"), // Signed URL (refreshed at read time)
+  rejectionNote: text("rejection_note"),
+  confirmedAt: timestamp("confirmed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCourtBookingConfirmationSchema = createInsertSchema(courtBookingConfirmations).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCourtBookingConfirmation = z.infer<typeof insertCourtBookingConfirmationSchema>;
+export type CourtBookingConfirmation = typeof courtBookingConfirmations.$inferSelect;
 
 // Legacy: Keep recurringSeries for backwards compatibility
 // TODO: Migrate existing data to coachingSeries

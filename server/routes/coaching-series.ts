@@ -12,7 +12,10 @@ import { authMiddlewareWithFreshData as authMiddleware, requireAcademy, type Aut
 import { sanitizeTemplateName } from "../utils/sanitize";
 import { utcToLocalTime, getFirstSessionDate, addDaysToLocalDate, ensureResolvableLocalTime } from "../utils/timezone";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, sessionFeedback, inSessionFeedback, xpTransactions, coachTimeBlocks, playerHolidays, playerNotifications, coaches } from "@shared/schema";
+import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, sessionFeedback, inSessionFeedback, xpTransactions, coachTimeBlocks, playerHolidays, playerNotifications, coaches, courtBookingConfirmations } from "@shared/schema";
+import { uploadToObjectStorage, getSignedUrl } from "../objectStorage";
+import { courtScreenshotUpload, wrapUploadHandler } from "../upload-middleware";
+import fs from "fs";
 const router = Router();
 
 function toDubaiTime(utcDate: Date): Date {
@@ -1431,6 +1434,9 @@ router.patch(
         "seriesEndDate",
         "isPublic",
         "publicDropInPrice",
+        // Court booking confirmation flow (Task #1712)
+        "courtLocation",
+        "courtReminderGroupIds",
       ];
 
       // Validation for schedule fields
@@ -4068,6 +4074,250 @@ router.post(
       res.status(500).json({ error: "Failed to migrate recurring sessions" });
     }
   },
+);
+
+// ── Court Booking Confirmations — Coach View (Task #1712) ─────────────────────
+
+// GET /api/coach/series/:id/court-booking-confirmations
+// Returns upcoming sessions with per-player confirmation status for the coach.
+router.get(
+  "/api/coach/series/:id/court-booking-confirmations",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Verify ownership
+      const series = await storage.getCoachingSeriesById(id);
+      if (!series) return res.status(404).json({ error: "Series not found" });
+      if (series.coachId !== req.user!.coachId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      // Get upcoming sessions for this series
+      const upcomingSessions = await db
+        .select({
+          id: sessions.id,
+          startTime: sessions.startTime,
+        })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.seriesId, id),
+            eq(sessions.status, "scheduled"),
+            gte(sessions.startTime, new Date())
+          )
+        )
+        .orderBy(asc(sessions.startTime))
+        .limit(20);
+
+      // Get all active enrolled players
+      const enrolled = await db
+        .select({
+          playerId: seriesPlayers.playerId,
+          playerName: players.name,
+        })
+        .from(seriesPlayers)
+        .innerJoin(players, eq(players.id, seriesPlayers.playerId))
+        .where(and(eq(seriesPlayers.seriesId, id), eq(seriesPlayers.status, "active")));
+
+      const totalEnrolled = enrolled.length;
+
+      const { getSignedUrl } = await import("../objectStorage");
+
+      const result = await Promise.all(
+        upcomingSessions.map(async (session) => {
+          const confRecords = await db
+            .select({
+              id: courtBookingConfirmations.id,
+              sessionId: courtBookingConfirmations.sessionId,
+              playerId: courtBookingConfirmations.playerId,
+              status: courtBookingConfirmations.status,
+              screenshotKey: courtBookingConfirmations.screenshotKey,
+              screenshotUrl: courtBookingConfirmations.screenshotUrl,
+              confirmedAt: courtBookingConfirmations.confirmedAt,
+              rejectionNote: courtBookingConfirmations.rejectionNote,
+              createdAt: courtBookingConfirmations.createdAt,
+            })
+            .from(courtBookingConfirmations)
+            .where(eq(courtBookingConfirmations.sessionId, session.id));
+
+          // Build a map of existing records by playerId
+          const confMap = new Map(confRecords.map((c) => [c.playerId, c]));
+
+          // Generate signed screenshot URLs for records that have a key
+          await Promise.all(
+            confRecords.map(async (c) => {
+              if (c.screenshotKey && !c.screenshotUrl) {
+                try {
+                  c.screenshotUrl = await getSignedUrl(c.screenshotKey);
+                } catch {
+                  // non-fatal
+                }
+              }
+            })
+          );
+
+          // Build full roster: all enrolled players, with confirmation record if present
+          const allPlayers = enrolled.map((e) => {
+            const conf = confMap.get(e.playerId);
+            return {
+              id: conf?.id ?? null,
+              sessionId: session.id,
+              playerId: e.playerId,
+              playerName: e.playerName,
+              status: (conf?.status ?? "no_submission") as
+                | "confirmed"
+                | "pending"
+                | "rejected"
+                | "no_submission",
+              screenshotUrl: conf?.screenshotUrl ?? null,
+              screenshotKey: conf?.screenshotKey ?? null,
+              confirmedAt: conf?.confirmedAt ?? null,
+              rejectionNote: conf?.rejectionNote ?? null,
+              createdAt: conf?.createdAt ?? null,
+            };
+          });
+
+          const confirmedCount = allPlayers.filter((p) => p.status === "confirmed").length;
+          const pendingCount = allPlayers.filter(
+            (p) => p.status === "pending" || p.status === "no_submission"
+          ).length;
+
+          const startDate = new Date(session.startTime);
+          const sessionDate = startDate.toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
+          const sessionTime = startDate.toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          });
+
+          return {
+            sessionId: session.id,
+            sessionDate,
+            sessionTime,
+            players: allPlayers,
+            totalEnrolled,
+            confirmedCount,
+            pendingCount,
+          };
+        })
+      );
+
+      return res.json(result);
+    } catch (err) {
+      console.error("[court-booking] GET confirmations failed:", err);
+      return res.status(500).json({ error: "Failed to fetch confirmations" });
+    }
+  }
+);
+
+// PATCH /api/coach/court-booking-confirmations/:id
+// Coach approves or rejects a player's screenshot.
+router.patch(
+  "/api/coach/court-booking-confirmations/:confirmationId",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { confirmationId } = req.params;
+      const { action, rejectionNote } = req.body as {
+        action: "approve" | "reject";
+        rejectionNote?: string;
+      };
+
+      if (action !== "approve" && action !== "reject") {
+        return res.status(400).json({ error: "action must be 'approve' or 'reject'" });
+      }
+
+      const [existing] = await db
+        .select({
+          id: courtBookingConfirmations.id,
+          sessionId: courtBookingConfirmations.sessionId,
+          playerId: courtBookingConfirmations.playerId,
+          seriesId: courtBookingConfirmations.seriesId,
+        })
+        .from(courtBookingConfirmations)
+        .where(eq(courtBookingConfirmations.id, confirmationId))
+        .limit(1);
+
+      if (!existing) return res.status(404).json({ error: "Confirmation not found" });
+
+      // Verify this coach owns the series/session — always enforced, even when
+      // seriesId is null on the confirmation record (fall through to session).
+      let ownerVerified = false;
+      if (existing.seriesId) {
+        const series = await storage.getCoachingSeriesById(existing.seriesId);
+        if (!series || series.coachId !== req.user!.coachId) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
+        ownerVerified = true;
+      }
+      if (!ownerVerified) {
+        // seriesId is null — derive ownership from the linked session
+        if (!existing.sessionId) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
+        const [sess] = await db
+          .select({ coachId: sessions.coachId, seriesId: sessions.seriesId })
+          .from(sessions)
+          .where(eq(sessions.id, existing.sessionId))
+          .limit(1);
+        if (!sess) return res.status(403).json({ error: "Not authorized" });
+        if (sess.seriesId) {
+          const series = await storage.getCoachingSeriesById(sess.seriesId);
+          if (!series || series.coachId !== req.user!.coachId) {
+            return res.status(403).json({ error: "Not authorized" });
+          }
+        } else if (sess.coachId !== req.user!.coachId) {
+          return res.status(403).json({ error: "Not authorized" });
+        }
+      }
+
+      const now = new Date();
+      await db
+        .update(courtBookingConfirmations)
+        .set({
+          status: action === "approve" ? "confirmed" : "rejected",
+          confirmedAt: action === "approve" ? now : null,
+          rejectionNote: action === "reject" ? (rejectionNote ?? null) : null,
+          updatedAt: now,
+        })
+        .where(eq(courtBookingConfirmations.id, confirmationId));
+
+      // Notify the player
+      try {
+        const { getPlayerPushTokens, sendPushNotification } = await import("../pushNotifications");
+        const tokens = await getPlayerPushTokens(existing.playerId);
+        if (tokens.length > 0) {
+          const title =
+            action === "approve" ? "Court Booking Confirmed" : "Court Booking Screenshot Rejected";
+          const body =
+            action === "approve"
+              ? "Your court booking screenshot has been approved. See you on court!"
+              : rejectionNote
+              ? `Your screenshot was rejected: ${rejectionNote}`
+              : "Please upload a clearer screenshot of your court booking.";
+          await sendPushNotification(tokens, title, body, {
+            screen: "CourtBookingConfirmation",
+            sessionId: existing.sessionId,
+          });
+        }
+      } catch (_notifErr) {
+        // Non-fatal
+      }
+
+      return res.json({ success: true, status: action === "approve" ? "confirmed" : "rejected" });
+    } catch (err) {
+      console.error("[court-booking] PATCH confirmation failed:", err);
+      return res.status(500).json({ error: "Failed to update confirmation" });
+    }
+  }
 );
 
 export default router;

@@ -7,6 +7,7 @@ export const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: "feedback", label: "Feedback", icon: "chatbubble-outline" },
   { id: "progress", label: "Progress", icon: "trending-up-outline" },
   { id: "plan", label: "Plan", icon: "clipboard-outline" },
+  { id: "courtbookings", label: "Courts", icon: "shield-checkmark-outline" },
 ];
 
 export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

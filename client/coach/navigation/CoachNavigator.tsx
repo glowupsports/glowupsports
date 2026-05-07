@@ -9,6 +9,7 @@ import DashboardScreen from "@/coach/screens/DashboardScreen";
 import CoachPostComposerScreen from "@/coach/screens/CoachPostComposerScreen";
 import LessonRecapDraftsScreen from "@/coach/screens/LessonRecapDraftsScreen";
 import CoachTechniqueAnalysisDetailScreen from "@/coach/screens/CoachTechniqueAnalysisDetailScreen";
+import CoachCourtBookingProofScreen from "@/coach/screens/CoachCourtBookingProofScreen";
 import CalendarScreen from "@/coach/screens/CalendarScreen";
 import PlayersScreen from "@/coach/screens/PlayersScreen";
 import CoachingScreen from "@/coach/screens/CoachingScreen";
@@ -126,6 +127,7 @@ export type CoachStackParamList = {
       completed_at: string | null;
     };
   };
+  CoachCourtBookingProof: { sessionId: string; seriesId?: string };
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
@@ -517,6 +519,15 @@ function CoachStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Lesson Recaps",
+        }}
+      />
+      <Stack.Screen
+        name="CoachCourtBookingProof"
+        component={CoachCourtBookingProofScreen}
+        options={{
+          headerShown: true,
+          headerTitle: "Court Booking Proof",
+          presentation: "card",
         }}
       />
       <Stack.Screen

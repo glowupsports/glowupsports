@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, TextInput, StyleSheet, Switch, Platform } from "react-native";
+import { View, Text, Pressable, TextInput, StyleSheet, Switch, Platform, Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 import { openDirections } from "@/lib/maps";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -11,6 +11,8 @@ import { styles } from "./seriesDetailStyles";
 import { DAY_NAMES, getBallLevelColor } from "./utils";
 import type { SeriesDetail, Player, CourtOption } from "./types";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
 
 const DURATION_OPTIONS = [30, 45, 60, 75, 90, 120];
 
@@ -432,6 +434,8 @@ export function SeriesOverviewTab({
           <Text style={styles.infoText}>{series.xpPerSession} XP per session</Text>
         </View>
       </View>
+
+      <CourtBookingSetupSection series={series} />
 
       <View style={styles.infoSection}>
         <Text style={styles.sectionTitle}>Visibility</Text>
@@ -908,6 +912,309 @@ export function SeriesOverviewTab({
     </View>
   );
 }
+
+// ── Court Booking Setup Section (Task #1712) ──────────────────────────────────
+// Lets coaches configure the community court location and optionally target
+// specific lesson groups for booking reminders.
+type LessonGroupOption = { id: string; name: string; memberCount?: number };
+
+function CourtBookingSetupSection({ series }: { series: SeriesDetail }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [locationInput, setLocationInput] = useState(series.courtLocation ?? "");
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>(
+    series.courtReminderGroupIds ?? []
+  );
+
+  // Fetch available lesson groups for the academy (always loaded so read-only
+  // display can also show the configured group names)
+  const { data: lessonGroups } = useQuery<LessonGroupOption[]>({
+    queryKey: ["/api/lesson-groups"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: { courtLocation: string | null; courtReminderGroupIds: string[] | null }) =>
+      apiRequest("PATCH", `/api/coach/series/${series.id}`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${series.id}`] });
+      setEditing(false);
+    },
+    onError: () => {
+      Alert.alert("Failed to save court booking settings");
+    },
+  });
+
+  const handleSave = () => {
+    const loc = locationInput.trim() || null;
+    const groups = selectedGroupIds.length > 0 ? selectedGroupIds : null;
+    saveMutation.mutate({ courtLocation: loc, courtReminderGroupIds: groups });
+  };
+
+  const handleRemove = () => {
+    saveMutation.mutate({ courtLocation: null, courtReminderGroupIds: null });
+  };
+
+  const toggleGroup = (id: string) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(id) ? prev.filter((g) => g !== id) : [...prev, id]
+    );
+  };
+
+  const hasLocation = !!series.courtLocation;
+  const groupNames =
+    series.courtReminderGroupIds && lessonGroups
+      ? lessonGroups
+          .filter((g) => (series.courtReminderGroupIds ?? []).includes(g.id))
+          .map((g) => g.name)
+          .join(", ")
+      : null;
+
+  return (
+    <View style={courtSetupStyles.container}>
+      <View style={courtSetupStyles.headerRow}>
+        <Ionicons name="shield-checkmark-outline" size={16} color={Colors.dark.accentCyan} />
+        <Text style={courtSetupStyles.sectionTitle}>Court Booking</Text>
+        {!editing ? (
+          <Pressable
+            onPress={() => {
+              setLocationInput(series.courtLocation ?? "");
+              setSelectedGroupIds(series.courtReminderGroupIds ?? []);
+              setEditing(true);
+            }}
+            style={courtSetupStyles.editBtn}
+          >
+            <Ionicons name="pencil-outline" size={14} color={Colors.dark.disabled} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {!editing ? (
+        hasLocation ? (
+          <View style={{ gap: 4 }}>
+            <View style={courtSetupStyles.locationRow}>
+              <Ionicons name="location-outline" size={14} color={Colors.dark.textMuted} />
+              <Text style={courtSetupStyles.locationText}>{series.courtLocation}</Text>
+            </View>
+            {groupNames ? (
+              <Text style={courtSetupStyles.groupHint}>
+                Reminders target: {groupNames}
+              </Text>
+            ) : (
+              <Text style={courtSetupStyles.groupHint}>Reminders sent to all enrolled players</Text>
+            )}
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => {
+              setLocationInput("");
+              setSelectedGroupIds([]);
+              setEditing(true);
+            }}
+            style={courtSetupStyles.addRow}
+          >
+            <Ionicons name="add-circle-outline" size={15} color={Colors.dark.accentCyan} />
+            <Text style={courtSetupStyles.addText}>Set court location for booking reminders</Text>
+          </Pressable>
+        )
+      ) : (
+        <View style={courtSetupStyles.editContainer}>
+          <Text style={courtSetupStyles.fieldLabel}>Court / Venue Name</Text>
+          <TextInput
+            style={courtSetupStyles.input}
+            value={locationInput}
+            onChangeText={setLocationInput}
+            placeholder="e.g. Maple Court, Sidra Tennis Club"
+            placeholderTextColor={Colors.dark.textMuted}
+            autoFocus
+          />
+
+          {lessonGroups && lessonGroups.length > 0 ? (
+            <View style={{ gap: 6 }}>
+              <Text style={courtSetupStyles.fieldLabel}>
+                Remind groups (leave empty for all players)
+              </Text>
+              <View style={courtSetupStyles.groupsRow}>
+                {lessonGroups.map((g) => {
+                  const active = selectedGroupIds.includes(g.id);
+                  return (
+                    <Pressable
+                      key={g.id}
+                      onPress={() => toggleGroup(g.id)}
+                      style={[
+                        courtSetupStyles.groupChip,
+                        active && courtSetupStyles.groupChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          courtSetupStyles.groupChipText,
+                          active && courtSetupStyles.groupChipTextActive,
+                        ]}
+                      >
+                        {g.name}
+                        {g.memberCount !== undefined ? ` (${g.memberCount})` : ""}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
+          <View style={courtSetupStyles.editActions}>
+            <Pressable
+              style={[courtSetupStyles.actionBtn, courtSetupStyles.saveBtn]}
+              onPress={handleSave}
+              disabled={saveMutation.isPending}
+            >
+              {saveMutation.isPending ? (
+                <TennisBallSpinner size="small" color={Colors.dark.text} />
+              ) : (
+                <Text style={courtSetupStyles.saveBtnText}>Save</Text>
+              )}
+            </Pressable>
+            <Pressable
+              style={[courtSetupStyles.actionBtn, courtSetupStyles.cancelBtn]}
+              onPress={() => setEditing(false)}
+              disabled={saveMutation.isPending}
+            >
+              <Text style={courtSetupStyles.cancelBtnText}>Cancel</Text>
+            </Pressable>
+            {hasLocation ? (
+              <Pressable
+                style={[courtSetupStyles.actionBtn, courtSetupStyles.removeBtn]}
+                onPress={handleRemove}
+                disabled={saveMutation.isPending}
+              >
+                <Text style={courtSetupStyles.removeBtnText}>Remove</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <Text style={courtSetupStyles.hint}>
+            Players receive push reminders at 14, 7, and 3 days before each session at 08:00 local time.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const courtSetupStyles = StyleSheet.create({
+  container: {
+    backgroundColor: "rgba(0, 229, 255, 0.05)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(0, 229, 255, 0.18)",
+    padding: 12,
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    color: Colors.dark.accentCyan,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  editBtn: { padding: 4 },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  locationText: {
+    fontSize: 14,
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  addRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  addText: {
+    fontSize: 13,
+    color: Colors.dark.accentCyan,
+  },
+  editContainer: { gap: 8 },
+  input: {
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  editActions: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  actionBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 32,
+  },
+  saveBtn: { backgroundColor: Colors.dark.accentCyan },
+  saveBtnText: { color: "#000", fontWeight: "700", fontSize: 13 },
+  cancelBtn: { backgroundColor: "rgba(255,255,255,0.08)" },
+  cancelBtnText: { color: Colors.dark.textMuted, fontSize: 13 },
+  removeBtn: { backgroundColor: "rgba(239,68,68,0.15)", borderWidth: 1, borderColor: "rgba(239,68,68,0.3)" },
+  removeBtnText: { color: Colors.dark.error, fontSize: 13 },
+  hint: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    lineHeight: 16,
+  },
+  groupHint: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase" as const,
+    letterSpacing: 0.7,
+  },
+  groupsRow: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: 6,
+  },
+  groupChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.04)",
+  },
+  groupChipActive: {
+    borderColor: Colors.dark.accentCyan,
+    backgroundColor: "rgba(0, 229, 255, 0.15)",
+  },
+  groupChipText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "600" as const,
+  },
+  groupChipTextActive: {
+    color: Colors.dark.accentCyan,
+  },
+});
 
 const scheduleStyles = StyleSheet.create({
   expandedBox: {

@@ -31,7 +31,7 @@ export function isObjectStorageEnabled(): boolean {
 export async function uploadToObjectStorage(
   localPath: string,
   fileName: string,
-  subDir: "technique-videos" | "technique-thumbs",
+  subDir: "technique-videos" | "technique-thumbs" | "court-screenshots",
   contentType: string
 ): Promise<string> {
   if (!BUCKET_ID) throw new Error("Object Storage not configured");

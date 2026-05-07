@@ -51,6 +51,7 @@ import { startFamilyGraduationJob } from "./familyGraduationJob";
 import { startDigestJobs } from "./services/digestJobs";
 import { startFeedPruneScheduler } from "./feedPruneJob";
 import { startFamilyPickupNotificationsJob } from "./familyPickupNotificationsJob";
+import { startCourtBookingReminderJob } from "./courtBookingReminderJob";
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -1136,6 +1137,8 @@ function setupErrorHandler(app: express.Application) {
       startDigestJobs();
       startFeedPruneScheduler();
       startFamilyPickupNotificationsJob();
+      // Task #1712 — daily court booking reminders at 14/7/3 days before lesson.
+      startCourtBookingReminderJob();
       // Legacy startAutoSessionCompletionScheduler DISABLED — processAutoCompleteSession now handles
       // both session completion AND attendance+credit processing atomically (every 5 min)
       startMonthlyReportScheduler();
