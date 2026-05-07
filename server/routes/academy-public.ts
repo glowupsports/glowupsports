@@ -19,8 +19,8 @@ import { Router, type Request, type Response } from "express";
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const inviteSchema = z.object({
-          role: z.enum(["coach", "player", "academy_owner", "service_provider"]).optional().default("coach"),
-          email: z.string().email().optional(),
+          role: z.enum(["coach", "head_coach", "assistant", "player", "academy_owner", "service_provider"]).optional().default("coach"),
+          email: z.union([z.string().email(), z.literal(""), z.null()]).optional().transform(v => (v === "" || v === null ? undefined : v)),
           expiresInDays: z.number().int().positive().max(365).optional().default(7),
         });
         const parsedInvite = inviteSchema.safeParse(req.body);
