@@ -385,6 +385,12 @@ const _liveCountdownStyles = StyleSheet.create({
   },
 });
 
+// Task #1713 — Ticker isolation.
+// LiveCountdown owns its own `now` state and 1-second useInterval entirely
+// within this React.memo component. The root PlayScreen has NO setNow / no
+// useInterval call of its own — confirmed: `useInterval` appears exactly once
+// in this file (here). Every second only this ~10-line component re-renders;
+// the rest of the 7,000-line PlayScreen tree stays completely still.
 const LiveCountdown = React.memo(function LiveCountdown({
   startTime,
 }: {
@@ -959,6 +965,64 @@ export default function PlayScreen() {
 
     return filtered;
   }, [sessions, selectedDay]);
+
+  const openMatchesRows = useMemo(() => {
+    if (!openMatchesList || openMatchesList.length === 0) return null;
+    return openMatchesList.slice(0, 5).map((match) => (
+      <Pressable
+        key={match.id}
+        style={styles.matchListRow}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("OpenMatches" as never);
+        }}
+      >
+        <View style={styles.matchListIcon}>
+          <Ionicons name="tennisball" size={16} color={Colors.dark.primary} />
+        </View>
+        <View style={styles.matchListInfo}>
+          <Text style={styles.matchListTitle} numberOfLines={1}>
+            {match.title ?? `${match.matchType ?? "Match"} with ${match.playerName ?? "Player"}`}
+          </Text>
+          {match.preferredDate ? (
+            <Text style={styles.matchListMeta} numberOfLines={1}>
+              {new Date(match.preferredDate).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+              {match.preferredTime ? ` · ${match.preferredTime.slice(0, 5)}` : ""}
+              {match.currentPlayers != null && match.maxPlayers != null
+                ? ` · ${match.currentPlayers}/${match.maxPlayers} players`
+                : ""}
+            </Text>
+          ) : null}
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+      </Pressable>
+    ));
+  }, [openMatchesList, navigation]);
+
+  const matchHistoryRow = useMemo(
+    () => (
+      <Pressable
+        style={styles.matchListRow}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.navigate("MatchHistory" as never);
+        }}
+      >
+        <View style={styles.matchListIcon}>
+          <Ionicons name="bar-chart" size={16} color={Colors.dark.primary} />
+        </View>
+        <View style={styles.matchListInfo}>
+          <Text style={styles.matchListTitle}>My Match History</Text>
+          <Text style={styles.matchListMeta}>View your wins, losses and logged results</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+      </Pressable>
+    ),
+    [navigation],
+  );
 
   const joinSessionMutation = useMutation({
     mutationFn: async (sessionId: string) => {
@@ -3777,39 +3841,8 @@ export default function PlayScreen() {
                   </Pressable>
                 </View>
 
-                {openMatchesList && openMatchesList.length > 0 ? (
-                  openMatchesList.slice(0, 5).map((match) => (
-                    <Pressable
-                      key={match.id}
-                      style={styles.matchListRow}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        navigation.navigate("OpenMatches" as never);
-                      }}
-                    >
-                      <View style={styles.matchListIcon}>
-                        <Ionicons name="tennisball" size={16} color={Colors.dark.primary} />
-                      </View>
-                      <View style={styles.matchListInfo}>
-                        <Text style={styles.matchListTitle} numberOfLines={1}>
-                          {match.title ?? `${match.matchType ?? "Match"} with ${match.playerName ?? "Player"}`}
-                        </Text>
-                        {match.preferredDate ? (
-                          <Text style={styles.matchListMeta} numberOfLines={1}>
-                            {new Date(match.preferredDate).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                            {match.preferredTime ? ` · ${match.preferredTime.slice(0, 5)}` : ""}
-                            {match.currentPlayers != null && match.maxPlayers != null
-                              ? ` · ${match.currentPlayers}/${match.maxPlayers} players`
-                              : ""}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-                    </Pressable>
-                  ))
+                {openMatchesRows ? (
+                  openMatchesRows
                 ) : (
                   <View style={styles.emptyState}>
                     <Ionicons name="tennisball-outline" size={48} color={Colors.dark.textMuted} />
@@ -3825,22 +3858,7 @@ export default function PlayScreen() {
                     <Text style={styles.sectionTitle}>Match History</Text>
                   </View>
                 </View>
-                <Pressable
-                  style={styles.matchListRow}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    navigation.navigate("MatchHistory" as never);
-                  }}
-                >
-                  <View style={styles.matchListIcon}>
-                    <Ionicons name="bar-chart" size={16} color={Colors.dark.primary} />
-                  </View>
-                  <View style={styles.matchListInfo}>
-                    <Text style={styles.matchListTitle}>My Match History</Text>
-                    <Text style={styles.matchListMeta}>View your wins, losses and logged results</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-                </Pressable>
+                {matchHistoryRow}
 
                 {/* Enter Arena entry card */}
                 <Pressable
