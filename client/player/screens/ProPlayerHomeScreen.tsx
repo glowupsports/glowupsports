@@ -1136,8 +1136,8 @@ function PlayerHomeContent() {
         bottomOffset={145}
       />
       
-      {/* MODE SWITCHER - Dashboard switching button (top left) */}
-      <CollapsibleModeSwitcher />
+      {/* MODE SWITCHER — dev-only, never visible to players in production */}
+      {__DEV__ ? <CollapsibleModeSwitcher /> : null}
       
       {/* SPORT PICKER before booking wizard */}
       <Modal

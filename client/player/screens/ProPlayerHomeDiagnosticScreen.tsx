@@ -836,8 +836,8 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           {isFreePlayer && !isGuest ? <JoinAcademySoftCard /> : null}
         </ScrollView>
 
-        {/* MODE SWITCHER */}
-        <CollapsibleModeSwitcher />
+        {/* MODE SWITCHER — dev-only, never visible to players in production */}
+        {__DEV__ ? <CollapsibleModeSwitcher /> : null}
 
         {/* SPORT PICKER MODAL */}
         <Modal

@@ -16,9 +16,9 @@ const TEXT = "#F0F4F8";
 const MUTED = "#8A95A3";
 
 // Exported so SwipeableTabBar can use the same value to compute containerWidth.
-export const PLAYER_DESKTOP_SIDEBAR_WIDTH = 220;
+export const PLAYER_DESKTOP_SIDEBAR_WIDTH = 240;
 // Maximum width for the main content column on very wide screens.
-export const PLAYER_DESKTOP_CONTENT_MAX_WIDTH = 860;
+export const PLAYER_DESKTOP_CONTENT_MAX_WIDTH = 920;
 
 interface NavItem {
   key: string;
@@ -117,7 +117,6 @@ export function PlayerDesktopShell({ children }: PlayerDesktopShellProps) {
                   ]}
                   onPress={() => handleNavPress(item)}
                 >
-                  {focused ? <View style={styles.navActiveBar} /> : null}
                   <Ionicons
                     name={focused ? item.iconFocused : item.icon}
                     size={19}
@@ -126,6 +125,7 @@ export function PlayerDesktopShell({ children }: PlayerDesktopShellProps) {
                   <Text style={[styles.navLabel, focused && styles.navLabelActive]}>
                     {item.label}
                   </Text>
+                  {focused ? <View style={styles.navActiveDot} /> : null}
                 </Pressable>
               );
             })}
@@ -150,16 +150,21 @@ export function PlayerDesktopShell({ children }: PlayerDesktopShellProps) {
               <Text style={styles.playerName} numberOfLines={1}>
                 {displayName}
               </Text>
-              <View style={styles.levelBadge}>
-                <Ionicons name="flash" size={9} color={ACCENT} />
-                <Text style={styles.levelBadgeText}>Level {level}</Text>
+              <View style={styles.playerBadgeRow}>
+                <View style={styles.playerBadge}>
+                  <Text style={styles.playerBadgeText}>PLAYER</Text>
+                </View>
+                <View style={styles.levelBadge}>
+                  <Ionicons name="flash" size={9} color={ACCENT} />
+                  <Text style={styles.levelBadgeText}>Lvl {level}</Text>
+                </View>
               </View>
             </View>
           </View>
         </View>
       </View>
 
-      {/* ── Main content — centered, capped at 860px on ultra-wide ──── */}
+      {/* ── Main content — centered, capped at 920px on ultra-wide ──── */}
       <View style={styles.mainArea}>
         <View style={styles.mainContent}>
           {children}
@@ -245,13 +250,10 @@ const styles = StyleSheet.create({
   navItemHovered: {
     backgroundColor: "rgba(255,255,255,0.04)",
   },
-  navActiveBar: {
-    position: "absolute",
-    left: 0,
-    top: "20%",
-    bottom: "20%",
-    width: 3,
-    borderRadius: 2,
+  navActiveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
     backgroundColor: ACCENT,
   },
   navLabel: {
@@ -302,6 +304,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: TEXT,
+  },
+  playerBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  playerBadge: {
+    backgroundColor: "rgba(200,255,61,0.1)",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    alignSelf: "flex-start",
+  },
+  playerBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: ACCENT,
+    letterSpacing: 0.8,
   },
   levelBadge: {
     flexDirection: "row",
