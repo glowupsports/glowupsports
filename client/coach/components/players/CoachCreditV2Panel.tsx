@@ -327,17 +327,13 @@ export function CoachCreditV2Panel({ playerId }: Props) {
         throw new Error("Enter a valid number of credits to remove");
       }
       const available = Number(wallet?.balance?.[removeType] ?? 0);
-      if (qty > available) {
-        throw new Error(
-          `Cannot remove ${qty} ${removeType.replace("_", " ")} credit${qty === 1 ? "" : "s"} — player only has ${Math.max(0, available)} available.`,
-        );
-      }
       const reason = removeReason.trim() || "Coach removed credits";
       const res = await apiRequest("POST", "/api/v2/credits/manual-adjustment", {
         playerId,
         type: removeType,
         delta: -qty,
         reason,
+        allowOverdraw: available <= 0,
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
@@ -1172,7 +1168,8 @@ function RemoveCreditsModal({
   const qtyNum = parseInt(removeQty, 10);
   const validQty = Number.isFinite(qtyNum) && qtyNum > 0;
   const projected = validQty ? currentBalance - qtyNum : currentBalance;
-  const willCreateDebt = validQty && projected < 0;
+  const alreadyInDebt = currentBalance < 0;
+  const willCreateDebt = validQty && !alreadyInDebt && projected < 0;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>

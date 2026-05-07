@@ -320,6 +320,10 @@ router.post(
         // exemption out of client control. When `reversalOf` is set the
         // request body's `delta` / `reason` fields are ignored.
         reversalOf,
+        // allowOverdraw — client may set true only when the player is
+        // already in debt (balance < 0). The server re-validates this so
+        // a caller cannot manufacture ghost debt on a positive balance.
+        allowOverdraw: clientAllowOverdraw,
       } = req.body || {};
       let { type, delta, reason } = (req.body || {}) as {
         type?: string;
@@ -463,10 +467,20 @@ router.post(
       if (delta < 0 && !reversalAllowOverdraw) {
         const balances = await getBalance(playerId, access.academyId);
         const available = balances[type as CreditType] ?? 0;
-        if (available + delta < 0) {
+        // Allow admins/coaches to increase existing debt (balance already
+        // negative) when clientAllowOverdraw is set — this is used for
+        // legitimate corrections like re-charging an absence. We still
+        // block creating fresh debt on a positive balance unless it's a
+        // server-derived reversal.
+        const alreadyInDebt = available < 0;
+        const overdrawnByClient = clientAllowOverdraw === true && alreadyInDebt;
+        if (!overdrawnByClient && available + delta < 0) {
           return res.status(400).json({
             error: `Cannot remove ${Math.abs(delta)} ${type} credit${Math.abs(delta) === 1 ? "" : "s"} — player only has ${Math.max(0, available)} available.`,
           });
+        }
+        if (overdrawnByClient) {
+          reversalAllowOverdraw = true;
         }
       }
 
