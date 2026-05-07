@@ -710,7 +710,7 @@ import { Router, type Request, type Response } from "express";
         // Batch fetch supplementary data for all players in PARALLEL.
         // Combine active+paused group counts into one query that groups by status.
         const playerIds = playerList.map((p) => p.id);
-        const [lastLessonMap, groupRows] = await Promise.all([
+        const [lastLessonMap, groupRows, academyCoaches] = await Promise.all([
           storage.getPlayersLastSessions(playerIds),
           playerIds.length > 0
             ? db
@@ -733,7 +733,16 @@ import { Router, type Request, type Response } from "express";
                 )
                 .groupBy(seriesPlayers.playerId, seriesPlayers.status)
             : Promise.resolve([] as { playerId: string | null; status: string | null; cnt: number }[]),
+          db
+            .select({ id: coaches.id, name: coaches.name })
+            .from(coaches)
+            .where(eq(coaches.academyId, effectiveAcademyId)),
         ]);
+
+        const coachNameMap = new Map<string, string>();
+        for (const c of academyCoaches) {
+          coachNameMap.set(c.id, c.name);
+        }
 
         const activeGroupMap = new Map<string, number>();
         const pausedGroupMap = new Map<string, number>();
@@ -761,7 +770,9 @@ import { Router, type Request, type Response } from "express";
           phone: canSeeContactDetails ? player.phone : undefined,
           parentPhone: canSeeContactDetails ? player.parentPhone : undefined,
           parentEmail: canSeeContactDetails ? player.parentEmail : undefined,
-          lastLessonDate: lastLessonMap.get(player.id)?.startTime || null,
+          lastSessionDate: lastLessonMap.get(player.id)?.startTime?.toISOString() ?? null,
+          lastLessonDate: lastLessonMap.get(player.id)?.startTime ?? null,
+          coachName: player.coachId ? (coachNameMap.get(player.coachId) ?? null) : null,
           activeGroupsCount: activeGroupMap.get(player.id) ?? 0,
           pausedGroupsCount: pausedGroupMap.get(player.id) ?? 0,
           // onHoliday: true if player status is "holiday" OR if paused in all their active series

@@ -1947,13 +1947,13 @@ export type SeriesPlayer = typeof seriesPlayers.$inferSelect;
 // One row per player per session. Players upload a screenshot proving they have
 // booked the community court required for their lesson.
 export const courtBookingConfirmations = pgTable("court_booking_confirmations", {
-  id: varchar("id")
+  id: text("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
-  sessionId: varchar("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
-  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
-  seriesId: varchar("series_id").references(() => coachingSeries.id, { onDelete: "set null" }),
-  academyId: varchar("academy_id").references(() => academies.id),
+  sessionId: text("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
+  playerId: text("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  seriesId: text("series_id").references(() => coachingSeries.id, { onDelete: "set null" }),
+  academyId: text("academy_id").references(() => academies.id),
   // "pending" = player acknowledged but hasn't uploaded proof yet
   // "confirmed" = screenshot uploaded and accepted
   // "rejected" = coach rejected the screenshot
@@ -1962,8 +1962,8 @@ export const courtBookingConfirmations = pgTable("court_booking_confirmations", 
   screenshotUrl: text("screenshot_url"), // Signed URL (refreshed at read time)
   rejectionNote: text("rejection_note"),
   confirmedAt: timestamp("confirmed_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const insertCourtBookingConfirmationSchema = createInsertSchema(courtBookingConfirmations).omit({ id: true, createdAt: true, updatedAt: true });
