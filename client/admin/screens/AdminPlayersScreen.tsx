@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   Alert,
   Platform,
   ScrollView,
-  Modal} from "react-native";
+  Modal,
+  useWindowDimensions} from "react-native";
 import { Image } from "expo-image";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -584,7 +585,20 @@ export default function AdminPlayersScreen() {
 
 
   const isDesktop = useDesktop();
+  const { width: windowWidth } = useWindowDimensions();
   const [desktopSelectedId, setDesktopSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const styleEl = document.createElement("style");
+    styleEl.id = "admin-players-scrollbar-hide";
+    styleEl.textContent = `
+      #admin-players-table-scroll::-webkit-scrollbar { display: none; }
+      #admin-players-table-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+    `;
+    document.head.appendChild(styleEl);
+    return () => { styleEl.remove(); };
+  }, []);
   const [sortCol, setSortCol] = useState<"name" | "ballLevel" | "credits" | "coach" | "lastSession">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
@@ -798,7 +812,7 @@ export default function AdminPlayersScreen() {
         ) : null}
 
         <View style={dtStyles.tableArea}>
-          <ScrollView style={dtStyles.tableScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView nativeID="admin-players-table-scroll" style={dtStyles.tableScroll} showsVerticalScrollIndicator={false}>
             <View style={dtStyles.tableHeader}>
               <View style={[dtStyles.thCell, dtStyles.colCheck]}>
                 <Pressable
@@ -956,70 +970,73 @@ export default function AdminPlayersScreen() {
           </ScrollView>
 
           {desktopSelectedId && desktopSelectedPlayer ? (
-            <View style={dtStyles.rightPanel}>
-              <View style={dtStyles.panelHeader}>
-                <Text style={dtStyles.panelTitle}>Player Profile</Text>
-                <Pressable onPress={() => setDesktopSelectedId(null)}>
-                  <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
-                </Pressable>
-              </View>
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={dtStyles.panelAvatarRow}>
-                  <View style={[dtStyles.panelAvatar, { borderColor: getBallLevelColor(desktopSelectedPlayer.ballLevel) }]}>
-                    {desktopSelectedPlayer.profilePhotoUrl ? (
-                      <Image
-                        source={{ uri: desktopSelectedPlayer.profilePhotoUrl }}
-                        style={{ width: "100%", height: "100%", borderRadius: 999 }}
-                        contentFit="cover"
-                      />
+            <>
+              <Pressable style={dtStyles.panelBackdrop} onPress={() => setDesktopSelectedId(null)} />
+              <View style={[dtStyles.rightPanel, windowWidth < 1280 ? { width: "100%" } : undefined]}>
+                <View style={dtStyles.panelHeader}>
+                  <Text style={dtStyles.panelTitle}>Player Profile</Text>
+                  <Pressable onPress={() => setDesktopSelectedId(null)} style={dtStyles.panelCloseBtn}>
+                    <Ionicons name="close" size={18} color={Colors.dark.textMuted} />
+                  </Pressable>
+                </View>
+                <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                  <View style={dtStyles.panelAvatarRow}>
+                    <View style={[dtStyles.panelAvatar, { borderColor: getBallLevelColor(desktopSelectedPlayer.ballLevel) }]}>
+                      {desktopSelectedPlayer.profilePhotoUrl ? (
+                        <Image
+                          source={{ uri: desktopSelectedPlayer.profilePhotoUrl }}
+                          style={{ width: "100%", height: "100%", borderRadius: 999 }}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <Text style={dtStyles.panelAvatarText}>
+                          {desktopSelectedPlayer.name?.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") ?? "?"}
+                        </Text>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={dtStyles.panelName}>{desktopSelectedPlayer.name}</Text>
+                      <Text style={dtStyles.panelEmail}>{desktopSelectedPlayer.email || "No email"}</Text>
+                    </View>
+                  </View>
+                  {[
+                    { label: "Ball Level", value: desktopSelectedPlayer.ballLevel || "—" },
+                    { label: "Coach", value: desktopSelectedPlayer.coachName || "—" },
+                    { label: "Credits", value: String(desktopSelectedPlayer.remainingCredits ?? "—") },
+                    { label: "Phone", value: desktopSelectedPlayer.phone || "—" },
+                    { label: "Parent", value: desktopSelectedPlayer.parentName || "—" },
+                    { label: "Status", value: desktopSelectedPlayer.isActive !== false ? "Active" : "Inactive" },
+                  ].map(({ label, value }) => (
+                    <View key={label} style={dtStyles.panelRow}>
+                      <Text style={dtStyles.panelRowLabel}>{label}</Text>
+                      <Text style={dtStyles.panelRowValue}>{value}</Text>
+                    </View>
+                  ))}
+                  <View style={dtStyles.panelRow}>
+                    <Text style={dtStyles.panelRowLabel}>Account</Text>
+                    {desktopSelectedPlayer.hasLinkedAccount ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Ionicons name="checkmark-circle-outline" size={13} color="#22c55e" />
+                        <Text style={[dtStyles.panelRowValue, { color: "#22c55e" }]}>Activated</Text>
+                      </View>
                     ) : (
-                      <Text style={dtStyles.panelAvatarText}>
-                        {desktopSelectedPlayer.name?.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") ?? "?"}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Ionicons name="time-outline" size={13} color="#f59e0b" />
+                        <Text style={[dtStyles.panelRowValue, { color: "#f59e0b" }]}>Not activated</Text>
+                      </View>
                     )}
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={dtStyles.panelName}>{desktopSelectedPlayer.name}</Text>
-                    <Text style={dtStyles.panelEmail}>{desktopSelectedPlayer.email || "No email"}</Text>
-                  </View>
-                </View>
-                {[
-                  { label: "Ball Level", value: desktopSelectedPlayer.ballLevel || "—" },
-                  { label: "Coach", value: desktopSelectedPlayer.coachName || "—" },
-                  { label: "Credits", value: String(desktopSelectedPlayer.remainingCredits ?? "—") },
-                  { label: "Phone", value: desktopSelectedPlayer.phone || "—" },
-                  { label: "Parent", value: desktopSelectedPlayer.parentName || "—" },
-                  { label: "Status", value: desktopSelectedPlayer.isActive !== false ? "Active" : "Inactive" },
-                ].map(({ label, value }) => (
-                  <View key={label} style={dtStyles.panelRow}>
-                    <Text style={dtStyles.panelRowLabel}>{label}</Text>
-                    <Text style={dtStyles.panelRowValue}>{value}</Text>
-                  </View>
-                ))}
-                <View style={dtStyles.panelRow}>
-                  <Text style={dtStyles.panelRowLabel}>Account</Text>
-                  {desktopSelectedPlayer.hasLinkedAccount ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Ionicons name="checkmark-circle-outline" size={13} color="#22c55e" />
-                      <Text style={[dtStyles.panelRowValue, { color: "#22c55e" }]}>Activated</Text>
+                  {legacyCreditsAllowed ? (
+                    <View style={dtStyles.panelActions}>
+                      <Pressable style={dtStyles.panelActionBtn} onPress={() => { setSelectedPlayerId(desktopSelectedId); setShowCreditStoreModal(true); }}>
+                        <Ionicons name="ticket-outline" size={14} color={Colors.dark.primary} />
+                        <Text style={[dtStyles.panelActionText, { color: Colors.dark.primary }]}>Add Credits</Text>
+                      </Pressable>
                     </View>
-                  ) : (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Ionicons name="time-outline" size={13} color="#f59e0b" />
-                      <Text style={[dtStyles.panelRowValue, { color: "#f59e0b" }]}>Not activated</Text>
-                    </View>
-                  )}
-                </View>
-                {legacyCreditsAllowed ? (
-                  <View style={dtStyles.panelActions}>
-                    <Pressable style={dtStyles.panelActionBtn} onPress={() => { setSelectedPlayerId(desktopSelectedId); setShowCreditStoreModal(true); }}>
-                      <Ionicons name="ticket-outline" size={14} color={Colors.dark.primary} />
-                      <Text style={[dtStyles.panelActionText, { color: Colors.dark.primary }]}>Add Credits</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-              </ScrollView>
-            </View>
+                  ) : null}
+                </ScrollView>
+              </View>
+            </>
           ) : null}
         </View>
 
@@ -1561,7 +1578,7 @@ const dtStyles = StyleSheet.create({
   },
   tableArea: {
     flex: 1,
-    flexDirection: "row",
+    position: "relative",
     overflow: "hidden",
   },
   tableScroll: {
@@ -1712,13 +1729,39 @@ const dtStyles = StyleSheet.create({
     color: "#7C8290",
     fontSize: 14,
   },
+  panelBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    zIndex: 9,
+  },
+  panelCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   rightPanel: {
-    width: 280,
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: 320,
+    maxWidth: "100%",
     borderLeftWidth: 1,
-    borderLeftColor: "rgba(255,255,255,0.07)",
+    borderLeftColor: "rgba(255,255,255,0.1)",
     backgroundColor: "#11141A",
     padding: 20,
-    overflow: "scroll",
+    zIndex: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
   },
   panelHeader: {
     flexDirection: "row",
