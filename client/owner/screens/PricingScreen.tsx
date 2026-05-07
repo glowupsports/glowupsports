@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   backButton: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
   screenTitle: { ...Typography.h2, color: Colors.dark.gold },
   scrollView: { flex: 1 },
-  content: { padding: Spacing.lg },
+  content: { padding: Spacing.lg, flexGrow: 1 },
   header: { marginBottom: Spacing.xl },
   subtitle: { ...Typography.body, color: Colors.dark.textMuted },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: Spacing.xl * 3 },

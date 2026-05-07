@@ -1036,6 +1036,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
+    flexGrow: 1,
   },
   title: {
     ...Typography.h2,

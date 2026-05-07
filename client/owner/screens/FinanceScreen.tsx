@@ -460,6 +460,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
+    flexGrow: 1,
   },
   header: {
     marginBottom: Spacing.xl,

@@ -938,6 +938,7 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
     paddingTop: Spacing.md,
+    flexGrow: 1,
   },
   actionsRow: {
     flexDirection: "row",

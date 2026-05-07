@@ -421,6 +421,7 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
     gap: Spacing.xl,
+    flexGrow: 1,
   },
   logoSection: {
     alignItems: "center",

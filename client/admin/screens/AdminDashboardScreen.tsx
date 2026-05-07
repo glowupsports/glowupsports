@@ -623,6 +623,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
+    flexGrow: 1,
   },
   twoColumnRow: {
     flexDirection: "row",
@@ -706,6 +707,7 @@ const styles = StyleSheet.create({
   desktopContent: {
     padding: 32,
     paddingBottom: 48,
+    flexGrow: 1,
   },
   desktopTopBar: {
     flexDirection: "row",

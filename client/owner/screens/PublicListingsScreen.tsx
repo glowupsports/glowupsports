@@ -348,6 +348,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
+    flexGrow: 1,
   },
   screenTitle: {
     ...Typography.h2,

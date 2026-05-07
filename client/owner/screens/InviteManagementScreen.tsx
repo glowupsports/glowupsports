@@ -545,6 +545,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: Spacing.lg,
+    flexGrow: 1,
   },
   loadingContainer: {
     flex: 1,

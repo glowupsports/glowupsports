@@ -426,6 +426,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
+    flexGrow: 1,
   },
   emptyState: {
     alignItems: "center",

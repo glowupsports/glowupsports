@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import { db } from "../db";
 import { storage } from "../storage";
 import { awardXP } from "../services/xp-service";
-import { questTemplates as questTemplatesTable, playerQuests as playerQuestsTable, dailyQuestSlots as dailyQuestSlotsTable, playerStreaks as playerStreaksTable, badges as badgesTable, playerBadges as playerBadgesTable, titles as titlesTable, playerTitles as playerTitlesTable, playerConnections, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners, playerXpEvents, playerNotifications, players, sessions, sessionPlayers, coachingSeries, creditTransactions, packages, coaches, users, openToPlay as openToPlayTable, posts as postsTable, academies, contentReports as contentReportsTable, playerBlocks as playerBlocksTable, questChainBonusClaims as questChainBonusClaimsTable, matchLogs, openMatchSlots, squadMembers, GLOW_CATEGORY_RANK_RANGES, type GlowCategory } from "@shared/schema";
+import { questTemplates as questTemplatesTable, playerQuests as playerQuestsTable, dailyQuestSlots as dailyQuestSlotsTable, playerStreaks as playerStreaksTable, badges as badgesTable, playerBadges as playerBadgesTable, titles as titlesTable, playerTitles as playerTitlesTable, playerConnections, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners, playerXpEvents, playerNotifications, players, sessions, sessionPlayers, coachingSeries, creditTransactions, packages, coaches, users, openToPlay as openToPlayTable, posts as postsTable, academies, contentReports as contentReportsTable, playerBlocks as playerBlocksTable, questChainBonusClaims as questChainBonusClaimsTable, matchLogs, openMatchSlots, squadMembers, GLOW_CATEGORY_RANK_RANGES, type GlowCategory, type Session, type Player, type Coach } from "@shared/schema";
 import { eq, and, or, desc, asc, sql, gte, inArray, ne, isNull, count, lte, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import {
@@ -2953,11 +2953,28 @@ router.get("/api/admin/dashboard/operations", authMiddleware, requireRole("admin
         return res.status(400).json({ error: "Academy context required" });
       }
 
-      const academy = await storage.getAcademy(academyId);
-      const settings = await storage.getAcademySettings(academyId);
-      const players = await storage.getPlayersByAcademy(academyId);
-      const coaches = await storage.getCoachesByAcademy(academyId);
-      const allSessions = await storage.getSessionsByAcademy(academyId);
+      const [academy, settings, players, coaches, allSessions] = await Promise.all([
+        (async () => {
+          try { return await storage.getAcademy(academyId); }
+          catch (err) { console.error("[operations] getAcademy failed:", err); return null; }
+        })(),
+        (async () => {
+          try { return await storage.getAcademySettings(academyId); }
+          catch (err) { console.error("[operations] getAcademySettings failed:", err); return null; }
+        })(),
+        (async (): Promise<Player[]> => {
+          try { return await storage.getPlayersByAcademy(academyId); }
+          catch (err) { console.error("[operations] getPlayersByAcademy failed:", err); return []; }
+        })(),
+        (async (): Promise<Coach[]> => {
+          try { return await storage.getCoachesByAcademy(academyId); }
+          catch (err) { console.error("[operations] getCoachesByAcademy failed:", err); return []; }
+        })(),
+        (async (): Promise<Session[]> => {
+          try { return await storage.getSessionsByAcademy(academyId); }
+          catch (err) { console.error("[operations] getSessionsByAcademy failed:", err); return []; }
+        })(),
+      ]);
 
       const dateParam = req.query.date as string | undefined;
       const now = dateParam ? new Date(dateParam) : new Date();
