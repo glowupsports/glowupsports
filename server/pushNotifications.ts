@@ -2356,12 +2356,13 @@ export function startReminderScheduler(): void {
 // aggregate line plus one detail line per drifted player. No mutations.
 async function processCreditDriftWatchdog(): Promise<void> {
   try {
-    const { computeCreditDrift, computeMissingAttendanceDrift } = await import(
+    const { computeCreditDrift, computeMissingAttendanceDrift, detectGhostSessionCharges } = await import(
       "./services/credit-reconcile"
     );
-    const [summary, missing] = await Promise.all([
+    const [summary, missing, ghostResult] = await Promise.all([
       computeCreditDrift(),
       computeMissingAttendanceDrift(),
+      detectGhostSessionCharges(),
     ]);
     if (missing.totalMissing > 0) {
       const byKind = new Map<string, number>();
@@ -2393,7 +2394,7 @@ async function processCreditDriftWatchdog(): Promise<void> {
       }
     }
     if (summary.driftCount === 0) {
-      if (missing.totalMissing === 0 && summary.v1OrphanCount === 0) {
+      if (missing.totalMissing === 0 && summary.v1OrphanCount === 0 && ghostResult.count === 0) {
         console.log("[Reconcile] OK (V2 academies)");
       }
       return;

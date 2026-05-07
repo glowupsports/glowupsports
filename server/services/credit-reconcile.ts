@@ -447,6 +447,59 @@ export async function computeMissingAttendanceDrift(
   return { academyId, totalMissing: rows.length, rows };
 }
 
+/**
+ * Task #1755 — Ghost-charge integrity check.
+ *
+ * Detects `credit_ledger_v2` consume rows whose `session_id` no longer exists
+ * in the `sessions` table (i.e. the session was deleted without triggering a
+ * refund). These are called "ghost charges" because they inflict ongoing debt
+ * on a player's wallet for a session that no longer exists.
+ *
+ * The root cause (missing refund calls in `deleteCoachingSeries` /
+ * `endCoachingSeries`) has been fixed in Task #1755. This detector exists as a
+ * safety net so any future regression is caught immediately in the nightly
+ * credit reconciliation logs.
+ *
+ * Called by the 5-minute credit watchdog scheduler in `pushNotifications.ts`
+ * (or any nightly cron that calls credit-reconcile functions).
+ */
+export async function detectGhostSessionCharges(): Promise<{
+  count: number;
+  playerIds: string[];
+}> {
+  const result = await db.execute(sql`
+    SELECT DISTINCT cl.player_id
+    FROM credit_ledger_v2 cl
+    WHERE cl.reason = 'consume'
+      AND cl.session_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM sessions WHERE id = cl.session_id
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM credit_ledger_v2 rev
+        WHERE rev.session_player_id = cl.session_player_id
+          AND rev.reason IN ('refund', 'manual_adjustment', 'holiday_charge_reversal', 'session_deleted')
+      )
+  `);
+
+  const playerIds = result.rows.map(
+    (r) => (r as { player_id: string }).player_id,
+  );
+
+  if (playerIds.length > 0) {
+    console.error(
+      `[CREDIT INTEGRITY] Ghost session charges detected: ` +
+        `${playerIds.length} player(s) have consume rows for deleted sessions ` +
+        `with no corresponding refund. Run repair-ghost-session-charges.ts --apply to fix. ` +
+        `Affected player IDs: ${playerIds.slice(0, 10).join(", ")}` +
+        (playerIds.length > 10 ? ` … (+${playerIds.length - 10} more)` : ""),
+    );
+  }
+
+  return { count: playerIds.length, playerIds };
+}
+
 // Task #685 Phase 4 — V1 write watchdog removed. All academies are V2 and the
 // `v1WritesAllowed` gate is hard-locked to `false`, so no new rows can land in
 // the legacy `credit_transactions` table. The 5-minute scheduler poll and its

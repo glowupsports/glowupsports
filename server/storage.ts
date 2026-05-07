@@ -5365,7 +5365,7 @@ export const storage = {
     const now = new Date();
     
     const futureSessions = await db
-      .select({ id: sessions.id })
+      .select({ id: sessions.id, academyId: sessions.academyId })
       .from(sessions)
       .where(and(
         or(eq(sessions.seriesId, id), eq(sessions.recurringGroupId, id)),
@@ -5377,10 +5377,44 @@ export const storage = {
     
     // Step 2: Delete future sessions and their related data (credits not yet used)
     if (futureSessionIds.length > 0) {
+      // Task #1755 — Refund any credits that were already charged for future
+      // sessions (rare but possible when attendance is marked early). Must
+      // happen BEFORE the transaction that deletes session_players + sessions,
+      // because refundCreditsForSession joins both tables.
+      const chargedRows = await db
+        .select({ playerId: sessionPlayers.playerId, sessionId: sessionPlayers.sessionId })
+        .from(sessionPlayers)
+        .where(and(
+          inArray(sessionPlayers.sessionId, futureSessionIds),
+          isNotNull(sessionPlayers.creditDeductedAt)
+        ));
+
+      for (const row of chargedRows) {
+        if (!row.playerId || !row.sessionId) continue;
+        const sess = futureSessions.find(s => s.id === row.sessionId);
+        const academyId = sess?.academyId ?? undefined;
+        try {
+          const refundResult = await this.refundCreditsForSession(
+            row.playerId,
+            row.sessionId,
+            academyId ?? undefined,
+          );
+          console.log(
+            `[EndSeries] Credit refund for player ${row.playerId} session ${row.sessionId}: ` +
+            JSON.stringify(refundResult),
+          );
+        } catch (err) {
+          console.error(
+            `[EndSeries] Credit refund error for player ${row.playerId} session ${row.sessionId}:`,
+            err,
+          );
+        }
+      }
+
       await db.transaction(async (tx) => {
         // Legacy V1 `credit_transactions` delete removed (Task #692 step 2).
         // V2 ledger rows for these sessions are immutable history and stay;
-        // no V2 cleanup is required when a series is ended.
+        // consume rows that had credits are reversed above before deletion.
 
         // Delete session players for future sessions
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, futureSessionIds));
@@ -5407,7 +5441,7 @@ export const storage = {
 
   async deleteCoachingSeries(id: string): Promise<void> {
     const seriesSessions = await db
-      .select({ id: sessions.id })
+      .select({ id: sessions.id, academyId: sessions.academyId })
       .from(sessions)
       .where(or(
         eq(sessions.seriesId, id),
@@ -5416,13 +5450,49 @@ export const storage = {
     
     const sessionIds = seriesSessions.map(s => s.id);
     console.log(`[DeleteSeries] Found ${sessionIds.length} sessions for series ${id} (via seriesId + recurringGroupId)`);
+
+    // Task #1755 — Refund any credits charged for these sessions before wiping
+    // session_players + sessions. Must happen outside the transaction so that
+    // session_players + sessions still exist for the refund join.
+    if (sessionIds.length > 0) {
+      const chargedRows = await db
+        .select({ playerId: sessionPlayers.playerId, sessionId: sessionPlayers.sessionId })
+        .from(sessionPlayers)
+        .where(and(
+          inArray(sessionPlayers.sessionId, sessionIds),
+          isNotNull(sessionPlayers.creditDeductedAt)
+        ));
+
+      for (const row of chargedRows) {
+        if (!row.playerId || !row.sessionId) continue;
+        const sess = seriesSessions.find(s => s.id === row.sessionId);
+        const academyId = sess?.academyId ?? undefined;
+        try {
+          const refundResult = await this.refundCreditsForSession(
+            row.playerId,
+            row.sessionId,
+            academyId ?? undefined,
+          );
+          console.log(
+            `[DeleteSeries] Credit refund for player ${row.playerId} session ${row.sessionId}: ` +
+            JSON.stringify(refundResult),
+          );
+        } catch (err) {
+          console.error(
+            `[DeleteSeries] Credit refund error for player ${row.playerId} session ${row.sessionId}:`,
+            err,
+          );
+        }
+      }
+    }
     
     await db.transaction(async (tx) => {
       if (sessionIds.length > 0) {
         await tx.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
         await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
         // Legacy V1 `credit_transactions` delete removed (Task #692 step 2).
-        // V2 ledger rows are immutable history and remain.
+        // V2 ledger rows are immutable history and remain; consume rows that
+        // had credits are reversed above before this transaction runs.
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
         // Nullify booking_requests.sessionId before deleting sessions (FK constraint)
         await tx.update(bookingRequests).set({ sessionId: null }).where(inArray(bookingRequests.sessionId, sessionIds));
