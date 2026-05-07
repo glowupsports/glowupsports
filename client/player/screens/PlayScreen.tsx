@@ -3264,7 +3264,7 @@ export default function PlayScreen() {
       </Animated.View>
 
       <Animated.View style={[styles.mainContent, animatedMainContentStyle]}>
-        {/* Section switcher: Matches | Lessons */}
+        {/* Section switcher: Matches | Lessons | Arena */}
         <View style={styles.tabs}>
           {PLAY_SECTION_OPTIONS.map((section) => (
             <Pressable
@@ -3285,6 +3285,15 @@ export default function PlayScreen() {
               </Text>
             </Pressable>
           ))}
+          <Pressable
+            style={styles.tab}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("ArenaHub" as never);
+            }}
+          >
+            <Text style={styles.tabText}>Arena</Text>
+          </Pressable>
         </View>
 
         {/* Matches / Lessons content */}
