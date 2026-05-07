@@ -718,7 +718,7 @@ export default function AdminPlayersScreen() {
               </Pressable>
             ) : null}
           </View>
-          <View style={dtStyles.filterChipsRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={dtStyles.filterChipsRow} contentContainerStyle={dtStyles.filterChipsRowContent}>
             <Text style={dtStyles.filterGroupLabel}>Ball:</Text>
             {["all", "red", "orange", "green", "yellow"].map((b) => (
               <Pressable
@@ -765,7 +765,7 @@ export default function AdminPlayersScreen() {
                 ))}
               </>
             ) : null}
-          </View>
+          </ScrollView>
           <Text style={dtStyles.countText}>
             {desktopSortedPlayers.length} of {players.length} players
           </Text>
@@ -971,7 +971,7 @@ export default function AdminPlayersScreen() {
 
           {desktopSelectedId && desktopSelectedPlayer ? (
             <>
-              <Pressable style={dtStyles.panelBackdrop} onPress={() => setDesktopSelectedId(null)} />
+              <Pressable style={dtStyles.panelDismissStrip} onPress={() => setDesktopSelectedId(null)} />
               <View style={[dtStyles.rightPanel, windowWidth < 1280 ? { width: "100%" } : undefined]}>
                 <View style={dtStyles.panelHeader}>
                   <Text style={dtStyles.panelTitle}>Player Profile</Text>
@@ -1478,6 +1478,7 @@ const dtStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0B0D10",
     flexDirection: "column",
+    overflow: "hidden",
   },
   toolbar: {
     flexDirection: "row",
@@ -1509,8 +1510,12 @@ const dtStyles = StyleSheet.create({
     
   },
   filterChipsRow: {
+    flexShrink: 1,
+  },
+  filterChipsRowContent: {
     flexDirection: "row",
     gap: 6,
+    alignItems: "center",
   },
   chip: {
     paddingHorizontal: 10,
@@ -1578,8 +1583,12 @@ const dtStyles = StyleSheet.create({
   },
   tableArea: {
     flex: 1,
-    position: "relative",
+    flexDirection: "row",
     overflow: "hidden",
+  },
+  panelDismissStrip: {
+    width: 32,
+    alignSelf: "stretch",
   },
   tableScroll: {
     flex: 1,
@@ -1729,15 +1738,6 @@ const dtStyles = StyleSheet.create({
     color: "#7C8290",
     fontSize: 14,
   },
-  panelBackdrop: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    zIndex: 9,
-  },
   panelCloseBtn: {
     width: 28,
     height: 28,
@@ -1747,17 +1747,12 @@ const dtStyles = StyleSheet.create({
     justifyContent: "center",
   },
   rightPanel: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
     width: 320,
     maxWidth: "100%",
     borderLeftWidth: 1,
     borderLeftColor: "rgba(255,255,255,0.1)",
     backgroundColor: "#11141A",
     padding: 20,
-    zIndex: 10,
     shadowColor: "#000",
     shadowOffset: { width: -4, height: 0 },
     shadowOpacity: 0.5,
