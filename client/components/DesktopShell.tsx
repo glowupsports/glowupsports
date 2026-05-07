@@ -23,15 +23,14 @@ interface NavItem {
   label: string;
   icon: string;
   iconFocused: string;
-  index: number;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { key: "Dashboard", label: "Dashboard", icon: "home-outline", iconFocused: "home", index: 0 },
-  { key: "Calendar", label: "Calendar", icon: "calendar-outline", iconFocused: "calendar", index: 1 },
-  { key: "Players", label: "Players", icon: "people-outline", iconFocused: "people", index: 2 },
-  { key: "Coaching", label: "Coaching", icon: "clipboard-outline", iconFocused: "clipboard", index: 3 },
-  { key: "Settings", label: "Settings", icon: "settings-outline", iconFocused: "settings", index: 4 },
+  { key: "Dashboard", label: "Dashboard", icon: "home-outline", iconFocused: "home" },
+  { key: "Calendar", label: "Calendar", icon: "calendar-outline", iconFocused: "calendar" },
+  { key: "Players", label: "Players", icon: "people-outline", iconFocused: "people" },
+  { key: "Coaching", label: "Coaching", icon: "clipboard-outline", iconFocused: "clipboard" },
+  { key: "Settings", label: "Settings", icon: "settings-outline", iconFocused: "settings" },
 ];
 
 interface DesktopShellProps {
@@ -41,7 +40,7 @@ interface DesktopShellProps {
 }
 
 export function DesktopShell({ children, coachName, academyName }: DesktopShellProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeKey, setActiveKey] = useState("Dashboard");
   const { navigateToTab, registerActiveTabListener, getNavigation } = useTabNavigation();
   const { logout } = useAuth();
   const { coach } = useCoach();
@@ -75,14 +74,14 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
   }, [logout]);
 
   useEffect(() => {
-    const unregister = registerActiveTabListener((index: number) => {
-      setActiveIndex(index);
+    const unregister = registerActiveTabListener((_index: number, key: string) => {
+      setActiveKey(key);
     });
     return unregister;
   }, [registerActiveTabListener]);
 
   const handleNavPress = useCallback((item: NavItem) => {
-    setActiveIndex(item.index);
+    setActiveKey(item.key);
     navigateToTab(item.key);
   }, [navigateToTab]);
 
@@ -130,7 +129,7 @@ export function DesktopShell({ children, coachName, academyName }: DesktopShellP
           <View style={styles.navSection}>
             <Text style={styles.navSectionLabel}>NAVIGATION</Text>
             {NAV_ITEMS.map((item) => {
-              const focused = activeIndex === item.index;
+              const focused = activeKey === item.key;
               return (
                 <Pressable
                   key={item.key}
