@@ -476,10 +476,15 @@ export default function ArenaHubScreen({ embedded = false, embeddedTopPadding = 
     setShowIntroModal(true);
   }, []);
 
-  // Header info button
+  // Header close + info buttons
   useLayoutEffect(() => {
     if (embedded) return;
     navigation.setOptions({
+      headerLeft: () => (
+        <HeaderButton onPress={() => navigation.goBack()}>
+          <Feather name="x" size={22} color={Colors.dark.text} />
+        </HeaderButton>
+      ),
       headerRight: () => (
         <HeaderButton onPress={handleShowIntro}>
           <Feather name="info" size={20} color={Colors.dark.textMuted} />

@@ -736,7 +736,7 @@ import { Router, type Request, type Response } from "express";
           db
             .select({ id: coaches.id, name: coaches.name })
             .from(coaches)
-            .where(eq(coaches.academyId, effectiveAcademyId)),
+            .where(eq(coaches.academyId, effectiveAcademyId!)),
         ]);
 
         const coachNameMap = new Map<string, string>();
