@@ -120,6 +120,7 @@ interface PendingDelete {
   total: number;
   typeLabel: string;
   invoiceNumber: string | null;
+  debtSettled: number;
 }
 
 export function CreditPackagesList({ playerId, currency = "AED", canDelete = false }: Props) {
@@ -201,6 +202,7 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
     const remaining = Number(lot.qty_remaining);
     const used = Math.max(0, total - remaining);
     const typeLabel = TYPE_LABEL[lot.type as string] || String(lot.type);
+    const debtSettled = Number(lot.debt_settled ?? 0);
     // force=true is only required when there are still unused credits the
     // server needs to debit. Depleted/expired/cancelled lots delete cleanly.
     const force = remaining > 0;
@@ -213,6 +215,7 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
       total,
       typeLabel,
       invoiceNumber: lot.invoice_number ?? null,
+      debtSettled,
     });
   };
 
@@ -446,7 +449,7 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
                       </View>
                     ))}
 
-                    {used > 0 ? (
+                    {(used > 0 || debtSettled > 0) ? (
                       <View
                         style={{
                           marginTop: Spacing.md,
@@ -461,8 +464,15 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
                           Heads up
                         </Text>
                         <Text style={{ fontSize: 12, color: Colors.dark.text, marginTop: 4 }}>
-                          {fmtNumber(used)} credit{used === 1 ? "" : "s"} from this package have already been used.
-                          Deleting will reverse the {fmtNumber(remaining)} remaining credit{remaining === 1 ? "" : "s"} from the wallet.
+                          {used > 0
+                            ? `${fmtNumber(used)} credit${used === 1 ? "" : "s"} from this package have already been used. `
+                            : ""}
+                          {remaining > 0
+                            ? `Deleting will reverse the ${fmtNumber(remaining)} unused credit${remaining === 1 ? "" : "s"} from the wallet.`
+                            : ""}
+                          {debtSettled > 0
+                            ? `${remaining > 0 ? " It will also restore" : "Deleting will restore"} ${fmtNumber(debtSettled)} credit${debtSettled === 1 ? "" : "s"} of cleared debt back to the wallet (the player will owe that amount again).`
+                            : ""}
                         </Text>
                       </View>
                     ) : null}
@@ -578,9 +588,16 @@ export function CreditPackagesList({ playerId, currency = "AED", canDelete = fal
                     {pendingDelete.used > 0
                       ? `\n\n${fmtNumber(pendingDelete.used)} of ${fmtNumber(pendingDelete.total)} credit${
                           pendingDelete.used === 1 ? "" : "s"
-                        } were already used. Deleting will reverse the remaining ${fmtNumber(
-                          pendingDelete.remaining,
-                        )} from the wallet too.`
+                        } were already used.${
+                          pendingDelete.remaining > 0
+                            ? ` Deleting will reverse the remaining ${fmtNumber(pendingDelete.remaining)} from the wallet.`
+                            : ""
+                        }`
+                      : ""}
+                    {pendingDelete.debtSettled > 0
+                      ? `\n\n${fmtNumber(pendingDelete.debtSettled)} credit${
+                          pendingDelete.debtSettled === 1 ? "" : "s"
+                        } cleared past debt at purchase. Deleting will restore that debt to the wallet.`
                       : ""}
                   </Text>
                 ) : null}

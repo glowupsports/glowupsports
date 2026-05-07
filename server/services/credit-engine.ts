@@ -24,7 +24,11 @@ export type LedgerReason =
   // Task #1443 — reversal row for the Task #1332 debt write-offs. Negative
   // delta restores the forgiven debt. Paired 1:1 with a `manual` row that
   // had `event_key LIKE 'task-1332-debt-writeoff:%'`.
-  | "undo_debt_writeoff";
+  | "undo_debt_writeoff"
+  // Task #1749 — reversal of purchase-time debt settlement when a package is
+  // deleted. Negative delta pushes the wallet back to the pre-purchase debt
+  // level. event_key = 'package_delete_debt:<packageId>'.
+  | "package_deleted_debt_reversal";
 
 export type ActorRole = "player" | "coach" | "admin" | "system";
 

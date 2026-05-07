@@ -501,7 +501,7 @@ import { Router, type Response } from "express";
           });
         }
 
-        res.json({ success: true });
+        res.json({ success: true, creditsUsed: result.creditsUsed, debtReversed: result.debtReversed ?? 0 });
       } catch (error) {
         console.error("[PackageDelete] Error deleting package:", error);
         res.status(500).json({ error: "Failed to delete package" });

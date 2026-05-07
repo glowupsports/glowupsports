@@ -3320,7 +3320,7 @@ export const storage = {
     return { converted: 0 };
   },
 
-  async deletePackage(id: string, academyId?: string, force: boolean = false): Promise<{ success: boolean; error?: string; creditsUsed?: number }> {
+  async deletePackage(id: string, academyId?: string, force: boolean = false): Promise<{ success: boolean; error?: string; creditsUsed?: number; debtReversed?: number }> {
     // Task #682 — V1 retired. The "package" is now a V2 credit_lots row;
     // deletion = cancel the lot, write a `manual` ledger entry for the
     // unused remainder so audit trail is preserved, and detach the invoice.
@@ -3341,17 +3341,35 @@ export const storage = {
       };
     }
 
+    // Task #1749 — Find any debt that was settled at purchase time so we
+    // can reverse it when the package is deleted. The settle rows are written
+    // into credit_ledger_v2 with reason='consume_debt_settlement' and their
+    // lot_id pointing to the lot created by this package.
+    const settleRows = await db.execute(sql`
+      SELECT metadata
+      FROM credit_ledger_v2
+      WHERE reason = 'consume_debt_settlement'
+        AND lot_id IN (
+          SELECT id FROM credit_lots WHERE source_package_id = ${id}
+        )
+    `);
+    let totalDebtSettled = 0;
+    for (const row of settleRows.rows as { metadata: { settleAmount?: number } | null }[]) {
+      totalDebtSettled += Number(row.metadata?.settleAmount ?? 0);
+    }
+
     // Detach invoices outside the engine call (engine handles its own tx).
     await db
       .update(invoices)
       .set({ packageId: null })
       .where(eq(invoices.packageId, id));
 
+    const { manualAdjustment } = await import("./services/credit-engine");
+
     // If there are unused credits, debit them via the credit-engine so the
     // ledger gets a row with a deterministic event_key. Then mark the lot
     // cancelled so it can't be drawn from again.
     if (remainingCredits > 0) {
-      const { manualAdjustment } = await import("./services/credit-engine");
       await manualAdjustment({
         playerId: pkg.playerId!,
         academyId: pkg.academyId!,
@@ -3364,13 +3382,31 @@ export const storage = {
       });
     }
 
+    // Task #1749 — Reverse any debt that was cleared at purchase time.
+    // This pushes the wallet negative by the settled amount, restoring the
+    // original pre-purchase debt so the ledger stays consistent.
+    if (totalDebtSettled > 0) {
+      await manualAdjustment({
+        playerId: pkg.playerId!,
+        academyId: pkg.academyId!,
+        type: (pkg.creditType ?? 'group') as any,
+        delta: -totalDebtSettled,
+        reason: `package_deleted_debt_reversal:${id}`,
+        actorId: 'system',
+        actorRole: 'system',
+        eventKey: `package_delete_debt:${id}`,
+        allowOverdraw: true,
+        ledgerReason: 'package_deleted_debt_reversal',
+      });
+    }
+
     await db.execute(sql`
       UPDATE credit_lots
       SET status = 'cancelled', qty_remaining = 0
       WHERE source_package_id = ${id}
     `);
 
-    return { success: true, creditsUsed };
+    return { success: true, creditsUsed, debtReversed: totalDebtSettled };
      
     /* LEGACY V1 BODY (unreachable; retained as commented reference) -- removed in Task #682
     // Use transaction to cascade delete all dependent records
