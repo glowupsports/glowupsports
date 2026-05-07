@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   Modal} from "react-native";
+import { Image } from "expo-image";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,7 +25,7 @@ import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerMo
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type SortOption = "name_asc" | "name_desc" | "level_high" | "level_low" | "newest" | "not_activated";
-type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number>; onboardingCompleted?: boolean; createdAt?: string; lastSessionDate?: string | null };
+type Player = { id: string; name: string; email?: string | null; phone?: string | null; ballLevel?: string; level?: number; coachName?: string; age?: number; dateOfBirth?: string; parentName?: string; parentPhone?: string; isActive?: boolean; status?: string; remainingCredits?: number; creditsByType?: Record<string, number>; onboardingCompleted?: boolean; createdAt?: string; lastSessionDate?: string | null; profilePhotoUrl?: string | null; hasLinkedAccount?: boolean };
 type PlayerPackage = {
   id: string;
   creditType: string;
@@ -468,8 +469,8 @@ export default function AdminPlayersScreen() {
         case "newest":
           return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
         case "not_activated":
-          const aActivated = a.onboardingCompleted ? 1 : 0;
-          const bActivated = b.onboardingCompleted ? 1 : 0;
+          const aActivated = a.hasLinkedAccount ? 1 : 0;
+          const bActivated = b.hasLinkedAccount ? 1 : 0;
           if (aActivated !== bActivated) return aActivated - bActivated;
           return (a.name || "").localeCompare(b.name || "");
         default:
@@ -525,7 +526,15 @@ export default function AdminPlayersScreen() {
       >
         <View style={styles.playerCardTop}>
           <View style={[styles.playerAvatar, { borderColor: ballColor }]}>
-            <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase() || "?"}</Text>
+            {item.profilePhotoUrl ? (
+              <Image
+                source={{ uri: item.profilePhotoUrl }}
+                style={{ width: "100%", height: "100%", borderRadius: 999 }}
+                contentFit="cover"
+              />
+            ) : (
+              <Text style={styles.avatarText}>{item.name?.charAt(0).toUpperCase() || "?"}</Text>
+            )}
           </View>
           <View style={styles.playerInfo}>
             <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
@@ -549,7 +558,7 @@ export default function AdminPlayersScreen() {
               </Text>
             ))}
           </View>
-          {!item.onboardingCompleted ? (
+          {!item.hasLinkedAccount ? (
             <Pressable
               style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: Colors.dark.orange + "25", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.dark.orange + "50" }}
               onPress={(e) => {
@@ -560,12 +569,12 @@ export default function AdminPlayersScreen() {
               }}
             >
               <Ionicons name="time-outline" size={9} color={Colors.dark.orange} />
-              <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.dark.orange, letterSpacing: 0.3 }}>Awaiting signup</Text>
+              <Text style={{ fontSize: 9, fontWeight: "700", color: Colors.dark.orange, letterSpacing: 0.3 }}>Not activated</Text>
             </Pressable>
           ) : (
             <View style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "#22c55e18", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
               <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: "#22c55e" }} />
-              <Text style={{ fontSize: 9, fontWeight: "700", color: "#22c55e", letterSpacing: 0.3 }}>App active</Text>
+              <Text style={{ fontSize: 9, fontWeight: "700", color: "#22c55e", letterSpacing: 0.3 }}>Activated</Text>
             </View>
           )}
         </View>
@@ -860,7 +869,15 @@ export default function AdminPlayersScreen() {
                   </View>
                   <View style={[dtStyles.tdCell, dtStyles.colName]}>
                     <View style={[dtStyles.playerAvatar, { borderColor: ballColor }]}>
-                      <Text style={dtStyles.avatarText}>{initials}</Text>
+                      {player.profilePhotoUrl ? (
+                        <Image
+                          source={{ uri: player.profilePhotoUrl }}
+                          style={{ width: "100%", height: "100%", borderRadius: 999 }}
+                          contentFit="cover"
+                        />
+                      ) : (
+                        <Text style={dtStyles.avatarText}>{initials}</Text>
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={dtStyles.playerName} numberOfLines={1}>{player.name}</Text>
@@ -892,13 +909,24 @@ export default function AdminPlayersScreen() {
                         : "—"}
                     </Text>
                   </View>
-                  <View style={[dtStyles.tdCell, dtStyles.colStatus]}>
+                  <View style={[dtStyles.tdCell, dtStyles.colStatus, { flexDirection: "column", alignItems: "flex-start", gap: 4 }]}>
                     <View style={[dtStyles.statusBadge, { backgroundColor: isActive ? "#22c55e20" : "#ff4d4d20" }]}>
                       <View style={[dtStyles.statusDot, { backgroundColor: isActive ? "#22c55e" : "#ff4d4d" }]} />
                       <Text style={[dtStyles.statusText, { color: isActive ? "#22c55e" : "#ff4d4d" }]}>
                         {isActive ? "Active" : "Inactive"}
                       </Text>
                     </View>
+                    {player.hasLinkedAccount ? (
+                      <View style={[dtStyles.statusBadge, { backgroundColor: "#22c55e12" }]}>
+                        <Ionicons name="checkmark-circle-outline" size={9} color="#22c55e" />
+                        <Text style={[dtStyles.statusText, { color: "#22c55e", fontSize: 10 }]}>Activated</Text>
+                      </View>
+                    ) : (
+                      <View style={[dtStyles.statusBadge, { backgroundColor: "#f59e0b15" }]}>
+                        <Ionicons name="time-outline" size={9} color="#f59e0b" />
+                        <Text style={[dtStyles.statusText, { color: "#f59e0b", fontSize: 10 }]}>Not activated</Text>
+                      </View>
+                    )}
                   </View>
                   <View style={[dtStyles.tdCell, dtStyles.colActions]}>
                     {legacyCreditsAllowed ? (
@@ -938,9 +966,17 @@ export default function AdminPlayersScreen() {
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={dtStyles.panelAvatarRow}>
                   <View style={[dtStyles.panelAvatar, { borderColor: getBallLevelColor(desktopSelectedPlayer.ballLevel) }]}>
-                    <Text style={dtStyles.panelAvatarText}>
-                      {desktopSelectedPlayer.name?.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") ?? "?"}
-                    </Text>
+                    {desktopSelectedPlayer.profilePhotoUrl ? (
+                      <Image
+                        source={{ uri: desktopSelectedPlayer.profilePhotoUrl }}
+                        style={{ width: "100%", height: "100%", borderRadius: 999 }}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <Text style={dtStyles.panelAvatarText}>
+                        {desktopSelectedPlayer.name?.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") ?? "?"}
+                      </Text>
+                    )}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={dtStyles.panelName}>{desktopSelectedPlayer.name}</Text>
@@ -960,6 +996,20 @@ export default function AdminPlayersScreen() {
                     <Text style={dtStyles.panelRowValue}>{value}</Text>
                   </View>
                 ))}
+                <View style={dtStyles.panelRow}>
+                  <Text style={dtStyles.panelRowLabel}>Account</Text>
+                  {desktopSelectedPlayer.hasLinkedAccount ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="checkmark-circle-outline" size={13} color="#22c55e" />
+                      <Text style={[dtStyles.panelRowValue, { color: "#22c55e" }]}>Activated</Text>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="time-outline" size={13} color="#f59e0b" />
+                      <Text style={[dtStyles.panelRowValue, { color: "#f59e0b" }]}>Not activated</Text>
+                    </View>
+                  )}
+                </View>
                 {legacyCreditsAllowed ? (
                   <View style={dtStyles.panelActions}>
                     <Pressable style={dtStyles.panelActionBtn} onPress={() => { setSelectedPlayerId(desktopSelectedId); setShowCreditStoreModal(true); }}>
@@ -1237,7 +1287,7 @@ export default function AdminPlayersScreen() {
                 { key: "name_desc", label: "Z-A", icon: "arrow-down" },
                 { key: "level_high", label: "Level", icon: "trending-up" },
                 { key: "newest", label: "Newest", icon: "time-outline" },
-                { key: "not_activated", label: "Activated", icon: "person-add-outline" },
+                { key: "not_activated", label: "Not activated first", icon: "person-add-outline" },
               ].map((sort) => (
                 <Pressable
                   key={sort.key}

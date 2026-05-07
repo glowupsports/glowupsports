@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
   import { db, pool } from "../db";
   import { storage } from "../storage";
   import { eq, sql, and, inArray, count } from "drizzle-orm";
-  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema, playerInvites } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
   
   function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
@@ -710,7 +710,7 @@ import { Router, type Request, type Response } from "express";
         // Batch fetch supplementary data for all players in PARALLEL.
         // Combine active+paused group counts into one query that groups by status.
         const playerIds = playerList.map((p) => p.id);
-        const [lastLessonMap, groupRows, academyCoaches] = await Promise.all([
+        const [lastLessonMap, groupRows, academyCoaches, inviteRows] = await Promise.all([
           storage.getPlayersLastSessions(playerIds),
           playerIds.length > 0
             ? db
@@ -737,6 +737,16 @@ import { Router, type Request, type Response } from "express";
             .select({ id: coaches.id, name: coaches.name })
             .from(coaches)
             .where(eq(coaches.academyId, effectiveAcademyId!)),
+          playerIds.length > 0
+            ? db
+                .select({
+                  playerId: playerInvites.playerId,
+                  status: playerInvites.status,
+                  claimedBy: playerInvites.claimedBy,
+                })
+                .from(playerInvites)
+                .where(inArray(playerInvites.playerId, playerIds))
+            : Promise.resolve([] as { playerId: string | null; status: string | null; claimedBy: string | null }[]),
         ]);
 
         const coachNameMap = new Map<string, string>();
@@ -752,6 +762,18 @@ import { Router, type Request, type Response } from "express";
             activeGroupMap.set(row.playerId, Number(row.cnt));
           } else if (row.status === "paused") {
             pausedGroupMap.set(row.playerId, Number(row.cnt));
+          }
+        }
+
+        // Build invite status lookup: a player has a linked account if their
+        // invite status is "claimed" OR claimedBy is populated.
+        const linkedAccountMap = new Map<string, boolean>();
+        for (const row of inviteRows) {
+          if (!row.playerId) continue;
+          const claimed = row.status === "claimed" || !!row.claimedBy;
+          // Keep true if any invite row says claimed.
+          if (claimed || !linkedAccountMap.has(row.playerId)) {
+            linkedAccountMap.set(row.playerId, claimed);
           }
         }
 
@@ -780,6 +802,9 @@ import { Router, type Request, type Response } from "express";
             player.status === "holiday" ||
             ((pausedGroupMap.get(player.id) ?? 0) > 0 &&
               (activeGroupMap.get(player.id) ?? 0) === 0),
+          // profilePhotoUrl is already on the player row via ...player spread.
+          // hasLinkedAccount: true when the player's invite has been claimed.
+          hasLinkedAccount: linkedAccountMap.get(player.id) ?? false,
         }));
 
         if (usePagination) {
