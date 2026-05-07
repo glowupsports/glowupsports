@@ -4926,15 +4926,57 @@ export const storage = {
       console.log(`[Attendance] Created new session_player record for session ${sessionId}, player ${playerId}, status ${status}`);
     }
 
-    // CRITICAL: When attendance changes to holiday or vacation, cancel any existing debt.
+    // CRITICAL: When attendance changes to holiday or vacation, cancel any existing debt
+    // AND reverse any V2 credit_ledger_v2 consume entry for this session.
     // A player on holiday/vacation should never owe for a session they legitimately skipped.
-    // This covers the case where a debt was created at session-time (player was absent)
-    // and the coach later corrects attendance to holiday/vacation.
+    // This covers the case where a debt/consume was created at session-time (player was
+    // present/late/absent) and the coach later corrects attendance to holiday/vacation.
     if (status === "holiday" || status === "vacation") {
       const cancelReason = status === "vacation" ? "attendance_changed_to_vacation" : "attendance_changed_to_holiday";
+
+      // Step 1: Cancel any V1 legacy debt transactions.
       const cancelResult = await this.cancelSessionDebt(playerId, sessionId, cancelReason);
       if (cancelResult.cancelled) {
         console.log(`[Attendance] Auto-cancelled ${cancelResult.amount} credit debt for player ${playerId} session ${sessionId} — status changed to ${status}`);
+      }
+
+      // Step 2: Reverse any V2 credit_ledger_v2 consume entry for this session.
+      // The V2 engine uses idempotent event keys, so if the player was previously charged
+      // (consume entry in credit_ledger_v2) the credit must be refunded now.
+      if (result) {
+        try {
+          const { refundCredit } = await import("./services/credit-engine");
+          const v2Refund = await refundCredit({
+            sessionPlayerId: result.id,
+            policy: "force",
+            actorRole: "system",
+            reason: cancelReason,
+            // Write reason='holiday_charge_reversal' directly in the ledger row
+            // (not just in metadata) so audit queries can distinguish these
+            // reversals from regular cancellation refunds. See Task #1747.
+            ledgerReason: "holiday_charge_reversal",
+            // Stable, idempotent event key — safe to call multiple times.
+            eventKey: `refund:${cancelReason}:${result.id}`,
+          });
+          if (v2Refund.refunded) {
+            console.log(
+              `[Attendance][V2] Reversed ${v2Refund.amount} ${v2Refund.type ?? "?"} credit(s) for player ${playerId} session ${sessionId} — status changed to ${status} (newBalance: ${v2Refund.newBalance})`
+            );
+          } else if (!v2Refund.alreadyApplied) {
+            // No consume row found — session was either never charged or already reversed.
+            console.log(
+              `[Attendance][V2] No consume found to reverse for player ${playerId} session ${sessionId} — nothing to refund.`
+            );
+          }
+        } catch (v2Err: unknown) {
+          // IMPORTANT: Attendance record is already marked 'holiday' (source of truth).
+          // The credit reversal can be replayed idempotently by:
+          //   npx tsx scripts/data-repair/repair-holiday-charges.ts --apply
+          console.error(
+            `[Attendance][V2] holiday_charge_reversal FAILED for player ${playerId} session ${sessionId} — run repair-holiday-charges script to fix:`,
+            v2Err
+          );
+        }
       }
     }
 
@@ -13580,6 +13622,9 @@ export function shouldChargeCredit(args: {
 }): boolean {
   const status = (args.attendanceStatus || "").toLowerCase();
   if (status === "present" || status === "late") return true;
+  // Task #1747 — explicit guard: holiday/vacation sessions are NEVER charged.
+  // These statuses bypass the `absence` charging rules entirely.
+  if (status === "holiday" || status === "vacation") return false;
   if (status !== "absent") return false;
 
   const st = (args.sessionType || "")

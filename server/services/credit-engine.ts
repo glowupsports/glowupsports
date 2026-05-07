@@ -28,7 +28,12 @@ export type LedgerReason =
   // Task #1749 — reversal of purchase-time debt settlement when a package is
   // deleted. Negative delta pushes the wallet back to the pre-purchase debt
   // level. event_key = 'package_delete_debt:<packageId>'.
-  | "package_deleted_debt_reversal";
+  | "package_deleted_debt_reversal"
+  // Task #1747 — reversal row for sessions where attendance was corrected
+  // to 'holiday' AFTER a consume had already been written. The delta is +N
+  // (credits returned). The session_player_id column links back to the
+  // original consume row for audit trail.
+  | "holiday_charge_reversal";
 
 export type ActorRole = "player" | "coach" | "admin" | "system";
 
@@ -69,6 +74,10 @@ export function shouldChargeForAttendance(args: {
 }): boolean {
   const status = (args.attendanceStatus || "").toLowerCase();
   if (status === "present" || status === "late") return true;
+  // Task #1747 — explicit guard: holiday/vacation sessions are NEVER charged.
+  // Attendance corrected to these values after a consume was written must be
+  // reversed by `reverseHolidayCharge` / `updateAttendance`.
+  if (status === "holiday" || status === "vacation") return false;
   if (status !== "absent") return false;
 
   const st = (args.sessionType || "")
@@ -886,6 +895,11 @@ export interface RefundCreditInput {
   actorId?: string | null;
   actorRole?: ActorRole;
   reason?: string; // free-form, stored in metadata
+  /** Override the `reason` column written to credit_ledger_v2.
+   *  Defaults to `'refund'`. Use `'holiday_charge_reversal'` (Task #1747)
+   *  when reversing a consume that was written before attendance was
+   *  corrected to 'holiday'. */
+  ledgerReason?: LedgerReason;
   /** Logical event time. Used for ledger occurredAt and for evaluating
    *  depleted→active vs depleted→expired lot reactivation. During replay,
    *  pass the historical refund timestamp; live refunds default to now. */
@@ -1032,7 +1046,7 @@ export async function refundCredit(
       academyId,
       type,
       delta: amount,
-      reason: "refund",
+      reason: input.ledgerReason ?? "refund",
       eventKey,
       actorId: input.actorId ?? null,
       actorRole: input.actorRole ?? "system",
