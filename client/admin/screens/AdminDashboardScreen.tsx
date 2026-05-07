@@ -266,6 +266,8 @@ export default function AdminDashboardScreen() {
     const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
     return (
+      <View style={styles.desktopContainer}>
+        <CollapsibleModeSwitcher />
       <ScrollView
         style={styles.desktopScroll}
         contentContainerStyle={styles.desktopContent}
@@ -360,6 +362,7 @@ export default function AdminDashboardScreen() {
           </View>
         </View>
       </ScrollView>
+      </View>
     );
   }
 
@@ -699,6 +702,9 @@ const styles = StyleSheet.create({
   menuCardSubtitle: {
     ...Typography.small,
     color: Colors.dark.textMuted,
+  },
+  desktopContainer: {
+    flex: 1,
   },
   desktopScroll: {
     flex: 1,
