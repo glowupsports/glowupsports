@@ -12,7 +12,8 @@ import { DAY_NAMES, getBallLevelColor } from "./utils";
 import type { SeriesDetail, Player, CourtOption } from "./types";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
+import { Image } from "expo-image";
 
 const DURATION_OPTIONS = [30, 45, 60, 75, 90, 120];
 
@@ -611,11 +612,19 @@ export function SeriesOverviewTab({
                         onPress={() => handlePlayerTap(player.id)}
                         style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
                       >
-                        <View style={[styles.playerAvatar, { backgroundColor: ballColor + "30", borderWidth: 2, borderColor: ballColor }]}>
-                          <Text style={[styles.playerInitial, { color: ballColor }]}>
-                            {player.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
+                        {buildPhotoUrl(player.profilePhotoUrl) ? (
+                          <Image
+                            source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
+                            style={[styles.playerAvatar, { borderWidth: 2, borderColor: ballColor }]}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View style={[styles.playerAvatar, { backgroundColor: ballColor + "30", borderWidth: 2, borderColor: ballColor }]}>
+                            <Text style={[styles.playerInitial, { color: ballColor }]}>
+                              {player.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
                         <View style={styles.playerInfo}>
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                             <Text style={styles.playerName}>{player.name}</Text>
@@ -793,11 +802,19 @@ export function SeriesOverviewTab({
                     const formerBallColor = getBallLevelColor(player.ballLevel);
                     return (
                       <View key={player.id} style={[styles.playerRow, { opacity: 0.5 }]}>
-                        <View style={[styles.playerAvatar, { backgroundColor: formerBallColor + "20", borderWidth: 2, borderColor: formerBallColor + "60" }]}>
-                          <Text style={[styles.playerInitial, { color: formerBallColor + "80" }]}>
-                            {player.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
+                        {buildPhotoUrl(player.profilePhotoUrl) ? (
+                          <Image
+                            source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
+                            style={[styles.playerAvatar, { borderWidth: 2, borderColor: formerBallColor + "60", opacity: 0.6 }]}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View style={[styles.playerAvatar, { backgroundColor: formerBallColor + "20", borderWidth: 2, borderColor: formerBallColor + "60" }]}>
+                            <Text style={[styles.playerInitial, { color: formerBallColor + "80" }]}>
+                              {player.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
                         <View style={styles.playerInfo}>
                           <Text style={[styles.playerName, { color: Colors.dark.textMuted }]}>
                             {player.name}

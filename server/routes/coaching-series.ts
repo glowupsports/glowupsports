@@ -457,6 +457,7 @@ router.get(
             id: sp.playerId,
             name: player?.name || "Unknown Player",
             ballLevel: player?.ballLevel || null,
+            profilePhotoUrl: player?.profilePhotoUrl || null,
             status: sp.status,
             sessionsAttended: realAttendanceCount,
             totalXpEarned: sp.totalXpEarned || 0,

@@ -14,6 +14,7 @@ export interface Player {
   id: string;
   name: string;
   ballLevel?: string | null;
+  profilePhotoUrl?: string | null;
   status?: string; // active | paused | left
   sessionsAttended?: number;
   totalXpEarned?: number;

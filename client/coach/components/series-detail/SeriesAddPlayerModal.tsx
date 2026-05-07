@@ -7,9 +7,11 @@ import {
   ScrollView,
   TextInput,
   StyleSheet} from "react-native";
+import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing } from "@/constants/theme";
+import { buildPhotoUrl } from "@/lib/query-client";
 import { styles } from "./seriesDetailStyles";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -567,11 +569,19 @@ export function SeriesAddPlayerModal({
                         style={styles.selectablePlayerRow}
                         onPress={() => handlePlayerSelect(player.id)}
                       >
-                        <View style={[styles.playerAvatar, { backgroundColor: playerBallColor + "30", borderWidth: 2, borderColor: playerBallColor }]}>
-                          <Text style={[styles.playerInitial, { color: playerBallColor }]}>
-                            {player.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
+                        {buildPhotoUrl(player.profilePhotoUrl) ? (
+                          <Image
+                            source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
+                            style={[styles.playerAvatar, { borderWidth: 2, borderColor: playerBallColor }]}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View style={[styles.playerAvatar, { backgroundColor: playerBallColor + "30", borderWidth: 2, borderColor: playerBallColor }]}>
+                            <Text style={[styles.playerInitial, { color: playerBallColor }]}>
+                              {player.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
                         <View style={styles.playerInfo}>
                           <Text style={styles.playerName}>{player.name}</Text>
                           {player.ballLevel ? (

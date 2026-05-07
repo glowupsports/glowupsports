@@ -8,7 +8,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { getBallLevelColor } from "./series-detail/utils";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
+import { Image } from "expo-image";
 import { invalidatePlayersList } from "@/lib/credit-cache";
 import { useNetwork } from "@/context/NetworkContext";
 import { showOfflineAlert } from "@/hooks/useOfflineGuard";
@@ -79,6 +80,7 @@ interface AvailablePlayer {
   id: string;
   name: string;
   ballLevel?: string | null;
+  profilePhotoUrl?: string | null;
 }
 
 interface SessionDetailDrawerProps {
@@ -359,7 +361,7 @@ export default function SessionDetailDrawer({
                 status: "active",
                 attendanceStatus: null,
                 isGuest: false,
-                profilePhotoUrl: null,
+                profilePhotoUrl: selectedPlayer.profilePhotoUrl || null,
               },
             ],
           };
@@ -409,7 +411,7 @@ export default function SessionDetailDrawer({
               status: "active",
               attendanceStatus: null,
               isGuest: false,
-              profilePhotoUrl: null,
+              profilePhotoUrl: selectedPlayer?.profilePhotoUrl || null,
             },
           ],
         };
@@ -514,7 +516,7 @@ export default function SessionDetailDrawer({
   });
 
   const addExistingGuestMutation = useMutation({
-    mutationFn: async ({ player, weeks }: { player: { id: string; name: string; ballLevel?: string | null }; weeks: number }) => {
+    mutationFn: async ({ player, weeks }: { player: { id: string; name: string; ballLevel?: string | null; profilePhotoUrl?: string | null }; weeks: number }) => {
       if (!session?.id) throw new Error("No session selected");
       let multiWeekResult = null;
       if (weeks > 1) {
@@ -551,7 +553,7 @@ export default function SessionDetailDrawer({
               status: "active",
               attendanceStatus: null,
               isGuest: true,
-              profilePhotoUrl: null,
+              profilePhotoUrl: player.profilePhotoUrl || null,
             },
           ],
         };
@@ -1212,16 +1214,29 @@ export default function SessionDetailDrawer({
                         }}
                         disabled={false}
                       >
-                        <View style={[
-                          styles.playerCardAvatar,
-                          isGuest && styles.playerCardAvatarGuest,
-                          isDropIn && { backgroundColor: "#F39C1230", borderColor: "#F39C12", borderWidth: 2 },
-                          !isGuest && !isDropIn && { backgroundColor: levelColor + "30", borderColor: levelColor }
-                        ]}>
-                          <Text style={[styles.playerCardInitial, !isGuest && { color: isDropIn ? "#F39C12" : levelTextColor }]}>
-                            {player.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
+                        {buildPhotoUrl(player.profilePhotoUrl) ? (
+                          <Image
+                            source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
+                            style={[
+                              styles.playerCardAvatar,
+                              isGuest && styles.playerCardAvatarGuest,
+                              isDropIn && { borderColor: "#F39C12" },
+                              !isGuest && !isDropIn && { borderColor: levelColor }
+                            ]}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View style={[
+                            styles.playerCardAvatar,
+                            isGuest && styles.playerCardAvatarGuest,
+                            isDropIn && { backgroundColor: "#F39C1230", borderColor: "#F39C12", borderWidth: 2 },
+                            !isGuest && !isDropIn && { backgroundColor: levelColor + "30", borderColor: levelColor }
+                          ]}>
+                            <Text style={[styles.playerCardInitial, !isGuest && { color: isDropIn ? "#F39C12" : levelTextColor }]}>
+                              {player.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
                         <Text style={styles.playerCardName} numberOfLines={1}>
                           {player.name.replace(" (Guest)", "")}
                         </Text>
@@ -2198,9 +2213,17 @@ export default function SessionDetailDrawer({
                 style={styles.playerSelectItem}
                 onPress={() => setSelectedPlayer(player)}
               >
-                <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]}>
-                  <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
-                </View>
+                {buildPhotoUrl(player.profilePhotoUrl) ? (
+                  <Image
+                    source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
+                    style={[styles.playerAvatar, { borderRadius: 18 }]}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(player.ballLevel) }]}>
+                    <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
+                  </View>
+                )}
                 <View style={styles.playerSelectInfo}>
                   <Text style={styles.playerSelectName}>{player.name}</Text>
                   {player.ballLevel && (
@@ -2221,9 +2244,17 @@ export default function SessionDetailDrawer({
       ) : (
         <>
           <View style={styles.selectedPlayerCard}>
-            <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(selectedPlayer.ballLevel) }]}>
-              <Text style={styles.playerAvatarText}>{selectedPlayer.name.charAt(0)}</Text>
-            </View>
+            {buildPhotoUrl(selectedPlayer.profilePhotoUrl) ? (
+              <Image
+                source={{ uri: buildPhotoUrl(selectedPlayer.profilePhotoUrl)! }}
+                style={[styles.playerAvatar, { borderRadius: 18 }]}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={[styles.playerAvatar, { backgroundColor: getPlayerLevelColor(selectedPlayer.ballLevel) }]}>
+                <Text style={styles.playerAvatarText}>{selectedPlayer.name.charAt(0)}</Text>
+              </View>
+            )}
             <Text style={styles.selectedPlayerName}>{selectedPlayer.name}</Text>
           </View>
 

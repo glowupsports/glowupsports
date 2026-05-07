@@ -14,14 +14,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { formatTimeInTimezone } from "@/lib/dateUtils";
+import { Image } from "expo-image";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface AvailablePlayer {
   id: string;
   name: string;
   ballLevel?: string | null;
+  profilePhotoUrl?: string | null;
 }
 
 interface SessionPlayer {
@@ -408,11 +410,19 @@ export function AddPlayerToSessionModal({
                   isFull && { opacity: 0.55 },
                 ]}
               >
-                <View style={styles.playerAvatar}>
-                  <Text style={styles.playerAvatarText}>
-                    {(player.name || "?").charAt(0).toUpperCase()}
-                  </Text>
-                </View>
+                {buildPhotoUrl(player.profilePhotoUrl) ? (
+                  <Image
+                    source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
+                    style={styles.playerAvatar}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={styles.playerAvatar}>
+                    <Text style={styles.playerAvatarText}>
+                      {(player.name || "?").charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.playerName} numberOfLines={1}>
                     {player.name}
