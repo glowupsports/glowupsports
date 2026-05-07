@@ -184,6 +184,24 @@ export default function AdminCoachesScreen() {
     },
   });
 
+  const updateCoachMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+      return apiRequest("PATCH", `/api/coaches/${id}`, {
+        ...data,
+        hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches"] });
+      setShowAddModal(false);
+      resetForm();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (err: Error) => {
+      Alert.alert("Error", err.message);
+    },
+  });
+
   const resetForm = () => {
     setFormData({ name: "", email: "", phone: "", specialty: "", hourlyRate: "", role: "coach" });
     setEditingCoach(null);
@@ -371,7 +389,11 @@ export default function AdminCoachesScreen() {
       Alert.alert("Error", "Please enter coach name");
       return;
     }
-    addCoachMutation.mutate(formData);
+    if (editingCoach) {
+      updateCoachMutation.mutate({ id: editingCoach.id, data: formData });
+    } else {
+      addCoachMutation.mutate(formData);
+    }
   };
 
   const getRoleColor = (role?: string) => {

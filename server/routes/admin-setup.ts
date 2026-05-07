@@ -157,6 +157,40 @@ import { Router, type Request, type Response } from "express";
     },
   );
 
+  // Update coach
+  router.patch(
+    "/api/coaches/:id",
+    authMiddleware,
+    requireRole("academy_owner", "platform_owner", "admin"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId;
+        const { id } = req.params;
+        const { hourlyRate, name, email, phone, specialty, role } = req.body;
+
+        const allowedUpdates: Record<string, any> = {};
+        if (name !== undefined) allowedUpdates.name = name;
+        if (email !== undefined) allowedUpdates.email = email;
+        if (phone !== undefined) allowedUpdates.phone = phone;
+        if (specialty !== undefined) allowedUpdates.specialty = specialty;
+        if (role !== undefined) allowedUpdates.role = role;
+        if (hourlyRate !== undefined) {
+          allowedUpdates.hourlyRate = hourlyRate ? parseFloat(String(hourlyRate)) : null;
+        }
+
+        const coach = await storage.updateCoach(id, allowedUpdates, academyId ?? undefined);
+        if (!coach) {
+          return res.status(404).json({ error: "Coach not found" });
+        }
+
+        res.json(coach);
+      } catch (error) {
+        console.error("Error updating coach:", error);
+        res.status(500).json({ error: "Failed to update coach" });
+      }
+    },
+  );
+
   // Get all locations
   router.get(
     "/api/locations",
