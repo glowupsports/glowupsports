@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { useInterval } from "@/hooks/useInterval";
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, InteractionManager } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
@@ -51,14 +51,26 @@ export function GlowMarketSpotlight() {
   const [isAutoRotating, setIsAutoRotating] = useState(false);
   const productsRef = useRef<ShopProduct[]>([]);
 
+  // Defer shop queries until the screen has finished its first interactive
+  // render so they don't compete with Play tab paint on cold open.
+  const [isReady, setIsReady] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setIsReady(true);
+    });
+    return () => handle.cancel();
+  }, []);
+
   const { data: shopData } = useQuery<ShopData>({
     queryKey: ["/api/player/shop"],
     staleTime: 5 * 60 * 1000,
+    enabled: isReady,
   });
 
   const { data: xpDiscount } = useQuery<XPDiscount>({
     queryKey: ["/api/player/shop/xp-discount"],
     staleTime: 10 * 60 * 1000,
+    enabled: isReady,
   });
 
   const featuredProducts = shopData?.featuredProducts?.slice(0, 6) || [];

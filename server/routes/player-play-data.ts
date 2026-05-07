@@ -203,11 +203,11 @@ router.get(
 
       // Build the same query strings the screens build today so the legacy
       // endpoints see byte-equivalent input.
-      const sessionsPath = `/api/play/sessions?level=${encodeURIComponent(resolvedLevel)}&sport=${encodeURIComponent(sport)}&scope=${encodeURIComponent(resolvedScope)}`;
+      const sessionsPath = `/api/play/sessions?level=${encodeURIComponent(resolvedLevel)}&sport=${encodeURIComponent(sport)}&scope=${encodeURIComponent(resolvedScope)}&limit=20`;
       const nearbyPath =
         filter !== "all"
-          ? `/api/play/nearby-players?filter=${encodeURIComponent(filter)}&sport=${encodeURIComponent(sport)}&travelTime=${travelTime}&scope=${encodeURIComponent(resolvedScope)}`
-          : `/api/play/nearby-players?sport=${encodeURIComponent(sport)}&travelTime=${travelTime}&scope=${encodeURIComponent(resolvedScope)}`;
+          ? `/api/play/nearby-players?filter=${encodeURIComponent(filter)}&sport=${encodeURIComponent(sport)}&travelTime=${travelTime}&scope=${encodeURIComponent(resolvedScope)}&limit=30`
+          : `/api/play/nearby-players?sport=${encodeURIComponent(sport)}&travelTime=${travelTime}&scope=${encodeURIComponent(resolvedScope)}&limit=30`;
       const openMatchesPath = `/api/open-matches?includeAllLevels=true&sport=${encodeURIComponent(sport)}&scope=${encodeURIComponent(resolvedScope)}`;
 
       const sub = <T>(path: string) => dispatchInProcess<T>(req, path);

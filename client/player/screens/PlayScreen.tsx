@@ -11,7 +11,7 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal, Linking } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ImageBackground, Dimensions, Platform, Image as RNImage, TextInput, Modal, Linking, InteractionManager } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,7 +24,7 @@ import { Image as ExpoImage } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { PlayStackParamList } from "@/player/navigation/PlayerNavigator";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -657,7 +657,8 @@ export default function PlayScreen() {
       scope,
       discoverFilter,
     ],
-    staleTime: 30 * 1000,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const url = new URL("/api/player/me/play-data", apiUrl);
       url.searchParams.set("sport", activeSport);
@@ -765,33 +766,74 @@ export default function PlayScreen() {
     profileDataRef.current = profileData;
   }, [profileData]);
 
-  // One-shot reverse geocode when location permission is first granted
+  // One-shot reverse geocode when location permission is first granted.
+  // Deferred via InteractionManager so GPS doesn't compete with first render.
+  // profileData is intentionally NOT in the dep array — profileDataRef keeps
+  // the ref fresh and avoids a double-fire when the god-query resolves.
   useSafeEffect(() => {
     if (!locationPermission?.granted) return;
     if (geocodedRef.current) return; // already ran
-    // Wait for profile data before checking what fields to fill
-    const profile = profileDataRef.current;
-    if (profile === undefined) return;
-    const missingCity = !profile?.player?.city;
-    const missingCountry = !profile?.player?.country;
-    if (!missingCity && !missingCountry) {
-      geocodedRef.current = true; // nothing to fill — mark done
-      return;
-    }
-    geocodedRef.current = true; // mark before async to prevent double-fire
-    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-      .then((loc) => {
-        reverseGeocodeMutation.mutate({
-          lat: loc.coords.latitude,
-          lng: loc.coords.longitude,
-          missingCity,
-          missingCountry,
+    const handle = InteractionManager.runAfterInteractions(() => {
+      const profile = profileDataRef.current;
+      if (profile === undefined) return;
+      const missingCity = !profile?.player?.city;
+      const missingCountry = !profile?.player?.country;
+      if (!missingCity && !missingCountry) {
+        geocodedRef.current = true; // nothing to fill — mark done
+        return;
+      }
+      geocodedRef.current = true; // mark before async to prevent double-fire
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        .then((loc) => {
+          reverseGeocodeMutation.mutate({
+            lat: loc.coords.latitude,
+            lng: loc.coords.longitude,
+            missingCity,
+            missingCountry,
+          });
+        })
+        .catch(() => {
+          /* silent */
         });
-      })
-      .catch(() => {
-        /* silent */
-      });
-  }, [locationPermission?.granted, profileData]); // profileData dep so it retries once profile loads
+    });
+    return () => handle.cancel();
+  }, [locationPermission?.granted]); // profileData intentionally omitted — use profileDataRef
+
+  // Retry trigger: handles the case where permission was already granted on
+  // mount but profileDataRef was still undefined when the deferred callback
+  // ran. Fires once when profileData transitions from undefined → defined.
+  // geocodedRef guards prevent double-fire with the effect above.
+  const profileDataDefined = profileData !== undefined;
+  useSafeEffect(() => {
+    if (!locationPermission?.granted) return;
+    if (geocodedRef.current) return; // main effect already ran
+    if (!profileDataDefined) return;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (geocodedRef.current) return; // double-fire guard
+      const profile = profileDataRef.current;
+      if (profile === undefined) return;
+      const missingCity = !profile?.player?.city;
+      const missingCountry = !profile?.player?.country;
+      if (!missingCity && !missingCountry) {
+        geocodedRef.current = true;
+        return;
+      }
+      geocodedRef.current = true;
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        .then((loc) => {
+          reverseGeocodeMutation.mutate({
+            lat: loc.coords.latitude,
+            lng: loc.coords.longitude,
+            missingCity,
+            missingCountry,
+          });
+        })
+        .catch(() => {
+          /* silent */
+        });
+    });
+    return () => handle.cancel();
+  }, [locationPermission?.granted, profileDataDefined]);
 
   // Task #1383 — invitesData / openMatchesList / corporateData / sessions /
   // nearbyPlayers used to be 5 individual mount queries here. They are now
