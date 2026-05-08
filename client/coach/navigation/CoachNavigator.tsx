@@ -553,7 +553,7 @@ interface CoachProfile {
 }
 
 function SupervisorBanner() {
-  const { supervisorCoach, setSupervisorCoach, setShowCoachPicker } = useSupervisorMode();
+  const { supervisorCoach, setSupervisorCoach, setShowCoachPicker, isReadOnly } = useSupervisorMode();
   const { setMode } = useAppMode();
 
   if (!supervisorCoach) return null;
@@ -578,8 +578,12 @@ function SupervisorBanner() {
         <Text style={bannerStyles.label} numberOfLines={1}>
           Viewing as{" "}
           <Text style={bannerStyles.coachName}>{supervisorCoach.name}</Text>
-          {" · "}
-          <Text style={bannerStyles.readOnly}>Read Only</Text>
+          {isReadOnly ? (
+            <>
+              {" · "}
+              <Text style={bannerStyles.readOnly}>Read Only</Text>
+            </>
+          ) : null}
         </Text>
       </View>
       <View style={bannerStyles.actions}>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { queryClient, setSupervisorQueryCoachId, setCoachReadOnlyMode } from "@/lib/query-client";
 import { useAppMode } from "@/context/AppModeContext";
+import { useAuth } from "@/coach/context/AuthContext";
 
 export interface SupervisorCoach {
   id: string;
@@ -24,6 +25,8 @@ export function SupervisorModeProvider({ children }: { children: ReactNode }) {
   const [supervisorCoach, setSupervisorCoachState] = useState<SupervisorCoach | null>(null);
   const [showCoachPicker, setShowCoachPicker] = useState(false);
   const { mode } = useAppMode();
+  const { user } = useAuth();
+  const isOwnerRole = user?.role === "academy_owner" || user?.role === "platform_owner" || user?.role === "owner";
 
   // Auto-clear supervisor state whenever the owner navigates away from coach mode
   // (e.g. via mode switcher). This prevents read-only mutation blocking from leaking
@@ -38,10 +41,11 @@ export function SupervisorModeProvider({ children }: { children: ReactNode }) {
 
   const setSupervisorCoach = (coach: SupervisorCoach | null) => {
     setSupervisorCoachState(coach);
+    const shouldBeReadOnly = coach !== null && !isOwnerRole;
     // Sync module-level flags so query-client injects supervisorCoachId and
     // blocks write mutations immediately (no hook delay)
     setSupervisorQueryCoachId(coach?.id ?? null);
-    setCoachReadOnlyMode(!!coach);
+    setCoachReadOnlyMode(shouldBeReadOnly);
     // Invalidate all /api/coach/ queries so they refetch with the new supervisorCoachId
     queryClient.invalidateQueries({
       predicate: (query) => {
@@ -56,7 +60,7 @@ export function SupervisorModeProvider({ children }: { children: ReactNode }) {
       value={{
         supervisorCoach,
         setSupervisorCoach,
-        isReadOnly: supervisorCoach !== null,
+        isReadOnly: supervisorCoach !== null && !isOwnerRole,
         showCoachPicker,
         setShowCoachPicker,
       }}

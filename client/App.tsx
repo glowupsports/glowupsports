@@ -546,8 +546,8 @@ export default function App() {
                   <UpdateController>
                     <NetworkProvider>
                       <AppModeProvider>
-                        <SupervisorModeProvider>
                         <AuthProvider>
+                          <SupervisorModeProvider>
                           <PlayerProvider>
                             <CoachProvider>
                               <UIInteractionProvider>
@@ -577,8 +577,8 @@ export default function App() {
                               </UIInteractionProvider>
                             </CoachProvider>
                           </PlayerProvider>
+                          </SupervisorModeProvider>
                         </AuthProvider>
-                        </SupervisorModeProvider>
                       </AppModeProvider>
                     </NetworkProvider>
                   </UpdateController>
