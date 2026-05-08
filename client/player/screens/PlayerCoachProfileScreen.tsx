@@ -103,19 +103,27 @@ export default function PlayerCoachProfileScreen() {
   // Task #1580 — guests use the public (unauthenticated) coach profile
   // endpoint instead of the player-specific one, so the screen loads
   // correctly without a valid token.
+  //
+  // Task #1781 — IMPORTANT: do NOT pass `queryFn: undefined` for the
+  // non-guest path. In TanStack Query v5, `...options` spreads last in
+  // `defaultQueryOptions`, so an explicit `undefined` overrides the
+  // QueryClient's default queryFn and `ensureQueryFn` immediately rejects
+  // with "Missing queryFn: ..." — no network request is ever made.
+  // Omitting queryFn entirely lets the default kick in correctly.
+  const guestQueryFn = isGuest
+    ? async () => {
+        const { getApiUrl } = await import("@/lib/query-client");
+        const url = new URL(`/api/coaches/${coachId}/profile`, getApiUrl()).toString();
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`${res.status}: Coach not found`);
+        return res.json();
+      }
+    : undefined;
   const { data: coach, isLoading, isError, error, refetch } = useQuery<CoachDetails>({
     queryKey: isGuest
       ? ["/api/coaches", coachId, "profile"]
       : ["/api/player/coach", coachId],
-    queryFn: isGuest
-      ? async () => {
-          const { getApiUrl } = await import("@/lib/query-client");
-          const url = new URL(`/api/coaches/${coachId}/profile`, getApiUrl()).toString();
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`${res.status}: Coach not found`);
-          return res.json();
-        }
-      : undefined,
+    ...(guestQueryFn ? { queryFn: guestQueryFn } : {}),
     enabled: !!coachId,
     retry: 2,
     refetchOnMount: "always",
