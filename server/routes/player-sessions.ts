@@ -4164,6 +4164,10 @@ import fs from "fs";
           philosophyTags,
           acknowledgements,
           publicQuote,
+          name,
+          phone,
+          specialty,
+          bio,
         } = req.body;
 
         const updatedCoach = await storage.updateCoach(coachId, {
@@ -4176,6 +4180,10 @@ import fs from "fs";
           onboardingAcknowledgements: acknowledgements,
           publicQuote,
           bioStatus: publicQuote ? "pending_approval" : "draft",
+          ...(name ? { name } : {}),
+          ...(phone ? { phone } : {}),
+          ...(specialty ? { specialty } : {}),
+          ...(bio ? { bio } : {}),
         });
 
         res.json({ success: true, coach: updatedCoach });

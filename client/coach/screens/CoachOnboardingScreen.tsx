@@ -8,7 +8,12 @@ import {
   FlatList,
   Platform,
   ScrollView,
+  TextInput,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -16,7 +21,11 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, Typography, BorderRadius } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
+import { getAuthToken } from "@/lib/auth";
+import { appendImageToFormData } from "@/lib/uploads";
+import { useAuth } from "@/coach/context/AuthContext";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -33,6 +42,12 @@ interface OnboardingData {
   backgroundTags: string[];
   philosophyTags: string[];
   publicQuote: string;
+  profileName: string;
+  profilePhone: string;
+  profileSpecialty: string;
+  profileBio: string;
+  profilePhotoUploaded: boolean;
+  profilePhotoUrl: string | null;
 }
 
 interface StepProps {
@@ -224,6 +239,182 @@ function CheckboxItem({
       </View>
       <Text style={styles.checkboxLabel}>{label}</Text>
     </Pressable>
+  );
+}
+
+function StepProfileSetup({ data, setData, onNext }: StepProps) {
+  const insets = useSafeAreaInsets();
+  const { coach } = useAuth();
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handlePickPhoto = async () => {
+    try {
+      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission Required", "Please allow access to your photo library to add a profile picture.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      setIsUploadingPhoto(true);
+      const asset = result.assets[0];
+      const uploadFormData = new FormData();
+      await appendImageToFormData(uploadFormData, "photo", asset.uri);
+      const token = getAuthToken();
+      const response = await fetch(`${getApiUrl()}/api/coach/profile/photo`, {
+        method: "POST",
+        body: uploadFormData,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok) {
+        throw new Error("Failed to upload photo");
+      }
+      const responseData = await response.json();
+      await queryClient.invalidateQueries({ queryKey: ["/api/coach/profile"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      setData(prev => ({
+        ...prev,
+        profilePhotoUploaded: true,
+        profilePhotoUrl: responseData.photoUrl ?? asset.uri,
+      }));
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (_error) {
+      Alert.alert("Upload failed", "Could not upload your photo. You can add one later from your profile.");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const coachEmail = coach?.email ?? "";
+
+  return (
+    <View style={[styles.stepContainer, { paddingTop: insets.top + Spacing.xl }]}>
+      <LinearGradient
+        colors={[Colors.dark.backgroundRoot, Colors.dark.backgroundDefault]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <LinearGradient
+        colors={[Colors.dark.primary, Colors.dark.xpCyan]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerTopLine}
+      />
+
+      <KeyboardAwareScrollViewCompat style={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+          <Text style={styles.stepTitle}>YOUR PROFILE</Text>
+          <Text style={styles.stepSubtitle}>Set up your profile so players know who is coaching them. All fields are optional.</Text>
+
+          {/* Avatar */}
+          <Pressable onPress={handlePickPhoto} style={styles.avatarContainer}>
+            {data.profilePhotoUrl ? (
+              <Image
+                source={{ uri: data.profilePhotoUrl }}
+                style={styles.avatarImage}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <LinearGradient
+                  colors={[`${Colors.dark.primary}30`, `${Colors.dark.xpCyan}20`]}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <Ionicons name="person-outline" size={40} color={Colors.dark.textSecondary} />
+              </View>
+            )}
+            {isUploadingPhoto ? (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator color={Colors.dark.primary} />
+              </View>
+            ) : (
+              <View style={styles.avatarEditBadge}>
+                <Ionicons name="camera" size={14} color={Colors.dark.buttonText} />
+              </View>
+            )}
+          </Pressable>
+          {data.profilePhotoUploaded ? (
+            <Text style={styles.photoUploadedLabel}>Photo uploaded</Text>
+          ) : (
+            <Text style={styles.photoNudgeLabel}>Tap to add a photo</Text>
+          )}
+
+          {/* Email read-only */}
+          {coachEmail ? (
+            <View style={styles.readOnlyRow}>
+              <Text style={styles.inputLabel}>EMAIL</Text>
+              <View style={styles.readOnlyInput}>
+                <Text style={styles.readOnlyText}>{coachEmail}</Text>
+                <Ionicons name="lock-closed-outline" size={14} color={Colors.dark.textMuted} />
+              </View>
+            </View>
+          ) : null}
+
+          {/* Name */}
+          <Text style={styles.inputLabel}>NAME</Text>
+          <TextInput
+            style={styles.textInput}
+            value={data.profileName}
+            onChangeText={(v) => setData(prev => ({ ...prev, profileName: v }))}
+            placeholder="Your full name"
+            placeholderTextColor={Colors.dark.textMuted}
+            returnKeyType="next"
+            autoCapitalize="words"
+          />
+
+          {/* Phone */}
+          <Text style={styles.inputLabel}>PHONE</Text>
+          <TextInput
+            style={styles.textInput}
+            value={data.profilePhone}
+            onChangeText={(v) => setData(prev => ({ ...prev, profilePhone: v }))}
+            placeholder="+1 234 567 8900"
+            placeholderTextColor={Colors.dark.textMuted}
+            keyboardType="phone-pad"
+            returnKeyType="next"
+          />
+
+          {/* Specialty */}
+          <Text style={styles.inputLabel}>SPECIALTY</Text>
+          <TextInput
+            style={styles.textInput}
+            value={data.profileSpecialty}
+            onChangeText={(v) => setData(prev => ({ ...prev, profileSpecialty: v }))}
+            placeholder="e.g. Junior development, Serve & volley"
+            placeholderTextColor={Colors.dark.textMuted}
+            returnKeyType="next"
+            autoCapitalize="sentences"
+          />
+
+          {/* Bio */}
+          <Text style={styles.inputLabel}>BIO</Text>
+          <TextInput
+            style={[styles.textInput, styles.textInputMultiline]}
+            value={data.profileBio}
+            onChangeText={(v) => setData(prev => ({ ...prev, profileBio: v }))}
+            placeholder="Tell players a bit about yourself..."
+            placeholderTextColor={Colors.dark.textMuted}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+            autoCapitalize="sentences"
+          />
+
+          <View style={{ height: Spacing.xl }} />
+        </Animated.View>
+      </KeyboardAwareScrollViewCompat>
+
+      <View style={styles.bottomAction}>
+        <GamingButton onPress={onNext} title="CONTINUE" icon="arrow-forward" />
+      </View>
+    </View>
   );
 }
 
@@ -731,6 +922,31 @@ function Step6FinalConfirmation({ data, setData, onNext }: StepProps) {
               style={styles.cardGradientOverlay}
             />
             <Text style={styles.summaryTitle}>YOUR PROFILE SUMMARY</Text>
+            {data.profileName ? (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Name:</Text>
+                <Text style={styles.summaryValue}>{data.profileName}</Text>
+              </View>
+            ) : null}
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Photo:</Text>
+              <View style={styles.summaryPhotoStatus}>
+                <Ionicons
+                  name={data.profilePhotoUploaded ? "checkmark-circle" : "ellipse-outline"}
+                  size={14}
+                  color={data.profilePhotoUploaded ? Colors.dark.successNeon : Colors.dark.textMuted}
+                />
+                <Text style={[styles.summaryValue, { marginLeft: 4 }]}>
+                  {data.profilePhotoUploaded ? "Uploaded" : "No photo"}
+                </Text>
+              </View>
+            </View>
+            {data.profileSpecialty ? (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Specialty:</Text>
+                <Text style={styles.summaryValue} numberOfLines={1}>{data.profileSpecialty}</Text>
+              </View>
+            ) : null}
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Experience:</Text>
               <Text style={styles.summaryValue}>{data.yearsExperience || "Not set"} years</Text>
@@ -779,6 +995,7 @@ export default function CoachOnboardingScreen({ onComplete }: CoachOnboardingScr
   const queryClient = useQueryClient();
   const flatListRef = useRef<FlatList>(null);
   const [currentStep, setCurrentStep] = useState(0);
+  const { coach } = useAuth();
   const [data, setData] = useState<OnboardingData>({
     acknowledgements: {
       glowRules: false,
@@ -790,6 +1007,12 @@ export default function CoachOnboardingScreen({ onComplete }: CoachOnboardingScr
     backgroundTags: [],
     philosophyTags: [],
     publicQuote: "",
+    profileName: coach?.name ?? "",
+    profilePhone: coach?.phone ?? "",
+    profileSpecialty: coach?.specialty ?? "",
+    profileBio: coach?.bio ?? "",
+    profilePhotoUploaded: Boolean(coach?.photoUrl),
+    profilePhotoUrl: coach?.photoUrl ?? null,
   });
   
   const saveOnboardingMutation = useMutation({
@@ -799,10 +1022,15 @@ export default function CoachOnboardingScreen({ onComplete }: CoachOnboardingScr
         backgroundTags: data.backgroundTags,
         philosophyTags: data.philosophyTags,
         publicQuote: data.publicQuote,
+        name: data.profileName || undefined,
+        phone: data.profilePhone || undefined,
+        specialty: data.profileSpecialty || undefined,
+        bio: data.profileBio || undefined,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/coach/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       onComplete();
     },
     onError: (error) => {
@@ -813,6 +1041,7 @@ export default function CoachOnboardingScreen({ onComplete }: CoachOnboardingScr
   
   const STEPS = [
     Step1Welcome,
+    StepProfileSetup,
     Step2HowGlowWorks,
     Step3FeedbackExpectations,
     Step4AttendanceFairness,
@@ -1240,6 +1469,112 @@ const styles = StyleSheet.create({
   summaryLabel: {
     ...Typography.caption,
     color: Colors.dark.textSecondary,
+  },
+  summaryPhotoStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarContainer: {
+    alignSelf: "center",
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xs,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: "visible",
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: Colors.dark.primary,
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: `${Colors.dark.primary}40`,
+    borderStyle: "dashed",
+  },
+  avatarOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 50,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.dark.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.dark.backgroundRoot,
+  },
+  photoUploadedLabel: {
+    ...Typography.caption,
+    color: Colors.dark.successNeon,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  photoNudgeLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    marginBottom: Spacing.lg,
+  },
+  inputLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.xs,
+    marginTop: Spacing.md,
+    letterSpacing: 1,
+  },
+  textInput: {
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}25`,
+    color: Colors.dark.text,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    ...Typography.body,
+  },
+  textInputMultiline: {
+    minHeight: 90,
+    paddingTop: Spacing.sm + 2,
+  },
+  readOnlyRow: {
+    marginTop: Spacing.xs,
+  },
+  readOnlyInput: {
+    backgroundColor: "rgba(18, 18, 22, 0.5)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}15`,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  readOnlyText: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
   },
   summaryValue: {
     ...Typography.caption,
