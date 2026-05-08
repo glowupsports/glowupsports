@@ -3354,8 +3354,11 @@ export const storage = {
         )
     `);
     let totalDebtSettled = 0;
-    for (const row of settleRows.rows as { metadata: { settleAmount?: number } | null }[]) {
-      totalDebtSettled += Number(row.metadata?.settleAmount ?? 0);
+    for (const row of settleRows.rows as { metadata: unknown }[]) {
+      const meta = typeof row.metadata === "string"
+        ? JSON.parse(row.metadata)
+        : row.metadata;
+      totalDebtSettled += Number((meta as { settleAmount?: number })?.settleAmount ?? 0);
     }
 
     // Detach invoices outside the engine call (engine handles its own tx).
