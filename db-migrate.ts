@@ -896,6 +896,21 @@ async function run() {
       console.log("[db-migrate] court_booking_confirmations indexes — OK");
     }
 
+    // ── Task #1773: Approve Dean Hamilton's bio_status so he is eligible ──────
+    // Dean Hamilton (id = 76f7d0e7-1363-404f-93d0-7edcce95a28d) had bio_status
+    // = 'draft', blocking him from the coach directory. The public quality gate
+    // (publicCoachQualityGate) does not check bio_status, but the non-public
+    // directory path does. Setting it to 'approved' is the prerequisite for
+    // eventual visibility (he must also add a photo, quote, or specialty to
+    // pass the quality gate).
+    await client.query(`
+      UPDATE coaches
+      SET bio_status = 'approved'
+      WHERE id = '76f7d0e7-1363-404f-93d0-7edcce95a28d'
+        AND bio_status = 'draft'
+    `);
+    console.log("[db-migrate] Dean Hamilton bio_status — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

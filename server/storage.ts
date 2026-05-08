@@ -1566,7 +1566,11 @@ export const storage = {
     // both this query and `getCoachPublicProfile` share the same helper so
     // every public surface stays consistent.
     const whereClause = filters?.publicOnly
-      ? and(eq(coaches.publicProfileEnabled, true), publicCoachQualityGate())
+      ? and(
+          eq(coaches.publicProfileEnabled, true),
+          eq(coaches.showProfileToPlayers, true),
+          publicCoachQualityGate()
+        )
       : and(eq(coaches.showInDirectory, true), eq(coaches.bioStatus, "approved"));
     const results = await db.select(baseSelect).from(coaches).where(whereClause);
     
