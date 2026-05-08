@@ -29,7 +29,6 @@ interface PublicCoachEntry {
   publicQuote?: string | null;
   averageRating?: number | null;
   totalRatings?: number | null;
-  hourlyRate?: string | null;
   academyName?: string | null;
   academyCountry?: string | null;
 }
@@ -248,11 +247,6 @@ export function CoachesRail() {
                       </Text>
                     </View>
                   ) : null}
-                  {c.hourlyRate ? (
-                    <Text style={coachRailStyles.priceText}>
-                      AED {parseInt(String(c.hourlyRate), 10)}
-                    </Text>
-                  ) : null}
                 </View>
               </Pressable>
             );
@@ -466,11 +460,6 @@ const coachRailStyles = makeReactiveStyles(() =>
       fontSize: 11,
       color: Colors.dark.textSecondary,
       fontWeight: "600",
-    },
-    priceText: {
-      fontSize: 11,
-      color: Colors.dark.accentText,
-      fontWeight: "700",
     },
   }),
 );

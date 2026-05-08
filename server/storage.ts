@@ -1558,7 +1558,6 @@ export const storage = {
       totalRatings: coaches.totalRatings,
       openToOpportunities: coaches.openToOpportunities,
       publicProfileEnabled: coaches.publicProfileEnabled,
-      hourlyRate: coaches.hourlyRate,
       academyId: coaches.academyId,
     };
     // Task #1112 quality gate: when surfacing coaches publicly, hide profiles
