@@ -103,7 +103,7 @@ export default function PlayerCoachProfileScreen() {
   // Task #1580 — guests use the public (unauthenticated) coach profile
   // endpoint instead of the player-specific one, so the screen loads
   // correctly without a valid token.
-  const { data: coach, isLoading } = useQuery<CoachDetails>({
+  const { data: coach, isLoading, isError, error, refetch } = useQuery<CoachDetails>({
     queryKey: isGuest
       ? ["/api/coaches", coachId, "profile"]
       : ["/api/player/coach", coachId],
@@ -112,12 +112,16 @@ export default function PlayerCoachProfileScreen() {
           const { getApiUrl } = await import("@/lib/query-client");
           const url = new URL(`/api/coaches/${coachId}/profile`, getApiUrl()).toString();
           const res = await fetch(url);
-          if (!res.ok) throw new Error("Coach not found");
+          if (!res.ok) throw new Error(`${res.status}: Coach not found`);
           return res.json();
         }
       : undefined,
     enabled: !!coachId,
+    retry: 2,
+    refetchOnMount: "always",
   });
+
+  const coachIs404 = isError && error instanceof Error && error.message.startsWith("404:");
 
   // Task #1175 — Follow / unfollow this coach. We optimistically flip the
   // local cache so the button feels instant, then invalidate on settle to
@@ -257,6 +261,30 @@ export default function PlayerCoachProfileScreen() {
         </View>
         <View style={styles.loadingContainer}>
           <ThemedText style={styles.loadingText}>Loading coach profile...</ThemedText>
+        </View>
+      </ThemedView>
+    );
+  }
+
+  if (isError) {
+    return (
+      <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.dark.text} />
+          </Pressable>
+          <ThemedText style={styles.headerTitle}>Coach Profile</ThemedText>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ThemedText style={styles.loadingText}>
+            {coachIs404 ? "Coach not found" : "Couldn't load profile"}
+          </ThemedText>
+          {!coachIs404 ? (
+            <Pressable onPress={() => refetch()} style={styles.retryButton}>
+              <ThemedText style={styles.retryButtonText}>Try again</ThemedText>
+            </Pressable>
+          ) : null}
         </View>
       </ThemedView>
     );
@@ -1021,5 +1049,18 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   specChipText: {
     ...Typography.caption,
     color: Colors.dark.text,
+  },
+  retryButton: {
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+  },
+  retryButtonText: {
+    ...Typography.body,
+    fontWeight: "600",
+    color: Colors.dark.backgroundRoot,
+    textAlign: "center",
   },
 }));
