@@ -78,7 +78,7 @@ export default function CollapsibleModeSwitcher() {
   const handleModeChange = (newMode: AppMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Academy owners get a coach picker instead of directly switching to coach mode
-    if (newMode === "coach" && (user?.role === "academy_owner" || user?.role === "owner")) {
+    if (newMode === "coach" && (user?.role === "academy_owner" || user?.role === "owner" || user?.role === "platform_owner")) {
       setSupervisorCoach(null);
       setIsOpen(false);
       slideX.value = withSpring(-PANEL_WIDTH, { damping: 20, stiffness: 200 }, () => {
