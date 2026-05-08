@@ -556,7 +556,7 @@ function SupervisorBanner() {
   const { supervisorCoach, setSupervisorCoach, setShowCoachPicker, isReadOnly } = useSupervisorMode();
   const { setMode } = useAppMode();
 
-  if (!supervisorCoach) return null;
+  if (!supervisorCoach || !isReadOnly) return null;
 
   const handleSwitchCoach = () => {
     // Keep the current supervisorCoach while the picker is open so the banner
