@@ -1611,7 +1611,12 @@ export const storage = {
   async getAcademyCoachesForBooking(academyId: string) {
     try {
       // Get all coaches for this academy using full select to avoid field issues
-      const academyCoaches = await db.select().from(coaches).where(eq(coaches.academyId, academyId));
+      const academyCoaches = await db.select().from(coaches).where(
+        and(
+          eq(coaches.academyId, academyId),
+          eq(coaches.showProfileToPlayers, true),
+        )
+      );
 
       // The coaches table has no `ball_levels` column. We derive each coach's
       // serviceable ball levels from the distinct levels they have actually

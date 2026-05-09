@@ -435,7 +435,11 @@ router.get(
         !academyCoaches.some((c: any) => c.id === requestedCoachId)
       ) {
         const externalCoach = await storage.getCoach(requestedCoachId);
-        if (externalCoach && externalCoach.publicProfileEnabled !== false) {
+        if (
+          externalCoach &&
+          externalCoach.publicProfileEnabled === true &&
+          externalCoach.showProfileToPlayers === true
+        ) {
           coaches = [
             ...academyCoaches,
             {
@@ -457,6 +461,13 @@ router.get(
             } as any,
           ];
         }
+      }
+
+      // A user with both a coach and player profile must never see themselves
+      // as a bookable coach, regardless of their showProfileToPlayers flag.
+      const selfCoachId = req.user?.coachId;
+      if (selfCoachId) {
+        coaches = coaches.filter((c: any) => c.id !== selfCoachId);
       }
 
       res.json({ coaches });
