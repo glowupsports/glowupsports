@@ -911,6 +911,17 @@ async function run() {
     `);
     console.log("[db-migrate] Dean Hamilton bio_status — OK");
 
+    // ── academy_settings.cancellation_policy — Task #1788 ────────────────────
+    // Column declared in schema.ts but never applied to Supabase.
+    // getAcademySettings() was throwing "column cancellation_policy does not exist"
+    // (Postgres code 42703) on every academy creation, causing a 500 error.
+    await client.query(`
+      ALTER TABLE academy_settings
+        ADD COLUMN IF NOT EXISTS cancellation_policy TEXT
+          DEFAULT 'Free cancellation up to 24 hours before the lesson'
+    `);
+    console.log("[db-migrate] academy_settings.cancellation_policy — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"
