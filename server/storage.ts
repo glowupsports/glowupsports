@@ -10672,7 +10672,30 @@ export const storage = {
 
     const availabilitySlots = await db.select().from(coachAvailability)
       .where(and(...conditions));
-    
+
+    // Filter out coaches who are hidden from players (show_profile_to_players = false)
+    // or who have paused their availability (availability_paused = true in coach_settings).
+    // coach_availability rows alone do not encode "not available" — these coach-level flags do.
+    const uniqueCoachIds = [...new Set(availabilitySlots.map(s => s.coachId).filter(Boolean) as string[])];
+    const bookableCoachIds = new Set<string>();
+    if (uniqueCoachIds.length > 0) {
+      const [coachRows, settingsRows] = await Promise.all([
+        db.select({ id: coaches.id, showProfileToPlayers: coaches.showProfileToPlayers })
+          .from(coaches)
+          .where(inArray(coaches.id, uniqueCoachIds)),
+        db.select({ coachId: coachSettings.coachId, availabilityPaused: coachSettings.availabilityPaused })
+          .from(coachSettings)
+          .where(inArray(coachSettings.coachId, uniqueCoachIds)),
+      ]);
+      const pausedSet = new Set(settingsRows.filter(s => s.availabilityPaused).map(s => s.coachId));
+      for (const c of coachRows) {
+        if (c.showProfileToPlayers === false) continue;
+        if (pausedSet.has(c.id)) continue;
+        bookableCoachIds.add(c.id);
+      }
+    }
+    const filteredAvailabilitySlots = availabilitySlots.filter(s => bookableCoachIds.has(s.coachId));
+
     // sessions.start_time / end_time and booking_requests.requested_start / requested_end
     // are all stored as real UTC in a `timestamp without time zone` column.
     // Supabase's PostgreSQL server runs at UTC, so ::timestamptz treats stored values as UTC.
@@ -10888,7 +10911,7 @@ export const storage = {
       const dd = String(currentDayDate.getUTCDate()).padStart(2, "0");
       const dateStr = `${yyyy}-${mm}-${dd}`;
       
-      const dayAvailability = availabilitySlots.filter(a => a.weekday === weekday);
+      const dayAvailability = filteredAvailabilitySlots.filter(a => a.weekday === weekday);
       
       for (const availability of dayAvailability) {
         const [startHour, startMin] = availability.startTime.split(':').map(Number);

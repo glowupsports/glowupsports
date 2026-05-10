@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, StyleSheet, Pressable, Dimensions, Platform, Alert, Image as RNImage } from "react-native";
+import { View, Text, StyleSheet, Pressable, Dimensions, Platform, Alert, Image as RNImage, Modal, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
@@ -287,6 +287,7 @@ function CompeteCard() {
   });
 
   const [scoutSheetOpponentId, setScoutSheetOpponentId] = useState<string | null>(null);
+  const [showMatchDetail, setShowMatchDetail] = useState(false);
 
   const respondMutation = useMutation({
     mutationFn: async ({ id, accepted, opponentId: _opponentId }: { id: string | number; accepted: boolean; opponentId?: string }) =>
@@ -454,6 +455,25 @@ function CompeteCard() {
   const otherUpcomingMatch = futureSorted.find((m) => !isMine(m));
   const upcomingOpenMatch = myUpcomingMatch || otherUpcomingMatch;
 
+  // Detail query — fetches full match info (level range, description, players) when the
+  // bottom sheet is opened. Placed here (after upcomingOpenMatch, before early returns)
+  // so React's hook ordering rules are always satisfied.
+  const detailMatchId = upcomingOpenMatch?.id ?? null;
+  const { data: matchDetail, isFetching: matchDetailLoading } = useQuery<any>({
+    queryKey: ["/api/open-matches", detailMatchId, "detail"],
+    queryFn: async () => {
+      if (!detailMatchId) return null;
+      const res = await fetch(
+        new URL(`/api/open-matches/${detailMatchId}`, getApiUrl()).toString(),
+        { headers: getAuthHeaders(), credentials: "include" }
+      );
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: showMatchDetail && !!detailMatchId,
+    staleTime: 30_000,
+  });
+
   // Variant 1: Incoming challenge — inline Accept/Decline (parity with ChallengeCard).
   if (incomingChallenge) {
     const target = challengeToDate(incomingChallenge);
@@ -585,30 +605,189 @@ function CompeteCard() {
     };
 
     return (
-      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Matches" onAction={goOpenMatches}>
-        <MatchSummaryCard
-          embedded
-          matchId={upcomingOpenMatch.id}
-          matchType={upcomingOpenMatch.matchType}
-          sport={upcomingOpenMatch.sport}
-          scheduledTime={upcomingOpenMatch.scheduledTime}
-          courtName={upcomingOpenMatch.courtName}
-          locationName={upcomingOpenMatch.locationName}
-          host={upcomingOpenMatch.host}
-          ballLevel={upcomingOpenMatch.ballLevel}
-          currentPlayers={upcomingOpenMatch.currentPlayers}
-          maxPlayers={upcomingOpenMatch.maxPlayers}
-          costPerPlayer={upcomingOpenMatch.costPerPlayer}
-          currency={upcomingOpenMatch.currency}
-          levelMatch={upcomingOpenMatch.levelMatch}
-          levelDirection={upcomingOpenMatch.levelDirection}
-          isHost={isHost}
-          joining={joinMutation.isPending}
-          onJoin={() => joinMutation.mutate(upcomingOpenMatch.id)}
-          onManage={goManageMatch}
-          accent={COMPETE_ACCENT}
-        />
-      </LensShell>
+      <>
+        <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Matches" onAction={goOpenMatches}>
+          <MatchSummaryCard
+            embedded
+            matchId={upcomingOpenMatch.id}
+            matchType={upcomingOpenMatch.matchType}
+            sport={upcomingOpenMatch.sport}
+            scheduledTime={upcomingOpenMatch.scheduledTime}
+            courtName={upcomingOpenMatch.courtName}
+            locationName={upcomingOpenMatch.locationName}
+            host={upcomingOpenMatch.host}
+            ballLevel={upcomingOpenMatch.ballLevel}
+            currentPlayers={upcomingOpenMatch.currentPlayers}
+            maxPlayers={upcomingOpenMatch.maxPlayers}
+            costPerPlayer={upcomingOpenMatch.costPerPlayer}
+            currency={upcomingOpenMatch.currency}
+            levelMatch={upcomingOpenMatch.levelMatch}
+            levelDirection={upcomingOpenMatch.levelDirection}
+            isHost={isHost}
+            joining={joinMutation.isPending}
+            onJoin={() => joinMutation.mutate(upcomingOpenMatch.id)}
+            onManage={goManageMatch}
+            accent={COMPETE_ACCENT}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              setShowMatchDetail(true);
+            }}
+          />
+        </LensShell>
+
+        {/* Match detail bottom sheet */}
+        <Modal
+          visible={showMatchDetail}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowMatchDetail(false)}
+        >
+          <Pressable
+            style={matchDetailStyles.backdrop}
+            onPress={() => setShowMatchDetail(false)}
+          />
+          <View style={matchDetailStyles.sheet}>
+            {/* Handle */}
+            <View style={matchDetailStyles.handle} />
+
+            {/* Header row */}
+            <View style={matchDetailStyles.sheetHeader}>
+              <Text style={matchDetailStyles.sheetTitle}>Match Details</Text>
+              <Pressable
+                onPress={() => setShowMatchDetail(false)}
+                hitSlop={12}
+                style={matchDetailStyles.closeBtn}
+              >
+                <Ionicons name="close" size={20} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+
+            {matchDetailLoading && !matchDetail ? (
+              <View style={matchDetailStyles.loadingRow}>
+                <ActivityIndicator color={COMPETE_ACCENT} />
+                <Text style={matchDetailStyles.loadingText}>Loading details...</Text>
+              </View>
+            ) : matchDetail ? (
+              <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={matchDetailStyles.scrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                {/* Level range */}
+                <View style={matchDetailStyles.section}>
+                  <Text style={matchDetailStyles.sectionLabel}>MATCH LEVEL</Text>
+                  <View style={matchDetailStyles.levelRow}>
+                    <View style={[matchDetailStyles.levelBadge, { backgroundColor: `${COMPETE_ACCENT}22`, borderColor: `${COMPETE_ACCENT}60` }]}>
+                      <Ionicons name="trending-up-outline" size={14} color={COMPETE_ACCENT} />
+                      <Text style={[matchDetailStyles.levelBadgeText, { color: COMPETE_ACCENT }]}>
+                        {matchDetail.requiredLevelMin === matchDetail.requiredLevelMax
+                          ? `Level ${matchDetail.requiredLevelMin}`
+                          : `Level ${matchDetail.requiredLevelMin} – ${matchDetail.requiredLevelMax}`}
+                      </Text>
+                    </View>
+                    {matchDetail.requiredBallLevel ? (
+                      <View style={[matchDetailStyles.levelBadge, { backgroundColor: "#22223220", borderColor: "#44445560" }]}>
+                        <Ionicons name="ellipse-outline" size={13} color={Colors.dark.textSecondary} />
+                        <Text style={[matchDetailStyles.levelBadgeText, { color: Colors.dark.textSecondary }]}>
+                          {matchDetail.requiredBallLevel}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+
+                {/* Host info */}
+                {matchDetail.host ? (
+                  <View style={matchDetailStyles.section}>
+                    <Text style={matchDetailStyles.sectionLabel}>HOST</Text>
+                    <View style={matchDetailStyles.hostRow}>
+                      <View style={matchDetailStyles.hostAvatar}>
+                        {matchDetail.host.photoUrl ? (
+                          <RNImage
+                            source={{ uri: buildPhotoUrl(matchDetail.host.photoUrl) }}
+                            style={matchDetailStyles.hostAvatarImg}
+                          />
+                        ) : (
+                          <Text style={matchDetailStyles.hostAvatarInitial}>
+                            {(matchDetail.host.name || "?")[0].toUpperCase()}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={matchDetailStyles.hostName}>{matchDetail.host.name || "Host"}</Text>
+                        {matchDetail.host.level ? (
+                          <Text style={matchDetailStyles.hostLevel}>
+                            Player Level {matchDetail.host.level}
+                            {matchDetail.host.ballLevel ? ` · ${matchDetail.host.ballLevel}` : ""}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Description */}
+                {matchDetail.description ? (
+                  <View style={matchDetailStyles.section}>
+                    <Text style={matchDetailStyles.sectionLabel}>ABOUT THIS MATCH</Text>
+                    <Text style={matchDetailStyles.description}>{matchDetail.description}</Text>
+                  </View>
+                ) : null}
+
+                {/* Players */}
+                {matchDetail.players?.length > 0 ? (
+                  <View style={matchDetailStyles.section}>
+                    <Text style={matchDetailStyles.sectionLabel}>
+                      PLAYERS ({matchDetail.currentPlayers}/{matchDetail.maxPlayers})
+                    </Text>
+                    {(matchDetail.players as any[]).map((p: any, i: number) => (
+                      <View key={p.id || i} style={matchDetailStyles.playerRow}>
+                        <View style={matchDetailStyles.playerDot}>
+                          <Text style={matchDetailStyles.playerDotText}>
+                            {(p.name || "?")[0].toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={matchDetailStyles.playerName}>{p.name || "Player"}</Text>
+                        {p.isHost ? (
+                          <View style={[matchDetailStyles.hostTag, { backgroundColor: `${COMPETE_ACCENT}22` }]}>
+                            <Text style={[matchDetailStyles.hostTagText, { color: COMPETE_ACCENT }]}>Host</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+
+                {/* CTA */}
+                {!isHost ? (
+                  <Pressable
+                    style={[matchDetailStyles.joinBtn, { backgroundColor: COMPETE_ACCENT }]}
+                    onPress={() => {
+                      setShowMatchDetail(false);
+                      joinMutation.mutate(upcomingOpenMatch.id);
+                    }}
+                    disabled={joinMutation.isPending}
+                  >
+                    <Text style={matchDetailStyles.joinBtnText}>
+                      {joinMutation.isPending ? "Joining..." : "Join Match"}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={[matchDetailStyles.joinBtn, { backgroundColor: COMPETE_ACCENT }]}
+                    onPress={() => {
+                      setShowMatchDetail(false);
+                      goManageMatch();
+                    }}
+                  >
+                    <Text style={matchDetailStyles.joinBtnText}>Manage Match</Text>
+                  </Pressable>
+                )}
+              </ScrollView>
+            ) : null}
+          </View>
+        </Modal>
+      </>
     );
   }
 
@@ -1928,6 +2107,177 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingBottom: Spacing.xs,
   },
 }));
+
+const matchDetailStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  sheet: {
+    backgroundColor: "#11141A",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 40,
+    maxHeight: "78%",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.08)",
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignSelf: "center",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 28,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.5)",
+  },
+  scrollContent: {
+    padding: 20,
+    gap: 20,
+    paddingBottom: 12,
+  },
+  section: {
+    gap: 8,
+  },
+  sectionLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    color: "rgba(255,255,255,0.4)",
+  },
+  levelRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  levelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  levelBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  hostRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  hostAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  hostAvatarImg: {
+    width: "100%",
+    height: "100%",
+  },
+  hostAvatarInitial: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  hostName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  hostLevel: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.5)",
+    marginTop: 2,
+  },
+  description: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.7)",
+    lineHeight: 20,
+  },
+  playerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 4,
+  },
+  playerDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerDotText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  playerName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  hostTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  hostTagText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  joinBtn: {
+    borderRadius: 14,
+    paddingVertical: 15,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  joinBtnText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0A0D12",
+    letterSpacing: 0.3,
+  },
+});
 
 const _openMatchHeroStyles = makeReactiveStyles(() => StyleSheet.create({
   hostRow: {
