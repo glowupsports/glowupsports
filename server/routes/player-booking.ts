@@ -8439,6 +8439,9 @@ router.get(
       const includeAllLevels =
         String(req.query.includeAllLevels || "") === "true";
       const includeMine = String(req.query.includeMine || "") === "true";
+      // joinedByPlayerId — coach view: show all matches (open + full) that a
+      // specific player has confirmed slots in, regardless of who is the host.
+      const joinedByPlayerId = req.query.joinedByPlayerId as string | undefined;
       // Task #1033 — discovery scope chip parity with Players row.
       // mine = same academy (default if academy member), country = caller's
       // country, all = worldwide (everyone). Free players default to "country".
@@ -8500,7 +8503,18 @@ router.get(
         })
         .from(openMatches)
         .leftJoin(players, eq(openMatches.hostPlayerId, players.id))
-        .where(eq(openMatches.status, "open"));
+        .where(
+          joinedByPlayerId
+            ? // Coach view — all matches (open + full) this player confirmed into
+              sql`${openMatches.id} IN (
+                SELECT match_id FROM open_match_slots
+                WHERE player_id = ${joinedByPlayerId}
+                  AND status = 'confirmed'
+                  AND role != 'host'
+              ) AND ${openMatches.status} != 'cancelled'
+              AND ${openMatches.preferredDate} >= CURRENT_DATE`
+            : eq(openMatches.status, "open"),
+        );
       // preferred_date is a `date` column in pg, but the upstream code path
       // expects a `YYYY-MM-DD` string (it does string comparisons against
       // the ?date= query param and string-splits "HH:MM" off preferredTime).
@@ -9609,6 +9623,48 @@ router.post(
       // Real-time push so the host (and other participants) see the slot free up.
       // We pass the leaving player's id as `extra` so their own client also refetches.
       await emitOpenMatchUpdate(matchId, [playerId], "leave");
+
+      // Push-notify the host that a player left and the match is open again
+      try {
+        const [matchRow] = await db
+          .select({
+            hostPlayerId: openMatches.hostPlayerId,
+            preferredDate: openMatches.preferredDate,
+            preferredTime: openMatches.preferredTime,
+          })
+          .from(openMatches)
+          .where(eq(openMatches.id, matchId))
+          .limit(1);
+
+        if (matchRow && matchRow.hostPlayerId !== playerId) {
+          const [leavingPlayer] = await db
+            .select({ name: players.name })
+            .from(players)
+            .where(eq(players.id, playerId))
+            .limit(1);
+          const leaverName = leavingPlayer?.name || "A player";
+
+          const dateLabel = matchRow.preferredDate
+            ? new Date(matchRow.preferredDate).toLocaleDateString("en-GB", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+              })
+            : "your match";
+
+          const hostTokens = await getPlayerPushTokens(matchRow.hostPlayerId);
+          if (hostTokens.length > 0) {
+            await sendPushNotification(
+              hostTokens,
+              "Player left your match",
+              `${leaverName} left your match on ${dateLabel}. The slot is open again.`,
+              { type: "open_match_leave", matchId },
+            );
+          }
+        }
+      } catch (notifErr) {
+        console.error("[LeaveMatch] Failed to notify host:", notifErr);
+      }
 
       res.json({ success: true, message: "Left match" });
     } catch (error) {

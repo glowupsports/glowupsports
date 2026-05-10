@@ -24,8 +24,8 @@
 import { Router } from "express";
 import type { NextFunction, Response } from "express";
 import { db } from "../db";
-import { players } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { players, openMatches, openMatchSlots } from "@shared/schema";
+import { eq, and, gte, ne } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
 } from "../auth";
@@ -212,13 +212,49 @@ router.get(
 
       const sub = <T>(path: string) => dispatchInProcess<T>(req, path);
 
+      // Fetch the player's upcoming joined matches directly — these are
+      // confirmed slots in open_matches the player joined (not as host),
+      // with a preferred_date on or after today. Done in-process so it
+      // participates in the same single round-trip as the rest of the data.
+      const today = new Date().toISOString().slice(0, 10);
+      const myJoinedMatchesPromise = playerId
+        ? db
+            .select({
+              id: openMatches.id,
+              preferredDate: openMatches.preferredDate,
+              preferredTime: openMatches.preferredTime,
+              status: openMatches.status,
+              maxPlayers: openMatches.maxPlayers,
+              currentPlayers: openMatches.currentPlayers,
+              matchType: openMatches.matchType,
+              requiredBallLevel: openMatches.requiredBallLevel,
+              hostPlayerId: openMatches.hostPlayerId,
+              hostName: players.name,
+              hostPhotoUrl: players.profilePhotoUrl,
+              slotId: openMatchSlots.id,
+            })
+            .from(openMatchSlots)
+            .innerJoin(openMatches, eq(openMatchSlots.matchId, openMatches.id))
+            .innerJoin(players, eq(openMatches.hostPlayerId, players.id))
+            .where(
+              and(
+                eq(openMatchSlots.playerId, playerId),
+                eq(openMatchSlots.status, "confirmed"),
+                ne(openMatchSlots.role, "host"),
+                gte(openMatches.preferredDate, today as any),
+              ),
+            )
+            .orderBy(openMatches.preferredDate)
+        : Promise.resolve([]);
+
       const [
         profile,
         bookingInvites,
-        openMatches,
+        openMatchesResult,
         corporate,
         sessions,
         nearbyPlayers,
+        myJoinedMatches,
       ] = await Promise.all([
         sub<unknown>(`/api/player/me/profile`),
         sub<unknown>(`/api/player/booking-invites`),
@@ -226,6 +262,7 @@ router.get(
         sub<unknown>(`/api/corporate/my-account`),
         sub<unknown>(sessionsPath),
         sub<unknown>(nearbyPath),
+        myJoinedMatchesPromise,
       ]);
 
       const errors: Record<string, number | null> = {};
@@ -234,15 +271,25 @@ router.get(
       };
       note("profile", profile);
       note("bookingInvites", bookingInvites);
-      note("openMatches", openMatches);
+      note("openMatches", openMatchesResult);
       note("corporate", corporate);
       note("sessions", sessions);
       note("nearbyPlayers", nearbyPlayers);
 
+      // Normalise date column (pg returns Date object for `date` type)
+      const normaliseDate = (d: any) =>
+        d instanceof Date ? d.toISOString().slice(0, 10) : (d as string | null);
+
+      const myJoinedMatchesNorm = (myJoinedMatches as any[]).map((r) => ({
+        ...r,
+        preferredDate: normaliseDate(r.preferredDate),
+      }));
+
       const responseBody = {
         profile: profile.data,
         bookingInvites: bookingInvites.data ?? [],
-        openMatches: openMatches.data ?? [],
+        openMatches: openMatchesResult.data ?? [],
+        myJoinedMatches: myJoinedMatchesNorm,
         corporate: corporate.data ?? { corporateAccount: null, member: null },
         sessions: sessions.data ?? [],
         nearbyPlayers: nearbyPlayers.data ?? [],

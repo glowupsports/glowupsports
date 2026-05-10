@@ -207,6 +207,98 @@ interface CoachMatchResult {
   isOwner: boolean;
 }
 
+function PlayerUpcomingMatchesSection({ playerId }: { playerId: string }) {
+  const { data, isLoading } = useQuery<{
+    id: string;
+    preferredDate?: string | null;
+    preferredTime?: string | null;
+    matchType?: string | null;
+    status?: string | null;
+    currentPlayers?: number | null;
+    maxPlayers?: number | null;
+    playerName?: string | null;
+  }[]>({
+    queryKey: [`/api/open-matches`, { joinedByPlayerId: playerId }],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/open-matches?joinedByPlayerId=${playerId}`);
+      return res.json();
+    },
+    staleTime: 60000,
+  });
+
+  if (isLoading) {
+    return (
+      <View style={{ paddingVertical: 20, alignItems: "center" }}>
+        <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.dark.primary, borderTopColor: "transparent" }} />
+      </View>
+    );
+  }
+
+  const matches = Array.isArray(data) ? data : [];
+
+  if (matches.length === 0) {
+    return (
+      <View style={{ paddingVertical: 16, alignItems: "center", gap: 6 }}>
+        <Ionicons name="tennisball-outline" size={32} color={Colors.dark.textMuted} />
+        <Text style={{ color: Colors.dark.textMuted, fontSize: 13 }}>No upcoming open matches</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      {matches.slice(0, 8).map((m) => {
+        const dateStr = m.preferredDate
+          ? new Date(m.preferredDate).toLocaleDateString("en-GB", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            })
+          : null;
+        const timeStr = m.preferredTime ? m.preferredTime.slice(0, 5) : null;
+        const players = m.currentPlayers != null && m.maxPlayers != null
+          ? `${m.currentPlayers}/${m.maxPlayers} players`
+          : null;
+        return (
+          <View
+            key={m.id}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "rgba(255,255,255,0.04)",
+              borderRadius: 10,
+              padding: 10,
+              gap: 10,
+            }}
+          >
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(249,115,22,0.15)", alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="tennisball" size={18} color="#f97316" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.dark.text, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>
+                {(m.matchType ?? "Open Match").charAt(0).toUpperCase() + (m.matchType ?? "open match").slice(1)} with {m.playerName ?? "host"}
+              </Text>
+              <Text style={{ color: Colors.dark.textMuted, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+                {[dateStr, timeStr, players].filter(Boolean).join(" · ")}
+              </Text>
+            </View>
+            <View style={{
+              backgroundColor: m.status === "full" ? "rgba(239,68,68,0.15)" : "rgba(34,197,94,0.12)",
+              borderRadius: 6,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+            }}>
+              <Text style={{ color: m.status === "full" ? "#ef4444" : "#22c55e", fontSize: 10, fontWeight: "700" }}>
+                {m.status === "full" ? "FULL" : "OPEN"}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function CoachMatchHistorySection({ playerId }: { playerId: string }) {
   const { data, isLoading } = useQuery<{
     results: CoachMatchResult[];
@@ -2090,6 +2182,10 @@ export function PlayerDetailView({
 
         <CollapsibleSection title="Monthly Reports" icon="mail-unread-outline" iconColor="#a855f7">
           <PlayerMonthlyReportsSection playerId={player.id} playerName={localPlayer.name} />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Upcoming Open Matches" icon="tennisball" iconColor="#f97316">
+          <PlayerUpcomingMatchesSection playerId={player.id} />
         </CollapsibleSection>
 
         <CollapsibleSection title="Match History" icon="tennisball-outline" iconColor="#f97316">

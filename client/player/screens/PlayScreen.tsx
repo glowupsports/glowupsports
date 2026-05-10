@@ -618,6 +618,20 @@ export default function PlayScreen() {
       hostBallLevel?: string | null;
       requiredBallLevel?: string | null;
     }[];
+    myJoinedMatches?: {
+      id: string;
+      slotId: string;
+      preferredDate?: string | null;
+      preferredTime?: string | null;
+      status?: string | null;
+      maxPlayers?: number | null;
+      currentPlayers?: number | null;
+      matchType?: string | null;
+      requiredBallLevel?: string | null;
+      hostPlayerId?: string | null;
+      hostName?: string | null;
+      hostPhotoUrl?: string | null;
+    }[];
     corporate: {
       corporateAccount: { companyName: string; creditBalance: number } | null;
       member: { inviteStatus: string } | null;
@@ -677,6 +691,7 @@ export default function PlayScreen() {
   const profileData = playGodData?.profile ?? undefined;
   const invitesData = playGodData?.bookingInvites;
   const openMatchesList = playGodData?.openMatches;
+  const myJoinedMatches = useMemo(() => playGodData?.myJoinedMatches ?? [], [playGodData?.myJoinedMatches]);
   const corporateData = playGodData?.corporate;
   const sessions = playGodData?.sessions;
   const nearbyPlayers = playGodData?.nearbyPlayers;
@@ -1007,6 +1022,83 @@ export default function PlayScreen() {
 
     return filtered;
   }, [sessions, selectedDay]);
+
+  // --- Leave open match mutation + confirmation state ---
+  const [leavingMatchId, setLeavingMatchId] = useState<string | null>(null);
+
+  const leaveOpenMatchMutation = useMutation({
+    mutationFn: async (matchId: string) => {
+      const response = await apiRequest("POST", `/api/open-matches/${matchId}/leave`);
+      return response.json();
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0] === "/api/player/me/play-data" });
+    },
+    onError: (err: Error) => {
+      const msg = err.message.includes(": ") ? err.message.split(": ").slice(1).join(": ") : err.message;
+      Alert.alert("Oops", msg || "Could not leave match");
+    },
+    onSettled: () => setLeavingMatchId(null),
+  });
+
+  const myUpcomingMatchesRows = useMemo(() => {
+    if (!myJoinedMatches || myJoinedMatches.length === 0) return null;
+    return myJoinedMatches.map((match) => {
+      const isLeaving = leavingMatchId === match.id;
+      const dateStr = match.preferredDate
+        ? new Date(match.preferredDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+        : null;
+      const timeStr = match.preferredTime ? match.preferredTime.slice(0, 5) : null;
+      return (
+        <View
+          key={match.id}
+          style={[styles.matchListRow, { borderLeftWidth: 3, borderLeftColor: Colors.dark.primary, paddingRight: 8 }]}
+        >
+          <View style={styles.matchListIcon}>
+            <Ionicons name="tennisball" size={16} color={Colors.dark.primary} />
+          </View>
+          <View style={[styles.matchListInfo, { flex: 1 }]}>
+            <Text style={styles.matchListTitle} numberOfLines={1}>
+              {(match.matchType ?? "Match").charAt(0).toUpperCase() + (match.matchType ?? "match").slice(1)} with {match.hostName ?? "Host"}
+            </Text>
+            {dateStr ? (
+              <Text style={styles.matchListMeta} numberOfLines={1}>
+                {dateStr}{timeStr ? ` · ${timeStr}` : ""}
+                {match.currentPlayers != null && match.maxPlayers != null ? ` · ${match.currentPlayers}/${match.maxPlayers}` : ""}
+              </Text>
+            ) : null}
+          </View>
+          <Pressable
+            style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 8 }}
+            disabled={isLeaving || leaveOpenMatchMutation.isPending}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Alert.alert(
+                "Leave match?",
+                `You'll give up your spot in this match with ${match.hostName ?? "the host"}. The host will be notified.`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Leave",
+                    style: "destructive",
+                    onPress: () => {
+                      setLeavingMatchId(match.id);
+                      leaveOpenMatchMutation.mutate(match.id);
+                    },
+                  },
+                ],
+              );
+            }}
+          >
+            <Text style={{ color: isLeaving ? Colors.dark.textMuted : "#ef4444", fontSize: 12, fontWeight: "700" }}>
+              {isLeaving ? "..." : "Leave"}
+            </Text>
+          </Pressable>
+        </View>
+      );
+    });
+  }, [myJoinedMatches, leavingMatchId, leaveOpenMatchMutation]);
 
   const openMatchesRows = useMemo(() => {
     if (!openMatchesList || openMatchesList.length === 0) return null;
@@ -3873,6 +3965,21 @@ export default function PlayScreen() {
           ) : activeTab === "Players" ? (
             playSection === "Matches" ? (
               <>
+                {/* My Upcoming Matches — matches this player has joined */}
+                {myUpcomingMatchesRows ? (
+                  <>
+                    <View style={styles.sectionHeader}>
+                      <View style={styles.sectionTitleRow}>
+                        <Ionicons name="checkmark-circle" size={20} color={Colors.dark.primary} />
+                        <Text style={styles.sectionTitle}>My Upcoming Matches</Text>
+                        <Text style={styles.playerCount}>({myJoinedMatches.length})</Text>
+                      </View>
+                    </View>
+                    {myUpcomingMatchesRows}
+                    <View style={{ height: Spacing.lg }} />
+                  </>
+                ) : null}
+
                 {/* Open Matches list for Matches section */}
                 <View style={styles.sectionHeader}>
                   <View style={styles.sectionTitleRow}>
