@@ -10768,4 +10768,256 @@ router.get(
   },
 );
 
+// ==================== ADMIN BOOKING REQUEST OVERSIGHT ====================
+
+// GET /api/admin/booking-requests — list all pending requests academy-wide with player/coach details
+router.get(
+  "/api/admin/booking-requests",
+  authMiddleware,
+  requireRole("academy_owner", "admin", "platform_owner"),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy access required" });
+      }
+
+      const status = (req.query.status as string | undefined) || "pending";
+      const requests = await storage.getBookingRequests({ academyId, status });
+
+      if (requests.length === 0) {
+        return res.json([]);
+      }
+
+      const playerIds = [...new Set(requests.map((r) => r.playerId).filter(Boolean) as string[])];
+      const coachIds = [...new Set(requests.map((r) => r.coachId).filter(Boolean) as string[])];
+
+      const [playerRows, coachRows] = await Promise.all([
+        playerIds.length > 0
+          ? db
+              .select({ id: players.id, name: players.name, photoUrl: players.profilePhotoUrl })
+              .from(players)
+              .where(inArray(players.id, playerIds))
+          : Promise.resolve([] as { id: string; name: string | null; photoUrl: string | null }[]),
+        coachIds.length > 0
+          ? db
+              .select({ id: coaches.id, name: coaches.name, photoUrl: coaches.photoUrl })
+              .from(coaches)
+              .where(inArray(coaches.id, coachIds))
+          : Promise.resolve([] as { id: string; name: string | null; photoUrl: string | null }[]),
+      ]);
+
+      const playerMap = new Map(playerRows.map((p) => [p.id, p]));
+      const coachMap = new Map(coachRows.map((c) => [c.id, c]));
+
+      const now = Date.now();
+      const enriched = requests.map((r) => {
+        const player = playerMap.get(r.playerId);
+        const coach = r.coachId ? coachMap.get(r.coachId) : null;
+        const createdMs = r.createdAt ? new Date(r.createdAt).getTime() : now;
+        const waitingMs = now - createdMs;
+        const waitingDays = Math.floor(waitingMs / (1000 * 60 * 60 * 24));
+        const waitingHours = Math.floor(waitingMs / (1000 * 60 * 60));
+        const waitingLabel =
+          waitingDays >= 1
+            ? `Pending ${waitingDays} day${waitingDays !== 1 ? "s" : ""}`
+            : waitingHours >= 1
+              ? `Pending ${waitingHours}h`
+              : "Pending <1h";
+        return {
+          ...r,
+          playerName: player?.name || "Unknown Player",
+          playerPhotoUrl: player?.photoUrl || null,
+          coachName: coach?.name || "Any Coach",
+          coachPhotoUrl: coach?.photoUrl || null,
+          waitingLabel,
+        };
+      });
+
+      res.json(enriched);
+    } catch (error) {
+      console.error("[Admin] Booking requests list error:", error);
+      res.status(500).json({ error: "Failed to fetch booking requests" });
+    }
+  },
+);
+
+// POST /api/admin/booking-requests/:id/approve
+router.post(
+  "/api/admin/booking-requests/:id/approve",
+  authMiddleware,
+  requireRole("academy_owner", "admin", "platform_owner"),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const adminUserId = req.user?.userId || "admin";
+      const { id } = req.params;
+
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy access required" });
+      }
+
+      const request = await storage.getBookingRequest(id);
+      if (!request) {
+        return res.status(404).json({ error: "Booking request not found" });
+      }
+      if (request.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to access this request" });
+      }
+      if (request.status !== "pending") {
+        return res.status(400).json({ error: "Only pending requests can be approved" });
+      }
+      if (!request.coachId) {
+        return res.status(400).json({ error: "Cannot approve a booking request with no assigned coach" });
+      }
+
+      const result = await storage.approveBookingRequest(id, request.coachId);
+
+      // Transition court availability from blocked → booked
+      if (request.courtId) {
+        try {
+          await db
+            .update(courtAvailability)
+            .set({ status: "booked" })
+            .where(
+              and(
+                eq(courtAvailability.courtId, request.courtId),
+                eq(courtAvailability.blockedReason, `booking_request:${id}`),
+              ),
+            );
+        } catch (courtUpdateError) {
+          console.error("[Admin] Court status update on approve (non-fatal):", courtUpdateError);
+        }
+      }
+
+      await storage.createAuditLog({
+        academyId: request.academyId,
+        entityType: "booking_request",
+        entityId: id,
+        action: "approve",
+        performedBy: adminUserId,
+        performedByRole: req.user?.role || "academy_owner",
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("[Admin] Approve booking request error:", error);
+      res.status(500).json({ error: "Failed to approve booking request" });
+    }
+  },
+);
+
+// POST /api/admin/booking-requests/:id/decline
+router.post(
+  "/api/admin/booking-requests/:id/decline",
+  authMiddleware,
+  requireRole("academy_owner", "admin", "platform_owner"),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const academyId = req.user?.academyId;
+      const adminUserId = req.user?.userId || "admin";
+      const { id } = req.params;
+
+      const parsedDecline = bookingDeclineSchema.safeParse(req.body);
+      if (!parsedDecline.success) {
+        return res.status(400).json({ error: fromZodError(parsedDecline.error).message });
+      }
+      const { reason, declineReason } = parsedDecline.data;
+
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy access required" });
+      }
+
+      const request = await storage.getBookingRequest(id);
+      if (!request) {
+        return res.status(404).json({ error: "Booking request not found" });
+      }
+      if (request.academyId !== academyId) {
+        return res.status(403).json({ error: "Not authorized to access this request" });
+      }
+      if (request.status !== "pending") {
+        return res.status(400).json({ error: "Only pending requests can be declined" });
+      }
+
+      const updated = await storage.updateBookingRequest(id, {
+        status: "declined",
+        respondedBy: adminUserId,
+        respondedAt: new Date(),
+        responseNote: reason || null,
+        declineReason: declineReason || null,
+      });
+
+      // Notify the player (push + in-app)
+      const DECLINE_LABELS: Record<string, string> = {
+        schedule_conflict: "Schedule conflict",
+        skill_mismatch: "Skill level mismatch",
+        court_unavailable: "Court unavailable",
+        personal: "Personal reason",
+        response_timeout: "Response timeout",
+      };
+      try {
+        const playerTokens = await getPlayerPushTokens(request.playerId);
+        const declineDetail = reason
+          ? ` Reason: ${reason}`
+          : declineReason
+            ? ` Reason: ${DECLINE_LABELS[declineReason] ?? declineReason}`
+            : "";
+        const pushBody = `Your lesson request has been declined by the academy.${declineDetail}`;
+        if (playerTokens.length > 0) {
+          await sendPushNotification(
+            playerTokens,
+            "Lesson request declined",
+            pushBody,
+            { type: "booking_declined", bookingRequestId: id },
+            request.playerId,
+          );
+        }
+        await db.insert(playerNotifications).values({
+          playerId: request.playerId,
+          title: "Lesson request declined",
+          body: pushBody,
+          type: "booking_declined",
+          data: {
+            bookingRequestId: id,
+            declineReason: declineReason || null,
+            responseNote: reason || null,
+          },
+        });
+      } catch (notifyErr) {
+        console.error("[Admin] Failed to notify player of decline (non-fatal):", notifyErr);
+      }
+
+      // Unblock court if one was held for this request
+      if (request.courtId) {
+        try {
+          await db
+            .delete(courtAvailability)
+            .where(
+              and(
+                eq(courtAvailability.courtId, request.courtId),
+                eq(courtAvailability.blockedReason, `booking_request:${id}`),
+              ),
+            );
+        } catch (courtUnblockError) {
+          console.error("[Admin] Court unblock on decline (non-fatal):", courtUnblockError);
+        }
+      }
+
+      await storage.createAuditLog({
+        academyId: request.academyId,
+        entityType: "booking_request",
+        entityId: id,
+        action: "decline",
+        performedBy: adminUserId,
+        performedByRole: req.user?.role || "academy_owner",
+      });
+
+      res.json(updated);
+    } catch (error) {
+      console.error("[Admin] Decline booking request error:", error);
+      res.status(500).json({ error: "Failed to decline booking request" });
+    }
+  },
+);
+
 export default router;

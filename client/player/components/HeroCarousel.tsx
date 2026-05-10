@@ -704,7 +704,7 @@ function CompeteCard() {
                       <View style={matchDetailStyles.hostAvatar}>
                         {matchDetail.host.photoUrl ? (
                           <RNImage
-                            source={{ uri: buildPhotoUrl(matchDetail.host.photoUrl) }}
+                            source={{ uri: buildPhotoUrl(matchDetail.host.photoUrl) ?? undefined }}
                             style={matchDetailStyles.hostAvatarImg}
                           />
                         ) : (

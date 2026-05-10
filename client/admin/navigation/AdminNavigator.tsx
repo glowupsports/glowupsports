@@ -18,6 +18,7 @@ import AdminCorporateAccountsScreen from "@/admin/screens/AdminCorporateAccounts
 import AdminTransferSessionsScreen from "@/admin/screens/AdminTransferSessionsScreen";
 import AdminConversationsScreen from "@/admin/screens/AdminConversationsScreen";
 import AdminConversationDetailScreen from "@/admin/screens/AdminConversationDetailScreen";
+import AdminBookingRequestsScreen from "@/admin/screens/AdminBookingRequestsScreen";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { Colors } from "@/constants/theme";
@@ -55,6 +56,7 @@ export type AdminStackParamList = {
   AdminTransferSessions: { fromCoachId?: string } | undefined;
   AdminConversations: undefined;
   AdminConversationDetail: { conversationId: string; coachName: string | null; playerName: string | null };
+  AdminBookingRequests: undefined;
 };
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -216,6 +218,7 @@ function AdminStackNavigator() {
       <Stack.Screen name="AdminTransferSessions" component={AdminTransferSessionsScreen} />
       <Stack.Screen name="AdminConversations" component={AdminConversationsScreen} />
       <Stack.Screen name="AdminConversationDetail" component={AdminConversationDetailScreen} />
+      <Stack.Screen name="AdminBookingRequests" component={AdminBookingRequestsScreen} />
     </Stack.Navigator>
   );
 }

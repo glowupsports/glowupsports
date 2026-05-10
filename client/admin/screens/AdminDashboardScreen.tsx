@@ -102,6 +102,11 @@ export default function AdminDashboardScreen() {
     queryKey: [`/api/admin/dashboard/operations?date=${dateQueryStr}`],
     placeholderData: (prev) => prev,
   });
+
+  const { data: pendingBookingRequests = [] } = useQuery<{ id: string }[]>({
+    queryKey: ["/api/admin/booking-requests"],
+  });
+  const pendingBookingCount = pendingBookingRequests.length;
   const handleDateChange = (newDate: Date) => {
     setSelectedDate(newDate);
   };
@@ -568,6 +573,33 @@ export default function AdminDashboardScreen() {
               <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
             </View>
           </Pressable>
+
+          <Pressable
+            style={[styles.menuCard, pendingBookingCount > 0 && styles.menuCardHighlighted]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              navigation.navigate("AdminBookingRequests" as never);
+            }}
+          >
+            <View style={styles.menuCardContent}>
+              <Ionicons name="calendar-outline" size={24} color={Colors.dark.gold} />
+              <View style={styles.menuCardText}>
+                <Text style={styles.menuCardTitle}>Booking Requests</Text>
+                <Text style={styles.menuCardSubtitle}>
+                  {pendingBookingCount > 0
+                    ? `${pendingBookingCount} pending ${pendingBookingCount === 1 ? "request" : "requests"} awaiting action`
+                    : "Approve or decline lesson booking requests"}
+                </Text>
+              </View>
+              {pendingBookingCount > 0 ? (
+                <View style={styles.menuCardBadge}>
+                  <Text style={styles.menuCardBadgeText}>{pendingBookingCount}</Text>
+                </View>
+              ) : (
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+              )}
+            </View>
+          </Pressable>
         </View>
       </ScrollView>
       <WelcomeIntroModal
@@ -685,6 +717,24 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+  },
+  menuCardHighlighted: {
+    borderColor: Colors.dark.gold + "50",
+    backgroundColor: Colors.dark.gold + "08",
+  },
+  menuCardBadge: {
+    backgroundColor: Colors.dark.gold,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuCardBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#000",
   },
   menuCardContent: {
     flexDirection: "row",
