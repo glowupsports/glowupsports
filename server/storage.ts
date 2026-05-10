@@ -4279,6 +4279,7 @@ export const storage = {
   async getBlockedSessions(coachId: string, startDate: Date, endDate: Date, academyId?: string): Promise<Session[]> {
     const conditions = [
       ne(sessions.coachId, coachId),
+      ne(sessions.status, "cancelled"),
       gte(sessions.startTime, startDate),
       lte(sessions.startTime, endDate)
     ];
