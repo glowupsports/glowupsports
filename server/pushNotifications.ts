@@ -1017,6 +1017,15 @@ export async function processExpiredWaitlistSpots(): Promise<void> {
   }
 }
 
+async function claimReminderSlot(sessionId: number, type: "1h" | "30m"): Promise<boolean> {
+  const column = type === "1h" ? "reminder_1h_sent" : "reminder_30m_sent";
+  const result = await pool.query(
+    `UPDATE sessions SET ${column} = true WHERE id = $1 AND ${column} = false RETURNING id`,
+    [sessionId]
+  );
+  return result.rowCount !== null && result.rowCount > 0;
+}
+
 export async function processScheduledReminders(): Promise<void> {
   const now = new Date();
   const sixtyFiveMinutesFromNow = new Date(now.getTime() + 65 * 60 * 1000);
@@ -1070,13 +1079,19 @@ export async function processScheduledReminders(): Promise<void> {
       console.log(`[SessionReminders] Processing session ${session.id}: start_time(UTC)=${session.startTime.toISOString()} academy_tz=${academyTz} minutesUntil=${minutesUntil.toFixed(1)} 1hSent=${session.reminder1hSent} 30mSent=${session.reminder30mSent}`);
 
       if (minutesUntil <= 65 && minutesUntil > 35 && !session.reminder1hSent) {
-        await sendRemindersForSession(session, "1h");
-        sent1h++;
+        const claimed = await claimReminderSlot(session.id, "1h");
+        if (claimed) {
+          await sendRemindersForSession(session, "1h");
+          sent1h++;
+        }
       }
 
-      if (minutesUntil <= 35 && !session.reminder30mSent) {
-        await sendRemindersForSession(session, "30m");
-        sent30m++;
+      if (minutesUntil <= 35 && minutesUntil > 5 && !session.reminder30mSent) {
+        const claimed = await claimReminderSlot(session.id, "30m");
+        if (claimed) {
+          await sendRemindersForSession(session, "30m");
+          sent30m++;
+        }
       }
     }
 
@@ -1598,14 +1613,28 @@ async function catchUpMissedReminders(): Promise<void> {
         continue;
       }
 
-      if (!session.reminder1hSent) {
-        console.log(`[SessionReminders] Catch-up: sending 1h reminder for session ${session.id} (${minutesUntil > 0 ? `starts in ${Math.round(minutesUntil)}m` : `started ${Math.round(-minutesUntil)}m ago`})`);
-        await sendRemindersForSession(session, "1h");
+      if (!session.reminder1hSent && minutesUntil > 35 && minutesUntil <= 90) {
+        console.log(`[SessionReminders] Catch-up: sending 1h reminder for session ${session.id} (starts in ${Math.round(minutesUntil)}m)`);
+        const claimed = await claimReminderSlot(session.id, "1h");
+        if (claimed) {
+          await sendRemindersForSession(session, "1h");
+        } else {
+          console.log(`[SessionReminders] Catch-up: 1h slot already claimed for session ${session.id} — skipping`);
+        }
+      } else if (!session.reminder1hSent) {
+        console.log(`[SessionReminders] Catch-up: skipping 1h reminder for session ${session.id} (minutesUntil=${minutesUntil.toFixed(1)} — outside 35–90m window)`);
       }
 
-      if (!session.reminder30mSent) {
-        console.log(`[SessionReminders] Catch-up: sending 30m reminder for session ${session.id} (${minutesUntil > 0 ? `starts in ${Math.round(minutesUntil)}m` : `started ${Math.round(-minutesUntil)}m ago`})`);
-        await sendRemindersForSession(session, "30m");
+      if (!session.reminder30mSent && minutesUntil >= -5 && minutesUntil <= 40) {
+        console.log(`[SessionReminders] Catch-up: sending 30m reminder for session ${session.id} (${minutesUntil >= 0 ? `starts in ${Math.round(minutesUntil)}m` : `started ${Math.round(-minutesUntil)}m ago`})`);
+        const claimed = await claimReminderSlot(session.id, "30m");
+        if (claimed) {
+          await sendRemindersForSession(session, "30m");
+        } else {
+          console.log(`[SessionReminders] Catch-up: 30m slot already claimed for session ${session.id} — skipping`);
+        }
+      } else if (!session.reminder30mSent) {
+        console.log(`[SessionReminders] Catch-up: skipping 30m reminder for session ${session.id} (minutesUntil=${minutesUntil.toFixed(1)} — outside -5–40m window)`);
       }
     }
 
