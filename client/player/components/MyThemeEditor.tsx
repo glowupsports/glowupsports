@@ -11,7 +11,7 @@ import {
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import {
   themePresets,
   defaultAcademyTheme,
@@ -22,7 +22,8 @@ import {
 } from "@shared/theme";
 import ColorPickerModal from "./ColorPickerModal";
 import { usePlayerAppearanceOptional } from "@/player/context/PlayerAppearanceContext";
-import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+import { useThemeReactivity } from "@/hooks/useThemedStyles";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const HEX6_RE = /^#[0-9a-fA-F]{6}$/;
 
@@ -102,6 +103,8 @@ export default function MyThemeEditor({
   initialMode = "dark",
 }: Props) {
   useThemeReactivity();
+  const { theme } = useTheme();
+  const styles = useEditorStyles(theme);
   const navigation = useNavigation<any>();
   const appearance = usePlayerAppearanceOptional();
   const [mode, setMode] = useState<Mode>(
@@ -226,15 +229,15 @@ export default function MyThemeEditor({
         <Ionicons
           name="grid-outline"
           size={16}
-          color={Colors.dark.text}
+          color={theme.text}
         />
-        <Text style={{ color: Colors.dark.text, fontWeight: "600", flex: 1 }}>
+        <Text style={{ color: theme.text, fontWeight: "600", flex: 1 }}>
           Browse all {themePresets.length} themes
         </Text>
         <Ionicons
           name="chevron-forward"
           size={16}
-          color={Colors.dark.textMuted}
+          color={theme.textMuted}
         />
       </Pressable>
 
@@ -261,11 +264,11 @@ export default function MyThemeEditor({
                 styles.chip,
                 {
                   borderColor: selected
-                    ? Colors.dark.primary
-                    : Colors.dark.borderSubtle,
+                    ? theme.primary
+                    : theme.borderSubtle,
                   backgroundColor: selected
-                    ? Colors.dark.accentTextSoft
-                    : Colors.dark.backgroundSecondary,
+                    ? theme.accentTextSoft
+                    : theme.backgroundSecondary,
                 },
               ]}
               accessibilityRole="button"
@@ -279,7 +282,7 @@ export default function MyThemeEditor({
                   backgroundColor: swatch,
                 }}
               />
-              <Text style={{ color: Colors.dark.text, fontWeight: "500" }}>
+              <Text style={{ color: theme.text, fontWeight: "500" }}>
                 {p.name}
               </Text>
             </Pressable>
@@ -305,8 +308,8 @@ export default function MyThemeEditor({
               style={[
                 styles.tab,
                 active && {
-                  backgroundColor: Colors.dark.primary,
-                  borderColor: Colors.dark.primary,
+                  backgroundColor: theme.primary,
+                  borderColor: theme.primary,
                 },
               ]}
               accessibilityRole="button"
@@ -316,11 +319,11 @@ export default function MyThemeEditor({
               <Ionicons
                 name={m === "light" ? "sunny-outline" : "moon-outline"}
                 size={16}
-                color={active ? "#0B0B0B" : Colors.dark.textMuted}
+                color={active ? "#0B0B0B" : theme.textMuted}
               />
               <Text
                 style={{
-                  color: active ? "#0B0B0B" : Colors.dark.text,
+                  color: active ? "#0B0B0B" : theme.text,
                   fontWeight: "600",
                   textTransform: "capitalize",
                 }}
@@ -390,7 +393,7 @@ export default function MyThemeEditor({
                       backgroundColor: HEX6_RE.test(committed)
                         ? committed
                         : "transparent",
-                      borderColor: Colors.dark.borderSubtle,
+                      borderColor: theme.borderSubtle,
                     },
                   ]}
                 />
@@ -434,15 +437,15 @@ export default function MyThemeEditor({
                     });
                   }}
                   placeholder="#RRGGBB"
-                  placeholderTextColor={Colors.dark.textMuted}
+                  placeholderTextColor={theme.textMuted}
                   autoCapitalize="characters"
                   autoCorrect={false}
                   maxLength={28}
                   style={[
                     styles.hexInput,
                     {
-                      color: valid ? Colors.dark.text : "#FF6B6B",
-                      borderColor: valid ? Colors.dark.borderSubtle : "#FF6B6B",
+                      color: valid ? theme.text : "#FF6B6B",
+                      borderColor: valid ? theme.borderSubtle : "#FF6B6B",
                     },
                   ]}
                   accessibilityLabel={`${label} colour value`}
@@ -496,7 +499,7 @@ export default function MyThemeEditor({
         accessibilityRole="button"
         accessibilityLabel="Reset to academy default theme"
       >
-        <Text style={{ color: Colors.dark.text, fontWeight: "600" }}>
+        <Text style={{ color: theme.text, fontWeight: "600" }}>
           Reset to academy default
         </Text>
       </Pressable>
@@ -646,123 +649,125 @@ function PreviewCard({
   );
 }
 
-const styles = makeReactiveStyles(() => StyleSheet.create({
-  help: {
-    color: Colors.dark.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-  },
-  browseBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.borderSubtle,
-    backgroundColor: Colors.dark.backgroundSecondary,
-  },
-  tabs: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  previewRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  previewCol: {
-    flex: 1,
-    gap: 4,
-  },
-  previewLabel: {
-    color: Colors.dark.textMuted,
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.borderSubtle,
-    backgroundColor: Colors.dark.backgroundSecondary,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  swatch: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  fieldLabel: {
-    color: Colors.dark.text,
-    width: 110,
-    fontWeight: "500",
-  },
-  hexInput: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderRadius: BorderRadius.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    fontFamily: Platform.select({
-      ios: "Menlo",
-      android: "monospace",
-      default: "monospace",
-    }),
-    fontSize: 12,
-  },
-  warning: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingLeft: 36,
-    flexWrap: "wrap",
-  },
-  warningText: {
-    color: "#FFB020",
-    fontSize: 12,
-  },
-  warningBtn: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: "#FFB020",
-    borderRadius: BorderRadius.sm,
-  },
-  warningBtnText: {
-    color: "#FFB020",
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  resetBtn: {
-    alignSelf: "flex-start",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.borderSubtle,
-    backgroundColor: "transparent",
-  },
-}));
+function useEditorStyles(theme: ReturnType<typeof useTheme>["theme"]) {
+  return React.useMemo(() => StyleSheet.create({
+    help: {
+      color: theme.textMuted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+    },
+    browseBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+      paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.borderSubtle,
+      backgroundColor: theme.backgroundSecondary,
+    },
+    tabs: {
+      flexDirection: "row",
+      gap: Spacing.sm,
+    },
+    previewRow: {
+      flexDirection: "row",
+      gap: Spacing.sm,
+    },
+    previewCol: {
+      flex: 1,
+      gap: 4,
+    },
+    previewLabel: {
+      color: theme.textMuted,
+      fontSize: 11,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    tab: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: Spacing.sm,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.borderSubtle,
+      backgroundColor: theme.backgroundSecondary,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+    },
+    swatch: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      borderWidth: 1,
+    },
+    fieldLabel: {
+      color: theme.text,
+      width: 110,
+      fontWeight: "500",
+    },
+    hexInput: {
+      flex: 1,
+      backgroundColor: theme.backgroundSecondary,
+      borderWidth: 1,
+      borderRadius: BorderRadius.sm,
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+      fontFamily: Platform.select({
+        ios: "Menlo",
+        android: "monospace",
+        default: "monospace",
+      }),
+      fontSize: 12,
+    },
+    warning: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingLeft: 36,
+      flexWrap: "wrap",
+    },
+    warningText: {
+      color: "#FFB020",
+      fontSize: 12,
+    },
+    warningBtn: {
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: 2,
+      borderWidth: 1,
+      borderColor: "#FFB020",
+      borderRadius: BorderRadius.sm,
+    },
+    warningBtnText: {
+      color: "#FFB020",
+      fontSize: 11,
+      fontWeight: "600",
+    },
+    resetBtn: {
+      alignSelf: "flex-start",
+      paddingVertical: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: theme.borderSubtle,
+      backgroundColor: "transparent",
+    },
+  }), [theme]);
+}

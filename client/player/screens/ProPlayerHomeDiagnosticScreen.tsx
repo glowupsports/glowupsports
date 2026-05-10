@@ -74,6 +74,7 @@ import PinEntryModal from "@/components/PinEntryModal";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { Spacing, GlowColors, Backgrounds, BorderRadius, Colors } from "@/constants/theme";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+import { useTheme } from "@/contexts/ThemeContext";
 import { ProPlayerCard } from "@/player/components/ProPlayerCard";
 import type { FocusCard } from "@/player/components/TodaysFocusCard";
 import { StreakMilestoneBanner } from "@/player/components/StreakMilestoneBanner";
@@ -149,6 +150,39 @@ interface DashboardData {
 // ─── PlayerDNABanner (exact copy from ProPlayerHomeScreen) ─────────────────
 const PlayerDNABanner = React.memo(function PlayerDNABanner({ playerId }: { playerId: string }) {
   const navigation = useNavigation<NavigationProp<PlayerStackParamList>>();
+  const { theme } = useTheme();
+  const bannerStyles = React.useMemo(() => StyleSheet.create({
+    card: {
+      marginHorizontal: Spacing.lg,
+      marginBottom: Spacing.md,
+      backgroundColor: theme.accentTextSoft,
+      borderRadius: BorderRadius.lg,
+      borderWidth: 1,
+      borderColor: theme.accentTextSoft,
+      padding: Spacing.md,
+      gap: Spacing.sm,
+    },
+    row: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
+    iconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: theme.accentTextSoft,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    textWrap: { flex: 1 },
+    title: { fontSize: 13, fontWeight: "700", color: theme.text },
+    sub: { fontSize: 11, color: theme.textMuted, marginTop: 2 },
+    progressTrack: {
+      height: 4,
+      backgroundColor: theme.chipBackgroundStrong,
+      borderRadius: 2,
+      overflow: "hidden",
+    },
+    progressFill: { height: "100%", backgroundColor: GlowColors.primary, borderRadius: 2 },
+    cta: { fontSize: 12, fontWeight: "600", color: theme.accentText },
+  }), [theme]);
 
   const { data: profileData } = useQuery<{ player: Record<string, unknown> | null }>({
     queryKey: ["/api/player/me/profile"],
@@ -182,63 +216,30 @@ const PlayerDNABanner = React.memo(function PlayerDNABanner({ playerId }: { play
 
   return (
     <Pressable
-      style={dnaBannerStyles.card}
+      style={bannerStyles.card}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         (navigation as any).navigate("PlayerDNAWizard");
       }}
       accessibilityLabel="Complete your player DNA profile"
     >
-      <View style={dnaBannerStyles.row}>
-        <View style={dnaBannerStyles.iconWrap}>
-          <Ionicons name="analytics-outline" size={20} color={Colors.dark.accentText} />
+      <View style={bannerStyles.row}>
+        <View style={bannerStyles.iconWrap}>
+          <Ionicons name="analytics-outline" size={20} color={theme.accentText} />
         </View>
-        <View style={dnaBannerStyles.textWrap}>
-          <Text style={dnaBannerStyles.title}>Complete Your Player DNA</Text>
-          <Text style={dnaBannerStyles.sub}>{filled}/{total} fields complete — {pct}%</Text>
+        <View style={bannerStyles.textWrap}>
+          <Text style={bannerStyles.title}>Complete Your Player DNA</Text>
+          <Text style={bannerStyles.sub}>{filled}/{total} fields complete — {pct}%</Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color={Colors.dark.accentText} />
+        <Ionicons name="chevron-forward" size={16} color={theme.accentText} />
       </View>
-      <View style={dnaBannerStyles.progressTrack}>
-        <View style={[dnaBannerStyles.progressFill, { width: fillWidth }]} />
+      <View style={bannerStyles.progressTrack}>
+        <View style={[bannerStyles.progressFill, { width: fillWidth }]} />
       </View>
-      <Text style={dnaBannerStyles.cta}>Tap to build your profile</Text>
+      <Text style={bannerStyles.cta}>Tap to build your profile</Text>
     </Pressable>
   );
 });
-
-const dnaBannerStyles = makeReactiveStyles(() => StyleSheet.create({
-  card: {
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.dark.accentTextSoft,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.dark.accentTextSoft,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  row: { flexDirection: "row", alignItems: "center", gap: Spacing.md },
-  iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.dark.accentTextSoft,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  textWrap: { flex: 1 },
-  title: { fontSize: 13, fontWeight: "700", color: Colors.dark.text },
-  sub: { fontSize: 11, color: Colors.dark.textMuted, marginTop: 2 },
-  progressTrack: {
-    height: 4,
-    backgroundColor: Colors.dark.chipBackgroundStrong,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressFill: { height: "100%", backgroundColor: GlowColors.primary, borderRadius: 2 },
-  cta: { fontSize: 12, fontWeight: "600", color: Colors.dark.accentText },
-}));
 
 // ─── Inner content — wrapped by PlayerStateProvider below ─────────────────
 const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {

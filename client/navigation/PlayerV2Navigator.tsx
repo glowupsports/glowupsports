@@ -20,6 +20,7 @@ import { useChatState } from "@/coach/context/ChatStateContext";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabResetContext, withIsolatedTabBoundary } from "@/components/IsolatedTabBoundary";
 import { Colors } from "@/constants/theme";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { apiFetch } from "@/lib/query-client";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
@@ -402,6 +403,7 @@ function useFreePlayerStatus(): { isFreePlayer: boolean; isReady: boolean } {
 // ─── Tab bar view ─────────────────────────────────────────────────────────────
 function PlayerV2TabView() {
   const { t } = useTranslation();
+  const { theme } = useTheme();
   const { user } = useAuth();
   const { isChatExpanded } = useChatState();
   const { navigateToTab } = useTabNavigation();
@@ -469,9 +471,9 @@ function PlayerV2TabView() {
     icon: "tennisball-outline" as const,
     iconFocused: "tennisball" as const,
     label: "Play",
-    color: Colors.dark.primary,
+    color: theme.primary,
     pagerIndex: 2,
-  }), []);
+  }), [theme.primary]);
 
   const handleChallenge = useCallback(
     (opponentId: string, opponentName: string, opponentPhoto?: string) => {
@@ -522,8 +524,8 @@ function PlayerV2TabView() {
     <SwipeableTabBar
       tabs={tabs}
       initialPage={initialPage >= 0 ? initialPage : 0}
-      primaryColor={Colors.dark.primary}
-      secondaryColor={Colors.dark.primary}
+      primaryColor={theme.primary}
+      secondaryColor={theme.primary}
       onEdgeSwipeLeft={handleEdgeSwipeLeft}
       onPageChange={handlePageChange}
       renderOverlay={isDesktop ? undefined : renderOverlay}

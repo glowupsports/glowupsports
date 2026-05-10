@@ -26,6 +26,7 @@ import { SportBadge } from "@/components/SportBadge";
 import { SPORTS, getSportConfig, getSportSkillLevelColor } from "@shared/sportConfig";
 
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
+import { usePlayerAppearance, type PlayerAppearancePreference } from "@/player/context/PlayerAppearanceContext";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import AchievementCelebrationModal from "@/player/components/AchievementCelebrationModal";
 import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
@@ -570,6 +571,7 @@ export default function PlayerProfileScreen() {
   const track = useTrackFeature();
   const { setMode } = useAppMode();
   const { logout, isGuest } = useAuth();
+  const { preference: appearancePref, setPreference: setAppearancePref } = usePlayerAppearance();
   // Task #1465 — pull the in-memory player snapshot so the avatar / level
   // badge / ball-level chip can paint on first frame instead of waiting
   // for the profile god-route. Mirrors the ProPlayerHomeScreen pattern.
@@ -2062,6 +2064,51 @@ export default function PlayerProfileScreen() {
 
         {/* Settings grouped list */}
         <Text style={styles.sectionGroupHeader}>{t("player.profile.settings")}</Text>
+
+        {/* Appearance toggle — prominent, top of settings */}
+        <View style={[styles.settingsSection, { marginBottom: Spacing.md }]}>
+          <View style={[styles.settingsItem, { flexDirection: "column", alignItems: "flex-start", gap: Spacing.sm, paddingVertical: Spacing.md }]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+              <View style={styles.settingsIcon}>
+                <Ionicons name="contrast-outline" size={20} color={Colors.dark.text} />
+              </View>
+              <Text style={styles.settingsLabel}>Appearance</Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: Spacing.xs, width: "100%" }}>
+              {(["light", "dark", "system"] as PlayerAppearancePreference[]).map((opt) => {
+                const selected = appearancePref === opt;
+                const labels: Record<PlayerAppearancePreference, string> = { light: "Light", dark: "Dark", system: "System" };
+                const icons: Record<PlayerAppearancePreference, keyof typeof Ionicons.glyphMap> = {
+                  light: "sunny-outline",
+                  dark: "moon-outline",
+                  system: "phone-portrait-outline",
+                };
+                return (
+                  <Pressable
+                    key={opt}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setAppearancePref(opt);
+                    }}
+                    style={[
+                      profileAppearanceStyles.segment,
+                      selected && profileAppearanceStyles.segmentSelected,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    accessibilityLabel={`${labels[opt]} appearance`}
+                  >
+                    <Ionicons name={icons[opt]} size={16} color={selected ? "#000" : Colors.dark.textMuted} />
+                    <Text style={[profileAppearanceStyles.segmentLabel, selected && profileAppearanceStyles.segmentLabelSelected]}>
+                      {labels[opt]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
         <View style={styles.settingsSection}>
           <Pressable 
             style={styles.settingsItem}
@@ -3931,5 +3978,29 @@ const healthStyles = makeReactiveStyles(() => StyleSheet.create({
   cancelBtnText: {
     fontSize: 15,
     color: Colors.dark.textMuted,
+  },
+}));
+
+const profileAppearanceStyles = makeReactiveStyles(() => StyleSheet.create({
+  segment: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
+  },
+  segmentSelected: {
+    backgroundColor: GlowColors.primary,
+  },
+  segmentLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  segmentLabelSelected: {
+    color: "#000",
   },
 }));

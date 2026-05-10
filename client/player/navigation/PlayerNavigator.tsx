@@ -41,6 +41,7 @@ import TechniqueUploadFlow from "@/player/screens/TechniqueUploadFlow";
 import TechniqueAnalysisResultScreen from "@/player/screens/TechniqueAnalysisResultScreen";
 import { Colors, Spacing, GlowColors } from "@/constants/theme";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export { usePlayerDrawer };
 
@@ -357,6 +358,7 @@ const GROWTH_QUESTS_SCREENS = new Set(["QuestsMain"]);
 function GrowthScreen({ setSubTabSetter }: { setSubTabSetter: (setter: (t: GrowthSubTab) => void) => void }) {
   const [activeSubTab, setActiveSubTab] = useState<GrowthSubTab>("Progress");
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
 
   useEffect(() => {
     setSubTabSetter(setActiveSubTab);
@@ -365,15 +367,15 @@ function GrowthScreen({ setSubTabSetter }: { setSubTabSetter: (setter: (t: Growt
   const modifiedInsets = useMemo(() => ({ ...insets, top: 0 }), [insets]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
-      <View style={{ paddingTop: insets.top + 6, paddingBottom: 6, paddingHorizontal: Spacing.md, flexDirection: "row", gap: 6, backgroundColor: Colors.dark.backgroundRoot }}>
+    <View style={{ flex: 1, backgroundColor: theme.backgroundRoot }}>
+      <View style={{ paddingTop: insets.top + 6, paddingBottom: 6, paddingHorizontal: Spacing.md, flexDirection: "row", gap: 6, backgroundColor: theme.backgroundRoot }}>
         {(["Progress", "Quests", "Schedule", "Drills"] as GrowthSubTab[]).map((tab) => (
           <Pressable
             key={tab}
             onPress={() => { setActiveSubTab(tab); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-            style={{ flex: 1, paddingVertical: 9, borderRadius: 24, backgroundColor: activeSubTab === tab ? GlowColors.primary : Colors.dark.chipBackgroundStrong, alignItems: "center" }}
+            style={{ flex: 1, paddingVertical: 9, borderRadius: 24, backgroundColor: activeSubTab === tab ? GlowColors.primary : theme.chipBackgroundStrong, alignItems: "center" }}
           >
-            <Text style={{ color: activeSubTab === tab ? "#000" : Colors.dark.text, fontWeight: "700", fontSize: 12 }}>{tab}</Text>
+            <Text style={{ color: activeSubTab === tab ? "#000" : theme.text, fontWeight: "700", fontSize: 12 }}>{tab}</Text>
           </Pressable>
         ))}
       </View>
