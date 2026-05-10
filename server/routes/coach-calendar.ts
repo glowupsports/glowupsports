@@ -1478,8 +1478,21 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
       try {
         const { id } = req.params;
         const { reason } = req.body;
-        const coachId = req.user!.coachId;
+        let coachId = req.user!.coachId;
         const academyId = req.user!.academyId;
+
+        const supervisorCoachId = req.body?.supervisorCoachId;
+        if (supervisorCoachId) {
+          const callerRole = req.user!.role;
+          if (!["academy_owner", "owner", "platform_owner"].includes(callerRole ?? "")) {
+            return res.status(403).json({ error: "Only academy owners may act for another coach" });
+          }
+          const targetCoach = await storage.getCoach(supervisorCoachId);
+          if (!targetCoach || targetCoach.academyId !== academyId) {
+            return res.status(403).json({ error: "Coach not found in your academy" });
+          }
+          coachId = supervisorCoachId;
+        }
 
         // Validate session ownership
         const { valid, session } = await validateSessionOwnership(

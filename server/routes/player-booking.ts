@@ -3760,9 +3760,22 @@ router.post(
   requireAcademy,
   async (req: AuthRequest, res: Response) => {
     try {
-      const coachId = req.user?.coachId;
+      let coachId = req.user?.coachId;
       const academyId = req.user?.academyId;
       const { id } = req.params;
+
+      const supervisorCoachId = req.body?.supervisorCoachId;
+      if (supervisorCoachId) {
+        const callerRole = req.user!.role;
+        if (!["academy_owner", "owner", "platform_owner"].includes(callerRole ?? "")) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       if (!coachId || !academyId) {
         return res.status(403).json({ error: "Coach access required" });
@@ -3853,7 +3866,7 @@ router.post(
   requireAcademy,
   async (req: AuthRequest, res: Response) => {
     try {
-      const coachId = req.user?.coachId;
+      let coachId = req.user?.coachId;
       const academyId = req.user?.academyId;
       const { id } = req.params;
       const parsedDecline = bookingDeclineSchema.safeParse(req.body);
@@ -3863,6 +3876,19 @@ router.post(
           .json({ error: fromZodError(parsedDecline.error).message });
       }
       const { reason, declineReason } = parsedDecline.data;
+
+      const supervisorCoachId = req.body?.supervisorCoachId;
+      if (supervisorCoachId) {
+        const callerRole = req.user!.role;
+        if (!["academy_owner", "owner", "platform_owner"].includes(callerRole ?? "")) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       if (!coachId || !academyId) {
         return res.status(403).json({ error: "Coach access required" });
