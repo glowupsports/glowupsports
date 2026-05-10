@@ -31,6 +31,7 @@ interface Academy {
   coachCount?: number;
   playerCount?: number;
   openJoin?: boolean;
+  matchCount?: number;
 }
 
 interface JoinRequest {
@@ -134,7 +135,7 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
         <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
       </View>
 
-      {academy.coachCount !== undefined || academy.playerCount !== undefined ? (
+      {(academy.coachCount !== undefined || academy.playerCount !== undefined || (academy.matchCount !== undefined && academy.matchCount > 0)) ? (
         <View style={styles.statsRow}>
           {academy.coachCount !== undefined ? (
             <View style={styles.stat}>
@@ -146,6 +147,12 @@ function AcademyCard({ academy, pendingRequest, onJoin, onViewProfile, isSubmitt
             <View style={styles.stat}>
               <Ionicons name="people-outline" size={14} color={Colors.dark.textMuted} />
               <Text style={styles.statText}>{academy.playerCount} player{academy.playerCount !== 1 ? "s" : ""}</Text>
+            </View>
+          ) : null}
+          {academy.matchCount !== undefined && academy.matchCount > 0 ? (
+            <View style={styles.stat}>
+              <Ionicons name="trophy-outline" size={14} color={Colors.dark.primary} />
+              <Text style={[styles.statText, { color: Colors.dark.primary }]}>{academy.matchCount} court booking{academy.matchCount !== 1 ? "s" : ""}</Text>
             </View>
           ) : null}
         </View>

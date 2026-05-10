@@ -72,6 +72,9 @@ interface CourtDetails {
     endTime: string;
     status: string;
   }[];
+  matchCount?: number;
+  recentMatchCount?: number;
+  matchHistory?: { month: string; count: number }[];
 }
 
 interface PlaceDetails {
@@ -556,6 +559,53 @@ export default function CourtDetailScreen() {
             </View>
           </LinearGradient>
         </View>
+
+        {((court.matchCount ?? 0) > 0 || (court.matchHistory && court.matchHistory.length > 0)) && (
+          <View style={styles.activitySection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Court Activity</Text>
+            </View>
+            <LinearGradient
+              colors={[Backgrounds.elevated, Backgrounds.card]}
+              style={styles.activityCard}
+            >
+              <View style={styles.activityStatsRow}>
+                <View style={styles.activityStat}>
+                  <Text style={styles.activityStatValue}>{court.matchCount ?? 0}</Text>
+                  <Text style={styles.activityStatLabel}>Total Bookings</Text>
+                </View>
+                <View style={styles.activityStatDivider} />
+                <View style={styles.activityStat}>
+                  <Text style={[styles.activityStatValue, { color: "#4CAF50" }]}>{court.recentMatchCount ?? 0}</Text>
+                  <Text style={styles.activityStatLabel}>Last 30 Days</Text>
+                </View>
+              </View>
+              {court.matchHistory && court.matchHistory.length > 0 && (
+                <View style={styles.activityHistoryWrap}>
+                  <Text style={styles.activityHistoryLabel}>Monthly Activity</Text>
+                  <View style={styles.activityBarsRow}>
+                    {(() => {
+                      const BAR_TRACK_H = 48;
+                      const maxCount = Math.max(...court.matchHistory!.map((m) => m.count), 1);
+                      return court.matchHistory!.map((m) => {
+                        const barH = Math.max(Math.round((m.count / maxCount) * BAR_TRACK_H), 3);
+                        return (
+                          <View key={m.month} style={styles.activityBarItem}>
+                            <View style={[styles.activityBarTrack, { height: BAR_TRACK_H }]}>
+                              <View style={[styles.activityBarFill, { height: barH }]} />
+                            </View>
+                            <Text style={styles.activityBarMonth}>{m.month.slice(5)}</Text>
+                            <Text style={styles.activityBarCount}>{m.count}</Text>
+                          </View>
+                        );
+                      });
+                    })()}
+                  </View>
+                </View>
+              )}
+            </LinearGradient>
+          </View>
+        )}
 
         <View style={styles.slotsSection}>
           <View style={styles.sectionHeader}>
@@ -1179,6 +1229,87 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 12,
     color: TextColors.primary,
     fontWeight: "500",
+  },
+
+  activitySection: {
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  activityCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  activityStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  activityStat: {
+    flex: 1,
+    alignItems: "center",
+  },
+  activityStatValue: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+  },
+  activityStatLabel: {
+    fontSize: 12,
+    color: TextColors.muted,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  activityStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: Backgrounds.surface,
+  },
+  activityHistoryWrap: {
+    borderTopWidth: 1,
+    borderTopColor: Backgrounds.surface,
+    paddingTop: Spacing.sm,
+  },
+  activityHistoryLabel: {
+    fontSize: 12,
+    color: TextColors.muted,
+    fontWeight: "600",
+    marginBottom: Spacing.sm,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  activityBarsRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: Spacing.sm,
+    height: 72,
+  },
+  activityBarItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  activityBarTrack: {
+    width: "100%",
+    backgroundColor: Backgrounds.surface,
+    borderRadius: BorderRadius.sm,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  activityBarFill: {
+    width: "100%",
+    backgroundColor: Colors.dark.primary + "80",
+    borderRadius: BorderRadius.sm,
+  },
+  activityBarMonth: {
+    fontSize: 10,
+    color: TextColors.muted,
+    fontWeight: "500",
+    marginTop: 4,
+  },
+  activityBarCount: {
+    fontSize: 10,
+    color: TextColors.secondary,
+    fontWeight: "700",
   },
 
   slotsSection: {

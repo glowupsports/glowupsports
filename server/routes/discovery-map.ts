@@ -158,11 +158,34 @@ router.get("/api/discovery/map", authMiddleware, async (req: AuthRequest, res: R
         id: string; name: string; city: string | null; country: string | null;
         rating: string | number | null; lat: number | string | null; lng: number | string | null;
       }[] }).rows ?? [];
+      // Batch-query court booking counts per academy (non-fatal)
+      const academyIdList = academyRows.map((r) => r.id).filter(Boolean);
+      let academyMatchCounts: Map<string, number> = new Map();
+      try {
+        if (academyIdList.length > 0) {
+          const mcRows = await db.execute(sql`
+            SELECT co.academy_id, COUNT(cb.id)::int AS total_count
+            FROM court_bookings cb
+            INNER JOIN courts co ON cb.court_id = co.id
+            WHERE co.academy_id = ANY(${academyIdList}::text[])
+              AND cb.status IN ('confirmed','completed')
+            GROUP BY co.academy_id
+          `);
+          const mcData = (mcRows as unknown as { rows?: { academy_id: string; total_count: number }[] }).rows ?? [];
+          for (const row of mcData) {
+            academyMatchCounts.set(row.academy_id, Number(row.total_count));
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+
       for (const r of academyRows) {
         const lat = Number(r.lat);
         const lng = Number(r.lng);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
         const country = normalizeCountryKey(r.country) ?? nearestCountry(lat, lng);
+        const matchCount = academyMatchCounts.get(r.id) ?? 0;
         pins.push({
           id: `academy:${r.id}`,
           type: "academy",
@@ -172,7 +195,7 @@ router.get("/api/discovery/map", authMiddleware, async (req: AuthRequest, res: R
           subtitle: [r.city, r.country].filter(Boolean).join(", ") || undefined,
           country,
           city: r.city || null,
-          meta: { academyId: r.id, rating: r.rating ? Number(r.rating) : null },
+          meta: { academyId: r.id, rating: r.rating ? Number(r.rating) : null, matchCount },
         });
       }
     }

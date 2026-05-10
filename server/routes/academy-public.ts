@@ -524,6 +524,29 @@ import { Router, type Request, type Response } from "express";
       }
 
       // Return public info only
+      const academyIds = academies.map((a) => a.id);
+
+      // Batch-query court booking counts per academy (non-fatal)
+      let matchCountByAcademy: Map<string, number> = new Map();
+      try {
+        if (academyIds.length > 0) {
+          const mcRows = await db.execute(sql`
+            SELECT co.academy_id, COUNT(cb.id)::int AS total_count
+            FROM court_bookings cb
+            INNER JOIN courts co ON cb.court_id = co.id
+            WHERE co.academy_id = ANY(${academyIds}::text[])
+              AND cb.status IN ('confirmed','completed')
+            GROUP BY co.academy_id
+          `);
+          const rows = (mcRows as unknown as { rows?: { academy_id: string; total_count: number }[] }).rows ?? [];
+          for (const row of rows) {
+            matchCountByAcademy.set(row.academy_id, Number(row.total_count));
+          }
+        }
+      } catch {
+        // non-fatal
+      }
+
       const publicAcademies = await Promise.all(
         academies.map(async (academy) => {
           const coaches = await storage.getCoachesByAcademy(academy.id);
@@ -543,6 +566,7 @@ import { Router, type Request, type Response } from "express";
             openJoin: academy.openJoin !== false,
             coachCount: coaches.length,
             playerCount: players.length,
+            matchCount: matchCountByAcademy.get(academy.id) ?? 0,
           };
         }),
       );

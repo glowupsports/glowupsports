@@ -8,7 +8,8 @@ import {
   Pressable,
   TextInput,
   Animated,
-  Dimensions} from "react-native";
+  Dimensions,
+  Platform} from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import { Colors, Spacing, BorderRadius, Backgrounds, TextColors } from "@/constants/theme";
 import type { ScheduleStackParamList } from "@/player/navigation/PlayerNavigator";
 import { LockedScreen } from "../components/LockedScreen";
@@ -25,6 +27,24 @@ import { getApiUrl, apiRequest } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type NavigationProp = NativeStackNavigationProp<ScheduleStackParamList>;
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toFixed(1)} km`;
+}
 
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -61,6 +81,8 @@ interface Court {
   nextAvailableSlots?: string[];
   totalAvailableSlots?: number;
   hasAvailability?: boolean;
+  matchCount?: number;
+  recentMatchCount?: number;
 }
 
 const SURFACE_CONFIG = {
@@ -93,9 +115,17 @@ function PulsingDot({ color }: { color: string }) {
   );
 }
 
-function CourtCard({ court, onPress, onSlotPress, surfaceConfig }: { court: Court; onPress: () => void; onSlotPress: (slot: string) => void; surfaceConfig: typeof SURFACE_CONFIG[keyof typeof SURFACE_CONFIG] }) {
+function CourtCard({ court, onPress, onSlotPress, surfaceConfig, userLocation }: { court: Court; onPress: () => void; onSlotPress: (slot: string) => void; surfaceConfig: typeof SURFACE_CONFIG[keyof typeof SURFACE_CONFIG]; userLocation?: { lat: number; lng: number } | null }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const apiUrl = getApiUrl();
+
+  const distanceKm = useMemo(() => {
+    if (!userLocation) return null;
+    const lat = court.location?.lat;
+    const lng = court.location?.lng;
+    if (lat == null || lng == null) return null;
+    return haversineKm(userLocation.lat, userLocation.lng, Number(lat), Number(lng));
+  }, [userLocation, court.location?.lat, court.location?.lng]);
 
   const googlePlaceId = court.location?.googlePlaceId ?? null;
   const { data: placeDetails } = useQuery<{ rating?: number; reviewCount?: number; photoRef?: string }>({
@@ -232,6 +262,27 @@ function CourtCard({ court, onPress, onSlotPress, surfaceConfig }: { court: Cour
                   </View>
                 </View>
 
+                <View style={styles.activityRow}>
+                  {court.matchCount != null && court.matchCount > 0 ? (
+                    <View style={styles.activityBadge}>
+                      <Ionicons name="tennisball-outline" size={11} color={Colors.dark.primary} />
+                      <Text style={styles.activityBadgeText}>{court.matchCount} bookings</Text>
+                    </View>
+                  ) : null}
+                  {court.recentMatchCount != null && court.recentMatchCount > 0 ? (
+                    <View style={[styles.activityBadge, styles.activityBadgeRecent]}>
+                      <Ionicons name="trending-up" size={11} color="#4CAF50" />
+                      <Text style={[styles.activityBadgeText, { color: "#4CAF50" }]}>{court.recentMatchCount} this month</Text>
+                    </View>
+                  ) : null}
+                  {distanceKm != null ? (
+                    <View style={[styles.activityBadge, styles.activityBadgeDist]}>
+                      <Ionicons name="navigate-outline" size={11} color={Colors.dark.textSecondary} />
+                      <Text style={[styles.activityBadgeText, { color: Colors.dark.textSecondary }]}>{formatDistance(distanceKm)}</Text>
+                    </View>
+                  ) : null}
+                </View>
+
                 {court.nextAvailableSlots && court.nextAvailableSlots.length > 0 && (
                   <ScrollView
                     horizontal
@@ -277,6 +328,33 @@ export default function CourtBookingScreen() {
 
   useEffect(() => {
     track("booking:court");
+  }, []);
+
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const getLocation = async () => {
+      if (Platform.OS === "web") return;
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        if (!perm.granted && perm.canAskAgain !== false) {
+          const req = await Location.requestForegroundPermissionsAsync();
+          if (!req.granted) return;
+        } else if (!perm.granted) {
+          return;
+        }
+        const loc =
+          (await Location.getLastKnownPositionAsync({})) ||
+          (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+        if (cancelled || !loc?.coords) return;
+        setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+      } catch {
+        // non-fatal
+      }
+    };
+    getLocation();
+    return () => { cancelled = true; };
   }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -553,6 +631,7 @@ export default function CourtBookingScreen() {
                   onPress={() => handleCourtPress(court)}
                   onSlotPress={(slot) => handleCourtPress(court, slot)}
                   surfaceConfig={SURFACE_CONFIG[court.surface as keyof typeof SURFACE_CONFIG] || SURFACE_CONFIG.hard}
+                  userLocation={userLocation}
                 />
               ))}
             </>
@@ -982,6 +1061,33 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   timeSlotText: {
     fontSize: 12,
     fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  activityRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+  },
+  activityBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  activityBadgeRecent: {
+    backgroundColor: "#4CAF5015",
+  },
+  activityBadgeDist: {
+    backgroundColor: Backgrounds.surface,
+  },
+  activityBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
     color: Colors.dark.primary,
   },
 }));

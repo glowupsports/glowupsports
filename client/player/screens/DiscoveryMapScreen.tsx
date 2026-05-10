@@ -70,6 +70,7 @@ interface PinMeta {
   startDate?: string | Date | null;
   endDate?: string | Date | null;
   sport?: string | null;
+  matchCount?: number | null;
 }
 
 interface MapPin {
@@ -544,16 +545,46 @@ function DiscoveryMapScreenInner() {
           ) : pins.length === 0 ? (
             <Text style={styles.empty}>Nothing to show yet.</Text>
           ) : (
-            pins.map((p) => (
-              <Pressable key={p.id} onPress={() => handlePinPress(p)} style={styles.listRow}>
-                <PinDot color={PIN_COLORS[p.type]} />
-                <View style={{ flex: 1, marginLeft: Spacing.md }}>
-                  <Text style={styles.listTitle} numberOfLines={1}>{p.title}</Text>
-                  {p.subtitle ? <Text style={styles.listSubtitle} numberOfLines={1}>{p.subtitle}</Text> : null}
-                </View>
-                <Text style={styles.listType}>{p.type}</Text>
-              </Pressable>
-            ))
+            pins.map((p) => {
+              const distKm = userLocation && p.lat != null && p.lng != null
+                ? (() => {
+                    const R = 6371;
+                    const dLat = ((p.lat - userLocation.lat) * Math.PI) / 180;
+                    const dLng = ((p.lng - userLocation.lng) * Math.PI) / 180;
+                    const a =
+                      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos((userLocation.lat * Math.PI) / 180) *
+                        Math.cos((p.lat * Math.PI) / 180) *
+                        Math.sin(dLng / 2) *
+                        Math.sin(dLng / 2);
+                    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                  })()
+                : null;
+              const distLabel = distKm != null
+                ? (distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`)
+                : null;
+              const mc = p.meta?.matchCount;
+              return (
+                <Pressable key={p.id} onPress={() => handlePinPress(p)} style={styles.listRow}>
+                  <PinDot color={PIN_COLORS[p.type]} />
+                  <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                    <Text style={styles.listTitle} numberOfLines={1}>{p.title}</Text>
+                    {p.subtitle ? <Text style={styles.listSubtitle} numberOfLines={1}>{p.subtitle}</Text> : null}
+                    {(distLabel || (mc != null && mc > 0)) ? (
+                      <View style={{ flexDirection: "row", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
+                        {mc != null && mc > 0 ? (
+                          <Text style={[styles.listSubtitle, { color: Colors.dark.primary }]}>{mc} booking{mc !== 1 ? "s" : ""}</Text>
+                        ) : null}
+                        {distLabel ? (
+                          <Text style={[styles.listSubtitle, { color: Colors.dark.textMuted }]}>{distLabel} away</Text>
+                        ) : null}
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.listType}>{p.type}</Text>
+                </Pressable>
+              );
+            })
           )}
         </ScrollView>
         <PinSheet pin={selectedPin} onClose={() => setSelectedPin(null)} onOpen={handleOpenEntity} />
@@ -741,8 +772,15 @@ function SheetMeta({ pin }: { pin: MapPin }) {
   if (pin.type === "tournament" && m.startDate) {
     return <Text style={styles.sheetMeta}>{`${m.startDate}${m.endDate ? " → " + m.endDate : ""}`}</Text>;
   }
-  if (pin.type === "academy" && m.rating) {
-    return <Text style={styles.sheetMeta}>{`★ ${Number(m.rating).toFixed(1)}`}</Text>;
+  if (pin.type === "academy") {
+    const parts: string[] = [];
+    if (m.rating) parts.push(`★ ${Number(m.rating).toFixed(1)}`);
+    if (m.matchCount != null && (m.matchCount as number) > 0) {
+      parts.push(`${m.matchCount} booking${(m.matchCount as number) !== 1 ? "s" : ""}`);
+    }
+    if (parts.length > 0) {
+      return <Text style={styles.sheetMeta}>{parts.join(" · ")}</Text>;
+    }
   }
   return null;
 }

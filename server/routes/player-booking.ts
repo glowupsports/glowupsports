@@ -7476,6 +7476,35 @@ router.get(
       const dubaiDateStr = dubaiNow.toISOString().split("T")[0];
       const isToday = searchDate === dubaiDateStr;
 
+      // Batch-fetch match counts (total + last-30-day) for all returned courts
+      const courtIdList = courts.map((c) => c.id);
+      const matchCountMap = new Map<string, { total: number; recent: number }>();
+      if (courtIdList.length > 0) {
+        try {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const mcResult = await db.execute(sql`
+            SELECT
+              court_id,
+              COUNT(*)::int AS total_count,
+              COUNT(*) FILTER (WHERE created_at >= ${thirtyDaysAgo.toISOString()}::timestamptz)::int AS recent_count
+            FROM court_bookings
+            WHERE court_id = ANY(ARRAY[${sql.join(courtIdList.map((id) => sql`${id}`), sql`, `)}]::varchar[])
+              AND status IN ('confirmed', 'completed')
+            GROUP BY court_id
+          `);
+          const mcRows = (mcResult as unknown as { rows?: { court_id: string; total_count: number; recent_count: number }[] }).rows ?? [];
+          for (const row of mcRows) {
+            matchCountMap.set(row.court_id, {
+              total: Number(row.total_count),
+              recent: Number(row.recent_count),
+            });
+          }
+        } catch (e) {
+          console.warn("[CourtSearch] match count query failed (non-fatal):", e);
+        }
+      }
+
       const courtsWithAvailability = await Promise.all(
         courts.map(async (court) => {
           const blockedSlots = await storage.getCourtBlockedSlots(
@@ -7500,6 +7529,7 @@ router.get(
           }
 
           const totalAvailable = availableSlots.length;
+          const mc = matchCountMap.get(court.id) ?? { total: 0, recent: 0 };
 
           return {
             ...court,
@@ -7507,6 +7537,8 @@ router.get(
             nextAvailableSlots: availableSlots,
             totalAvailableSlots: totalAvailable,
             hasAvailability: totalAvailable > 0,
+            matchCount: mc.total,
+            recentMatchCount: mc.recent,
           };
         }),
       );
@@ -7553,7 +7585,52 @@ router.get(
         reason: slot.reason,
       }));
 
-      res.json({ ...court, availability });
+      // Activity statistics: total bookings + last-30-day + per-month history (6 months)
+      let matchCount = 0;
+      let recentMatchCount = 0;
+      let matchHistory: { month: string; count: number }[] = [];
+      try {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        const [countResult, historyResult] = await Promise.all([
+          db.execute(sql`
+            SELECT
+              COUNT(*)::int AS total_count,
+              COUNT(*) FILTER (WHERE created_at >= ${thirtyDaysAgo.toISOString()}::timestamptz)::int AS recent_count
+            FROM court_bookings
+            WHERE court_id = ${courtId}
+              AND status IN ('confirmed', 'completed')
+          `),
+          db.execute(sql`
+            SELECT
+              TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+              COUNT(*)::int AS count
+            FROM court_bookings
+            WHERE court_id = ${courtId}
+              AND status IN ('confirmed', 'completed')
+              AND created_at >= ${sixMonthsAgo.toISOString()}::timestamptz
+            GROUP BY month
+            ORDER BY month DESC
+            LIMIT 6
+          `),
+        ]);
+
+        const cRows = (countResult as unknown as { rows?: { total_count: number; recent_count: number }[] }).rows ?? [];
+        if (cRows[0]) {
+          matchCount = Number(cRows[0].total_count);
+          recentMatchCount = Number(cRows[0].recent_count);
+        }
+
+        const hRows = (historyResult as unknown as { rows?: { month: string; count: number }[] }).rows ?? [];
+        matchHistory = hRows.map((r) => ({ month: r.month, count: Number(r.count) }));
+      } catch (e) {
+        console.warn("[CourtDetails] activity stats query failed (non-fatal):", e);
+      }
+
+      res.json({ ...court, availability, matchCount, recentMatchCount, matchHistory });
     } catch (error) {
       console.error("Get court details error:", error);
       res.status(500).json({ error: "Failed to get court details" });
