@@ -24,6 +24,7 @@ import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { GlowRankBadge } from "@/components/GlowLevelBadge";
+import PlayerDNACard from "@/player/components/PlayerDNACard";
 interface PublicProfile {
   id: string;
   name: string;
@@ -47,13 +48,16 @@ interface PublicProfile {
     connectionsCount: number;
   };
   dna: {
-    dominantHand: string;
-    backhandType: string;
+    dominantHand: string | null;
+    backhandType: string | null;
     preferredPlayType: string;
     matchPreference: string;
     experienceLevel: string | null;
     motivationType: string | null;
     focusGoals: string[];
+    playStyle: string | null;
+    tennisIdol: string | null;
+    favoriteShot: string | null;
   };
   pillars: {
     id: string;
@@ -327,33 +331,6 @@ export default function PlayerPublicProfileScreen() {
     return labels[level] || "Green Ball";
   };
 
-  const getHandLabel = (hand: string) => {
-    if (hand === "left") return "Left-handed";
-    if (hand === "right") return "Right-handed";
-    return "Both hands";
-  };
-
-  const getBackhandLabel = (type: string) => {
-    return type === "single" ? "1H Backhand" : "2H Backhand";
-  };
-
-  const getPlayStyleLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      singles: "Singles",
-      doubles: "Doubles",
-      both: "Singles & Doubles",
-    };
-    return labels[type] || "All-round";
-  };
-
-  const getMatchPrefLabel = (pref: string) => {
-    const labels: Record<string, string> = {
-      casual: "Casual",
-      training: "Training",
-      competitive: "Competitive",
-    };
-    return labels[pref] || "Casual";
-  };
 
   if (isLoading) {
     return (
@@ -641,42 +618,24 @@ export default function PlayerPublicProfileScreen() {
         </Animated.View>
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* LAYER 2: PLAYER DNA */}
+        {/* LAYER 2: TENNIS DNA */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <Animated.View entering={FadeInUp.delay(100).duration(400)} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>PLAYER DNA</Text>
+        <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+          <View style={[styles.sectionHeader, { paddingHorizontal: Spacing.xl, marginBottom: Spacing.sm }]}>
+            <Text style={styles.sectionTitle}>TENNIS DNA</Text>
           </View>
-          
-          <View style={styles.dnaGrid}>
-            <View style={styles.dnaItem}>
-              <Ionicons name="hand-left" size={20} color={Colors.dark.primary} />
-              <Text style={styles.dnaLabel}>{getHandLabel(profile.dna.dominantHand)}</Text>
-            </View>
-            <View style={styles.dnaItem}>
-              <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
-              <Text style={styles.dnaLabel}>{getBackhandLabel(profile.dna.backhandType)}</Text>
-            </View>
-            <View style={styles.dnaItem}>
-              <Ionicons name="people" size={20} color={Colors.dark.orange} />
-              <Text style={styles.dnaLabel}>{getPlayStyleLabel(profile.dna.preferredPlayType)}</Text>
-            </View>
-            <View style={styles.dnaItem}>
-              <Ionicons name="trophy" size={20} color={Colors.dark.gold} />
-              <Text style={styles.dnaLabel}>{getMatchPrefLabel(profile.dna.matchPreference)}</Text>
-            </View>
-          </View>
-
-          {profile.dna.focusGoals && profile.dna.focusGoals.length > 0 && (
-            <View style={styles.goalsRow}>
-              <Text style={styles.goalsLabel}>Goals:</Text>
-              {profile.dna.focusGoals.slice(0, 3).map((goal, i) => (
-                <View key={i} style={styles.goalChip}>
-                  <Text style={styles.goalChipText}>{goal}</Text>
-                </View>
-              ))}
-            </View>
-          )}
+          <PlayerDNACard
+            data={{
+              playStyle: profile.dna.playStyle,
+              dominantHand: profile.dna.dominantHand,
+              backhandType: profile.dna.backhandType,
+              favoriteShot: profile.dna.favoriteShot,
+              tennisIdol: profile.dna.tennisIdol,
+              bio: profile.bio,
+            }}
+            isOwnProfile={profile.isOwnProfile}
+            onEditPress={profile.isOwnProfile ? () => navigation.navigate("PlayerDNAWizard" as never) : undefined}
+          />
         </Animated.View>
 
         {/* ═══════════════════════════════════════════════════════════ */}

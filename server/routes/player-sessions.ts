@@ -7896,13 +7896,16 @@ import fs from "fs";
 
           // Layer 2: Player DNA
           dna: {
-            dominantHand: player.dominantHand || "right",
-            backhandType: player.backhandType || "double",
+            dominantHand: player.dominantHand || null,
+            backhandType: player.backhandType || null,
             preferredPlayType: player.preferredPlayType || "both",
             matchPreference: player.matchPreference || "casual",
             experienceLevel: player.experienceLevel,
             motivationType: player.motivationType,
             focusGoals: player.focusGoals || [],
+            playStyle: player.playStyle || null,
+            tennisIdol: player.tennisIdol || null,
+            favoriteShot: player.favoriteShot || null,
           },
 
           // Layer 3: Glow Stats (5 Pillars)

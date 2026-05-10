@@ -28,6 +28,7 @@ import { SPORTS, getSportConfig, getSportSkillLevelColor } from "@shared/sportCo
 import { makeReactiveStyles, useThemeReactivity } from "@/hooks/useThemedStyles";
 import { usePlayerAppearance, type PlayerAppearancePreference } from "@/player/context/PlayerAppearanceContext";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import PlayerDNACard from "@/player/components/PlayerDNACard";
 import AchievementCelebrationModal from "@/player/components/AchievementCelebrationModal";
 import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
 import {
@@ -83,6 +84,9 @@ interface ProfileData {
     streak: number;
     createdAt: string;
     dominantHand: string | null;
+    backhandType: string | null;
+    favoriteShot: string | null;
+    tennisIdol: string | null;
     preferredPlayType: string | null;
     openToPlay: boolean;
     typicalPlayTimes: string[] | null;
@@ -1833,6 +1837,21 @@ export default function PlayerProfileScreen() {
           sportProfiles={player.sportProfiles}
           onUpdateSports={(updatedProfiles) => updateSportProfiles.mutate(updatedProfiles)}
           isSaving={updateSportProfiles.isPending}
+        />
+
+        {/* Tennis DNA Section */}
+        <Text style={styles.sectionGroupHeader}>Tennis DNA</Text>
+        <PlayerDNACard
+          data={{
+            playStyle: player.playStyle,
+            dominantHand: player.dominantHand,
+            backhandType: player.backhandType,
+            favoriteShot: player.favoriteShot,
+            tennisIdol: player.tennisIdol,
+            bio: player.bio,
+          }}
+          isOwnProfile
+          onEditPress={() => navigation.navigate("PlayerDNAWizard" as never)}
         />
 
         {/* My Strengths Section — Task #1617 */}
