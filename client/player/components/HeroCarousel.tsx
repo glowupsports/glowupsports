@@ -286,8 +286,35 @@ function CompeteCard() {
     enabled: !!playerId,
   });
 
+  // Matches this player has confirmed into as a participant (not the host).
+  const { data: myJoinedMatches = [] } = useQuery<any[]>({
+    queryKey: ["/api/open-matches", { joinedByPlayerId: playerId }],
+    queryFn: async () => {
+      if (!playerId) return [];
+      const res = await fetch(
+        new URL(`/api/open-matches?joinedByPlayerId=${playerId}`, getApiUrl()).toString(),
+        { headers: getAuthHeaders(), credentials: "include" }
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!playerId,
+  });
+
   const [scoutSheetOpponentId, setScoutSheetOpponentId] = useState<string | null>(null);
   const [showMatchDetail, setShowMatchDetail] = useState(false);
+
+  const leaveMutation = useMutation({
+    mutationFn: async (matchId: string) =>
+      apiRequest("POST", `/api/open-matches/${matchId}/leave`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/open-matches", { joinedByPlayerId: playerId }] });
+    },
+    onError: (err: any) => {
+      Alert.alert("Could not leave", err?.message || "Please try again.");
+    },
+  });
 
   const respondMutation = useMutation({
     mutationFn: async ({ id, accepted, opponentId: _opponentId }: { id: string | number; accepted: boolean; opponentId?: string }) =>
@@ -474,6 +501,22 @@ function CompeteCard() {
   const otherUpcomingMatch = futureSorted.find((m) => !isMine(m));
   const upcomingOpenMatch = myUpcomingMatch || otherUpcomingMatch;
 
+  // Variant 2.5: First upcoming match the player has confirmed as a participant.
+  // Sorted by preferredDate + preferredTime ascending.
+  const nextJoinedMatch = myJoinedMatches
+    .filter((m: any) => m.status !== "cancelled")
+    .filter((m: any) => {
+      if (!m.preferredDate) return false;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return new Date(m.preferredDate) >= today;
+    })
+    .sort((a: any, b: any) => {
+      const aKey = `${a.preferredDate || ""} ${a.preferredTime || ""}`;
+      const bKey = `${b.preferredDate || ""} ${b.preferredTime || ""}`;
+      return aKey.localeCompare(bKey);
+    })[0] ?? null;
+
   // Detail query — fetches full match info (level range, description, players) when the
   // bottom sheet is opened. Placed here (after upcomingOpenMatch, before early returns)
   // so React's hook ordering rules are always satisfied.
@@ -599,6 +642,84 @@ function CompeteCard() {
         </LensShell>
         {sharedScoutSheet}
       </>
+    );
+  }
+
+  // Variant 2.5: Player has confirmed into an open match as a participant (not host).
+  // Show the soonest upcoming joined match with a Leave option.
+  if (!incomingChallenge && !acceptedChallenge && nextJoinedMatch) {
+    const dateStr = nextJoinedMatch.preferredDate
+      ? new Date(nextJoinedMatch.preferredDate).toLocaleDateString("en-GB", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+        })
+      : null;
+    const timeStr = nextJoinedMatch.preferredTime
+      ? String(nextJoinedMatch.preferredTime).slice(0, 5)
+      : null;
+    const hostLabel = nextJoinedMatch.playerName ? `vs ${nextJoinedMatch.playerName}` : "Open Match";
+    const matchTypeLabel = nextJoinedMatch.matchType
+      ? (String(nextJoinedMatch.matchType).charAt(0).toUpperCase() + String(nextJoinedMatch.matchType).slice(1))
+      : "Open Match";
+
+    return (
+      <LensShell accent={COMPETE_ACCENT} label="OPEN MATCHES" icon="flash" actionLabel="Find Matches" onAction={goOpenMatches}>
+        <View style={styles.chipRow}>
+          <View style={[styles.chip, { backgroundColor: `${COMPETE_ACCENT}22`, borderColor: `${COMPETE_ACCENT}55` }]}>
+            <Ionicons name="checkmark-circle" size={11} color={COMPETE_ACCENT} />
+            <Text style={[styles.chipText, { color: COMPETE_ACCENT }]}>JOINED</Text>
+          </View>
+          <XpChip amount={50} accent={COMPETE_ACCENT} />
+        </View>
+        <Text style={styles.lensTitle}>{matchTypeLabel} · {hostLabel}</Text>
+        <Text style={styles.lensSubtitle}>
+          {[dateStr, timeStr].filter(Boolean).join(" · ")}
+        </Text>
+        <View style={styles.carouselCtaRow}>
+          <Pressable
+            style={[styles.ctaSecondary, { borderColor: COMPETE_ACCENT, flex: 1, marginTop: 0 }]}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              try {
+                navigateToTab("PlayStack", {
+                  screen: "Play",
+                  params: { initialTab: "Players", initialSection: "Matches" },
+                } as any);
+              } catch {
+                try { navigation.navigate("Play", { initialTab: "Players" }); } catch {}
+              }
+            }}
+          >
+            <Text style={[styles.ctaSecondaryText, { color: COMPETE_ACCENT }]}>View Match</Text>
+            <Ionicons name="chevron-forward" size={14} color={COMPETE_ACCENT} />
+          </Pressable>
+          <Pressable
+            style={[styles.ctaSecondary, { borderColor: Colors.dark.error, marginTop: 0 }]}
+            disabled={leaveMutation.isPending}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+              Alert.alert(
+                "Leave match?",
+                "Your confirmed slot will be released and the match will re-open.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Leave",
+                    style: "destructive",
+                    onPress: () => leaveMutation.mutate(nextJoinedMatch.id),
+                  },
+                ]
+              );
+            }}
+          >
+            <Ionicons name="exit-outline" size={14} color={Colors.dark.error} />
+            <Text style={[styles.ctaSecondaryText, { color: Colors.dark.error }]}>
+              {leaveMutation.isPending ? "..." : "Leave"}
+            </Text>
+          </Pressable>
+        </View>
+      </LensShell>
     );
   }
 

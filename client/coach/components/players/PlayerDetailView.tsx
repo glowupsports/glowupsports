@@ -208,6 +208,10 @@ interface CoachMatchResult {
 }
 
 function PlayerUpcomingMatchesSection({ playerId }: { playerId: string }) {
+  const navigation = useNavigation<any>();
+  const { coach } = useCoach();
+  const [messagingMatchId, setMessagingMatchId] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery<{
     id: string;
     preferredDate?: string | null;
@@ -225,6 +229,38 @@ function PlayerUpcomingMatchesSection({ playerId }: { playerId: string }) {
     },
     staleTime: 60000,
   });
+
+  const openChatMutation = useMutation({
+    mutationFn: async ({ matchId, initialMessage }: { matchId: string; initialMessage: string }) => {
+      setMessagingMatchId(matchId);
+      const res = await apiRequest("POST", "/api/conversations/coach-player", { playerId });
+      return { conversation: await res.json(), initialMessage };
+    },
+    onSuccess: ({ conversation, initialMessage }: { conversation: { id: string }; initialMessage: string }) => {
+      setMessagingMatchId(null);
+      try {
+        navigation.navigate("PlayerBookingChat", {
+          conversationId: conversation.id,
+          initialMessage,
+        });
+      } catch {
+        try {
+          navigation.getParent()?.navigate("PlayerBookingChat", {
+            conversationId: conversation.id,
+            initialMessage,
+          });
+        } catch {
+          Alert.alert("Chat opened", "Find the conversation in your messages.");
+        }
+      }
+    },
+    onError: () => {
+      setMessagingMatchId(null);
+      Alert.alert("Couldn't open chat", "Please try again.");
+    },
+  });
+
+  if (!coach) return null;
 
   if (isLoading) {
     return (
@@ -256,42 +292,71 @@ function PlayerUpcomingMatchesSection({ playerId }: { playerId: string }) {
             })
           : null;
         const timeStr = m.preferredTime ? m.preferredTime.slice(0, 5) : null;
-        const players = m.currentPlayers != null && m.maxPlayers != null
+        const playerCount = m.currentPlayers != null && m.maxPlayers != null
           ? `${m.currentPlayers}/${m.maxPlayers} players`
           : null;
+        const isMessaging = messagingMatchId === m.id && openChatMutation.isPending;
         return (
           <View
             key={m.id}
             style={{
-              flexDirection: "row",
-              alignItems: "center",
               backgroundColor: "rgba(255,255,255,0.04)",
               borderRadius: 10,
               padding: 10,
-              gap: 10,
+              gap: 8,
             }}
           >
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(249,115,22,0.15)", alignItems: "center", justifyContent: "center" }}>
-              <Ionicons name="tennisball" size={18} color="#f97316" />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(249,115,22,0.15)", alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="tennisball" size={18} color="#f97316" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.dark.text, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>
+                  {(m.matchType ?? "Open Match").charAt(0).toUpperCase() + (m.matchType ?? "open match").slice(1)} with {m.playerName ?? "host"}
+                </Text>
+                <Text style={{ color: Colors.dark.textMuted, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+                  {[dateStr, timeStr, playerCount].filter(Boolean).join(" · ")}
+                </Text>
+              </View>
+              <View style={{
+                backgroundColor: m.status === "full" ? "rgba(239,68,68,0.15)" : "rgba(34,197,94,0.12)",
+                borderRadius: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+              }}>
+                <Text style={{ color: m.status === "full" ? "#ef4444" : "#22c55e", fontSize: 10, fontWeight: "700" }}>
+                  {m.status === "full" ? "FULL" : "OPEN"}
+                </Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: Colors.dark.text, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>
-                {(m.matchType ?? "Open Match").charAt(0).toUpperCase() + (m.matchType ?? "open match").slice(1)} with {m.playerName ?? "host"}
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                const template = dateStr
+                  ? `Excited for your match on ${dateStr}?`
+                  : "Excited for your upcoming match?";
+                openChatMutation.mutate({ matchId: m.id, initialMessage: template });
+              }}
+              disabled={openChatMutation.isPending}
+              style={({ pressed }) => ({
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                paddingVertical: 8,
+                paddingHorizontal: 14,
+                borderRadius: 8,
+                backgroundColor: isMessaging ? "rgba(249,115,22,0.20)" : "rgba(249,115,22,0.10)",
+                borderWidth: 1,
+                borderColor: "rgba(249,115,22,0.35)",
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <Ionicons name="chatbubble-outline" size={14} color="#f97316" />
+              <Text style={{ color: "#f97316", fontSize: 13, fontWeight: "600" }}>
+                {isMessaging ? "Opening..." : "Message Player"}
               </Text>
-              <Text style={{ color: Colors.dark.textMuted, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
-                {[dateStr, timeStr, players].filter(Boolean).join(" · ")}
-              </Text>
-            </View>
-            <View style={{
-              backgroundColor: m.status === "full" ? "rgba(239,68,68,0.15)" : "rgba(34,197,94,0.12)",
-              borderRadius: 6,
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-            }}>
-              <Text style={{ color: m.status === "full" ? "#ef4444" : "#22c55e", fontSize: 10, fontWeight: "700" }}>
-                {m.status === "full" ? "FULL" : "OPEN"}
-              </Text>
-            </View>
+            </Pressable>
           </View>
         );
       })}

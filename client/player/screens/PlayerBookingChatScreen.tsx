@@ -46,7 +46,8 @@ export default function PlayerBookingChatScreen() {
   const queryClient = useQueryClient();
   const orderId: string = route.params?.orderId;
   const conversationId: string | undefined = route.params?.conversationId;
-  const [inputText, setInputText] = useState("");
+  const initialMessage: string = route.params?.initialMessage ?? "";
+  const [inputText, setInputText] = useState(initialMessage);
 
   // If conversationId is passed directly, skip the get/create step
   const { data: conversation, isLoading: convLoading } = useQuery<ConversationInfo>({
