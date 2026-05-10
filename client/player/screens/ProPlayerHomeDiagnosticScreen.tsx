@@ -61,6 +61,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import type { AuthPlayer } from "@/coach/context/AuthContext";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { usePlayerDrawer } from "@/player/context/PlayerDrawerContext";
+import { useFamily } from "@/player/context/FamilyContext";
 import { PlayerStateProvider } from "@/player/context/PlayerStateContext";
 import {
   useSport,
@@ -111,6 +112,7 @@ import AchievementCelebrationModal from "@/player/components/AchievementCelebrat
 import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
 import { useSafeEffect } from "@/hooks/useSafeEffect";
 import { WellnessSnapshotCard } from "@/player/components/WellnessSnapshotCard";
+import { CreditSummaryChip } from "@/player/components/CreditSummaryChip";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -243,6 +245,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   const { user, isGuest, patchPlayer } = useAuth();
   const playerCtx = usePlayer();
   const { openDrawer } = usePlayerDrawer();
+  const { isFamilyMember, isParent } = useFamily();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -666,6 +669,27 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
               accessibilityLabel={`Player card for ${player.name}, level ${player.level}, ${player.xp} XP`}
             />
           </View>
+
+          {/* CREDIT SUMMARY CHIP */}
+          {!isGuest && credits ? (
+            <CreditSummaryChip
+              credits={credits}
+              onViewPress={() => {
+                if (isFamilyMember || isParent) {
+                  setShowPinModal(true);
+                } else {
+                  (navigation as any).navigate("PlayerProfile");
+                }
+              }}
+              onBuyPress={() => {
+                if (isFamilyMember || isParent) {
+                  setShowPinModal(true);
+                } else {
+                  (navigation as any).navigate("PlayerProfile");
+                }
+              }}
+            />
+          ) : null}
 
           {/* ACHIEVEMENT NUDGE STRIP */}
           {!isGuest && achievementNudge ? (
