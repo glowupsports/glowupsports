@@ -107,6 +107,17 @@
     "logIn": "Masuk",
     "signUp": "Daftar"
   },
+  "comingSoon": {
+    "label": "Segera Hadir",
+    "notifyMe": "Beri tahu saya",
+    "savingNotify": "Menyimpan…",
+    "onlineCard": {
+      "title": "Bayar online dengan kartu",
+      "subtitle": "Kartu kredit / debit",
+      "bannerText": "Pembayaran kartu online segera hadir.",
+      "toast": "Kami akan memberi tahu — terima kasih!"
+    }
+  },
   "auth": {
     "welcome": "Selamat Datang di Glow Up Sports",
     "loginTitle": "Masuk",
@@ -141,6 +152,24 @@
     "addAccount": "Tambah Akun Lain",
     "lastLogin": "Login terakhir",
     "orContinueWith": "atau",
+    "forgotPassword": "Lupa Kata Sandi?",
+    "forgotPasswordTitle": "ATUR ULANG KATA SANDI",
+    "forgotPasswordSubtitle": "Masukkan nama pengguna atau email dan kami akan mengirimkan kode 6 digit.",
+    "usernameOrEmailPlaceholder": "Nama pengguna atau email",
+    "sendResetCode": "Kirim Kode Reset",
+    "resetCodeSentTitle": "Periksa email Anda",
+    "resetCodeSentMessage": "Jika akun cocok, kami baru mengirimkan kode reset 6 digit. Berlaku selama 30 menit.",
+    "resetPasswordTitle": "MASUKKAN KATA SANDI BARU",
+    "resetPasswordSubtitle": "Masukkan kode 6 digit dari email Anda dan pilih kata sandi baru (min. 8 karakter).",
+    "resetCodePlaceholder": "Kode 6 digit",
+    "newPasswordPlaceholder": "Kata sandi baru",
+    "resetPasswordButton": "Atur Ulang Kata Sandi",
+    "resetCodeInvalid": "Silakan masukkan kode 6 digit dari email Anda.",
+    "passwordTooShort": "Kata sandi harus minimal 8 karakter.",
+    "resetSuccessTitle": "Kata Sandi Diperbarui",
+    "resetSuccessMessage": "Kata sandi Anda telah diatur ulang. Anda sekarang dapat masuk.",
+    "appleLinkedTitle": "Apple ID Terhubung",
+    "appleLinkedMessage": "Kami menghubungkan Apple ID Anda ke akun Glow Up yang sudah ada. Lain kali, cukup ketuk Masuk dengan Apple.",
     "appleNotLinked": "Tidak ada akun yang terhubung dengan Apple ID ini. Silakan masuk dengan nama pengguna Anda terlebih dahulu, lalu hubungkan Apple ID di Pengaturan.",
     "appleSignIn": "Masuk dengan Apple"
   },
@@ -571,6 +600,18 @@
       "courtBookingLabel": "Pemesanan Lapangan",
       "matchLabel": "Pertandingan",
       "trainingLabel": "Latihan",
+      "lessonBalance": "Saldo pelajaran",
+      "lessonSingular": "pelajaran tersisa",
+      "lessonPlural": "pelajaran tersisa",
+      "balanceOk": "Kamu siap untuk pelajaran berikutnya.",
+      "balanceLow": "Hampir habis — segera isi ulang.",
+      "balanceEmpty": "Tidak ada pelajaran tersisa — isi ulang untuk terus bermain.",
+      "buyMore": "Isi ulang",
+      "creditTypeGroup": "grup",
+      "creditTypePrivate": "pribadi",
+      "creditTypeSemiPrivate": "semi-pribadi",
+      "noNextLessonTitle": "Tidak ada pelajaran terjadwal",
+      "noNextLessonSubtitle": "Pesan sesi berikutnya untuk kembali ke lapangan.",
       "loadingSchedule": "Memuat jadwal Anda...",
       "unableToLoadSchedule": "Tidak dapat memuat jadwal",
       "viewingScheduleFor": "Melihat jadwal untuk",
@@ -669,7 +710,43 @@
       "joinGroup": "Gabung Grup",
       "groupMembers": "Anggota",
       "training": "Latihan",
-      "social": "Sosial"
+      "social": "Sosial",
+      "feedTypes": {
+        "title": "Sesuaikan feed kamu",
+        "subtitle": "Pilih apa yang muncul di feed Komunitas kamu.",
+        "selectAll": "Tampilkan semua",
+        "selectNone": "Sembunyikan semua",
+        "saving": "Menyimpan…",
+        "allHiddenWarning": "Feed kamu akan kosong sampai kamu mengaktifkan setidaknya satu kategori kembali.",
+        "matches": {
+          "label": "Pertandingan",
+          "description": "Hasil pertandingan dari jaringanmu"
+        },
+        "levelUps": {
+          "label": "Naik level",
+          "description": "Saat pemain mencapai level baru"
+        },
+        "quests": {
+          "label": "Quest",
+          "description": "Penyelesaian quest dan tantangan"
+        },
+        "tournaments": {
+          "label": "Turnamen",
+          "description": "Hasil turnamen dan pemenang"
+        },
+        "openMatches": {
+          "label": "Pertandingan terbuka",
+          "description": "Pemain yang mencari lawan"
+        },
+        "coachPosts": {
+          "label": "Postingan pelatih",
+          "description": "Pembaruan dan tips dari pelatih"
+        },
+        "friendMoments": {
+          "label": "Momen teman",
+          "description": "Momen yang dibagikan komunitasmu"
+        }
+      }
     },
     "profile": {
       "title": "Profil",
@@ -830,7 +907,38 @@
       "noCredits": "Tidak ada kredit tersedia",
       "buyCredits": "Beli Kredit",
       "quickBook": "Pesan Cepat",
-      "courtBooking": "Pesan Lapangan",
+      "payment": {
+        "howToPay": "Bagaimana Anda ingin membayar?",
+        "lessonPrice": "Harga pelajaran",
+        "credits": "Bayar dengan kredit",
+        "creditsLeft": "{{count}} tersisa",
+        "notEnoughCredits": "Kredit tidak cukup",
+        "buyCredits": "Beli kredit",
+        "card": "Bayar online dengan kartu",
+        "cardUnavailable": "Akademi Anda belum mengaktifkan pembayaran kartu online",
+        "payLater": "Bayar nanti (tunai / bank)",
+        "payLaterSub": "Pelatih menandai lunas saat Anda membayar",
+        "awaitingPayment": "Menunggu pembayaran"
+      },
+      "courtBooking": {
+        "stepTitle": "Pemesanan Lapangan",
+        "stepSubtitle": "Siapa yang memesan lapangan untuk pelajaran ini?",
+        "academyCourt": "Lapangan akademi",
+        "academyCourtHint": "Lapangan ini dikelola oleh akademi — tidak perlu pemesanan terpisah.",
+        "externalBooked": "Saya sudah memesan lapangan",
+        "externalBookedHint": "Tambahkan catatan atau tautan agar pelatih Anda dapat menemukannya.",
+        "externalPending": "Lapangan masih perlu dipesan",
+        "externalPendingHint": "Konfirmasi bahwa Anda akan mengatur lapangan sebelum pelajaran.",
+        "noteLabel": "Catatan (opsional)",
+        "notePlaceholder": "Mis., Lapangan Reem 3, dipesan atas nama Ahmed",
+        "urlLabel": "Tautan pemesanan (opsional)",
+        "urlPlaceholder": "https://...",
+        "panelTitle": "Pemesanan lapangan",
+        "panelStatusAcademy": "Lapangan akademi",
+        "panelStatusBooked": "Lapangan dipesan oleh pemain",
+        "panelStatusPending": "Pemain akan memesan lapangan",
+        "panelOpenLink": "Buka tautan pemesanan"
+      },
       "openMatch": "Pertandingan Terbuka",
       "invites": "Undangan",
       "preferences": "Preferensi",
@@ -1069,6 +1177,25 @@
       "wellness": "Kesehatan",
       "wellnessLog": "Log Kesehatan",
       "reviews": "Ulasan Saya"
+    },
+    "reminder": {
+      "actionLabel": "Kirim pengingat",
+      "modalTitle": "Kirim pengingat ke {{name}}",
+      "subtitleCard": "Kirim pesan cepat ke semua pemain aktif",
+      "chipCourtBooking": "Pemesanan lapangan",
+      "chipRackets": "Bawa raket",
+      "chipWeather": "Cuaca",
+      "chipConfirm": "Konfirmasi kehadiran",
+      "templateCourtBooking": "Pengingat: harap tepat waktu untuk sesi kita. Lapangan sudah dipesan.",
+      "templateRackets": "Jangan lupa membawa raket dan botol air.",
+      "templateWeather": "Perhatian: cuaca mungkin mempengaruhi sesi hari ini. Saya akan konfirmasi segera.",
+      "templateConfirm": "Harap konfirmasi kehadiran Anda untuk sesi berikutnya.",
+      "placeholder": "Ketik pesan singkat…",
+      "charsLeft": "{{count}} karakter tersisa",
+      "sendButton": "Kirim ke {{count}} pemain",
+      "successToast": "Pengingat terkirim ke {{count}} pemain",
+      "throttleError": "Anda sudah mengirim 3 pengingat jam ini. Coba lagi nanti.",
+      "genericError": "Gagal mengirim pengingat. Silakan coba lagi."
     }
   },
   "admin": {
@@ -1608,6 +1735,66 @@
     }
   },
   "academy": {
+    "pricing": {
+      "title": "Harga",
+      "subtitle": "Tetapkan harga sesi untuk akademi Anda",
+      "addTitle": "Tambah Harga",
+      "editTitle": "Edit Harga",
+      "save": "Simpan",
+      "saving": "Menyimpan…",
+      "cancel": "Batal",
+      "done": "Selesai",
+      "disable": "Nonaktifkan",
+      "disabling": "Menonaktifkan…",
+      "perPerson": "per orang",
+      "perSession": "per sesi",
+      "optional": "Opsional",
+      "fromDate": "Dari {{date}}",
+      "toDate": "sampai {{date}}",
+      "noAcademyContext": "Tidak ada konteks akademi. Silakan masuk sebagai pemilik akademi.",
+      "sections": {
+        "active": "Harga Aktif",
+        "scheduled": "Terjadwal",
+        "history": "Riwayat"
+      },
+      "status": {
+        "active": "Aktif",
+        "scheduled": "Terjadwal"
+      },
+      "empty": {
+        "title": "Belum Ada Harga",
+        "subtitle": "Tambahkan harga untuk jenis sesi Anda untuk mulai penagihan"
+      },
+      "types": {
+        "private": "Pribadi",
+        "semi_private": "Semi-Pribadi",
+        "group": "Grup",
+        "physical": "Latihan Fisik",
+        "activity": "Aktivitas"
+      },
+      "fields": {
+        "sessionType": "Tipe Sesi",
+        "pricePerSession": "Harga Per Sesi",
+        "pricePerHour": "Harga Per Jam (Opsional)",
+        "duration": "Durasi dalam menit (Opsional)",
+        "perPerson": "Harga Per Orang",
+        "perPersonHint": "Harga per orang (untuk sesi multi-pemain)",
+        "currency": "Mata Uang",
+        "effectiveFrom": "Berlaku Dari",
+        "effectiveUntil": "Berlaku Sampai (Opsional)",
+        "notes": "Catatan (Opsional)",
+        "notesPlaceholder": "mis., Penyesuaian harga musim panas"
+      },
+      "errors": {
+        "priceInvalid": "Masukkan harga yang valid lebih dari 0",
+        "dateOrder": "Berlaku Dari harus sebelum Berlaku Sampai",
+        "durationInvalid": "Durasi harus berupa jumlah menit positif",
+        "activeExists": "Anda sudah memiliki harga aktif untuk jenis sesi ini — nonaktifkan sebelum menambah yang baru.",
+        "createFailed": "Gagal membuat harga",
+        "updateFailed": "Gagal memperbarui harga",
+        "disableFailed": "Gagal menonaktifkan harga"
+      }
+    },
     "joinFlow": {
       "join": "Gabung",
       "requestToJoin": "Minta Gabung",
@@ -1621,6 +1808,86 @@
       "openJoinLabel": "Bergabung terbuka",
       "openJoinHelperOn": "Siapa saja dapat langsung bergabung dengan akademi Anda.",
       "openJoinHelperOff": "Anda akan meninjau dan menyetujui setiap anggota baru."
+    }
+  },
+  "coachCredit": {
+    "history": {
+      "sheetTitle": "Detail entri",
+      "field": {
+        "action": "Tindakan",
+        "creditType": "Tipe kredit",
+        "amount": "Jumlah",
+        "when": "Waktu",
+        "by": "Oleh",
+        "bySystem": "sistem",
+        "note": "Catatan",
+        "linkedSession": "Sesi terkait",
+        "linkedPackage": "Paket terkait",
+        "linkedInvoice": "Invoice terkait"
+      },
+      "reason": {
+        "purchase": "Pembelian paket",
+        "consume": "Sesi dikonsumsi",
+        "refund": "Pengembalian sesi",
+        "makeup": "Kredit pengganti",
+        "manual": "Penyesuaian manual",
+        "expiry": "Lot kedaluwarsa",
+        "moneyCharge": "Tagihan uang",
+        "moneyTopup": "Top-up uang"
+      },
+      "row": {
+        "openA11y": "Buka detail {{label}}"
+      },
+      "lotSummary": "{{used}} digunakan / {{total}} total · {{remaining}} tersisa",
+      "invoiceLabel": "Invoice {{n}}",
+      "consume": {
+        "title": "Terkait ke sesi",
+        "body": "Entri konsumsi terikat pada kehadiran. Untuk memulihkan kredit ini, batalkan atau kembalikan sesi terkait — kredit akan kembali melalui alur pengembalian sesi.",
+        "openSession": "Buka sesi",
+        "openSessionA11y": "Buka sesi terkait"
+      },
+      "action": {
+        "cancelPurchase": "Batalkan pembelian ini",
+        "reverseAdjustment": "Balikkan penyesuaian ini",
+        "noPackageNote": "Pembelian ini tidak memiliki paket terkait dan tidak dapat dibatalkan dari sini."
+      },
+      "willGoNegative": "Membalikkan akan membuat saldo {{typeLabel}} menjadi {{projected}} (hutang).",
+      "informationalOnly": "Tipe entri ini bersifat informatif dan tidak dapat dibatalkan dari sini.",
+      "confirm": {
+        "purchase": {
+          "title": "Batalkan pembelian ini?",
+          "titleUsed": "Batalkan pembelian yang sebagian digunakan?",
+          "body": "Ini akan menghapus paket {{typeLabel}} ({{total}} kredit) dan membalikkan {{remaining}} kredit tersisa dari dompet.",
+          "usedWarn": "{{used}} dari {{total}} kredit sudah digunakan. Membalikkan sisa yang belum digunakan mungkin membuat saldo negatif."
+        },
+        "manual": {
+          "title": "Balikkan penyesuaian ini?",
+          "bodyRemove": "Ini akan menghapus {{amt}} kredit {{typeLabel}} sebagai pembalikan penyesuaian asli.",
+          "bodyAdd": "Ini akan menambahkan kembali {{amt}} kredit {{typeLabel}} sebagai pembalikan penyesuaian asli."
+        },
+        "negativeWarn": "Saldo baru akan menjadi {{projected}} {{typeLabel}} — pemain akan dalam kondisi hutang.",
+        "cannotUndo": "Tindakan ini tidak dapat dibatalkan."
+      },
+      "toast": {
+        "purchaseCancelled": "Pembelian dibatalkan · kredit dikembalikan",
+        "adjustmentReversed": "Penyesuaian dibalikkan · dompet dipulihkan"
+      }
+    }
+  },
+  "whatsNew": {
+    "title": "Yang Baru",
+    "skip": "Lewati",
+    "close": "Tutup",
+    "next": "Berikutnya",
+    "letsGo": "Ayo mulai",
+    "dontShowAgain": "Jangan tampilkan ini saat pembaruan berikutnya",
+    "loading": "Mencari apa yang baru…",
+    "empty": "Kamu sudah up to date — tidak ada pembaruan baru untuk ditampilkan.",
+    "settings": {
+      "sectionTitle": "Yang Baru",
+      "autoShowLabel": "Tampilkan 'Yang Baru' saat pembaruan",
+      "autoShowHelp": "Saat aplikasi diperbarui, lihat ringkasan singkat apa yang baru.",
+      "viewLatest": "Lihat pembaruan terbaru"
     }
   },
   "appUpdate": {

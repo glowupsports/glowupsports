@@ -107,6 +107,17 @@
     "logIn": "تسجيل الدخول",
     "signUp": "إنشاء حساب"
   },
+  "comingSoon": {
+    "label": "قريبًا",
+    "notifyMe": "أخبرني",
+    "savingNotify": "جاري الحفظ…",
+    "onlineCard": {
+      "title": "الدفع أونلاين ببطاقة",
+      "subtitle": "بطاقة ائتمان / خصم",
+      "bannerText": "مدفوعات البطاقة الإلكترونية قادمة قريبًا.",
+      "toast": "سنعلمك — شكرًا!"
+    }
+  },
   "auth": {
     "welcome": "مرحبًا بك في جلو أب سبورتس",
     "loginTitle": "تسجيل الدخول",
@@ -141,6 +152,24 @@
     "addAccount": "إضافة حساب آخر",
     "lastLogin": "آخر تسجيل دخول",
     "orContinueWith": "أو",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "forgotPasswordTitle": "إعادة تعيين كلمة المرور",
+    "forgotPasswordSubtitle": "أدخل اسم المستخدم أو بريدك الإلكتروني وسنرسل لك رمزًا مكونًا من 6 أرقام.",
+    "usernameOrEmailPlaceholder": "اسم المستخدم أو البريد الإلكتروني",
+    "sendResetCode": "إرسال رمز الاستعادة",
+    "resetCodeSentTitle": "تحقق من بريدك الإلكتروني",
+    "resetCodeSentMessage": "إذا تطابق الحساب، فقد أرسلنا رمز استعادة مكونًا من 6 أرقام. صالح لمدة 30 دقيقة.",
+    "resetPasswordTitle": "أدخل كلمة المرور الجديدة",
+    "resetPasswordSubtitle": "أدخل الرمز المكون من 6 أرقام من بريدك الإلكتروني واختر كلمة مرور جديدة (8 أحرف على الأقل).",
+    "resetCodePlaceholder": "رمز مكون من 6 أرقام",
+    "newPasswordPlaceholder": "كلمة المرور الجديدة",
+    "resetPasswordButton": "إعادة تعيين كلمة المرور",
+    "resetCodeInvalid": "يرجى إدخال الرمز المكون من 6 أرقام من بريدك الإلكتروني.",
+    "passwordTooShort": "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.",
+    "resetSuccessTitle": "تم تحديث كلمة المرور",
+    "resetSuccessMessage": "تم إعادة تعيين كلمة المرور. يمكنك الآن تسجيل الدخول.",
+    "appleLinkedTitle": "تم ربط Apple ID",
+    "appleLinkedMessage": "ربطنا Apple ID بحساب Glow Up الموجود لديك. في المرة القادمة، اضغط فقط على تسجيل الدخول باستخدام Apple.",
     "appleNotLinked": "لا يوجد حساب مرتبط بمعرف Apple هذا. يرجى تسجيل الدخول باسم المستخدم أولاً، ثم ربط معرف Apple في الإعدادات.",
     "appleSignIn": "تسجيل الدخول باستخدام Apple"
   },
@@ -571,6 +600,18 @@
       "courtBookingLabel": "حجز ملعب",
       "matchLabel": "مباراة",
       "trainingLabel": "تدريب",
+      "lessonBalance": "رصيد الدروس",
+      "lessonSingular": "درس متبقي",
+      "lessonPlural": "دروس متبقية",
+      "balanceOk": "أنت مستعد للدروس القادمة.",
+      "balanceLow": "الرصيد منخفض — اشحن قريبًا.",
+      "balanceEmpty": "لا دروس متبقية — اشحن لمواصلة اللعب.",
+      "buyMore": "شحن",
+      "creditTypeGroup": "جماعي",
+      "creditTypePrivate": "خاص",
+      "creditTypeSemiPrivate": "شبه خاص",
+      "noNextLessonTitle": "لا يوجد درس مجدول",
+      "noNextLessonSubtitle": "احجز جلستك القادمة للعودة إلى الملعب.",
       "loadingSchedule": "جاري تحميل جدولك...",
       "unableToLoadSchedule": "تعذر تحميل الجدول",
       "viewingScheduleFor": "عرض الجدول لـ",
@@ -669,7 +710,43 @@
       "joinGroup": "انضم إلى مجموعة",
       "groupMembers": "الأعضاء",
       "training": "التدريب",
-      "social": "اجتماعي"
+      "social": "اجتماعي",
+      "feedTypes": {
+        "title": "تخصيص خلاصتك",
+        "subtitle": "اختر ما يظهر في خلاصة مجتمعك.",
+        "selectAll": "عرض الكل",
+        "selectNone": "إخفاء الكل",
+        "saving": "جاري الحفظ…",
+        "allHiddenWarning": "ستكون خلاصتك فارغة حتى تعيد تفعيل فئة واحدة على الأقل.",
+        "matches": {
+          "label": "المباريات",
+          "description": "نتائج مباريات شبكتك"
+        },
+        "levelUps": {
+          "label": "الترقيات",
+          "description": "عندما يصل لاعبون إلى مستوى جديد"
+        },
+        "quests": {
+          "label": "المهام",
+          "description": "إتمام المهام والتحديات"
+        },
+        "tournaments": {
+          "label": "البطولات",
+          "description": "نتائج البطولات والفائزون"
+        },
+        "openMatches": {
+          "label": "المباريات المفتوحة",
+          "description": "لاعبون يبحثون عن مباراة"
+        },
+        "coachPosts": {
+          "label": "منشورات المدربين",
+          "description": "تحديثات ونصائح من المدربين"
+        },
+        "friendMoments": {
+          "label": "لحظات الأصدقاء",
+          "description": "لحظات يشاركها مجتمعك"
+        }
+      }
     },
     "profile": {
       "title": "الملف الشخصي",
@@ -830,7 +907,38 @@
       "noCredits": "لا يوجد رصيد متاح",
       "buyCredits": "شراء رصيد",
       "quickBook": "حجز سريع",
-      "courtBooking": "حجز ملعب",
+      "payment": {
+        "howToPay": "كيف تريد الدفع؟",
+        "lessonPrice": "سعر الدرس",
+        "credits": "الدفع بالأرصدة",
+        "creditsLeft": "{{count}} متبقية",
+        "notEnoughCredits": "أرصدة غير كافية",
+        "buyCredits": "شراء أرصدة",
+        "card": "الدفع أونلاين ببطاقة",
+        "cardUnavailable": "لم تُفعّل أكاديميتك مدفوعات البطاقة الإلكترونية بعد",
+        "payLater": "الدفع لاحقًا (نقدًا / بنكيًا)",
+        "payLaterSub": "يحدد المدرب الدفع عند السداد",
+        "awaitingPayment": "في انتظار الدفع"
+      },
+      "courtBooking": {
+        "stepTitle": "حجز الملعب",
+        "stepSubtitle": "من يحجز الملعب لهذا الدرس؟",
+        "academyCourt": "ملعب الأكاديمية",
+        "academyCourtHint": "هذا الملعب تديره الأكاديمية — لا حاجة لحجز منفصل.",
+        "externalBooked": "لقد حجزت الملعب بالفعل",
+        "externalBookedHint": "أضف ملاحظة أو رابطًا حتى يتمكن مدربك من إيجاده.",
+        "externalPending": "الملعب لا يزال بحاجة إلى حجز",
+        "externalPendingHint": "أكد أنك ستُرتب الملعب قبل الدرس.",
+        "noteLabel": "ملاحظة (اختياري)",
+        "notePlaceholder": "مثال: ملعب ريم 3، محجوز باسم أحمد",
+        "urlLabel": "رابط الحجز (اختياري)",
+        "urlPlaceholder": "https://...",
+        "panelTitle": "حجز الملعب",
+        "panelStatusAcademy": "ملعب الأكاديمية",
+        "panelStatusBooked": "الملعب محجوز من اللاعب",
+        "panelStatusPending": "سيحجز اللاعب الملعب",
+        "panelOpenLink": "فتح رابط الحجز"
+      },
       "openMatch": "مباراة مفتوحة",
       "invites": "الدعوات",
       "preferences": "التفضيلات",
@@ -1069,6 +1177,25 @@
       "wellness": "الصحة",
       "wellnessLog": "سجل الصحة",
       "reviews": "تقييماتي"
+    },
+    "reminder": {
+      "actionLabel": "إرسال تذكير",
+      "modalTitle": "إرسال تذكير إلى {{name}}",
+      "subtitleCard": "أرسل رسالة سريعة لجميع اللاعبين النشطين",
+      "chipCourtBooking": "حجز الملعب",
+      "chipRackets": "إحضار المضارب",
+      "chipWeather": "الطقس",
+      "chipConfirm": "تأكيد الحضور",
+      "templateCourtBooking": "تذكير: يرجى الحضور في الوقت المحدد. الملعب محجوز.",
+      "templateRackets": "لا تنسَ إحضار مضاربك وقنينة الماء.",
+      "templateWeather": "تنبيه: قد يؤثر الطقس على جلسة اليوم. سأؤكد قريبًا.",
+      "templateConfirm": "يرجى تأكيد حضورك للجلسة القادمة.",
+      "placeholder": "اكتب رسالة قصيرة…",
+      "charsLeft": "{{count}} حرف متبقي",
+      "sendButton": "إرسال إلى {{count}} لاعبين",
+      "successToast": "تم إرسال التذكير إلى {{count}} لاعبين",
+      "throttleError": "لقد أرسلت بالفعل 3 تذكيرات هذه الساعة. يرجى المحاولة لاحقًا.",
+      "genericError": "فشل إرسال التذكير. يرجى المحاولة مرة أخرى."
     }
   },
   "admin": {
@@ -1618,6 +1745,66 @@
     }
   },
   "academy": {
+    "pricing": {
+      "title": "التسعير",
+      "subtitle": "تحديد أسعار الجلسات لأكاديميتك",
+      "addTitle": "إضافة تسعير",
+      "editTitle": "تعديل التسعير",
+      "save": "حفظ",
+      "saving": "جاري الحفظ…",
+      "cancel": "إلغاء",
+      "done": "تم",
+      "disable": "تعطيل",
+      "disabling": "جاري التعطيل…",
+      "perPerson": "للشخص",
+      "perSession": "للجلسة",
+      "optional": "اختياري",
+      "fromDate": "من {{date}}",
+      "toDate": "إلى {{date}}",
+      "noAcademyContext": "لا يوجد سياق أكاديمية. يرجى تسجيل الدخول كمالك أكاديمية.",
+      "sections": {
+        "active": "الأسعار النشطة",
+        "scheduled": "مجدولة",
+        "history": "السجل"
+      },
+      "status": {
+        "active": "نشط",
+        "scheduled": "مجدول"
+      },
+      "empty": {
+        "title": "لا يوجد تسعير",
+        "subtitle": "أضف تسعيرًا لأنواع جلساتك لبدء الفوترة"
+      },
+      "types": {
+        "private": "خاص",
+        "semi_private": "شبه خاص",
+        "group": "جماعي",
+        "physical": "تدريب بدني",
+        "activity": "نشاط"
+      },
+      "fields": {
+        "sessionType": "نوع الجلسة",
+        "pricePerSession": "السعر لكل جلسة",
+        "pricePerHour": "السعر لكل ساعة (اختياري)",
+        "duration": "المدة بالدقائق (اختياري)",
+        "perPerson": "التسعير لكل شخص",
+        "perPersonHint": "السعر لكل شخص (للجلسات متعددة اللاعبين)",
+        "currency": "العملة",
+        "effectiveFrom": "ساري من",
+        "effectiveUntil": "ساري حتى (اختياري)",
+        "notes": "ملاحظات (اختياري)",
+        "notesPlaceholder": "مثلاً: تعديل تسعير الصيف"
+      },
+      "errors": {
+        "priceInvalid": "يرجى إدخال سعر صحيح أكبر من 0",
+        "dateOrder": "يجب أن يكون تاريخ البداية قبل تاريخ النهاية",
+        "durationInvalid": "يجب أن تكون المدة عددًا موجبًا من الدقائق",
+        "activeExists": "لديك بالفعل سعر نشط لهذا النوع من الجلسات — قم بتعطيله قبل إضافة آخر.",
+        "createFailed": "فشل إنشاء التسعير",
+        "updateFailed": "فشل تحديث التسعير",
+        "disableFailed": "فشل تعطيل التسعير"
+      }
+    },
     "joinFlow": {
       "join": "انضم",
       "requestToJoin": "طلب الانضمام",
@@ -1631,6 +1818,86 @@
       "openJoinLabel": "انضمام مفتوح",
       "openJoinHelperOn": "يمكن لأي شخص الانضمام إلى أكاديميتك على الفور.",
       "openJoinHelperOff": "ستراجع كل عضو جديد وتوافق عليه."
+    }
+  },
+  "coachCredit": {
+    "history": {
+      "sheetTitle": "تفاصيل الإدخال",
+      "field": {
+        "action": "الإجراء",
+        "creditType": "نوع الرصيد",
+        "amount": "المبلغ",
+        "when": "التوقيت",
+        "by": "بواسطة",
+        "bySystem": "النظام",
+        "note": "ملاحظة",
+        "linkedSession": "الجلسة المرتبطة",
+        "linkedPackage": "الحزمة المرتبطة",
+        "linkedInvoice": "الفاتورة المرتبطة"
+      },
+      "reason": {
+        "purchase": "شراء حزمة",
+        "consume": "جلسة مستهلكة",
+        "refund": "استرداد جلسة",
+        "makeup": "رصيد تعويضي",
+        "manual": "تعديل يدوي",
+        "expiry": "انتهاء صلاحية الدفعة",
+        "moneyCharge": "رسوم مالية",
+        "moneyTopup": "شحن مالي"
+      },
+      "row": {
+        "openA11y": "فتح تفاصيل {{label}}"
+      },
+      "lotSummary": "{{used}} مستخدم / {{total}} إجمالي · {{remaining}} متبقي",
+      "invoiceLabel": "فاتورة {{n}}",
+      "consume": {
+        "title": "مرتبط بجلسة",
+        "body": "إدخالات الاستهلاك مرتبطة بالحضور. لاستعادة هذه الأرصدة، ألغِ الجلسة أو استردها — سيعود الرصيد عبر مسار استرداد الجلسة.",
+        "openSession": "فتح الجلسة",
+        "openSessionA11y": "فتح الجلسة المرتبطة"
+      },
+      "action": {
+        "cancelPurchase": "إلغاء هذا الشراء",
+        "reverseAdjustment": "عكس هذا التعديل",
+        "noPackageNote": "لا توجد حزمة مرتبطة بهذا الشراء ولا يمكن إلغاؤه من هنا."
+      },
+      "willGoNegative": "عكس التعديل سيجعل رصيد {{typeLabel}} يبلغ {{projected}} (دين).",
+      "informationalOnly": "هذا النوع من الإدخالات معلوماتي فقط ولا يمكن التراجع عنه من هنا.",
+      "confirm": {
+        "purchase": {
+          "title": "إلغاء هذا الشراء؟",
+          "titleUsed": "إلغاء شراء مستخدم جزئيًا؟",
+          "body": "سيحذف هذا الحزمة ({{total}} رصيد {{typeLabel}}) ويعكس {{remaining}} رصيدًا متبقيًا من المحفظة.",
+          "usedWarn": "{{used}} من {{total}} رصيدًا تم استخدامها. عكس الباقي قد يجعل الرصيد سلبيًا."
+        },
+        "manual": {
+          "title": "عكس هذا التعديل؟",
+          "bodyRemove": "سيزيل هذا {{amt}} رصيد {{typeLabel}} كعكس للتعديل الأصلي.",
+          "bodyAdd": "سيضيف هذا {{amt}} رصيد {{typeLabel}} كعكس للتعديل الأصلي."
+        },
+        "negativeWarn": "الرصيد الجديد سيكون {{projected}} {{typeLabel}} — سيكون اللاعب في وضع الدين.",
+        "cannotUndo": "لا يمكن التراجع عن هذا الإجراء."
+      },
+      "toast": {
+        "purchaseCancelled": "تم إلغاء الشراء · تم عكس الأرصدة",
+        "adjustmentReversed": "تم عكس التعديل · تمت استعادة المحفظة"
+      }
+    }
+  },
+  "whatsNew": {
+    "title": "الجديد",
+    "skip": "تخطي",
+    "close": "إغلاق",
+    "next": "التالي",
+    "letsGo": "هيا بنا",
+    "dontShowAgain": "لا تعرض هذا عند التحديثات القادمة",
+    "loading": "جاري البحث عن الجديد…",
+    "empty": "أنت محدّث — لا توجد تحديثات جديدة لعرضها.",
+    "settings": {
+      "sectionTitle": "الجديد",
+      "autoShowLabel": "عرض 'الجديد' عند التحديثات",
+      "autoShowHelp": "عند تحديث التطبيق، اعرض ملخصًا سريعًا عما هو جديد.",
+      "viewLatest": "عرض آخر التحديثات"
     }
   },
   "appUpdate": {
