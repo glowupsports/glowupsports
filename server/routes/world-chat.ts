@@ -1271,8 +1271,25 @@ router.post(
   requireAcademy,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const coachId = req.user!.coachId;
+      let coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
+
+      // Supervisor mode: academy owner may book sessions for another coach.
+      // The client injects supervisorCoachId into the request body when the
+      // owner is viewing a coach's dashboard via the supervisor coach picker.
+      const supervisorCoachId = req.body?.supervisorCoachId;
+      if (supervisorCoachId) {
+        const callerRole = req.user!.role;
+        if (!["academy_owner", "owner", "platform_owner"].includes(callerRole ?? "")) {
+          return res.status(403).json({ error: "Only academy owners may book for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
+
       const {
         courtId,
         locationId,

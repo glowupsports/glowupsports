@@ -172,6 +172,8 @@ export async function apiRequest(
 ): Promise<Response> {
   // Block ALL write mutations when in supervisor read-only (coach overview) mode.
   // Only /auth/* routes are exempt (token refresh, OTP flows).
+  // Note: academy owners have _coachReadOnlyMode=false even while supervising,
+  // so this guard naturally allows their writes without any special casing.
   if (_coachReadOnlyMode) {
     const upper = method.toUpperCase();
     if (["POST", "PUT", "PATCH", "DELETE"].includes(upper) && !route.startsWith("/auth/")) {
@@ -183,6 +185,19 @@ export async function apiRequest(
     }
   }
 
+  // Inject supervisorCoachId into write request bodies so the server can
+  // attribute the action to the supervised coach instead of the caller.
+  let effectiveData = data;
+  if (
+    _supervisorCoachId &&
+    ["POST", "PUT", "PATCH"].includes(method.toUpperCase()) &&
+    data &&
+    typeof data === "object" &&
+    !Array.isArray(data)
+  ) {
+    effectiveData = { ...(data as Record<string, unknown>), supervisorCoachId: _supervisorCoachId };
+  }
+
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
@@ -190,14 +205,14 @@ export async function apiRequest(
     ...getAuthHeaders(),
   };
   
-  if (data) {
+  if (effectiveData) {
     headers["Content-Type"] = "application/json";
   }
 
   const res = await fetch(url, {
     method,
     headers,
-    body: data ? JSON.stringify(data) : undefined,
+    body: effectiveData ? JSON.stringify(effectiveData) : undefined,
     credentials: "include",
   });
 
