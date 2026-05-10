@@ -6492,10 +6492,12 @@ router.get(
         reviewsCount: reviewStats?.totalReviews || 0,
         profilePhotoUrl: coach.photoUrl || null,
         publicProfileEnabled: coach.publicProfileEnabled !== false,
-        dropInPrice:
-          coach.hourlyRate != null
-            ? parseFloat(coach.hourlyRate.toString())
-            : null,
+        dropInPrice: (() => {
+          const prices = upcomingSessionsEnriched
+            .map((s) => s.publicDropInPrice)
+            .filter((p): p is number => p != null);
+          return prices.length > 0 ? Math.min(...prices) : null;
+        })(),
         academyId,
         academyName,
         academyLogoUrl,

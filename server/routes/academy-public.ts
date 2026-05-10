@@ -887,9 +887,16 @@ import { Router, type Request, type Response } from "express";
       res.json({
         profile: {
           ...profile,
+          // Explicitly omit internal pay rate — never surface to players.
+          hourlyRate: undefined,
           // Surface a single avatar for clients regardless of which field is set.
           avatarUrl: profile.photoUrl || null,
-          dropInPrice: profile.hourlyRate != null ? parseFloat(profile.hourlyRate.toString()) : null,
+          dropInPrice: (() => {
+            const prices = openLessons
+              .map((s) => s.dropInPrice)
+              .filter((p): p is number => p != null);
+            return prices.length > 0 ? Math.min(...prices) : null;
+          })(),
           openLessons,
         },
       });
