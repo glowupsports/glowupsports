@@ -686,6 +686,23 @@ export function FriendsSection({ onChallenge: _onChallenge, onSelectActivity }: 
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => renderFriendCard(item)}
           contentContainerStyle={{ paddingBottom: tabBarHeight + 100, paddingHorizontal: Spacing.md }}
+          ListHeaderComponent={
+            friends.length > 0 ? (
+              <Pressable
+                style={friendStyles.findPlayersBanner}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("PlayerFinder" as never);
+                }}
+              >
+                <View style={friendStyles.findPlayersBannerIcon}>
+                  <Ionicons name="person-add" size={18} color={Colors.dark.primary} />
+                </View>
+                <ThemedText style={friendStyles.findPlayersBannerText}>{t('player.community.findPlayers')}</ThemedText>
+                <Ionicons name="arrow-forward" size={16} color={Colors.dark.primary} />
+              </Pressable>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={friendStyles.emptyState}>
               <View style={friendStyles.emptyIcon}>
@@ -709,7 +726,10 @@ export function FriendsSection({ onChallenge: _onChallenge, onSelectActivity }: 
               </Pressable>
               <Pressable
                 style={friendStyles.findPlayersBtn}
-                onPress={() => navigation.navigate("PlayerFinder" as never)}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("PlayerFinder" as never);
+                }}
               >
                 <ThemedText style={friendStyles.findPlayersBtnText}>{t('player.community.findPlayers')}</ThemedText>
                 <Ionicons name="arrow-forward" size={16} color={Colors.dark.buttonText} />
@@ -1619,6 +1639,33 @@ const friendStyles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.textSecondary,
+  },
+  findPlayersBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  findPlayersBannerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.primary + "25",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  findPlayersBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.primary,
   },
   activityCard: {
     backgroundColor: Colors.dark.backgroundSecondary,

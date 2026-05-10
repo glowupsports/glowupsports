@@ -144,6 +144,49 @@ const PILLAR_DESCRIPTIONS: Record<string, { meaning: string; howToLevel: string 
   },
 };
 
+function ConnectedBadge({ connectionType, onRemove }: { connectionType?: string | null; onRemove?: () => void }) {
+  let label = "Friends";
+  let icon: "checkmark-circle" | "flash" | "barbell" = "checkmark-circle";
+  let color = Colors.dark.primary;
+  if (connectionType === "rival") {
+    label = "Rival";
+    icon = "flash";
+    color = Colors.dark.orange;
+  } else if (connectionType === "training_partner") {
+    label = "Training Partner";
+    icon = "barbell";
+    color = Colors.dark.gold;
+  }
+
+  const handlePress = () => {
+    if (!onRemove) return;
+    Alert.alert(
+      "Remove Connection",
+      `Remove this player from your ${label.toLowerCase()} list?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: onRemove },
+      ],
+    );
+  };
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.friendsBtn,
+        { borderColor: color + "40", backgroundColor: color + "15" },
+        pressed && { opacity: 0.7 },
+      ]}
+      onPress={handlePress}
+      testID="status-friends"
+    >
+      <Ionicons name={icon} size={18} color={color} />
+      <Text style={[styles.friendsBtnText, { color }]}>{label}</Text>
+      {onRemove ? <Ionicons name="chevron-down" size={14} color={color} style={{ opacity: 0.7 }} /> : null}
+    </Pressable>
+  );
+}
+
 const getPlayerStatusBadge = (stats: { matchesPlayed: number; wins: number; sessionsAttended: number }): { label: string; color: string; borderColor: string } => {
   const totalActivity = stats.matchesPlayed + stats.sessionsAttended;
   const winRate = stats.matchesPlayed > 0 ? stats.wins / stats.matchesPlayed : 0;
@@ -168,6 +211,7 @@ export default function PlayerPublicProfileScreen() {
   const playerId = route.params?.playerId || user?.playerId;
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPillar, setSelectedPillar] = useState<PublicProfile["pillars"][0] | null>(null);
+  const [showConnectPicker, setShowConnectPicker] = useState(false);
 
   const glowPulse = useSharedValue(0.5);
   
@@ -199,7 +243,7 @@ export default function PlayerPublicProfileScreen() {
   });
 
   // Connection status for this player
-  const { data: connectionStatus, isLoading: connectionStatusLoading } = useQuery<{ status: string; connectionId: string | null; isRequester: boolean; reason?: string }>({
+  const { data: connectionStatus, isLoading: connectionStatusLoading } = useQuery<{ status: string; connectionId: string | null; isRequester: boolean; reason?: string; connectionType?: string | null }>({
     queryKey: [`/api/player/connections/status/${playerId}`],
     enabled: !!playerId && !profile?.isOwnProfile,
   });
@@ -213,17 +257,18 @@ export default function PlayerPublicProfileScreen() {
   });
 
   const sendFriendRequestMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/player/connections/request", { targetPlayerId: playerId });
+    mutationFn: async (connectionType: "friend" | "rival" | "training_partner") => {
+      return apiRequest("POST", "/api/player/connections/request", { targetPlayerId: playerId, connectionType });
     },
     onSuccess: () => {
+      setShowConnectPicker(false);
       queryClient.invalidateQueries({ queryKey: [`/api/player/connections/status/${playerId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/player/connections"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: (err: Error) => {
+      setShowConnectPicker(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      // apiRequest throws errors of the form "<status>: <body>". Try to extract a clean message.
       const raw = err?.message || "";
       let message = raw;
       const match = raw.match(/^\d+:\s*(.*)$/s);
@@ -236,15 +281,35 @@ export default function PlayerPublicProfileScreen() {
           message = body;
         }
       }
-      // Always force the status query to re-sync with server truth so the UI never lies.
       queryClient.invalidateQueries({ queryKey: [`/api/player/connections/status/${playerId}`] });
-      Alert.alert("Couldn't send friend request", message || "Please try again in a moment.");
+      Alert.alert("Couldn't send request", message || "Please try again in a moment.");
     },
   });
 
-  const handleAddFriend = () => {
+  const handleConnect = (connectionType: "friend" | "rival" | "training_partner") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    sendFriendRequestMutation.mutate();
+    sendFriendRequestMutation.mutate(connectionType);
+  };
+
+  const removeConnectionMutation = useMutation({
+    mutationFn: async (connectionId: string) => {
+      return apiRequest("DELETE", `/api/player/connections/${connectionId}`, undefined);
+    },
+    onSuccess: () => {
+      invalidateAllConnectionStatusCaches();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Couldn't remove connection", "Please try again in a moment.");
+    },
+  });
+
+  const handleRemoveConnection = () => {
+    const connectionId = connectionStatus?.connectionId;
+    if (!connectionId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    removeConnectionMutation.mutate(connectionId);
   };
 
   // Match FriendsListScreen: invalidate the connections list AND every
@@ -531,12 +596,15 @@ export default function PlayerPublicProfileScreen() {
                     testID="button-add-friend-disabled"
                   >
                     <Ionicons name="person-add" size={18} color={Colors.dark.text} />
-                    <Text style={styles.addFriendBtnText}>Add Friend</Text>
+                    <Text style={styles.addFriendBtnText}>Connect</Text>
                   </Pressable>
                 ) : connectionStatus?.status === "none" || !connectionStatus ? (
-                  <Pressable 
-                    style={styles.addFriendBtn} 
-                    onPress={handleAddFriend}
+                  <Pressable
+                    style={styles.addFriendBtn}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setShowConnectPicker(true);
+                    }}
                     disabled={sendFriendRequestMutation.isPending}
                     testID="button-add-friend"
                   >
@@ -545,7 +613,7 @@ export default function PlayerPublicProfileScreen() {
                     ) : (
                       <>
                         <Ionicons name="person-add" size={18} color={Colors.dark.text} />
-                        <Text style={styles.addFriendBtnText}>Add Friend</Text>
+                        <Text style={styles.addFriendBtnText}>Connect</Text>
                       </>
                     )}
                   </Pressable>
@@ -587,10 +655,7 @@ export default function PlayerPublicProfileScreen() {
                     </View>
                   )
                 ) : connectionStatus?.status === "accepted" ? (
-                  <View style={styles.friendsBtn} testID="status-friends">
-                    <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
-                    <Text style={styles.friendsBtnText}>Friends</Text>
-                  </View>
+                  <ConnectedBadge connectionType={connectionStatus.connectionType} onRemove={handleRemoveConnection} />
                 ) : null}
                 <Pressable style={styles.challengeBtn} onPress={handleChallengePlayer} testID="button-challenge-player">
                   <Ionicons name="flash" size={18} color={Colors.dark.primary} />
@@ -896,6 +961,55 @@ export default function PlayerPublicProfileScreen() {
         )}
       </ScrollView>
       
+      {/* Connect Type Picker Modal */}
+      <Modal
+        visible={showConnectPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowConnectPicker(false)}
+      >
+        <View style={styles.connectPickerOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowConnectPicker(false)} />
+          <View style={styles.connectPickerSheet}>
+            <View style={styles.connectPickerHandle} />
+            <Text style={styles.connectPickerTitle}>Connect with {profile?.name?.split(" ")[0]}</Text>
+            <Text style={styles.connectPickerSubtitle}>How do you want to connect?</Text>
+
+            {(
+              [
+                { type: "friend" as const, icon: "people" as const, label: "Friend", description: "Stay connected and see each other's updates", color: Colors.dark.primary },
+                { type: "rival" as const, icon: "flash" as const, label: "Rival", description: "Compete head-to-head and track wins against each other", color: Colors.dark.orange },
+                { type: "training_partner" as const, icon: "barbell" as const, label: "Training Partner", description: "Train together and share practice sessions", color: Colors.dark.gold },
+              ] as const
+            ).map((option) => (
+              <Pressable
+                key={option.type}
+                style={({ pressed }) => [styles.connectOption, pressed && { opacity: 0.7 }]}
+                onPress={() => handleConnect(option.type)}
+                disabled={sendFriendRequestMutation.isPending}
+              >
+                <View style={[styles.connectOptionIcon, { backgroundColor: option.color + "20" }]}>
+                  <Ionicons name={option.icon} size={24} color={option.color} />
+                </View>
+                <View style={styles.connectOptionText}>
+                  <Text style={styles.connectOptionLabel}>{option.label}</Text>
+                  <Text style={styles.connectOptionDesc}>{option.description}</Text>
+                </View>
+                {sendFriendRequestMutation.isPending && sendFriendRequestMutation.variables === option.type ? (
+                  <TennisBallSpinner size="small" color={option.color} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+                )}
+              </Pressable>
+            ))}
+
+            <Pressable style={styles.connectPickerCancel} onPress={() => setShowConnectPicker(false)}>
+              <Text style={styles.connectPickerCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {/* Pillar Detail Modal */}
       <Modal
         visible={selectedPillar !== null}
@@ -1833,6 +1947,78 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   modalTrendText: {
     fontSize: 13,
+    fontWeight: "600",
+  },
+
+  connectPickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "flex-end",
+  },
+  connectPickerSheet: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl + 8,
+  },
+  connectPickerHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: Spacing.lg,
+  },
+  connectPickerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: Spacing.xs,
+  },
+  connectPickerSubtitle: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.lg,
+  },
+  connectOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundTertiary,
+  },
+  connectOptionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  connectOptionText: {
+    flex: 1,
+  },
+  connectOptionLabel: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  connectOptionDesc: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    lineHeight: 18,
+  },
+  connectPickerCancel: {
+    marginTop: Spacing.lg,
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+  },
+  connectPickerCancelText: {
+    fontSize: 16,
+    color: Colors.dark.textMuted,
     fontWeight: "600",
   },
 }));

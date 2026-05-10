@@ -1998,10 +1998,15 @@ router.post("/api/player/connections/request", authMiddleware, async (req: AuthR
         return res.status(403).json({ error: "You need a player profile to send friend requests. Switch to a player account to connect with other players." });
       }
 
-      const { targetPlayerId } = req.body;
+      const { targetPlayerId, connectionType: rawConnectionType } = req.body;
       if (!targetPlayerId || typeof targetPlayerId !== "string") {
         return res.status(400).json({ error: "Target player ID required" });
       }
+
+      const ALLOWED_CONNECTION_TYPES = new Set(["friend", "rival", "training_partner"]);
+      const connectionType = ALLOWED_CONNECTION_TYPES.has(rawConnectionType)
+        ? (rawConnectionType as "friend" | "rival" | "training_partner")
+        : ("friend" as const);
 
       if (targetPlayerId === playerId) {
         return res.status(400).json({ error: "You can't send a friend request to yourself" });
@@ -2055,7 +2060,7 @@ router.post("/api/player/connections/request", authMiddleware, async (req: AuthR
           player1Id: playerId,
           player2Id: targetPlayerId,
           status: "pending",
-          connectionType: "friend",
+          connectionType,
         })
         .returning();
 
@@ -2523,6 +2528,7 @@ router.get("/api/player/connections/status/:targetPlayerId", authMiddleware, asy
         status: connection.status,
         connectionId: connection.id,
         isRequester,
+        connectionType: connection.connectionType,
       });
     } catch (error) {
       console.error("Error checking connection status:", error);
