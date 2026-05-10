@@ -246,7 +246,9 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     queryKey: [calendarQueryPath],
     enabled: !!coach?.id && !!calendarQueryPath,
     placeholderData: (previousData) => previousData, // Keep previous data visible while fetching new
-    staleTime: 1000 * 60 * 2, // Consider data fresh for 2 minutes
+    staleTime: 1000 * 30, // 30 s — picks up changes from other coaches quickly
+    refetchInterval: 1000 * 30, // Poll every 30 s so freed slots from other coaches refresh automatically
+    refetchOnWindowFocus: true,
   });
 
   return (

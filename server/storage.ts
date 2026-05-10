@@ -5427,6 +5427,10 @@ export const storage = {
         // V2 ledger rows for these sessions are immutable history and stay;
         // consume rows that had credits are reversed above before deletion.
 
+        // Remove coach_time_blocks tied to these sessions so other coaches'
+        // slot views stop showing them as "Unavailable" immediately.
+        await tx.delete(coachTimeBlocks).where(inArray(coachTimeBlocks.sourceSessionId, futureSessionIds));
+
         // Delete session players for future sessions
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, futureSessionIds));
 
@@ -5504,6 +5508,8 @@ export const storage = {
         // Legacy V1 `credit_transactions` delete removed (Task #692 step 2).
         // V2 ledger rows are immutable history and remain; consume rows that
         // had credits are reversed above before this transaction runs.
+        // Remove coach_time_blocks so other coaches' slot views free up immediately.
+        await tx.delete(coachTimeBlocks).where(inArray(coachTimeBlocks.sourceSessionId, sessionIds));
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
         // Nullify booking_requests.sessionId before deleting sessions (FK constraint)
         await tx.update(bookingRequests).set({ sessionId: null }).where(inArray(bookingRequests.sessionId, sessionIds));
