@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db, pool } from "../db";
-import { storage } from "../storage";import { players, coaches, users, sessions, coachingSeries, seriesPlayers, creditTransactions, payments, sessionPlayers, sessionWaitlist, leaderboardSnapshots, locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions, coachTimeBlocks, courtAvailability, courtBookings, courts, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, bookingRequests, academyPricing, submitReviewSchema, inSessionFeedback, sessionSkillObservations, xpTransactions, playerSkillScores, glowSkills, sessionRatings, sessionRatingInputSchema, academies, coachReviewStats, locations, parentPlayerRelations, academySettings, type Coach, type InsertInvoice, type InsertPayment } from "@shared/schema";
+import { storage } from "../storage";import { players, coaches, users, sessions, coachingSeries, seriesPlayers, creditTransactions, payments, sessionPlayers, sessionWaitlist, leaderboardSnapshots, locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions, coachTimeBlocks, courtAvailability, courtBookings, courts, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, bookingRequests, academyPricing, submitReviewSchema, inSessionFeedback, sessionSkillObservations, xpTransactions, playerSkillScores, glowSkills, sessionRatings, sessionRatingInputSchema, academies, coachReviewStats, locations, parentPlayerRelations, academySettings, conversations, conversationParticipants, messages, type Coach, type InsertInvoice, type InsertPayment } from "@shared/schema";
 import { eq, sql, desc, and, ne, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, optionalAuthMiddleware, type JWTPayload } from "../auth";
@@ -9181,6 +9181,9 @@ router.post(
     let withdrawnChallengeId: string | null = null;
     let withdrawnChallengeChallengerId: string | null = null;
     let withdrawnChallengeInvitedId: string | null = null;
+    let matchConversationId: string | null = null;
+    let matchPreferredDate: string | null = null;
+    let matchPreferredTime: string | null = null;
 
     try {
       await client.query("BEGIN");
@@ -9193,7 +9196,8 @@ router.post(
       const matchRes = await client.query(
         `SELECT id, host_player_id, academy_id, status,
                 current_players, max_players,
-                invited_player_id, linked_challenge_id
+                invited_player_id, linked_challenge_id,
+                preferred_date, preferred_time
            FROM open_matches
           WHERE id = $1
           FOR UPDATE`,
@@ -9208,6 +9212,8 @@ router.post(
       const match = matchRes.rows[0];
       hostPlayerId = match.host_player_id;
       hostAcademyId = match.academy_id;
+      matchPreferredDate = match.preferred_date || null;
+      matchPreferredTime = match.preferred_time || null;
 
       if (match.status !== "open") {
         await client.query("ROLLBACK");
@@ -9335,10 +9341,159 @@ router.post(
     // Best-effort post-commit side effects — failures here must not
     // roll back the join.
     try {
+      // Fetch names for joiner and host in one shot
+      const nameRows = await db
+        .select({ id: players.id, name: players.name })
+        .from(players)
+        .where(inArray(players.id, [playerId, hostPlayerId!].filter((x): x is string => !!x)));
+      const nameById = new Map(nameRows.map((r) => [r.id, r.name || "A player"]));
+      const joinerName = nameById.get(playerId) || "A player";
+      const hostName   = nameById.get(hostPlayerId!) || "A player";
+
+      // Format date label for notifications / chat
+      const dateLabel = matchPreferredDate
+        ? new Date(matchPreferredDate).toLocaleDateString("en-GB", {
+            weekday: "short", day: "numeric", month: "short",
+          })
+        : "upcoming";
+      const timeLabel = matchPreferredTime
+        ? matchPreferredTime.slice(0, 5)
+        : "";
+
+      // Notify host — now with joiner's name
       if (hostPlayerId) {
-        const joinNotif: any = { type: "open_match_join", title: "Player Joined", message: `Someone joined your open match!`, playerId: hostPlayerId, academyId: hostAcademyId, data: { matchId } };
-        await storage.createNotification(joinNotif);
+        const isFull = newStatus === "full";
+        await storage.createNotification({
+          type: "open_match_join",
+          title: "Player Joined",
+          message: `${joinerName} joined your open match!${isFull ? " Match is now confirmed." : ""}`,
+          playerId: hostPlayerId,
+          academyId: hostAcademyId,
+          data: { matchId },
+        } as any);
+        try {
+          const hostTokens = await getPlayerPushTokens(hostPlayerId);
+          if (hostTokens.length > 0) {
+            await sendPushNotification(
+              hostTokens,
+              isFull ? "Match Confirmed!" : "Player Joined!",
+              isFull
+                ? `${joinerName} filled your open match on ${dateLabel}${timeLabel ? " at " + timeLabel : ""}. A match chat has been created!`
+                : `${joinerName} joined your open match on ${dateLabel}. One more spot to fill.`,
+              { type: "open_match_join", matchId },
+              hostPlayerId,
+            );
+          }
+        } catch (pushErr) {
+          console.error("[OpenMatch] failed to push host:", pushErr);
+        }
       }
+
+      // Push joiner — confirm they're in
+      try {
+        const joinerTokens = await getPlayerPushTokens(playerId);
+        if (joinerTokens.length > 0) {
+          await sendPushNotification(
+            joinerTokens,
+            newStatus === "full" ? "Match Confirmed!" : "You're In!",
+            newStatus === "full"
+              ? `Your match with ${hostName} on ${dateLabel}${timeLabel ? " at " + timeLabel : ""} is confirmed. A chat has been created!`
+              : `You joined a match on ${dateLabel}. Waiting for the last spot to fill.`,
+            { type: "open_match_joined", matchId },
+            playerId,
+          );
+        }
+      } catch (pushErr) {
+        console.error("[OpenMatch] failed to push joiner:", pushErr);
+      }
+
+      // When match fills, auto-create a group chat between all confirmed players
+      if (newStatus === "full") {
+        try {
+          const slots = await db
+            .select({ playerId: openMatchSlots.playerId })
+            .from(openMatchSlots)
+            .where(eq(openMatchSlots.matchId, matchId));
+          const allPlayerIds = slots
+            .map((s) => s.playerId)
+            .filter((x): x is string => !!x);
+
+          const chatTitle = `Match Chat – ${dateLabel}${timeLabel ? " " + timeLabel : ""}`;
+          const openingBody = `Match confirmed! Use this chat to coordinate with your opponent and arrange the details.`;
+
+          const [conv] = await db
+            .insert(conversations)
+            .values({
+              type: "group",
+              title: chatTitle,
+              academyId: hostAcademyId || null,
+            })
+            .returning();
+
+          matchConversationId = conv.id;
+
+          if (allPlayerIds.length > 0) {
+            await db.insert(conversationParticipants).values(
+              allPlayerIds.map((pid) => ({
+                conversationId: conv.id,
+                participantType: "player" as const,
+                playerId: pid,
+                role: "member" as const,
+                canPost: true,
+                academyId: hostAcademyId || null,
+              })),
+            );
+          }
+
+          await db.insert(messages).values({
+            conversationId: conv.id,
+            senderType: "system",
+            body: openingBody,
+            messageType: "system",
+            academyId: hostAcademyId || null,
+          });
+
+          await db
+            .update(conversations)
+            .set({ lastMessageAt: new Date(), lastMessagePreview: openingBody })
+            .where(eq(conversations.id, conv.id));
+
+          // In-app notifications for all players
+          if (allPlayerIds.length > 0) {
+            await db.insert(playerNotifications).values(
+              allPlayerIds.map((pid) => ({
+                playerId: pid,
+                title: "Match Chat Created",
+                body: `Your match with ${pid === hostPlayerId ? joinerName : hostName} is confirmed. Tap to chat and arrange details.`,
+                type: "open_match_chat_created",
+                data: { matchId, conversationId: conv.id } as Record<string, unknown>,
+              })),
+            );
+          }
+
+          // Push all players into the chat
+          for (const pid of allPlayerIds) {
+            try {
+              const tokens = await getPlayerPushTokens(pid);
+              if (tokens.length > 0) {
+                const opponentName = pid === hostPlayerId ? joinerName : hostName;
+                await sendPushNotification(
+                  tokens,
+                  "Match Chat Ready!",
+                  `Connect with ${opponentName} to arrange your match on ${dateLabel}.`,
+                  { type: "open_match_chat_created", matchId, conversationId: conv.id },
+                  pid,
+                );
+              }
+            } catch (pushErr) {
+              console.error("[OpenMatch] failed to push match chat notif to", pid, pushErr);
+            }
+          }
+        } catch (chatErr) {
+          console.error("[OpenMatch] failed to create match chat:", chatErr);
+        }
+      }
+
       await emitOpenMatchUpdate(matchId, [], "join");
 
       // Task #1362 — notify the original invited player + the challenger
@@ -9398,6 +9553,7 @@ router.post(
           : "Joined match successfully",
       currentPlayers: newCount,
       status: newStatus,
+      conversationId: matchConversationId,
     });
   },
 );

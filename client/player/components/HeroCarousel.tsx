@@ -312,10 +312,29 @@ function CompeteCard() {
   const joinMutation = useMutation({
     mutationFn: async (id: string) =>
       apiRequest("POST", `/api/open-matches/${id}/join`, { playerId }),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches", { includeMine: true }] });
-      Alert.alert("Joined!", "You're in. See match details in Play.");
+      const convId: string | null = data?.conversationId ?? null;
+      if (convId) {
+        Alert.alert(
+          "Match Confirmed!",
+          "The match is full. A chat has been created so you can coordinate with your opponent.",
+          [
+            {
+              text: "Open Chat",
+              onPress: () => {
+                try {
+                  navigation.navigate("PlayerChat" as any, { conversationId: convId } as any);
+                } catch {}
+              },
+            },
+            { text: "Later", style: "cancel" },
+          ],
+        );
+      } else {
+        Alert.alert("Joined!", "You're in. Waiting for the match to fill up.");
+      }
     },
     onError: (err: any) => {
       // Task #1270 — when the home card is holding a stale id from before

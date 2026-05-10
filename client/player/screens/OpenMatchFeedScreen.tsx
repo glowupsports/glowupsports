@@ -533,15 +533,34 @@ export default function OpenMatchFeedScreen() {
       const response = await apiRequest("POST", `/api/open-matches/${matchId}/join`);
       return response;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/open-matches", { includeMine: true }] });
-      Alert.alert(
-        "You're In!", 
-        "Successfully joined the match. Get ready to play!",
-        [{ text: "Let's Go!", style: "default" }]
-      );
+      const convId: string | null = data?.conversationId ?? null;
+      if (convId) {
+        Alert.alert(
+          "Match Confirmed!",
+          "The match is full. A chat has been created so you can coordinate with your opponent.",
+          [
+            {
+              text: "Open Chat",
+              onPress: () => {
+                try {
+                  navigation.navigate("PlayerChat" as any, { conversationId: convId } as any);
+                } catch {}
+              },
+            },
+            { text: "Later", style: "cancel" },
+          ],
+        );
+      } else {
+        Alert.alert(
+          "You're In!",
+          "Successfully joined the match. You'll be notified when it fills up.",
+          [{ text: "Got it", style: "default" }],
+        );
+      }
     },
     onError: (error: any) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
