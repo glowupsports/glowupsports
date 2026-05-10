@@ -534,6 +534,7 @@ export default function PlayerSettingsScreen() {
       icon: "help-circle",
       label: "Help & Support",
       type: "link",
+      onPress: () => (navigation as any).navigate("PlayerHelp", { initialTab: "faq" }),
     },
     {
       id: "about",
@@ -602,6 +603,25 @@ export default function PlayerSettingsScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 200 }]}
         showsVerticalScrollIndicator={false}
       >
+
+        <Pressable
+          style={styles.helpBanner}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            (navigation as any).navigate("PlayerHelp", { initialTab: "faq" });
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Help and FAQ"
+        >
+          <View style={styles.helpBannerIcon}>
+            <Ionicons name="help-circle" size={22} color={Colors.dark.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.helpBannerTitle}>Help & FAQ</Text>
+            <Text style={styles.helpBannerDesc}>Find answers and learn how the app works</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+        </Pressable>
 
         <View style={styles.section}>
           <View style={styles.sectionHeaderRow}>
@@ -1175,6 +1195,34 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   scrollContent: {
     padding: Spacing.xl,
     gap: Spacing.xl,
+  },
+  helpBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: `${GlowColors.primary}15`,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: `${GlowColors.primary}40`,
+    padding: Spacing.md,
+    gap: Spacing.md,
+  },
+  helpBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `${GlowColors.primary}20`,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  helpBannerTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  helpBannerDesc: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
   },
   section: {
     gap: Spacing.sm,

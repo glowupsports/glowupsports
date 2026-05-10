@@ -1797,6 +1797,46 @@
           "q": "Is my data private?",
           "a": "Yes. Your personal info is private by default. You can control what's visible to other players in Profile → Privacy Settings.",
           "category": "Account"
+        },
+        "deleteAccount": {
+          "q": "How do I delete my account?",
+          "a": "Go to Settings → Account and scroll down to find 'Delete Account'. This permanently removes all your data including XP, match history, and progress. This action cannot be undone.",
+          "category": "Account"
+        },
+        "sessionTypes": {
+          "q": "What is the difference between session types?",
+          "a": "Private sessions are one-on-one with your coach. Semi-private sessions include 2–3 players sharing a coach. Group sessions are larger classes. Each type uses a different credit balance.",
+          "category": "Booking"
+        },
+        "waitlist": {
+          "q": "Can I join a waitlist for a full session?",
+          "a": "Yes. When a session is full, tap 'Join Waitlist'. If a spot opens up, you'll receive a notification and the session will be reserved for you automatically.",
+          "category": "Booking"
+        },
+        "levelUp": {
+          "q": "How do I level up?",
+          "a": "You level up by earning XP from sessions, quests, and achievements. Once your XP bar is full, you advance to the next level automatically. Each level unlocks new features and rewards.",
+          "category": "Progress"
+        },
+        "creditExpiry": {
+          "q": "Do my credits expire?",
+          "a": "Credit expiry depends on the package your academy sold you. Check the expiry date in your wallet. Unused credits after the expiry date may be removed automatically.",
+          "category": "Billing"
+        },
+        "openMatch": {
+          "q": "How do I join or create an open match?",
+          "a": "Open the Play tab and tap Find Players or Open Matches. You can browse matches near you or tap the '+' button to post your own. Set your ball level, date, and location and other players can request to join.",
+          "category": "Social"
+        },
+        "matchResult": {
+          "q": "How do I log a match result?",
+          "a": "After playing, go to Play → Match History and tap 'Log a Match'. Enter the date, score, and your opponent. Your opponent will receive a notification to confirm the result. Confirmed wins count toward your Glow Rank.",
+          "category": "Social"
+        },
+        "communityFeed": {
+          "q": "What is the community feed?",
+          "a": "The Community tab shows posts, achievements, and highlights from players in your academy. You can react with cheers, comment, and share your own updates to stay connected with the community.",
+          "category": "Social"
         }
       },
       "a11yItem": "FAQ {{index}}: {{question}}",
