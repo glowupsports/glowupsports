@@ -693,8 +693,24 @@ router.post(
   requireAcademy,
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const coachId = req.user!.coachId;
+      let coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
+
+      // Supervisor mode: academy owners can create a series on behalf of another
+      // coach. The client injects supervisorCoachId into every write body when
+      // supervisor mode is active (see query-client.ts). Validate and apply it.
+      const supervisorCoachId = req.body?.supervisorCoachId as string | undefined;
+      if (supervisorCoachId) {
+        const callerRole = req.user!.role;
+        if (!["academy_owner", "owner", "platform_owner"].includes(callerRole ?? "")) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       if (!coachId || !academyId) {
         return res.status(400).json({ error: "Coach and academy required" });
@@ -1404,7 +1420,22 @@ router.patch(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const coachId = req.user!.coachId;
+      let coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+
+      // Supervisor mode: allow owners to update a series belonging to a supervised coach
+      const supervisorCoachId = req.body?.supervisorCoachId as string | undefined;
+      if (supervisorCoachId) {
+        const callerRole = req.user!.role;
+        if (!["academy_owner", "owner", "platform_owner"].includes(callerRole ?? "")) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {

@@ -756,6 +756,27 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           ) : null}
 
 
+          {/* FIND MATCH QUICK ACTION — primary action entry point to Open Match feed */}
+          {!isGuest ? (
+            <Pressable
+              style={styles.findMatchBanner}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                navigation.navigate("FindGame");
+              }}
+              accessibilityLabel="Find a match — browse open game requests"
+            >
+              <View style={styles.findMatchIconWrap}>
+                <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
+              </View>
+              <View style={styles.findMatchText}>
+                <Text style={styles.findMatchTitle}>Find a Match</Text>
+                <Text style={styles.findMatchSub}>Browse open game requests near you</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.dark.primary} />
+            </Pressable>
+          ) : null}
+
           {/* HERO CAROUSEL */}
           <HeroCarousel onBookSession={handleBookLesson} onRateSession={handleRateEndedSession} />
 
@@ -1112,6 +1133,40 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   nudgeBarFill: {
     height: 3,
     borderRadius: 2,
+  },
+  findMatchBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+    backgroundColor: Colors.dark.primary + "12",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+    padding: Spacing.md,
+  },
+  findMatchIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  findMatchText: {
+    flex: 1,
+  },
+  findMatchTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  findMatchSub: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
   },
 }));
 

@@ -556,7 +556,11 @@ function SupervisorBanner() {
   const { supervisorCoach, setSupervisorCoach, setShowCoachPicker, isReadOnly } = useSupervisorMode();
   const { setMode } = useAppMode();
 
-  if (!supervisorCoach || !isReadOnly) return null;
+  // Show banner for ALL supervisor sessions — not just read-only ones.
+  // Previously this was gated on `isReadOnly`, which meant academy owners
+  // (who are allowed to create sessions for supervised coaches) never saw
+  // the "Viewing as X" banner and had no idea they were in supervisor mode.
+  if (!supervisorCoach) return null;
 
   const handleSwitchCoach = () => {
     // Keep the current supervisorCoach while the picker is open so the banner
@@ -576,7 +580,7 @@ function SupervisorBanner() {
       <View style={bannerStyles.leftSection}>
         <View style={bannerStyles.dot} />
         <Text style={bannerStyles.label} numberOfLines={1}>
-          Viewing as{" "}
+          {isReadOnly ? "Viewing as " : "Creating for "}
           <Text style={bannerStyles.coachName}>{supervisorCoach.name}</Text>
           {isReadOnly ? (
             <>

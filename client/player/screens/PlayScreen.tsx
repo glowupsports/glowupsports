@@ -2969,17 +2969,29 @@ export default function PlayScreen() {
             <Text style={styles.playHeaderAcademy} numberOfLines={1}>
               {profileData?.academy?.name || t("player.play.title")}
             </Text>
-            <Pressable
-              style={styles.playHeaderSearchBtn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setPlaySection("Matches");
-                setActiveTab("Players");
-              }}
-              accessibilityLabel="Search players"
-            >
-              <Ionicons name="search" size={16} color={Colors.dark.textMuted} />
-            </Pressable>
+            <View style={styles.playHeaderActions}>
+              <Pressable
+                style={styles.playHeaderSearchBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("MyGames" as never);
+                }}
+                accessibilityLabel="My games"
+              >
+                <Ionicons name="calendar-outline" size={16} color={Colors.dark.textMuted} />
+              </Pressable>
+              <Pressable
+                style={styles.playHeaderSearchBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPlaySection("Matches");
+                  setActiveTab("Players");
+                }}
+                accessibilityLabel="Search players"
+              >
+                <Ionicons name="search" size={16} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -3008,24 +3020,24 @@ export default function PlayScreen() {
                 </Pressable>
 
                 <Pressable
-                  style={styles.heroCard}
+                  style={[styles.heroCard, styles.heroCardHighlighted]}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     navigation.navigate("OpenMatches" as never);
                   }}
                 >
-                  <View style={styles.heroCardIcon}>
+                  <View style={[styles.heroCardIcon, styles.heroCardIconHighlighted]}>
                     <Ionicons
                       name="tennisball"
                       size={18}
-                      color={Colors.dark.text}
+                      color={Colors.dark.primary}
                     />
                   </View>
-                  <Text style={styles.heroCardLabel} numberOfLines={1}>
+                  <Text style={[styles.heroCardLabel, styles.heroCardLabelHighlighted]} numberOfLines={1}>
                     Open Matches
                   </Text>
                   {openMatchesCount > 0 ? (
-                    <Text style={styles.heroCardCount} numberOfLines={1}>
+                    <Text style={[styles.heroCardCount, { color: Colors.dark.primary }]} numberOfLines={1}>
                       {openMatchesCount} open
                     </Text>
                   ) : null}
@@ -5060,6 +5072,11 @@ const styles = makeReactiveStyles(() =>
       ...Typography.h2,
       color: Colors.dark.text,
       flex: 1,
+    },
+    playHeaderActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.xs,
     },
     playHeaderSearchBtn: {
       width: 32,
