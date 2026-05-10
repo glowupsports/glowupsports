@@ -165,6 +165,9 @@ export function CalendarDayViewSlots({
   START_HOUR,
   slotReservations = [],
 }: CalendarDayViewSlotsProps) {
+  const syncingFromHeader = React.useRef(false);
+  const syncingFromLanes = React.useRef(false);
+
   return (
     <>
       <CalendarFilterOverlay
@@ -186,10 +189,13 @@ export function CalendarDayViewSlots({
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
           onScroll={(e) => {
+            if (syncingFromLanes.current) return;
+            syncingFromHeader.current = true;
             courtLanesScrollRef.current?.scrollTo({
               x: e.nativeEvent.contentOffset.x,
               animated: false,
             });
+            requestAnimationFrame(() => { syncingFromHeader.current = false; });
           }}
           contentContainerStyle={{ width: totalCourtsWidth }}
         >
@@ -222,10 +228,13 @@ export function CalendarDayViewSlots({
             nestedScrollEnabled={true}
             scrollEventThrottle={16}
             onScroll={(e) => {
+              if (syncingFromHeader.current) return;
+              syncingFromLanes.current = true;
               courtHeaderScrollRef.current?.scrollTo({
                 x: e.nativeEvent.contentOffset.x,
                 animated: false,
               });
+              requestAnimationFrame(() => { syncingFromLanes.current = false; });
             }}
             contentContainerStyle={{ width: totalCourtsWidth }}
             style={styles.courtLanesContainer}
