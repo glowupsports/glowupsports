@@ -657,7 +657,7 @@ import { Router, type Request, type Response } from "express";
           }
         }
 
-        const { search, paginated, withCredits, status: statusFilter } = req.query;
+        const { search, paginated, withCredits, status: statusFilter, busyWeekOf } = req.query;
         const usePagination = paginated === "true";
         const includeCredits = withCredits === "true";
         // status filter: "inactive" for past players, "active" for active (default), or undefined for all
@@ -744,6 +744,29 @@ import { Router, type Request, type Response } from "express";
         // Batch fetch supplementary data for all players in PARALLEL.
         // Combine active+paused group counts into one query that groups by status.
         const playerIds = playerList.map((p) => p.id);
+
+        // busyWeekOf: annotate each player with hasSessionThisWeek if a date is provided.
+        // Counts group/semi_private sessions in the ISO week containing that date.
+        const busyPlayerIds = new Set<string>();
+        const busyWeekOfStr = typeof busyWeekOf === "string" ? busyWeekOf : null;
+        if (busyWeekOfStr && playerIds.length > 0) {
+          const busyRows = await pool.query<{ player_id: string }>(
+            `SELECT DISTINCT sp.player_id
+               FROM session_players sp
+               JOIN sessions s ON s.id = sp.session_id
+              WHERE s.academy_id = $1
+                AND s.session_type IN ('group', 'semi_private')
+                AND s.start_time >= date_trunc('week', $2::date)
+                AND s.start_time <  date_trunc('week', $2::date) + INTERVAL '7 days'
+                AND s.status != 'cancelled'
+                AND sp.player_id = ANY($3::text[])`,
+            [effectiveAcademyId, busyWeekOfStr, playerIds],
+          );
+          for (const row of busyRows.rows) {
+            busyPlayerIds.add(row.player_id);
+          }
+        }
+
         const [lastLessonMap, groupRows, academyCoaches, inviteRows] = await Promise.all([
           storage.getPlayersLastSessions(playerIds),
           playerIds.length > 0
@@ -839,6 +862,8 @@ import { Router, type Request, type Response } from "express";
           // profilePhotoUrl is already on the player row via ...player spread.
           // hasLinkedAccount: true when the player's invite has been claimed.
           hasLinkedAccount: linkedAccountMap.get(player.id) ?? false,
+          // hasSessionThisWeek: only populated when busyWeekOf was requested.
+          hasSessionThisWeek: busyWeekOfStr ? busyPlayerIds.has(player.id) : undefined,
         }));
 
         if (usePagination) {

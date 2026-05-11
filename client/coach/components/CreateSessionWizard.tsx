@@ -45,6 +45,7 @@ interface Player {
   glowBattlePower?: number | null;
   streak?: number | null;
   isGuest?: boolean;
+  hasSessionThisWeek?: boolean;
 }
 
 // Pillar configuration for display
@@ -321,6 +322,9 @@ export default function CreateSessionWizard({
   );
   const [visibleToPlayers, setVisibleToPlayers] = useState(true);
   const [enableWaitlist, setEnableWaitlist] = useState(false);
+  // Hide-busy toggle: default ON — hides players who already have a group/semi_private
+  // session in the same ISO week as the selected session date.
+  const [hideBusyPlayers, setHideBusyPlayers] = useState(true);
 
   // Guest player modal
   const [showGuestModal, setShowGuestModal] = useState(false);
@@ -408,9 +412,17 @@ export default function CreateSessionWizard({
     enabled: visible,
   });
 
-  // Fetch players
+  // Compute busyWeekOf from selectedDate (YYYY-MM-DD) for the player query
+  const busyWeekOf = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+
+  // Fetch players — annotated with hasSessionThisWeek for the busy-player toggle
   const { data: playersData } = useQuery<Player[]>({
-    queryKey: ["/api/players"],
+    queryKey: ["/api/players", { busyWeekOf }],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/players?busyWeekOf=${busyWeekOf}`);
+      if (!res.ok) throw new Error("Failed to fetch players");
+      return res.json();
+    },
     enabled: visible,
   });
   const players = Array.isArray(playersData) ? playersData : [];
@@ -2621,13 +2633,24 @@ export default function CreateSessionWizard({
 
   // SLIDE 4: Players
   const renderPlayersSlide = () => {
+    // Count how many non-selected players are "busy" this week
+    const busyCount = players.filter(
+      (p) => p.hasSessionThisWeek && !selectedPlayers.some((s) => s.id === p.id),
+    ).length;
+
     const filteredPlayers = players.filter((p) => {
       const matchesSearch = p.name
         .toLowerCase()
         .includes(playerSearch.toLowerCase());
       const matchesLevel =
         !playerBallFilter || p.ballLevel?.toLowerCase() === playerBallFilter;
-      return matchesSearch && matchesLevel;
+      // When hideBusyPlayers is ON, exclude players with a session this week
+      // (unless they are already selected)
+      const passesBusyFilter =
+        !hideBusyPlayers ||
+        !p.hasSessionThisWeek ||
+        selectedPlayers.some((s) => s.id === p.id);
+      return matchesSearch && matchesLevel && passesBusyFilter;
     });
 
     return (
@@ -2685,6 +2708,43 @@ export default function CreateSessionWizard({
             </Pressable>
           </View>
         )}
+
+        {/* Hide already-scheduled players toggle */}
+        <View style={styles.visibilityRow}>
+          <View style={styles.visibilityLeft}>
+            <Ionicons name="eye-off" size={20} color={Colors.dark.gold} />
+            <View>
+              <Text style={styles.visibilityLabel}>Hide scheduled this week</Text>
+              {busyCount > 0 && !hideBusyPlayers && (
+                <Text style={styles.visibilitySubLabel}>
+                  {busyCount} player{busyCount !== 1 ? "s" : ""} already booked
+                </Text>
+              )}
+              {busyCount > 0 && hideBusyPlayers && (
+                <Text style={styles.visibilitySubLabel}>
+                  {busyCount} hidden
+                </Text>
+              )}
+            </View>
+          </View>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setHideBusyPlayers(!hideBusyPlayers);
+            }}
+            style={[
+              styles.toggleSwitch,
+              hideBusyPlayers && styles.toggleSwitchActive,
+            ]}
+          >
+            <View
+              style={[
+                styles.toggleKnob,
+                hideBusyPlayers && styles.toggleKnobActive,
+              ]}
+            />
+          </Pressable>
+        </View>
 
         {/* Search */}
         <View style={styles.searchRow}>
@@ -2808,6 +2868,7 @@ export default function CreateSessionWizard({
         >
           {filteredPlayers.map((player) => {
             const isSelected = selectedPlayers.some((p) => p.id === player.id);
+            const isBusy = !!player.hasSessionThisWeek && !isSelected;
             return (
               <Pressable
                 key={player.id}
@@ -2824,9 +2885,10 @@ export default function CreateSessionWizard({
                 style={[
                   styles.playerRow,
                   isSelected && styles.playerRowSelected,
+                  isBusy && styles.playerRowBusy,
                 ]}
               >
-                <View style={styles.playerAvatar}>
+                <View style={[styles.playerAvatar, isBusy && { opacity: 0.45 }]}>
                   {player.profilePhotoUrl ? (
                     <Image
                       source={{ uri: buildPhotoUrl(player.profilePhotoUrl)! }}
@@ -2841,20 +2903,28 @@ export default function CreateSessionWizard({
                   )}
                 </View>
                 <View style={styles.playerInfo}>
-                  <Text style={styles.playerName}>{player.name}</Text>
+                  <Text style={[styles.playerName, isBusy && { color: Colors.dark.textMuted }]}>
+                    {player.name}
+                  </Text>
                   <View style={styles.playerMeta}>
                     {player.ballLevel && (
                       <View
                         style={[
                           styles.playerBall,
                           {
-                            backgroundColor:
-                              BALL_LEVELS.find(
-                                (b) => b.value === player.ballLevel,
-                              )?.color || Colors.dark.disabled,
+                            backgroundColor: isBusy
+                              ? Colors.dark.disabled
+                              : BALL_LEVELS.find(
+                                  (b) => b.value === player.ballLevel,
+                                )?.color || Colors.dark.disabled,
                           },
                         ]}
                       />
+                    )}
+                    {isBusy && (
+                      <Text style={styles.playerBusyLabel}>
+                        Already has a lesson this week
+                      </Text>
                     )}
                   </View>
                 </View>
@@ -2865,7 +2935,7 @@ export default function CreateSessionWizard({
                     color={Colors.dark.primary}
                   />
                 ) : (
-                  <View style={styles.playerSelectCircle} />
+                  <View style={[styles.playerSelectCircle, isBusy && { borderColor: Colors.dark.disabled }]} />
                 )}
               </Pressable>
             );
@@ -3562,6 +3632,10 @@ export default function CreateSessionWizard({
                     // Invalidate players query to refresh the list
                     queryClient.invalidateQueries({
                       queryKey: ["/api/players"],
+                    });
+                    // Also invalidate the busyWeekOf-keyed version used in this wizard
+                    queryClient.invalidateQueries({
+                      queryKey: ["/api/players", { busyWeekOf }],
                     });
 
                     setGuestName("");
@@ -4646,6 +4720,11 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.text,
   },
+  visibilitySubLabel: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+    marginTop: 1,
+  },
   toggleSwitch: {
     width: 50,
     height: 28,
@@ -4776,6 +4855,15 @@ const styles = StyleSheet.create({
   },
   playerRowSelected: {
     backgroundColor: Colors.dark.primary + "20",
+  },
+  playerRowBusy: {
+    opacity: 0.6,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  playerBusyLabel: {
+    ...Typography.caption,
+    color: Colors.dark.gold,
+    fontStyle: "italic",
   },
   playerAvatar: {
     width: 40,
