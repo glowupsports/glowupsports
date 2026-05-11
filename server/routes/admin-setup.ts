@@ -748,7 +748,11 @@ import { Router, type Request, type Response } from "express";
         // busyWeekOf: annotate each player with hasSessionThisWeek if a date is provided.
         // Counts group/semi_private sessions in the ISO week containing that date.
         const busyPlayerIds = new Set<string>();
-        const busyWeekOfStr = typeof busyWeekOf === "string" ? busyWeekOf : null;
+        const busyWeekOfRaw = typeof busyWeekOf === "string" ? busyWeekOf : null;
+        // Validate format (YYYY-MM-DD) and parse to a real date — reject malformed strings.
+        const busyWeekOfStr = busyWeekOfRaw && /^\d{4}-\d{2}-\d{2}$/.test(busyWeekOfRaw) && !isNaN(Date.parse(busyWeekOfRaw))
+          ? busyWeekOfRaw
+          : null;
         if (busyWeekOfStr && playerIds.length > 0) {
           const busyRows = await pool.query<{ player_id: string }>(
             `SELECT DISTINCT sp.player_id
