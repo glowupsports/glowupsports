@@ -1796,6 +1796,156 @@ import { Router, type Request, type Response } from "express";
 
           // ---------- end Task #900 transfers ----------
 
+          // ----------------------------------------------------------------
+          // Task #1851: tables that were missing from the merge endpoint and
+          // caused 500 errors (FK violation on DELETE FROM players).
+          // ----------------------------------------------------------------
+
+          // family_groups: nullable created_by — SET NULL
+          await ifTable("family_groups",
+            `UPDATE family_groups SET created_by_player_id = NULL WHERE created_by_player_id = $1`, [sourceId]);
+
+          // family_members: UNIQUE(family_group_id, player_id) — dedup then transfer
+          await ifTable("family_members",
+            `DELETE FROM family_members WHERE player_id = $1 AND family_group_id IN (
+               SELECT family_group_id FROM family_members WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("family_members",
+            `UPDATE family_members SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          // added_by_player_id is nullable — NULL out source references
+          await ifTable("family_members",
+            `UPDATE family_members SET added_by_player_id = NULL WHERE added_by_player_id = $1`, [sourceId]);
+
+          // family_member_spend_limits: UNIQUE(family_group_id, player_id, category) — dedup then transfer
+          await ifTable("family_member_spend_limits",
+            `DELETE FROM family_member_spend_limits WHERE player_id = $1 AND (family_group_id, category) IN (
+               SELECT family_group_id, category FROM family_member_spend_limits WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("family_member_spend_limits",
+            `UPDATE family_member_spend_limits SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("family_member_spend_limits",
+            `UPDATE family_member_spend_limits SET updated_by_player_id = NULL WHERE updated_by_player_id = $1`, [sourceId]);
+
+          // court_booking_confirmations: straight transfer (no player-unique constraint)
+          await ifTable("court_booking_confirmations",
+            `UPDATE court_booking_confirmations SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // player_achievements: UNIQUE(player_id, achievement_id) — dedup then transfer
+          await ifTable("player_achievements",
+            `DELETE FROM player_achievements WHERE player_id = $1 AND achievement_id IN (
+               SELECT achievement_id FROM player_achievements WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("player_achievements",
+            `UPDATE player_achievements SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // player_discount_codes: UNIQUE on code (global), not on player_id — straight transfer
+          await ifTable("player_discount_codes",
+            `UPDATE player_discount_codes SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // player_personal_records: straight transfer
+          await ifTable("player_personal_records",
+            `UPDATE player_personal_records SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // technique_analyses: straight transfer (player's uploaded videos)
+          await ifTable("technique_analyses",
+            `UPDATE technique_analyses SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // highlight_reels: UNIQUE on match_log_id (not player_id) — straight transfer
+          await ifTable("highlight_reels",
+            `UPDATE highlight_reels SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // match_results: both player_id (owner) and opponent_id (FK) need handling
+          await ifTable("match_results",
+            `UPDATE match_results SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("match_results",
+            `UPDATE match_results SET opponent_id = $1 WHERE opponent_id = $2`, [targetId, sourceId]);
+
+          // feed_items: author_player_id is nullable — NULL out source references
+          await ifTable("feed_items",
+            `UPDATE feed_items SET author_player_id = NULL WHERE author_player_id = $1`, [sourceId]);
+
+          // weekly_digests: UNIQUE(player_id, week_start) — dedup then transfer
+          await ifTable("weekly_digests",
+            `DELETE FROM weekly_digests WHERE player_id = $1 AND week_start IN (
+               SELECT week_start FROM weekly_digests WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("weekly_digests",
+            `UPDATE weekly_digests SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // monthly_digests: UNIQUE(player_id, month_start) — dedup then transfer
+          await ifTable("monthly_digests",
+            `DELETE FROM monthly_digests WHERE player_id = $1 AND month_start IN (
+               SELECT month_start FROM monthly_digests WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("monthly_digests",
+            `UPDATE monthly_digests SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // yearly_recaps: UNIQUE(player_id, year) — dedup then transfer
+          await ifTable("yearly_recaps",
+            `DELETE FROM yearly_recaps WHERE player_id = $1 AND year IN (
+               SELECT year FROM yearly_recaps WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("yearly_recaps",
+            `UPDATE yearly_recaps SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // feature_interest: UNIQUE(player_id, feature_key) — dedup then transfer
+          await ifTable("feature_interest",
+            `DELETE FROM feature_interest WHERE player_id = $1 AND feature_key IN (
+               SELECT feature_key FROM feature_interest WHERE player_id = $2
+             )`, [sourceId, targetId]);
+          await ifTable("feature_interest",
+            `UPDATE feature_interest SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // player_of_week: UNIQUE(scope, scope_id, week_start) — no player_id unique — straight transfer
+          await ifTable("player_of_week",
+            `UPDATE player_of_week SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // chat_room_message_mentions: straight transfer
+          await ifTable("chat_room_message_mentions",
+            `UPDATE chat_room_message_mentions SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+
+          // message_mentions: player_id is nullable — NULL out (mentions were specific to source's chat session)
+          await ifTable("message_mentions",
+            `UPDATE message_mentions SET player_id = NULL WHERE player_id = $1`, [sourceId]);
+
+          // outside_invites: inviter_player_id NOT NULL — transfer; claimed_by_player_id nullable — NULL out
+          await ifTable("outside_invites",
+            `UPDATE outside_invites SET inviter_player_id = $1 WHERE inviter_player_id = $2`, [targetId, sourceId]);
+          await ifTable("outside_invites",
+            `UPDATE outside_invites SET claimed_by_player_id = NULL WHERE claimed_by_player_id = $1`, [sourceId]);
+
+          // spectator_links: both player_id (NOT NULL) and created_by_player_id (NOT NULL) — transfer both
+          await ifTable("spectator_links",
+            `UPDATE spectator_links SET player_id = $1 WHERE player_id = $2`, [targetId, sourceId]);
+          await ifTable("spectator_links",
+            `UPDATE spectator_links SET created_by_player_id = $1 WHERE created_by_player_id = $2`, [targetId, sourceId]);
+
+          // account_audit_log: player_id NOT NULL — delete source rows; actor_player_id nullable — NULL out
+          await ifTable("account_audit_log",
+            `UPDATE account_audit_log SET actor_player_id = NULL WHERE actor_player_id = $1`, [sourceId]);
+          await ifTable("account_audit_log",
+            `DELETE FROM account_audit_log WHERE player_id = $1`, [sourceId]);
+
+          // account_graduation: player_id NOT NULL — delete; graduated_by_player_id nullable — NULL out
+          await ifTable("account_graduation",
+            `UPDATE account_graduation SET graduated_by_player_id = NULL WHERE graduated_by_player_id = $1`, [sourceId]);
+          await ifTable("account_graduation",
+            `DELETE FROM account_graduation WHERE player_id = $1`, [sourceId]);
+
+          // account_locks: player_id NOT NULL — delete; locked_by_player_id nullable — NULL out
+          await ifTable("account_locks",
+            `UPDATE account_locks SET locked_by_player_id = NULL WHERE locked_by_player_id = $1`, [sourceId]);
+          await ifTable("account_locks",
+            `DELETE FROM account_locks WHERE player_id = $1`, [sourceId]);
+
+          // account_pin_recovery + account_pins: device-bound, delete source rows
+          await ifTable("account_pin_recovery",
+            `DELETE FROM account_pin_recovery WHERE player_id = $1`, [sourceId]);
+          await ifTable("account_pins",
+            `DELETE FROM account_pins WHERE player_id = $1`, [sourceId]);
+
+          // ---------- end Task #1851 additions ----------
+
           // Player connections: delete both sides to avoid self/duplicate links
           await client.query(`DELETE FROM player_connections WHERE player1_id = $1 OR player2_id = $1`, [sourceId]);
 
