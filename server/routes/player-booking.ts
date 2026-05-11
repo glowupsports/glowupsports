@@ -6120,6 +6120,9 @@ router.get(
         currency,
         defaultLessonPrice,
         pricing,
+        // Task #1841 — PromptPay via Opn Payments
+        promptPayEnabled: !!settings?.promptPayEnabled,
+        opnPublicKey: settings?.opnPublicKey || null,
       });
     } catch (error) {
       console.error("Get academy payment info error:", error);

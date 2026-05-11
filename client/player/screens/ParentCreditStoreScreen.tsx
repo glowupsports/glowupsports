@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TextInput, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { PlayerV2StackParamList } from "@/navigation/PlayerV2Navigator";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
@@ -69,11 +71,14 @@ interface AcademyPaymentInfo {
   bankSwiftCode?: string;
   paymentInstructions?: string;
   currency: string;
+  // Task #1841 — PromptPay via Opn Payments
+  promptPayEnabled?: boolean;
+  opnPublicKey?: string | null;
 }
 
 export default function ParentCreditStoreScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<PlayerV2StackParamList>>();
   const route = useRoute<RouteProp<RouteParams, "ParentCreditStore">>();
   const { playerId } = route.params;
   const queryClient = useQueryClient();
@@ -84,7 +89,8 @@ export default function ParentCreditStoreScreen() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"cash" | "bank_transfer" | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"cash" | "bank_transfer" | "promptpay" | null>(null);
+  const [promptPayLoading, setPromptPayLoading] = useState(false);
 
   const { data: packages = [], isLoading } = useQuery<CreditPackage[]>({
     queryKey: [`/api/parent/credit-store/${playerId}`],
@@ -165,6 +171,52 @@ export default function ParentCreditStoreScreen() {
     setSelectedPaymentMethod(null);
     setPin("");
     setPinError("");
+    setPromptPayLoading(false);
+  };
+
+  const handlePromptPay = async () => {
+    if (!selectedPackage || !playerId) return;
+    if (pin.length < 4) {
+      setPinError("PIN must be at least 4 digits");
+      return;
+    }
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setPromptPayLoading(true);
+    setSelectedPaymentMethod("promptpay");
+    try {
+      const response = await apiRequest("POST", "/api/player/promptpay/create-charge", {
+        playerId,
+        templateId: selectedPackage.id,
+        pin,
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to create PromptPay charge");
+      }
+      const charge = await response.json() as {
+        chargeId: string;
+        qrCodeUrl: string;
+        expiresAt: string;
+        amountTHB: number;
+      };
+      setShowPinModal(false);
+      setPin("");
+      setPinError("");
+      navigation.navigate("PromptPayQR", {
+        chargeId: charge.chargeId,
+        qrCodeUrl: charge.qrCodeUrl,
+        expiresAt: charge.expiresAt,
+        amountTHB: charge.amountTHB,
+        playerId,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to initiate PromptPay";
+      setPinError(msg);
+    } finally {
+      setPromptPayLoading(false);
+    }
   };
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -392,6 +444,23 @@ export default function ParentCreditStoreScreen() {
                 </Pressable>
               ) : null}
             </View>
+
+            {paymentInfo?.promptPayEnabled ? (
+              <Pressable
+                style={[styles.promptPayButton, promptPayLoading && styles.buttonDisabled]}
+                onPress={handlePromptPay}
+                disabled={promptPayLoading}
+              >
+                {promptPayLoading ? (
+                  <TennisBallSpinner color={Colors.dark.background} />
+                ) : (
+                  <>
+                    <Ionicons name="qr-code-outline" size={22} color={Colors.dark.background} />
+                    <Text style={styles.promptPayButtonText}>Pay with PromptPay QR</Text>
+                  </>
+                )}
+              </Pressable>
+            ) : null}
 
             <Text style={styles.pinNote}>Your PIN protects against unauthorized purchases</Text>
           </View>
@@ -793,6 +862,21 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.text,
     textAlign: "center",
+  },
+  promptPayButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+  },
+  promptPayButtonText: {
+    ...Typography.body,
+    color: Colors.dark.background,
+    fontWeight: "700",
   },
   pinNote: {
     ...Typography.caption,

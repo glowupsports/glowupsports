@@ -443,12 +443,128 @@ function Section({ title, children }: SectionProps) {
   );
 }
 
+// =====================================================================
+// Task #1841 — Opn Payments / PromptPay Settings Section
+// =====================================================================
+function OpnPaymentsSection({ settings, updateSettingsMutation }: {
+  settings: AcademySettings;
+  updateSettingsMutation: any;
+}) {
+  const [showSecretModal, setShowSecretModal] = useState(false);
+  const [opnPublicKeyInput, setOpnPublicKeyInput] = useState("");
+  const [opnSecretKeyInput, setOpnSecretKeyInput] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleOpenModal = () => {
+    setOpnPublicKeyInput(settings.opnPublicKey || "");
+    setOpnSecretKeyInput("");
+    setShowSecretModal(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updates: any = {
+        promptPayEnabled: settings.promptPayEnabled ?? false,
+        opnPublicKey: opnPublicKeyInput.trim() || null,
+      };
+      if (opnSecretKeyInput.trim()) {
+        updates.opnSecretKey = opnSecretKeyInput.trim();
+      }
+      await updateSettingsMutation.mutateAsync(updates);
+      setShowSecretModal(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Section title="PromptPay (Opn Payments)">
+      <SettingRow
+        icon="qr-code"
+        title="PromptPay"
+        subtitle={settings.opnPublicKey ? "Credentials configured" : "Not configured"}
+        toggle={settings.promptPayEnabled ?? false}
+        onToggle={(val: boolean) => {
+          if (val && !settings.opnPublicKey) {
+            Alert.alert(
+              "Credentials Required",
+              "Please save your Opn public key and secret key before enabling PromptPay.",
+            );
+            return;
+          }
+          updateSettingsMutation.mutate({ promptPayEnabled: val });
+        }}
+      />
+      <SettingRow
+        icon="key"
+        title="Opn API Keys"
+        subtitle="Set your public and secret API keys"
+        onPress={handleOpenModal}
+      />
+      <Modal visible={showSecretModal} animationType="slide" transparent>
+        <View style={opnStyles.overlay}>
+          <KeyboardAwareScrollViewCompat contentContainerStyle={opnStyles.sheet}>
+            <Text style={opnStyles.title}>Opn Payments Credentials</Text>
+            <Text style={opnStyles.label}>Public Key (pkey_...)</Text>
+            <TextInput
+              style={opnStyles.input}
+              value={opnPublicKeyInput}
+              onChangeText={setOpnPublicKeyInput}
+              placeholder="pkey_test_..."
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <Text style={opnStyles.label}>Secret Key (skey_...) — leave blank to keep existing</Text>
+            <TextInput
+              style={opnStyles.input}
+              value={opnSecretKeyInput}
+              onChangeText={setOpnSecretKeyInput}
+              placeholder="skey_test_..."
+              placeholderTextColor={Colors.dark.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry
+            />
+            <View style={opnStyles.row}>
+              <Pressable style={opnStyles.cancelBtn} onPress={() => setShowSecretModal(false)}>
+                <Text style={opnStyles.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={opnStyles.saveBtn} onPress={handleSave} disabled={saving}>
+                {saving ? <TennisBallSpinner color={Colors.dark.background} /> : <Text style={opnStyles.saveText}>Save</Text>}
+              </Pressable>
+            </View>
+          </KeyboardAwareScrollViewCompat>
+        </View>
+      </Modal>
+    </Section>
+  );
+}
+
+const opnStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
+  sheet: { backgroundColor: Colors.dark.backgroundCard, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: Spacing.xl, gap: Spacing.md },
+  title: { ...Typography.h3, color: Colors.dark.text, marginBottom: Spacing.sm },
+  label: { ...Typography.small, color: Colors.dark.textMuted },
+  input: { backgroundColor: Colors.dark.backgroundRoot, borderRadius: BorderRadius.md, padding: Spacing.md, color: Colors.dark.text, borderWidth: 1, borderColor: Colors.dark.border },
+  row: { flexDirection: "row", gap: Spacing.sm, marginTop: Spacing.md },
+  cancelBtn: { flex: 1, padding: Spacing.md, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: Colors.dark.border, alignItems: "center" },
+  cancelText: { ...Typography.body, color: Colors.dark.textMuted },
+  saveBtn: { flex: 1, padding: Spacing.md, borderRadius: BorderRadius.md, backgroundColor: Colors.dark.primary, alignItems: "center" },
+  saveText: { ...Typography.body, color: Colors.dark.background, fontWeight: "700" },
+});
+
 interface AcademySettings {
   defaultSessionLength?: number;
   xpVisibleToPlayers?: boolean;
   notificationsEnabled?: boolean;
   welcomeVideoUrl?: string;
   sports?: string[];
+  // Task #1841 — PromptPay via Opn Payments
+  opnPublicKey?: string | null;
+  promptPayEnabled?: boolean;
+  promptPayAvailable?: boolean;
 }
 
 export default function SettingsScreen() {
@@ -859,6 +975,10 @@ export default function SettingsScreen() {
               onPress={() => navigation.navigate("CreditPackages")}
             />
           </Section>
+
+          {settings.promptPayAvailable ? (
+            <OpnPaymentsSection settings={settings} updateSettingsMutation={updateSettingsMutation} />
+          ) : null}
         
 
         

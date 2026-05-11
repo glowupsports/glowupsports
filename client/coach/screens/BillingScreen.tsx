@@ -19,6 +19,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { CoachStackParamList } from "../navigation/CoachNavigator";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
@@ -92,11 +94,18 @@ function AnimatedButton({ onPress, style, children, disabled }: any) {
 
 export default function BillingScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"overview" | "invoices" | "payments" | "packages">("overview");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPackageModal, setShowPackageModal] = useState(false);
+  // Task #1841 — PromptPay QR modal for coach
+  const [showPromptPayModal, setShowPromptPayModal] = useState(false);
+  const [promptPayPlayerId, setPromptPayPlayerId] = useState("");
+  const [promptPayAmountTHB, setPromptPayAmountTHB] = useState("");
+  const [promptPayCreditType, setPromptPayCreditType] = useState<"private" | "group" | "semi_private">("private");
+  const [promptPayCredits, setPromptPayCredits] = useState("");
+  const [promptPayLoading, setPromptPayLoading] = useState(false);
   const [newPackageName, setNewPackageName] = useState("");
   const [newPackageCredits, setNewPackageCredits] = useState("");
   const [newPackagePrice, setNewPackagePrice] = useState("");
@@ -125,6 +134,11 @@ export default function BillingScreen() {
   const { data: _account, isLoading: _accountLoading } = useQuery<BillingAccount>({
     queryKey: ["/api/billing/account"],
   });
+
+  const { data: academySettings } = useQuery<{ promptPayEnabled?: boolean }>({
+    queryKey: ["/api/academy/settings"],
+  });
+  const promptPayEnabled = !!academySettings?.promptPayEnabled;
 
   const { data: invoices = [], isLoading: invoicesLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/billing/invoices"],
@@ -244,6 +258,40 @@ export default function BillingScreen() {
     });
   };
 
+  const handlePromptPayQR = async () => {
+    const amountTHB = parseFloat(promptPayAmountTHB);
+    const credits = parseInt(promptPayCredits);
+    if (!promptPayPlayerId) { Alert.alert("Error", "Select a player"); return; }
+    if (isNaN(amountTHB) || amountTHB <= 0) { Alert.alert("Error", "Enter a valid amount in THB"); return; }
+    if (isNaN(credits) || credits <= 0) { Alert.alert("Error", "Enter valid credit count"); return; }
+    setPromptPayLoading(true);
+    try {
+      const resp = await apiRequest("POST", "/api/coach/promptpay/create-charge", {
+        playerId: promptPayPlayerId,
+        amountTHB,
+        creditType: promptPayCreditType,
+        creditQty: credits,
+      });
+      if (!resp.ok) {
+        const err = await resp.json() as { error?: string };
+        throw new Error(err.error || "Failed to create PromptPay charge");
+      }
+      const charge = await resp.json() as { chargeId: string; qrCodeUrl: string; expiresAt: string; amountTHB: number };
+      setShowPromptPayModal(false);
+      navigation.navigate("PromptPayQR", {
+        chargeId: charge.chargeId,
+        qrCodeUrl: charge.qrCodeUrl,
+        expiresAt: charge.expiresAt,
+        amountTHB: charge.amountTHB,
+        playerId: promptPayPlayerId,
+      });
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to create PromptPay charge");
+    } finally {
+      setPromptPayLoading(false);
+    }
+  };
+
   const handleMarkAsPaid = (invoice: Invoice) => {
     Alert.alert(
       "Mark as Paid",
@@ -296,6 +344,17 @@ export default function BillingScreen() {
           <Text style={styles.statLabel}>Pending</Text>
         </LinearGradient>
       </View>
+
+      {/* Task #1841 — PromptPay QR quick action (only when academy has PromptPay enabled) */}
+      {promptPayEnabled ? (
+        <Pressable
+          style={billingPromptPayStyles.banner}
+          onPress={() => setShowPromptPayModal(true)}
+        >
+          <Ionicons name="qr-code-outline" size={22} color={Colors.dark.background} />
+          <Text style={billingPromptPayStyles.bannerText}>Generate PromptPay QR for Player</Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.glassSection}>
         <View style={styles.sectionHeader}>
@@ -901,9 +960,119 @@ export default function BillingScreen() {
           setViewerInvoice(null);
         }}
       />
+
+      {/* Task #1841 — PromptPay QR modal */}
+      <Modal visible={showPromptPayModal} animationType="slide" transparent onRequestClose={() => setShowPromptPayModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>PROMPTPAY QR</Text>
+              <Pressable onPress={() => setShowPromptPayModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.dark.text} />
+              </Pressable>
+            </View>
+            <KeyboardAwareScrollViewCompat style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>PLAYER</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.playerScroll}>
+                  {players.map((p) => (
+                    <Pressable
+                      key={p.id}
+                      style={[styles.playerChip, promptPayPlayerId === p.id && styles.playerChipActive]}
+                      onPress={() => setPromptPayPlayerId(p.id)}
+                    >
+                      <Text style={[styles.playerChipText, promptPayPlayerId === p.id && styles.playerChipTextActive]}>
+                        {p.name}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>AMOUNT (THB)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={promptPayAmountTHB}
+                  onChangeText={setPromptPayAmountTHB}
+                  placeholder="e.g. 1500"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>CREDIT TYPE</Text>
+                <View style={styles.creditTypeRow}>
+                  {(["private", "group", "semi_private"] as const).map((type) => (
+                    <Pressable
+                      key={type}
+                      style={[styles.creditTypeOption, promptPayCreditType === type && { backgroundColor: `${getCreditTypeColor(type)}20`, borderColor: getCreditTypeColor(type) }]}
+                      onPress={() => setPromptPayCreditType(type)}
+                    >
+                      <Text style={[styles.creditTypeOptionText, promptPayCreditType === type && { color: getCreditTypeColor(type) }]}>
+                        {getCreditTypeLabel(type)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>CREDITS TO AWARD</Text>
+                <TextInput
+                  style={styles.input}
+                  value={promptPayCredits}
+                  onChangeText={setPromptPayCredits}
+                  placeholder="e.g. 5"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="number-pad"
+                />
+              </View>
+              <Pressable
+                style={[billingPromptPayStyles.submitBtn, promptPayLoading && { opacity: 0.5 }]}
+                onPress={handlePromptPayQR}
+                disabled={promptPayLoading}
+              >
+                {promptPayLoading
+                  ? <TennisBallSpinner color={Colors.dark.background} />
+                  : <Text style={billingPromptPayStyles.submitBtnText}>Generate QR Code</Text>}
+              </Pressable>
+            </KeyboardAwareScrollViewCompat>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+const billingPromptPayStyles = StyleSheet.create({
+  banner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+  },
+  bannerText: {
+    ...Typography.body,
+    color: Colors.dark.background,
+    fontWeight: "700",
+  },
+  submitBtn: {
+    padding: Spacing.md,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    marginTop: Spacing.md,
+  },
+  submitBtnText: {
+    ...Typography.body,
+    color: Colors.dark.background,
+    fontWeight: "700",
+  },
+});
 
 const styles = StyleSheet.create({
   container: {

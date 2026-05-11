@@ -47,6 +47,7 @@ import {
 // ── Push screens (mirrors PlayerStackNavigator exactly) ──────────────────────
 import FamilyLobbyScreen from "@/player/screens/FamilyLobbyScreen";
 import ParentCreditStoreScreen from "@/player/screens/ParentCreditStoreScreen";
+import PromptPayQRScreen from "@/player/screens/PromptPayQRScreen";
 import PlayerNotificationsScreen from "@/player/screens/PlayerNotificationsScreen";
 import PlayerGuideScreen from "@/player/screens/PlayerGuideScreen";
 import PlayerDNAWizardScreen from "@/player/screens/PlayerDNAWizard";
@@ -297,6 +298,14 @@ export type PlayerV2StackParamList = {
   Progress: undefined;
   TournamentDetail: { tournamentId: string };
   LadderDetail: { ladderId: string };
+  // Task #1841 — PromptPay QR payment screen
+  PromptPayQR: {
+    chargeId: string;
+    qrCodeUrl: string;
+    expiresAt: string;
+    amountTHB: number;
+    playerId: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<PlayerV2StackParamList>();
@@ -748,6 +757,9 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="ArenaTrophyRoom" component={TrophyRoomScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Trophy Room", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaAcademyClash" component={AcademyClashScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Academy Clash", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
         <Stack.Screen name="ArenaGlobalTournament" component={GlobalTournamentScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Global Tournament", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerTransparent: true }} />
+
+        {/* ── Task #1841 — PromptPay QR Payment ── */}
+        <Stack.Screen name="PromptPayQR" component={PromptPayQRScreen} options={{ presentation: "card", headerShown: false }} />
 
         {/* ── Legacy redirects (no-op — Growth tab handles these internally) ── */}
         <Stack.Screen name="Schedule" component={NoOpScreen} options={{ headerShown: false }} />

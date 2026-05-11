@@ -2841,6 +2841,13 @@ export const academySettings = pgTable("academy_settings", {
   welcomeVideoUrl: text("welcome_video_url"), // YouTube or custom video URL for player onboarding
   
   vatRegistrationNumber: text("vat_registration_number"),
+
+  // Task #1841 — Opn Payments (PromptPay) integration.
+  // Academy owners enter their Opn credentials in Settings to enable PromptPay.
+  // Secret key is stored encrypted-at-rest by Supabase; never returned to clients.
+  opnPublicKey: text("opn_public_key"),
+  opnSecretKey: text("opn_secret_key"),
+  promptPayEnabled: boolean("prompt_pay_enabled").notNull().default(false),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

@@ -62,6 +62,7 @@ import { IntakeFlowModal } from "@/coach/components/IntakeFlowModal";
 import { AIModalProvider, useAIModal } from "@/coach/context/AIModalContext";
 import { AICoachingChatModal } from "@/coach/components/AICoachingChatModal";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import PromptPayQRScreen from "@/player/screens/PromptPayQRScreen";
 
 const WEB_DESKTOP_BREAKPOINT = 1024;
 
@@ -128,6 +129,14 @@ export type CoachStackParamList = {
     };
   };
   CoachCourtBookingProof: { sessionId: string; seriesId?: string };
+  // Task #1841 — PromptPay QR payment screen (coach generates QR for player to scan)
+  PromptPayQR: {
+    chargeId: string;
+    qrCodeUrl: string;
+    expiresAt: string;
+    amountTHB: number;
+    playerId: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<CoachStackParamList>();
@@ -538,6 +547,11 @@ function CoachStackNavigator() {
           headerTitle: `${route.params.analysis.stroke_type} Analysis`,
           presentation: "card",
         })}
+      />
+      <Stack.Screen
+        name="PromptPayQR"
+        component={PromptPayQRScreen}
+        options={{ presentation: "card", headerShown: false }}
       />
     </Stack.Navigator>
   );

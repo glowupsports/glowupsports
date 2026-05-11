@@ -93,6 +93,7 @@ import quizRouter from "./routes/quiz";
 import arenaRouter from "./routes/arena";
 import arenaMonetisationRouter from "./routes/arena-monetisation";
 import matchResultsRouter from "./routes/match-results";
+import promptPayRouter from "./routes/promptpay";
 import { diagnosticsLimiter } from "./rateLimiter";
 
 const _authLimiter = rateLimit({
@@ -453,6 +454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(communityDataRouter);
   app.use(playerAiCoachDataRouter);
   app.use(techniqueAnalysisRouter);
+  app.use(promptPayRouter);
   app.use("/api/quiz", quizRouter);
   app.use("/api/arena", arenaRouter);
   app.use("/api/arena/monetisation", arenaMonetisationRouter);

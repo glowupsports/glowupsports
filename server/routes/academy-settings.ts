@@ -233,8 +233,10 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
 
         const academy = await storage.getAcademy(academyId);
+        // Task #1841: opnSecretKey must never be returned to the client.
+        const { opnSecretKey: _omitSecret, ...safeSettings } = settings;
         const response = {
-          ...settings,
+          ...safeSettings,
           bankName: (academy as any)?.bankName || null,
           bankAccountNumber: (academy as any)?.bankAccountNumber || null,
           bankIban: (academy as any)?.bankIban || null,
@@ -247,6 +249,13 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           openJoin: academy?.openJoin !== false,
           // Task #1604: expose slug so the client can build the public share URL.
           slug: academy?.slug || null,
+          // Task #1841 — PromptPay feature availability for plan-gated UI.
+          // True when the platform enables it globally or academy already has credentials.
+          promptPayAvailable: !!(
+            process.env.ENABLE_PROMPTPAY === "true" ||
+            safeSettings.opnPublicKey ||
+            safeSettings.promptPayEnabled
+          ),
         };
 
         res.json(response);
@@ -302,11 +311,29 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           await storage.updateAcademy(academyId, { openJoin: !!openJoin });
         }
 
+        // Task #1841: block enabling PromptPay without credentials
+        if (settingsData.promptPayEnabled === true) {
+          const existing = await storage.getAcademySettings(academyId);
+          const hasPublicKey =
+            settingsData.opnPublicKey?.trim() ||
+            existing?.opnPublicKey;
+          const hasSecretKey =
+            settingsData.opnSecretKey?.trim() ||
+            existing?.opnSecretKey;
+          if (!hasPublicKey || !hasSecretKey) {
+            return res
+              .status(400)
+              .json({ error: "Opn public key and secret key must be configured before enabling PromptPay" });
+          }
+        }
+
         const settings = await storage.upsertAcademySettings(
           academyId,
           settingsData,
         );
-        res.json(settings);
+        // Task #1841: strip opnSecretKey — never return it to the client
+        const { opnSecretKey: _omitSecret, ...safeSettings } = settings;
+        res.json(safeSettings);
       } catch (error) {
         console.error("Error updating academy settings:", error);
         res.status(500).json({ error: "Failed to update academy settings" });
