@@ -5423,9 +5423,11 @@ export const storage = {
       }
 
       await db.transaction(async (tx) => {
-        // Legacy V1 `credit_transactions` delete removed (Task #692 step 2).
-        // V2 ledger rows for these sessions are immutable history and stay;
-        // consume rows that had credits are reversed above before deletion.
+        // Nullify legacy V1 credit_transactions.session_id before deleting
+        // future sessions to avoid FK constraint violation. The V1 rows are
+        // preserved as historical records (Task #1846); full table removal is
+        // tracked separately in Task #689.
+        await tx.update(creditTransactions).set({ sessionId: null }).where(inArray(creditTransactions.sessionId, futureSessionIds));
 
         // Remove coach_time_blocks tied to these sessions so other coaches'
         // slot views stop showing them as "Unavailable" immediately.
@@ -5509,9 +5511,12 @@ export const storage = {
       if (sessionIds.length > 0) {
         await tx.delete(xpTransactions).where(inArray(xpTransactions.sessionId, sessionIds));
         await tx.delete(coachXpTransactions).where(inArray(coachXpTransactions.sessionId, sessionIds));
-        // Legacy V1 `credit_transactions` delete removed (Task #692 step 2).
-        // V2 ledger rows are immutable history and remain; consume rows that
-        // had credits are reversed above before this transaction runs.
+        // Nullify legacy V1 credit_transactions.session_id before deleting
+        // sessions to avoid FK constraint violation. The V1 rows are preserved
+        // as historical records (Task #1846); full table removal is tracked
+        // separately in Task #689.
+        await tx.update(creditTransactions).set({ sessionId: null }).where(inArray(creditTransactions.sessionId, sessionIds));
+
         // Remove coach_time_blocks so other coaches' slot views free up immediately.
         await tx.delete(coachTimeBlocks).where(inArray(coachTimeBlocks.sourceSessionId, sessionIds));
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
