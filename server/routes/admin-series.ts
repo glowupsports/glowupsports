@@ -2960,6 +2960,14 @@ router.get(
         return res.status(404).json({ error: "Player not found" });
       }
 
+      // Fetch the login username for this player from the users table
+      const [linkedUser] = await db
+        .select({ username: users.username })
+        .from(users)
+        .where(eq(users.playerId, playerId))
+        .limit(1);
+      const loginUsername = linkedUser?.username ?? null;
+
       // Platform owners can view any player; others must match academy
       const isPlatformOwner = userRole === "platform_owner";
       if (
@@ -3230,6 +3238,7 @@ router.get(
           parentEmail: canSeeContactDetails ? player.parentEmail : undefined,
           medicalNotes: player.medicalNotes,
           dateOfBirth: player.dateOfBirth,
+          username: canSeeContactDetails ? loginUsername : undefined,
         },
         attendance: {
           totalSessions: sessions.length,

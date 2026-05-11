@@ -76,6 +76,7 @@ export type AdminPlayerStats = {
     parentEmail?: string | null;
     medicalNotes?: string;
     dateOfBirth?: string | null;
+    username?: string | null;
   };
   attendance: {
     totalSessions: number;

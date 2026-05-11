@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput} from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -150,6 +151,14 @@ export function AdminPlayerDetailModal({
 }: AdminPlayerDetailModalProps) {
   const queryClient = useQueryClient();
   const stats = playerStats;
+  const [usernameCopied, setUsernameCopied] = useState(false);
+
+  const handleCopyUsername = async (username: string) => {
+    await Clipboard.setStringAsync(username);
+    setUsernameCopied(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimeout(() => setUsernameCopied(false), 2500);
+  };
 
   const updateAttendanceMutation = useMutation({
     mutationFn: async ({ sessionId, playerId, status }: { sessionId: string; playerId: string; status: string }) => {
@@ -378,6 +387,44 @@ export function AdminPlayerDetailModal({
                   <Text style={styles.coachAssignment}>Coach: {stats.player.coachName}</Text>
                 ) : null}
               </View>
+
+              {(stats.player.email || stats.player.phone || stats.player.username) ? (
+                <View style={[styles.section, CardStyles.elevated]}>
+                  <Text style={styles.sectionTitle}>Contact Info</Text>
+                  {stats.player.email ? (
+                    <View style={styles.contactRow}>
+                      <Ionicons name="mail-outline" size={18} color={Colors.dark.textMuted} />
+                      <Text style={styles.contactText}>{stats.player.email}</Text>
+                    </View>
+                  ) : null}
+                  {stats.player.phone ? (
+                    <View style={styles.contactRow}>
+                      <Ionicons name="call-outline" size={18} color={Colors.dark.textMuted} />
+                      <Text style={styles.contactText}>{stats.player.phone}</Text>
+                    </View>
+                  ) : null}
+                  {stats.player.username ? (
+                    <Pressable
+                      style={[styles.contactRow, { justifyContent: "space-between" }]}
+                      onPress={() => handleCopyUsername(stats.player.username!)}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+                        <Ionicons name="at-outline" size={18} color={Colors.dark.textMuted} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 11, color: Colors.dark.textMuted, marginBottom: 1 }}>Login username</Text>
+                          <Text style={[styles.contactText, { color: Colors.dark.text, fontWeight: "600" }]}>@{stats.player.username}</Text>
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: usernameCopied ? `${Colors.dark.successNeon}20` : `${Colors.dark.primary}15`, borderRadius: 6 }}>
+                        <Ionicons name={usernameCopied ? "checkmark" : "copy-outline"} size={14} color={usernameCopied ? Colors.dark.successNeon : Colors.dark.primary} />
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: usernameCopied ? Colors.dark.successNeon : Colors.dark.primary }}>
+                          {usernameCopied ? "Copied" : "Copy"}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
 
               <View style={[styles.section, CardStyles.elevated]}>
                 <Text style={styles.sectionTitle}>Attendance</Text>
