@@ -861,6 +861,7 @@ export default function CreateSessionWizard({
     setPlayerSearch("");
     setVisibleToPlayers(true);
     setEnableWaitlist(false);
+    setHideBusyPlayers(true);
     setShowGuestModal(false);
     setGuestName("");
     setGuestBallLevel(null);
@@ -2709,43 +2710,6 @@ export default function CreateSessionWizard({
           </View>
         )}
 
-        {/* Hide already-scheduled players toggle */}
-        <View style={styles.visibilityRow}>
-          <View style={styles.visibilityLeft}>
-            <Ionicons name="eye-off" size={20} color={Colors.dark.gold} />
-            <View>
-              <Text style={styles.visibilityLabel}>Hide scheduled this week</Text>
-              {busyCount > 0 && !hideBusyPlayers && (
-                <Text style={styles.visibilitySubLabel}>
-                  {busyCount} player{busyCount !== 1 ? "s" : ""} already booked
-                </Text>
-              )}
-              {busyCount > 0 && hideBusyPlayers && (
-                <Text style={styles.visibilitySubLabel}>
-                  {busyCount} hidden
-                </Text>
-              )}
-            </View>
-          </View>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setHideBusyPlayers(!hideBusyPlayers);
-            }}
-            style={[
-              styles.toggleSwitch,
-              hideBusyPlayers && styles.toggleSwitchActive,
-            ]}
-          >
-            <View
-              style={[
-                styles.toggleKnob,
-                hideBusyPlayers && styles.toggleKnobActive,
-              ]}
-            />
-          </Pressable>
-        </View>
-
         {/* Search */}
         <View style={styles.searchRow}>
           <Ionicons name="search" size={18} color={Colors.dark.textMuted} />
@@ -2819,6 +2783,40 @@ export default function CreateSessionWizard({
             </Pressable>
           ))}
         </ScrollView>
+
+        {/* Hide busy toggle — shown below ball-level chips */}
+        <View style={styles.hideBusyRow}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setHideBusyPlayers(!hideBusyPlayers);
+            }}
+            style={[
+              styles.hideBusyPill,
+              hideBusyPlayers && styles.hideBusyPillActive,
+            ]}
+          >
+            <Ionicons
+              name={hideBusyPlayers ? "eye-off" : "eye"}
+              size={14}
+              color={hideBusyPlayers ? Colors.dark.gold : Colors.dark.textMuted}
+            />
+            <Text
+              style={[
+                styles.hideBusyPillText,
+                hideBusyPlayers && styles.hideBusyPillTextActive,
+              ]}
+            >
+              {hideBusyPlayers
+                ? busyCount > 0
+                  ? `Hide busy (${busyCount})`
+                  : "Hide busy"
+                : busyCount > 0
+                  ? `Show all (${busyCount} busy)`
+                  : "Show all"}
+            </Text>
+          </Pressable>
+        </View>
 
         {/* Add Guest Player Button */}
         <Pressable
@@ -4864,6 +4862,33 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Colors.dark.gold,
     fontStyle: "italic",
+  },
+  hideBusyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.sm,
+  },
+  hideBusyPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  hideBusyPillActive: {
+    borderColor: Colors.dark.gold + "60",
+    backgroundColor: Colors.dark.gold + "15",
+  },
+  hideBusyPillText: {
+    ...Typography.caption,
+    color: Colors.dark.textMuted,
+  },
+  hideBusyPillTextActive: {
+    color: Colors.dark.gold,
   },
   playerAvatar: {
     width: 40,
