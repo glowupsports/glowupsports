@@ -5437,6 +5437,10 @@ export const storage = {
         // Nullify booking_requests.sessionId before deleting future sessions (FK constraint)
         await tx.update(bookingRequests).set({ sessionId: null }).where(inArray(bookingRequests.sessionId, futureSessionIds));
 
+        // Nullify credit_transactions.sessionId before deleting sessions (FK constraint).
+        // Legacy V1 rows are kept as billing history; only the session pointer is severed.
+        await tx.update(creditTransactions).set({ sessionId: null }).where(inArray(creditTransactions.sessionId, futureSessionIds));
+
         // Delete the future sessions themselves
         await tx.delete(sessions).where(inArray(sessions.id, futureSessionIds));
       });
@@ -5513,6 +5517,9 @@ export const storage = {
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
         // Nullify booking_requests.sessionId before deleting sessions (FK constraint)
         await tx.update(bookingRequests).set({ sessionId: null }).where(inArray(bookingRequests.sessionId, sessionIds));
+        // Nullify credit_transactions.sessionId before deleting sessions (FK constraint).
+        // Legacy V1 rows are kept as billing history; only the session pointer is severed.
+        await tx.update(creditTransactions).set({ sessionId: null }).where(inArray(creditTransactions.sessionId, sessionIds));
         await tx.delete(sessions).where(inArray(sessions.id, sessionIds));
       }
 
