@@ -1884,8 +1884,16 @@ export default function CreateSessionWizard({
         {/* Date Selection - Only for one-time and recurring modes */}
         {!isFlexible && (
           <View style={styles.section}>
+            {isRecurring && (
+              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: Colors.dark.xpCyan + "18", borderRadius: 10, padding: 10, marginBottom: 10, gap: 8 }}>
+                <Ionicons name="repeat" size={16} color={Colors.dark.xpCyan} />
+                <Text style={{ color: Colors.dark.xpCyan, fontSize: 13, flex: 1, fontWeight: "600" }}>
+                  {"Pick the day your class repeats every week"}
+                </Text>
+              </View>
+            )}
             <View style={styles.dateLabelRow}>
-              <Text style={styles.sectionLabel}>Date</Text>
+              <Text style={styles.sectionLabel}>{isRecurring ? "Recurring Day" : "Date"}</Text>
               {/* Prominent Calendar Button */}
               <Pressable
                 onPress={() => {
