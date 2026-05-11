@@ -165,21 +165,6 @@ export default function CoachFeedbackHistoryScreen() {
         </View>
       </View>
 
-      {/* Video Feedback Banner */}
-      <Pressable
-        style={styles.videoFeedbackBanner}
-        onPress={() => (navigation as any).navigate("VideoFeedbackPlayer")}
-      >
-        <View style={styles.videoFeedbackBannerIcon}>
-          <Ionicons name="videocam" size={20} color={FunctionColors.planning} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.videoFeedbackBannerTitle}>Video Feedback</Text>
-          <Text style={styles.videoFeedbackBannerSubtitle}>Watch technique clips from your coach</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={TextColors.muted} />
-      </Pressable>
-
       {!isLoading && feedbacks && feedbacks.length > 0 ? (
         <View style={styles.statsRow}>
           <View style={styles.statItem}>

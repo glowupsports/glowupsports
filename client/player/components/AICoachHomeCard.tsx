@@ -188,15 +188,6 @@ export const AICoachHomeCard = React.memo(function AICoachHomeCard({
 
           <View style={s.ctaRow}>
             <Pressable
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); navigation.navigate("TechniqueUploadFlow"); }}
-              style={({ pressed }) => [s.analyzeBtn, pressed && s.ctaPressed]}
-              accessibilityRole="button"
-              accessibilityLabel="Analyze My Technique"
-            >
-              <Ionicons name="videocam-outline" size={15} color={Colors.dark.primary} />
-              <Text style={s.analyzeBtnText}>Analyze</Text>
-            </Pressable>
-            <Pressable
               onPress={handleOpen}
               style={({ pressed }) => [s.ctaBtn, { flex: 1 }, pressed && s.ctaPressed]}
               accessibilityRole="button"
@@ -401,22 +392,6 @@ const s = makeReactiveStyles(() =>
       gap: 8,
       marginTop: 2,
       alignItems: "stretch",
-    },
-    analyzeBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 5,
-      paddingHorizontal: Spacing.md,
-      borderRadius: BorderRadius.lg,
-      borderWidth: 1.5,
-      borderColor: Colors.dark.primary + "88",
-      backgroundColor: Colors.dark.primary + "10",
-    },
-    analyzeBtnText: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: Colors.dark.primary,
     },
     ctaBtn: {
       borderRadius: BorderRadius.lg,
