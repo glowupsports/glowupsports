@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, TextInput, Alert, Modal, Platform, Dimensions } from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
 import { DesktopContentWrapper } from "@/components/DesktopContentWrapper";
@@ -749,6 +749,74 @@ export default function PlayersScreen() {
     scrollY.value = 0;
   }, [rosterTab, headerTranslation, lastScrollY, scrollY]);
 
+  const renderPlayerItem = useCallback(({ item: player }: { item: typeof filteredPlayers[0] }) => (
+    <GamingPlayerCard
+      player={player}
+      onPress={() => handleSelectPlayer(player)}
+      getStatusBadge={getStatusBadge}
+      needsBaseline={rosterTab === "active" && playerIdsWithoutBaseline.has(player.id)}
+      onStartBaseline={() => {
+        setBaselinePlayer(player);
+        setShowBaselineDrawer(true);
+      }}
+      isPast={rosterTab === "past"}
+      isPendingPayment={rosterTab === "pending_payment"}
+      juniorAssessmentBadge={assessmentBadges[player.id] ?? null}
+      onArchive={rosterTab === "active" ? () => {
+        Alert.alert(
+          "Move to Past",
+          `Move ${player.name} to Past Players? Their history will be preserved.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Move to Past", style: "destructive", onPress: () => archivePlayerMutation.mutate(player.id) },
+          ]
+        );
+      } : rosterTab === "pending_payment" ? () => {
+        Alert.alert(
+          "Move to Past",
+          `Move ${player.name} to Past Players? Their history will be preserved.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Move to Past", style: "destructive", onPress: () => archivePendingPaymentMutation.mutate(player.id) },
+          ]
+        );
+      } : undefined}
+      onRestore={rosterTab === "past" ? () => {
+        Alert.alert(
+          "Restore Player",
+          `Restore ${player.name} to Active Players?`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Restore", onPress: () => restorePlayerMutation.mutate(player.id) },
+          ]
+        );
+      } : rosterTab === "pending_payment" ? () => {
+        Alert.alert(
+          "Restore to Active",
+          `Restore ${player.name} to Active Players?`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Restore", onPress: () => restoreFromPendingPaymentMutation.mutate(player.id) },
+          ]
+        );
+      } : undefined}
+      onPendingPayment={rosterTab === "active" ? () => {
+        Alert.alert(
+          "Mark as Pending Payment",
+          `Flag ${player.name} as awaiting payment? They will be moved to the Pending Payment tab.`,
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Mark Pending", onPress: () => markPendingPaymentMutation.mutate(player.id) },
+          ]
+        );
+      } : undefined}
+    />
+  ), [
+    handleSelectPlayer, getStatusBadge, rosterTab, playerIdsWithoutBaseline,
+    assessmentBadges, archivePlayerMutation, archivePendingPaymentMutation,
+    restorePlayerMutation, restoreFromPendingPaymentMutation, markPendingPaymentMutation,
+  ]);
+
   if (selectedPlayer && !isDesktop) {
     return (
       <PlayerDetailView
@@ -1304,96 +1372,21 @@ export default function PlayersScreen() {
           />
         )
       ) : (
-        <Animated.ScrollView
-          style={styles.playerList}
+        <Animated.FlatList
+          data={filteredPlayers}
+          renderItem={renderPlayerItem}
+          keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
-        >
-          {filteredPlayers.map((player) => (
-            <View key={player.id}>
-              <GamingPlayerCard 
-                player={player} 
-                onPress={() => handleSelectPlayer(player)}
-                getStatusBadge={getStatusBadge}
-                needsBaseline={rosterTab === "active" && playerIdsWithoutBaseline.has(player.id)}
-                onStartBaseline={() => {
-                  setBaselinePlayer(player);
-                  setShowBaselineDrawer(true);
-                }}
-                isPast={rosterTab === "past"}
-                isPendingPayment={rosterTab === "pending_payment"}
-                juniorAssessmentBadge={assessmentBadges[player.id] ?? null}
-                onArchive={rosterTab === "active" ? () => {
-                  Alert.alert(
-                    "Move to Past",
-                    `Move ${player.name} to Past Players? Their history will be preserved.`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Move to Past",
-                        style: "destructive",
-                        onPress: () => archivePlayerMutation.mutate(player.id),
-                      },
-                    ]
-                  );
-                } : rosterTab === "pending_payment" ? () => {
-                  Alert.alert(
-                    "Move to Past",
-                    `Move ${player.name} to Past Players? Their history will be preserved.`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Move to Past",
-                        style: "destructive",
-                        onPress: () => archivePendingPaymentMutation.mutate(player.id),
-                      },
-                    ]
-                  );
-                } : undefined}
-                onRestore={rosterTab === "past" ? () => {
-                  Alert.alert(
-                    "Restore Player",
-                    `Restore ${player.name} to Active Players?`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Restore",
-                        onPress: () => restorePlayerMutation.mutate(player.id),
-                      },
-                    ]
-                  );
-                } : rosterTab === "pending_payment" ? () => {
-                  Alert.alert(
-                    "Restore to Active",
-                    `Restore ${player.name} to Active Players?`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Restore",
-                        onPress: () => restoreFromPendingPaymentMutation.mutate(player.id),
-                      },
-                    ]
-                  );
-                } : undefined}
-                onPendingPayment={rosterTab === "active" ? () => {
-                  Alert.alert(
-                    "Mark as Pending Payment",
-                    `Flag ${player.name} as awaiting payment? They will be moved to the Pending Payment tab.`,
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Mark Pending",
-                        onPress: () => markPendingPaymentMutation.mutate(player.id),
-                      },
-                    ]
-                  );
-                } : undefined}
-              />
-            </View>
-          ))}
-          <View style={{ height: TAB_BAR_HEIGHT + insets.bottom + Spacing.xl }} />
-        </Animated.ScrollView>
+          style={styles.playerList}
+          contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + Spacing.xl }}
+          keyboardShouldPersistTaps="handled"
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
+        />
         
       )}
       </Animated.View>
