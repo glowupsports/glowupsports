@@ -179,14 +179,6 @@ export function ScheduleExtraLessonModal({
     return (s.players ?? []).some((p) => p.id === playerId);
   };
 
-  const sessionIsFull = (s: CalendarSession): boolean => {
-    if (!s.maxPlayers) return false;
-    const activeCount = (s.players ?? []).filter(
-      (p) => p.status !== "left" && (p.attendanceStatus ?? null) !== "absent",
-    ).length;
-    return activeCount >= s.maxPlayers;
-  };
-
   // Add-player path selection — picked so that, for past sessions, attendance
   // is backfilled through code paths that actually run credit processing
   // (markAttendance + ensureCreditProcessed), not just status updates.
@@ -346,11 +338,6 @@ export function ScheduleExtraLessonModal({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
-    if (sessionIsFull(session)) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert("Session full", "This session has reached its capacity.");
-      return;
-    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     addPlayerMutation.mutate({ session });
   };
@@ -484,7 +471,6 @@ export function ScheduleExtraLessonModal({
 
             {sessionsForDay.map((session) => {
               const enrolled = playerAlreadyInSession(session);
-              const full = sessionIsFull(session);
               const playersCount = (session.players ?? []).filter(
                 (p) => p.status !== "left",
               ).length;
@@ -494,11 +480,11 @@ export function ScheduleExtraLessonModal({
                 <Pressable
                   key={session.id}
                   onPress={() => handleSelectSession(session)}
-                  disabled={enrolled || full || addPlayerMutation.isPending}
+                  disabled={enrolled || addPlayerMutation.isPending}
                   style={({ pressed }) => [
                     modalStyles.sessionRow,
-                    pressed && !enrolled && !full && { opacity: 0.7 },
-                    (enrolled || full) && { opacity: 0.55 },
+                    pressed && !enrolled && { opacity: 0.7 },
+                    enrolled && { opacity: 0.55 },
                   ]}
                 >
                   <View style={modalStyles.sessionTimeBlock}>
@@ -517,10 +503,7 @@ export function ScheduleExtraLessonModal({
                         prettySessionType(session.sessionType)}
                     </Text>
                     <Text style={modalStyles.sessionMeta} numberOfLines={1}>
-                      {playersCount}
-                      {session.maxPlayers ? ` / ${session.maxPlayers}` : ""}{" "}
-                      players
-                      {full ? " · Full" : ""}
+                      {playersCount} players
                       {session.courtName ? ` · ${session.courtName}` : ""}
                     </Text>
                   </View>
@@ -535,12 +518,6 @@ export function ScheduleExtraLessonModal({
                       />
                       <Text style={modalStyles.enrolledText}>Enrolled</Text>
                     </View>
-                  ) : full ? (
-                    <Ionicons
-                      name="lock-closed"
-                      size={22}
-                      color={Colors.dark.textMuted}
-                    />
                   ) : (
                     <Ionicons
                       name="add-circle"

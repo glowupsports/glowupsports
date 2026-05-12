@@ -128,14 +128,6 @@ export function AddPlayerToSessionModal({
     return new Date(session.endTime).getTime() < Date.now();
   }, [session]);
 
-  const isFull = useMemo(() => {
-    if (!session?.maxPlayers) return false;
-    const activeCount = (session.players ?? []).filter(
-      (p) => p.status !== "left" && (p.attendanceStatus ?? null) !== "absent",
-    ).length;
-    return activeCount >= session.maxPlayers;
-  }, [session]);
-
   const addPlayerMutation = useMutation({
     mutationFn: async (input: {
       player: AvailablePlayer;
@@ -274,11 +266,6 @@ export function AddPlayerToSessionModal({
   const handleSelectPlayer = (player: AvailablePlayer) => {
     if (addPlayerMutation.isPending) return;
     if (!session) return;
-    if (isFull) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert("Session full", "This session has reached its capacity.");
-      return;
-    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     addPlayerMutation.mutate({ player });
   };
@@ -361,19 +348,6 @@ export function AddPlayerToSessionModal({
             </Text>
           ) : null}
 
-          {isFull ? (
-            <View style={styles.fullBanner}>
-              <Ionicons
-                name="lock-closed"
-                size={16}
-                color={Colors.dark.textMuted}
-              />
-              <Text style={styles.fullBannerText}>
-                Session is full ({session?.maxPlayers} players).
-              </Text>
-            </View>
-          ) : null}
-
           {playersLoading ? (
             <View style={styles.loadingBlock}>
               <TennisBallSpinner size="small" color={Colors.dark.xpCyan} />
@@ -403,11 +377,10 @@ export function AddPlayerToSessionModal({
               <Pressable
                 key={player.id}
                 onPress={() => handleSelectPlayer(player)}
-                disabled={addPlayerMutation.isPending || isFull}
+                disabled={addPlayerMutation.isPending}
                 style={({ pressed }) => [
                   styles.playerRow,
-                  pressed && !isFull && { opacity: 0.7 },
-                  isFull && { opacity: 0.55 },
+                  pressed && { opacity: 0.7 },
                 ]}
               >
                 {buildPhotoUrl(player.profilePhotoUrl) ? (
@@ -503,22 +476,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: "italic",
     paddingHorizontal: 4,
-  },
-  fullBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-  },
-  fullBannerText: {
-    color: Colors.dark.textMuted,
-    fontSize: 13,
-    fontWeight: "600" as const,
   },
   loadingBlock: {
     flexDirection: "row",
