@@ -29,15 +29,15 @@ const STROKES = [
 ];
 
 const STROKE_RATINGS = [
-  { value: 2, label: "Goed", color: GlowColors.primary, icon: "checkmark-circle" as const },
-  { value: 1, label: "In ontwikkeling", color: Colors.dark.orange, icon: "ellipse-outline" as const },
-  { value: 0, label: "Aandachtspunt", color: Colors.dark.error, icon: "alert-circle" as const },
+  { value: 2, label: "Good", color: GlowColors.primary, icon: "checkmark-circle" as const },
+  { value: 1, label: "Developing", color: Colors.dark.orange, icon: "ellipse-outline" as const },
+  { value: 0, label: "Needs Work", color: Colors.dark.error, icon: "alert-circle" as const },
 ];
 
 const INTENSITY_OPTIONS = [
-  { value: "light", label: "Licht", icon: "sunny-outline" as const, color: Colors.dark.xpCyan },
-  { value: "normal", label: "Normaal", icon: "fitness-outline" as const, color: Colors.dark.orange },
-  { value: "intense", label: "Intensief", icon: "flame-outline" as const, color: Colors.dark.error },
+  { value: "light", label: "Light", icon: "sunny-outline" as const, color: Colors.dark.xpCyan },
+  { value: "normal", label: "Normal", icon: "fitness-outline" as const, color: Colors.dark.orange },
+  { value: "intense", label: "Intense", icon: "flame-outline" as const, color: Colors.dark.error },
 ];
 
 interface StrokeFeedback {
@@ -202,7 +202,7 @@ export default function StrokeFeedbackModal({
         onComplete();
         return;
       }
-      Alert.alert("Fout", error.message || "Kon feedback niet opslaan");
+      Alert.alert("Error", error.message || "Could not save feedback");
     },
   });
 
@@ -239,12 +239,12 @@ export default function StrokeFeedbackModal({
             <Pressable style={styles.closeButton} onPress={onClose}>
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
-            <Text style={styles.title}>Les Afsluiten</Text>
+            <Text style={styles.title}>Close Session</Text>
             <View style={{ width: 40 }} />
           </View>
           <View style={styles.emptyState}>
             <Ionicons name="people-outline" size={48} color={Colors.dark.disabled} />
-            <Text style={styles.emptyText}>Geen spelers in deze les</Text>
+            <Text style={styles.emptyText}>No players in this session</Text>
           </View>
         </View>
       </Modal>
@@ -261,7 +261,7 @@ export default function StrokeFeedbackModal({
             <Ionicons name="close" size={24} color={Colors.dark.text} />
           </Pressable>
           <View style={styles.headerCenter}>
-            <Text style={styles.title}>Les Afsluiten</Text>
+            <Text style={styles.title}>Close Session</Text>
             <Text style={styles.subtitle}>{currentPlayerIndex + 1} / {players.length}</Text>
           </View>
           <View style={{ width: 40 }} />
@@ -283,7 +283,7 @@ export default function StrokeFeedbackModal({
 
           {currentPlayerIndex === 0 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Les intensiteit</Text>
+              <Text style={styles.sectionTitle}>Lesson Intensity</Text>
               <View style={styles.intensityRow}>
                 {INTENSITY_OPTIONS.map((opt) => {
                   const isSelected = lessonIntensity === opt.value;
@@ -309,8 +309,8 @@ export default function StrokeFeedbackModal({
           ) : null}
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Slagen geoefend</Text>
-            <Text style={styles.sectionDesc}>Selecteer welke slagen zijn geoefend</Text>
+            <Text style={styles.sectionTitle}>Strokes Practiced</Text>
+            <Text style={styles.sectionDesc}>Select which strokes were practiced</Text>
             <View style={styles.strokesGrid}>
               {STROKES.map((stroke) => {
                 const isSelected = selectedStrokes.some((s) => s.stroke === stroke.id);
@@ -336,7 +336,7 @@ export default function StrokeFeedbackModal({
 
           {selectedStrokes.length > 0 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Beoordeling per slag</Text>
+              <Text style={styles.sectionTitle}>Rating per Stroke</Text>
               {selectedStrokes.map((strokeData) => {
                 const strokeInfo = STROKES.find((s) => s.id === strokeData.stroke);
                 const _ratingInfo = STROKE_RATINGS.find((r) => r.value === strokeData.rating);
@@ -381,7 +381,7 @@ export default function StrokeFeedbackModal({
                         color={strokeData.note ? Colors.dark.xpCyan : Colors.dark.disabled}
                       />
                       <Text style={[styles.addNoteText, strokeData.note ? { color: Colors.dark.xpCyan } : null]}>
-                        {strokeData.note ? "Opmerking" : "Opmerking toevoegen"}
+                        {strokeData.note ? "Note" : "Add note"}
                       </Text>
                     </Pressable>
 
@@ -390,7 +390,7 @@ export default function StrokeFeedbackModal({
                         style={styles.noteInput}
                         value={strokeData.note || ""}
                         onChangeText={(t) => setStrokeNote(strokeData.stroke, t)}
-                        placeholder="Korte opmerking over deze slag..."
+                        placeholder="Short note about this stroke..."
                         placeholderTextColor={Colors.dark.textMuted}
                         multiline
                         numberOfLines={2}
@@ -404,12 +404,12 @@ export default function StrokeFeedbackModal({
           ) : null}
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Opmerking speler</Text>
+            <Text style={styles.sectionTitle}>Player Note</Text>
             <TextInput
               style={styles.playerNoteInput}
               value={currentFeedback?.playerNote || ""}
               onChangeText={setPlayerNote}
-              placeholder="Optionele algemene opmerking voor deze speler..."
+              placeholder="Optional general note for this player..."
               placeholderTextColor={Colors.dark.textMuted}
               multiline
               numberOfLines={3}
@@ -423,7 +423,7 @@ export default function StrokeFeedbackModal({
           {currentPlayerIndex > 0 ? (
             <Pressable style={styles.prevButton} onPress={handlePrev}>
               <Ionicons name="chevron-back" size={20} color={Colors.dark.text} />
-              <Text style={styles.prevButtonText}>Vorige</Text>
+              <Text style={styles.prevButtonText}>Previous</Text>
             </Pressable>
           ) : (
             <View style={{ flex: 1 }} />
@@ -439,7 +439,7 @@ export default function StrokeFeedbackModal({
             ) : (
               <>
                 <Text style={styles.nextButtonText}>
-                  {isLastPlayer ? "Opslaan" : "Volgende"}
+                  {isLastPlayer ? "Save" : "Next"}
                 </Text>
                 {isLastPlayer ? (
                   <Ionicons name="checkmark" size={18} color={Colors.dark.buttonText} />
