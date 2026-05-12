@@ -36,6 +36,7 @@ import { useTabNavigation } from "@/components/TabNavigationContext";
 import { JuniorAssessmentFlow } from "@/coach/components/JuniorAssessmentFlow";
 import { GlowAssessmentFlow } from "@/coach/components/GlowAssessmentFlow";
 import { ActionSheet, ActionSheetItem } from "@/components/ActionSheet";
+import { useSupervisorMode } from "@/context/SupervisorModeContext";
 import { ScheduleExtraLessonModal } from "./ScheduleExtraLessonModal";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import type { AssessmentResult as JuniorAssessmentResult } from "@/coach/components/JuniorAssessmentFlow";
@@ -1072,6 +1073,7 @@ export function PlayerDetailView({
 }) {
   const { coach, academy } = useCoach();
   const { user } = useAuth();
+  const { isReadOnly: isSupervisorReadOnly } = useSupervisorMode();
   const canSeePayments =
     coach?.role === "head_coach" ||
     user?.role === "academy_owner" ||
@@ -2703,15 +2705,15 @@ export function PlayerDetailView({
               navigation.navigate("PlayerMatchHistory", { playerId: player.id, playerName: player.name });
             },
           },
-          {
+          ...(!isSupervisorReadOnly ? [{
             id: "schedule-extra-lesson",
             label: "Schedule Extra Lesson",
-            icon: "calendar-outline",
+            icon: "calendar-outline" as ActionSheetItem["icon"],
             color: Colors.dark.xpCyan,
             onPress: () => {
               setShowScheduleExtraLesson(true);
             },
-          },
+          }] : []),
           {
             id: "merge",
             label: "Merge Player",

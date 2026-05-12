@@ -13,7 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest, apiFetch } from "@/lib/query-client";
+import { apiRequest } from "@/lib/query-client";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
@@ -143,22 +143,14 @@ export function ScheduleExtraLessonModal({
 
   const dateParam = useMemo(() => formatDateLocal(selectedDate), [selectedDate]);
 
-  const calendarQueryKey = useMemo(
-    () => [`/api/coach/calendar`, dateParam, "day", coachId ?? "self"],
-    [dateParam, coachId],
-  );
+  const calendarQueryKey = useMemo(() => {
+    const params = new URLSearchParams({ date: dateParam, view: "day" });
+    if (coachId) params.set("coachId", coachId);
+    return [`/api/coach/calendar?${params.toString()}`];
+  }, [dateParam, coachId]);
 
   const { data: calendarData, isLoading: calendarLoading } = useQuery<CalendarResponse>({
     queryKey: calendarQueryKey,
-    queryFn: async () => {
-      const params = new URLSearchParams({ date: dateParam, view: "day" });
-      if (coachId) params.set("coachId", coachId);
-      const res = await apiFetch(`/api/coach/calendar?${params.toString()}`);
-      if (!res.ok) {
-        throw new Error("Failed to load calendar");
-      }
-      return res.json();
-    },
     enabled: visible,
   });
 
@@ -314,7 +306,7 @@ export function ScheduleExtraLessonModal({
       queryClient.invalidateQueries({
         queryKey: ["/api/admin/players", playerId, "stats"],
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/coach/calendar"] });
+      queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       setPendingSessionId(null);
       onClose();
     },
