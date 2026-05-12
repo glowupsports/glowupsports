@@ -29,6 +29,11 @@ export type LedgerReason =
   // deleted. Negative delta pushes the wallet back to the pre-purchase debt
   // level. event_key = 'package_delete_debt:<packageId>'.
   | "package_deleted_debt_reversal"
+  // Reversal of lot credits consumed for actual sessions when a package/lot is
+  // deleted. Positive delta returns the credit to the wallet (making the session
+  // unpaid again so the next package can settle it). event_key =
+  // 'package_delete_lot_consume:<packageId>'.
+  | "package_deleted_lot_consume_reversal"
   // Task #1747 — reversal row for sessions where attendance was corrected
   // to 'holiday' AFTER a consume had already been written. The delta is +N
   // (credits returned). The session_player_id column links back to the
