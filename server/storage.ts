@@ -3368,24 +3368,6 @@ export const storage = {
       totalDebtSettled += Number((meta as { settleAmount?: number })?.settleAmount ?? 0);
     }
 
-    // Find lot credits that were consumed for actual sessions (not debt
-    // settlement). When the lot is cancelled these credits are revoked too —
-    // each affected session becomes unpaid again and will be settled by the
-    // player's next package. We add back the absolute delta so the wallet
-    // reflects the correct pre-package debt level.
-    const lotConsumeResult = await db.execute(sql`
-      SELECT COALESCE(SUM(ABS(delta)), 0)::int AS total_consumed
-      FROM credit_ledger_v2
-      WHERE reason = 'consume'
-        AND delta < 0
-        AND lot_id IN (
-          SELECT id FROM credit_lots WHERE source_package_id = ${id}
-        )
-    `);
-    const lotSessionCreditsConsumed = Number(
-      (lotConsumeResult.rows[0] as { total_consumed: number })?.total_consumed ?? 0
-    );
-
     // Detach invoices outside the engine call (engine handles its own tx).
     await db
       .update(invoices)
@@ -3407,25 +3389,6 @@ export const storage = {
         actorId: 'system',
         actorRole: 'system',
         eventKey: `package_delete:${id}`,
-      });
-    }
-
-    // Reverse lot credits that were already consumed for actual sessions.
-    // These are session 'consume' rows that drew from this lot. Returning
-    // +N to the wallet makes those sessions unpaid again; the next package
-    // purchase will settle them via the normal debt-settlement path.
-    if (lotSessionCreditsConsumed > 0) {
-      await manualAdjustment({
-        playerId: pkg.playerId!,
-        academyId: pkg.academyId!,
-        type: (pkg.creditType ?? 'group') as any,
-        delta: +lotSessionCreditsConsumed,
-        reason: `package_deleted_lot_consume_reversal:${id}`,
-        actorId: 'system',
-        actorRole: 'system',
-        eventKey: `package_delete_lot_consume:${id}`,
-        allowOverdraw: true,
-        ledgerReason: 'package_deleted_lot_consume_reversal',
       });
     }
 
