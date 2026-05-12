@@ -3636,7 +3636,24 @@ router.get(
     try {
       const { id } = req.params;
       const { date } = req.query;
-      const coachId = req.user!.coachId;
+      const userRole = req.user!.role;
+      const academyId = req.user!.academyId;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+      let coachId = req.user!.coachId;
+
+      if (supervisorCoachId && isOwnerRole) {
+        const targetCoach = await db
+          .select({ id: coaches.id, academyId: coaches.academyId })
+          .from(coaches)
+          .where(and(eq(coaches.id, supervisorCoachId), eq(coaches.academyId, academyId as string)))
+          .limit(1);
+        if (targetCoach.length === 0) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
@@ -3913,7 +3930,24 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const coachId = req.user!.coachId;
+      const userRole = req.user!.role;
+      const academyId = req.user!.academyId;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+      let coachId = req.user!.coachId;
+
+      if (supervisorCoachId && isOwnerRole) {
+        const targetCoach = await db
+          .select({ id: coaches.id, academyId: coaches.academyId })
+          .from(coaches)
+          .where(and(eq(coaches.id, supervisorCoachId), eq(coaches.academyId, academyId as string)))
+          .limit(1);
+        if (targetCoach.length === 0) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       if (!coachId) {
         return res.status(403).json({ error: "Coach access required" });
@@ -4186,11 +4220,29 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const userRole = req.user!.role;
+      const academyId = req.user!.academyId;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+      let coachId = req.user!.coachId;
+
+      if (supervisorCoachId && isOwnerRole) {
+        const targetCoach = await db
+          .select({ id: coaches.id, academyId: coaches.academyId })
+          .from(coaches)
+          .where(and(eq(coaches.id, supervisorCoachId), eq(coaches.academyId, academyId as string)))
+          .limit(1);
+        if (targetCoach.length === 0) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       // Verify ownership
       const series = await storage.getCoachingSeriesById(id);
       if (!series) return res.status(404).json({ error: "Series not found" });
-      if (series.coachId !== req.user!.coachId) {
+      if (series.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized" });
       }
 

@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import { db } from "../db";
-import { ballLevels, glowSkills, skillRubrics, levelSkills, levelTests, playerBallLevels, playerSkillScores, playerPillarProgress, levelTrials, sessionSkillFeedback, players, sessions, sessionPlayers, sessionIntakeData } from "../../shared/schema";
+import { ballLevels, glowSkills, skillRubrics, levelSkills, levelTests, playerBallLevels, playerSkillScores, playerPillarProgress, levelTrials, sessionSkillFeedback, players, sessions, sessionPlayers, sessionIntakeData, coaches } from "../../shared/schema";
 import { eq, and, or, desc, sql, inArray, gte, isNull } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy } from "../auth";
 import { awardXP } from "../services/xp-service";
@@ -2152,8 +2152,25 @@ router.get("/api/glow/blue-levels/:levelId/pillar/:pillar", async (req, res: Res
 // Returns completed sessions in last 7 days that have no session_skill_feedback for at least one present player
 router.get("/api/coach/sessions/pending-feedback", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const coachId = req.user!.coachId;
+    const userRole = req.user!.role;
     const academyId = req.user!.academyId;
+    const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+    const supervisorCoachId = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+    let coachId = req.user!.coachId;
+
+    if (supervisorCoachId && isOwnerRole) {
+      const targetCoach = await db
+        .select({ id: coaches.id, academyId: coaches.academyId })
+        .from(coaches)
+        .where(and(eq(coaches.id, supervisorCoachId), eq(coaches.academyId, academyId as string)))
+        .limit(1);
+      if (targetCoach.length === 0) {
+        return res.status(403).json({ error: "Coach not found in your academy" });
+      }
+      coachId = supervisorCoachId;
+    }
+
     if (!coachId || !academyId) return res.status(403).json({ error: "Forbidden" });
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

@@ -89,14 +89,19 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
         const { date, view = "day", coachId: queryCoachId } = req.query;
         const academyId = req.user!.academyId;
 
-        // In admin mode, allow querying another coach's calendar via query param
+        // In admin/owner mode, allow querying another coach's calendar via query
+        // param or via supervisorCoachId (injected automatically in supervisor mode).
         // Otherwise fall back to logged-in user's coachId
         const isAdmin =
           req.user!.role === "platform_owner" ||
-          req.user!.role === "academy_owner";
+          req.user!.role === "academy_owner" ||
+          req.user!.role === "owner";
+        const supervisorCoachId = isAdmin
+          ? (req.query.supervisorCoachId as string | undefined)
+          : undefined;
         const coachId =
-          isAdmin && queryCoachId
-            ? (queryCoachId as string)
+          isAdmin && (queryCoachId || supervisorCoachId)
+            ? ((queryCoachId as string | undefined) || supervisorCoachId)
             : req.user!.coachId;
 
         if (!date || !coachId) {
@@ -608,8 +613,24 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
     requireAcademy,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const coachId = req.user!.coachId;
+        const userRole = req.user!.role;
         const academyId = req.user!.academyId;
+        const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+        const supervisorCoachId = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+        let coachId = req.user!.coachId;
+
+        if (supervisorCoachId && isOwnerRole) {
+          const targetCoach = await db
+            .select({ id: coaches.id, academyId: coaches.academyId })
+            .from(coaches)
+            .where(and(eq(coaches.id, supervisorCoachId), eq(coaches.academyId, academyId as string)))
+            .limit(1);
+          if (targetCoach.length === 0) {
+            return res.status(403).json({ error: "Coach not found in your academy" });
+          }
+          coachId = supervisorCoachId;
+        }
 
         if (!coachId) {
           return res.status(400).json({ error: "Coach ID required" });
