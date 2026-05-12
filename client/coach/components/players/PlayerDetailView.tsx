@@ -22,6 +22,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, withSequence, interpolate } from "react-native-reanimated";
 import { Colors, Spacing, getPlayerLevelColor, getPlayerLevelTextColor } from "@/constants/theme";
 import { apiRequest, getApiUrl, getAuthHeaders, buildPhotoUrl } from "@/lib/query-client";
+import { formatTimeInTimezone, formatDateInTimezone } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useNavigation } from "@react-navigation/native";
 import PackagesCard from "@/coach/components/PackagesCard";
@@ -1743,16 +1744,8 @@ export function PlayerDetailView({
               Tap a session to open it in the calendar and reschedule.
             </Text>
             {(impactedSessions ?? []).map((s) => {
-              const dt = new Date(s.startTime);
-              const dateStr = dt.toLocaleDateString(undefined, {
-                weekday: "short",
-                month: "short",
-                day: "numeric",
-              });
-              const timeStr = dt.toLocaleTimeString(undefined, {
-                hour: "numeric",
-                minute: "2-digit",
-              });
+              const dateStr = formatDateInTimezone(s.startTime, academy?.timezone || "Asia/Dubai");
+              const timeStr = formatTimeInTimezone(s.startTime, academy?.timezone || "Asia/Dubai");
               const label =
                 s.title || (s.sessionType ? `${s.sessionType} session` : "Session");
               return (
@@ -2467,8 +2460,7 @@ export function PlayerDetailView({
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
                 {recentCompletedSessions.map((session) => {
-                  const sessionDate = new Date(session.date);
-                  const dateStr = sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+                  const dateStr = formatDateInTimezone(session.date, academy?.timezone || "Asia/Dubai");
                   return (
                     <Pressable
                       key={session.sessionId}

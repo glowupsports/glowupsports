@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+import { useCoach } from "@/coach/context/CoachContext";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 
 interface Session {
   id: string;
@@ -20,17 +22,15 @@ interface MiniTimelineProps {
 }
 
 export default function MiniTimeline({ sessions, onSessionPress }: MiniTimelineProps) {
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const now = new Date();
   const sortedSessions = [...sessions].sort(
     (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
   );
 
   const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatTimeInTimezone(dateStr, timezone);
   };
 
   const getSessionStatus = (session: Session) => {

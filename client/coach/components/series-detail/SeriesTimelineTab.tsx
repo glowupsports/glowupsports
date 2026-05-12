@@ -4,23 +4,24 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
 import type { SessionInstance, SeriesDetail } from "./types";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 
 interface SeriesTimelineTabProps {
   series: SeriesDetail;
   accentColor: string;
+  timezone: string;
   formatDate: (dateStr: string) => string;
   onSessionPress: (session: SessionInstance) => void;
 }
 
-export function SeriesTimelineTab({ series, accentColor, formatDate, onSessionPress }: SeriesTimelineTabProps) {
+export function SeriesTimelineTab({ series, accentColor, timezone, formatDate, onSessionPress }: SeriesTimelineTabProps) {
   const sortedSessions = [...(series.sessions || [])].sort(
     (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
   );
 
   const formatSessionTime = (startTime: string) => {
     try {
-      const date = new Date(startTime);
-      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+      return formatTimeInTimezone(startTime, timezone);
     } catch {
       return "";
     }

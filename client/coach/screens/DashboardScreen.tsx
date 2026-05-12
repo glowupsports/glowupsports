@@ -33,7 +33,7 @@ import { LoadForecastCard } from "@/coach/components/LoadForecastCard";
 import { CoachEarningsCard } from "@/coach/components/CoachEarningsCard";
 import { AcademySwitcher } from "@/coach/components/AcademySwitcher";
 import CollapsibleModeSwitcher from "@/components/CollapsibleModeSwitcher";
-import { filterSessionsByDate } from "@/lib/dateUtils";
+import { filterSessionsByDate, formatTimeInTimezone, formatDateInTimezone } from "@/lib/dateUtils";
 import { getApiUrl, apiRequest, buildPhotoUrl, getAuthHeaders } from "@/lib/query-client";import SessionDetailDrawer from "@/coach/components/SessionDetailDrawer";
 import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import DaySessionsDrawer from "@/coach/components/DaySessionsDrawer";
@@ -197,12 +197,12 @@ function PendingAttendanceCard({
   const [showAll, setShowAll] = useState(false);
   const displayed = showAll ? sessions : sessions.slice(0, 5);
   const hidden = sessions.length - 5;
+  const { academy } = useCoach();
+  const tz = academy?.timezone || "Asia/Dubai";
 
   function formatSessionDate(startTime: string | Date): string {
-    const d = new Date(startTime);
-    const day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-    const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-    return `${day} · ${time}`;
+    const isoStr = typeof startTime === "string" ? startTime : startTime.toISOString();
+    return `${formatDateInTimezone(isoStr, tz)} · ${formatTimeInTimezone(isoStr, tz)}`;
   }
 
   return (
@@ -277,12 +277,11 @@ function PendingFeedbackCard({
   const [showAll, setShowAll] = useState(false);
   const displayed = showAll ? sessions : sessions.slice(0, 3);
   const hidden = sessions.length - 3;
+  const { academy } = useCoach();
+  const tz = academy?.timezone || "Asia/Dubai";
 
   function formatDate(startTime: string): string {
-    const d = new Date(startTime);
-    const day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-    const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-    return `${day} · ${time}`;
+    return `${formatDateInTimezone(startTime, tz)} · ${formatTimeInTimezone(startTime, tz)}`;
   }
 
   return (
@@ -838,6 +837,8 @@ function CounterProposeModal({
   loadingCounter: boolean;
 }) {
   const apiUrl = getApiUrl();
+  const { academy: _cpAcademy } = useCoach();
+  const tz = _cpAcademy?.timezone || "Asia/Dubai";
   // Compute fresh every time the modal becomes visible so "Today" always reflects the real date
   const dayChips = useMemo(() => buildDayChips(14), [visible]);
   const { data, isFetching, isError, refetch } = useQuery<{ slots: AvailableSlot[] }>({
@@ -868,8 +869,7 @@ function CounterProposeModal({
 
   const formatSlotLabel = (iso: string | null) => {
     if (!iso) return "--:--";
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return formatTimeInTimezone(iso, tz);
   };
 
   return (
@@ -1226,10 +1226,10 @@ function BookingRequestCard({
     );
   };
 
-  const start = new Date(req.requestedStart);
-  const end = new Date(req.requestedEnd);
-  const dateStr = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  const timeStr = `${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  const { academy: _academy2 } = useCoach();
+  const tz2 = _academy2?.timezone || "Asia/Dubai";
+  const dateStr = formatDateInTimezone(req.requestedStart, tz2);
+  const timeStr = `${formatTimeInTimezone(req.requestedStart, tz2)} - ${formatTimeInTimezone(req.requestedEnd, tz2)}`;
 
   const sessionTypeLabel =
     req.sessionType === "private" ? "Private Lesson" :
@@ -2716,11 +2716,7 @@ export default function DashboardScreen() {
   };
 
   const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatTimeInTimezone(date, _academy?.timezone || "Asia/Dubai");
   };
 
   const _getGreeting = () => {

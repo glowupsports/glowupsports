@@ -1657,6 +1657,7 @@ export default function SeriesDetailDrawer({
       <SeriesTimelineTab
         series={series}
         accentColor={accentColor}
+        timezone={academy?.timezone || "Asia/Dubai"}
         formatDate={formatDate}
         onSessionPress={handleSessionPress}
       />

@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { Colors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 import type Ionicons from "@expo/vector-icons/Ionicons";
 import type { ProgressTrend, EffortLevel, Intensity, Session, SessionPlayer, SkillDomain, SkillChipState, SkillProgress, QuickSignal, SocialIssue, PlayerFeedbackState, DomainImpact } from "../types";
 
@@ -21,7 +22,7 @@ const FEEDBACK_XP_REWARDS: Record<string, number> = {
 };
 
 export function useFeedbackTab(tabBarHeight: number) {
-  const { coach } = useCoach();
+  const { coach, academy } = useCoach();
   const queryClient = useQueryClient();
 
   type ViewPeriod = "week" | "month";
@@ -269,7 +270,7 @@ export function useFeedbackTab(tabBarHeight: number) {
   };
 
   const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+    return formatTimeInTimezone(date, academy?.timezone || "Asia/Dubai");
   };
 
   const { data: domains = [] } = useQuery<SkillDomain[]>({

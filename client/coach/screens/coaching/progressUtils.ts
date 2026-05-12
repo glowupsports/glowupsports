@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors } from "@/constants/theme";
+import { formatTimeInTimezone, formatDateInTimezone } from "@/lib/dateUtils";
 
 export const getDomainIcon = (iconName: string | null): keyof typeof Ionicons.glyphMap => {
   switch (iconName) {
@@ -64,15 +65,12 @@ export const getLevelColor = (level: string | null) => {
   }
 };
 
-export const formatSessionTime = (startTime: string, endTime: string) => {
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  return `${start.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })} - ${end.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+export const formatSessionTime = (startTime: string, endTime: string, timezone: string = "Asia/Dubai") => {
+  return `${formatTimeInTimezone(startTime, timezone)} - ${formatTimeInTimezone(endTime, timezone)}`;
 };
 
-export const formatSessionDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+export const formatSessionDate = (dateStr: string, timezone: string = "Asia/Dubai") => {
+  return formatDateInTimezone(dateStr, timezone);
 };
 
 export const getSessionTypeLabel = (type: string) => {

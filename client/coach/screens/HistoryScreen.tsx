@@ -16,6 +16,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { useCoach } from "@/coach/context/CoachContext";
+import { formatTimeInTimezone, formatDateInTimezone } from "@/lib/dateUtils";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
@@ -80,7 +81,8 @@ function FilterChip({
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { calendarData, isLoading } = useCoach();
+  const { calendarData, isLoading, academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
@@ -110,23 +112,15 @@ export default function HistoryScreen() {
   const groupedSessions = useMemo(() => {
     const groups: { [key: string]: Session[] } = {};
     filteredSessions.forEach((session) => {
-      const date = new Date(session.startTime).toLocaleDateString("en-US", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      });
+      const date = formatDateInTimezone(session.startTime, timezone, "long");
       if (!groups[date]) groups[date] = [];
       groups[date].push(session);
     });
     return groups;
-  }, [filteredSessions]);
+  }, [filteredSessions, timezone]);
 
   const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatTimeInTimezone(date, timezone);
   };
 
   const getSessionTypeLabel = (type: string) => {
@@ -278,21 +272,14 @@ function SessionDetailView({
   onBack: () => void;
   insets: { top: number; bottom: number };
 }) {
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatTimeInTimezone(date, timezone);
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    return formatDateInTimezone(date, timezone, "long");
   };
 
   const getSessionTypeLabel = (type: string) => {

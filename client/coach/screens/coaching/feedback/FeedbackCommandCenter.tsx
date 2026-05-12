@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 import { getApiUrl } from "@/lib/query-client";
 import QuickFeedbackModal from "@/coach/components/QuickFeedbackModal";
 import { useCoachingScroll } from "../CoachingScrollContext";
@@ -78,12 +79,8 @@ function getTypeColor(type: string): string {
   return SESSION_TYPE_COLORS[type] || Colors.dark.primary;
 }
 
-function formatSessionTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+function formatSessionTime(dateStr: string, timezone: string): string {
+  return formatTimeInTimezone(dateStr, timezone);
 }
 
 function getDayLabel(dayOffset: number, date: Date): string {
@@ -103,6 +100,8 @@ function PlayerRateCard({
   onRatePress: (row: PlayerRow) => void;
   localRated: Set<string>;
 }) {
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const isRated = row.isRated || localRated.has(`${row.session.id}:${row.player.id}`);
   const typeColor = getTypeColor(row.session.sessionType);
   const initials = row.player.name?.charAt(0)?.toUpperCase() || "?";
@@ -127,7 +126,7 @@ function PlayerRateCard({
               {SESSION_TYPE_LABELS[row.session.sessionType] || row.session.sessionType}
             </Text>
           </View>
-          <Text style={ccStyles.sessionTime}>{formatSessionTime(row.session.startTime)}</Text>
+          <Text style={ccStyles.sessionTime}>{formatSessionTime(row.session.startTime, timezone)}</Text>
         </View>
       </View>
 

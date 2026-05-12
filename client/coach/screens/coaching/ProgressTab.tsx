@@ -22,7 +22,8 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
   const [feedbackSession, setFeedbackSession] = useState<any>(null);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const queryClient = useQueryClient();
-  const { calendarData } = useCoach();
+  const { calendarData, academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
 
   // Get coachId from calendar data (coach's own sessions)
   const coachId = calendarData?.ownSessions?.[0]?.coachId;
@@ -401,7 +402,7 @@ export function ProgressTab({ insets: _insets, tabBarHeight }: TabProps) {
         <View>
           <Text style={styles.feedbackSessionType}>{getSessionTypeLabel(session.sessionType)}</Text>
           <Text style={styles.feedbackSessionTime}>
-            {showDate ? formatSessionDate(session.startTime) + ' · ' : ''}{formatSessionTime(session.startTime, session.endTime)}
+            {showDate ? formatSessionDate(session.startTime) + ' · ' : ''}{formatSessionTime(session.startTime, session.endTime, timezone)}
           </Text>
         </View>
       </View>

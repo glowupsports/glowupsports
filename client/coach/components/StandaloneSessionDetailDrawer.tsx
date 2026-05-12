@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useCoach } from "@/coach/context/CoachContext";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 interface Player {
@@ -117,7 +118,8 @@ export default function StandaloneSessionDetailDrawer({
 }: StandaloneSessionDetailDrawerProps) {
   const insets = useSafeAreaInsets();
   const _queryClient = useQueryClient();
-  const { academy: _academy } = useCoach();
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
   const { data: sessionPlayers = [], isLoading: _playersLoading } = useQuery<SessionPlayer[]>({
@@ -145,18 +147,15 @@ export default function StandaloneSessionDetailDrawer({
   const dayName = sessionDate ? DAY_NAMES[sessionDate.getDay()] : "";
 
   const formatTime = (dateStr: string) => {
-    return new Date(dateStr).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatTimeInTimezone(dateStr, timezone);
   };
 
   const displayTitle = useMemo(() => {
     if (!session) return "";
     const time = formatTime(session.startTime);
     return `${typeLabel} - ${dayName} ${time}`;
-  }, [session, typeLabel, dayName]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, typeLabel, dayName, timezone]);
 
   const isCompleted = session?.status === "completed";
   const hasFeedback = !!feedbackData?.sessionFeedback;

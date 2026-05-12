@@ -13,6 +13,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { useCoach } from "@/coach/context/CoachContext";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 import { apiRequest } from "@/lib/query-client";
 import { WebCalendarPicker } from "@/components/WebCalendarPicker";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -89,12 +91,8 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-function formatTimeRange(startIso: string, endIso: string): string {
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  const fmt = (d: Date) =>
-    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-  return `${fmt(start)} – ${fmt(end)}`;
+function formatTimeRange(startIso: string, endIso: string, timezone: string): string {
+  return `${formatTimeInTimezone(startIso, timezone)} – ${formatTimeInTimezone(endIso, timezone)}`;
 }
 
 function prettySessionType(type: string): string {
@@ -129,6 +127,8 @@ export function ScheduleExtraLessonModal({
 }: ScheduleExtraLessonModalProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [sessionType, setSessionType] = useState<SessionTypeFilter>("group");
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
@@ -494,7 +494,7 @@ export function ScheduleExtraLessonModal({
                       color={Colors.dark.xpCyan}
                     />
                     <Text style={modalStyles.sessionTime}>
-                      {formatTimeRange(session.startTime, session.endTime)}
+                      {formatTimeRange(session.startTime, session.endTime, timezone)}
                     </Text>
                   </View>
                   <View style={{ flex: 1 }}>

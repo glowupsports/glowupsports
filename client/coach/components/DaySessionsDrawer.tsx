@@ -13,6 +13,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor } from "@/constants/theme";
+import { useCoach } from "@/coach/context/CoachContext";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 
 interface Player {
   id: string;
@@ -83,13 +85,6 @@ const getStatusInfo = (status: string | null) => {
   }
 };
 
-const formatTime = (date: string) => {
-  return new Date(date).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-};
 
 function SessionBriefIndicator({ sessionId }: { sessionId: string }) {
   const { data } = useQuery<{ id: string }>({
@@ -107,6 +102,9 @@ function SessionBriefIndicator({ sessionId }: { sessionId: string }) {
 
 export default function DaySessionsDrawer({ visible, sessions, dateLabel, onClose, onSelectSession }: DaySessionsDrawerProps) {
   const insets = useSafeAreaInsets();
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
+  const formatTime = (date: string) => formatTimeInTimezone(date, timezone);
 
   const sortedSessions = [...sessions].sort(
     (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()

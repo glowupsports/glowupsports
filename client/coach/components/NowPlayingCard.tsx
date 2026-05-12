@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { View, Text, StyleSheet, Pressable, Animated as RNAnimated, LayoutAnimation, Platform, UIManager } from "react-native";
+import { useCoach } from "@/coach/context/CoachContext";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
@@ -46,6 +48,8 @@ export default function NowPlayingCard({
   onExtend,
   onEnd,
 }: NowPlayingCardProps) {
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const [now, setNow] = useState(new Date());
   const [isExpanded, setIsExpanded] = useState(false);
   const pulseAnim = useState(new RNAnimated.Value(1))[0];
@@ -147,11 +151,7 @@ export default function NowPlayingCard({
   };
 
   const formatTimeRange = (start: string, end: string) => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    const format = (d: Date) =>
-      d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
-    return `${format(startDate)} - ${format(endDate)}`;
+    return `${formatTimeInTimezone(start, timezone)} - ${formatTimeInTimezone(end, timezone)}`;
   };
 
   const getCourtName = (courtId: string | null) => {

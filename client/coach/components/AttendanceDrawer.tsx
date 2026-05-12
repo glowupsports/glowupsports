@@ -7,6 +7,8 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { useCoach } from "@/coach/context/CoachContext";
+import { formatTimeInTimezone } from "@/lib/dateUtils";
 import { invalidatePlayersList } from "@/lib/credit-cache";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useNetwork } from "@/context/NetworkContext";
@@ -78,6 +80,8 @@ export default function AttendanceDrawer({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { isOffline, logOfflineAttempt } = useNetwork();
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const [attendance, setAttendance] = useState<Map<string, AttendanceRecord>>(new Map());
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
   const [showAddPlayers, setShowAddPlayers] = useState(false);
@@ -336,11 +340,7 @@ export default function AttendanceDrawer({
   ];
 
   const formatTime = (date: string) => {
-    return new Date(date).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    return formatTimeInTimezone(date, timezone);
   };
 
   const handleSummaryClose = () => {

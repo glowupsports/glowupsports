@@ -5,12 +5,16 @@ import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 import { styles } from "./seriesDetailStyles";
 import type { SeriesDetail } from "./types";
+import { useCoach } from "@/coach/context/CoachContext";
+import { formatTimeInTimezone, formatDateInTimezone } from "@/lib/dateUtils";
 
 interface SeriesPlanTabProps {
   series: SeriesDetail | undefined;
 }
 
 export function SeriesPlanTab({ series }: SeriesPlanTabProps) {
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const upcomingSessions = series?.sessions?.filter((s) => {
     const sessionDate = new Date(s.startTime);
     return sessionDate >= new Date() && s.status !== "completed" && s.status !== "cancelled";
@@ -38,7 +42,6 @@ export function SeriesPlanTab({ series }: SeriesPlanTabProps) {
         <View style={styles.planSessionsList}>
           <Text style={styles.planSectionTitle}>Upcoming Sessions ({upcomingSessions.length})</Text>
           {upcomingSessions.slice(0, 5).map((session: any) => {
-            const sessionDate = new Date(session.startTime);
             const hasPlan = session.sessionPlan?.blocks?.length > 0;
 
             return (
@@ -51,10 +54,10 @@ export function SeriesPlanTab({ series }: SeriesPlanTabProps) {
               >
                 <View style={styles.planSessionInfo}>
                   <Text style={styles.planSessionDate}>
-                    {sessionDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                    {formatDateInTimezone(session.startTime, timezone)}
                   </Text>
                   <Text style={styles.planSessionTime}>
-                    {sessionDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
+                    {formatTimeInTimezone(session.startTime, timezone)}
                   </Text>
                 </View>
                 <View style={styles.planSessionStatus}>

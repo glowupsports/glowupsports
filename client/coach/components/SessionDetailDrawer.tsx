@@ -7,6 +7,8 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, getPlayerLevelColor, getPlayerLevelTextColor, GlowColors } from "@/constants/theme";
+import { formatTimeInTimezone, formatDateInTimezone } from "@/lib/dateUtils";
+import { useCoach } from "@/coach/context/CoachContext";
 import { getBallLevelColor } from "./series-detail/utils";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
 import { Image } from "expo-image";
@@ -109,6 +111,8 @@ export default function SessionDetailDrawer({
   const { isOffline, logOfflineAttempt } = useNetwork();
   const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const { t } = useTranslation();
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const isOfflineRef = useRef(isOffline);
   useEffect(() => { isOfflineRef.current = isOffline; }, [isOffline]);
   const [showReminderModal, setShowReminderModal] = useState(false);
@@ -838,7 +842,7 @@ export default function SessionDetailDrawer({
   if (!visible || !session) return null;
 
   const court = courts.find(c => c.id === session.courtId);
-  const sessionDate = new Date(session.startTime);
+  const _sessionDate = new Date(session.startTime);
   const sessionType = session.sessionType === "private" ? "Private" :
                       session.sessionType === "semi_private" ? "Semi-Private" :
                       session.sessionType === "group" ? "Group" :
@@ -968,14 +972,14 @@ export default function SessionDetailDrawer({
             <Text style={styles.typeBadgeText}>{sessionType}</Text>
           </View>
           <Text style={styles.sessionTime}>
-            {new Date(session.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+            {formatTimeInTimezone(session.startTime, timezone)}
             {" - "}
-            {new Date(session.endTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false })}
+            {formatTimeInTimezone(session.endTime, timezone)}
           </Text>
         </View>
         
         <Text style={styles.sessionDate}>
-          {sessionDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+          {formatDateInTimezone(session.startTime, timezone, "long")}
         </Text>
         
         {court ? (

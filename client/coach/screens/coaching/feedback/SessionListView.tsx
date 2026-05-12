@@ -9,10 +9,14 @@ import StandaloneSessionDetailDrawer from "@/coach/components/StandaloneSessionD
 import { styles } from "../coachingStyles";
 import type { FeedbackTabState } from "./useFeedbackTab";
 import { useCoachingScroll } from "../CoachingScrollContext";
+import { useCoach } from "@/coach/context/CoachContext";
+import { formatDateInTimezone } from "@/lib/dateUtils";
 
 type ViewPeriod = "week" | "month";
 
 export function SessionListView(props: FeedbackTabState) {
+  const { academy } = useCoach();
+  const timezone = academy?.timezone || "Asia/Dubai";
   const onScroll = useCoachingScroll();
   const navigation = useNavigation<any>();
   const {
@@ -267,12 +271,7 @@ export function SessionListView(props: FeedbackTabState) {
                 return DAY_NAMES[dayKey as number];
               } else {
                 // For month view, show "Mon Jan 13" format
-                const date = new Date(dayKey as string);
-                return date.toLocaleDateString('en-US', { 
-                  weekday: 'short', 
-                  month: 'short', 
-                  day: 'numeric' 
-                });
+                return formatDateInTimezone(dayKey as string, timezone);
               }
             };
             
@@ -339,9 +338,8 @@ export function SessionListView(props: FeedbackTabState) {
                       const primaryBallLevel = players[0]?.ballLevel;
                       const ballLevelColor = getBallLevelColor(primaryBallLevel);
                       
-                      const sessionDate = session.sessionDate ? new Date(session.sessionDate) : null;
-                      const formattedDate = sessionDate 
-                        ? sessionDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                      const formattedDate = session.sessionDate
+                        ? formatDateInTimezone(session.sessionDate, timezone)
                         : null;
                       
                       const sessionStartTime = session.startTime ? new Date(session.startTime) : null;
