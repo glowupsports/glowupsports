@@ -439,29 +439,6 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
     color: Colors.dark.orange,
   },
-  gamingXpContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  gamingXpBarBg: {
-    flex: 1,
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  gamingXpBarFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  gamingXpText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: Colors.dark.xpCyan,
-    minWidth: 30,
-    textAlign: "right",
-  },
   gamingCardMeta: {
     flexDirection: "row",
     alignItems: "center",

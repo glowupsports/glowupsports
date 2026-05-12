@@ -6,7 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Colors, getPlayerLevelColor, getPlayerLevelTextColor } from "@/constants/theme";
 import { buildPhotoUrl } from "@/lib/query-client";
 import { formatCredits } from "@/lib/dateUtils";
@@ -256,14 +256,12 @@ function GamingPlayerCard({
   }));
   
   const handlePressIn = () => {
-    scale.value = withSpring(0.98, { damping: 15, stiffness: 300 });
+    scale.value = withTiming(0.98, { duration: 100 });
   };
   
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+    scale.value = withTiming(1, { duration: 150 });
   };
-
-  const xpProgress = Math.random() * 100;
 
   return (
     <>
@@ -328,20 +326,6 @@ function GamingPlayerCard({
                   <Text style={[styles.gamingStatusBadgeText, { color: statusBadge.color }]}>{statusBadge.label}</Text>
                 </View>
               ) : null}
-            </View>
-
-            <View style={styles.gamingXpContainer}>
-              <View style={styles.gamingXpBarBg}>
-                <LinearGradient
-                  colors={[Colors.dark.xpCyan, Colors.dark.primary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.gamingXpBarFill, { width: `${xpProgress}%` }]}
-                />
-              </View>
-              <Text style={styles.gamingXpText}>
-                {Math.round(xpProgress)}%
-              </Text>
             </View>
 
             <View style={styles.gamingCardMeta}>
