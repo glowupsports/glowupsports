@@ -20,6 +20,7 @@ import { apiRequest, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { invalidatePlayersList } from "@/lib/credit-cache";
 import { convertUTCTimeToLocal, getTimeInTimezone, getDayOfWeekInTimezone, getLocalDateString } from "@/lib/dateUtils";
 import { useCoach } from "@/coach/context/CoachContext";
+import { useSupervisorMode } from "@/context/SupervisorModeContext";
 import InSessionFeedbackDrawer from "./InSessionFeedbackDrawer";
 import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 import { useTabNavigation } from "@/components/TabNavigationContext";
@@ -55,6 +56,8 @@ export default function SeriesDetailDrawer({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { academy, coach: currentCoach } = useCoach();
+  const { supervisorCoach } = useSupervisorMode();
+  const isReadOnly = !!supervisorCoach;
   const { navigateToTab } = useTabNavigation();
 
   const handlePlayerTap = (playerId: string) => {
@@ -659,8 +662,20 @@ export default function SeriesDetailDrawer({
       setRemovePlayerId(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: () => {
+    onError: (error: any) => {
       setRemovingPlayerId(null);
+      const msg = error?.message ?? "";
+      const bodyMatch = msg.match(/\d+:\s*(.+)/s);
+      let detail = "Failed to remove player from this class.";
+      if (bodyMatch) {
+        try {
+          const parsed = JSON.parse(bodyMatch[1]);
+          detail = parsed?.error || detail;
+        } catch {
+          detail = bodyMatch[1] || detail;
+        }
+      }
+      Alert.alert("Could Not Remove Player", detail);
     },
   });
 
@@ -732,6 +747,10 @@ export default function SeriesDetailDrawer({
   };
 
   const handleRemovePlayer = (playerId: string) => {
+    if (isReadOnly) {
+      Alert.alert("View Only", "You're in supervisor mode. Switch back to your own account to make changes.");
+      return;
+    }
     setRemovePlayerId(playerId);
     setRemoveDate(new Date());
     setPlayerActionMenuId(null);
