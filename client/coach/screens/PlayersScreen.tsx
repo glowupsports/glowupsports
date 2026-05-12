@@ -178,6 +178,10 @@ export default function PlayersScreen() {
   const lastScrollY = useSharedValue(0);
   const headerTranslation = useSharedValue(0);
   const headerHeightSV = useSharedValue(0);
+  // Static React-state copy of the header height — used for FlatList
+  // contentContainerStyle paddingTop so that layout never changes at
+  // runtime (breaking the oscillation feedback loop).
+  const [headerHeight, setHeaderHeight] = useState(0);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -185,6 +189,10 @@ export default function PlayersScreen() {
       const delta = currentY - lastScrollY.value;
       lastScrollY.value = currentY;
       scrollY.value = currentY;
+
+      // Dead-zone: ignore micro-movements (e.g. thumb hold + micro-swipe)
+      // that would otherwise trigger the feedback loop oscillation.
+      if (Math.abs(delta) < 2) return;
 
       if (currentY <= 0) {
         headerTranslation.value = withTiming(0, { duration: 200 });
@@ -236,10 +244,13 @@ export default function PlayersScreen() {
     ),
   }));
 
-  const insetsTop = insets.top;
+  // The container below the collapsing header must NOT have an animated
+  // paddingTop — that creates the scroll→layout→scroll feedback loop that
+  // causes violent oscillation on long-press + micro-swipe.  The header is
+  // position:absolute, so the list simply needs a static top offset equal to
+  // the header's measured height (set once from onLayout, never animated).
   const animatedMainContentStyle = useAnimatedStyle(() => ({
-    paddingTop:
-      insetsTop + Math.max(headerHeightSV.value + headerTranslation.value, 0),
+    flex: 1,
   }));
 
   // (Header-reset effects live further down — they depend on
@@ -857,7 +868,11 @@ export default function PlayersScreen() {
       <Animated.View
         style={[localStyles.animatedHeader, { top: insets.top }, animatedHeaderStyle]}
         onLayout={(e) => {
-          headerHeightSV.value = e.nativeEvent.layout.height;
+          const h = e.nativeEvent.layout.height;
+          headerHeightSV.value = h;
+          // Also update the React-state copy so FlatList contentContainerStyle
+          // gets a static paddingTop without triggering the feedback loop.
+          setHeaderHeight(h);
         }}
       >
       {/* === GAMING HEADER === */}
@@ -1330,46 +1345,52 @@ export default function PlayersScreen() {
 
       <Animated.View style={[localStyles.mainContent, animatedMainContentStyle]}>
       {currentIsLoading ? (
-        <View style={styles.loadingContainer}>
+        <View style={[styles.loadingContainer, { paddingTop: headerHeight }]}>
           <TennisBallSpinner size="large" color={Colors.dark.xpCyan} />
         </View>
       ) : filteredPlayers.length === 0 ? (
         searchQuery ? (
-          <View style={styles.emptyContainer}>
+          <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
             <Ionicons name="search-outline" size={48} color={Colors.dark.xpCyan + "60"} />
             <Text style={styles.emptyText}>No players found</Text>
             <Text style={styles.emptySubtext}>Try a different search</Text>
           </View>
         ) : rosterTab === "past" ? (
-          <GuidedEmptyState
-            icon="archive-outline"
-            title="No Past Players"
-            description="Archived players will appear here. Move a player to Past from the Active tab using the archive option."
-            tips={[
-              "Open a player card and use the archive option",
-              "Past players keep all their history intact",
-            ]}
-          />
+          <View style={{ paddingTop: headerHeight }}>
+            <GuidedEmptyState
+              icon="archive-outline"
+              title="No Past Players"
+              description="Archived players will appear here. Move a player to Past from the Active tab using the archive option."
+              tips={[
+                "Open a player card and use the archive option",
+                "Past players keep all their history intact",
+              ]}
+            />
+          </View>
         ) : rosterTab === "pending_payment" ? (
-          <GuidedEmptyState
-            icon="wallet-outline"
-            title="No Pending Payments"
-            description="Players flagged for pending payment will appear here. Use the wallet icon on active player cards to flag them."
-            tips={[
-              "Tap the wallet icon on any active player card",
-              "Restore them to Active once payment is received",
-            ]}
-          />
+          <View style={{ paddingTop: headerHeight }}>
+            <GuidedEmptyState
+              icon="wallet-outline"
+              title="No Pending Payments"
+              description="Players flagged for pending payment will appear here. Use the wallet icon on active player cards to flag them."
+              tips={[
+                "Tap the wallet icon on any active player card",
+                "Restore them to Active once payment is received",
+              ]}
+            />
+          </View>
         ) : (
-          <GuidedEmptyState
-            icon="people-outline"
-            title="No Players Yet"
-            description="Players will appear here once they're assigned to your sessions by the academy admin."
-            tips={[
-              "Contact your academy admin to get players assigned",
-              "Players are automatically linked when added to your sessions",
-            ]}
-          />
+          <View style={{ paddingTop: headerHeight }}>
+            <GuidedEmptyState
+              icon="people-outline"
+              title="No Players Yet"
+              description="Players will appear here once they're assigned to your sessions by the academy admin."
+              tips={[
+                "Contact your academy admin to get players assigned",
+                "Players are automatically linked when added to your sessions",
+              ]}
+            />
+          </View>
         )
       ) : (
         <Animated.FlatList
@@ -1380,14 +1401,18 @@ export default function PlayersScreen() {
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           style={styles.playerList}
-          contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + Spacing.xl }}
+          contentContainerStyle={{
+            paddingTop: headerHeight,
+            paddingBottom: TAB_BAR_HEIGHT + insets.bottom + Spacing.xl,
+          }}
+          scrollIndicatorInsets={{ top: headerHeight }}
           keyboardShouldPersistTaps="handled"
           initialNumToRender={12}
           maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews={true}
         />
-        
+
       )}
       </Animated.View>
 
