@@ -128,8 +128,14 @@ function statusBadge(s: string | null): string {
   return `<span style="color:#94A3B8;font-size:12px;">${s}</span>`;
 }
 
+// Dubai is UTC+4 — shift every timestamp into local time before extracting date parts
+const DUBAI_OFFSET_MS = 4 * 60 * 60 * 1000;
+function toLocalDate(d: Date): Date {
+  return new Date(new Date(d).getTime() + DUBAI_OFFSET_MS);
+}
+
 function formatTime(d: Date): string {
-  const dt = new Date(d);
+  const dt = toLocalDate(d);
   const h = dt.getUTCHours().toString().padStart(2, "0");
   const m = dt.getUTCMinutes().toString().padStart(2, "0");
   return `${h}:${m}`;
@@ -140,21 +146,21 @@ function formatTimeRange(start: Date, end: Date): string {
 }
 
 function isoDate(d: Date): string {
-  return new Date(d).toISOString().slice(0, 10);
+  return toLocalDate(d).toISOString().slice(0, 10);
 }
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function friendlyDate(d: Date): string {
-  const dt = new Date(d);
+  const dt = toLocalDate(d);
   const day = DAY_NAMES[dt.getUTCDay()];
   const mon = MONTH_NAMES[dt.getUTCMonth()];
   return `${day}, ${dt.getUTCDate()} ${mon} ${dt.getUTCFullYear()}`;
 }
 
 function weekKey(d: Date): string {
-  const dt = new Date(d);
+  const dt = toLocalDate(d);
   const day = dt.getUTCDay();
   const diff = dt.getUTCDate() - day + (day === 0 ? -6 : 1);
   const mon = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), diff));
@@ -165,7 +171,7 @@ function weekKey(d: Date): string {
 }
 
 function monthKey(d: Date): string {
-  const dt = new Date(d);
+  const dt = toLocalDate(d);
   return `${MONTH_NAMES[dt.getUTCMonth()]} ${dt.getUTCFullYear()}`;
 }
 
@@ -255,8 +261,6 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
             : "session-row";
 
         const seriesName = s.series_title ?? typeLabel(s.session_type);
-        const players = parseInt(s.player_count, 10);
-        const playerText = players > 0 ? `${players} player${players !== 1 ? "s" : ""}` : "—";
 
         let excludeBtn = "";
         if (isManage) {
@@ -276,7 +280,6 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
             <span class="cell-time">${formatTimeRange(s.start_time, s.end_time)}</span>
             <span class="cell-badge" style="${typeBadgeStyle(s.session_type)}">${typeLabel(s.session_type)}</span>
             <span class="cell-level">${levelDot(s.ball_level)}</span>
-            <span class="cell-players">${playerText}</span>
             <span class="cell-series">${seriesName}</span>
             <span class="cell-status">${statusBadge(s.status)}</span>
             ${earnedCell}
@@ -449,7 +452,6 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
     .cell-time   { font-size: 13px; font-weight: 700; min-width: 110px; color: var(--text); }
     .cell-badge  { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; min-width: 84px; text-align: center; letter-spacing: .3px; }
     .cell-level  { min-width: 80px; }
-    .cell-players{ font-size: 12px; color: var(--muted); min-width: 62px; }
     .cell-series { font-size: 12px; color: var(--muted); flex: 1; min-width: 100px; }
     .cell-status { min-width: 80px; text-align: right; }
     .cell-earned { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 72px; text-align: right; }
@@ -554,9 +556,10 @@ router.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], asy
     const { token } = req.params;
     const manageParam = req.query["manage"] as string | undefined;
 
-    const isPublic = token === getPublicToken();
-    const manageToken = getManageToken();
-    const isManage = isPublic && !!manageToken && manageParam === manageToken;
+    const isPublic = token === getPublicToken().trim();
+    const manageToken = getManageToken().trim();
+    const decodedManage = manageParam ? decodeURIComponent(manageParam).trim() : undefined;
+    const isManage = isPublic && !!manageToken && decodedManage === manageToken;
 
     if (!isPublic) {
       return res.status(404).send("Not found");
@@ -579,9 +582,10 @@ router.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:tok
   try {
     const { token } = req.params;
     const manageParam = req.query["manage"] as string | undefined;
-    const manageToken = getManageToken();
+    const manageToken = getManageToken().trim();
+    const decodedManage = manageParam ? decodeURIComponent(manageParam).trim() : undefined;
 
-    if (token !== getPublicToken() || !manageToken || manageParam !== manageToken) {
+    if (token !== getPublicToken().trim() || !manageToken || decodedManage !== manageToken) {
       return res.status(403).json({ error: "Forbidden" });
     }
 

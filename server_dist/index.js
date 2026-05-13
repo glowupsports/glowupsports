@@ -55593,8 +55593,11 @@ function statusBadge(s) {
   if (s === "cancelled") return `<span style="color:#EF4444;font-size:12px;font-weight:600;">Cancelled</span>`;
   return `<span style="color:#94A3B8;font-size:12px;">${s}</span>`;
 }
+function toLocalDate(d) {
+  return new Date(new Date(d).getTime() + DUBAI_OFFSET_MS);
+}
 function formatTime(d) {
-  const dt = new Date(d);
+  const dt = toLocalDate(d);
   const h = dt.getUTCHours().toString().padStart(2, "0");
   const m = dt.getUTCMinutes().toString().padStart(2, "0");
   return `${h}:${m}`;
@@ -55603,16 +55606,16 @@ function formatTimeRange(start, end) {
   return `${formatTime(start)} \u2013 ${formatTime(end)}`;
 }
 function isoDate(d) {
-  return new Date(d).toISOString().slice(0, 10);
+  return toLocalDate(d).toISOString().slice(0, 10);
 }
 function friendlyDate(d) {
-  const dt = new Date(d);
+  const dt = toLocalDate(d);
   const day = DAY_NAMES2[dt.getUTCDay()];
   const mon = MONTH_NAMES[dt.getUTCMonth()];
   return `${day}, ${dt.getUTCDate()} ${mon} ${dt.getUTCFullYear()}`;
 }
 function weekKey(d) {
-  const dt = new Date(d);
+  const dt = toLocalDate(d);
   const day = dt.getUTCDay();
   const diff = dt.getUTCDate() - day + (day === 0 ? -6 : 1);
   const mon = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), diff));
@@ -55622,7 +55625,7 @@ function weekKey(d) {
   return `${mon.getUTCDate()} ${ms} \u2013 ${sun.getUTCDate()} ${me} ${sun.getUTCFullYear()}`;
 }
 function monthKey(d) {
-  const dt = new Date(d);
+  const dt = toLocalDate(d);
   return `${MONTH_NAMES[dt.getUTCMonth()]} ${dt.getUTCFullYear()}`;
 }
 function buildHTML(sessions3, state, isManage) {
@@ -55681,8 +55684,6 @@ function buildHTML(sessions3, state, isManage) {
         const isCanceled = isCancelled(s);
         const rowClass = isExcluded ? "session-row excluded" : isCanceled ? "session-row cancelled" : "session-row";
         const seriesName = s.series_title ?? typeLabel(s.session_type);
-        const players2 = parseInt(s.player_count, 10);
-        const playerText = players2 > 0 ? `${players2} player${players2 !== 1 ? "s" : ""}` : "\u2014";
         let excludeBtn = "";
         if (isManage) {
           excludeBtn = `
@@ -55697,7 +55698,6 @@ function buildHTML(sessions3, state, isManage) {
             <span class="cell-time">${formatTimeRange(s.start_time, s.end_time)}</span>
             <span class="cell-badge" style="${typeBadgeStyle(s.session_type)}">${typeLabel(s.session_type)}</span>
             <span class="cell-level">${levelDot(s.ball_level)}</span>
-            <span class="cell-players">${playerText}</span>
             <span class="cell-series">${seriesName}</span>
             <span class="cell-status">${statusBadge(s.status)}</span>
             ${earnedCell}
@@ -55863,7 +55863,6 @@ function buildHTML(sessions3, state, isManage) {
     .cell-time   { font-size: 13px; font-weight: 700; min-width: 110px; color: var(--text); }
     .cell-badge  { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; min-width: 84px; text-align: center; letter-spacing: .3px; }
     .cell-level  { min-width: 80px; }
-    .cell-players{ font-size: 12px; color: var(--muted); min-width: 62px; }
     .cell-series { font-size: 12px; color: var(--muted); flex: 1; min-width: 100px; }
     .cell-status { min-width: 80px; text-align: right; }
     .cell-earned { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 72px; text-align: right; }
@@ -55960,7 +55959,7 @@ ${toggleScript}
 </body>
 </html>`;
 }
-var router82, CONFIG_PATH, DEAN_COACH_ID, DAY_NAMES2, MONTH_NAMES, coach_report_default;
+var router82, CONFIG_PATH, DEAN_COACH_ID, DUBAI_OFFSET_MS, DAY_NAMES2, MONTH_NAMES, coach_report_default;
 var init_coach_report = __esm({
   "server/routes/coach-report.ts"() {
     "use strict";
@@ -55968,15 +55967,17 @@ var init_coach_report = __esm({
     router82 = Router81();
     CONFIG_PATH = path11.join(process.cwd(), "server/data/coach-report-dean.json");
     DEAN_COACH_ID = "76f7d0e7-1363-404f-93d0-7edcce95a28d";
+    DUBAI_OFFSET_MS = 4 * 60 * 60 * 1e3;
     DAY_NAMES2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     router82.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], async (req, res) => {
       try {
         const { token } = req.params;
         const manageParam = req.query["manage"];
-        const isPublic = token === getPublicToken();
-        const manageToken = getManageToken();
-        const isManage = isPublic && !!manageToken && manageParam === manageToken;
+        const isPublic = token === getPublicToken().trim();
+        const manageToken = getManageToken().trim();
+        const decodedManage = manageParam ? decodeURIComponent(manageParam).trim() : void 0;
+        const isManage = isPublic && !!manageToken && decodedManage === manageToken;
         if (!isPublic) {
           return res.status(404).send("Not found");
         }
@@ -55995,8 +55996,9 @@ var init_coach_report = __esm({
       try {
         const { token } = req.params;
         const manageParam = req.query["manage"];
-        const manageToken = getManageToken();
-        if (token !== getPublicToken() || !manageToken || manageParam !== manageToken) {
+        const manageToken = getManageToken().trim();
+        const decodedManage = manageParam ? decodeURIComponent(manageParam).trim() : void 0;
+        if (token !== getPublicToken().trim() || !manageToken || decodedManage !== manageToken) {
           return res.status(403).json({ error: "Forbidden" });
         }
         const { sessionId } = req.body;
