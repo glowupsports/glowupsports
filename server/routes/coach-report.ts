@@ -27,7 +27,7 @@ const CONFIG_PATH = path.join(process.cwd(), "server/data/coach-report-dean.json
 const DEAN_COACH_ID = "76f7d0e7-1363-404f-93d0-7edcce95a28d";
 
 function getPublicToken(): string {
-  return process.env.DEAN_REPORT_PUBLIC_TOKEN ?? "dean-glowup-2026";
+  return process.env.DEAN_REPORT_PUBLIC_TOKEN ?? "";
 }
 
 function getManageToken(): string {
