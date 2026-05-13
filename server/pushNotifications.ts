@@ -1808,19 +1808,97 @@ export async function repairNullAttendance(): Promise<void> {
   }
 }
 
+async function repairV2HolidayOvercharges(): Promise<void> {
+  try {
+    const overcharged = await pool.query(`
+      SELECT
+        cl.id            AS ledger_id,
+        cl.player_id,
+        cl.session_player_id,
+        cl.type          AS credit_type,
+        cl.delta,
+        cl.academy_id,
+        sp.attendance_status,
+        s.start_time
+      FROM credit_ledger_v2 cl
+      JOIN session_players sp ON sp.id = cl.session_player_id
+      JOIN sessions s ON s.id = sp.session_id
+      WHERE cl.reason = 'consume'
+        AND cl.delta < 0
+        AND sp.attendance_status IN ('holiday', 'vacation')
+        AND NOT EXISTS (
+          SELECT 1 FROM credit_ledger_v2 rev
+          WHERE rev.session_player_id = cl.session_player_id
+            AND rev.delta > 0
+            AND rev.reason IN ('refund', 'holiday_charge_reversal',
+                               'manual_adjustment', 'manual')
+        )
+      ORDER BY s.start_time
+    `);
+
+    if (overcharged.rows.length === 0) {
+      console.log('[V2HolidayRepair] No unreversed holiday consumes found');
+      return;
+    }
+
+    console.log(`[V2HolidayRepair] Found ${overcharged.rows.length} unreversed holiday consume(s) — repairing`);
+
+    const { refundCredit } = await import('./services/credit-engine');
+    let fixed = 0;
+    let errors = 0;
+
+    for (const row of overcharged.rows) {
+      try {
+        const cancelReason = row.attendance_status === 'vacation'
+          ? 'attendance_changed_to_vacation'
+          : 'attendance_changed_to_holiday';
+
+        const result = await refundCredit({
+          sessionPlayerId: row.session_player_id,
+          policy: 'force',
+          actorRole: 'system',
+          reason: cancelReason,
+          ledgerReason: 'holiday_charge_reversal',
+          eventKey: `refund:${cancelReason}:${row.session_player_id}`,
+        });
+
+        if (result.refunded) {
+          console.log(
+            `[V2HolidayRepair] Reversed ${result.amount} credit(s) for player ${row.player_id} ` +
+            `session_player ${row.session_player_id} (${row.attendance_status}) ` +
+            `| newBalance: ${result.newBalance}`
+          );
+          fixed++;
+        } else if (result.alreadyApplied) {
+          console.log(`[V2HolidayRepair] Already reversed for ${row.session_player_id}`);
+        }
+      } catch (err) {
+        errors++;
+        console.error(`[V2HolidayRepair] Failed to reverse for ${row.session_player_id}:`, err);
+      }
+    }
+
+    console.log(`[V2HolidayRepair] Complete: ${fixed} reversed, ${errors} errors`);
+  } catch (err) {
+    console.error('[V2HolidayRepair] Error:', err);
+  }
+}
+
 export async function processSessionMaintenance(): Promise<void> {
   console.log("[SessionMaintenance] Starting maintenance sequence");
   try {
-    console.log("[SessionMaintenance] Step 1/5: Repairing missing session_players");
+    console.log("[SessionMaintenance] Step 1/6: Repairing missing session_players");
     await repairMissingSessionPlayers();
-    console.log("[SessionMaintenance] Step 2/5: Processing auto-attendance");
+    console.log("[SessionMaintenance] Step 2/6: Processing auto-attendance");
     await processAutoAttendance();
-    console.log("[SessionMaintenance] Step 3/5: Cleaning up stale session_players");
+    console.log("[SessionMaintenance] Step 3/6: Cleaning up stale session_players");
     await cleanupStaleSessionPlayers();
-    console.log("[SessionMaintenance] Step 4/5: Repairing NULL attendance");
+    console.log("[SessionMaintenance] Step 4/6: Repairing NULL attendance");
     await repairNullAttendance();
-    console.log("[SessionMaintenance] Step 5/5: Checking V2 ledger integrity");
+    console.log("[SessionMaintenance] Step 5/6: Checking V2 ledger integrity");
     await checkV2LedgerIntegrity();
+    console.log("[SessionMaintenance] Step 6/6: Repairing V2 holiday overcharges");
+    await repairV2HolidayOvercharges();
     console.log("[SessionMaintenance] All steps complete");
   } catch (error) {
     console.error("[SessionMaintenance] Error:", error);
