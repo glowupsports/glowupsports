@@ -55970,7 +55970,7 @@ var init_coach_report = __esm({
     DEAN_COACH_ID = "76f7d0e7-1363-404f-93d0-7edcce95a28d";
     DAY_NAMES2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    router82.get("/coach-overview/dean/:token", async (req, res) => {
+    router82.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], async (req, res) => {
       try {
         const { token } = req.params;
         const manageParam = req.query["manage"];
@@ -55991,7 +55991,7 @@ var init_coach_report = __esm({
         return res.status(500).send("Internal error");
       }
     });
-    router82.post("/coach-overview/dean/:token/exclude", async (req, res) => {
+    router82.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:token/exclude"], async (req, res) => {
       try {
         const { token } = req.params;
         const manageParam = req.query["manage"];

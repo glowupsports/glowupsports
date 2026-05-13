@@ -549,7 +549,7 @@ ${toggleScript}
 
 // ── routes ────────────────────────────────────────────────────────────────────
 
-router.get("/coach-overview/dean/:token", async (req: Request, res: Response) => {
+router.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     const manageParam = req.query["manage"] as string | undefined;
@@ -575,7 +575,7 @@ router.get("/coach-overview/dean/:token", async (req: Request, res: Response) =>
   }
 });
 
-router.post("/coach-overview/dean/:token/exclude", async (req: Request, res: Response) => {
+router.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:token/exclude"], async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     const manageParam = req.query["manage"] as string | undefined;
