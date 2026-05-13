@@ -5,10 +5,15 @@
 // No player names shown — only time, type, level colours, player count, status.
 //
 // Routes:
-//   GET /report/dean/:token              — public view (shareable with Dean)
-//   POST /report/dean/:token/exclude     — toggle session exclusion (manage token required)
+//   GET  /coach-overview/dean/:token          — public view (shareable with Dean)
+//   POST /coach-overview/dean/:token/exclude  — toggle session exclusion (manage token required)
 //
-// Tokens stored in: server/data/coach-report-dean.json
+// Tokens read from env vars (never stored in source):
+//   DEAN_REPORT_PUBLIC_TOKEN  — the token Dean uses in his URL
+//   DEAN_REPORT_MANAGE_TOKEN  — the ?manage= token for the admin toggle view
+//
+// Non-sensitive state (excluded session IDs only):
+//   server/data/coach-report-dean.json  — gitignored, persisted on server only
 
 import { Router, type Request, type Response } from "express";
 import fs from "fs";
@@ -21,22 +26,33 @@ const CONFIG_PATH = path.join(process.cwd(), "server/data/coach-report-dean.json
 
 const DEAN_COACH_ID = "76f7d0e7-1363-404f-93d0-7edcce95a28d";
 
-interface ReportConfig {
-  publicToken: string;
-  manageToken: string;
+function getPublicToken(): string {
+  return process.env.DEAN_REPORT_PUBLIC_TOKEN ?? "dean-glowup-2026";
+}
+
+function getManageToken(): string {
+  return process.env.DEAN_REPORT_MANAGE_TOKEN ?? "";
+}
+
+interface ReportState {
   excludedSessionIds: string[];
   startDate: string;
   ratePerSession: number;
   currency: string;
 }
 
-function loadConfig(): ReportConfig {
+function loadState(): ReportState {
+  if (!fs.existsSync(CONFIG_PATH)) {
+    return { excludedSessionIds: [], startDate: "2026-05-11", ratePerSession: 200, currency: "AED" };
+  }
   const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
-  return JSON.parse(raw) as ReportConfig;
+  return JSON.parse(raw) as ReportState;
 }
 
-function saveConfig(cfg: ReportConfig): void {
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), "utf-8");
+function saveState(state: ReportState): void {
+  const dir = path.dirname(CONFIG_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(state, null, 2), "utf-8");
 }
 
 interface SessionRow {
@@ -155,10 +171,10 @@ function monthKey(d: Date): string {
 
 // ── HTML builder ──────────────────────────────────────────────────────────────
 
-function buildHTML(sessions: SessionRow[], cfg: ReportConfig, isManage: boolean): string {
-  const excluded = new Set(cfg.excludedSessionIds);
-  const rate = cfg.ratePerSession;
-  const currency = cfg.currency;
+function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean): string {
+  const excluded = new Set(state.excludedSessionIds);
+  const rate = state.ratePerSession;
+  const currency = state.currency;
 
   const visible = sessions.filter(s =>
     isManage ? true : !excluded.has(s.id)
@@ -535,19 +551,20 @@ ${toggleScript}
 
 router.get("/coach-overview/dean/:token", async (req: Request, res: Response) => {
   try {
-    const cfg = loadConfig();
     const { token } = req.params;
     const manageParam = req.query["manage"] as string | undefined;
 
-    const isPublic = token === cfg.publicToken;
-    const isManage = isPublic && manageParam === cfg.manageToken;
+    const isPublic = token === getPublicToken();
+    const manageToken = getManageToken();
+    const isManage = isPublic && !!manageToken && manageParam === manageToken;
 
     if (!isPublic) {
       return res.status(404).send("Not found");
     }
 
-    const sessions = await fetchSessions(cfg.startDate);
-    const html = buildHTML(sessions, cfg, isManage);
+    const state = loadState();
+    const sessions = await fetchSessions(state.startDate);
+    const html = buildHTML(sessions, state, isManage);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
@@ -560,11 +577,11 @@ router.get("/coach-overview/dean/:token", async (req: Request, res: Response) =>
 
 router.post("/coach-overview/dean/:token/exclude", async (req: Request, res: Response) => {
   try {
-    const cfg = loadConfig();
     const { token } = req.params;
     const manageParam = req.query["manage"] as string | undefined;
+    const manageToken = getManageToken();
 
-    if (token !== cfg.publicToken || manageParam !== cfg.manageToken) {
+    if (token !== getPublicToken() || !manageToken || manageParam !== manageToken) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
@@ -573,17 +590,18 @@ router.post("/coach-overview/dean/:token/exclude", async (req: Request, res: Res
       return res.status(400).json({ error: "Missing sessionId" });
     }
 
-    const excluded = new Set(cfg.excludedSessionIds);
+    const state = loadState();
+    const excluded = new Set(state.excludedSessionIds);
     if (excluded.has(sessionId)) {
       excluded.delete(sessionId);
     } else {
       excluded.add(sessionId);
     }
 
-    cfg.excludedSessionIds = Array.from(excluded);
-    saveConfig(cfg);
+    state.excludedSessionIds = Array.from(excluded);
+    saveState(state);
 
-    return res.json({ ok: true, excluded: cfg.excludedSessionIds.includes(sessionId) });
+    return res.json({ ok: true, excluded: state.excludedSessionIds.includes(sessionId) });
   } catch (err) {
     console.error("[CoachReport] Toggle error:", err);
     return res.status(500).json({ error: "Internal error" });

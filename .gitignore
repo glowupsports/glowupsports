@@ -45,3 +45,6 @@ app-example
 
 # User-pasted reference files (not source code)
 attached_assets/
+
+# Runtime data / server-side persisted state (not source code)
+server/data/
