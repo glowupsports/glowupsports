@@ -82,7 +82,7 @@ async function fetchSessions(startDate: string): Promise<SessionRow[]> {
      LEFT JOIN session_players sp ON sp.session_id = s.id
      WHERE s.coach_id = $1
        AND s.start_time >= $2
-       AND (s.status IS NULL OR s.status NOT IN ('draft','deleted'))
+       AND s.status = 'completed'
      GROUP BY s.id, cs.title
      ORDER BY s.start_time ASC`,
     [DEAN_COACH_ID, startDate]
