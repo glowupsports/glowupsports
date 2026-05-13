@@ -94,7 +94,7 @@ import arenaRouter from "./routes/arena";
 import arenaMonetisationRouter from "./routes/arena-monetisation";
 import matchResultsRouter from "./routes/match-results";
 import promptPayRouter from "./routes/promptpay";
-import coachReportRouter from "./routes/coach-report";
+
 import { diagnosticsLimiter } from "./rateLimiter";
 
 const _authLimiter = rateLimit({
@@ -312,11 +312,6 @@ function _toDubaiTime(utcDate: Date): Date {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Public routes MUST be registered first — several routers below apply
-  // router.use(authMiddleware) without a path prefix which intercepts all
-  // requests before any specific route matching.
-  app.use(coachReportRouter);
-
   // Initialize storage for fresh user data fetching in auth middleware
   setFreshUserStorage(storage as any);
 

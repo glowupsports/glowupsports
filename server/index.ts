@@ -40,6 +40,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import * as Sentry from "@sentry/node";
 import { registerRoutes } from "./routes";
+import coachReportRouter from "./routes/coach-report";
 import * as fs from "fs";
 import * as http from "http";
 import * as path from "path";
@@ -1051,6 +1052,8 @@ function setupErrorHandler(app: express.Application) {
     },
   });
   app.use("/api", globalApiLimiter);
+
+  app.use(coachReportRouter);
 
   configureExpoAndLanding(app);
 
