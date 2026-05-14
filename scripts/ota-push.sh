@@ -494,6 +494,22 @@ mkdir -p dist
 # cache (~140s); subsequent pushes are noticeably faster.
 npx expo export --platform "$EXPORT_PLATFORM" --output-dir dist
 
+# Inject static redirect pages that must survive every expo export.
+# These allow production CDN paths to redirect to Express /api/ routes.
+mkdir -p dist/coach-overview/dean/DEANTENNIS
+cat > dist/coach-overview/dean/DEANTENNIS/index.html << 'REDIRECT_EOF'
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0;url=/api/coach-report/dean/DEANTENNIS">
+<script>window.location.replace('/api/coach-report/dean/DEANTENNIS');</script>
+</head>
+<body></body>
+</html>
+REDIRECT_EOF
+echo ">>> injected static redirect: /coach-overview/dean/DEANTENNIS → /api/coach-report/dean/DEANTENNIS"
+
 echo ""
 echo ">>> bundle complete: $(du -sh dist | cut -f1) in dist/"
 ls dist/_expo/static/js/ 2>/dev/null || true
