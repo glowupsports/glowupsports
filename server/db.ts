@@ -19,16 +19,18 @@ console.log(`[Database] Attempting connection to: ${maskedUrl.substring(0, 50)}.
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: { rejectUnauthorized: false },
-  // Optimized for Supabase Transaction Pooler (port 6543)
-  max: 12,                        // Good balance for concurrent requests
-  min: 2,                         // Keep connections warm
-  connectionTimeoutMillis: 10000, // 10s timeout
-  idleTimeoutMillis: 30000,       // Release idle after 30s
-  keepAlive: true,                // Keep connections alive
-  allowExitOnIdle: false,         // Keep pool alive for server
+  // Conservative settings — Supabase Transaction Pooler has a limited
+  // number of server-side connections.  min:0 means we never hold idle
+  // connections open; max:5 prevents exhausting the pooler limit.
+  max: 5,
+  min: 0,
+  connectionTimeoutMillis: 8000,
+  idleTimeoutMillis: 5000,
+  keepAlive: false,
+  allowExitOnIdle: true,
 });
 
-console.log('[Database] Pool configured: max=12, min=2, keepAlive=true');
+console.log('[Database] Pool configured: max=5, min=0, keepAlive=false');
 
 // Add error handler to pool
 pool.on('error', (err) => {

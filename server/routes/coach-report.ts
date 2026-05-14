@@ -567,6 +567,7 @@ ${toggleScript}
 // ── routes ────────────────────────────────────────────────────────────────────
 
 router.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], async (req: Request, res: Response) => {
+  console.log("[CoachReport] GET", req.path, "env-token-set:", !!process.env.DEAN_REPORT_PUBLIC_TOKEN);
   try {
     const { token } = req.params;
     const manageParam = req.query["manage"] as string | undefined;

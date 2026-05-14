@@ -8446,21 +8446,17 @@ var init_db = __esm({
     pool = new Pool({
       connectionString: databaseUrl,
       ssl: { rejectUnauthorized: false },
-      // Optimized for Supabase Transaction Pooler (port 6543)
-      max: 12,
-      // Good balance for concurrent requests
-      min: 2,
-      // Keep connections warm
-      connectionTimeoutMillis: 1e4,
-      // 10s timeout
-      idleTimeoutMillis: 3e4,
-      // Release idle after 30s
-      keepAlive: true,
-      // Keep connections alive
-      allowExitOnIdle: false
-      // Keep pool alive for server
+      // Conservative settings — Supabase Transaction Pooler has a limited
+      // number of server-side connections.  min:0 means we never hold idle
+      // connections open; max:5 prevents exhausting the pooler limit.
+      max: 5,
+      min: 0,
+      connectionTimeoutMillis: 8e3,
+      idleTimeoutMillis: 5e3,
+      keepAlive: false,
+      allowExitOnIdle: true
     });
-    console.log("[Database] Pool configured: max=12, min=2, keepAlive=true");
+    console.log("[Database] Pool configured: max=5, min=0, keepAlive=false");
     pool.on("error", (err) => {
       console.error("[Database] Pool error:", err.message);
     });
@@ -55983,6 +55979,7 @@ var init_coach_report = __esm({
     DAY_NAMES2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     router82.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], async (req, res) => {
+      console.log("[CoachReport] GET", req.path, "env-token-set:", !!process.env.DEAN_REPORT_PUBLIC_TOKEN);
       try {
         const { token } = req.params;
         const manageParam = req.query["manage"];
