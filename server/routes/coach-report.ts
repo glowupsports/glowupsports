@@ -67,7 +67,14 @@ interface SessionRow {
 }
 
 async function fetchSessions(startDate: string): Promise<SessionRow[]> {
-  const result = await pool.query<SessionRow>(
+  const TIMEOUT_MS = 15_000;
+  const deadline = new Promise<never>((_, reject) =>
+    setTimeout(
+      () => reject(new Error(`[CoachReport] DB query timed out after ${TIMEOUT_MS}ms`)),
+      TIMEOUT_MS
+    )
+  );
+  const queryPromise = pool.query<SessionRow>(
     `SELECT
        s.id,
        s.start_time,
@@ -87,6 +94,7 @@ async function fetchSessions(startDate: string): Promise<SessionRow[]> {
      ORDER BY s.start_time ASC`,
     [DEAN_COACH_ID, startDate]
   );
+  const result = await Promise.race([queryPromise, deadline]) as { rows: SessionRow[] };
   return result.rows;
 }
 
@@ -569,12 +577,23 @@ router.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], asy
     const sessions = await fetchSessions(state.startDate);
     const html = buildHTML(sessions, state, isManage);
 
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Cache-Control", "no-store");
-    return res.send(html);
+    // Set headers only after all data is ready — avoids committing headers
+    // before the catch block can run if buildHTML or fetchSessions throws.
+    if (!res.headersSent) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Surrogate-Control", "no-store");
+      return res.send(html);
+    }
   } catch (err) {
-    console.error("[CoachReport] Error:", err);
-    return res.status(500).send("Internal error");
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[CoachReport] Error rendering report:", msg);
+    if (!res.headersSent) {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.status(500).send(
+        "Coach report temporarily unavailable — please try again in a moment."
+      );
+    }
   }
 });
 

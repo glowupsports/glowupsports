@@ -55539,7 +55539,14 @@ function saveState(state) {
   fs11.writeFileSync(CONFIG_PATH, JSON.stringify(state, null, 2), "utf-8");
 }
 async function fetchSessions(startDate) {
-  const result = await pool.query(
+  const TIMEOUT_MS = 15e3;
+  const deadline = new Promise(
+    (_, reject) => setTimeout(
+      () => reject(new Error(`[CoachReport] DB query timed out after ${TIMEOUT_MS}ms`)),
+      TIMEOUT_MS
+    )
+  );
+  const queryPromise = pool.query(
     `SELECT
        s.id,
        s.start_time,
@@ -55559,6 +55566,7 @@ async function fetchSessions(startDate) {
      ORDER BY s.start_time ASC`,
     [DEAN_COACH_ID, startDate]
   );
+  const result = await Promise.race([queryPromise, deadline]);
   return result.rows;
 }
 function typeLabel(t) {
@@ -55984,12 +55992,21 @@ var init_coach_report = __esm({
         const state = loadState();
         const sessions3 = await fetchSessions(state.startDate);
         const html = buildHTML(sessions3, state, isManage);
-        res.setHeader("Content-Type", "text/html; charset=utf-8");
-        res.setHeader("Cache-Control", "no-store");
-        return res.send(html);
+        if (!res.headersSent) {
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+          res.setHeader("Surrogate-Control", "no-store");
+          return res.send(html);
+        }
       } catch (err) {
-        console.error("[CoachReport] Error:", err);
-        return res.status(500).send("Internal error");
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[CoachReport] Error rendering report:", msg);
+        if (!res.headersSent) {
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          return res.status(500).send(
+            "Coach report temporarily unavailable \u2014 please try again in a moment."
+          );
+        }
       }
     });
     router82.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:token/exclude"], async (req, res) => {
