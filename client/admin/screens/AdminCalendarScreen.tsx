@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, Platform, Modal, Alert } from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/query-client";
 import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography, CardStyles, RoleColors } from "@/constants/theme";
 import { SportBadge } from "@/components/SportBadge";
@@ -82,6 +83,34 @@ export default function AdminCalendarScreen() {
   const [_currentTime, _setCurrentTime] = useState(new Date());
   const isDesktop = useDesktop();
   const [desktopSelectedSession, setDesktopSelectedSession] = useState<Session | null>(null);
+  const [mobileSelectedSession, setMobileSelectedSession] = useState<Session | null>(null);
+
+  const cancelMutation = useMutation({
+    mutationFn: (session: Session) =>
+      apiRequest("POST", `/api/coach/sessions/${session.id}/cancel`, {
+        supervisorCoachId: session.coachId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      setMobileSelectedSession(null);
+      setDesktopSelectedSession(null);
+    },
+  });
+
+  const handleCancelSession = (session: Session) => {
+    Alert.alert(
+      "Cancel Session",
+      `Are you sure you want to cancel this ${session.sessionType || "session"}?`,
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Cancel Session",
+          style: "destructive",
+          onPress: () => cancelMutation.mutate(session),
+        },
+      ]
+    );
+  };
 
   const isToday = useCallback((date: Date) => {
     return date.toDateString() === new Date().toDateString();
@@ -359,10 +388,13 @@ export default function AdminCalendarScreen() {
                               {
                                 top,
                                 height: height - 4,
-                                opacity: session.status === "completed" ? 0.6 : 1,
+                                opacity: session.status === "completed" || session.status === "cancelled" ? 0.6 : 1,
                               },
                             ]}
-                            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setMobileSelectedSession(session);
+                            }}
                           >
                             <LinearGradient
                               colors={[color, `${color}CC`]}
@@ -428,10 +460,13 @@ export default function AdminCalendarScreen() {
                               {
                                 top,
                                 height: height - 4,
-                                opacity: session.status === "completed" ? 0.6 : 1,
+                                opacity: session.status === "completed" || session.status === "cancelled" ? 0.6 : 1,
                               },
                             ]}
-                            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setMobileSelectedSession(session);
+                            }}
                           >
                             <LinearGradient
                               colors={[color, `${color}CC`]}
@@ -513,10 +548,13 @@ export default function AdminCalendarScreen() {
                       {
                         top,
                         height: Math.max(height - 2, 20),
-                        opacity: session.status === "completed" ? 0.6 : 1,
+                        opacity: session.status === "completed" || session.status === "cancelled" ? 0.6 : 1,
                       },
                     ]}
-                    onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setMobileSelectedSession(session);
+                    }}
                   >
                     <LinearGradient
                       colors={[color, `${color}CC`]}
@@ -728,6 +766,18 @@ export default function AdminCalendarScreen() {
                           <Ionicons name="add-circle-outline" size={14} color="#C8FF3D" />
                           <Text style={calStyles.quickActionText}>New this slot</Text>
                         </Pressable>
+                        {s.status !== "cancelled" && s.status !== "completed" ? (
+                          <Pressable
+                            style={[calStyles.quickAction, { borderColor: "rgba(239,68,68,0.3)", backgroundColor: "rgba(239,68,68,0.08)" }]}
+                            onPress={() => handleCancelSession(s)}
+                            disabled={cancelMutation.isPending}
+                          >
+                            <Ionicons name="close-circle-outline" size={14} color="#EF4444" />
+                            <Text style={[calStyles.quickActionText, { color: "#EF4444" }]}>
+                              {cancelMutation.isPending ? "Cancelling..." : "Cancel Session"}
+                            </Text>
+                          </Pressable>
+                        ) : null}
                         <Pressable
                           style={[calStyles.quickAction, { borderColor: "rgba(255,133,27,0.3)", backgroundColor: "rgba(255,133,27,0.08)" }]}
                           onPress={() => setDesktopSelectedSession(null)}
@@ -936,6 +986,63 @@ export default function AdminCalendarScreen() {
         })() : undefined}
         initialCourtId={selectedSlot?.courtId}
       />
+
+      <Modal
+        visible={mobileSelectedSession !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMobileSelectedSession(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setMobileSelectedSession(null)}>
+          <Pressable style={styles.modalSheet} onPress={() => {}}>
+            {mobileSelectedSession ? (
+              <>
+                <View style={styles.modalHandle} />
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    {mobileSelectedSession.sessionType || "Session"}
+                  </Text>
+                  <Pressable onPress={() => setMobileSelectedSession(null)}>
+                    <Ionicons name="close" size={22} color={Colors.dark.textMuted} />
+                  </Pressable>
+                </View>
+                {[
+                  { label: "Coach", value: getCoachName(mobileSelectedSession.coachId) },
+                  { label: "Court", value: getCourtName(mobileSelectedSession.courtId) },
+                  {
+                    label: "Time",
+                    value: `${formatTime(mobileSelectedSession.startTime)} – ${formatTime(mobileSelectedSession.endTime)}`,
+                  },
+                  { label: "Status", value: mobileSelectedSession.status || "upcoming" },
+                  {
+                    label: "Players",
+                    value: mobileSelectedSession.players?.length
+                      ? `${mobileSelectedSession.players.length} enrolled`
+                      : "0 enrolled",
+                  },
+                ].map(({ label, value }) => (
+                  <View key={label} style={styles.modalRow}>
+                    <Text style={styles.modalRowLabel}>{label}</Text>
+                    <Text style={styles.modalRowValue}>{value}</Text>
+                  </View>
+                ))}
+                {mobileSelectedSession.status !== "cancelled" && mobileSelectedSession.status !== "completed" ? (
+                  <Pressable
+                    style={[styles.cancelButton, cancelMutation.isPending && styles.cancelButtonDisabled]}
+                    onPress={() => handleCancelSession(mobileSelectedSession)}
+                    disabled={cancelMutation.isPending}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color="#fff" />
+                    <Text style={styles.cancelButtonText}>
+                      {cancelMutation.isPending ? "Cancelling..." : "Cancel Session"}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1369,6 +1476,71 @@ const styles = StyleSheet.create({
     fontSize: 6,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.textMuted + "60",
+    alignSelf: "center",
+    marginBottom: Spacing.md,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  modalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  modalRow: {
+    flexDirection: "row",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.backgroundRoot,
+  },
+  modalRowLabel: {
+    flex: 1,
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  modalRowValue: {
+    ...Typography.small,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+  cancelButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#EF4444",
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  cancelButtonDisabled: {
+    opacity: 0.5,
+  },
+  cancelButtonText: {
+    ...Typography.body,
+    color: "#fff",
+    fontWeight: "700",
   },
 });
 
