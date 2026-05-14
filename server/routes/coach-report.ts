@@ -18,7 +18,8 @@
 import { Router, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
-import { pool } from "../db";
+import pkg from "pg";
+const { Client } = pkg;
 
 const router = Router();
 
@@ -67,35 +68,41 @@ interface SessionRow {
 }
 
 async function fetchSessions(startDate: string): Promise<SessionRow[]> {
-  const TIMEOUT_MS = 15_000;
-  const deadline = new Promise<never>((_, reject) =>
-    setTimeout(
-      () => reject(new Error(`[CoachReport] DB query timed out after ${TIMEOUT_MS}ms`)),
-      TIMEOUT_MS
-    )
-  );
-  const queryPromise = pool.query<SessionRow>(
-    `SELECT
-       s.id,
-       s.start_time,
-       s.end_time,
-       s.session_type,
-       s.ball_level,
-       s.status,
-       cs.title AS series_title,
-       COUNT(sp.player_id) AS player_count
-     FROM sessions s
-     LEFT JOIN coaching_series cs ON cs.id::text = s.series_id
-     LEFT JOIN session_players sp ON sp.session_id = s.id
-     WHERE s.coach_id = $1
-       AND s.start_time >= $2
-       AND s.status = 'completed'
-     GROUP BY s.id, cs.title
-     ORDER BY s.start_time ASC`,
-    [DEAN_COACH_ID, startDate]
-  );
-  const result = await Promise.race([queryPromise, deadline]) as { rows: SessionRow[] };
-  return result.rows;
+  // Use a dedicated client (NOT the shared pool) so background jobs that
+  // exhaust the pool cannot block this query.
+  const client = new Client({
+    connectionString: process.env.SUPABASE_DATABASE_URL,
+    connectionTimeoutMillis: 8_000,
+  });
+  try {
+    await client.connect();
+    // Hard statement timeout on the DB side — guarantees we return before
+    // Replit's infrastructure proxy kills the connection.
+    await client.query("SET statement_timeout = 10000");
+    const result = await client.query<SessionRow>(
+      `SELECT
+         s.id,
+         s.start_time,
+         s.end_time,
+         s.session_type,
+         s.ball_level,
+         s.status,
+         cs.title AS series_title,
+         COUNT(sp.player_id) AS player_count
+       FROM sessions s
+       LEFT JOIN coaching_series cs ON cs.id::text = s.series_id
+       LEFT JOIN session_players sp ON sp.session_id = s.id
+       WHERE s.coach_id = $1
+         AND s.start_time >= $2
+         AND s.status = 'completed'
+       GROUP BY s.id, cs.title
+       ORDER BY s.start_time ASC`,
+      [DEAN_COACH_ID, startDate]
+    );
+    return result.rows;
+  } finally {
+    client.end().catch(() => {});
+  }
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────

@@ -15875,8 +15875,8 @@ async function validatePackageOwnership(packageId, academyId, storage2) {
   if (!academyId) {
     return { valid: false };
   }
-  const pkg2 = await storage2.getPackage(packageId, academyId);
-  return { valid: !!pkg2, pkg: pkg2 };
+  const pkg3 = await storage2.getPackage(packageId, academyId);
+  return { valid: !!pkg3, pkg: pkg3 };
 }
 async function validateNotificationOwnership(notificationId, coachId, storage2) {
   if (!coachId) {
@@ -20560,13 +20560,13 @@ async function fixAlmaZaleskiCredits() {
       if (pkgRes.rows.length === 0) {
         console.log("[AlmaFix] No active group package found for Alma \u2014 skipping credit top-up");
       } else {
-        const pkg2 = pkgRes.rows[0];
-        const currentRemaining = Number(pkg2.remaining_credits);
+        const pkg3 = pkgRes.rows[0];
+        const currentRemaining = Number(pkg3.remaining_credits);
         if (currentRemaining >= 4) {
           console.log(`[AlmaFix] Package already at ${currentRemaining} credits (>= 4) \u2014 skipping credit top-up`);
         } else {
           console.warn(
-            `[AlmaFix][V2] academy=${pkg2.academy_id} player=${playerId} \u2014 V1 retired, skipping legacy refund + ledger insert. (would have bumped ${currentRemaining} -> ${currentRemaining + 1})`
+            `[AlmaFix][V2] academy=${pkg3.academy_id} player=${playerId} \u2014 V1 retired, skipping legacy refund + ledger insert. (would have bumped ${currentRemaining} -> ${currentRemaining + 1})`
           );
         }
       }
@@ -21559,15 +21559,15 @@ async function processCreditExpiryReminders(timezone) {
     }
     console.log(`[CreditExpiry] Found ${expiringPackages.rows.length} packages expiring within 7 days`);
     let notificationsSent = 0;
-    for (const pkg2 of expiringPackages.rows) {
-      const reminderKey = `${pkg2.id}-${todayStr}`;
+    for (const pkg3 of expiringPackages.rows) {
+      const reminderKey = `${pkg3.id}-${todayStr}`;
       if (creditExpiryRemindedToday.has(reminderKey)) continue;
-      const playerId = pkg2.player_id;
+      const playerId = pkg3.player_id;
       if (!playerId) continue;
-      const expiryDate = new Date(pkg2.expiry_date);
+      const expiryDate = new Date(pkg3.expiry_date);
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - localNow.getTime()) / (24 * 60 * 60 * 1e3));
-      const creditType = pkg2.credit_type || "group";
-      const remaining = pkg2.remaining_credits;
+      const creditType = pkg3.credit_type || "group";
+      const remaining = pkg3.remaining_credits;
       const formattedDate = expiryDate.toLocaleDateString("en-GB", {
         day: "numeric",
         month: "short",
@@ -22606,7 +22606,7 @@ async function readLotsAsPackages(playerId, opts) {
     const total = Number(l.qtyTotal);
     const remaining = Number(l.qtyRemaining);
     const expiryDate = l.expiresAt ? new Date(l.expiresAt).toISOString().split("T")[0] : null;
-    const pkg2 = {
+    const pkg3 = {
       id: l.id,
       academyId: l.academyId,
       playerId: l.playerId,
@@ -22627,7 +22627,7 @@ async function readLotsAsPackages(playerId, opts) {
       createdAt: l.createdAt,
       calculatedRemaining: remaining
     };
-    return pkg2;
+    return pkg3;
   });
 }
 async function readPlayerBalanceByType(playerId) {
@@ -23388,10 +23388,10 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
           creditType: requiredCreditType
         };
       }
-      const pkg2 = packageResult.rows[0];
-      const balanceBefore = Number(pkg2.remaining_credits);
+      const pkg3 = packageResult.rows[0];
+      const balanceBefore = Number(pkg3.remaining_credits);
       const balanceAfter = balanceBefore - creditCost;
-      const creditType = pkg2.credit_type || requiredCreditType;
+      const creditType = pkg3.credit_type || requiredCreditType;
       const existingConsume = await tx.execute(sql7`
         SELECT id, COALESCE(metadata->>'cancelled', 'false') AS cancelled
         FROM credit_transactions
@@ -23401,21 +23401,21 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
       if (existingConsume.rows.length > 0) {
         const exC = existingConsume.rows[0];
         if (exC.cancelled === "true") {
-          console.log(`[EnsureCredit] Reviving cancelled consume ${exC.id} for session_player ${sessionPlayerId} (package ${pkg2.id})`);
+          console.log(`[EnsureCredit] Reviving cancelled consume ${exC.id} for session_player ${sessionPlayerId} (package ${pkg3.id})`);
           await tx.execute(sql7`
             UPDATE credit_transactions
             SET amount = ${-creditCost},
                 balance_before = ${balanceBefore},
                 balance_after = ${balanceAfter},
                 credit_type = ${creditType},
-                package_id = ${pkg2.id},
+                package_id = ${pkg3.id},
                 session_player_id = ${sessionPlayerId},
                 metadata = COALESCE(metadata, '{}'::jsonb)
                            - 'cancelled' - 'cancellation_reason' - 'cancelled_at'
                            || ${JSON.stringify({
             seriesId,
             sessionType,
-            packageId: pkg2.id,
+            packageId: pkg3.id,
             description: `Credit consumed for ${sessionType} session`,
             revivedAt: (/* @__PURE__ */ new Date()).toISOString(),
             revivedBy: "task-636-repair"
@@ -23426,7 +23426,7 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
             UPDATE packages
             SET remaining_credits = GREATEST(0, ${balanceAfter}::numeric),
                 status = CASE WHEN ${balanceAfter} <= 0 THEN 'depleted' ELSE status END
-            WHERE id = ${pkg2.id}
+            WHERE id = ${pkg3.id}
           `);
           await tx.execute(sql7`
             UPDATE session_players
@@ -23438,7 +23438,7 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
             success: true,
             action: "consumed",
             transactionId: exC.id,
-            packageId: pkg2.id,
+            packageId: pkg3.id,
             creditType,
             _depleted: balanceAfter <= 0
           };
@@ -23454,12 +23454,12 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
             type, credit_type, amount, reason, event_key, balance_before, balance_after, metadata
           )
           VALUES (
-            ${consumeTxId}, ${playerId}, ${academyId}, ${sessionId}, ${sessionPlayerId}, ${pkg2.id},
+            ${consumeTxId}, ${playerId}, ${academyId}, ${sessionId}, ${sessionPlayerId}, ${pkg3.id},
             'debit', ${creditType}, ${-creditCost}, 'session_consumed', ${consumeEventKey}, ${balanceBefore}, ${balanceAfter},
             ${JSON.stringify({
           seriesId,
           sessionType,
-          packageId: pkg2.id,
+          packageId: pkg3.id,
           description: `Credit consumed for ${sessionType} session`
         })}::jsonb
           )
@@ -23475,7 +23475,7 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
         UPDATE packages 
         SET remaining_credits = GREATEST(0, ${balanceAfter}::numeric),
             status = CASE WHEN ${balanceAfter} <= 0 THEN 'depleted' ELSE status END
-        WHERE id = ${pkg2.id}
+        WHERE id = ${pkg3.id}
       `);
       await tx.execute(sql7`
         UPDATE session_players 
@@ -23483,12 +23483,12 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
             credit_transaction_id = ${consumeTxId}
         WHERE id = ${sessionPlayerId}
       `);
-      console.log(`[EnsureCredit] Consumed ${creditCost} ${creditType} credit(s) from package ${pkg2.id} for session_player ${sessionPlayerId}`);
+      console.log(`[EnsureCredit] Consumed ${creditCost} ${creditType} credit(s) from package ${pkg3.id} for session_player ${sessionPlayerId}`);
       return {
         success: true,
         action: "consumed",
         transactionId: consumeTxId,
-        packageId: pkg2.id,
+        packageId: pkg3.id,
         creditType,
         _depleted: balanceAfter <= 0
       };
@@ -23742,9 +23742,9 @@ async function auditAllPlayerCredits() {
     playerId: packages.playerId,
     status: packages.status
   }).from(packages).where(inArray3(packages.playerId, playerIds));
-  const existingPackageIds = new Set(allPackagesList.map((pkg2) => pkg2.id));
+  const existingPackageIds = new Set(allPackagesList.map((pkg3) => pkg3.id));
   const _activePackageIds = new Set(
-    allPackagesList.filter((pkg2) => pkg2.status === "active").map((pkg2) => pkg2.id)
+    allPackagesList.filter((pkg3) => pkg3.status === "active").map((pkg3) => pkg3.id)
   );
   const allPositiveTransactions = await db.select({
     id: creditTransactions.id,
@@ -23809,10 +23809,10 @@ async function repairGroupSessionTypes() {
             WHERE id = ${spData.tx_id}
           `);
           if (spData.package_id) {
-            const pkg2 = await db.execute(sql7`
+            const pkg3 = await db.execute(sql7`
               SELECT credit_type FROM player_credit_packages WHERE id = ${spData.package_id}
             `);
-            if (pkg2.rows.length > 0 && pkg2.rows[0].credit_type !== "group") {
+            if (pkg3.rows.length > 0 && pkg3.rows[0].credit_type !== "group") {
               await db.execute(sql7`
                 UPDATE player_credit_packages 
                 SET remaining_credits = remaining_credits + 1
@@ -25411,9 +25411,9 @@ var init_storage = __esm({
           }).from(packages).where(and6(...packageConditions))
         ]);
         const totalsByPlayer = /* @__PURE__ */ new Map();
-        for (const pkg2 of activePackages) {
-          if (!pkg2.playerId) continue;
-          totalsByPlayer.set(pkg2.playerId, (totalsByPlayer.get(pkg2.playerId) || 0) + (Number(pkg2.totalCredits) || 0));
+        for (const pkg3 of activePackages) {
+          if (!pkg3.playerId) continue;
+          totalsByPlayer.set(pkg3.playerId, (totalsByPlayer.get(pkg3.playerId) || 0) + (Number(pkg3.totalCredits) || 0));
         }
         return playerList.map((player) => {
           const balance = balances[player.id] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0, netGroup: 0, netSemiPrivate: 0, netPrivate: 0 };
@@ -25854,11 +25854,11 @@ var init_storage = __esm({
           group: "group"
         };
         const requiredCreditType = sessionToCreditType[sessionType] || sessionType;
-        const matchingPackages = activePackages.filter((pkg2) => {
-          const pkgCreditType = pkg2.creditType || "group";
+        const matchingPackages = activePackages.filter((pkg3) => {
+          const pkgCreditType = pkg3.creditType || "group";
           return pkgCreditType === requiredCreditType;
         });
-        const availableCredits = matchingPackages.reduce((sum3, pkg2) => sum3 + Number(pkg2.remainingCredits), 0);
+        const availableCredits = matchingPackages.reduce((sum3, pkg3) => sum3 + Number(pkg3.remainingCredits), 0);
         return {
           hasCredits: availableCredits > 0,
           availableCredits,
@@ -25916,13 +25916,13 @@ var init_storage = __esm({
           expiresAt,
           actorRole: "system"
         });
-        const pkg2 = await this.getPackage(pkgId);
-        if (!pkg2) {
+        const pkg3 = await this.getPackage(pkgId);
+        if (!pkg3) {
           throw new Error(
             `[createPackage] V2 lot was not created for sourcePackageId=${pkgId}`
           );
         }
-        return pkg2;
+        return pkg3;
       },
       // Task #682 — V1 packages table retired. Lot fields are immutable from the
       // admin UI; the only field admins ever updated was status="cancelled" which
@@ -25942,12 +25942,12 @@ var init_storage = __esm({
         return { converted: 0 };
       },
       async deletePackage(id, academyId, force = false) {
-        const pkg2 = await this.getPackage(id, academyId);
-        if (!pkg2) {
+        const pkg3 = await this.getPackage(id, academyId);
+        if (!pkg3) {
           return { success: false, error: "Package not found" };
         }
-        const totalCredits = Number(pkg2.totalCredits);
-        const remainingCredits = Number(pkg2.remainingCredits);
+        const totalCredits = Number(pkg3.totalCredits);
+        const remainingCredits = Number(pkg3.remainingCredits);
         const creditsUsed = totalCredits - remainingCredits;
         if (remainingCredits > 0 && !force) {
           return {
@@ -25973,9 +25973,9 @@ var init_storage = __esm({
         const { manualAdjustment: manualAdjustment2 } = await Promise.resolve().then(() => (init_credit_engine(), credit_engine_exports));
         if (remainingCredits > 0) {
           await manualAdjustment2({
-            playerId: pkg2.playerId,
-            academyId: pkg2.academyId,
-            type: pkg2.creditType ?? "group",
+            playerId: pkg3.playerId,
+            academyId: pkg3.academyId,
+            type: pkg3.creditType ?? "group",
             delta: -remainingCredits,
             reason: `package_deleted:${id}`,
             actorId: "system",
@@ -25985,9 +25985,9 @@ var init_storage = __esm({
         }
         if (totalDebtSettled > 0) {
           await manualAdjustment2({
-            playerId: pkg2.playerId,
-            academyId: pkg2.academyId,
-            type: pkg2.creditType ?? "group",
+            playerId: pkg3.playerId,
+            academyId: pkg3.academyId,
+            type: pkg3.creditType ?? "group",
             delta: -totalDebtSettled,
             reason: `package_deleted_debt_reversal:${id}`,
             actorId: "system",
@@ -26005,13 +26005,13 @@ var init_storage = __esm({
         return { success: true, creditsUsed, debtReversed: totalDebtSettled };
       },
       async usePackageCredit(packageId, academyId, creditCost = 1) {
-        const pkg2 = await this.getPackage(packageId, academyId);
-        if (!pkg2 || Number(pkg2.remainingCredits) < creditCost) return void 0;
+        const pkg3 = await this.getPackage(packageId, academyId);
+        if (!pkg3 || Number(pkg3.remainingCredits) < creditCost) return void 0;
         const { manualAdjustment: manualAdjustment2 } = await Promise.resolve().then(() => (init_credit_engine(), credit_engine_exports));
         await manualAdjustment2({
-          playerId: pkg2.playerId,
-          academyId: pkg2.academyId,
-          type: pkg2.creditType ?? "group",
+          playerId: pkg3.playerId,
+          academyId: pkg3.academyId,
+          type: pkg3.creditType ?? "group",
           delta: -creditCost,
           reason: `manual_use_package:${packageId}`,
           actorId: "system",
@@ -26095,9 +26095,9 @@ var init_storage = __esm({
         const sessionDuration = sessionResult[0]?.duration || 60;
         const creditCost = sessionDuration / 60;
         const activePackages = await this.getActivePlayerPackages(playerId, academyId);
-        const matchingPackages = activePackages.filter((pkg2) => {
-          const pkgCreditType = pkg2.creditType || "group";
-          return pkgCreditType === requiredCreditType && Number(pkg2.remainingCredits) >= creditCost;
+        const matchingPackages = activePackages.filter((pkg3) => {
+          const pkgCreditType = pkg3.creditType || "group";
+          return pkgCreditType === requiredCreditType && Number(pkg3.remainingCredits) >= creditCost;
         });
         if (matchingPackages.length === 0) {
           return {
@@ -26287,10 +26287,10 @@ var init_storage = __esm({
                     debtRemoved: true
                   };
                 }
-                const pkg3 = await this.getPackage(meta.settledByPackage);
-                if (pkg3) {
+                const pkg4 = await this.getPackage(meta.settledByPackage);
+                if (pkg4) {
                   const debtRefundAmount = Math.abs(Number(debtTransaction.amount)) || 1;
-                  await db.update(packages).set({ remainingCredits: String(Number(pkg3.remainingCredits) + debtRefundAmount) }).where(eq7(packages.id, pkg3.id));
+                  await db.update(packages).set({ remainingCredits: String(Number(pkg4.remainingCredits) + debtRefundAmount) }).where(eq7(packages.id, pkg4.id));
                   if (meta.settledByTransactionId) {
                     const existingMeta = await db.select({ metadata: creditTransactions.metadata }).from(creditTransactions).where(eq7(creditTransactions.id, meta.settledByTransactionId));
                     if (existingMeta.length > 0) {
@@ -26342,18 +26342,18 @@ var init_storage = __esm({
             ));
             return { success: true, creditType: originalDebit.creditType || "group", alreadyRefunded: true };
           }
-          const pkg2 = await this.getPackage(originalDebit.packageId, academyId);
-          if (!pkg2) {
+          const pkg3 = await this.getPackage(originalDebit.packageId, academyId);
+          if (!pkg3) {
             return { success: false, reason: "package_not_found" };
           }
           const refundAmount = Math.abs(Number(originalDebit.amount)) || 1;
-          const balanceBefore = Number(pkg2.remainingCredits);
+          const balanceBefore = Number(pkg3.remainingCredits);
           const balanceAfter = balanceBefore + refundAmount;
-          await db.update(packages).set({ remainingCredits: String(balanceAfter) }).where(eq7(packages.id, pkg2.id));
+          await db.update(packages).set({ remainingCredits: String(balanceAfter) }).where(eq7(packages.id, pkg3.id));
           await this.createCreditTransaction({
             playerId,
-            academyId: academyId || pkg2.academyId,
-            packageId: pkg2.id,
+            academyId: academyId || pkg3.academyId,
+            packageId: pkg3.id,
             type: "credit",
             creditType: originalDebit.creditType || "group",
             amount: String(refundAmount),
@@ -32354,13 +32354,13 @@ var init_storage = __esm({
         let sessionPlayersFixed = 0;
         try {
           const playerPackages = await db.select().from(packages).where(eq7(packages.playerId, playerId));
-          for (const pkg2 of playerPackages) {
+          for (const pkg3 of playerPackages) {
             const debits = await db.select({
               amount: creditTransactions.amount,
               reason: creditTransactions.reason,
               metadata: creditTransactions.metadata
             }).from(creditTransactions).where(and6(
-              eq7(creditTransactions.packageId, pkg2.id),
+              eq7(creditTransactions.packageId, pkg3.id),
               eq7(creditTransactions.playerId, playerId)
             ));
             let totalDebited = 0;
@@ -32371,13 +32371,13 @@ var init_storage = __esm({
                 totalDebited += Math.abs(Number(d.amount));
               }
             }
-            const correctRemaining = Number(pkg2.totalCredits) - totalDebited;
-            if (correctRemaining < Number(pkg2.remainingCredits)) {
-              details.push(`Package ${pkg2.id}: ${pkg2.remainingCredits} -> ${correctRemaining} (debited ${totalDebited} of ${pkg2.totalCredits})`);
+            const correctRemaining = Number(pkg3.totalCredits) - totalDebited;
+            if (correctRemaining < Number(pkg3.remainingCredits)) {
+              details.push(`Package ${pkg3.id}: ${pkg3.remainingCredits} -> ${correctRemaining} (debited ${totalDebited} of ${pkg3.totalCredits})`);
               await db.update(packages).set({
                 remainingCredits: String(correctRemaining),
                 status: correctRemaining <= 0 ? "depleted" : "active"
-              }).where(eq7(packages.id, pkg2.id));
+              }).where(eq7(packages.id, pkg3.id));
               packagesRepaired++;
             }
           }
@@ -32435,9 +32435,9 @@ var init_storage = __esm({
           const balanceByType = await storage.getPlayerCreditBalanceByType(playerId);
           const updatedPackages = await db.select().from(packages).where(eq7(packages.playerId, playerId));
           const remainingByType = { group: 0, semi_private: 0, private: 0 };
-          for (const pkg2 of updatedPackages) {
-            const ct = pkg2.creditType || "group";
-            remainingByType[ct] = (remainingByType[ct] || 0) + Number(pkg2.remainingCredits);
+          for (const pkg3 of updatedPackages) {
+            const ct = pkg3.creditType || "group";
+            remainingByType[ct] = (remainingByType[ct] || 0) + Number(pkg3.remainingCredits);
           }
           for (const creditType of ["group", "semi_private", "private"]) {
             const txBalance = Math.max(0, balanceByType[creditType]);
@@ -32446,16 +32446,16 @@ var init_storage = __esm({
               const excess = pkgRemaining - txBalance;
               const activeOfType = updatedPackages.filter((p) => (p.creditType || "group") === creditType && Number(p.remainingCredits) > 0).sort((a, b) => Number(a.remainingCredits) - Number(b.remainingCredits));
               let toReduce = excess;
-              for (const pkg2 of activeOfType) {
+              for (const pkg3 of activeOfType) {
                 if (toReduce <= 0) break;
-                const currentRemaining = Number(pkg2.remainingCredits);
+                const currentRemaining = Number(pkg3.remainingCredits);
                 const reduction = Math.min(toReduce, currentRemaining);
                 const newRemaining = currentRemaining - reduction;
                 await db.update(packages).set({
                   remainingCredits: String(newRemaining),
                   status: newRemaining <= 0 ? "depleted" : "active"
-                }).where(eq7(packages.id, pkg2.id));
-                details.push(`Package ${pkg2.id} (${creditType}): reconciled ${currentRemaining} -> ${newRemaining} (unlinked debts: ${reduction})`);
+                }).where(eq7(packages.id, pkg3.id));
+                details.push(`Package ${pkg3.id} (${creditType}): reconciled ${currentRemaining} -> ${newRemaining} (unlinked debts: ${reduction})`);
                 packagesRepaired++;
                 toReduce -= reduction;
               }
@@ -32465,14 +32465,14 @@ var init_storage = __esm({
             eq7(packages.playerId, playerId),
             ne2(packages.status, "active")
           ));
-          for (const pkg2 of nonActivePlayerPackages) {
+          for (const pkg3 of nonActivePlayerPackages) {
             try {
-              const { converted } = await storage.convertPackageConsumptionToDebt(pkg2.id, playerId);
+              const { converted } = await storage.convertPackageConsumptionToDebt(pkg3.id, playerId);
               if (converted > 0) {
-                details.push(`Package ${pkg2.id} (${pkg2.creditType}): backfilled ${converted} depleted session(s) as debt`);
+                details.push(`Package ${pkg3.id} (${pkg3.creditType}): backfilled ${converted} depleted session(s) as debt`);
               }
             } catch (err) {
-              details.push(`Package ${pkg2.id}: backfill failed \u2014 ${err}`);
+              details.push(`Package ${pkg3.id}: backfill failed \u2014 ${err}`);
             }
           }
           console.log(`[RepairCredits] Player ${playerId}: ${packagesRepaired} packages, ${debtsMarkedSettled} debts, ${sessionPlayersFixed} session_players`);
@@ -54581,35 +54581,35 @@ async function replayAcademy(academyId, dryRun) {
   const skippedPkgs = /* @__PURE__ */ new Set();
   const expiryInstants = /* @__PURE__ */ new Set();
   for (const raw of packagesResult.rows) {
-    const pkg2 = raw;
-    const isPaid = pkg2.is_paid === true;
-    if (!isPaid && !pkg2.invoice_id) {
-      skippedPkgs.add(pkg2.id);
+    const pkg3 = raw;
+    const isPaid = pkg3.is_paid === true;
+    if (!isPaid && !pkg3.invoice_id) {
+      skippedPkgs.add(pkg3.id);
       continue;
     }
-    if (!isPaid && pkg2.invoice_id) {
+    if (!isPaid && pkg3.invoice_id) {
       const inv = await db.execute(sql51`
-        SELECT status FROM invoices WHERE id = ${pkg2.invoice_id} LIMIT 1
+        SELECT status FROM invoices WHERE id = ${pkg3.invoice_id} LIMIT 1
       `);
       const invStatus = inv.rows[0]?.status;
       if (invStatus !== "paid") {
-        skippedPkgs.add(pkg2.id);
+        skippedPkgs.add(pkg3.id);
         continue;
       }
     }
-    const type = normalizeCreditType(pkg2.credit_type);
-    if (type === "group" && pkg2.credit_type === "court") {
-      skippedPkgs.add(pkg2.id);
+    const type = normalizeCreditType(pkg3.credit_type);
+    if (type === "group" && pkg3.credit_type === "court") {
+      skippedPkgs.add(pkg3.id);
       continue;
     }
-    const qty = Number(pkg2.total_credits);
+    const qty = Number(pkg3.total_credits);
     if (!Number.isFinite(qty) || qty <= 0) {
-      skippedPkgs.add(pkg2.id);
+      skippedPkgs.add(pkg3.id);
       continue;
     }
-    eligiblePkgs.push(pkg2);
-    if (pkg2.expiry_date) {
-      expiryInstants.add(new Date(pkg2.expiry_date).getTime());
+    eligiblePkgs.push(pkg3);
+    if (pkg3.expiry_date) {
+      expiryInstants.add(new Date(pkg3.expiry_date).getTime());
     }
   }
   stats.packagesSkipped += skippedPkgs.size;
@@ -54620,11 +54620,11 @@ async function replayAcademy(academyId, dryRun) {
     expiry: 3
   };
   const events = [];
-  for (const pkg2 of eligiblePkgs) {
+  for (const pkg3 of eligiblePkgs) {
     events.push({
       kind: "purchase",
-      at: pkg2.purchase_date ? new Date(pkg2.purchase_date) : /* @__PURE__ */ new Date(0),
-      pkg: pkg2
+      at: pkg3.purchase_date ? new Date(pkg3.purchase_date) : /* @__PURE__ */ new Date(0),
+      pkg: pkg3
     });
   }
   for (const raw of consumesResult.rows) {
@@ -54671,25 +54671,25 @@ async function replayAcademy(academyId, dryRun) {
     try {
       switch (ev.kind) {
         case "purchase": {
-          const pkg2 = ev.pkg;
-          const type = normalizeCreditType(pkg2.credit_type);
-          const qty = Number(pkg2.total_credits);
-          const totalPrice = Number(pkg2.price ?? 0);
-          const pricePerCredit = pkg2.price_per_credit != null ? Number(pkg2.price_per_credit) : qty > 0 ? totalPrice / qty : 0;
-          const expiresAt = pkg2.expiry_date ? new Date(pkg2.expiry_date) : null;
+          const pkg3 = ev.pkg;
+          const type = normalizeCreditType(pkg3.credit_type);
+          const qty = Number(pkg3.total_credits);
+          const totalPrice = Number(pkg3.price ?? 0);
+          const pricePerCredit = pkg3.price_per_credit != null ? Number(pkg3.price_per_credit) : qty > 0 ? totalPrice / qty : 0;
+          const expiresAt = pkg3.expiry_date ? new Date(pkg3.expiry_date) : null;
           const result = await purchasePackage({
-            playerId: pkg2.player_id,
-            academyId: pkg2.academy_id,
+            playerId: pkg3.player_id,
+            academyId: pkg3.academy_id,
             type,
             qty,
             pricePerCredit,
-            currency: pkg2.currency ?? "AED",
-            invoiceId: pkg2.invoice_id,
-            sourcePackageId: pkg2.id,
+            currency: pkg3.currency ?? "AED",
+            invoiceId: pkg3.invoice_id,
+            sourcePackageId: pkg3.id,
             purchasedAt: ev.at,
             expiresAt,
             actorRole: "system",
-            eventKey: `purchase:pkg:${pkg2.id}`
+            eventKey: `purchase:pkg:${pkg3.id}`
           });
           if (result.alreadyApplied) stats.packagesSkipped++;
           else stats.packagesProcessed++;
@@ -55520,6 +55520,7 @@ __export(coach_report_exports, {
 import { Router as Router81 } from "express";
 import fs11 from "fs";
 import path11 from "path";
+import pkg2 from "pg";
 function getPublicToken() {
   return process.env.DEAN_REPORT_PUBLIC_TOKEN ?? "";
 }
@@ -55539,35 +55540,38 @@ function saveState(state) {
   fs11.writeFileSync(CONFIG_PATH, JSON.stringify(state, null, 2), "utf-8");
 }
 async function fetchSessions(startDate) {
-  const TIMEOUT_MS = 15e3;
-  const deadline = new Promise(
-    (_, reject) => setTimeout(
-      () => reject(new Error(`[CoachReport] DB query timed out after ${TIMEOUT_MS}ms`)),
-      TIMEOUT_MS
-    )
-  );
-  const queryPromise = pool.query(
-    `SELECT
-       s.id,
-       s.start_time,
-       s.end_time,
-       s.session_type,
-       s.ball_level,
-       s.status,
-       cs.title AS series_title,
-       COUNT(sp.player_id) AS player_count
-     FROM sessions s
-     LEFT JOIN coaching_series cs ON cs.id::text = s.series_id
-     LEFT JOIN session_players sp ON sp.session_id = s.id
-     WHERE s.coach_id = $1
-       AND s.start_time >= $2
-       AND s.status = 'completed'
-     GROUP BY s.id, cs.title
-     ORDER BY s.start_time ASC`,
-    [DEAN_COACH_ID, startDate]
-  );
-  const result = await Promise.race([queryPromise, deadline]);
-  return result.rows;
+  const client = new Client({
+    connectionString: process.env.SUPABASE_DATABASE_URL,
+    connectionTimeoutMillis: 8e3
+  });
+  try {
+    await client.connect();
+    await client.query("SET statement_timeout = 10000");
+    const result = await client.query(
+      `SELECT
+         s.id,
+         s.start_time,
+         s.end_time,
+         s.session_type,
+         s.ball_level,
+         s.status,
+         cs.title AS series_title,
+         COUNT(sp.player_id) AS player_count
+       FROM sessions s
+       LEFT JOIN coaching_series cs ON cs.id::text = s.series_id
+       LEFT JOIN session_players sp ON sp.session_id = s.id
+       WHERE s.coach_id = $1
+         AND s.start_time >= $2
+         AND s.status = 'completed'
+       GROUP BY s.id, cs.title
+       ORDER BY s.start_time ASC`,
+      [DEAN_COACH_ID, startDate]
+    );
+    return result.rows;
+  } finally {
+    client.end().catch(() => {
+    });
+  }
 }
 function typeLabel(t) {
   if (t === "private") return "Private";
@@ -55967,11 +55971,11 @@ ${toggleScript}
 </body>
 </html>`;
 }
-var router82, CONFIG_PATH, DEAN_COACH_ID, DUBAI_OFFSET_MS, DAY_NAMES2, MONTH_NAMES, coach_report_default;
+var Client, router82, CONFIG_PATH, DEAN_COACH_ID, DUBAI_OFFSET_MS, DAY_NAMES2, MONTH_NAMES, coach_report_default;
 var init_coach_report = __esm({
   "server/routes/coach-report.ts"() {
     "use strict";
-    init_db();
+    ({ Client } = pkg2);
     router82 = Router81();
     CONFIG_PATH = path11.join(process.cwd(), "server/data/coach-report-dean.json");
     DEAN_COACH_ID = "76f7d0e7-1363-404f-93d0-7edcce95a28d";
@@ -79074,7 +79078,7 @@ router29.post(
         (session.academyId || player.academyId) ?? void 0
       );
       const remainingCredits = activePackages.reduce(
-        (sum3, pkg2) => sum3 + Number(pkg2.remainingCredits),
+        (sum3, pkg3) => sum3 + Number(pkg3.remainingCredits),
         0
       );
       const matchingPackage = activePackages.find(
@@ -81838,7 +81842,7 @@ router29.post(
       const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
       const expiresAt = new Date(now);
       expiresAt.setDate(expiresAt.getDate() + templateData.validityDays);
-      const pkg2 = await storage.createPackage({
+      const pkg3 = await storage.createPackage({
         playerId,
         academyId: player.academyId ?? "",
         name: templateData.name,
@@ -81853,7 +81857,7 @@ router29.post(
       const playerPkgDebtSettlement = await storage.settlePlayerDebts(
         playerId,
         templateData.creditType,
-        pkg2.id
+        pkg3.id
       );
       if (playerPkgDebtSettlement.settledCount > 0) {
         console.log(
@@ -81867,7 +81871,7 @@ router29.post(
       const invoiceInput = {
         playerId,
         academyId: player.academyId ?? "",
-        packageId: pkg2.id,
+        packageId: pkg3.id,
         invoiceNumber,
         type: "package_purchase",
         amount: String(totalAmount),
@@ -81880,7 +81884,7 @@ router29.post(
       const invoice = await storage.createInvoice(invoiceInput);
       res.json({
         success: true,
-        package: pkg2,
+        package: pkg3,
         invoice
       });
     } catch (error) {
@@ -81914,21 +81918,21 @@ router29.post(
       if (!academy?.useNewCreditSystem) {
         return res.status(400).json({ error: "Academy is not on V2 credit engine" });
       }
-      const pkg2 = await storage.getPackage(invoice.packageId);
-      if (!pkg2) return res.status(404).json({ error: "Package not found" });
+      const pkg3 = await storage.getPackage(invoice.packageId);
+      if (!pkg3) return res.status(404).json({ error: "Package not found" });
       const { purchasePackage: purchasePackage2, normalizeSessionTypeToCreditType: normalizeSessionTypeToCreditType3 } = await Promise.resolve().then(() => (init_credit_engine(), credit_engine_exports));
-      const type = normalizeSessionTypeToCreditType3(pkg2.creditType);
+      const type = normalizeSessionTypeToCreditType3(pkg3.creditType);
       const result = await purchasePackage2({
-        playerId: pkg2.playerId,
-        academyId: pkg2.academyId,
+        playerId: pkg3.playerId,
+        academyId: pkg3.academyId,
         type,
-        qty: Number(pkg2.totalCredits),
-        pricePerCredit: parseFloat(String(pkg2.pricePerCredit ?? "0")),
-        currency: pkg2.currency ?? "AED",
+        qty: Number(pkg3.totalCredits),
+        pricePerCredit: parseFloat(String(pkg3.pricePerCredit ?? "0")),
+        currency: pkg3.currency ?? "AED",
         invoiceId: invoice.id,
-        sourcePackageId: pkg2.id,
-        purchasedAt: pkg2.purchaseDate ?? /* @__PURE__ */ new Date(),
-        expiresAt: pkg2.expiryDate ? new Date(pkg2.expiryDate) : null,
+        sourcePackageId: pkg3.id,
+        purchasedAt: pkg3.purchaseDate ?? /* @__PURE__ */ new Date(),
+        expiresAt: pkg3.expiryDate ? new Date(pkg3.expiryDate) : null,
         actorRole: "system"
       });
       res.json({ success: true, lotId: result.lotId });
@@ -82007,7 +82011,7 @@ router29.post(
       const now = /* @__PURE__ */ new Date();
       const expiresAt = new Date(now);
       expiresAt.setDate(expiresAt.getDate() + 90);
-      const pkg2 = await storage.createPackage({
+      const pkg3 = await storage.createPackage({
         playerId,
         academyId: player.academyId ?? "",
         name: packageName,
@@ -82022,7 +82026,7 @@ router29.post(
       const settle = await storage.settlePlayerDebts(
         playerId,
         creditType,
-        pkg2.id
+        pkg3.id
       );
       if (settle?.settledCount > 0) {
         console.log(
@@ -82038,7 +82042,7 @@ router29.post(
       const invoiceInput = {
         playerId,
         academyId: player.academyId ?? "",
-        packageId: pkg2.id,
+        packageId: pkg3.id,
         invoiceNumber,
         invoiceType: "package_purchase",
         amount: String(totalAmount),
@@ -82064,7 +82068,7 @@ router29.post(
             academyId: player.academyId ?? "",
             playerId,
             invoiceId: invoice.id,
-            packageId: pkg2.id,
+            packageId: pkg3.id,
             amount: String(totalAmount),
             currency: resolvedCurrency,
             paymentMethod: normalizedPaymentMethod,
@@ -82093,12 +82097,12 @@ router29.post(
           );
           return res.status(500).json({
             error: "Package created but payment recording failed. Invoice is still pending \u2014 please mark it paid from billing.",
-            packageId: pkg2.id,
+            packageId: pkg3.id,
             invoiceId: invoice.id
           });
         }
       }
-      res.json({ success: true, package: pkg2, invoice: finalInvoice });
+      res.json({ success: true, package: pkg3, invoice: finalInvoice });
     } catch (error) {
       console.error("[CoachPurchase] error:", error);
       res.status(500).json({ error: "Failed to create purchase" });
@@ -112172,7 +112176,7 @@ router48.post(
         ],
         notes: `Credit package purchase - ${creditType.replace("_", " ")} lessons`
       });
-      const pkg2 = await storage.createPackage({
+      const pkg3 = await storage.createPackage({
         academyId,
         playerId,
         creditType,
@@ -112187,11 +112191,11 @@ router48.post(
         name: `${totalCredits} ${creditType.replace("_", " ")} credits`,
         isPaid: false
       });
-      await storage.updateInvoice(invoice.id, { packageId: pkg2.id });
+      await storage.updateInvoice(invoice.id, { packageId: pkg3.id });
       await storage.createCreditTransaction({
         playerId,
         academyId,
-        packageId: pkg2.id,
+        packageId: pkg3.id,
         type: "credit",
         creditType,
         amount: totalCredits,
@@ -112208,7 +112212,7 @@ router48.post(
           await storage.createPayment({
             academyId,
             playerId,
-            packageId: pkg2.id,
+            packageId: pkg3.id,
             invoiceId: invoice.id,
             source: "coach_package_purchase",
             recordedByUserId: req.user.userId,
@@ -112233,7 +112237,7 @@ router48.post(
       const debtSettlement = await storage.settlePlayerDebts(
         playerId,
         creditType,
-        pkg2.id
+        pkg3.id
       );
       if (debtSettlement.settledCount > 0) {
         if (debtSettlement.totalDeducted > totalCredits) {
@@ -112242,7 +112246,7 @@ router48.post(
           );
         } else {
           console.log(
-            `[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted}/${totalCredits} credits from package ${pkg2.id}`
+            `[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted}/${totalCredits} credits from package ${pkg3.id}`
           );
         }
       } else {
@@ -112251,13 +112255,13 @@ router48.post(
       if (coachId) {
         await storage.createAuditLog({
           entityType: "package",
-          entityId: pkg2.id,
+          entityId: pkg3.id,
           action: "create",
           performedBy: coachId,
           metadata: JSON.stringify({ creditType, totalCredits, totalPrice, invoiceId: invoice.id })
         });
       }
-      res.status(201).json({ ...pkg2, invoice });
+      res.status(201).json({ ...pkg3, invoice });
     } catch (error) {
       console.error("Error creating package:", error);
       res.status(500).json({ error: "Failed to create package" });
@@ -112282,27 +112286,27 @@ router48.patch(
       }
       const prev = await storage.getPackage(id, academyId ?? void 0);
       const wasPaid = prev?.isPaid === true;
-      const pkg2 = await storage.updatePackage(
+      const pkg3 = await storage.updatePackage(
         id,
         req.body,
         academyId ?? void 0
       );
-      if (!pkg2) {
+      if (!pkg3) {
         return res.status(404).json({ error: "Package not found" });
       }
-      const isTransitioningToPaid = !wasPaid && req.body && req.body.isPaid === true && pkg2.isPaid === true;
-      if (isTransitioningToPaid && pkg2.playerId && pkg2.academyId) {
+      const isTransitioningToPaid = !wasPaid && req.body && req.body.isPaid === true && pkg3.isPaid === true;
+      if (isTransitioningToPaid && pkg3.playerId && pkg3.academyId) {
         const allowedMethods = ["cash", "bank_transfer", "card"];
         const methodRaw = req.body.paymentMethod || "cash";
         const paymentMethod = allowedMethods.includes(methodRaw) ? methodRaw : "cash";
-        const amount = String(pkg2.price ?? "0");
-        const academySettings2 = await storage.getAcademySettings(pkg2.academyId);
-        const currency = pkg2.currency || academySettings2?.currency || "AED";
+        const amount = String(pkg3.price ?? "0");
+        const academySettings2 = await storage.getAcademySettings(pkg3.academyId);
+        const currency = pkg3.currency || academySettings2?.currency || "AED";
         try {
           await storage.createPayment({
-            academyId: pkg2.academyId,
-            playerId: pkg2.playerId,
-            packageId: pkg2.id,
+            academyId: pkg3.academyId,
+            playerId: pkg3.playerId,
+            packageId: pkg3.id,
             source: "coach_mark_paid",
             recordedByUserId: req.user.userId,
             amount,
@@ -112325,7 +112329,7 @@ router48.patch(
           }
         }
       }
-      res.json(pkg2);
+      res.json(pkg3);
     } catch (error) {
       console.error("Error updating package:", error);
       res.status(500).json({ error: "Failed to update package" });
@@ -112391,8 +112395,8 @@ router48.post(
       if (!valid) {
         return res.status(404).json({ error: "Package not found" });
       }
-      const pkg2 = await storage.usePackageCredit(id, academyId ?? void 0);
-      if (!pkg2) {
+      const pkg3 = await storage.usePackageCredit(id, academyId ?? void 0);
+      if (!pkg3) {
         return res.status(400).json({ error: "No credits remaining or package not found" });
       }
       const coachId = req.user.coachId;
@@ -112402,7 +112406,7 @@ router48.post(
         action: "use_credit",
         performedBy: coachId
       });
-      res.json(pkg2);
+      res.json(pkg3);
     } catch (error) {
       console.error("Error using package credit:", error);
       res.status(500).json({ error: "Failed to use package credit" });
@@ -119214,7 +119218,7 @@ router54.post(
               expiryDate.setDate(
                 expiryDate.getDate() + (template.validityDays || 90)
               );
-              const pkg2 = await storage.createPackage({
+              const pkg3 = await storage.createPackage({
                 academyId,
                 playerId,
                 templateId: packageTemplateId,
@@ -119226,15 +119230,15 @@ router54.post(
                 expiryDate: expiryDate.toISOString().split("T")[0],
                 status: "active"
               });
-              assignedPackageId = pkg2.id;
+              assignedPackageId = pkg3.id;
               console.log(
-                `[AddPlayer] Assigned package ${pkg2.id} (${template.name}) to player ${playerId}`
+                `[AddPlayer] Assigned package ${pkg3.id} (${template.name}) to player ${playerId}`
               );
               const addPlayerCreditType = template.sessionType || "group";
               const addPlayerDebtSettlement = await storage.settlePlayerDebts(
                 playerId,
                 addPlayerCreditType,
-                pkg2.id
+                pkg3.id
               );
               if (addPlayerDebtSettlement.settledCount > 0) {
                 console.log(
@@ -119265,7 +119269,7 @@ router54.post(
           const currency = pricingItem?.currency || "AED";
           const expiryDate = /* @__PURE__ */ new Date();
           expiryDate.setMonth(expiryDate.getMonth() + 12);
-          const pkg2 = await storage.createPackage({
+          const pkg3 = await storage.createPackage({
             academyId,
             playerId,
             creditType: sessionType,
@@ -119277,14 +119281,14 @@ router54.post(
             expiryDate: expiryDate.toISOString().split("T")[0],
             status: "active"
           });
-          assignedPackageId = pkg2.id;
+          assignedPackageId = pkg3.id;
           console.log(
-            `[AddPlayer] Created credit package ${pkg2.id} (${credits} ${creditType} credits) for player ${playerId}`
+            `[AddPlayer] Created credit package ${pkg3.id} (${credits} ${creditType} credits) for player ${playerId}`
           );
           const creditPkgDebtSettlement = await storage.settlePlayerDebts(
             playerId,
             sessionType,
-            pkg2.id
+            pkg3.id
           );
           if (creditPkgDebtSettlement.settledCount > 0) {
             console.log(
@@ -124578,7 +124582,7 @@ router57.post(
       expiryDate.setDate(
         expiryDate.getDate() + (template.validityDays || 90)
       );
-      const pkg2 = await storage.createPackage({
+      const pkg3 = await storage.createPackage({
         academyId,
         playerId,
         templateId,
@@ -124594,7 +124598,7 @@ router57.post(
       const pkgDebtSettlement = await storage.settlePlayerDebts(
         playerId,
         pkgCreditType,
-        pkg2.id
+        pkg3.id
       );
       if (pkgDebtSettlement.settledCount > 0) {
         console.log(
@@ -124608,7 +124612,7 @@ router57.post(
       const invoice = await storage.createInvoice({
         academyId,
         playerId,
-        packageId: pkg2.id,
+        packageId: pkg3.id,
         invoiceNumber,
         invoiceType: "package",
         amount: customPrice ? String(customPrice) : template.price,
@@ -124625,7 +124629,7 @@ router57.post(
         notes,
         status: "pending"
       });
-      res.status(201).json({ package: pkg2, invoice });
+      res.status(201).json({ package: pkg3, invoice });
     } catch (error) {
       console.error("Error assigning package:", error);
       res.status(500).json({ error: "Failed to assign package" });
@@ -124679,8 +124683,8 @@ router57.post(
         }
       }
       if (packageId) {
-        const pkg2 = await storage.getPackage(packageId);
-        if (!pkg2 || pkg2.academyId !== academyId) {
+        const pkg3 = await storage.getPackage(packageId);
+        if (!pkg3 || pkg3.academyId !== academyId) {
           return res.status(400).json({ error: "Package not found in this academy" });
         }
       }

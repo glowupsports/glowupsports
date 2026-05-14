@@ -1,4 +1,12 @@
 import logger from "@/lib/logger";
+// Web-only: redirect /coach-overview/dean/:token → /api/coach-report/dean/:token
+// before React renders so the user never sees a black screen.
+if (typeof window !== "undefined" && typeof window.location !== "undefined") {
+  const _coachMatch = window.location.pathname.match(/^\/coach-overview\/dean\/([^/]+)/);
+  if (_coachMatch) {
+    window.location.replace("/api/coach-report/dean/" + _coachMatch[1] + window.location.search);
+  }
+}
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { StyleSheet, View, Platform } from "react-native";
 import { useFonts } from "expo-font";
