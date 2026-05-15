@@ -1525,8 +1525,11 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
           return res.status(404).json({ error: "Session not found" });
         }
 
-        // Check if session is already cancelled or completed
-        if (session.status === "cancelled" || session.status === "completed") {
+        // Check if session is already cancelled or completed.
+        // Academy owners / admins may cancel completed sessions to clean up the calendar.
+        const callerRole = req.user!.role;
+        const isOwnerOrAdmin = ["academy_owner", "owner", "platform_owner", "admin"].includes(callerRole ?? "");
+        if (session.status === "cancelled" || (session.status === "completed" && !isOwnerOrAdmin)) {
           return res
             .status(400)
             .json({ error: `Session is already ${session.status}` });
