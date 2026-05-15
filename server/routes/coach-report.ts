@@ -72,13 +72,14 @@ async function fetchSessions(startDate: string): Promise<SessionRow[]> {
   // exhaust the pool cannot block this query.
   const client = new Client({
     connectionString: process.env.SUPABASE_DATABASE_URL,
-    connectionTimeoutMillis: 8_000,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 5_000,
   });
   try {
     await client.connect();
     // Hard statement timeout on the DB side — guarantees we return before
     // Replit's infrastructure proxy kills the connection.
-    await client.query("SET statement_timeout = 10000");
+    await client.query("SET statement_timeout = 6000");
     const result = await client.query<SessionRow>(
       `SELECT
          s.id,

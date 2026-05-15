@@ -55538,11 +55538,12 @@ function saveState(state) {
 async function fetchSessions(startDate) {
   const client = new Client({
     connectionString: process.env.SUPABASE_DATABASE_URL,
-    connectionTimeoutMillis: 8e3
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 5e3
   });
   try {
     await client.connect();
-    await client.query("SET statement_timeout = 10000");
+    await client.query("SET statement_timeout = 6000");
     const result = await client.query(
       `SELECT
          s.id,
