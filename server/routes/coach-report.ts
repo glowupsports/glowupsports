@@ -18,8 +18,9 @@
 import { Router, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
-import pkg from "pg";
-const { Client } = pkg;
+import { db } from "../db";
+import { sessions as sessionsTable, coachingSeries, sessionPlayers } from "@shared/schema";
+import { eq, gte, and, count } from "drizzle-orm";
 
 const router = Router();
 
@@ -68,42 +69,34 @@ interface SessionRow {
 }
 
 async function fetchSessions(startDate: string): Promise<SessionRow[]> {
-  // Use a dedicated client (NOT the shared pool) so background jobs that
-  // exhaust the pool cannot block this query.
-  const client = new Client({
-    connectionString: process.env.SUPABASE_DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 5_000,
-  });
-  try {
-    await client.connect();
-    // Hard statement timeout on the DB side — guarantees we return before
-    // Replit's infrastructure proxy kills the connection.
-    await client.query("SET statement_timeout = 6000");
-    const result = await client.query<SessionRow>(
-      `SELECT
-         s.id,
-         s.start_time,
-         s.end_time,
-         s.session_type,
-         s.ball_level,
-         s.status,
-         cs.title AS series_title,
-         COUNT(sp.player_id) AS player_count
-       FROM sessions s
-       LEFT JOIN coaching_series cs ON cs.id::text = s.series_id
-       LEFT JOIN session_players sp ON sp.session_id = s.id
-       WHERE s.coach_id = $1
-         AND s.start_time >= $2
-         AND s.status = 'completed'
-       GROUP BY s.id, cs.title
-       ORDER BY s.start_time ASC`,
-      [DEAN_COACH_ID, startDate]
-    );
-    return result.rows;
-  } finally {
-    client.end().catch(() => {});
-  }
+  const rows = await db
+    .select({
+      id: sessionsTable.id,
+      start_time: sessionsTable.startTime,
+      end_time: sessionsTable.endTime,
+      session_type: sessionsTable.sessionType,
+      ball_level: sessionsTable.ballLevel,
+      status: sessionsTable.status,
+      series_title: coachingSeries.title,
+      player_count: count(sessionPlayers.playerId),
+    })
+    .from(sessionsTable)
+    .leftJoin(coachingSeries, eq(coachingSeries.id, sessionsTable.seriesId))
+    .leftJoin(sessionPlayers, eq(sessionPlayers.sessionId, sessionsTable.id))
+    .where(
+      and(
+        eq(sessionsTable.coachId, DEAN_COACH_ID),
+        gte(sessionsTable.startTime, new Date(startDate)),
+        eq(sessionsTable.status, "completed")
+      )
+    )
+    .groupBy(sessionsTable.id, coachingSeries.title)
+    .orderBy(sessionsTable.startTime);
+
+  return rows.map(r => ({
+    ...r,
+    player_count: String(r.player_count),
+  }));
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
