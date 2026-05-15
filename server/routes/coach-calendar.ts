@@ -1505,7 +1505,7 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
         const supervisorCoachId = req.body?.supervisorCoachId;
         if (supervisorCoachId) {
           const callerRole = req.user!.role;
-          if (!["academy_owner", "owner", "platform_owner"].includes(callerRole ?? "")) {
+          if (!["academy_owner", "owner", "platform_owner", "admin"].includes(callerRole ?? "")) {
             return res.status(403).json({ error: "Only academy owners may act for another coach" });
           }
           const targetCoach = await storage.getCoach(supervisorCoachId);
