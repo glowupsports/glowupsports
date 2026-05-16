@@ -2674,6 +2674,13 @@ router.post(
       } = req.body;
       const coachId = req.user!.coachId;
       const academyId = req.user!.academyId!;
+      const callerRole = req.user!.role;
+      const isOwnerRole =
+        callerRole === "academy_owner" ||
+        callerRole === "owner" ||
+        callerRole === "platform_owner" ||
+        callerRole === "admin";
+      const canManageSeries = isOwnerRole;
 
       // Support both joinDate (new) and joinedAt (legacy) parameter names
       const effectiveJoinDate = joinDate || joinedAt;
@@ -2805,7 +2812,13 @@ router.post(
         return res.status(404).json({ error: "Class not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res
+            .status(403)
+            .json({ error: "Not authorized to add players to this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to add players to this class" });
@@ -3110,13 +3123,27 @@ router.delete(
     try {
       const { id, playerId } = req.params;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      const callerRole = req.user!.role;
+      const isOwnerRole =
+        callerRole === "academy_owner" ||
+        callerRole === "owner" ||
+        callerRole === "platform_owner" ||
+        callerRole === "admin";
+      const canManageSeries = isOwnerRole;
 
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({
+            error: "Not authorized to remove players from this series",
+          });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({
           error: "Not authorized to remove players from this series",
         });
@@ -3185,13 +3212,27 @@ router.post(
       const { id, playerId } = req.params;
       const { leftAt } = req.body;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      const callerRole = req.user!.role;
+      const isOwnerRole =
+        callerRole === "academy_owner" ||
+        callerRole === "owner" ||
+        callerRole === "platform_owner" ||
+        callerRole === "admin";
+      const canManageSeries = isOwnerRole;
 
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Class not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res
+            .status(403)
+            .json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to manage this class" });
@@ -3270,6 +3311,14 @@ router.post(
       const { id, playerId } = req.params;
       const { pauseFrom, pauseUntil, reason } = req.body;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      const callerRole = req.user!.role;
+      const isOwnerRole =
+        callerRole === "academy_owner" ||
+        callerRole === "owner" ||
+        callerRole === "platform_owner" ||
+        callerRole === "admin";
+      const canManageSeries = isOwnerRole;
 
       if (!pauseFrom || !pauseUntil) {
         return res
@@ -3282,7 +3331,13 @@ router.post(
         return res.status(404).json({ error: "Class not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res
+            .status(403)
+            .json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to manage this class" });
@@ -3356,13 +3411,27 @@ router.post(
     try {
       const { id, playerId } = req.params;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      const callerRole = req.user!.role;
+      const isOwnerRole =
+        callerRole === "academy_owner" ||
+        callerRole === "owner" ||
+        callerRole === "platform_owner" ||
+        callerRole === "admin";
+      const canManageSeries = isOwnerRole;
 
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Class not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res
+            .status(403)
+            .json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to manage this class" });
@@ -3539,6 +3608,14 @@ router.patch(
       const { id, playerId } = req.params;
       const { joinDate } = req.body;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      const callerRole = req.user!.role;
+      const isOwnerRole =
+        callerRole === "academy_owner" ||
+        callerRole === "owner" ||
+        callerRole === "platform_owner" ||
+        callerRole === "admin";
+      const canManageSeries = isOwnerRole;
 
       if (!joinDate) {
         return res.status(400).json({ error: "joinDate is required" });
@@ -3549,7 +3626,13 @@ router.patch(
         return res.status(404).json({ error: "Class not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res
+            .status(403)
+            .json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to manage this class" });
@@ -3592,6 +3675,14 @@ router.post(
       const { id, playerId } = req.params;
       const { packageId } = req.body;
       const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId!;
+      const callerRole = req.user!.role;
+      const isOwnerRole =
+        callerRole === "academy_owner" ||
+        callerRole === "owner" ||
+        callerRole === "platform_owner" ||
+        callerRole === "admin";
+      const canManageSeries = isOwnerRole;
 
       if (!packageId) {
         return res.status(400).json({ error: "packageId is required" });
@@ -3602,7 +3693,13 @@ router.post(
         return res.status(404).json({ error: "Class not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res
+            .status(403)
+            .json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to manage this class" });
