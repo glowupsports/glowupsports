@@ -1939,14 +1939,32 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const coachId = req.user!.coachId;
+      let coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const callerRole = req.user!.role;
+      const isOwnerRole = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId as string | undefined;
+      if (supervisorCoachId) {
+        if (!isOwnerRole) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (isOwnerRole) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to pause this series" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to pause this series" });
@@ -1969,14 +1987,32 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const coachId = req.user!.coachId;
+      let coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const callerRole = req.user!.role;
+      const isOwnerRole = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId as string | undefined;
+      if (supervisorCoachId) {
+        if (!isOwnerRole) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (isOwnerRole) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to resume this series" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to resume this series" });
@@ -1999,14 +2035,32 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const coachId = req.user!.coachId;
+      let coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const callerRole = req.user!.role;
+      const isOwnerRole = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId as string | undefined;
+      if (supervisorCoachId) {
+        if (!isOwnerRole) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (isOwnerRole) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to end this series" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to end this series" });
@@ -2015,9 +2069,10 @@ router.post(
       const ended = await storage.endCoachingSeries(id);
 
       // Invalidate caches for this coach
-      apiCache.invalidate(`series:${coachId}`);
-      apiCache.invalidate(`earnings:${coachId}`);
-      apiCache.invalidate(`calendar:${coachId}`);
+      const effectiveCoachId = coachId || existing.coachId;
+      apiCache.invalidate(`series:${effectiveCoachId}`);
+      apiCache.invalidate(`earnings:${effectiveCoachId}`);
+      apiCache.invalidate(`calendar:${effectiveCoachId}`);
       res.json(ended);
     } catch (error) {
       console.error("Error ending coaching series:", error);
@@ -2034,14 +2089,32 @@ router.delete(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
-      const coachId = req.user!.coachId;
+      let coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const callerRole = req.user!.role;
+      const isOwnerRole = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId as string | undefined;
+      if (supervisorCoachId) {
+        if (!isOwnerRole) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (isOwnerRole) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to delete this series" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to delete this series" });
@@ -2050,10 +2123,11 @@ router.delete(
       await storage.deleteCoachingSeries(id);
 
       // Invalidate cache after deletion so list refreshes properly
-      apiCache.invalidate(`series:${coachId}`);
-      apiCache.invalidate(`earnings:${coachId}`);
-      apiCache.invalidate(`calendar:${coachId}`);
-      console.log("[Series DELETE] Cache invalidated for coach:", coachId);
+      const effectiveCoachId = coachId || existing.coachId;
+      apiCache.invalidate(`series:${effectiveCoachId}`);
+      apiCache.invalidate(`earnings:${effectiveCoachId}`);
+      apiCache.invalidate(`calendar:${effectiveCoachId}`);
+      console.log("[Series DELETE] Cache invalidated for coach:", effectiveCoachId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting coaching series:", error);
@@ -2239,8 +2313,21 @@ router.post(
     try {
       const { id } = req.params;
       const { weeks } = req.body;
-      const coachId = req.user!.coachId;
+      let coachId = req.user!.coachId;
       const academyId = req.user!.academyId!;
+      const callerRole = req.user!.role;
+      const isOwnerRole = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId as string | undefined;
+      if (supervisorCoachId) {
+        if (!isOwnerRole) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       if (!weeks || weeks < 1 || weeks > 52) {
         return res
@@ -2254,7 +2341,11 @@ router.post(
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (existing.coachId !== coachId) {
+      if (isOwnerRole) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to extend this series" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to extend this series" });
@@ -2325,8 +2416,21 @@ router.post(
     try {
       const { id } = req.params;
       const { startTime, duration, courtId } = req.body;
-      const coachId = req.user!.coachId;
+      let coachId = req.user!.coachId;
       const academyId = req.user!.academyId;
+      const callerRole = req.user!.role;
+      const isOwnerRole = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId as string | undefined;
+      if (supervisorCoachId) {
+        if (!isOwnerRole) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
 
       if (!coachId || !academyId) {
         return res.status(400).json({ error: "Coach and academy required" });
@@ -2338,7 +2442,11 @@ router.post(
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (series.coachId !== coachId) {
+      if (isOwnerRole) {
+        if (series.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to modify this series" });
+        }
+      } else if (series.coachId !== coachId) {
         return res
           .status(403)
           .json({ error: "Not authorized to modify this series" });
