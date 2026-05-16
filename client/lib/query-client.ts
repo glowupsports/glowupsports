@@ -187,15 +187,18 @@ export async function apiRequest(
 
   // Inject supervisorCoachId into write request bodies so the server can
   // attribute the action to the supervised coach instead of the caller.
+  // This covers three cases:
+  //   1. data is a plain object → spread supervisorCoachId in
+  //   2. data is undefined/null → create a minimal { supervisorCoachId } body
+  //      so bodyless POST calls (e.g. /leave with no payload) still work
+  //   3. data is an array or primitive → leave as-is (uncommon for these routes)
   let effectiveData = data;
-  if (
-    _supervisorCoachId &&
-    ["POST", "PUT", "PATCH"].includes(method.toUpperCase()) &&
-    data &&
-    typeof data === "object" &&
-    !Array.isArray(data)
-  ) {
-    effectiveData = { ...(data as Record<string, unknown>), supervisorCoachId: _supervisorCoachId };
+  if (_supervisorCoachId && ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase())) {
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      effectiveData = { ...(data as Record<string, unknown>), supervisorCoachId: _supervisorCoachId };
+    } else if (data === undefined || data === null) {
+      effectiveData = { supervisorCoachId: _supervisorCoachId };
+    }
   }
 
   const baseUrl = getApiUrl();
