@@ -56,8 +56,7 @@ export default function SeriesDetailDrawer({
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { academy, coach: currentCoach } = useCoach();
-  const { supervisorCoach } = useSupervisorMode();
-  const isReadOnly = !!supervisorCoach;
+  const { isReadOnly } = useSupervisorMode();
   const { navigateToTab } = useTabNavigation();
 
   const handlePlayerTap = (playerId: string) => {
