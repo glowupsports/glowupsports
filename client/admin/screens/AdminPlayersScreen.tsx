@@ -1592,7 +1592,7 @@ const dtStyles = StyleSheet.create({
   },
   tableScroll: {
     flex: 1,
-    overflow: "scroll",
+    overflow: "auto" as any,
   },
   tableHeader: {
     flexDirection: "row",

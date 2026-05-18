@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   desktopFullPage: {
     flex: 1,
-    overflow: "scroll",
+    overflow: "hidden",
   },
   desktopHidden: {
     flex: 0,

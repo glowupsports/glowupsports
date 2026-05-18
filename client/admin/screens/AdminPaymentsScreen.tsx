@@ -1587,7 +1587,7 @@ const payStyles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: "rgba(255,255,255,0.07)",
     padding: 16,
-    overflow: "scroll",
+    overflow: "auto" as any,
   },
   kpiCard: {
     backgroundColor: "#11141A",
@@ -1673,7 +1673,7 @@ const payStyles = StyleSheet.create({
   colActions: { flex: 1, gap: 8 },
   tableScroll: {
     flex: 1,
-    overflow: "scroll",
+    overflow: "auto" as any,
   },
   tableRow: {
     flexDirection: "row",

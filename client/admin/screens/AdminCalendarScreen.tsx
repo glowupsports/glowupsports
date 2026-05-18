@@ -1599,7 +1599,7 @@ const calStyles = StyleSheet.create({
   },
   calendarScroll: {
     flex: 1,
-    overflow: "scroll",
+    overflow: "auto" as any,
   },
   weekGrid: {
     flexDirection: "row",
@@ -1694,7 +1694,7 @@ const calStyles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: "rgba(255,255,255,0.07)",
     backgroundColor: "#11141A",
-    overflow: "scroll",
+    overflow: "auto" as any,
   },
   panelHeader: {
     flexDirection: "row",

@@ -43,6 +43,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    overflow: "scroll",
+    overflow: "hidden",
   },
 });
