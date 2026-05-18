@@ -20,7 +20,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Clipboard from "expo-clipboard";import { Colors, Spacing, BorderRadius, CardStyles } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
-import { formatCredits } from "@/lib/dateUtils";import CreditStoreModal from "@/admin/components/CreditStoreModal";import { styles } from "@/admin/components/players/adminPlayersStyles";import { AdminPlayerDetailModal } from "@/admin/components/players/AdminPlayerDetailModal";
+import { formatCredits } from "@/lib/dateUtils";import CreditStoreModal from "@/admin/components/CreditStoreModal";import { styles } from "@/admin/components/players/adminPlayersStyles";import { AdminPlayerDetailModal } from "@/admin/components/players/AdminPlayerDetailModal";import { AdminRecordPaymentModal } from "@/admin/components/players/AdminRecordPaymentModal";import type { AdminPlayerPackage } from "@/admin/components/players/adminPlayerTypes";
 import { AdminInlinePlayerProfile } from "@/admin/components/players/AdminInlinePlayerProfile";
 import { AdminAddPlayerModal } from "@/admin/components/players/AdminAddPlayerModal";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -122,6 +122,16 @@ export default function AdminPlayersScreen() {
   const [hasEmailFilter, setHasEmailFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("name_asc");
   const [selectedSeriesFilter, setSelectedSeriesFilter] = useState<string | null>(null);
+
+  // Mobile-only sort state (separate from the hidden-filter sort)
+  const [mobileSortField, setMobileSortField] = useState<"name" | "ballLevel" | "credits">("name");
+  const [mobileSortDir, setMobileSortDir] = useState<"asc" | "desc">("asc");
+
+  // Mobile selection + batch credits state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [mobileSelectedIds, setMobileSelectedIds] = useState<Set<string>>(new Set());
+  const [batchQueue, setBatchQueue] = useState<string[]>([]);
+  const [batchTotal, setBatchTotal] = useState(0);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -158,6 +168,13 @@ export default function AdminPlayersScreen() {
   const { data: playerStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<PlayerStats>({
     queryKey: ["/api/admin/players", selectedPlayerId, "stats"],
     enabled: !!selectedPlayerId && (showDetailModal || showFullDetailsModal),
+  });
+
+  // Batch flow: fetch packages for the currently open batch player
+  const batchCurrentId = batchQueue[0] ?? null;
+  const { data: batchPlayerStats } = useQuery<PlayerStats>({
+    queryKey: ["/api/admin/players", batchCurrentId, "stats"],
+    enabled: !!batchCurrentId,
   });
 
   const { data: playerInvite, isLoading: inviteLoading, isError: inviteError, refetch: refetchInvite } = useQuery<{ 
@@ -489,6 +506,69 @@ export default function AdminPlayersScreen() {
     sortBy !== "name_asc",
   ].filter(Boolean).length;
 
+  const mobileSortedPlayers = useMemo(() => {
+    return [...filteredPlayers].sort((a, b) => {
+      let cmp = 0;
+      if (mobileSortField === "name") cmp = (a.name || "").localeCompare(b.name || "");
+      else if (mobileSortField === "ballLevel") cmp = (a.ballLevel || "").localeCompare(b.ballLevel || "");
+      else if (mobileSortField === "credits") cmp = (a.remainingCredits || 0) - (b.remainingCredits || 0);
+      return mobileSortDir === "asc" ? cmp : -cmp;
+    });
+  }, [filteredPlayers, mobileSortField, mobileSortDir]);
+
+  const handleMobileSort = (field: "name" | "ballLevel" | "credits") => {
+    if (mobileSortField === field) {
+      setMobileSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setMobileSortField(field);
+      setMobileSortDir("asc");
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const toggleMobileSelection = (id: string) => {
+    setMobileSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setMobileSelectedIds(new Set());
+  };
+
+  const handleBatchCreditsStart = () => {
+    const queue = Array.from(mobileSelectedIds);
+    if (queue.length === 0) return;
+    setBatchTotal(queue.length);
+    setBatchQueue(queue);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  // Advance queue on explicit "Done" button press only
+  const handleBatchDone = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+    setBatchQueue((prev) => {
+      const next = prev.slice(1);
+      if (next.length === 0) {
+        setMobileSelectedIds(new Set());
+        setSelectionMode(false);
+      }
+      return next;
+    });
+  };
+
+  // X button or backdrop — abandon the entire batch
+  const handleBatchAbandon = () => {
+    setBatchQueue([]);
+    setMobileSelectedIds(new Set());
+    setSelectionMode(false);
+  };
+
   const _getCreditsColor = (remaining?: number, total?: number) => {
     if (!remaining || !total || total === 0) return Colors.dark.textMuted;
     const ratio = remaining / total;
@@ -520,12 +600,34 @@ export default function AdminPlayersScreen() {
       return parts.length > 0 ? parts : [{ text: "0 credits", color: Colors.dark.error }];
     })();
 
+    const isCheckedMobile = mobileSelectedIds.has(item.id);
+
     return (
       <Pressable
-        style={[styles.playerCard, CardStyles.elevated]}
-        onPress={() => togglePlayerExpansion(item.id)}
+        style={[styles.playerCard, CardStyles.elevated, isCheckedMobile && { borderColor: Colors.dark.primary + "60", borderWidth: 1 }]}
+        onPress={() => {
+          if (selectionMode) {
+            toggleMobileSelection(item.id);
+          } else {
+            togglePlayerExpansion(item.id);
+          }
+        }}
+        onLongPress={() => {
+          if (!selectionMode) {
+            setSelectionMode(true);
+            toggleMobileSelection(item.id);
+          }
+        }}
       >
         <View style={styles.playerCardTop}>
+          {selectionMode ? (
+            <Pressable
+              onPress={() => toggleMobileSelection(item.id)}
+              style={[mobileCheckbox.box, isCheckedMobile && mobileCheckbox.boxChecked]}
+            >
+              {isCheckedMobile ? <Ionicons name="checkmark" size={11} color="#0B0D10" /> : null}
+            </Pressable>
+          ) : null}
           <View style={[styles.playerAvatar, { borderColor: ballColor }]}>
             {item.profilePhotoUrl ? (
               <Image
@@ -541,7 +643,7 @@ export default function AdminPlayersScreen() {
             <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
             <Text style={styles.playerEmail} numberOfLines={1}>{item.email || "No email"}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+          {selectionMode ? null : <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />}
         </View>
         <View style={styles.playerCardBottom}>
           <View style={[styles.ballBadge, { backgroundColor: `${ballColor}20` }]}>
@@ -1111,11 +1213,26 @@ export default function AdminPlayersScreen() {
           
             <View style={styles.header}>
               <Text style={styles.title}>Manage Players</Text>
-              
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {selectionMode ? (
+                  <Pressable
+                    style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.07)" }}
+                    onPress={exitSelectionMode}
+                  >
+                    <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>Done</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.07)" }}
+                    onPress={() => { setSelectionMode(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                  >
+                    <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>Select</Text>
+                  </Pressable>
+                )}
                 <Pressable style={styles.addButton} onPress={openAddModal}>
                   <Ionicons name="add" size={24} color={Colors.dark.text} />
                 </Pressable>
-              
+              </View>
             </View>
           
 
@@ -1383,11 +1500,55 @@ export default function AdminPlayersScreen() {
         </Text>
       </Pressable>
 
+      {/* Mobile sort bar */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexShrink: 0 }}
+        contentContainerStyle={{ flexDirection: "row", gap: 8, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm }}
+      >
+        {(["name", "ballLevel", "credits"] as const).map((field) => {
+          const labels: Record<string, string> = { name: "Name", ballLevel: "Ball Level", credits: "Credits" };
+          const isActive = mobileSortField === field;
+          return (
+            <Pressable
+              key={field}
+              onPress={() => handleMobileSort(field)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 8,
+                backgroundColor: isActive ? "rgba(200,255,61,0.12)" : "rgba(255,255,255,0.05)",
+                borderWidth: 1,
+                borderColor: isActive ? "rgba(200,255,61,0.3)" : "rgba(255,255,255,0.08)",
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: "600", color: isActive ? "#C8FF3D" : Colors.dark.textMuted }}>
+                {labels[field]}
+              </Text>
+              {isActive ? (
+                <Ionicons
+                  name={mobileSortDir === "asc" ? "arrow-up" : "arrow-down"}
+                  size={11}
+                  color="#C8FF3D"
+                />
+              ) : null}
+            </Pressable>
+          );
+        })}
+        <Text style={{ fontSize: 12, color: Colors.dark.textMuted, alignSelf: "center", marginLeft: 4 }}>
+          {mobileSortedPlayers.length} players
+        </Text>
+      </ScrollView>
+
         <FlatList
-          data={filteredPlayers}
+          data={mobileSortedPlayers}
           keyExtractor={(item) => item.id}
           renderItem={renderPlayer}
-          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 100 }]}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + (mobileSelectedIds.size > 0 ? 100 : 20) }]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyState}>
@@ -1401,6 +1562,70 @@ export default function AdminPlayersScreen() {
           </View>
         }
       />
+
+      {/* Sticky batch credits footer */}
+      {mobileSelectedIds.size > 0 ? (
+        <View style={{
+          position: "absolute",
+          bottom: insets.bottom + 8,
+          left: Spacing.lg,
+          right: Spacing.lg,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: "#11141A",
+          borderRadius: 14,
+          paddingHorizontal: Spacing.lg,
+          paddingVertical: 12,
+          borderWidth: 1,
+          borderColor: "rgba(200,255,61,0.25)",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
+          elevation: 8,
+        }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.dark.text }}>
+            {mobileSelectedIds.size} selected
+          </Text>
+          <Pressable
+            onPress={handleBatchCreditsStart}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              backgroundColor: Colors.dark.primary,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 10,
+            }}
+          >
+            <Ionicons name="ticket-outline" size={16} color="#0B0D10" />
+            <Text style={{ fontSize: 13, fontWeight: "700", color: "#0B0D10" }}>Add Credits</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {/* Batch record-payment modal — iterates through selected players one by one.
+          Done button advances to next player; X button abandons the entire batch.
+          We wait for batchPlayerStats to load before showing the modal to avoid
+          a misleading "All Paid!" empty-state before packages arrive. */}
+      {batchCurrentId && batchPlayerStats !== undefined ? (
+        <AdminRecordPaymentModal
+          visible={true}
+          onClose={handleBatchAbandon}
+          onDone={handleBatchDone}
+          packages={batchPlayerStats.packages as AdminPlayerPackage[]}
+          selectedPlayerId={batchCurrentId}
+          batchLabel={`Player ${batchTotal - batchQueue.length + 1} of ${batchTotal}`}
+        />
+      ) : batchCurrentId ? (
+        <Modal visible transparent animationType="fade" onRequestClose={handleBatchAbandon}>
+          <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center" }}>
+            <TennisBallSpinner size="large" color={Colors.dark.primary} />
+          </View>
+        </Modal>
+      ) : null}
       
       </>
       )}
@@ -1854,6 +2079,23 @@ const dtStyles = StyleSheet.create({
   panelActionText: {
     fontSize: 12,
     fontWeight: "600",
+  },
+});
+
+const mobileCheckbox = StyleSheet.create({
+  box: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.25)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  boxChecked: {
+    backgroundColor: "#C8FF3D",
+    borderColor: "#C8FF3D",
   },
 });
 
