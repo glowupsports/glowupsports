@@ -114,6 +114,7 @@ export default function AdminCourtBookingGridScreen() {
   const [playerSearch, setPlayerSearch] = useState("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedPlayerName, setSelectedPlayerName] = useState<string | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   const [detailModal, setDetailModal] = useState<Booking | null>(null);
 
@@ -145,9 +146,21 @@ export default function AdminCourtBookingGridScreen() {
       setPlayerSearch("");
       setSelectedPlayerId(null);
       setSelectedPlayerName(null);
+      setBookingError(null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: (e: Error) => Alert.alert("Error", e.message || "Failed to book slot"),
+    onError: (e: Error) => {
+      let msg = e.message || "Failed to book slot";
+      const colonIdx = msg.indexOf(": ");
+      if (colonIdx !== -1) {
+        const body = msg.slice(colonIdx + 2).trim();
+        try {
+          const parsed = JSON.parse(body);
+          msg = parsed.error || parsed.message || msg;
+        } catch {}
+      }
+      setBookingError(msg);
+    },
   });
 
   const cancelMutation = useMutation({
@@ -430,8 +443,14 @@ export default function AdminCourtBookingGridScreen() {
       </Modal>
 
       {/* Book for Player Modal */}
-      <Modal visible={!!bookForPlayerModal} transparent animationType="slide" onRequestClose={() => setBookForPlayerModal(null)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setBookForPlayerModal(null)}>
+      <Modal visible={!!bookForPlayerModal} transparent animationType="slide" onRequestClose={() => {
+        setBookForPlayerModal(null);
+        setBookingError(null);
+      }}>
+        <Pressable style={styles.modalOverlay} onPress={() => {
+          setBookForPlayerModal(null);
+          setBookingError(null);
+        }}>
           <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.modalTitle}>Book for Player</Text>
             {bookForPlayerModal && (
@@ -465,12 +484,19 @@ export default function AdminCourtBookingGridScreen() {
                 </Pressable>
               ))}
             </ScrollView>
+            {bookingError ? (
+              <View style={styles.inlineError}>
+                <Ionicons name="alert-circle-outline" size={15} color="#FF6B6B" style={{ marginRight: 6 }} />
+                <Text style={styles.inlineErrorText}>{bookingError}</Text>
+              </View>
+            ) : null}
             <View style={styles.modalActions}>
               <Pressable style={styles.cancelBtn} onPress={() => {
                 setBookForPlayerModal(null);
                 setSelectedPlayerId(null);
                 setSelectedPlayerName(null);
                 setPlayerSearch("");
+                setBookingError(null);
               }}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </Pressable>
@@ -478,6 +504,7 @@ export default function AdminCourtBookingGridScreen() {
                 style={[styles.confirmBtn, (!selectedPlayerId || bookForPlayerMutation.isPending) && styles.btnDisabled]}
                 onPress={() => {
                   if (!bookForPlayerModal || !selectedPlayerId) return;
+                  setBookingError(null);
                   const [startH, startM] = bookForPlayerModal.startTime.split(":").map(Number);
                   const [endH, endM] = bookForPlayerModal.endTime.split(":").map(Number);
                   const duration = (endH * 60 + endM) - (startH * 60 + startM);
@@ -841,6 +868,23 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontSize: 14,
     flex: 1,
+  },
+  inlineError: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,107,107,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,107,107,0.3)",
+    borderRadius: BorderRadius.sm,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginTop: Spacing.sm,
+  },
+  inlineErrorText: {
+    color: "#FF6B6B",
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
   },
   modalActions: {
     flexDirection: "row",
