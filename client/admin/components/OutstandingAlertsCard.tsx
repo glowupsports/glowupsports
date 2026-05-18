@@ -30,6 +30,7 @@ interface AlertGroup {
   label: string;
   actionLabel: string;
   navHint: string;
+  nav: "schedule" | "players" | "payments" | "coaches";
 }
 
 interface OutstandingAlertsCardProps {

@@ -44,6 +44,7 @@ const _broadcastLog: {
   audience: string;
   seriesId?: string | null;
   recipientCount: number;
+  tokensSent: number;
   sentAt: string;
   sentBy: string;
 }[] = [];
@@ -63,7 +64,7 @@ router.get(
       // Try to query the adminBroadcasts table; fall back to in-memory log
       try {
         const rows = await pool.query(
-          `SELECT id, academy_id, message, title, audience, series_id, recipient_count, sent_at, sent_by
+          `SELECT id, academy_id, message, title, audience, series_id, recipient_count, tokens_sent, sent_at, sent_by
            FROM admin_broadcasts
            WHERE academy_id = $1
            ORDER BY sent_at DESC
@@ -274,9 +275,9 @@ router.post(
       const sentBy = req.user!.userId;
       try {
         await pool.query(
-          `INSERT INTO admin_broadcasts (id, academy_id, message, title, audience, series_id, recipient_count, sent_at, sent_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [broadcastId, academyId, message, title, audience, seriesId ?? null, recipientCount, sentAt, sentBy]
+          `INSERT INTO admin_broadcasts (id, academy_id, message, title, audience, series_id, recipient_count, tokens_sent, sent_at, sent_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [broadcastId, academyId, message, title, audience, seriesId ?? null, recipientCount, sentCount, sentAt, sentBy]
         );
       } catch {
         // Table may not exist yet — store in-memory
@@ -288,6 +289,7 @@ router.post(
           audience,
           seriesId,
           recipientCount,
+          tokensSent: sentCount,
           sentAt,
           sentBy,
         });

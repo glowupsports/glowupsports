@@ -28,8 +28,17 @@ interface BroadcastRecord {
   seriesId?: string | null;
   recipient_count?: number;
   recipientCount?: number;
+  tokens_sent?: number;
+  tokensSent?: number;
   sent_at?: string;
   sentAt?: string;
+}
+
+interface BroadcastResult {
+  success: boolean;
+  recipientCount: number;
+  tokensSent: number;
+  broadcastId: string;
 }
 
 interface Series {
@@ -66,6 +75,7 @@ export function BroadcastComposeSheet({ visible, onClose }: Props) {
   const [audience, setAudience] = useState<Audience>("all_players");
   const [selectedSeriesId, setSelectedSeriesId] = useState<string | null>(null);
   const [showSeries, setShowSeries] = useState(false);
+  const [deliverySummary, setDeliverySummary] = useState<string | null>(null);
 
   const { data: countData } = useQuery<{ count: number }>({
     queryKey: [`/api/admin/broadcast/recipient-count?audience=${audience}${audience === "series" && selectedSeriesId ? `&seriesId=${selectedSeriesId}` : ""}`],
@@ -82,16 +92,27 @@ export function BroadcastComposeSheet({ visible, onClose }: Props) {
     enabled: visible && audience === "series",
   });
 
-  const broadcastMutation = useMutation({
-    mutationFn: (body: object) => apiRequest("POST", "/api/admin/broadcast", body),
-    onSuccess: () => {
+  const broadcastMutation = useMutation<BroadcastResult, Error, object>({
+    mutationFn: async (body: object) => {
+      const res = await apiRequest("POST", "/api/admin/broadcast", body);
+      return res.json() as Promise<BroadcastResult>;
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/broadcast/history"] });
       setMessage("");
       setTitle("Academy Announcement");
+      const { tokensSent, recipientCount } = data;
+      const deliveryLine =
+        tokensSent > 0
+          ? `${tokensSent} of ${recipientCount} device${recipientCount === 1 ? "" : "s"} received the notification.`
+          : recipientCount > 0
+          ? `${recipientCount} recipient${recipientCount === 1 ? "" : "s"} — no active devices found.`
+          : "No recipients in this audience.";
       if (Platform.OS === "web") {
-        // simple feedback
+        setDeliverySummary(deliveryLine);
+        setTimeout(() => setDeliverySummary(null), 5000);
       } else {
-        Alert.alert("Sent!", "Your broadcast has been delivered.");
+        Alert.alert("Broadcast Sent", deliveryLine);
       }
     },
     onError: (e: Error) => Alert.alert("Error", e.message || "Failed to send broadcast"),
@@ -254,6 +275,13 @@ export function BroadcastComposeSheet({ visible, onClose }: Props) {
               </>
             )}
           </Pressable>
+
+          {deliverySummary != null && (
+            <View style={styles.deliveryBanner}>
+              <Ionicons name="checkmark-circle" size={14} color={NEON} />
+              <Text style={styles.deliveryBannerText}>{deliverySummary}</Text>
+            </View>
+          )}
         </View>
 
         {/* History */}
@@ -271,9 +299,16 @@ export function BroadcastComposeSheet({ visible, onClose }: Props) {
                 <Text style={styles.historyMessage} numberOfLines={2}>{b.message}</Text>
                 <View style={styles.historyMeta}>
                   <View style={styles.historyMetaItem}>
-                    <Ionicons name="people-outline" size={12} color={Colors.dark.textMuted} />
+                    <Ionicons name="phone-portrait-outline" size={12} color={Colors.dark.textMuted} />
                     <Text style={styles.historyMetaText}>
-                      {b.recipient_count ?? b.recipientCount ?? 0} recipients
+                      {(() => {
+                        const sent = b.tokens_sent ?? b.tokensSent;
+                        const total = b.recipient_count ?? b.recipientCount ?? 0;
+                        if (sent != null) {
+                          return `${sent} of ${total} devices delivered`;
+                        }
+                        return `${total} recipient${total === 1 ? "" : "s"}`;
+                      })()}
                     </Text>
                   </View>
                   <View style={styles.historyBadge}>
@@ -476,6 +511,22 @@ const styles = StyleSheet.create({
     color: NEON,
     fontSize: 13,
     fontWeight: "600",
+  },
+  deliveryBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "rgba(200,255,61,0.08)",
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(200,255,61,0.2)",
+  },
+  deliveryBannerText: {
+    color: NEON,
+    fontSize: 13,
+    fontWeight: "600",
+    flex: 1,
   },
   sendBtn: {
     flexDirection: "row",
