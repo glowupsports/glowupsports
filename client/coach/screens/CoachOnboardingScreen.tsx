@@ -48,6 +48,7 @@ interface OnboardingData {
   profileBio: string;
   profilePhotoUploaded: boolean;
   profilePhotoUrl: string | null;
+  profileLanguages: string[];
 }
 
 interface StepProps {
@@ -77,6 +78,19 @@ const PHILOSOPHY_OPTIONS = [
   { id: "technique", label: "Technique", icon: "construct-outline" },
   { id: "performance", label: "Performance", icon: "trending-up-outline" },
   { id: "growth", label: "Growth", icon: "leaf-outline" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { id: "en", label: "English" },
+  { id: "ar", label: "Arabic" },
+  { id: "fr", label: "French" },
+  { id: "es", label: "Spanish" },
+  { id: "nl", label: "Dutch" },
+  { id: "id", label: "Indonesian" },
+  { id: "de", label: "German" },
+  { id: "pt", label: "Portuguese" },
+  { id: "ru", label: "Russian" },
+  { id: "zh", label: "Chinese" },
 ];
 
 function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
@@ -406,6 +420,39 @@ function StepProfileSetup({ data, setData, onNext }: StepProps) {
             textAlignVertical="top"
             autoCapitalize="sentences"
           />
+
+          {/* Languages */}
+          <Text style={styles.inputLabel}>LANGUAGES SPOKEN</Text>
+          <View style={styles.languageGrid}>
+            {LANGUAGE_OPTIONS.map(lang => {
+              const selected = data.profileLanguages.includes(lang.id);
+              return (
+                <Pressable
+                  key={lang.id}
+                  style={[styles.languageChip, selected && styles.languageChipActive]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setData(prev => ({
+                      ...prev,
+                      profileLanguages: selected
+                        ? prev.profileLanguages.filter(l => l !== lang.id)
+                        : [...prev.profileLanguages, lang.id],
+                    }));
+                  }}
+                >
+                  {selected ? (
+                    <LinearGradient
+                      colors={[`${Colors.dark.primary}30`, `${Colors.dark.xpCyan}20`]}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                  ) : null}
+                  <Text style={[styles.languageChipText, selected && styles.languageChipTextActive]}>
+                    {lang.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
           <View style={{ height: Spacing.xl }} />
         </Animated.View>
@@ -1013,6 +1060,7 @@ export default function CoachOnboardingScreen({ onComplete }: CoachOnboardingScr
     profileBio: coach?.bio ?? "",
     profilePhotoUploaded: Boolean(coach?.photoUrl),
     profilePhotoUrl: coach?.photoUrl ?? null,
+    profileLanguages: [],
   });
   
   const saveOnboardingMutation = useMutation({
@@ -1026,6 +1074,7 @@ export default function CoachOnboardingScreen({ onComplete }: CoachOnboardingScr
         phone: data.profilePhone || undefined,
         specialty: data.profileSpecialty || undefined,
         bio: data.profileBio || undefined,
+        languages: data.profileLanguages.length > 0 ? data.profileLanguages : undefined,
       });
     },
     onSuccess: () => {
@@ -1426,6 +1475,32 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
   },
   philosophyChipTextActive: {
+    color: Colors.dark.xpCyan,
+    fontWeight: "600",
+  },
+  languageGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  languageChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: "rgba(18, 18, 22, 0.9)",
+    borderWidth: 1,
+    borderColor: `${Colors.dark.primary}20`,
+    overflow: "hidden",
+  },
+  languageChipActive: {
+    borderColor: Colors.dark.primary,
+  },
+  languageChipText: {
+    ...Typography.small,
+    color: Colors.dark.textSecondary,
+  },
+  languageChipTextActive: {
     color: Colors.dark.xpCyan,
     fontWeight: "600",
   },

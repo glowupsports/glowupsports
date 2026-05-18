@@ -4168,6 +4168,7 @@ import fs from "fs";
           phone,
           specialty,
           bio,
+          languages,
         } = req.body;
 
         const updatedCoach = await storage.updateCoach(coachId, {
@@ -4184,6 +4185,7 @@ import fs from "fs";
           ...(phone ? { phone } : {}),
           ...(specialty ? { specialty } : {}),
           ...(bio ? { bio } : {}),
+          ...(languages?.length ? { languages } : {}),
         });
 
         res.json({ success: true, coach: updatedCoach });

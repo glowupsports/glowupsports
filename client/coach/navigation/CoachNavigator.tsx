@@ -677,9 +677,8 @@ export default function CoachNavigator() {
   }
 
   const coachOnboardingCompleted = profile?.coach?.onboardingCompleted ?? false;
-  const hasAcademy = !!profile?.coach?.academyId;
   // In supervisor mode, skip onboarding — owner is viewing a selected coach's dashboard
-  const showOnboarding = !supervisorCoach && user?.coachId && !coachOnboardingCompleted && !hasAcademy && onboardingComplete !== true;
+  const showOnboarding = !supervisorCoach && user?.coachId && !coachOnboardingCompleted && onboardingComplete !== true;
 
   if (showOnboarding) {
     return <CoachOnboardingScreen onComplete={handleOnboardingComplete} />;

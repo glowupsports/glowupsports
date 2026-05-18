@@ -54,6 +54,8 @@ import { useTranslation } from "react-i18next";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { useDesktop } from "@/hooks/useDesktop";
 import { DesktopContentWrapper } from "@/components/DesktopContentWrapper";
+import { CompleteProfileBanner } from "@/coach/components/CompleteProfileBanner";
+import CoachOnboardingScreen from "@/coach/screens/CoachOnboardingScreen";
 
 interface Player {
   id: string;
@@ -2827,6 +2829,7 @@ export default function DashboardScreen() {
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, _setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
 
 
   if (!coach) {
@@ -3210,6 +3213,9 @@ export default function DashboardScreen() {
             shouldLeaveInMinutes={nextSessionEta.shouldLeaveInMinutes}
           />
         ) : null}
+
+        {/* === COMPLETE PROFILE BANNER === */}
+        <CompleteProfileBanner onPressCTA={() => setShowOnboardingModal(true)} />
 
         {/* === COURT COMMAND - Tennis Control Centre === */}
         
@@ -4024,6 +4030,20 @@ export default function DashboardScreen() {
         icon={celebrationData.icon}
         xpReward={celebrationData.xpReward}
       />
+
+      <Modal
+        visible={showOnboardingModal}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowOnboardingModal(false)}
+      >
+        <CoachOnboardingScreen
+          onComplete={() => {
+            setShowOnboardingModal(false);
+            queryClient.invalidateQueries({ queryKey: ["/api/coach/me/profile"] });
+          }}
+        />
+      </Modal>
     </View>
   );
 }
