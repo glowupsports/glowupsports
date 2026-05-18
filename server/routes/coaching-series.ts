@@ -18,6 +18,50 @@ import { courtScreenshotUpload, wrapUploadHandler } from "../upload-middleware";
 import fs from "fs";
 const router = Router();
 
+/**
+ * Verify that a caller is authorized to mutate a coaching series.
+ * Returns null if authorized, or an error string if not.
+ *
+ * - Academy owners/admins: series must belong to their academy (via academyId
+ *   column, or via coach-membership when academyId is null).
+ * - Regular coaches: must own the series (coachId match) AND the series must
+ *   belong to their academy (same null-safe fallback as the owner path).
+ */
+async function checkSeriesAuthority(
+  existing: { coachId: string | null; academyId: string | null },
+  coachId: string | null | undefined,
+  academyId: string | null | undefined,
+  isOwnerRole: boolean,
+): Promise<string | null> {
+  if (isOwnerRole) {
+    if (existing.academyId !== null && existing.academyId !== academyId) {
+      return "Not authorized — series belongs to a different academy";
+    }
+    if (existing.academyId === null) {
+      const seriesCoach = existing.coachId ? await storage.getCoach(existing.coachId) : null;
+      if (!seriesCoach || seriesCoach.academyId !== academyId) {
+        return "Not authorized — series coach is not in your academy";
+      }
+    }
+    return null;
+  }
+  // Regular coach
+  if (existing.coachId !== coachId) {
+    return "Not authorized — you do not own this series";
+  }
+  // Additionally verify academy membership (null-academy fallback)
+  if (existing.academyId !== null && existing.academyId !== academyId) {
+    return "Not authorized — series belongs to a different academy";
+  }
+  if (existing.academyId === null && coachId) {
+    const callerCoach = await storage.getCoach(coachId);
+    if (!callerCoach || callerCoach.academyId !== academyId) {
+      return "Not authorized — your coach account is not in the expected academy";
+    }
+  }
+  return null;
+}
+
 function toDubaiTime(utcDate: Date): Date {
   const dubaiOffset = 4 * 60; // minutes
   const utcTime = utcDate.getTime();
@@ -2056,14 +2100,11 @@ router.post(
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (isOwnerRole) {
-        if (existing.academyId !== academyId) {
-          return res.status(403).json({ error: "Not authorized to end this series" });
-        }
-      } else if (existing.coachId !== coachId) {
-        return res
-          .status(403)
-          .json({ error: "Not authorized to end this series" });
+      console.log(`[SeriesAuth] /end id=${id} coachId=${coachId} existingCoachId=${existing.coachId} academyId=${academyId} existingAcademyId=${existing.academyId} isOwnerRole=${isOwnerRole}`);
+
+      const endAuthError = await checkSeriesAuthority(existing, coachId, academyId, isOwnerRole);
+      if (endAuthError) {
+        return res.status(403).json({ error: "Not authorized to end this series" });
       }
 
       const ended = await storage.endCoachingSeries(id);
@@ -2110,14 +2151,11 @@ router.delete(
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (isOwnerRole) {
-        if (existing.academyId !== academyId) {
-          return res.status(403).json({ error: "Not authorized to delete this series" });
-        }
-      } else if (existing.coachId !== coachId) {
-        return res
-          .status(403)
-          .json({ error: "Not authorized to delete this series" });
+      console.log(`[SeriesAuth] DELETE id=${id} coachId=${coachId} existingCoachId=${existing.coachId} academyId=${academyId} existingAcademyId=${existing.academyId} isOwnerRole=${isOwnerRole}`);
+
+      const deleteAuthError = await checkSeriesAuthority(existing, coachId, academyId, isOwnerRole);
+      if (deleteAuthError) {
+        return res.status(403).json({ error: "Not authorized to delete this series" });
       }
 
       await storage.deleteCoachingSeries(id);
@@ -2341,14 +2379,11 @@ router.post(
         return res.status(404).json({ error: "Series not found" });
       }
 
-      if (isOwnerRole) {
-        if (existing.academyId !== academyId) {
-          return res.status(403).json({ error: "Not authorized to extend this series" });
-        }
-      } else if (existing.coachId !== coachId) {
-        return res
-          .status(403)
-          .json({ error: "Not authorized to extend this series" });
+      console.log(`[SeriesAuth] /extend id=${id} coachId=${coachId} existingCoachId=${existing.coachId} academyId=${academyId} existingAcademyId=${existing.academyId} isOwnerRole=${isOwnerRole}`);
+
+      const extendAuthError = await checkSeriesAuthority(existing, coachId, academyId, isOwnerRole);
+      if (extendAuthError) {
+        return res.status(403).json({ error: "Not authorized to extend this series" });
       }
 
       // Get last session quickly

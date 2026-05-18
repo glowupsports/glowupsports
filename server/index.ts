@@ -1131,6 +1131,23 @@ function setupErrorHandler(app: express.Application) {
         log(`[BackfillCoachPlayers] failed to schedule: ${(err as Error)?.message ?? err}`);
       }
 
+      // Task #1919 — Backfill: set coaching_series.academy_id from the linked
+      // coach's academy_id where it is null. Idempotent and safe to run every boot.
+      try {
+        const { pool } = await import("./db");
+        const result = await pool.query(
+          `UPDATE coaching_series
+              SET academy_id = (
+                SELECT academy_id FROM coaches WHERE coaches.id = coaching_series.coach_id
+              )
+            WHERE academy_id IS NULL
+              AND coach_id IS NOT NULL`
+        );
+        log(`[SeriesAcademyBackfill] Updated ${result.rowCount ?? 0} coaching_series rows with missing academy_id`);
+      } catch (err) {
+        log(`[SeriesAcademyBackfill] Failed: ${(err as Error)?.message ?? err}`);
+      }
+
       startReminderScheduler();
       startDailyTipScheduler();
       startMatchPrepNotificationScheduler();
