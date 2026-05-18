@@ -969,10 +969,9 @@ export default function AdminPlayersScreen() {
             ) : null}
           </ScrollView>
 
-          {desktopSelectedId && desktopSelectedPlayer ? (
-            <>
-              <Pressable style={dtStyles.panelDismissStrip} onPress={() => setDesktopSelectedId(null)} />
-              <View style={[dtStyles.rightPanel, windowWidth < 1280 ? { width: "100%" } : undefined]}>
+          <View style={dtStyles.rightPanel}>
+            {desktopSelectedId && desktopSelectedPlayer ? (
+              <>
                 <View style={dtStyles.panelHeader}>
                   <Text style={dtStyles.panelTitle}>Player Profile</Text>
                   <Pressable onPress={() => setDesktopSelectedId(null)} style={dtStyles.panelCloseBtn}>
@@ -1035,9 +1034,17 @@ export default function AdminPlayersScreen() {
                     </View>
                   ) : null}
                 </ScrollView>
+              </>
+            ) : (
+              <View style={dtStyles.emptyState}>
+                <Ionicons name="people-outline" size={40} color="rgba(255,255,255,0.2)" />
+                <Text style={dtStyles.emptyStateTitle}>No player selected</Text>
+                <Text style={dtStyles.emptyStateSubtitle}>
+                  Choose a player from the list to view their profile
+                </Text>
               </View>
-            </>
-          ) : null}
+            )}
+          </View>
         </View>
 
         {showCreditStoreModal && selectedPlayerId ? (
@@ -1586,10 +1593,6 @@ const dtStyles = StyleSheet.create({
     flexDirection: "row",
     overflow: "hidden",
   },
-  panelDismissStrip: {
-    width: 32,
-    alignSelf: "stretch",
-  },
   tableScroll: {
     flex: 1,
     overflow: "auto" as any,
@@ -1747,16 +1750,32 @@ const dtStyles = StyleSheet.create({
     justifyContent: "center",
   },
   rightPanel: {
+    flex: 0,
     width: 320,
     maxWidth: "100%",
     borderLeftWidth: 1,
     borderLeftColor: "rgba(255,255,255,0.1)",
     backgroundColor: "#11141A",
     padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: -4, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  emptyStateTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.35)",
+    textAlign: "center",
+  },
+  emptyStateSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.2)",
+    textAlign: "center",
+    lineHeight: 20,
   },
   panelHeader: {
     flexDirection: "row",
