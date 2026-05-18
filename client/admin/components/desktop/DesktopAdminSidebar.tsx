@@ -15,6 +15,8 @@ export type DesktopAdminRoute =
   | "AdminReports"
   | "AdminFinance"
   | "AdminCourts"
+  | "AdminCourtBookingGrid"
+  | "AdminBroadcast"
   | "AdminClasses"
   | "AdminSettings"
   | "AdminConversations";
@@ -41,6 +43,8 @@ const NAV_SECTIONS: NavSection[] = [
       { route: "AdminDashboard", label: "Dashboard", icon: "grid-outline" },
       { route: "AdminDashboard", label: "Live Check-ins", icon: "radio-outline" },
       { route: "AdminSchedule", label: "Calendar / Schedule", icon: "calendar-outline" },
+      { route: "AdminCourtBookingGrid", label: "Court Bookings", icon: "tennisball-outline" },
+      { route: "AdminBroadcast", label: "Broadcast", icon: "megaphone-outline" },
     ],
   },
   {

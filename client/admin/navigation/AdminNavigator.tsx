@@ -19,6 +19,9 @@ import AdminTransferSessionsScreen from "@/admin/screens/AdminTransferSessionsSc
 import AdminConversationsScreen from "@/admin/screens/AdminConversationsScreen";
 import AdminConversationDetailScreen from "@/admin/screens/AdminConversationDetailScreen";
 import AdminBookingRequestsScreen from "@/admin/screens/AdminBookingRequestsScreen";
+import AdminCourtBookingGridScreen from "@/admin/screens/AdminCourtBookingGridScreen";
+import AdminBroadcastScreen from "@/admin/screens/AdminBroadcastScreen";
+import { BroadcastComposeSheet } from "@/admin/components/BroadcastComposeSheet";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { TabNavigationProvider, useTabNavigation } from "@/components/TabNavigationContext";
 import { Colors } from "@/constants/theme";
@@ -57,6 +60,8 @@ export type AdminStackParamList = {
   AdminConversations: undefined;
   AdminConversationDetail: { conversationId: string; coachName: string | null; playerName: string | null };
   AdminBookingRequests: undefined;
+  AdminCourtBookingGrid: undefined;
+  AdminBroadcast: undefined;
 };
 
 const Stack = createNativeStackNavigator<AdminStackParamList>();
@@ -82,15 +87,17 @@ const ROUTE_TO_TAB: Record<DesktopAdminRoute, string | null> = {
   AdminFinance: null,
   AdminReports: "AdminReports",
   AdminCourts: null,
+  AdminCourtBookingGrid: null,
+  AdminBroadcast: null,
   AdminClasses: "AdminClasses",
   AdminSettings: "AdminSettings",
   AdminConversations: null,
 };
 
-type SpecialRoute = "AdminRolesPermissions" | "AdminPayments" | "AdminSubscriptions" | "AdminCourts" | "AdminFinance" | "AdminConversations";
+type SpecialRoute = "AdminRolesPermissions" | "AdminPayments" | "AdminSubscriptions" | "AdminCourts" | "AdminFinance" | "AdminConversations" | "AdminCourtBookingGrid" | "AdminBroadcast";
 
 function isSpecialRoute(route: DesktopAdminRoute): route is SpecialRoute {
-  return route === "AdminRolesPermissions" || route === "AdminPayments" || route === "AdminSubscriptions" || route === "AdminCourts" || route === "AdminFinance" || route === "AdminConversations";
+  return route === "AdminRolesPermissions" || route === "AdminPayments" || route === "AdminSubscriptions" || route === "AdminCourts" || route === "AdminFinance" || route === "AdminConversations" || route === "AdminCourtBookingGrid" || route === "AdminBroadcast";
 }
 
 const TAB_KEY_TO_ROUTE: Partial<Record<string, DesktopAdminRoute>> = {
@@ -106,6 +113,7 @@ const TAB_KEY_TO_ROUTE: Partial<Record<string, DesktopAdminRoute>> = {
 function DesktopAdminContent() {
   const [activeRoute, setActiveRoute] = useState<DesktopAdminRoute>("AdminDashboard");
   const [specialContent, setSpecialContent] = useState<React.ReactNode>(null);
+  const [showBroadcast, setShowBroadcast] = useState(false);
   const { navigateToTab, registerActiveTabListener } = useTabNavigation();
 
   const { data: academyData } = useQuery<{ name?: string }>({
@@ -126,6 +134,10 @@ function DesktopAdminContent() {
   const handleNavigate = useCallback(
     (route: DesktopAdminRoute) => {
       setActiveRoute(route);
+      if (route === "AdminBroadcast") {
+        setShowBroadcast(true);
+        return;
+      }
       if (isSpecialRoute(route)) {
         switch (route) {
           case "AdminRolesPermissions":
@@ -145,6 +157,11 @@ function DesktopAdminContent() {
             break;
           case "AdminConversations":
             setSpecialContent(<AdminConversationsScreen />);
+            break;
+          case "AdminCourtBookingGrid":
+            setSpecialContent(<AdminCourtBookingGridScreen />);
+            break;
+          default:
             break;
         }
       } else {
@@ -175,6 +192,13 @@ function DesktopAdminContent() {
           hideTabBar
         />
       </View>
+      <BroadcastComposeSheet
+        visible={showBroadcast}
+        onClose={() => {
+          setShowBroadcast(false);
+          setActiveRoute("AdminDashboard");
+        }}
+      />
     </DesktopAdminLayout>
   );
 }
@@ -219,6 +243,8 @@ function AdminStackNavigator() {
       <Stack.Screen name="AdminConversations" component={AdminConversationsScreen} />
       <Stack.Screen name="AdminConversationDetail" component={AdminConversationDetailScreen} />
       <Stack.Screen name="AdminBookingRequests" component={AdminBookingRequestsScreen} />
+      <Stack.Screen name="AdminCourtBookingGrid" component={AdminCourtBookingGridScreen} />
+      <Stack.Screen name="AdminBroadcast" component={AdminBroadcastScreen} />
     </Stack.Navigator>
   );
 }

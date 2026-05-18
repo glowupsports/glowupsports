@@ -615,6 +615,40 @@ export default function AdminDashboardScreen() {
                   )}
                 </View>
               </Pressable>
+
+              <Pressable
+                style={styles.menuCard}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("AdminCourtBookingGrid" as never);
+                }}
+              >
+                <View style={styles.menuCardContent}>
+                  <Ionicons name="tennisball-outline" size={24} color="#2ECC40" />
+                  <View style={styles.menuCardText}>
+                    <Text style={styles.menuCardTitle}>Court Booking Grid</Text>
+                    <Text style={styles.menuCardSubtitle}>Day-view grid, book for players, block slots</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+                </View>
+              </Pressable>
+
+              <Pressable
+                style={styles.menuCard}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  navigation.navigate("AdminBroadcast" as never);
+                }}
+              >
+                <View style={styles.menuCardContent}>
+                  <Ionicons name="megaphone-outline" size={24} color="#C8FF3D" />
+                  <View style={styles.menuCardText}>
+                    <Text style={styles.menuCardTitle}>Broadcast Message</Text>
+                    <Text style={styles.menuCardSubtitle}>Send push notifications to players and coaches</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+                </View>
+              </Pressable>
             </View>
           </>
         )}

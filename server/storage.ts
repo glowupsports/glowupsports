@@ -4293,7 +4293,98 @@ export const storage = {
 
   async createSession(data: InsertSession): Promise<Session> {
     const result = await db.insert(sessions).values(data).returning();
-    return result[0];
+    const session = result[0];
+
+    // Auto-cancel overlapping player court bookings when a coaching session claims a court.
+    // This runs best-effort (errors are logged, not rethrown) so session creation never fails
+    // because of a booking conflict side-effect.
+    if (session.courtId && session.startTime && session.endTime) {
+      try {
+        const startTs = new Date(session.startTime);
+        const endTs = new Date(session.endTime);
+        // Extract date (YYYY-MM-DD) and HH:MM from the timestamps in UTC
+        const datePart = startTs.toISOString().slice(0, 10);
+        const startHHMM = startTs.toISOString().slice(11, 16); // "HH:MM"
+        const endHHMM = endTs.toISOString().slice(11, 16);
+
+        const toMin = (t: string) => {
+          const [h, m] = t.split(":").map(Number);
+          return h * 60 + m;
+        };
+        const sessionStart = toMin(startHHMM);
+        const sessionEnd = toMin(endHHMM);
+
+        // Fetch all confirmed/pending bookings on this court and date
+        const existingBookings = await db
+          .select({
+            id: courtBookings.id,
+            playerId: courtBookings.playerId,
+            startTime: courtBookings.startTime,
+            endTime: courtBookings.endTime,
+          })
+          .from(courtBookings)
+          .where(
+            and(
+              eq(courtBookings.courtId, session.courtId),
+              eq(courtBookings.date, datePart),
+              or(
+                eq(courtBookings.status, "confirmed"),
+                eq(courtBookings.status, "pending"),
+              )
+            )
+          );
+
+        const overlapping = existingBookings.filter((b) => {
+          const bStart = toMin(b.startTime);
+          const bEnd = toMin(b.endTime);
+          return sessionStart < bEnd && sessionEnd > bStart;
+        });
+
+        if (overlapping.length > 0) {
+          const overlappingIds = overlapping.map((b) => b.id);
+          await db
+            .update(courtBookings)
+            .set({
+              status: "cancelled",
+              cancelledAt: new Date(),
+              cancelReason: "Court reserved for scheduled coaching session",
+            })
+            .where(inArray(courtBookings.id, overlappingIds));
+
+          // Notify affected players (fire-and-forget via dynamic import to avoid circular deps)
+          const affectedPlayerIds = overlapping
+            .map((b) => b.playerId)
+            .filter(Boolean) as string[];
+          if (affectedPlayerIds.length > 0) {
+            import("./pushNotifications").then(({ getPlayerPushTokens, sendPushNotification }) => {
+              for (const playerId of affectedPlayerIds) {
+                getPlayerPushTokens(playerId)
+                  .then((tokens) => {
+                    if (tokens.length > 0) {
+                      sendPushNotification(
+                        tokens,
+                        "Court Booking Cancelled",
+                        `Your court booking on ${datePart} has been cancelled — the court has been reserved for a coaching session.`,
+                        { type: "court_booking_cancelled" },
+                        playerId
+                      ).catch(() => {/* ignore */});
+                    }
+                  })
+                  .catch(() => {/* ignore */});
+              }
+            }).catch(() => {/* ignore */});
+          }
+
+          console.info(
+            `[createSession] Auto-cancelled ${overlapping.length} court booking(s) on court ${session.courtId} (${datePart} ${startHHMM}–${endHHMM}) for new session ${session.id}`
+          );
+        }
+      } catch (conflictErr) {
+        console.warn("[createSession] Court booking conflict-guard error (non-fatal):", conflictErr);
+      }
+    }
+
+    return session;
   },
 
   async updateSession(id: string, data: Partial<InsertSession>): Promise<Session | undefined> {
