@@ -28,11 +28,8 @@ import { CheckInStream } from "@/admin/components/CheckInStream";
 import { TaskAlertsList } from "@/admin/components/TaskAlertsList";
 import { TodayOperationsPanel } from "@/admin/components/TodayOperationsPanel";
 import { AnimatedKpiCard } from "@/admin/components/AnimatedKpiCard";
-import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
-import { QuickTipsBanner } from "@/components/QuickTipsBanner";
-import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -131,90 +128,10 @@ export default function AdminDashboardScreen() {
     upcomingSessions: 0,
   };
 
-  const adminChecklistSteps = useMemo(() => {
-    const _hasData = !!operationsData;
-    const hasSessions = (operationsData?.todayOperations?.totalSessions || 0) > 0;
-    const hasCoaches = (operationsData?.quickStats?.todayCoaches || 0) > 0;
-    const hasPlayers = (operationsData?.quickStats?.todayPlayers || 0) > 0;
-    
-    return [
-      {
-        id: "setup_academy",
-        icon: "business" as const,
-        title: "Set Up Academy Profile",
-        description: "Configure your academy name, timezone, currency, and logo",
-        actionLabel: "Academy Settings",
-        onAction: () => navigation.navigate("AdminSettings" as never),
-        isCompleted: !!operationsData?.academy,
-      },
-      {
-        id: "add_coaches",
-        icon: "people" as const,
-        title: "Add Your Coaches",
-        description: "Invite coaches to join your academy",
-        actionLabel: "Manage Coaches",
-        onAction: () => navigateToTab("AdminCoaches"),
-        isCompleted: hasCoaches,
-      },
-      {
-        id: "add_players",
-        icon: "person-add" as const,
-        title: "Register Players",
-        description: "Add players to your academy roster",
-        actionLabel: "Manage Players",
-        onAction: () => navigateToTab("AdminPlayers"),
-        isCompleted: hasPlayers,
-      },
-      {
-        id: "create_schedule",
-        icon: "calendar" as const,
-        title: "Create Your Schedule",
-        description: "Set up your first training sessions",
-        actionLabel: "Go to Schedule",
-        onAction: () => navigateToTab("AdminSchedule"),
-        isCompleted: hasSessions,
-      },
-      {
-        id: "configure_courts",
-        icon: "tennisball" as const,
-        title: "Configure Courts",
-        description: "Add your courts and set availability",
-        actionLabel: "Manage Courts",
-        onAction: () => navigation.navigate("AdminCourts" as never),
-        isCompleted: false,
-      },
-      {
-        id: "setup_billing",
-        icon: "card" as const,
-        title: "Set Up Billing",
-        description: "Configure credit packages and payment settings",
-        actionLabel: "Billing Settings",
-        onAction: () => navigation.navigate("AdminPayments" as never),
-        isCompleted: false,
-      },
-    ];
-  }, [operationsData, navigation, navigateToTab]);
-
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, _setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
 
-  const adminFeatureUsage = useMemo(() => [
-    { id: "coaches", name: "Coach Management", icon: "people", isUsed: true },
-    { id: "players", name: "Player Registry", icon: "person-add", isUsed: true },
-    { id: "schedule", name: "Session Scheduling", icon: "calendar", isUsed: false },
-    { id: "courts", name: "Court Management", icon: "tennisball", isUsed: false },
-    { id: "billing", name: "Billing & Payments", icon: "card", isUsed: false },
-    { id: "reports", name: "Reports", icon: "document-text", isUsed: false },
-  ], []);
-
-  const adminTips = [
-    { id: "tip_checkin", icon: "log-in", text: "Tip: Check the Check-In Stream to see who's arriving for sessions" },
-    { id: "tip_schedule", icon: "calendar", text: "Tip: Use the Schedule tab to drag and drop sessions to new times" },
-    { id: "tip_reports", icon: "document-text", text: "Tip: Monthly reports are auto-generated on the 1st of each month" },
-    { id: "tip_players", icon: "people", text: "Tip: Use the Players tab to search and filter your academy roster" },
-    { id: "tip_courts", icon: "tennisball", text: "Tip: Set court availability hours to prevent bookings outside operating times" },
-  ];
 
   const adminFAQs = [
     { question: "How do I add a new coach?", answer: "Go to the Coaches tab and tap 'Invite Coach'. Enter their email and they'll receive an invitation to join your academy.", category: "Staff" },
@@ -389,19 +306,6 @@ export default function AdminDashboardScreen() {
         }
       >
         
-          <GettingStartedChecklist
-            role="admin"
-            steps={adminChecklistSteps}
-          />
-        
-
-        <QuickTipsBanner role="admin" tips={adminTips} />
-
-        <PlatformUsageProgress
-          role="admin"
-          features={adminFeatureUsage}
-        />
-
         
           <OperationsHubHero
             activeSessions={liveStats.activeSessions}

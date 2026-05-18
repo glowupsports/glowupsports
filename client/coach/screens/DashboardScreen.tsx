@@ -44,12 +44,9 @@ import { ActionNeededCard } from "@/components/ActionNeededCard";
 import { CoachInsightsPanel } from "@/coach/components/CoachInsightsPanel";
 import { RosterInsightsCard } from "@/coach/components/RosterInsightsCard";
 import { useTabNavigation } from "@/components/TabNavigationContext";
-import { GettingStartedChecklist, ChecklistStep } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpCenterModal, PLATFORM_GLOSSARY } from "@/components/HelpCenterModal";
-import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { RoleSwitchingGuide } from "@/components/RoleSwitchingGuide";
-import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import SquadVsSquadWidget from "@/components/SquadVsSquadWidget";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
@@ -2816,76 +2813,6 @@ export default function DashboardScreen() {
     return { primary: t("coach.dashboard.matchPoint"), secondary: t("coach.dashboard.allSessionsComplete") };
   };
 
-  const coachChecklistSteps: ChecklistStep[] = useMemo(() => {
-    const hasPlayers = (calendarData?.ownSessions || []).some(s => (s as any).players && (s as any).players.length > 0);
-    const hasSessions = (calendarData?.ownSessions || []).length > 0;
-    const hasProfile = !!coach?.name;
-    
-    return [
-      {
-        id: "complete_profile",
-        icon: "person-circle",
-        title: "Complete Your Profile",
-        description: "Add your photo, bio, and coaching specialties",
-        actionLabel: "Go to Profile",
-        onAction: () => navigation.navigate("CoachProfile" as never),
-        isCompleted: hasProfile && !!coach?.photoUrl,
-      },
-      {
-        id: "view_players",
-        icon: "people",
-        title: "View Your Players",
-        description: "See who's assigned to you and their progress",
-        actionLabel: "View Players",
-        onAction: () => navigateToTab("Players"),
-        isCompleted: hasPlayers,
-      },
-      {
-        id: "create_session",
-        icon: "calendar",
-        title: "Create Your First Session",
-        description: "Schedule a training session with your players",
-        actionLabel: "Go to Calendar",
-        onAction: () => navigateToTab("Calendar"),
-        isCompleted: hasSessions,
-      },
-      {
-        id: "give_feedback",
-        icon: "chatbubble-ellipses",
-        title: "Give Your First Feedback",
-        description: "Rate a player's performance after a session",
-        actionLabel: "View Sessions",
-        onAction: () => navigateToTab("Coaching"),
-        isCompleted: false,
-      },
-      {
-        id: "explore_templates",
-        icon: "document-text",
-        title: "Explore Lesson Templates",
-        description: "Use pre-built lesson plans to structure your sessions",
-        actionLabel: "View Templates",
-        onAction: () => navigation.navigate("Templates" as never),
-        isCompleted: false,
-      },
-      {
-        id: "setup_availability",
-        icon: "time",
-        title: "Review Your Availability",
-        description: "We set a default schedule (Mon\u2013Sun 07:00\u201322:00). Tap to customise when you\u2019re actually free.",
-        actionLabel: "Go to Availability",
-        onAction: () => navigation.navigate("Availability" as never),
-        isCompleted: false,
-      },
-    ];
-  }, [coach, calendarData, navigation, navigateToTab]);
-
-  const coachTips = [
-    { id: "tip_feedback", icon: "chatbubble-ellipses", text: "Tip: Give feedback right after a session for the most accurate assessment" },
-    { id: "tip_templates", icon: "document-text", text: "Tip: Use lesson templates to save time planning your sessions" },
-    { id: "tip_attendance", icon: "checkmark-circle", text: "Tip: Mark attendance before the session ends for auto credit deduction" },
-    { id: "tip_wellness", icon: "heart", text: "Tip: Log your wellness regularly to track your coaching energy levels" },
-    { id: "tip_calendar", icon: "calendar", text: "Tip: Swipe on the calendar to see your full week schedule" },
-  ];
 
   const coachFAQs = [
     { question: "How do I create a new session?", answer: "Go to your Calendar tab and tap the + button. Choose the session type, add players, select a court and time, then confirm.", category: "Sessions" },
@@ -2901,13 +2828,6 @@ export default function DashboardScreen() {
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, _setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
 
-  const coachFeatureUsage = useMemo(() => [
-    { id: "sessions", name: "Session Management", icon: "calendar", isUsed: true },
-    { id: "feedback", name: "Player Feedback", icon: "chatbubble-ellipses", isUsed: false },
-    { id: "templates", name: "Lesson Templates", icon: "document-text", isUsed: false },
-    { id: "wellness", name: "Wellness Tracking", icon: "heart", isUsed: false },
-    { id: "attendance", name: "Attendance", icon: "checkmark-circle", isUsed: true },
-  ], []);
 
   if (!coach) {
     return (
@@ -2977,18 +2897,6 @@ export default function DashboardScreen() {
           />
         }
       >
-        {/* GETTING STARTED CHECKLIST */}
-        <GettingStartedChecklist
-          role="coach"
-          steps={coachChecklistSteps}
-        />
-
-        <QuickTipsBanner role="coach" tips={coachTips} />
-
-        <PlatformUsageProgress
-          role="coach"
-          features={coachFeatureUsage}
-        />
 
         <SquadVsSquadWidget />
 

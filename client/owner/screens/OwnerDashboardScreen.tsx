@@ -26,12 +26,9 @@ import { StaffPerformancePanel } from "@/owner/components/StaffPerformancePanel"
 import { RevenueHealthGauge } from "@/admin/components/RevenueHealthGauge";
 import { SmartInsightsPanel, Insight } from "@/admin/components/SmartInsightsPanel";
 import { AnimatedKpiCard } from "@/admin/components/AnimatedKpiCard";
-import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
-import { QuickTipsBanner } from "@/components/QuickTipsBanner";
 import { SettingsWalkthroughModal } from "@/components/SettingsWalkthroughModal";
-import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -191,68 +188,6 @@ export default function OwnerDashboardScreen() {
   const currency = dashboardData?.academy?.currency || "AED";
   const topPerformers = dashboardData?.topPerformers || [];
 
-  const ownerChecklistSteps = useMemo(() => {
-    const hasCoaches = (kpis.totalCoaches || 0) > 0;
-    const hasPlayers = (kpis.totalPlayers || 0) > 0;
-    const hasRevenue = (financials.monthlyRevenue || 0) > 0;
-
-    return [
-      {
-        id: "setup_academy",
-        icon: "business" as const,
-        title: "Set Up Academy Profile",
-        description: "Configure your academy name, logo, timezone, and currency",
-        actionLabel: "Go to Settings",
-        onAction: () => navigateToTab("Settings"),
-        isCompleted: !!dashboardData?.academy,
-      },
-      {
-        id: "add_coaches",
-        icon: "people" as const,
-        title: "Add Your Coaches",
-        description: "Invite coaches to join your academy and manage sessions",
-        actionLabel: "Manage People",
-        onAction: () => navigateToTab("People"),
-        isCompleted: hasCoaches,
-      },
-      {
-        id: "register_players",
-        icon: "person-add" as const,
-        title: "Register Players",
-        description: "Add players to your academy roster",
-        actionLabel: "Manage People",
-        onAction: () => navigateToTab("People"),
-        isCompleted: hasPlayers,
-      },
-      {
-        id: "setup_pricing",
-        icon: "pricetag" as const,
-        title: "Set Up Pricing & Credits",
-        description: "Create credit packages so players can book sessions",
-        actionLabel: "Go to Finance",
-        onAction: () => navigateToTab("Finance"),
-        isCompleted: hasRevenue,
-      },
-      {
-        id: "configure_courts",
-        icon: "tennisball" as const,
-        title: "Configure Courts",
-        description: "Add your courts and set availability hours",
-        actionLabel: "Go to Settings",
-        onAction: () => navigateToTab("Settings"),
-        isCompleted: false,
-      },
-      {
-        id: "review_performance",
-        icon: "analytics" as const,
-        title: "Review Performance",
-        description: "Check your academy's growth metrics and staff performance",
-        actionLabel: "View Performance",
-        onAction: () => navigateToTab("Performance"),
-        isCompleted: false,
-      },
-    ];
-  }, [dashboardData, kpis, financials, navigateToTab]);
 
   const ownerWelcomeSlides = [
     {
@@ -281,13 +216,6 @@ export default function OwnerDashboardScreen() {
     },
   ];
 
-  const ownerTips = [
-    { id: "tip_health", icon: "pulse", text: "Tip: Keep your Revenue Health Score above 70 for a thriving academy" },
-    { id: "tip_retention", icon: "people", text: "Tip: High retention comes from consistent coaching and regular feedback" },
-    { id: "tip_pricing", icon: "pricetag", text: "Tip: Create credit packages with clear expiry dates to encourage regular bookings" },
-    { id: "tip_staff", icon: "person", text: "Tip: Review staff performance monthly to identify coaching superstars" },
-    { id: "tip_insights", icon: "bulb", text: "Tip: Check Smart Insights daily for actionable recommendations" },
-  ];
 
   const ownerFAQs = [
     { question: "How do I invite a coach?", answer: "Go to the People tab and tap 'Invite Coach'. Enter their email and they'll receive an invitation to join your academy.", category: "Staff" },
@@ -298,14 +226,6 @@ export default function OwnerDashboardScreen() {
     { question: "How do pricing tiers work?", answer: "Go to Settings > Pricing to set rates for private, semi-private, and group sessions. You can also set different rates per coach.", category: "Billing" },
   ];
 
-  const ownerFeatureUsage = useMemo(() => [
-    { id: "dashboard", name: "Business Dashboard", icon: "grid", isUsed: true },
-    { id: "people", name: "People Management", icon: "people", isUsed: (kpis.totalCoaches || 0) > 0 },
-    { id: "finance", name: "Finance & Billing", icon: "cash", isUsed: (financials.monthlyRevenue || 0) > 0 },
-    { id: "performance", name: "Performance Analytics", icon: "analytics", isUsed: false },
-    { id: "settings", name: "Academy Settings", icon: "settings", isUsed: !!dashboardData?.academy },
-    { id: "operations", name: "Operations", icon: "calendar", isUsed: false },
-  ], [kpis, financials, dashboardData]);
 
   const ownerSettingsAreas = useMemo(() => [
     {
@@ -383,19 +303,6 @@ export default function OwnerDashboardScreen() {
         }
       >
         
-          <GettingStartedChecklist
-            role="academy_owner"
-            steps={ownerChecklistSteps}
-          />
-        
-
-        <QuickTipsBanner role="academy_owner" tips={ownerTips} />
-
-        <PlatformUsageProgress
-          role="academy_owner"
-          features={ownerFeatureUsage}
-        />
-
         
           <BusinessCommandCenter
             academyName={dashboardData?.academy?.name || "My Academy"}

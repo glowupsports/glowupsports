@@ -39,6 +39,15 @@ export function SupervisorModeProvider({ children }: { children: ReactNode }) {
     }
   }, [mode, supervisorCoach]);
 
+  // Belt-and-suspenders: clear supervisor state when the logged-in user
+  // changes (e.g. a different coach logs in after an owner session).
+  const userId = user?.id;
+  useEffect(() => {
+    setSupervisorCoachState(null);
+    setSupervisorQueryCoachId(null);
+    setCoachReadOnlyMode(false);
+  }, [userId]);
+
   const setSupervisorCoach = (coach: SupervisorCoach | null) => {
     setSupervisorCoachState(coach);
     const shouldBeReadOnly = coach !== null && !isOwnerRole;

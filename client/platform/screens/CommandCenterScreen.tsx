@@ -17,11 +17,8 @@ import { SubscriptionFunnel } from "@/platform/components/SubscriptionFunnel";
 import { AnimatedKpiCard } from "@/admin/components/AnimatedKpiCard";
 import { SmartInsightsPanel, Insight } from "@/admin/components/SmartInsightsPanel";
 import { BetaFeedbackPanel } from "@/platform/components/BetaFeedbackPanel";
-import { GettingStartedChecklist } from "@/components/GettingStartedChecklist";
 import { WelcomeIntroModal } from "@/components/WelcomeIntroModal";
 import { HelpButton } from "@/components/HelpButton";
-import { QuickTipsBanner } from "@/components/QuickTipsBanner";
-import { PlatformUsageProgress } from "@/components/PlatformUsageProgress";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
@@ -602,20 +599,6 @@ export default function CommandCenterScreen() {
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, _setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
 
-  const platformFeatureUsage = useMemo(() => [
-    { id: "command_center", name: "Command Center", icon: "grid", isUsed: true },
-    { id: "academies", name: "Academy Management", icon: "business", isUsed: false },
-    { id: "analytics", name: "Platform Analytics", icon: "analytics", isUsed: false },
-    { id: "audit_logs", name: "Audit Logs", icon: "document-text", isUsed: false },
-    { id: "billing_config", name: "Billing Configuration", icon: "card", isUsed: false },
-  ], []);
-
-  const platformTips = [
-    { id: "tip_health", icon: "pulse", text: "Tip: Check Academy Health Cards to spot issues before they become critical" },
-    { id: "tip_impersonate", icon: "eye", text: "Tip: Use impersonation to see exactly what any user sees in their dashboard" },
-    { id: "tip_mrr", icon: "trending-up", text: "Tip: Monitor your MRR and churn rate in the Command Center" },
-    { id: "tip_audit", icon: "document-text", text: "Tip: Check Audit Logs regularly for security and compliance" },
-  ];
 
   const platformFAQs = [
     { question: "How do I add a new academy?", answer: "Go to the Academies tab and use the onboarding flow to set up a new academy with all their details.", category: "Academies" },
@@ -624,53 +607,6 @@ export default function CommandCenterScreen() {
     { question: "How do I manage subscriptions?", answer: "Go to System > Billing Config to set up plans, pricing, and trial periods for academies.", category: "Billing" },
   ];
 
-  const platformChecklistSteps = useMemo(() => {
-    const hasAcademies = (platformData?.metrics?.activeAcademies || 0) > 0;
-    const hasCoaches = (platformData?.metrics?.totalCoaches || 0) > 0;
-    const hasPlayers = (platformData?.metrics?.totalPlayers || 0) > 0;
-    
-    return [
-      {
-        id: "review_platform",
-        icon: "grid" as const,
-        title: "Review Your Platform",
-        description: "Check the Command Center for an overview of all academies",
-        isCompleted: true,
-      },
-      {
-        id: "onboard_academy",
-        icon: "business" as const,
-        title: "Onboard Your First Academy",
-        description: "Add an academy to the platform and configure their settings",
-        actionLabel: "View Academies",
-        onAction: () => navigateToTab("Academies"),
-        isCompleted: hasAcademies,
-      },
-      {
-        id: "verify_coaches",
-        icon: "people" as const,
-        title: "Verify Coach Registrations",
-        description: "Review and approve coaches joining your academies",
-        isCompleted: hasCoaches,
-      },
-      {
-        id: "monitor_growth",
-        icon: "trending-up" as const,
-        title: "Monitor Player Growth",
-        description: "Track total players across all academies",
-        isCompleted: hasPlayers,
-      },
-      {
-        id: "configure_billing",
-        icon: "card" as const,
-        title: "Configure Billing",
-        description: "Set up subscription plans and pricing for academies",
-        actionLabel: "System Settings",
-        onAction: () => navigateToTab("System"),
-        isCompleted: false,
-      },
-    ];
-  }, [platformData, navigateToTab]);
 
   const platformWelcomeSlides = [
     {
@@ -725,21 +661,6 @@ export default function CommandCenterScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={PLATFORM_PURPLE} />
         }
       >
-        {/* GETTING STARTED CHECKLIST */}
-        
-          <GettingStartedChecklist
-            role="platform_owner"
-            steps={platformChecklistSteps}
-          />
-        
-
-        <QuickTipsBanner role="platform_owner" tips={platformTips} />
-
-        <PlatformUsageProgress
-          role="platform_owner"
-          features={platformFeatureUsage}
-        />
-
         
           <PlatformCommandCenter
             platformName={platformData?.platform?.name || "Glow Up Sports"}

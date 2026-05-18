@@ -2,7 +2,7 @@ import logger from "@/lib/logger";
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQueryClient } from "@tanstack/react-query";
-import { getApiUrl, apiRequest } from "@/lib/query-client";
+import { getApiUrl, apiRequest, setSupervisorQueryCoachId, setCoachReadOnlyMode } from "@/lib/query-client";
 import { loginRevenueCat, logoutRevenueCat } from "@/lib/revenuecat";
 // Task #1455 — `deferredHydrateAndPersist` removed from the bootstrap
 // path. The persisted god-cache hydrate was player-only and contributed
@@ -241,6 +241,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCoach(null);
     setAcademy(null);
     setPlayer(null);
+    // Clear supervisor mode module-level flags so a new login never
+    // inherits a previous session's supervisor state.
+    setSupervisorQueryCoachId(null);
+    setCoachReadOnlyMode(false);
   }, [queryClient, isGuest, user?.playerId]);
 
   useEffect(() => {
@@ -650,6 +654,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCoach(null);
       setAcademy(null);
       setPlayer(null);
+      // Clear supervisor mode module-level flags so a new login never
+      // inherits this session's supervisor state.
+      setSupervisorQueryCoachId(null);
+      setCoachReadOnlyMode(false);
       logoutRevenueCat().catch(() => {});
       logger.log("[AuthContext] Logout successful");
     } catch (error) {
