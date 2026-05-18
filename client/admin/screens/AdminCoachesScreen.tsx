@@ -10,6 +10,7 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography, CardStyles } fr
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { useDesktop } from "@/hooks/useDesktop";
 interface Coach {
   id: string;
   name: string;
@@ -136,6 +137,7 @@ export default function AdminCoachesScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const isDesktop = useDesktop();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -161,7 +163,7 @@ export default function AdminCoachesScreen() {
 
   const { data: coachStats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useQuery<CoachStats>({
     queryKey: ["/api/admin/coaches", selectedCoachId, "stats"],
-    enabled: !!selectedCoachId && showDetailModal,
+    enabled: !!selectedCoachId && (showDetailModal || isDesktop),
   });
 
   const selectedCoach = coaches.find(c => c.id === selectedCoachId);
@@ -214,7 +216,9 @@ export default function AdminCoachesScreen() {
 
   const openDetailModal = (coachId: string) => {
     setSelectedCoachId(coachId);
-    setShowDetailModal(true);
+    if (!isDesktop) {
+      setShowDetailModal(true);
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -416,7 +420,7 @@ export default function AdminCoachesScreen() {
 
   const renderCoach = ({ item }: { item: Coach }) => (
     <Pressable
-      style={[styles.coachCard, CardStyles.elevated]}
+      style={[styles.coachCard, CardStyles.elevated, isDesktop && item.id === selectedCoachId && dtStyles.coachCardSelected]}
       onPress={() => openDetailModal(item.id)}
     >
       <View style={styles.coachAvatar}>
@@ -440,9 +444,468 @@ export default function AdminCoachesScreen() {
     </Pressable>
   );
 
+  const renderPaymentModal = () => (
+    <Modal
+      visible={showPaymentModal}
+      animationType="fade"
+      transparent={true}
+      onRequestClose={() => {
+        setShowPaymentModal(false);
+        setPendingPayment(null);
+      }}
+    >
+      <View style={styles.paymentModalOverlay}>
+        <View style={[styles.paymentModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+          <View style={styles.paymentModalHeader}>
+            <Text style={styles.paymentModalTitle}>Record Payment</Text>
+            <Pressable
+              onPress={() => {
+                setShowPaymentModal(false);
+                setPendingPayment(null);
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
+            </Pressable>
+          </View>
+
+          {pendingPayment ? (
+            <Text style={styles.paymentModalSubtitle}>
+              {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][pendingPayment.month - 1]} {pendingPayment.year}
+            </Text>
+          ) : null}
+
+          <Text style={styles.paymentModalLabel}>Payment Method</Text>
+          <View style={styles.paymentMethodGrid}>
+            {PAYMENT_METHODS.map((method) => (
+              <Pressable
+                key={method.value}
+                style={[
+                  styles.paymentMethodOption,
+                  paymentFormData.paymentMethod === method.value && styles.paymentMethodSelected
+                ]}
+                onPress={() => {
+                  setPaymentFormData(prev => ({ ...prev, paymentMethod: method.value }));
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <Ionicons
+                  name={method.icon}
+                  size={24}
+                  color={paymentFormData.paymentMethod === method.value ? Colors.dark.text : Colors.dark.textMuted}
+                />
+                <Text style={[
+                  styles.paymentMethodLabel,
+                  paymentFormData.paymentMethod === method.value && styles.paymentMethodLabelSelected
+                ]}>
+                  {method.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.paymentModalLabel}>Reference Number (Optional)</Text>
+          <TextInput
+            style={styles.paymentReferenceInput}
+            value={paymentFormData.paymentReference}
+            onChangeText={(text) => setPaymentFormData(prev => ({ ...prev, paymentReference: text }))}
+            placeholder="Bank transfer ID, cheque number, etc."
+            placeholderTextColor={Colors.dark.textMuted}
+          />
+
+          <View style={styles.paymentModalActions}>
+            <Pressable
+              style={styles.paymentCancelButton}
+              onPress={() => {
+                setShowPaymentModal(false);
+                setPendingPayment(null);
+              }}
+            >
+              <Text style={styles.paymentCancelText}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.paymentConfirmButton, markPaidMutation.isPending && styles.paymentButtonDisabled]}
+              onPress={confirmPayment}
+              disabled={markPaidMutation.isPending}
+            >
+              {markPaidMutation.isPending ? (
+                <TennisBallSpinner size="small" color={Colors.dark.text} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.dark.text} />
+                  <Text style={styles.paymentConfirmText}>Confirm Payment</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderDetailBody = (paddingBottom: number) => {
+    const stats = coachStats;
+
+    if (statsLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <TennisBallSpinner size="large" color={Colors.dark.orange} />
+          <Text style={styles.loadingText}>Loading coach details...</Text>
+        </View>
+      );
+    }
+
+    if (statsError) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
+          <Text style={styles.errorText}>Failed to load coach details</Text>
+          <Pressable style={styles.retryButton} onPress={() => refetchStats()}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    if (stats) {
+      return (
+        <ScrollView
+          style={styles.detailScroll}
+          contentContainerStyle={[styles.detailContent, { paddingBottom }]}
+        >
+          <View style={styles.profileSection}>
+            <View style={styles.profileAvatar}>
+              <Ionicons name="person" size={40} color={Colors.dark.primary} />
+            </View>
+            <Text style={styles.profileName}>{stats.coach.name}</Text>
+            {stats.coach.email ? (
+              <Text style={styles.profileEmail}>{stats.coach.email}</Text>
+            ) : null}
+            {stats.coach.phone ? (
+              <Text style={styles.profilePhone}>{stats.coach.phone}</Text>
+            ) : null}
+          </View>
+
+          <View style={[styles.section, CardStyles.elevated]}>
+            <Text style={styles.sectionTitle}>Coach Role</Text>
+            <View style={permStyles.rolePicker}>
+              {ROLE_OPTIONS.map((opt) => {
+                const isSelected = (stats.coach.role || "coach") === opt.value;
+                const color = getRoleColor(opt.value);
+                return (
+                  <Pressable
+                    key={opt.value}
+                    style={[
+                      permStyles.roleOption,
+                      isSelected && { backgroundColor: `${color}25`, borderColor: color },
+                    ]}
+                    onPress={() => {
+                      if (selectedCoachId && !isSelected) {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        updateCoachRoleMutation.mutate({ coachId: selectedCoachId, role: opt.value });
+                      }
+                    }}
+                  >
+                    <Text style={[permStyles.roleOptionText, isSelected && { color }]}>
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {stats.coach.bio ? (
+            <View style={[styles.section, CardStyles.elevated]}>
+              <Text style={styles.sectionTitle}>About</Text>
+              <Text style={styles.bioText}>{stats.coach.bio}</Text>
+              {stats.coach.yearsExperience ? (
+                <Text style={styles.experienceText}>
+                  {stats.coach.yearsExperience} years experience
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={[styles.section, CardStyles.elevated]}>
+            <Text style={styles.sectionTitle}>Performance</Text>
+            <View style={styles.statsGrid}>
+              <StatItem
+                icon="calendar"
+                label="Sessions/Mo"
+                value={stats.performance.sessionsThisMonth}
+                color={Colors.dark.orange}
+              />
+              <StatItem
+                icon="checkmark-circle"
+                label="Completed"
+                value={stats.performance.completedSessions}
+                color={Colors.dark.successNeon}
+              />
+              <StatItem
+                icon="people"
+                label="Players"
+                value={stats.performance.activePlayers}
+                color={Colors.dark.xpCyan}
+              />
+              <StatItem
+                icon="chatbubble"
+                label="Feedback %"
+                value={`${stats.performance.feedbackCompletionRate}%`}
+                color={Colors.dark.primary}
+              />
+            </View>
+          </View>
+
+          <View style={[styles.section, CardStyles.elevated]}>
+            <Text style={styles.sectionTitle}>Finance Overview</Text>
+            <View style={styles.financeRow}>
+              <Text style={styles.financeLabel}>Hourly Rate</Text>
+              <Text style={styles.financeValue}>AED {stats.finance.hourlyRate}</Text>
+            </View>
+            <View style={styles.financeRow}>
+              <Text style={styles.financeLabel}>Hours This Month</Text>
+              <Text style={styles.financeValue}>{stats.finance.totalHours}h</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.financeRow}>
+              <Text style={styles.financeLabel}>Amount Owed</Text>
+              <Text style={[styles.financeValue, { color: stats.finance.amountOwed > 0 ? Colors.dark.orange : Colors.dark.successNeon }]}>
+                AED {stats.finance.amountOwed}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.section, CardStyles.elevated]}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Monthly Payment History</Text>
+            </View>
+
+            {stats.finance.monthlyHistory && stats.finance.monthlyHistory.length > 0 ? (
+              stats.finance.monthlyHistory.map((payment: MonthlyPayment, index: number) => {
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                const monthLabel = `${monthNames[payment.month - 1]} ${payment.year}`;
+
+                const getStatusColor = (status: string) => {
+                  switch (status) {
+                    case "paid": return Colors.dark.successNeon;
+                    case "declined": return Colors.dark.error;
+                    case "approved": return Colors.dark.xpCyan;
+                    default: return Colors.dark.orange;
+                  }
+                };
+
+                const getStatusLabel = (status: string) => {
+                  switch (status) {
+                    case "paid": return "Paid";
+                    case "declined": return "Declined";
+                    case "approved": return "Approved";
+                    default: return "Pending";
+                  }
+                };
+
+                return (
+                  <View key={`${payment.month}-${payment.year}`} style={[
+                    styles.monthlyPaymentRow,
+                    index < stats.finance.monthlyHistory.length - 1 && styles.monthlyPaymentBorder
+                  ]}>
+                    <View style={styles.monthlyPaymentHeader}>
+                      <Text style={styles.monthlyPaymentMonth}>{monthLabel}</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(payment.status)}20` }]}>
+                        <Text style={[styles.statusBadgeText, { color: getStatusColor(payment.status) }]}>
+                          {getStatusLabel(payment.status)}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.monthlyPaymentDetails}>
+                      <View style={styles.monthlyPaymentStat}>
+                        <Ionicons name="time-outline" size={14} color={Colors.dark.textMuted} />
+                        <Text style={styles.monthlyPaymentStatText}>{payment.hoursWorked}h</Text>
+                      </View>
+                      <View style={styles.monthlyPaymentStat}>
+                        <Ionicons name="calendar-outline" size={14} color={Colors.dark.textMuted} />
+                        <Text style={styles.monthlyPaymentStatText}>{payment.sessionsCount} sessions</Text>
+                      </View>
+                      <Text style={[styles.monthlyPaymentAmount, { color: getStatusColor(payment.status) }]}>
+                        AED {payment.grossAmount}
+                      </Text>
+                    </View>
+
+                    {payment.status === "declined" && payment.declineReason ? (
+                      <Text style={styles.declineReason}>Reason: {payment.declineReason}</Text>
+                    ) : null}
+
+                    {payment.status === "paid" && (payment.paymentMethod || payment.paidAt) ? (
+                      <View style={styles.paidDetailsRow}>
+                        {payment.paymentMethod ? (
+                          <View style={styles.paidDetailItem}>
+                            <Ionicons name={getPaymentMethodIcon(payment.paymentMethod)} size={14} color={Colors.dark.successNeon} />
+                            <Text style={styles.paidDetailText}>{getPaymentMethodLabel(payment.paymentMethod)}</Text>
+                          </View>
+                        ) : null}
+                        {payment.paidAt ? (
+                          <View style={styles.paidDetailItem}>
+                            <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
+                            <Text style={styles.paidDetailText}>
+                              {new Date(payment.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {payment.paymentReference ? (
+                          <View style={styles.paidDetailItem}>
+                            <Ionicons name="document-text-outline" size={14} color={Colors.dark.textMuted} />
+                            <Text style={[styles.paidDetailText, { color: Colors.dark.textMuted }]}>{payment.paymentReference}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : null}
+
+                    {payment.status === "pending" ? (
+                      <View style={styles.paymentActions}>
+                        <Pressable
+                          style={[styles.paymentActionButton, styles.payButton]}
+                          onPress={() => handleMarkPaid(payment.month, payment.year)}
+                        >
+                          <Ionicons name="checkmark" size={16} color={Colors.dark.text} />
+                          <Text style={styles.payButtonText}>Mark Paid</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.paymentActionButton, styles.declineButton]}
+                          onPress={() => handleDecline(payment.month, payment.year)}
+                        >
+                          <Ionicons name="close" size={16} color={Colors.dark.error} />
+                          <Text style={styles.declineButtonText}>Decline</Text>
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })
+            ) : (
+              <View style={styles.emptyPaymentHistory}>
+                <Ionicons name="receipt-outline" size={32} color={Colors.dark.textMuted} />
+                <Text style={styles.emptyPaymentText}>No payment history yet</Text>
+              </View>
+            )}
+          </View>
+
+          <Pressable
+            style={styles.transferSessionsButton}
+            onPress={() => {
+              const coachId = selectedCoachId;
+              closeDetailModal();
+              setTimeout(() => {
+                navigation.navigate("AdminTransferSessions", { fromCoachId: coachId });
+              }, 300);
+            }}
+          >
+            <Ionicons name="swap-horizontal-outline" size={20} color={Colors.dark.primary} />
+            <Text style={styles.transferSessionsText}>Transfer Sessions to Another Coach</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.sendOverviewButton}
+            onPress={() => handleSendHoursOverview()}
+          >
+            <Ionicons name="mail-outline" size={20} color={Colors.dark.text} />
+            <Text style={styles.sendOverviewText}>Send Hours Overview to Coach</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.deleteCoachButton}
+            onPress={handleDeleteCoach}
+            disabled={deleteCoachMutation.isPending}
+          >
+            {deleteCoachMutation.isPending ? (
+              <TennisBallSpinner size="small" color={Colors.dark.error} />
+            ) : (
+              <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
+            )}
+            <Text style={styles.deleteCoachText}>Remove Coach from Academy</Text>
+          </Pressable>
+        </ScrollView>
+      );
+    }
+
+    if (selectedCoach) {
+      return (
+        <ScrollView
+          style={styles.detailScroll}
+          contentContainerStyle={[styles.detailContent, { paddingBottom }]}
+        >
+          <View style={styles.profileSection}>
+            <View style={styles.profileAvatar}>
+              <Ionicons name="person" size={40} color={Colors.dark.primary} />
+            </View>
+            <Text style={styles.profileName}>{selectedCoach.name}</Text>
+            <View style={[styles.roleBadge, { backgroundColor: `${getRoleColor(selectedCoach.role)}20` }]}>
+              <Text style={[styles.roleText, { color: getRoleColor(selectedCoach.role) }]}>
+                {getRoleLabel(selectedCoach.role)}
+              </Text>
+            </View>
+            {selectedCoach.email ? (
+              <Text style={styles.profileEmail}>{selectedCoach.email}</Text>
+            ) : null}
+            {selectedCoach.phone ? (
+              <Text style={styles.profilePhone}>{selectedCoach.phone}</Text>
+            ) : null}
+          </View>
+
+          <View style={[styles.section, CardStyles.elevated]}>
+            <Text style={styles.sectionTitle}>Basic Info</Text>
+            <View style={styles.financeRow}>
+              <Text style={styles.financeLabel}>Specialty</Text>
+              <Text style={styles.financeValue}>{selectedCoach.specialty || "Not specified"}</Text>
+            </View>
+            <View style={styles.financeRow}>
+              <Text style={styles.financeLabel}>Hourly Rate</Text>
+              <Text style={styles.financeValue}>AED {selectedCoach.hourlyRate || 0}</Text>
+            </View>
+          </View>
+
+          <View style={styles.loadingContainer}>
+            <TennisBallSpinner size="small" color={Colors.dark.orange} />
+            <Text style={styles.loadingText}>Loading full stats...</Text>
+          </View>
+        </ScrollView>
+      );
+    }
+
+    return (
+      <View style={styles.loadingContainer}>
+        <Ionicons name="person-outline" size={48} color={Colors.dark.textMuted} />
+        <Text style={styles.errorText}>No coach selected</Text>
+      </View>
+    );
+  };
+
   const renderDetailModal = () => {
     const stats = coachStats;
-    
+
+    const openEditFromDetail = () => {
+      if (stats?.coach) {
+        setEditingCoach({
+          id: stats.coach.id,
+          name: stats.coach.name,
+          email: stats.coach.email,
+          phone: stats.coach.phone,
+          specialty: stats.coach.specialty,
+          role: stats.coach.role,
+        });
+        setFormData({
+          name: stats.coach.name || "",
+          email: stats.coach.email || "",
+          phone: stats.coach.phone || "",
+          specialty: stats.coach.specialty || "",
+          hourlyRate: stats.finance?.hourlyRate?.toString() || "",
+          role: stats.coach.role || "coach",
+        });
+        closeDetailModal();
+        setShowAddModal(true);
+      }
+    };
+
     return (
       <Modal
         visible={showDetailModal}
@@ -456,69 +919,219 @@ export default function AdminCoachesScreen() {
               <Ionicons name="close" size={24} color={Colors.dark.text} />
             </Pressable>
             <Text style={styles.modalTitle}>Coach Details</Text>
-            <Pressable onPress={() => {
-              if (stats?.coach) {
-                setEditingCoach({
-                  id: stats.coach.id,
-                  name: stats.coach.name,
-                  email: stats.coach.email,
-                  phone: stats.coach.phone,
-                  specialty: stats.coach.specialty,
-                  role: stats.coach.role,
-                });
-                setFormData({
-                  name: stats.coach.name || "",
-                  email: stats.coach.email || "",
-                  phone: stats.coach.phone || "",
-                  specialty: stats.coach.specialty || "",
-                  hourlyRate: stats.finance?.hourlyRate?.toString() || "",
-                  role: stats.coach.role || "coach",
-                });
-                closeDetailModal();
-                setShowAddModal(true);
-              }
-            }}>
+            <Pressable onPress={openEditFromDetail}>
               <Ionicons name="pencil" size={20} color={Colors.dark.orange} />
             </Pressable>
           </View>
 
-          {statsLoading ? (
-            <View style={styles.loadingContainer}>
-              <TennisBallSpinner size="large" color={Colors.dark.orange} />
-              <Text style={styles.loadingText}>Loading coach details...</Text>
-            </View>
-          ) : statsError ? (
-            <View style={styles.loadingContainer}>
-              <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
-              <Text style={styles.errorText}>Failed to load coach details</Text>
-              <Pressable style={styles.retryButton} onPress={() => refetchStats()}>
-                <Text style={styles.retryButtonText}>Try Again</Text>
+          {renderDetailBody(insets.bottom + 40)}
+        </View>
+
+        {/*
+          NESTED Record Payment modal — see replit.md -> Modal stacking.
+          handleMarkPaid opens this modal while the Detail Modal is still
+          visible, so it MUST render as a child of this <Modal>. Rendering it
+          as a sibling on the screen would mount it in a separate native
+          window and it would appear BEHIND the Detail drawer on iOS.
+        */}
+        {renderPaymentModal()}
+      </Modal>
+    );
+  };
+
+  if (isDesktop) {
+    const stats = coachStats;
+
+    const openEditFromPanel = () => {
+      if (stats?.coach) {
+        setEditingCoach({
+          id: stats.coach.id,
+          name: stats.coach.name,
+          email: stats.coach.email,
+          phone: stats.coach.phone,
+          specialty: stats.coach.specialty,
+          role: stats.coach.role,
+        });
+        setFormData({
+          name: stats.coach.name || "",
+          email: stats.coach.email || "",
+          phone: stats.coach.phone || "",
+          specialty: stats.coach.specialty || "",
+          hourlyRate: stats.finance?.hourlyRate?.toString() || "",
+          role: stats.coach.role || "coach",
+        });
+        setSelectedCoachId(null);
+        setShowAddModal(true);
+      }
+    };
+
+    return (
+      <View style={dtStyles.root}>
+        <LinearGradient
+          colors={["rgba(255,152,0,0.12)", "transparent"]}
+          style={styles.headerGradient}
+        />
+
+        <View style={dtStyles.toolbar}>
+          <Text style={dtStyles.toolbarTitle}>Manage Coaches</Text>
+          <Text style={dtStyles.countText}>{coaches.length} coach{coaches.length !== 1 ? "es" : ""}</Text>
+          <Pressable style={dtStyles.addBtn} onPress={openAddModal}>
+            <Ionicons name="add" size={16} color="#0B0D10" />
+            <Text style={dtStyles.addBtnText}>Add Coach</Text>
+          </Pressable>
+        </View>
+
+        <View style={dtStyles.splitArea}>
+          <FlatList
+            style={dtStyles.leftPane}
+            data={coaches}
+            keyExtractor={(item) => item.id}
+            renderItem={renderCoach}
+            contentContainerStyle={dtStyles.leftPaneContent}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              isLoading ? (
+                <View style={styles.emptyState}>
+                  <TennisBallSpinner size="large" color={Colors.dark.orange} />
+                </View>
+              ) : error ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="alert-circle-outline" size={48} color={Colors.dark.error} />
+                  <Text style={styles.errorText}>Failed to load coaches</Text>
+                  <Pressable style={styles.retryButton} onPress={() => refetch()}>
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
+                  <Text style={styles.emptyText}>No coaches yet</Text>
+                  <Text style={styles.emptySubtext}>Tap + to add your first coach</Text>
+                </View>
+              )
+            }
+          />
+
+          <View style={dtStyles.rightPanel}>
+            {selectedCoachId ? (
+              <>
+                <View style={dtStyles.panelHeader}>
+                  <Text style={dtStyles.panelTitle}>Coach Details</Text>
+                  <View style={dtStyles.panelActions}>
+                    {stats?.coach ? (
+                      <Pressable style={dtStyles.panelEditBtn} onPress={openEditFromPanel}>
+                        <Ionicons name="pencil" size={14} color={Colors.dark.orange} />
+                        <Text style={[dtStyles.panelActionText, { color: Colors.dark.orange }]}>Edit</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable
+                      style={dtStyles.panelCloseBtn}
+                      onPress={() => {
+                        setSelectedCoachId(null);
+                        setShowPaymentModal(false);
+                        setPendingPayment(null);
+                      }}
+                    >
+                      <Ionicons name="close" size={18} color={Colors.dark.textMuted} />
+                    </Pressable>
+                  </View>
+                </View>
+                {renderDetailBody(40)}
+              </>
+            ) : (
+              <View style={dtStyles.emptyState}>
+                <Ionicons name="person-outline" size={40} color="rgba(255,255,255,0.2)" />
+                <Text style={dtStyles.emptyStateTitle}>No coach selected</Text>
+                <Text style={dtStyles.emptyStateSubtitle}>
+                  Choose a coach from the list to view their profile
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {renderPaymentModal()}
+
+        <Modal
+          visible={showAddModal}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowAddModal(false)}
+        >
+          <View style={[styles.modalContainer, { paddingTop: insets.top + Spacing.lg }]}>
+            <View style={styles.modalHeader}>
+              <Pressable onPress={() => setShowAddModal(false)}>
+                <Text style={styles.cancelButton}>Cancel</Text>
+              </Pressable>
+              <Text style={styles.modalTitle}>
+                {editingCoach ? "Edit Coach" : "Add Coach"}
+              </Text>
+              <Pressable
+                onPress={handleSubmit}
+                disabled={addCoachMutation.isPending}
+              >
+                <Text style={[styles.saveButton, addCoachMutation.isPending && styles.disabledButton]}>
+                  {addCoachMutation.isPending ? "Saving..." : "Save"}
+                </Text>
               </Pressable>
             </View>
-          ) : stats ? (
-            <ScrollView 
-              style={styles.detailScroll}
-              contentContainerStyle={[styles.detailContent, { paddingBottom: insets.bottom + 40 }]}
+
+            <KeyboardAwareScrollViewCompat
+              style={styles.formScroll}
+              contentContainerStyle={styles.form}
             >
-              <View style={styles.profileSection}>
-                <View style={styles.profileAvatar}>
-                  <Ionicons name="person" size={40} color={Colors.dark.primary} />
-                </View>
-                <Text style={styles.profileName}>{stats.coach.name}</Text>
-                {stats.coach.email ? (
-                  <Text style={styles.profileEmail}>{stats.coach.email}</Text>
-                ) : null}
-                {stats.coach.phone ? (
-                  <Text style={styles.profilePhone}>{stats.coach.phone}</Text>
-                ) : null}
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.name}
+                  onChangeText={(text) => setFormData((prev) => ({ ...prev, name: text }))}
+                  placeholder="Coach name"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
               </View>
 
-              {/* Role editor in detail drawer */}
-              <View style={[styles.section, CardStyles.elevated]}>
-                <Text style={styles.sectionTitle}>Coach Role</Text>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.email}
+                  onChangeText={(text) => setFormData((prev) => ({ ...prev, email: text }))}
+                  placeholder="coach@example.com"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.phone}
+                  onChangeText={(text) => setFormData((prev) => ({ ...prev, phone: text }))}
+                  placeholder="+1 234 567 8900"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Specialty</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.specialty}
+                  onChangeText={(text) => setFormData((prev) => ({ ...prev, specialty: text }))}
+                  placeholder="e.g., Junior Training, Advanced"
+                  placeholderTextColor={Colors.dark.textMuted}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Role</Text>
                 <View style={permStyles.rolePicker}>
                   {ROLE_OPTIONS.map((opt) => {
-                    const isSelected = (stats.coach.role || "coach") === opt.value;
+                    const isSelected = formData.role === opt.value;
                     const color = getRoleColor(opt.value);
                     return (
                       <Pressable
@@ -528,10 +1141,8 @@ export default function AdminCoachesScreen() {
                           isSelected && { backgroundColor: `${color}25`, borderColor: color },
                         ]}
                         onPress={() => {
-                          if (selectedCoachId && !isSelected) {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            updateCoachRoleMutation.mutate({ coachId: selectedCoachId, role: opt.value });
-                          }
+                          setFormData((prev) => ({ ...prev, role: opt.value }));
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         }}
                       >
                         <Text style={[permStyles.roleOptionText, isSelected && { color }]}>
@@ -541,372 +1152,27 @@ export default function AdminCoachesScreen() {
                     );
                   })}
                 </View>
+                <RolePermissionCard selectedRole={formData.role} />
               </View>
 
-              {stats.coach.bio ? (
-                <View style={[styles.section, CardStyles.elevated]}>
-                  <Text style={styles.sectionTitle}>About</Text>
-                  <Text style={styles.bioText}>{stats.coach.bio}</Text>
-                  {stats.coach.yearsExperience ? (
-                    <Text style={styles.experienceText}>
-                      {stats.coach.yearsExperience} years experience
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-
-              <View style={[styles.section, CardStyles.elevated]}>
-                <Text style={styles.sectionTitle}>Performance</Text>
-                <View style={styles.statsGrid}>
-                  <StatItem 
-                    icon="calendar" 
-                    label="Sessions/Mo" 
-                    value={stats.performance.sessionsThisMonth}
-                    color={Colors.dark.orange}
-                  />
-                  <StatItem 
-                    icon="checkmark-circle" 
-                    label="Completed" 
-                    value={stats.performance.completedSessions}
-                    color={Colors.dark.successNeon}
-                  />
-                  <StatItem 
-                    icon="people" 
-                    label="Players" 
-                    value={stats.performance.activePlayers}
-                    color={Colors.dark.xpCyan}
-                  />
-                  <StatItem 
-                    icon="chatbubble" 
-                    label="Feedback %" 
-                    value={`${stats.performance.feedbackCompletionRate}%`}
-                    color={Colors.dark.primary}
-                  />
-                </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Hourly Rate (AED)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.hourlyRate}
+                  onChangeText={(text) => setFormData((prev) => ({ ...prev, hourlyRate: text }))}
+                  placeholder="100"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  keyboardType="numeric"
+                />
               </View>
-
-              <View style={[styles.section, CardStyles.elevated]}>
-                <Text style={styles.sectionTitle}>Finance Overview</Text>
-                <View style={styles.financeRow}>
-                  <Text style={styles.financeLabel}>Hourly Rate</Text>
-                  <Text style={styles.financeValue}>AED {stats.finance.hourlyRate}</Text>
-                </View>
-                <View style={styles.financeRow}>
-                  <Text style={styles.financeLabel}>Hours This Month</Text>
-                  <Text style={styles.financeValue}>{stats.finance.totalHours}h</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.financeRow}>
-                  <Text style={styles.financeLabel}>Amount Owed</Text>
-                  <Text style={[styles.financeValue, { color: stats.finance.amountOwed > 0 ? Colors.dark.orange : Colors.dark.successNeon }]}>
-                    AED {stats.finance.amountOwed}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={[styles.section, CardStyles.elevated]}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Monthly Payment History</Text>
-                </View>
-                
-                {stats.finance.monthlyHistory && stats.finance.monthlyHistory.length > 0 ? (
-                  stats.finance.monthlyHistory.map((payment: MonthlyPayment, index: number) => {
-                    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-                    const monthLabel = `${monthNames[payment.month - 1]} ${payment.year}`;
-                    
-                    const getStatusColor = (status: string) => {
-                      switch (status) {
-                        case "paid": return Colors.dark.successNeon;
-                        case "declined": return Colors.dark.error;
-                        case "approved": return Colors.dark.xpCyan;
-                        default: return Colors.dark.orange;
-                      }
-                    };
-                    
-                    const getStatusLabel = (status: string) => {
-                      switch (status) {
-                        case "paid": return "Paid";
-                        case "declined": return "Declined";
-                        case "approved": return "Approved";
-                        default: return "Pending";
-                      }
-                    };
-
-                    return (
-                      <View key={`${payment.month}-${payment.year}`} style={[
-                        styles.monthlyPaymentRow,
-                        index < stats.finance.monthlyHistory.length - 1 && styles.monthlyPaymentBorder
-                      ]}>
-                        <View style={styles.monthlyPaymentHeader}>
-                          <Text style={styles.monthlyPaymentMonth}>{monthLabel}</Text>
-                          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(payment.status)}20` }]}>
-                            <Text style={[styles.statusBadgeText, { color: getStatusColor(payment.status) }]}>
-                              {getStatusLabel(payment.status)}
-                            </Text>
-                          </View>
-                        </View>
-                        
-                        <View style={styles.monthlyPaymentDetails}>
-                          <View style={styles.monthlyPaymentStat}>
-                            <Ionicons name="time-outline" size={14} color={Colors.dark.textMuted} />
-                            <Text style={styles.monthlyPaymentStatText}>{payment.hoursWorked}h</Text>
-                          </View>
-                          <View style={styles.monthlyPaymentStat}>
-                            <Ionicons name="calendar-outline" size={14} color={Colors.dark.textMuted} />
-                            <Text style={styles.monthlyPaymentStatText}>{payment.sessionsCount} sessions</Text>
-                          </View>
-                          <Text style={[styles.monthlyPaymentAmount, { color: getStatusColor(payment.status) }]}>
-                            AED {payment.grossAmount}
-                          </Text>
-                        </View>
-                        
-                        {payment.status === "declined" && payment.declineReason ? (
-                          <Text style={styles.declineReason}>Reason: {payment.declineReason}</Text>
-                        ) : null}
-
-                        {payment.status === "paid" && (payment.paymentMethod || payment.paidAt) ? (
-                          <View style={styles.paidDetailsRow}>
-                            {payment.paymentMethod ? (
-                              <View style={styles.paidDetailItem}>
-                                <Ionicons name={getPaymentMethodIcon(payment.paymentMethod)} size={14} color={Colors.dark.successNeon} />
-                                <Text style={styles.paidDetailText}>{getPaymentMethodLabel(payment.paymentMethod)}</Text>
-                              </View>
-                            ) : null}
-                            {payment.paidAt ? (
-                              <View style={styles.paidDetailItem}>
-                                <Ionicons name="checkmark-circle" size={14} color={Colors.dark.successNeon} />
-                                <Text style={styles.paidDetailText}>
-                                  {new Date(payment.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                                </Text>
-                              </View>
-                            ) : null}
-                            {payment.paymentReference ? (
-                              <View style={styles.paidDetailItem}>
-                                <Ionicons name="document-text-outline" size={14} color={Colors.dark.textMuted} />
-                                <Text style={[styles.paidDetailText, { color: Colors.dark.textMuted }]}>{payment.paymentReference}</Text>
-                              </View>
-                            ) : null}
-                          </View>
-                        ) : null}
-                        
-                        {payment.status === "pending" ? (
-                          <View style={styles.paymentActions}>
-                            <Pressable 
-                              style={[styles.paymentActionButton, styles.payButton]}
-                              onPress={() => handleMarkPaid(payment.month, payment.year)}
-                            >
-                              <Ionicons name="checkmark" size={16} color={Colors.dark.text} />
-                              <Text style={styles.payButtonText}>Mark Paid</Text>
-                            </Pressable>
-                            <Pressable 
-                              style={[styles.paymentActionButton, styles.declineButton]}
-                              onPress={() => handleDecline(payment.month, payment.year)}
-                            >
-                              <Ionicons name="close" size={16} color={Colors.dark.error} />
-                              <Text style={styles.declineButtonText}>Decline</Text>
-                            </Pressable>
-                          </View>
-                        ) : null}
-                      </View>
-                    );
-                  })
-                ) : (
-                  <View style={styles.emptyPaymentHistory}>
-                    <Ionicons name="receipt-outline" size={32} color={Colors.dark.textMuted} />
-                    <Text style={styles.emptyPaymentText}>No payment history yet</Text>
-                  </View>
-                )}
-              </View>
-
-              <Pressable
-                style={styles.transferSessionsButton}
-                onPress={() => {
-                  const coachId = selectedCoachId;
-                  closeDetailModal();
-                  setTimeout(() => {
-                    navigation.navigate("AdminTransferSessions", { fromCoachId: coachId });
-                  }, 300);
-                }}
-              >
-                <Ionicons name="swap-horizontal-outline" size={20} color={Colors.dark.primary} />
-                <Text style={styles.transferSessionsText}>Transfer Sessions to Another Coach</Text>
-              </Pressable>
-
-              <Pressable 
-                style={styles.sendOverviewButton}
-                onPress={() => handleSendHoursOverview()}
-              >
-                <Ionicons name="mail-outline" size={20} color={Colors.dark.text} />
-                <Text style={styles.sendOverviewText}>Send Hours Overview to Coach</Text>
-              </Pressable>
-
-              <Pressable 
-                style={styles.deleteCoachButton}
-                onPress={handleDeleteCoach}
-                disabled={deleteCoachMutation.isPending}
-              >
-                {deleteCoachMutation.isPending ? (
-                  <TennisBallSpinner size="small" color={Colors.dark.error} />
-                ) : (
-                  <Ionicons name="trash-outline" size={20} color={Colors.dark.error} />
-                )}
-                <Text style={styles.deleteCoachText}>Remove Coach from Academy</Text>
-              </Pressable>
-            </ScrollView>
-          ) : selectedCoach ? (
-            <ScrollView 
-              style={styles.detailScroll}
-              contentContainerStyle={[styles.detailContent, { paddingBottom: insets.bottom + 40 }]}
-            >
-              <View style={styles.profileSection}>
-                <View style={styles.profileAvatar}>
-                  <Ionicons name="person" size={40} color={Colors.dark.primary} />
-                </View>
-                <Text style={styles.profileName}>{selectedCoach.name}</Text>
-                <View style={[styles.roleBadge, { backgroundColor: `${getRoleColor(selectedCoach.role)}20` }]}>
-                  <Text style={[styles.roleText, { color: getRoleColor(selectedCoach.role) }]}>
-                    {getRoleLabel(selectedCoach.role)}
-                  </Text>
-                </View>
-                {selectedCoach.email ? (
-                  <Text style={styles.profileEmail}>{selectedCoach.email}</Text>
-                ) : null}
-                {selectedCoach.phone ? (
-                  <Text style={styles.profilePhone}>{selectedCoach.phone}</Text>
-                ) : null}
-              </View>
-
-              <View style={[styles.section, CardStyles.elevated]}>
-                <Text style={styles.sectionTitle}>Basic Info</Text>
-                <View style={styles.financeRow}>
-                  <Text style={styles.financeLabel}>Specialty</Text>
-                  <Text style={styles.financeValue}>{selectedCoach.specialty || "Not specified"}</Text>
-                </View>
-                <View style={styles.financeRow}>
-                  <Text style={styles.financeLabel}>Hourly Rate</Text>
-                  <Text style={styles.financeValue}>AED {selectedCoach.hourlyRate || 0}</Text>
-                </View>
-              </View>
-
-              <View style={styles.loadingContainer}>
-                <TennisBallSpinner size="small" color={Colors.dark.orange} />
-                <Text style={styles.loadingText}>Loading full stats...</Text>
-              </View>
-            </ScrollView>
-          ) : (
-            <View style={styles.loadingContainer}>
-              <Ionicons name="person-outline" size={48} color={Colors.dark.textMuted} />
-              <Text style={styles.errorText}>No coach selected</Text>
-            </View>
-          )}
-        </View>
-
-        {/*
-          NESTED Record Payment modal — see replit.md → Modal stacking.
-          handleMarkPaid opens this modal while the Detail Modal is still
-          visible, so it MUST render as a child of this <Modal>. Rendering it
-          as a sibling on the screen would mount it in a separate native
-          window and it would appear BEHIND the Detail drawer on iOS.
-        */}
-        <Modal
-          visible={showPaymentModal}
-          animationType="fade"
-          transparent={true}
-          onRequestClose={() => {
-            setShowPaymentModal(false);
-            setPendingPayment(null);
-          }}
-        >
-          <View style={styles.paymentModalOverlay}>
-            <View style={[styles.paymentModalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
-              <View style={styles.paymentModalHeader}>
-                <Text style={styles.paymentModalTitle}>Record Payment</Text>
-                <Pressable
-                  onPress={() => {
-                    setShowPaymentModal(false);
-                    setPendingPayment(null);
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={24} color={Colors.dark.textMuted} />
-                </Pressable>
-              </View>
-
-              {pendingPayment ? (
-                <Text style={styles.paymentModalSubtitle}>
-                  {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][pendingPayment.month - 1]} {pendingPayment.year}
-                </Text>
-              ) : null}
-
-              <Text style={styles.paymentModalLabel}>Payment Method</Text>
-              <View style={styles.paymentMethodGrid}>
-                {PAYMENT_METHODS.map((method) => (
-                  <Pressable
-                    key={method.value}
-                    style={[
-                      styles.paymentMethodOption,
-                      paymentFormData.paymentMethod === method.value && styles.paymentMethodSelected
-                    ]}
-                    onPress={() => {
-                      setPaymentFormData(prev => ({ ...prev, paymentMethod: method.value }));
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }}
-                  >
-                    <Ionicons
-                      name={method.icon}
-                      size={24}
-                      color={paymentFormData.paymentMethod === method.value ? Colors.dark.text : Colors.dark.textMuted}
-                    />
-                    <Text style={[
-                      styles.paymentMethodLabel,
-                      paymentFormData.paymentMethod === method.value && styles.paymentMethodLabelSelected
-                    ]}>
-                      {method.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              <Text style={styles.paymentModalLabel}>Reference Number (Optional)</Text>
-              <TextInput
-                style={styles.paymentReferenceInput}
-                value={paymentFormData.paymentReference}
-                onChangeText={(text) => setPaymentFormData(prev => ({ ...prev, paymentReference: text }))}
-                placeholder="Bank transfer ID, cheque number, etc."
-                placeholderTextColor={Colors.dark.textMuted}
-              />
-
-              <View style={styles.paymentModalActions}>
-                <Pressable
-                  style={styles.paymentCancelButton}
-                  onPress={() => {
-                    setShowPaymentModal(false);
-                    setPendingPayment(null);
-                  }}
-                >
-                  <Text style={styles.paymentCancelText}>Cancel</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.paymentConfirmButton, markPaidMutation.isPending && styles.paymentButtonDisabled]}
-                  onPress={confirmPayment}
-                  disabled={markPaidMutation.isPending}
-                >
-                  {markPaidMutation.isPending ? (
-                    <TennisBallSpinner size="small" color={Colors.dark.text} />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark-circle" size={20} color={Colors.dark.text} />
-                      <Text style={styles.paymentConfirmText}>Confirm Payment</Text>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-            </View>
+            </KeyboardAwareScrollViewCompat>
           </View>
         </Modal>
-      </Modal>
+      </View>
     );
-  };
+  }
+
 
   if (isLoading) {
     return (
@@ -1720,5 +1986,133 @@ const permStyles = StyleSheet.create({
     ...Typography.small,
     color: Colors.dark.textMuted,
     fontWeight: "600",
+  },
+});
+
+const dtStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: "#0B0D10",
+    flexDirection: "column",
+    overflow: "hidden",
+  },
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+    gap: 12,
+  },
+  toolbarTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    flex: 1,
+  },
+  countText: {
+    fontSize: 12,
+    color: "#7C8290",
+  },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FF9800",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  addBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0B0D10",
+  },
+  splitArea: {
+    flex: 1,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  leftPane: {
+    width: 380,
+    borderRightWidth: 1,
+    borderRightColor: "rgba(255,255,255,0.07)",
+  },
+  leftPaneContent: {
+    padding: 12,
+  },
+  coachCardSelected: {
+    borderColor: "rgba(255,152,0,0.5)",
+    backgroundColor: "rgba(255,152,0,0.06)",
+  },
+  rightPanel: {
+    flex: 1,
+    borderLeftWidth: 1,
+    borderLeftColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#11141A",
+  },
+  panelHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  panelTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  panelActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  panelEditBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,152,0,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255,152,0,0.25)",
+  },
+  panelActionText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  panelCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  emptyStateTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.35)",
+    textAlign: "center",
+  },
+  emptyStateSubtitle: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.2)",
+    textAlign: "center",
+    lineHeight: 20,
   },
 });
