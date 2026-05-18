@@ -14,6 +14,7 @@ import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import { TIME_COLUMN_WIDTH, START_HOUR } from "@/coach/components/calendar/calendarConstants";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import ReassignCoachModal from "@/admin/components/ReassignCoachModal";
+import MarkAbsentSheet from "@/admin/components/MarkAbsentSheet";
 const ADMIN_COLOR = RoleColors.admin;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HOUR_HEIGHT = 60;
@@ -110,6 +111,9 @@ export default function AdminCalendarScreen() {
   const [reassignBatchIds, setReassignBatchIds] = useState<string[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [newMoveDate, setNewMoveDate] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; });
+  const [markAbsentSheetVisible, setMarkAbsentSheetVisible] = useState(false);
+  const [markAbsentCoachId, setMarkAbsentCoachId] = useState<string | null>(null);
+  const [markAbsentCoachName, setMarkAbsentCoachName] = useState<string>("");
 
   const cancelMutation = useMutation({
     mutationFn: (session: Session) =>
@@ -1584,35 +1588,66 @@ export default function AdminCalendarScreen() {
                     value: `${formatTime(mobileSelectedSession.startTime)} – ${formatTime(mobileSelectedSession.endTime)}`,
                   },
                   { label: "Status", value: mobileSelectedSession.status || "upcoming" },
-                  {
-                    label: "Players",
-                    value: mobileSelectedSession.players?.length
-                      ? `${mobileSelectedSession.players.length} enrolled`
-                      : "0 enrolled",
-                  },
                 ].map(({ label, value }) => (
                   <View key={label} style={styles.modalRow}>
                     <Text style={styles.modalRowLabel}>{label}</Text>
                     <Text style={styles.modalRowValue}>{value}</Text>
                   </View>
                 ))}
+                <View style={styles.playersSection}>
+                  <Text style={styles.playersSectionTitle}>
+                    Players ({mobileSelectedSession.players?.length ?? 0}{mobileSelectedSession.maxCapacity ? `/${mobileSelectedSession.maxCapacity}` : ""})
+                  </Text>
+                  {mobileSelectedSession.players && mobileSelectedSession.players.length > 0 ? (
+                    <ScrollView
+                      style={styles.playersScrollList}
+                      nestedScrollEnabled
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {mobileSelectedSession.players.map((p) => (
+                        <View key={p.id} style={styles.playerSheetRow}>
+                          <View style={styles.playerSheetDot} />
+                          <Text style={styles.playerSheetName}>{p.name}</Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <Text style={styles.playersEmptyText}>No players enrolled</Text>
+                  )}
+                </View>
                 {mobileSelectedSession.status !== "cancelled" && mobileSelectedSession.status !== "completed" ? (
                   <View style={styles.modalActions}>
                     <Pressable
-                      style={styles.reassignButton}
+                      style={styles.changeCoachButton}
                       onPress={() => handleSingleReassign(mobileSelectedSession)}
                     >
-                      <Ionicons name="swap-horizontal-outline" size={16} color={Colors.dark.orange} />
-                      <Text style={styles.reassignButtonText}>Reassign Coach</Text>
+                      <Ionicons name="swap-horizontal-outline" size={16} color="#0B0D10" />
+                      <Text style={styles.changeCoachButtonText}>Change Coach</Text>
                     </Pressable>
+                    {mobileSelectedSession.coachId ? (
+                      <Pressable
+                        style={styles.markAbsentButton}
+                        onPress={() => {
+                          const coachId = mobileSelectedSession.coachId ?? null;
+                          const coachName = getCoachName(mobileSelectedSession.coachId);
+                          setMarkAbsentCoachId(coachId);
+                          setMarkAbsentCoachName(coachName);
+                          setMobileSelectedSession(null);
+                          setMarkAbsentSheetVisible(true);
+                        }}
+                      >
+                        <Ionicons name="person-remove-outline" size={16} color={Colors.dark.error} />
+                        <Text style={styles.markAbsentButtonText}>Mark Coach Absent</Text>
+                      </Pressable>
+                    ) : null}
                     <Pressable
-                      style={[styles.cancelButton, cancelMutation.isPending && styles.cancelButtonDisabled]}
+                      style={[styles.cancelSessionButton, cancelMutation.isPending && styles.cancelButtonDisabled]}
                       onPress={() => handleCancelSession(mobileSelectedSession)}
                       disabled={cancelMutation.isPending}
                     >
-                      <Ionicons name="close-circle-outline" size={16} color="#fff" />
-                      <Text style={styles.cancelButtonText}>
-                        {cancelMutation.isPending ? "Cancelling..." : "Cancel"}
+                      <Ionicons name="close-circle-outline" size={16} color={Colors.dark.error} />
+                      <Text style={styles.cancelSessionButtonText}>
+                        {cancelMutation.isPending ? "Cancelling..." : "Cancel Session"}
                       </Text>
                     </Pressable>
                   </View>
@@ -1622,6 +1657,17 @@ export default function AdminCalendarScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <MarkAbsentSheet
+        visible={markAbsentSheetVisible}
+        coachId={markAbsentCoachId}
+        coachName={markAbsentCoachName}
+        onClose={() => {
+          setMarkAbsentSheetVisible(false);
+          setMarkAbsentCoachId(null);
+          setMarkAbsentCoachName("");
+        }}
+      />
     </View>
   );
 }
@@ -2103,45 +2149,96 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: "500",
   },
-  cancelButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    backgroundColor: "#EF4444",
-    borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.md,
-  },
   cancelButtonDisabled: {
     opacity: 0.5,
   },
-  cancelButtonText: {
-    ...Typography.body,
-    color: "#fff",
-    fontWeight: "700",
-  },
   modalActions: {
-    flexDirection: "row",
+    flexDirection: "column",
     gap: Spacing.sm,
     marginTop: Spacing.lg,
   },
-  reassignButton: {
-    flex: 1,
+  changeCoachButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
-    backgroundColor: `${Colors.dark.orange}15`,
+    backgroundColor: Colors.dark.orange,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+  },
+  changeCoachButtonText: {
+    ...Typography.body,
+    color: "#0B0D10",
+    fontWeight: "700",
+  },
+  markAbsentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${Colors.dark.error}15`,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     borderWidth: 1,
-    borderColor: `${Colors.dark.orange}30`,
+    borderColor: `${Colors.dark.error}40`,
   },
-  reassignButtonText: {
+  markAbsentButtonText: {
     ...Typography.body,
-    color: Colors.dark.orange,
+    color: Colors.dark.error,
     fontWeight: "700",
+  },
+  cancelSessionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "transparent",
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.error}60`,
+  },
+  cancelSessionButtonText: {
+    ...Typography.body,
+    color: Colors.dark.error,
+    fontWeight: "600",
+  },
+  playersSection: {
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  playersSectionTitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    fontWeight: "700",
+    marginBottom: Spacing.sm,
+  },
+  playersScrollList: {
+    maxHeight: 140,
+  },
+  playerSheetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: 5,
+  },
+  playerSheetDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.dark.primary,
+  },
+  playerSheetName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontSize: 14,
+  },
+  playersEmptyText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
   },
   sessionBlockSelected: {
     borderWidth: 2,
