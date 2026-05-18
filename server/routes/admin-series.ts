@@ -2592,7 +2592,7 @@ router.get(
 
       const sessionsThisMonth = sessions.filter((s: any) => {
         const sessionDate = new Date(s.startTime);
-        return sessionDate >= thirtyDaysAgo;
+        return sessionDate >= thirtyDaysAgo && sessionDate <= now;
       });
 
       const completedSessions = sessionsThisMonth.filter(
@@ -2609,18 +2609,36 @@ router.get(
           ? Math.round((feedbackCount / completedSessions.length) * 100)
           : 0;
 
-      const hourlyRate = Number(coach.hourlyRate || 100);
+      // Look up active payment rule; fall back to coaches.hourlyRate then 100 AED/h
+      const paymentRule = await storage.getCoachPaymentRule(coachId);
+      const paymentType: string = paymentRule?.paymentType || "hourly";
+      const commissionPct = paymentRule ? Number(paymentRule.commissionPercentage || 0) : 0;
+      const hourlyRate =
+        paymentRule?.paymentType === "hourly" && paymentRule.hourlyRate
+          ? Number(paymentRule.hourlyRate)
+          : Number(coach.hourlyRate || 100);
+
       const totalHours = sessionsThisMonth.reduce((sum: number, s: any) => {
         const start = new Date(s.startTime);
         const end = new Date(s.endTime);
         return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60);
       }, 0);
 
-      const monthlyHours = await storage.getCoachMonthlyHoursSummary(
-        coachId,
-        academyId ?? undefined,
-      );
-      const payoutRecords = await storage.getCoachPayouts(coachId, 12);
+      // For commission payment type, amountOwed = sum of session prices × commission %
+      let amountOwed: number;
+      if (paymentType === "commission" && commissionPct > 0) {
+        const totalRevenue = sessionsThisMonth.reduce((sum: number, s: any) => {
+          return sum + Number(s.sessionPrice || 0);
+        }, 0);
+        amountOwed = Math.round(totalRevenue * commissionPct / 100);
+      } else {
+        amountOwed = Math.round(totalHours * hourlyRate);
+      }
+
+      const [monthlyHours, payoutRecords] = await Promise.all([
+        storage.getCoachMonthlyHoursSummary(coachId, academyId ?? undefined),
+        storage.getCoachPayouts(coachId, 12),
+      ]);
 
       const monthlyPaymentHistory = monthlyHours.map((mh) => {
         const payoutRecord = payoutRecords.find(
@@ -2674,8 +2692,10 @@ router.get(
         },
         finance: {
           hourlyRate,
+          paymentType,
+          commissionPercentage: commissionPct || null,
           totalHours: Math.round(totalHours * 10) / 10,
-          amountOwed: Math.round(totalHours * hourlyRate),
+          amountOwed,
           amountPaid,
           monthlyHistory: monthlyPaymentHistory,
         },
@@ -2721,15 +2741,19 @@ router.post(
       );
 
       if (!payout) {
-        const monthlyHours = await storage.getCoachMonthlyHoursSummary(
-          coachId,
-          academyId ?? undefined,
-        );
+        const [monthlyHours, paymentRule] = await Promise.all([
+          storage.getCoachMonthlyHoursSummary(coachId, academyId ?? undefined),
+          storage.getCoachPaymentRule(coachId),
+        ]);
         const monthData = monthlyHours.find(
           (m) => m.month === parseInt(month) && m.year === parseInt(year),
         );
         const hoursWorked = monthData?.hoursWorked || 0;
-        const hourlyRate = Number(coach.hourlyRate || 100);
+        const hourlyRate =
+          paymentRule?.paymentType === "hourly" && paymentRule.hourlyRate
+            ? Number(paymentRule.hourlyRate)
+            : Number(coach.hourlyRate || 100);
+        const grossAmount = Math.round(hoursWorked * hourlyRate);
 
         payout = await storage.createCoachPayout({
           academyId: academyId ?? "",
@@ -2738,7 +2762,7 @@ router.post(
           year: parseInt(year),
           hoursWorked: String(hoursWorked),
           hourlyRate: String(hourlyRate),
-          grossAmount: String(Math.round(hoursWorked * hourlyRate)),
+          grossAmount: String(grossAmount),
           status: "pending",
           notes,
         });
@@ -2782,15 +2806,19 @@ router.post(
       );
 
       if (!payout) {
-        const monthlyHours = await storage.getCoachMonthlyHoursSummary(
-          coachId,
-          academyId ?? undefined,
-        );
+        const [monthlyHours, paymentRule] = await Promise.all([
+          storage.getCoachMonthlyHoursSummary(coachId, academyId ?? undefined),
+          storage.getCoachPaymentRule(coachId),
+        ]);
         const monthData = monthlyHours.find(
           (m) => m.month === parseInt(month) && m.year === parseInt(year),
         );
         const hoursWorked = monthData?.hoursWorked || 0;
-        const hourlyRate = Number(coach.hourlyRate || 100);
+        const hourlyRate =
+          paymentRule?.paymentType === "hourly" && paymentRule.hourlyRate
+            ? Number(paymentRule.hourlyRate)
+            : Number(coach.hourlyRate || 100);
+        const grossAmount = Math.round(hoursWorked * hourlyRate);
 
         payout = await storage.createCoachPayout({
           academyId: academyId ?? "",
@@ -2799,7 +2827,7 @@ router.post(
           year: parseInt(year),
           hoursWorked: String(hoursWorked),
           hourlyRate: String(hourlyRate),
-          grossAmount: String(Math.round(hoursWorked * hourlyRate)),
+          grossAmount: String(grossAmount),
           status: "pending",
           notes,
         });

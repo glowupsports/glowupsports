@@ -10331,6 +10331,9 @@ export const storage = {
       conditions.push(eq(sessions.academyId, academyId));
     }
 
+    const now = new Date();
+    conditions.push(lte(sessions.startTime, now));
+
     const allSessions = await db.select().from(sessions).where(and(...conditions));
     
     const monthlyData: Map<string, { hours: number; count: number; month: number; year: number }> = new Map();
