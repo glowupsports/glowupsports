@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useCallback } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, Platform, Modal, Alert } from "react-native";
+import React, { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, Platform, Modal, Alert, PanResponder } from "react-native";
 import { useDesktop } from "@/hooks/useDesktop";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -13,6 +13,7 @@ import { SPORTS, type Sport } from "@shared/sportConfig";
 import CreateSessionWizard from "@/coach/components/CreateSessionWizard";
 import { TIME_COLUMN_WIDTH, START_HOUR } from "@/coach/components/calendar/calendarConstants";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import ReassignCoachModal from "@/admin/components/ReassignCoachModal";
 const ADMIN_COLOR = RoleColors.admin;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HOUR_HEIGHT = 60;
@@ -68,6 +69,12 @@ export default function AdminCalendarScreen() {
   });
 
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const selectedDateStr = selectedDate.toISOString().split("T")[0];
+  const { data: blockedSlots = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/blocked-slots", selectedDateStr],
+    queryFn: () =>
+      apiRequest("GET", `/api/admin/blocked-slots?date=${selectedDateStr}`).then((r) => r.json()),
+  });
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [gridMode, setGridMode] = useState<"coach" | "court">("coach");
   const [selectedCoachFilter, setSelectedCoachFilter] = useState<string | null>(null);
@@ -84,6 +91,25 @@ export default function AdminCalendarScreen() {
   const isDesktop = useDesktop();
   const [desktopSelectedSession, setDesktopSelectedSession] = useState<Session | null>(null);
   const [mobileSelectedSession, setMobileSelectedSession] = useState<Session | null>(null);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
+  const [selectedSlotKeys, setSelectedSlotKeys] = useState<Set<string>>(new Set());
+  const [anchorSessionId, setAnchorSessionId] = useState<string | null>(null);
+  const [anchorSlotKey, setAnchorSlotKey] = useState<string | null>(null);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const coachLanesRef = useRef<View>(null);
+  const coachLanesAbsY = useRef(0);
+  const coachLanesAbsX = useRef(0);
+  const multiSelectRef = useRef(false);
+  const gridModeRef = useRef<"coach" | "court">("coach");
+  const coachesForDragRef = useRef<Coach[]>([]);
+  const courtsForDragRef = useRef<Court[]>([]);
+  const laneWidthRef = useRef(80);
+  const [reassignTargetSessionId, setReassignTargetSessionId] = useState<string | null>(null);
+  const [reassignTargetLabel, setReassignTargetLabel] = useState<string>("");
+  const [reassignBatchIds, setReassignBatchIds] = useState<string[]>([]);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [newMoveDate, setNewMoveDate] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; });
 
   const cancelMutation = useMutation({
     mutationFn: (session: Session) =>
@@ -94,6 +120,53 @@ export default function AdminCalendarScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
       setMobileSelectedSession(null);
       setDesktopSelectedSession(null);
+    },
+  });
+
+  const batchCancelMutation = useMutation({
+    mutationFn: async (sessionIds: string[]) => {
+      for (const id of sessionIds) {
+        const session = sessions.find(s => s.id === id);
+        if (!session) continue;
+        await apiRequest("POST", `/api/coach/sessions/${id}/cancel`, {
+          supervisorCoachId: session.coachId,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      exitMultiSelect();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Some sessions could not be cancelled. Please try again.");
+    },
+  });
+
+  const blockSlotsMutation = useMutation({
+    mutationFn: (slots: Array<{ date: string; hour: number; coachId?: string; courtId?: string }>) =>
+      apiRequest("POST", "/api/admin/blocked-slots", { slots }).then((r) => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/blocked-slots"] });
+      exitMultiSelect();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to block the selected slots. Please try again.");
+    },
+  });
+
+  const moveSessionsMutation = useMutation({
+    mutationFn: ({ sessionIds, targetDate }: { sessionIds: string[]; targetDate: string }) =>
+      apiRequest("PATCH", "/api/admin/sessions/batch-move", { sessionIds, targetDate }).then((r) => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+      exitMultiSelect();
+      setShowMoveModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to move some sessions. Please try again.");
     },
   });
 
@@ -110,6 +183,179 @@ export default function AdminCalendarScreen() {
         },
       ]
     );
+  };
+
+  const enterMultiSelect = (sessionId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setMultiSelectMode(true);
+    setSelectedSessionIds(new Set([sessionId]));
+    setAnchorSessionId(sessionId);
+    setMobileSelectedSession(null);
+  };
+
+  const enterSlotMultiSelect = (slotKey: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setMultiSelectMode(true);
+    setSelectedSlotKeys(new Set([slotKey]));
+    setAnchorSlotKey(slotKey);
+    setMobileSelectedSession(null);
+  };
+
+  const exitMultiSelect = () => {
+    setMultiSelectMode(false);
+    setSelectedSessionIds(new Set());
+    setSelectedSlotKeys(new Set());
+    setAnchorSessionId(null);
+    setAnchorSlotKey(null);
+    setReassignBatchIds([]);
+  };
+
+  // Sync refs used by stable PanResponder callbacks
+  useEffect(() => { multiSelectRef.current = multiSelectMode; }, [multiSelectMode]);
+  useEffect(() => { gridModeRef.current = gridMode; }, [gridMode]);
+  useEffect(() => { coachesForDragRef.current = selectedCoachFilter ? coaches.filter(c => c.id === selectedCoachFilter) : coaches; }, [coaches, selectedCoachFilter, gridMode]);
+  useEffect(() => { courtsForDragRef.current = courts; }, [courts]);
+  useEffect(() => {
+    const entities = gridMode === "court"
+      ? courts
+      : (selectedCoachFilter ? coaches.filter(c => c.id === selectedCoachFilter) : coaches);
+    laneWidthRef.current = Math.max(80, (SCREEN_WIDTH - TIME_COLUMN_WIDTH - Spacing.lg * 2) / Math.max(entities.length, 1));
+  }, [coaches, courts, selectedCoachFilter, gridMode]);
+
+  // Stable PanResponder for mobile drag-to-select slots (only activates in multiSelectMode)
+  const slotDragPanResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => multiSelectRef.current && Platform.OS !== "web",
+    onMoveShouldSetPanResponder: () => multiSelectRef.current && Platform.OS !== "web",
+    onPanResponderGrant: () => {
+      coachLanesRef.current?.measure((_x, _y, _w, _h, px, py) => {
+        coachLanesAbsY.current = py;
+        coachLanesAbsX.current = px;
+      });
+    },
+    onPanResponderMove: (evt) => {
+      if (!multiSelectRef.current) return;
+      const { pageX, pageY } = evt.nativeEvent;
+      const relY = pageY - coachLanesAbsY.current;
+      const relX = pageX - coachLanesAbsX.current;
+      const lw = laneWidthRef.current;
+      if (lw <= 0) return;
+      const mode = gridModeRef.current;
+      const entities = mode === "coach" ? coachesForDragRef.current : courtsForDragRef.current;
+      if (entities.length === 0) return;
+      const colIdx = Math.max(0, Math.min(entities.length - 1, Math.floor(relX / lw)));
+      const entity = entities[colIdx];
+      const hour = START_HOUR + Math.max(0, Math.min(END_HOUR - START_HOUR, Math.floor(relY / HOUR_HEIGHT)));
+      if (entity && hour >= START_HOUR && hour <= END_HOUR) {
+        const slotKey = `H${hour}:${entity.id}`;
+        setSelectedSlotKeys(prev => {
+          if (prev.has(slotKey)) return prev;
+          return new Set([...prev, slotKey]);
+        });
+      }
+    },
+  }), []);
+
+  const toggleSessionSelection = (sessionId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedSessionIds(prev => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+        if (next.size === 0 && selectedSlotKeys.size === 0) {
+          setMultiSelectMode(false);
+        }
+      } else {
+        next.add(sessionId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSlotSelection = (slotKey: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedSlotKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(slotKey)) {
+        next.delete(slotKey);
+        if (next.size === 0 && selectedSessionIds.size === 0) setMultiSelectMode(false);
+      } else {
+        next.add(slotKey);
+      }
+      return next;
+    });
+  };
+
+  const handleBatchCancel = () => {
+    const count = selectedSessionIds.size;
+    Alert.alert(
+      "Cancel Sessions",
+      `Cancel ${count} selected session${count !== 1 ? "s" : ""}? This cannot be undone.`,
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: `Cancel ${count} Session${count !== 1 ? "s" : ""}`,
+          style: "destructive",
+          onPress: () => batchCancelMutation.mutate(Array.from(selectedSessionIds)),
+        },
+      ]
+    );
+  };
+
+  const handleBatchReassign = () => {
+    const selectedList = Array.from(selectedSessionIds);
+    if (selectedList.length === 0) return;
+    const firstSession = sessions.find(s => s.id === selectedList[0]);
+    if (!firstSession) return;
+    const label = `${selectedList.length} session${selectedList.length !== 1 ? "s" : ""} selected`;
+    setReassignTargetLabel(label);
+    setReassignTargetSessionId(selectedList[0]);
+    setReassignBatchIds(selectedList);
+    setShowReassignModal(true);
+  };
+
+  const handleSingleReassign = (session: Session) => {
+    const label = `${session.sessionType || "Session"} at ${formatTime(session.startTime)}`;
+    setReassignTargetLabel(label);
+    setReassignTargetSessionId(session.id);
+    setReassignBatchIds([session.id]);
+    setShowReassignModal(true);
+    setMobileSelectedSession(null);
+  };
+
+  const handleBlockSlots = () => {
+    const count = selectedSlotKeys.size;
+    if (count === 0) return;
+    Alert.alert(
+      "Block Selected Slots",
+      `Block ${count} time slot${count !== 1 ? "s" : ""}? These will be marked unavailable for new bookings.`,
+      [
+        { text: "Keep Open", style: "cancel" },
+        {
+          text: `Block ${count} Slot${count !== 1 ? "s" : ""}`,
+          style: "destructive",
+          onPress: () => {
+            const dateStr = selectedDate.toISOString().split("T")[0];
+            const slots = Array.from(selectedSlotKeys).map((key) => {
+              const [hourPart, entityId] = key.split(":");
+              const hour = parseInt(hourPart.replace("H", ""), 10);
+              return gridMode === "coach"
+                ? { date: dateStr, hour, coachId: entityId }
+                : { date: dateStr, hour, courtId: entityId };
+            });
+            blockSlotsMutation.mutate(slots);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleMoveAll = () => {
+    const count = selectedSessionIds.size;
+    if (count === 0) return;
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + 1);
+    setNewMoveDate(next);
+    setShowMoveModal(true);
   };
 
   const isToday = useCallback((date: Date) => {
@@ -280,7 +526,7 @@ export default function AdminCalendarScreen() {
 
   const isSlotOccupied = (hour: number, coachId?: string, courtId?: string) => {
     const sessionsToCheck = gridMode === "court" ? allTodaySessions : todaySessions;
-    return sessionsToCheck.some((session) => {
+    const sessionOccupied = sessionsToCheck.some((session) => {
       const startHour = new Date(session.startTime).getHours();
       const endHour = new Date(session.endTime).getHours();
       const sessionMatches = hour >= startHour && hour < endHour;
@@ -289,6 +535,14 @@ export default function AdminCalendarScreen() {
       } else {
         return sessionMatches && session.courtId === courtId;
       }
+    });
+    if (sessionOccupied) return true;
+    // Also check DB-backed blocked slots
+    const dateStr = selectedDate.toISOString().split("T")[0];
+    return blockedSlots.some((slot: any) => {
+      if (slot.date !== dateStr || slot.hour !== hour) return false;
+      if (gridMode === "coach") return !slot.coachId || slot.coachId === coachId;
+      return !slot.courtId || slot.courtId === courtId;
     });
   };
 
@@ -352,8 +606,18 @@ export default function AdminCalendarScreen() {
             </View>
           ) : null}
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.coachLanesContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} scrollEnabled={!(multiSelectMode && Platform.OS !== "web")}>
+            <View
+              ref={coachLanesRef}
+              style={styles.coachLanesContainer}
+              {...(Platform.OS !== "web" ? slotDragPanResponder.panHandlers : {})}
+              onLayout={() => {
+                coachLanesRef.current?.measure((_x, _y, _w, _h, px, py) => {
+                  coachLanesAbsY.current = py;
+                  coachLanesAbsX.current = px;
+                });
+              }}
+            >
               {gridMode === "coach" ? (
                 (selectedCoachFilter ? coaches.filter(c => c.id === selectedCoachFilter) : coaches).map((coach, coachIndex) => {
                   const coachSessions = todaySessions.filter(s => s.coachId === coach.id);
@@ -361,12 +625,39 @@ export default function AdminCalendarScreen() {
                     <View key={coach.id} style={[styles.coachLane, { width: coachLaneWidth }]}>
                       {hours.map((hour) => {
                         const occupied = isSlotOccupied(hour, coach.id, undefined);
+                        const slotKey = `H${hour}:${coach.id}`;
+                        const isSlotSelected = selectedSlotKeys.has(slotKey);
                         return (
                           <Pressable
                             key={hour}
-                            style={[styles.hourSlot, styles.clickableSlot, { height: HOUR_HEIGHT }]}
-                            onPress={occupied ? undefined : () => handleSlotPress(hour, coach.id, undefined)}
-                            disabled={occupied}
+                            style={[
+                              styles.hourSlot,
+                              styles.clickableSlot,
+                              { height: HOUR_HEIGHT },
+                              isSlotSelected && styles.slotSelected,
+                            ]}
+                            onPress={(e) => {
+                              if (multiSelectMode) {
+                                const isShift = Platform.OS === "web" && (e?.nativeEvent as any)?.shiftKey;
+                                if (isShift && anchorSlotKey && anchorSlotKey.split(":")[1] === coach.id) {
+                                  const anchorH = parseInt(anchorSlotKey.split(":")[0].replace("H", ""), 10);
+                                  const lo = Math.min(anchorH, hour);
+                                  const hi = Math.max(anchorH, hour);
+                                  setSelectedSlotKeys(prev => {
+                                    const next = new Set(prev);
+                                    for (let h = lo; h <= hi; h++) next.add(`H${h}:${coach.id}`);
+                                    return next;
+                                  });
+                                } else {
+                                  toggleSlotSelection(slotKey);
+                                }
+                              } else if (!occupied) {
+                                handleSlotPress(hour, coach.id, undefined);
+                              }
+                            }}
+                            onLongPress={() => {
+                              if (!occupied) enterSlotMultiSelect(slotKey);
+                            }}
                           >
                             {!occupied ? (
                               <View style={styles.emptySlotIndicator}>
@@ -376,10 +667,11 @@ export default function AdminCalendarScreen() {
                           </Pressable>
                         );
                       })}
-                      
+
                       {coachSessions.map((session) => {
                         const { top, height } = getSessionPosition(session);
                         const color = COACH_COLORS[coachIndex % COACH_COLORS.length];
+                        const isSelected = selectedSessionIds.has(session.id);
                         return (
                           <Pressable
                             key={session.id}
@@ -390,11 +682,34 @@ export default function AdminCalendarScreen() {
                                 height: height - 4,
                                 opacity: session.status === "completed" || session.status === "cancelled" ? 0.6 : 1,
                               },
+                              isSelected && styles.sessionBlockSelected,
                             ]}
-                            onPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                              setMobileSelectedSession(session);
+                            onPress={(e) => {
+                              const isShiftHeld = Platform.OS === "web" && (e?.nativeEvent as any)?.shiftKey;
+                              if (isShiftHeld && anchorSessionId && multiSelectMode) {
+                                const ordered = [...allTodaySessions].sort(
+                                  (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+                                );
+                                const ai = ordered.findIndex(s => s.id === anchorSessionId);
+                                const ti = ordered.findIndex(s => s.id === session.id);
+                                if (ai !== -1 && ti !== -1) {
+                                  const lo = Math.min(ai, ti);
+                                  const hi = Math.max(ai, ti);
+                                  setSelectedSessionIds(prev => {
+                                    const next = new Set(prev);
+                                    ordered.slice(lo, hi + 1).forEach(s => next.add(s.id));
+                                    return next;
+                                  });
+                                }
+                              } else if (multiSelectMode || isShiftHeld) {
+                                if (!multiSelectMode) enterMultiSelect(session.id);
+                                else toggleSessionSelection(session.id);
+                              } else {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setMobileSelectedSession(session);
+                              }
                             }}
+                            onLongPress={() => enterMultiSelect(session.id)}
                           >
                             <LinearGradient
                               colors={[color, `${color}CC`]}
@@ -423,6 +738,25 @@ export default function AdminCalendarScreen() {
                           </Pressable>
                         );
                       })}
+
+                      {blockedSlots
+                        .filter((slot: any) => {
+                          const dateStr = selectedDate.toISOString().split("T")[0];
+                          return slot.date === dateStr && (!slot.coachId || slot.coachId === coach.id);
+                        })
+                        .map((slot: any) => {
+                          const top = (slot.hour - START_HOUR) * HOUR_HEIGHT;
+                          return (
+                            <View
+                              key={slot.id}
+                              style={[styles.blockedSlotBlock, { top, height: HOUR_HEIGHT - 4 }]}
+                              pointerEvents="none"
+                            >
+                              <Ionicons name="ban-outline" size={12} color="rgba(255,255,255,0.35)" />
+                              <Text style={styles.blockedSlotText}>Blocked</Text>
+                            </View>
+                          );
+                        })}
                     </View>
                   );
                 })
@@ -433,12 +767,39 @@ export default function AdminCalendarScreen() {
                     <View key={court.id} style={[styles.coachLane, { width: courtLaneWidth }]}>
                       {hours.map((hour) => {
                         const occupied = isSlotOccupied(hour, undefined, court.id);
+                        const slotKey = `H${hour}:${court.id}`;
+                        const isSlotSelected = selectedSlotKeys.has(slotKey);
                         return (
                           <Pressable
                             key={hour}
-                            style={[styles.hourSlot, styles.clickableSlot, { height: HOUR_HEIGHT }]}
-                            onPress={occupied ? undefined : () => handleSlotPress(hour, undefined, court.id)}
-                            disabled={occupied}
+                            style={[
+                              styles.hourSlot,
+                              styles.clickableSlot,
+                              { height: HOUR_HEIGHT },
+                              isSlotSelected && styles.slotSelected,
+                            ]}
+                            onPress={(e) => {
+                              if (multiSelectMode) {
+                                const isShift = Platform.OS === "web" && (e?.nativeEvent as any)?.shiftKey;
+                                if (isShift && anchorSlotKey && anchorSlotKey.split(":")[1] === court.id) {
+                                  const anchorH = parseInt(anchorSlotKey.split(":")[0].replace("H", ""), 10);
+                                  const lo = Math.min(anchorH, hour);
+                                  const hi = Math.max(anchorH, hour);
+                                  setSelectedSlotKeys(prev => {
+                                    const next = new Set(prev);
+                                    for (let h = lo; h <= hi; h++) next.add(`H${h}:${court.id}`);
+                                    return next;
+                                  });
+                                } else {
+                                  toggleSlotSelection(slotKey);
+                                }
+                              } else if (!occupied) {
+                                handleSlotPress(hour, undefined, court.id);
+                              }
+                            }}
+                            onLongPress={() => {
+                              if (!occupied) enterSlotMultiSelect(slotKey);
+                            }}
                           >
                             {!occupied ? (
                               <View style={styles.emptySlotIndicator}>
@@ -448,10 +809,11 @@ export default function AdminCalendarScreen() {
                           </Pressable>
                         );
                       })}
-                      
+
                       {courtSessions.map((session) => {
                         const { top, height } = getSessionPosition(session);
                         const color = COURT_COLORS[courtIndex % COURT_COLORS.length];
+                        const isSelected = selectedSessionIds.has(session.id);
                         return (
                           <Pressable
                             key={session.id}
@@ -462,11 +824,34 @@ export default function AdminCalendarScreen() {
                                 height: height - 4,
                                 opacity: session.status === "completed" || session.status === "cancelled" ? 0.6 : 1,
                               },
+                              isSelected && styles.sessionBlockSelected,
                             ]}
-                            onPress={() => {
-                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                              setMobileSelectedSession(session);
+                            onPress={(e) => {
+                              const isShiftHeld = Platform.OS === "web" && (e?.nativeEvent as any)?.shiftKey;
+                              if (isShiftHeld && anchorSessionId && multiSelectMode) {
+                                const ordered = [...allTodaySessions].sort(
+                                  (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+                                );
+                                const ai = ordered.findIndex(s => s.id === anchorSessionId);
+                                const ti = ordered.findIndex(s => s.id === session.id);
+                                if (ai !== -1 && ti !== -1) {
+                                  const lo = Math.min(ai, ti);
+                                  const hi = Math.max(ai, ti);
+                                  setSelectedSessionIds(prev => {
+                                    const next = new Set(prev);
+                                    ordered.slice(lo, hi + 1).forEach(s => next.add(s.id));
+                                    return next;
+                                  });
+                                }
+                              } else if (multiSelectMode || isShiftHeld) {
+                                if (!multiSelectMode) enterMultiSelect(session.id);
+                                else toggleSessionSelection(session.id);
+                              } else {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setMobileSelectedSession(session);
+                              }
                             }}
+                            onLongPress={() => enterMultiSelect(session.id)}
                           >
                             <LinearGradient
                               colors={[color, `${color}CC`]}
@@ -492,6 +877,25 @@ export default function AdminCalendarScreen() {
                           </Pressable>
                         );
                       })}
+
+                      {blockedSlots
+                        .filter((slot: any) => {
+                          const dateStr = selectedDate.toISOString().split("T")[0];
+                          return slot.date === dateStr && (!slot.courtId || slot.courtId === court.id);
+                        })
+                        .map((slot: any) => {
+                          const top = (slot.hour - START_HOUR) * HOUR_HEIGHT;
+                          return (
+                            <View
+                              key={slot.id}
+                              style={[styles.blockedSlotBlock, { top, height: HOUR_HEIGHT - 4 }]}
+                              pointerEvents="none"
+                            >
+                              <Ionicons name="ban-outline" size={12} color="rgba(255,255,255,0.35)" />
+                              <Text style={styles.blockedSlotText}>Blocked</Text>
+                            </View>
+                          );
+                        })}
                     </View>
                   );
                 })
@@ -767,16 +1171,31 @@ export default function AdminCalendarScreen() {
                           <Text style={calStyles.quickActionText}>New this slot</Text>
                         </Pressable>
                         {s.status !== "cancelled" && s.status !== "completed" ? (
-                          <Pressable
-                            style={[calStyles.quickAction, { borderColor: "rgba(239,68,68,0.3)", backgroundColor: "rgba(239,68,68,0.08)" }]}
-                            onPress={() => handleCancelSession(s)}
-                            disabled={cancelMutation.isPending}
-                          >
-                            <Ionicons name="close-circle-outline" size={14} color="#EF4444" />
-                            <Text style={[calStyles.quickActionText, { color: "#EF4444" }]}>
-                              {cancelMutation.isPending ? "Cancelling..." : "Cancel Session"}
-                            </Text>
-                          </Pressable>
+                          <>
+                            <Pressable
+                              style={[calStyles.quickAction, { borderColor: "rgba(249,115,22,0.3)", backgroundColor: "rgba(249,115,22,0.08)" }]}
+                              onPress={() => {
+                                const label = `${s.sessionType || "Session"} at ${new Date(s.startTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}`;
+                                setReassignTargetLabel(label);
+                                setReassignTargetSessionId(s.id);
+                                setShowReassignModal(true);
+                                setDesktopSelectedSession(null);
+                              }}
+                            >
+                              <Ionicons name="swap-horizontal-outline" size={14} color={Colors.dark.orange} />
+                              <Text style={[calStyles.quickActionText, { color: Colors.dark.orange }]}>Reassign Coach</Text>
+                            </Pressable>
+                            <Pressable
+                              style={[calStyles.quickAction, { borderColor: "rgba(239,68,68,0.3)", backgroundColor: "rgba(239,68,68,0.08)" }]}
+                              onPress={() => handleCancelSession(s)}
+                              disabled={cancelMutation.isPending}
+                            >
+                              <Ionicons name="close-circle-outline" size={14} color="#EF4444" />
+                              <Text style={[calStyles.quickActionText, { color: "#EF4444" }]}>
+                                {cancelMutation.isPending ? "Cancelling..." : "Cancel Session"}
+                              </Text>
+                            </Pressable>
+                          </>
                         ) : null}
                         <Pressable
                           style={[calStyles.quickAction, { borderColor: "rgba(255,133,27,0.3)", backgroundColor: "rgba(255,133,27,0.08)" }]}
@@ -987,6 +1406,157 @@ export default function AdminCalendarScreen() {
         initialCourtId={selectedSlot?.courtId}
       />
 
+      {multiSelectMode ? (
+        <View style={[styles.multiSelectBar, { bottom: insets.bottom + 90 }]}>
+          <Pressable style={styles.multiSelectExit} onPress={exitMultiSelect}>
+            <Ionicons name="close" size={18} color={Colors.dark.textMuted} />
+          </Pressable>
+          <Text style={styles.multiSelectCount}>
+            {selectedSessionIds.size + selectedSlotKeys.size}{" "}
+            {selectedSlotKeys.size > 0 && selectedSessionIds.size === 0
+              ? `slot${selectedSlotKeys.size !== 1 ? "s" : ""}`
+              : selectedSlotKeys.size > 0
+              ? `selected (${selectedSlotKeys.size} slot${selectedSlotKeys.size !== 1 ? "s" : ""})`
+              : "selected"}
+          </Text>
+          <View style={styles.multiSelectActions}>
+            {selectedSlotKeys.size > 0 ? (
+              <Pressable
+                style={[styles.multiSelectAction, { backgroundColor: "rgba(156,163,175,0.15)" }]}
+                onPress={handleBlockSlots}
+                disabled={blockSlotsMutation.isPending}
+              >
+                {blockSlotsMutation.isPending ? (
+                  <TennisBallSpinner size="small" color={Colors.dark.textMuted} />
+                ) : (
+                  <Ionicons name="ban" size={16} color={Colors.dark.textMuted} />
+                )}
+                <Text style={[styles.multiSelectActionText, { color: Colors.dark.textMuted }]}>Block</Text>
+              </Pressable>
+            ) : null}
+            {selectedSessionIds.size > 0 ? (
+              <Pressable
+                style={[styles.multiSelectAction, { backgroundColor: "rgba(99,102,241,0.15)" }]}
+                onPress={handleMoveAll}
+              >
+                <Ionicons name="calendar-outline" size={16} color="#818CF8" />
+                <Text style={[styles.multiSelectActionText, { color: "#818CF8" }]}>Move</Text>
+              </Pressable>
+            ) : null}
+            {selectedSessionIds.size > 0 ? (
+              <Pressable
+                style={[styles.multiSelectAction, { backgroundColor: `${Colors.dark.orange}20` }]}
+                onPress={handleBatchReassign}
+              >
+                <Ionicons name="swap-horizontal" size={16} color={Colors.dark.orange} />
+                <Text style={[styles.multiSelectActionText, { color: Colors.dark.orange }]}>Reassign</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={[styles.multiSelectAction, { backgroundColor: `${Colors.dark.error}20` }]}
+              onPress={handleBatchCancel}
+              disabled={selectedSessionIds.size === 0 || batchCancelMutation.isPending}
+            >
+              {batchCancelMutation.isPending ? (
+                <TennisBallSpinner size="small" color={Colors.dark.error} />
+              ) : (
+                <Ionicons name="close-circle" size={16} color={Colors.dark.error} />
+              )}
+              <Text style={[styles.multiSelectActionText, { color: Colors.dark.error }]}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      <ReassignCoachModal
+        visible={showReassignModal}
+        sessionId={reassignTargetSessionId}
+        sessionLabel={reassignTargetLabel}
+        batchSessionIds={reassignBatchIds}
+        onClose={() => {
+          setShowReassignModal(false);
+          setReassignTargetSessionId(null);
+          setReassignBatchIds([]);
+          exitMultiSelect();
+        }}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+          exitMultiSelect();
+        }}
+      />
+
+      <Modal
+        visible={showMoveModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMoveModal(false)}
+      >
+        <View style={styles.moveModalOverlay}>
+          <View style={styles.moveModalSheet}>
+            <View style={styles.moveModalHeader}>
+              <Text style={styles.moveModalTitle}>Move Sessions</Text>
+              <Pressable onPress={() => setShowMoveModal(false)}>
+                <Ionicons name="close" size={22} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={styles.moveModalSubtitle}>
+              Move {selectedSessionIds.size} session{selectedSessionIds.size !== 1 ? "s" : ""} to a new date.
+            </Text>
+
+            <View style={styles.moveDateRow}>
+              <Ionicons name="calendar-outline" size={18} color="#818CF8" />
+              <Text style={styles.moveDateLabel}>Target date</Text>
+              <Pressable
+                style={styles.moveDateBtn}
+                onPress={() => {
+                  const prev = new Date(newMoveDate);
+                  prev.setDate(prev.getDate() - 1);
+                  if (prev > selectedDate) setNewMoveDate(prev);
+                }}
+              >
+                <Ionicons name="chevron-back" size={16} color={Colors.dark.textMuted} />
+              </Pressable>
+              <Text style={styles.moveDateValue}>
+                {newMoveDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+              </Text>
+              <Pressable
+                style={styles.moveDateBtn}
+                onPress={() => {
+                  const next = new Date(newMoveDate);
+                  next.setDate(next.getDate() + 1);
+                  setNewMoveDate(next);
+                }}
+              >
+                <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+              </Pressable>
+            </View>
+
+            <View style={styles.moveModalActions}>
+              <Pressable style={styles.moveCancelBtn} onPress={() => setShowMoveModal(false)}>
+                <Text style={styles.moveCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.moveConfirmBtn, moveSessionsMutation.isPending && { opacity: 0.6 }]}
+                onPress={() => {
+                  const dateStr = newMoveDate.toISOString().split("T")[0];
+                  moveSessionsMutation.mutate({ sessionIds: Array.from(selectedSessionIds), targetDate: dateStr });
+                }}
+                disabled={moveSessionsMutation.isPending}
+              >
+                {moveSessionsMutation.isPending ? (
+                  <TennisBallSpinner size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="checkmark" size={18} color="#fff" />
+                )}
+                <Text style={styles.moveConfirmText}>
+                  {moveSessionsMutation.isPending ? "Moving..." : "Confirm Move"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         visible={mobileSelectedSession !== null}
         transparent
@@ -1027,16 +1597,25 @@ export default function AdminCalendarScreen() {
                   </View>
                 ))}
                 {mobileSelectedSession.status !== "cancelled" && mobileSelectedSession.status !== "completed" ? (
-                  <Pressable
-                    style={[styles.cancelButton, cancelMutation.isPending && styles.cancelButtonDisabled]}
-                    onPress={() => handleCancelSession(mobileSelectedSession)}
-                    disabled={cancelMutation.isPending}
-                  >
-                    <Ionicons name="close-circle-outline" size={18} color="#fff" />
-                    <Text style={styles.cancelButtonText}>
-                      {cancelMutation.isPending ? "Cancelling..." : "Cancel Session"}
-                    </Text>
-                  </Pressable>
+                  <View style={styles.modalActions}>
+                    <Pressable
+                      style={styles.reassignButton}
+                      onPress={() => handleSingleReassign(mobileSelectedSession)}
+                    >
+                      <Ionicons name="swap-horizontal-outline" size={16} color={Colors.dark.orange} />
+                      <Text style={styles.reassignButtonText}>Reassign Coach</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.cancelButton, cancelMutation.isPending && styles.cancelButtonDisabled]}
+                      onPress={() => handleCancelSession(mobileSelectedSession)}
+                      disabled={cancelMutation.isPending}
+                    >
+                      <Ionicons name="close-circle-outline" size={16} color="#fff" />
+                      <Text style={styles.cancelButtonText}>
+                        {cancelMutation.isPending ? "Cancelling..." : "Cancel"}
+                      </Text>
+                    </Pressable>
+                  </View>
                 ) : null}
               </>
             ) : null}
@@ -1525,6 +2104,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   cancelButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1532,7 +2112,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#EF4444",
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
-    marginTop: Spacing.lg,
   },
   cancelButtonDisabled: {
     opacity: 0.5,
@@ -1541,6 +2120,196 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: "#fff",
     fontWeight: "700",
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  reassignButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${Colors.dark.orange}15`,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.orange}30`,
+  },
+  reassignButtonText: {
+    ...Typography.body,
+    color: Colors.dark.orange,
+    fontWeight: "700",
+  },
+  sessionBlockSelected: {
+    borderWidth: 2,
+    borderColor: "#C8FF3D",
+  },
+  multiSelectBar: {
+    position: "absolute",
+    left: Spacing.lg,
+    right: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.orange}60`,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+    ...Platform.select({
+      ios: {
+        shadowColor: Colors.dark.orange,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  multiSelectExit: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.backgroundRoot,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  multiSelectCount: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    flex: 1,
+  },
+  multiSelectActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  multiSelectAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+  },
+  multiSelectActionText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  slotSelected: {
+    backgroundColor: "rgba(99,102,241,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(99,102,241,0.5)",
+  },
+  blockedSlotBlock: {
+    position: "absolute",
+    left: 2,
+    right: 2,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderStyle: "dotted",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 4,
+    overflow: "hidden",
+  },
+  blockedSlotText: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.35)",
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  moveModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  moveModalSheet: {
+    backgroundColor: "#16191F",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.08)",
+  },
+  moveModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  moveModalTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  moveModalSubtitle: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    marginBottom: 24,
+  },
+  moveDateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 24,
+  },
+  moveDateLabel: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+  },
+  moveDateValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  moveDateBtn: {
+    padding: 4,
+  },
+  moveModalActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  moveCancelBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  moveCancelText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  moveConfirmBtn: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: "#4F46E5",
+  },
+  moveConfirmText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#fff",
   },
 });
 

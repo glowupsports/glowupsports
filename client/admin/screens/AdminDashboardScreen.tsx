@@ -48,6 +48,8 @@ import { HelpButton } from "@/components/HelpButton";
 import { NotificationGuideModal } from "@/components/NotificationGuideModal";
 import { FirstActionCelebration } from "@/components/FirstActionCelebration";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import ReassignCoachModal from "@/admin/components/ReassignCoachModal";
+import MarkAbsentSheet from "@/admin/components/MarkAbsentSheet";
 
 type AdminNavProp = CompositeNavigationProp<
   BottomTabNavigationProp<AdminTabParamList>,
@@ -297,6 +299,8 @@ export default function AdminDashboardScreen() {
   const [showNotificationGuide, setShowNotificationGuide] = useState(false);
   const [showFirstCelebration, setShowFirstCelebration] = useState(false);
   const [celebrationData, _setCelebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
+  const [reassignSessionId, setReassignSessionId] = useState<string | null>(null);
+  const [markAbsentVisible, setMarkAbsentVisible] = useState(false);
 
 
   const adminFAQs = [
@@ -401,6 +405,7 @@ export default function AdminDashboardScreen() {
                 sessions={sessionQueue}
                 onSessionPress={(_id) => navigateToTab("AdminSchedule")}
                 onStartSession={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+                onReassignCoach={(id) => setReassignSessionId(id)}
                 onViewAll={() => navigateToTab("AdminSchedule")}
               />
             </View>
@@ -515,6 +520,7 @@ export default function AdminDashboardScreen() {
               sessions={sessionQueue}
               onSessionPress={(_id) => navigateToTab("AdminSchedule")}
               onStartSession={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+              onReassignCoach={(id) => setReassignSessionId(id)}
               onViewAll={() => navigateToTab("AdminSchedule")}
             />
 
@@ -557,7 +563,7 @@ export default function AdminDashboardScreen() {
                   { icon: "play-circle" as const, label: "Start Session", color: Colors.dark.orange, onPress: () => navigateToTab("AdminSchedule") },
                   { icon: "log-in" as const, label: "Check-in", color: Colors.dark.xpCyan, onPress: () => navigateToTab("AdminPlayers") },
                   { icon: "calendar" as const, label: "Schedule", color: Colors.dark.primary, onPress: () => navigateToTab("AdminSchedule") },
-                  { icon: "clipboard" as const, label: "Attendance", color: Colors.dark.gold, onPress: () => navigateToTab("AdminPlayers") },
+                  { icon: "ban-outline" as const, label: "Mark Unavailable", color: Colors.dark.error || "#FF453A", onPress: () => setMarkAbsentVisible(true) },
                 ].map((action) => (
                   <Pressable
                     key={action.label}
@@ -660,6 +666,21 @@ export default function AdminDashboardScreen() {
       <HelpButton role="admin" faqs={adminFAQs} supportEmail="support@glowupsports.com" bottomOffset={120} />
       <NotificationGuideModal visible={showNotificationGuide} onClose={() => setShowNotificationGuide(false)} role="admin" />
       <FirstActionCelebration visible={showFirstCelebration} onClose={() => setShowFirstCelebration(false)} title={celebrationData.title} description={celebrationData.description} icon={celebrationData.icon} xpReward={celebrationData.xpReward} />
+
+      <ReassignCoachModal
+        visible={!!reassignSessionId}
+        sessionId={reassignSessionId}
+        sessionLabel="Selected Session"
+        onClose={() => setReassignSessionId(null)}
+        onSuccess={() => { refetch(); setReassignSessionId(null); }}
+      />
+
+      <MarkAbsentSheet
+        visible={markAbsentVisible}
+        coachId={null}
+        coachName=""
+        onClose={() => setMarkAbsentVisible(false)}
+      />
     </View>
   );
 }

@@ -24,14 +24,16 @@ interface SessionQueuePanelProps {
   sessions: Session[];
   onSessionPress?: (id: string) => void;
   onStartSession?: (id: string) => void;
+  onReassignCoach?: (id: string) => void;
   onViewAll?: () => void;
 }
 
-function SessionCard({ session, index, onPress, onStart }: {
+function SessionCard({ session, index, onPress, onStart, onReassign }: {
   session: Session;
   index: number;
   onPress?: () => void;
   onStart?: () => void;
+  onReassign?: () => void;
 }) {
   const translateX = useSharedValue(30);
   const opacity = useSharedValue(0);
@@ -95,15 +97,27 @@ function SessionCard({ session, index, onPress, onStart }: {
           </View>
 
           {session.status === "upcoming" && (
-            <Pressable
-              style={styles.startBtn}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                onStart?.();
-              }}
-            >
-              <Text style={styles.startBtnText}>Start</Text>
-            </Pressable>
+            <View style={styles.footerActions}>
+              <Pressable
+                style={styles.reassignBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onReassign?.();
+                }}
+              >
+                <Ionicons name="swap-horizontal-outline" size={11} color={Colors.dark.gold} />
+                <Text style={styles.reassignBtnText}>Reassign</Text>
+              </Pressable>
+              <Pressable
+                style={styles.startBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  onStart?.();
+                }}
+              >
+                <Text style={styles.startBtnText}>Start</Text>
+              </Pressable>
+            </View>
           )}
 
           {session.status === "in_progress" && (
@@ -122,6 +136,7 @@ export function SessionQueuePanel({
   sessions,
   onSessionPress,
   onStartSession,
+  onReassignCoach,
   onViewAll,
 }: SessionQueuePanelProps) {
   const upcoming = sessions.filter(s => s.status === "upcoming");
@@ -173,6 +188,7 @@ export function SessionQueuePanel({
               index={i}
               onPress={() => onSessionPress?.(session.id)}
               onStart={() => onStartSession?.(session.id)}
+              onReassign={() => onReassignCoach?.(session.id)}
             />
           ))}
         </ScrollView>
@@ -296,6 +312,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  footerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  reassignBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: Colors.dark.gold + "18",
+    borderRadius: BorderRadius.sm,
+  },
+  reassignBtnText: {
+    ...Typography.small,
+    color: Colors.dark.gold,
+    fontWeight: "600",
+    fontSize: 10,
   },
   playerCount: {
     flexDirection: "row",

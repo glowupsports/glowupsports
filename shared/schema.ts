@@ -9218,6 +9218,19 @@ export const arenaDailyChallengeClaims = pgTable("arena_daily_challenge_claims",
 
 export type ArenaDailyChallengeClam = typeof arenaDailyChallengeClaims.$inferSelect;
 
+// Coach blocked calendar slots (persisted scheduling tool)
+export const coachBlockedSlots = pgTable("coach_blocked_slots", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  academyId: varchar("academy_id", { length: 255 }).notNull(),
+  date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
+  hour: integer("hour").notNull(), // 0-23
+  coachId: varchar("coach_id", { length: 255 }),
+  courtId: varchar("court_id", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type CoachBlockedSlot = typeof coachBlockedSlots.$inferSelect;
+export type InsertCoachBlockedSlot = typeof coachBlockedSlots.$inferInsert;
+
 // ==================== ARENA RARITY HELPERS ====================
 
 export type ArenaRarityTier =

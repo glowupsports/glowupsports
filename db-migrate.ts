@@ -922,6 +922,24 @@ async function run() {
     `);
     console.log("[db-migrate] academy_settings.cancellation_policy — OK");
 
+    // ── Coach blocked calendar slots table ──────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS coach_blocked_slots (
+        id VARCHAR(255) PRIMARY KEY,
+        academy_id VARCHAR(255) NOT NULL,
+        date VARCHAR(10) NOT NULL,
+        hour INTEGER NOT NULL,
+        coach_id VARCHAR(255),
+        court_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS coach_blocked_slots_academy_date_idx
+        ON coach_blocked_slots (academy_id, date)
+    `);
+    console.log("[db-migrate] coach_blocked_slots table — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

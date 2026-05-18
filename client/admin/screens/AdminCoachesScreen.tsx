@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { useDesktop } from "@/hooks/useDesktop";
+import MarkAbsentSheet from "@/admin/components/MarkAbsentSheet";
 interface Coach {
   id: string;
   name: string;
@@ -141,6 +142,7 @@ export default function AdminCoachesScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showMarkAbsent, setShowMarkAbsent] = useState(false);
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null);
   const [pendingPayment, setPendingPayment] = useState<{ month: number; year: number } | null>(null);
@@ -422,6 +424,25 @@ export default function AdminCoachesScreen() {
     <Pressable
       style={[styles.coachCard, CardStyles.elevated, isDesktop && item.id === selectedCoachId && dtStyles.coachCardSelected]}
       onPress={() => openDetailModal(item.id)}
+      onLongPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        Alert.alert(
+          item.name,
+          "Quick actions",
+          [
+            {
+              text: "Mark Unavailable Today",
+              style: "destructive",
+              onPress: () => {
+                setSelectedCoachId(item.id);
+                setShowMarkAbsent(true);
+              },
+            },
+            { text: "Open Details", onPress: () => openDetailModal(item.id) },
+            { text: "Cancel", style: "cancel" },
+          ],
+        );
+      }}
     >
       <View style={styles.coachAvatar}>
         <Ionicons name="person" size={24} color={Colors.dark.primary} />
@@ -789,6 +810,17 @@ export default function AdminCoachesScreen() {
               </View>
             )}
           </View>
+
+          <Pressable
+            style={styles.markAbsentButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowMarkAbsent(true);
+            }}
+          >
+            <Ionicons name="person-remove-outline" size={20} color={Colors.dark.error} />
+            <Text style={styles.markAbsentText}>Mark Unavailable Today</Text>
+          </Pressable>
 
           <Pressable
             style={styles.transferSessionsButton}
@@ -1230,6 +1262,13 @@ export default function AdminCoachesScreen() {
       
 
       {renderDetailModal()}
+
+      <MarkAbsentSheet
+        visible={showMarkAbsent}
+        coachId={selectedCoachId}
+        coachName={selectedCoach?.name || coachStats?.coach?.name || "Coach"}
+        onClose={() => setShowMarkAbsent(false)}
+      />
 
       <Modal
         visible={showAddModal}
@@ -1753,6 +1792,23 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.textMuted,
     marginTop: Spacing.sm,
+  },
+  markAbsentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: `${Colors.dark.error}15`,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.dark.error}30`,
+  },
+  markAbsentText: {
+    ...Typography.body,
+    color: Colors.dark.error,
+    fontWeight: "600",
   },
   transferSessionsButton: {
     flexDirection: "row",

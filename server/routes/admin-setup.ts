@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
   import { db, pool } from "../db";
   import { storage } from "../storage";
   import { eq, sql, and, inArray, count } from "drizzle-orm";
-  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema, playerInvites } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema, playerInvites, coachBlockedSlots } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
   
   function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
@@ -3139,5 +3139,400 @@ import { Router, type Request, type Response } from "express";
       }
     },
   );
+
+
+  // ==================== COACH SUBSTITUTION & SMART SCHEDULING ====================
+
+  // Get coaches available at a specific session's time, with daily load info
+  router.get(
+    "/api/admin/coaches/available-at",
+    authMiddleware,
+    requireAcademy,
+    requireRole("academy_owner", "platform_owner", "admin"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId!;
+        const { sessionId } = req.query;
+        if (!sessionId) {
+          return res.status(400).json({ error: "sessionId query param required" });
+        }
+
+        const session = await storage.getSession(sessionId as string, academyId);
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        const sessionStart = new Date(session.startTime);
+        const sessionEnd = new Date(session.endTime);
+
+        const allCoaches = await storage.getAllCoaches(academyId);
+        const allSessions = await storage.getSessionsByAcademy(academyId);
+
+        const todayStr = sessionStart.toDateString();
+
+        const coachesWithLoad = allCoaches.map((coach: any) => {
+          const coachSessions = allSessions.filter(
+            (s: any) => s.coachId === coach.id && s.status !== "cancelled",
+          );
+
+          const todaySessions = coachSessions.filter(
+            (s: any) => new Date(s.startTime).toDateString() === todayStr,
+          );
+
+          const hasConflict = coachSessions.some((s: any) => {
+            if (s.id === session.id) return false;
+            const sStart = new Date(s.startTime);
+            const sEnd = new Date(s.endTime);
+            return sStart < sessionEnd && sEnd > sessionStart;
+          });
+
+          return {
+            id: coach.id,
+            name: coach.name,
+            specialty: coach.specialty,
+            role: coach.role,
+            sessionsToday: todaySessions.length,
+            isFreeAtTime: !hasConflict,
+            isCurrentCoach: coach.id === session.coachId,
+          };
+        });
+
+        // Sort: available first, then specialty/court affinity, then fewest sessions today
+        const sessionTypeWords = (session.sessionType || "").toLowerCase().split(/[\s_-]+/).filter(Boolean);
+        const sessionCourt = session.courtId;
+        coachesWithLoad.sort((a: any, b: any) => {
+          if (a.isFreeAtTime !== b.isFreeAtTime) return a.isFreeAtTime ? -1 : 1;
+          // Specialty affinity: does coach specialty string contain any session-type keyword?
+          const aSpec = (a.specialty || "").toLowerCase();
+          const bSpec = (b.specialty || "").toLowerCase();
+          const aSpecMatch = sessionTypeWords.some((kw: string) => aSpec.includes(kw)) ? 0 : 1;
+          const bSpecMatch = sessionTypeWords.some((kw: string) => bSpec.includes(kw)) ? 0 : 1;
+          if (aSpecMatch !== bSpecMatch) return aSpecMatch - bSpecMatch;
+          // Court affinity: prefer coaches who have previously coached on this court
+          const aCourtCount = sessionCourt
+            ? allSessions.filter((s: any) => s.coachId === a.id && s.courtId === sessionCourt).length
+            : 0;
+          const bCourtCount = sessionCourt
+            ? allSessions.filter((s: any) => s.coachId === b.id && s.courtId === sessionCourt).length
+            : 0;
+          if (aCourtCount !== bCourtCount) return bCourtCount - aCourtCount;
+          return a.sessionsToday - b.sessionsToday;
+        });
+
+        res.json({
+          session: {
+            id: session.id,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            sessionType: session.sessionType,
+            coachId: session.coachId,
+          },
+          coaches: coachesWithLoad,
+        });
+      } catch (error) {
+        console.error("Error fetching available coaches:", error);
+        res.status(500).json({ error: "Failed to fetch available coaches" });
+      }
+    },
+  );
+
+  // Get today's sessions for a specific coach (for absent flow)
+  router.get(
+    "/api/admin/coaches/:id/sessions-today",
+    authMiddleware,
+    requireAcademy,
+    requireRole("academy_owner", "platform_owner", "admin"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId!;
+        const { id: coachId } = req.params;
+        const allSessions = await storage.getSessionsByAcademy(academyId);
+        const today = new Date().toDateString();
+        const todaySessions = allSessions.filter(
+          (s: any) =>
+            s.coachId === coachId &&
+            new Date(s.startTime).toDateString() === today &&
+            s.status !== "cancelled",
+        );
+        res.json(todaySessions);
+      } catch (error) {
+        console.error("Error fetching coach sessions today:", error);
+        res.status(500).json({ error: "Failed to fetch sessions" });
+      }
+    },
+  );
+
+  // Reassign a session to a new coach + fire push notifications
+  router.patch(
+    "/api/admin/sessions/:id/reassign-coach",
+    authMiddleware,
+    requireAcademy,
+    requireRole("academy_owner", "platform_owner", "admin"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId!;
+        const { id: sessionId } = req.params;
+        const { newCoachId, dryRun } = req.body;
+
+        if (!newCoachId) {
+          return res.status(400).json({ error: "newCoachId is required" });
+        }
+
+        const session = await storage.getSession(sessionId, academyId);
+        if (!session) {
+          return res.status(404).json({ error: "Session not found" });
+        }
+
+        const oldCoachId = session.coachId;
+
+        // Academy-bound validation: reject if coach doesn't belong to this academy
+        const allCoaches = await storage.getAllCoaches(academyId);
+        if (!allCoaches.some((c: any) => c.id === newCoachId)) {
+          return res.status(403).json({ error: "Coach does not belong to this academy" });
+        }
+
+        // Server-side conflict check: reject if new coach is already booked at this time
+        const allSessions = await storage.getSessionsByAcademy(academyId);
+        const sessionStart = new Date(session.startTime);
+        const sessionEnd = new Date(session.endTime);
+        const conflict = allSessions.find((s: any) =>
+          s.coachId === newCoachId &&
+          s.id !== sessionId &&
+          s.status !== "cancelled" &&
+          new Date(s.startTime) < sessionEnd &&
+          new Date(s.endTime) > sessionStart,
+        );
+        if (conflict) {
+          return res.status(409).json({
+            error: "This coach is already scheduled at this time. Please choose a different coach.",
+            conflict: true,
+          });
+        }
+
+        // Dry-run mode: conflict checks only, no DB mutation
+        if (dryRun) {
+          return res.json({ ok: true, dryRun: true });
+        }
+
+        const updated = await storage.updateSession(sessionId, { coachId: newCoachId });
+        if (!updated) {
+          return res.status(500).json({ error: "Failed to update session" });
+        }
+
+        // Fire push notifications asynchronously (do not block response)
+        (async () => {
+          try {
+            const { sendPushNotification, getCoachPushTokens, getPlayerPushTokens } =
+              await import("../pushNotifications");
+
+            const sessionTime = new Date(session.startTime).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            });
+
+            const allCoaches = await storage.getAllCoaches(academyId);
+            const newCoach = allCoaches.find((c: any) => c.id === newCoachId);
+            const newCoachName = newCoach?.name || "a new coach";
+
+            // Notify old coach
+            if (oldCoachId && oldCoachId !== newCoachId) {
+              const oldTokens = await getCoachPushTokens(oldCoachId);
+              if (oldTokens.length > 0) {
+                await sendPushNotification(
+                  oldTokens,
+                  "Session Reassigned",
+                  `Your ${session.sessionType || "session"} at ${sessionTime} has been reassigned to ${newCoachName}.`,
+                  { type: "session_reassigned", sessionId },
+                );
+              }
+            }
+
+            // Notify new coach
+            const newTokens = await getCoachPushTokens(newCoachId);
+            if (newTokens.length > 0) {
+              await sendPushNotification(
+                newTokens,
+                "New Session Assigned",
+                `You have a new ${session.sessionType || "session"} at ${sessionTime}.`,
+                { type: "session_assigned", sessionId },
+              );
+            }
+
+            // Notify enrolled players
+            const players = await storage.getSessionPlayers(sessionId);
+            for (const player of players) {
+              if (!player.id) continue;
+              const playerTokens = await getPlayerPushTokens(player.id);
+              if (playerTokens.length > 0) {
+                await sendPushNotification(
+                  playerTokens,
+                  "Coach Change",
+                  `Your session at ${sessionTime} has a new coach: ${newCoachName}.`,
+                  { type: "session_coach_changed", sessionId },
+                );
+              }
+            }
+          } catch (notifErr) {
+            console.error("[ReassignCoach] Push notification error:", notifErr);
+          }
+        })();
+
+        res.json({ success: true, session: updated });
+      } catch (error) {
+        console.error("Error reassigning coach:", error);
+        res.status(500).json({ error: "Failed to reassign coach" });
+      }
+    },
+  );
+
+// POST /api/admin/coaches/:id/mark-absent — flag coach absent for today and mark sessions as needing reassignment
+router.post(
+  "/api/admin/coaches/:id/mark-absent",
+  authMiddleware,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { id: coachId } = req.params;
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+      const today = new Date().toDateString();
+      const todaySessions = allSessions.filter(
+        (s: any) =>
+          s.coachId === coachId &&
+          new Date(s.startTime).toDateString() === today &&
+          s.status !== "cancelled",
+      );
+      let flagged = 0;
+      for (const s of todaySessions) {
+        await storage.updateSession(s.id, { status: "needs_reassignment" });
+        flagged++;
+      }
+      res.json({ flagged, date: new Date().toISOString().split("T")[0] });
+    } catch (error) {
+      console.error("Error marking coach absent:", error);
+      res.status(500).json({ error: "Failed to mark coach absent" });
+    }
+  },
+);
+
+// GET /api/admin/blocked-slots?date=YYYY-MM-DD — DB-backed
+router.get(
+  "/api/admin/blocked-slots",
+  authMiddleware,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { date } = req.query;
+      const where = date
+        ? and(eq(coachBlockedSlots.academyId, academyId), eq(coachBlockedSlots.date, date as string))
+        : eq(coachBlockedSlots.academyId, academyId);
+      const slots = await db.select().from(coachBlockedSlots).where(where);
+      res.json(slots);
+    } catch (error) {
+      console.error("Error fetching blocked slots:", error);
+      res.status(500).json({ error: "Failed to fetch blocked slots" });
+    }
+  },
+);
+
+// POST /api/admin/blocked-slots — DB-backed
+router.post(
+  "/api/admin/blocked-slots",
+  authMiddleware,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { slots } = req.body as { slots: Array<{ date: string; hour: number; coachId?: string; courtId?: string }> };
+      if (!Array.isArray(slots) || slots.length === 0) {
+        return res.status(400).json({ error: "slots array required" });
+      }
+      const rows = slots
+        .filter((s) => s.date && s.hour !== undefined)
+        .map((s) => ({
+          id: `blk_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          academyId,
+          date: s.date,
+          hour: s.hour,
+          coachId: s.coachId ?? null,
+          courtId: s.courtId ?? null,
+        }));
+      if (rows.length === 0) return res.status(400).json({ error: "No valid slots provided" });
+      const created = await db.insert(coachBlockedSlots).values(rows).returning();
+      res.json({ created });
+    } catch (error) {
+      console.error("Error blocking slots:", error);
+      res.status(500).json({ error: "Failed to block slots" });
+    }
+  },
+);
+
+// DELETE /api/admin/blocked-slots/:id — DB-backed
+router.delete(
+  "/api/admin/blocked-slots/:id",
+  authMiddleware,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { id } = req.params;
+      await db.delete(coachBlockedSlots).where(
+        and(eq(coachBlockedSlots.id, id), eq(coachBlockedSlots.academyId, academyId)),
+      );
+      res.json({ removed: true });
+    } catch (error) {
+      console.error("Error deleting blocked slot:", error);
+      res.status(500).json({ error: "Failed to delete blocked slot" });
+    }
+  },
+);
+
+// PATCH /api/admin/sessions/batch-move — reschedule multiple sessions to a new calendar date
+router.patch(
+  "/api/admin/sessions/batch-move",
+  authMiddleware,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId!;
+      const { sessionIds, targetDate } = req.body as { sessionIds: string[]; targetDate: string };
+      if (!Array.isArray(sessionIds) || sessionIds.length === 0 || !targetDate) {
+        return res.status(400).json({ error: "sessionIds and targetDate are required" });
+      }
+      const [tYear, tMonth, tDay] = targetDate.split("-").map(Number);
+      const moved: any[] = [];
+      const failed: string[] = [];
+      for (const id of sessionIds) {
+        try {
+          const session = await storage.getSession(id, academyId);
+          if (!session) { failed.push(id); continue; }
+          const origStart = new Date(session.startTime);
+          const origEnd = new Date(session.endTime);
+          const durationMs = origEnd.getTime() - origStart.getTime();
+          const newStart = new Date(origStart);
+          newStart.setFullYear(tYear, tMonth - 1, tDay);
+          const newEnd = new Date(newStart.getTime() + durationMs);
+          const updated = await storage.updateSession(id, {
+            startTime: newStart,
+            endTime: newEnd,
+          });
+          if (updated) moved.push(updated);
+          else failed.push(id);
+        } catch { failed.push(id); }
+      }
+      res.json({ moved: moved.length, failed });
+    } catch (error) {
+      console.error("Error batch-moving sessions:", error);
+      res.status(500).json({ error: "Failed to move sessions" });
+    }
+  },
+);
 
 export default router;
