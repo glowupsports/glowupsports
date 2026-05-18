@@ -1,6 +1,14 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
 interface TaskAlert {
@@ -18,46 +26,76 @@ interface TaskAlertsListProps {
   onAction?: (id: string) => void;
 }
 
+const ALERT_CONFIGS: Record<TaskAlert["type"], { bg: string; border: string; icon: React.ComponentProps<typeof Ionicons>["name"]; color: string }> = {
+  urgent:  { bg: Colors.dark.error + "15",   border: Colors.dark.error,   icon: "warning",       color: Colors.dark.error },
+  no_show: { bg: Colors.dark.orange + "15",  border: Colors.dark.orange,  icon: "person-remove", color: Colors.dark.orange },
+  late:    { bg: Colors.dark.gold + "15",    border: Colors.dark.gold,    icon: "time",          color: Colors.dark.gold },
+  payment: { bg: Colors.dark.xpCyan + "15",  border: Colors.dark.xpCyan,  icon: "cash",          color: Colors.dark.xpCyan },
+  session: { bg: Colors.dark.primary + "15", border: Colors.dark.primary, icon: "calendar",      color: Colors.dark.primary },
+};
+
+function AlertRow({ alert, index, onAlertPress, onAction }: {
+  alert: TaskAlert;
+  index: number;
+  onAlertPress?: (id: string) => void;
+  onAction?: (id: string) => void;
+}) {
+  const cfg = ALERT_CONFIGS[alert.type];
+  const translateY = useSharedValue(12);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    const delay = index * 60;
+    translateY.value = withDelay(delay, withSpring(0, { damping: 18, stiffness: 200 }));
+    opacity.value = withDelay(delay, withTiming(1, { duration: 250 }));
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        style={[styles.alertRow, { borderLeftColor: cfg.border }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onAlertPress?.(alert.id);
+        }}
+      >
+        <View style={[styles.alertIcon, { backgroundColor: cfg.bg }]}>
+          <Ionicons name={cfg.icon} size={16} color={cfg.color} />
+        </View>
+
+        <View style={styles.alertContent}>
+          <Text style={styles.alertTitle} numberOfLines={1}>{alert.title}</Text>
+          <Text style={styles.alertDesc} numberOfLines={1}>{alert.description}</Text>
+        </View>
+
+        {alert.actionLabel ? (
+          <Pressable
+            style={[styles.actionBtn, { backgroundColor: cfg.bg }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onAction?.(alert.id);
+            }}
+          >
+            <Text style={[styles.actionText, { color: cfg.color }]}>{alert.actionLabel}</Text>
+          </Pressable>
+        ) : (
+          <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export function TaskAlertsList({
   alerts,
   onAlertPress,
   onAction,
 }: TaskAlertsListProps) {
-  const getAlertStyle = (type: TaskAlert["type"]) => {
-    switch (type) {
-      case "urgent": return { 
-        bg: Colors.dark.error + "15", 
-        border: Colors.dark.error,
-        icon: "warning" as const,
-        color: Colors.dark.error 
-      };
-      case "no_show": return { 
-        bg: Colors.dark.orange + "15", 
-        border: Colors.dark.orange,
-        icon: "person-remove" as const,
-        color: Colors.dark.orange 
-      };
-      case "late": return { 
-        bg: Colors.dark.gold + "15", 
-        border: Colors.dark.gold,
-        icon: "time" as const,
-        color: Colors.dark.gold 
-      };
-      case "payment": return { 
-        bg: Colors.dark.xpCyan + "15", 
-        border: Colors.dark.xpCyan,
-        icon: "cash" as const,
-        color: Colors.dark.xpCyan 
-      };
-      case "session": return { 
-        bg: Colors.dark.primary + "15", 
-        border: Colors.dark.primary,
-        icon: "calendar" as const,
-        color: Colors.dark.primary 
-      };
-    }
-  };
-
   const urgentAlerts = alerts.filter(a => a.type === "urgent");
   const otherAlerts = alerts.filter(a => a.type !== "urgent");
   const sortedAlerts = [...urgentAlerts, ...otherAlerts];
@@ -67,7 +105,7 @@ export function TaskAlertsList({
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View style={styles.iconBg}>
-            <Ionicons name="alert-circle" size={18} color={Colors.dark.orange} />
+            <Ionicons name="alert-circle" size={16} color={Colors.dark.orange} />
           </View>
           <Text style={styles.title}>Needs Attention</Text>
           {urgentAlerts.length > 0 && (
@@ -80,42 +118,21 @@ export function TaskAlertsList({
 
       {sortedAlerts.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="thumbs-up-outline" size={32} color={Colors.dark.primary} />
+          <Ionicons name="thumbs-up-outline" size={30} color={Colors.dark.primary} />
           <Text style={styles.emptyText}>All caught up!</Text>
           <Text style={styles.emptySubtext}>No tasks need your attention right now</Text>
         </View>
       ) : (
         <View style={styles.alertsList}>
-          {sortedAlerts.slice(0, 4).map((alert) => {
-            const style = getAlertStyle(alert.type);
-            return (
-              <Pressable 
-                key={alert.id}
-                style={[styles.alertRow, { borderLeftColor: style.border }]}
-                onPress={() => onAlertPress?.(alert.id)}
-              >
-                <View style={[styles.alertIcon, { backgroundColor: style.bg }]}>
-                  <Ionicons name={style.icon} size={16} color={style.color} />
-                </View>
-                
-                <View style={styles.alertContent}>
-                  <Text style={styles.alertTitle} numberOfLines={1}>{alert.title}</Text>
-                  <Text style={styles.alertDesc} numberOfLines={1}>{alert.description}</Text>
-                </View>
-                
-                {alert.actionLabel ? (
-                  <Pressable 
-                    style={[styles.actionBtn, { backgroundColor: style.bg }]}
-                    onPress={() => onAction?.(alert.id)}
-                  >
-                    <Text style={[styles.actionText, { color: style.color }]}>{alert.actionLabel}</Text>
-                  </Pressable>
-                ) : (
-                  <Ionicons name="chevron-forward" size={16} color={Colors.dark.textMuted} />
-                )}
-              </Pressable>
-            );
-          })}
+          {sortedAlerts.slice(0, 5).map((alert, index) => (
+            <AlertRow
+              key={alert.id}
+              alert={alert}
+              index={index}
+              onAlertPress={onAlertPress}
+              onAction={onAction}
+            />
+          ))}
         </View>
       )}
     </View>
@@ -140,9 +157,9 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   iconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 9,
     backgroundColor: Colors.dark.orange + "15",
     alignItems: "center",
     justifyContent: "center",

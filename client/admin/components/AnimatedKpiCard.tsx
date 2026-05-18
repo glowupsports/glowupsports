@@ -1,10 +1,44 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, withRepeat, withSequence, interpolate, Easing } from "react-native-reanimated";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withRepeat,
+  withSequence,
+  interpolate,
+  Easing,
+} from "react-native-reanimated";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+
+function useCountUp(target: number, duration = 1000): number {
+  const [current, setCurrent] = useState(0);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    const startTime = Date.now();
+    const startVal = 0;
+
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCurrent(Math.round(startVal + (target - startVal) * eased));
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target, duration]);
+
+  return current;
+}
 
 interface AnimatedKpiCardProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -27,15 +61,15 @@ export function AnimatedKpiCard({
   isPrimary = false,
   onPress,
 }: AnimatedKpiCardProps) {
-  const animatedValue = useSharedValue(0);
   const glowAnim = useSharedValue(0);
-  const scaleAnim = useSharedValue(1);
+  const scaleAnim = useSharedValue(0.9);
+  const opacityAnim = useSharedValue(0);
+  const pressScale = useSharedValue(1);
+  const count = useCountUp(value, 900);
 
   useEffect(() => {
-    animatedValue.value = withTiming(value, { 
-      duration: 1200, 
-      easing: Easing.out(Easing.cubic) 
-    });
+    scaleAnim.value = withSpring(1, { damping: 18, stiffness: 200 });
+    opacityAnim.value = withTiming(1, { duration: 350, easing: Easing.out(Easing.cubic) });
 
     if (isPrimary) {
       glowAnim.value = withRepeat(
@@ -50,19 +84,12 @@ export function AnimatedKpiCard({
   }, [value, isPrimary]);
 
   const glowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(glowAnim.value, [0, 1], [0.2, 0.5]),
+    opacity: interpolate(glowAnim.value, [0, 1], [0.15, 0.45]),
   }));
 
-  const handlePressIn = () => {
-    scaleAnim.value = withSpring(0.95, { damping: 15 });
-  };
-
-  const handlePressOut = () => {
-    scaleAnim.value = withSpring(1, { damping: 15 });
-  };
-
-  const cardAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleAnim.value }],
+  const containerStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scaleAnim.value }, { scale: pressScale.value }],
+    opacity: opacityAnim.value,
   }));
 
   return (
@@ -71,22 +98,22 @@ export function AnimatedKpiCard({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress?.();
       }}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPressIn={() => { pressScale.value = withSpring(0.95, { damping: 15 }); }}
+      onPressOut={() => { pressScale.value = withSpring(1, { damping: 15 }); }}
       disabled={!onPress}
     >
-      <Animated.View style={[styles.container, cardAnimatedStyle]}>
+      <Animated.View style={[styles.container, containerStyle]}>
         {isPrimary && (
           <Animated.View style={[styles.glowOverlay, glowStyle]}>
             <LinearGradient
-              colors={[color + "40", "transparent"]}
+              colors={[color + "50", "transparent"]}
               style={StyleSheet.absoluteFill}
             />
           </Animated.View>
         )}
 
         <LinearGradient
-          colors={[`${color}08`, Colors.dark.backgroundSecondary]}
+          colors={[`${color}10`, Colors.dark.backgroundSecondary]}
           style={[styles.card, isPrimary && styles.primaryCard]}
         >
           <View style={styles.content}>
@@ -95,26 +122,32 @@ export function AnimatedKpiCard({
             </View>
 
             <Text style={[styles.value, isPrimary && styles.primaryValue, { color }]}>
-              {displayValue || value}
+              {displayValue || count}
             </Text>
-            
+
             <Text style={[styles.label, isPrimary && styles.primaryLabel]}>{label}</Text>
 
             {trend && (
-              <View style={[styles.trendBadge, { backgroundColor: trend.direction === "up" ? Colors.dark.primary + "20" : Colors.dark.error + "20" }]}>
-                <Ionicons 
-                  name={trend.direction === "up" ? "arrow-up" : "arrow-down"} 
-                  size={10} 
-                  color={trend.direction === "up" ? Colors.dark.primary : Colors.dark.error} 
+              <View style={[styles.trendBadge, {
+                backgroundColor: trend.direction === "up"
+                  ? Colors.dark.primary + "20"
+                  : Colors.dark.error + "20"
+              }]}>
+                <Ionicons
+                  name={trend.direction === "up" ? "arrow-up" : "arrow-down"}
+                  size={10}
+                  color={trend.direction === "up" ? Colors.dark.primary : Colors.dark.error}
                 />
-                <Text style={[styles.trendText, { color: trend.direction === "up" ? Colors.dark.primary : Colors.dark.error }]}>
+                <Text style={[styles.trendText, {
+                  color: trend.direction === "up" ? Colors.dark.primary : Colors.dark.error
+                }]}>
                   {trend.value}%
                 </Text>
               </View>
             )}
           </View>
 
-          <View style={[styles.borderGlow, { backgroundColor: color + "40" }]} />
+          <View style={[styles.borderGlow, { backgroundColor: color + "50" }]} />
         </LinearGradient>
       </Animated.View>
     </Pressable>

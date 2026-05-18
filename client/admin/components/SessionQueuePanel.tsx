@@ -1,5 +1,14 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";import Ionicons from "@expo/vector-icons/Ionicons";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
 interface Session {
@@ -18,6 +27,97 @@ interface SessionQueuePanelProps {
   onViewAll?: () => void;
 }
 
+function SessionCard({ session, index, onPress, onStart }: {
+  session: Session;
+  index: number;
+  onPress?: () => void;
+  onStart?: () => void;
+}) {
+  const translateX = useSharedValue(30);
+  const opacity = useSharedValue(0);
+  const pressScale = useSharedValue(1);
+
+  useEffect(() => {
+    const delay = index * 70;
+    translateX.value = withDelay(delay, withSpring(0, { damping: 18, stiffness: 180 }));
+    opacity.value = withDelay(delay, withTiming(1, { duration: 300 }));
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }, { scale: pressScale.value }],
+    opacity: opacity.value,
+  }));
+
+  const statusColor = session.status === "in_progress"
+    ? Colors.dark.primary
+    : session.status === "upcoming"
+    ? Colors.dark.xpCyan
+    : Colors.dark.textMuted;
+
+  const statusIcon: React.ComponentProps<typeof Ionicons>["name"] =
+    session.status === "in_progress"
+      ? "play-circle"
+      : session.status === "upcoming"
+      ? "time-outline"
+      : "checkmark-circle";
+
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        style={[
+          styles.sessionCard,
+          session.status === "in_progress" && {
+            borderColor: Colors.dark.primary,
+            backgroundColor: Colors.dark.primary + "08",
+          },
+        ]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onPress?.();
+        }}
+        onPressIn={() => { pressScale.value = withSpring(0.96, { damping: 15 }); }}
+        onPressOut={() => { pressScale.value = withSpring(1, { damping: 15 }); }}
+      >
+        <View style={styles.sessionHeader}>
+          <View style={[styles.sessionStatus, { backgroundColor: statusColor + "20" }]}>
+            <Ionicons name={statusIcon} size={14} color={statusColor} />
+          </View>
+          <Text style={styles.sessionTime}>{session.time}</Text>
+        </View>
+
+        <Text style={styles.sessionTitle} numberOfLines={1}>{session.title}</Text>
+        <Text style={styles.sessionCoach} numberOfLines={1}>{session.coachName}</Text>
+
+        <View style={styles.sessionFooter}>
+          <View style={styles.playerCount}>
+            <Ionicons name="people-outline" size={12} color={Colors.dark.textMuted} />
+            <Text style={styles.playerCountText}>{session.playerCount}</Text>
+          </View>
+
+          {session.status === "upcoming" && (
+            <Pressable
+              style={styles.startBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onStart?.();
+              }}
+            >
+              <Text style={styles.startBtnText}>Start</Text>
+            </Pressable>
+          )}
+
+          {session.status === "in_progress" && (
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>LIVE</Text>
+            </View>
+          )}
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export function SessionQueuePanel({
   sessions,
   onSessionPress,
@@ -28,27 +128,11 @@ export function SessionQueuePanel({
   const inProgress = sessions.filter(s => s.status === "in_progress");
   const completed = sessions.filter(s => s.status === "completed");
 
-  const getStatusColor = (status: Session["status"]) => {
-    switch (status) {
-      case "upcoming": return Colors.dark.xpCyan;
-      case "in_progress": return Colors.dark.primary;
-      case "completed": return Colors.dark.textMuted;
-    }
-  };
-
-  const getStatusIcon = (status: Session["status"]): keyof typeof Ionicons.glyphMap => {
-    switch (status) {
-      case "upcoming": return "time-outline";
-      case "in_progress": return "play-circle";
-      case "completed": return "checkmark-circle";
-    }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Ionicons name="list" size={20} color={Colors.dark.orange} />
+          <Ionicons name="list" size={18} color={Colors.dark.orange} />
           <Text style={styles.title}>Session Queue</Text>
         </View>
         <Pressable onPress={onViewAll} style={styles.viewAllBtn}>
@@ -58,62 +142,41 @@ export function SessionQueuePanel({
       </View>
 
       <View style={styles.statusSummary}>
-        <View style={styles.statusItem}>
-          <View style={[styles.statusDot, { backgroundColor: Colors.dark.xpCyan }]} />
-          <Text style={styles.statusCount}>{upcoming.length}</Text>
-          <Text style={styles.statusLabel}>Upcoming</Text>
-        </View>
-        <View style={styles.statusItem}>
-          <View style={[styles.statusDot, { backgroundColor: Colors.dark.primary }]} />
-          <Text style={styles.statusCount}>{inProgress.length}</Text>
-          <Text style={styles.statusLabel}>In Progress</Text>
-        </View>
-        <View style={styles.statusItem}>
-          <View style={[styles.statusDot, { backgroundColor: Colors.dark.textMuted }]} />
-          <Text style={styles.statusCount}>{completed.length}</Text>
-          <Text style={styles.statusLabel}>Completed</Text>
-        </View>
+        {[
+          { color: Colors.dark.xpCyan, count: upcoming.length, label: "Upcoming" },
+          { color: Colors.dark.primary, count: inProgress.length, label: "Live" },
+          { color: Colors.dark.textMuted, count: completed.length, label: "Done" },
+        ].map((item) => (
+          <View key={item.label} style={styles.statusItem}>
+            <View style={[styles.statusDot, { backgroundColor: item.color }]} />
+            <Text style={[styles.statusCount, { color: item.count > 0 ? item.color : Colors.dark.textMuted }]}>{item.count}</Text>
+            <Text style={styles.statusLabel}>{item.label}</Text>
+          </View>
+        ))}
       </View>
 
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.sessionsScroll}
-      >
-        {sessions.slice(0, 6).map((session) => (
-          <Pressable 
-            key={session.id}
-            style={[styles.sessionCard, session.status === "in_progress" && styles.activeCard]}
-            onPress={() => onSessionPress?.(session.id)}
-          >
-            <View style={styles.sessionHeader}>
-              <View style={[styles.sessionStatus, { backgroundColor: getStatusColor(session.status) + "20" }]}>
-                <Ionicons name={getStatusIcon(session.status)} size={14} color={getStatusColor(session.status)} />
-              </View>
-              <Text style={styles.sessionTime}>{session.time}</Text>
-            </View>
-            
-            <Text style={styles.sessionTitle} numberOfLines={1}>{session.title}</Text>
-            <Text style={styles.sessionCoach} numberOfLines={1}>{session.coachName}</Text>
-            
-            <View style={styles.sessionFooter}>
-              <View style={styles.playerCount}>
-                <Ionicons name="people-outline" size={12} color={Colors.dark.textMuted} />
-                <Text style={styles.playerCountText}>{session.playerCount}</Text>
-              </View>
-              
-              {session.status === "upcoming" && (
-                <Pressable 
-                  style={styles.startBtn}
-                  onPress={() => onStartSession?.(session.id)}
-                >
-                  <Text style={styles.startBtnText}>Start</Text>
-                </Pressable>
-              )}
-            </View>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {sessions.length === 0 ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="calendar-outline" size={28} color={Colors.dark.textMuted} />
+          <Text style={styles.emptyText}>No sessions today</Text>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sessionsScroll}
+        >
+          {sessions.slice(0, 8).map((session, i) => (
+            <SessionCard
+              key={session.id}
+              session={session}
+              index={i}
+              onPress={() => onSessionPress?.(session.id)}
+              onStart={() => onStartSession?.(session.id)}
+            />
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -175,6 +238,19 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontSize: 10,
   },
+  emptyState: {
+    alignItems: "center",
+    padding: Spacing.xl,
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  emptyText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
   sessionsScroll: {
     gap: Spacing.md,
     paddingRight: Spacing.md,
@@ -186,10 +262,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
-  },
-  activeCard: {
-    borderColor: Colors.dark.primary,
-    backgroundColor: Colors.dark.primary + "08",
   },
   sessionHeader: {
     flexDirection: "row",
@@ -245,5 +317,26 @@ const styles = StyleSheet.create({
     color: Colors.dark.primary,
     fontWeight: "600",
     fontSize: 11,
+  },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: Colors.dark.primary + "15",
+    borderRadius: 6,
+  },
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: Colors.dark.primary,
+  },
+  liveText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: Colors.dark.primary,
+    letterSpacing: 0.5,
   },
 });
