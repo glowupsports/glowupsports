@@ -6392,7 +6392,7 @@ import fs from "fs";
     requireRole("admin", "academy_owner", "platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
-        const academyId = req.user?.academyId;
+        const academyId = req.user?.academyId || req.user?.currentAcademyId;
         if (!academyId) {
           return res.status(400).json({ error: "Academy ID required" });
         }
