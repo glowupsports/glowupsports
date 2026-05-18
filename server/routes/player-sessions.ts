@@ -6428,7 +6428,7 @@ import fs from "fs";
             currency,
             purchased_at
           FROM credit_lots
-          WHERE player_id = ANY(${playerIds}::text[])
+          WHERE player_id IN (${sql.join(playerIds.map((id) => sql`${id}`), sql`, `)})
             AND academy_id = ${academyId}
           ORDER BY player_id, type, purchased_at DESC
         `);
