@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
-import { sessions, players, academyPricing } from "@shared/schema";
+import { sessions, players, academyPricing, coaches } from "@shared/schema";
 import { eq, and, gte, lte, or, asc, desc, inArray, isNull } from "drizzle-orm";
 import { 
   authMiddlewareWithFreshData as authMiddleware,
@@ -157,7 +157,32 @@ function getWarningMessage(code: string): string {
 
 router.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const coachId = req.user!.coachId;
+    const userRole = req.user?.role;
+    const academyId = req.user?.academyId;
+    const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+
+    // Academy owners can pass ?supervisorCoachId to view a specific coach's earnings.
+    // Mirrors the same pattern used in /api/coach/me/home-data.
+    const supervisorCoachIdParam = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+    let coachId = req.user!.coachId;
+
+    if (supervisorCoachIdParam && isOwnerRole) {
+      // Validate that the requested coach belongs to the owner's academy
+      const targetCoach = await db
+        .select({ id: coaches.id, academyId: coaches.academyId })
+        .from(coaches)
+        .where(and(eq(coaches.id, supervisorCoachIdParam), eq(coaches.academyId, academyId as string)))
+        .limit(1);
+      if (targetCoach.length === 0) {
+        return res.status(403).json({ error: "Coach not found in your academy" });
+      }
+      // Override coachId with the supervised coach's ID.
+      // The cache key below is built from coachId, so it is naturally scoped
+      // to Dewi's (or whoever's) ID — not the owner's — keeping caches separate.
+      coachId = supervisorCoachIdParam;
+    }
+
     if (!coachId) {
       return res.status(400).json({ error: "Coach ID required" });
     }
