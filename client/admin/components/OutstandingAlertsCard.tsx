@@ -25,12 +25,12 @@ interface AlertGroup {
   type: TaskAlert["type"];
   count: number;
   alerts: TaskAlert[];
+  nav: "schedule" | "players" | "payments" | "coaches";
   icon: React.ComponentProps<typeof Ionicons>["name"];
   color: string;
   label: string;
   actionLabel: string;
   navHint: string;
-  nav: "schedule" | "players" | "payments" | "coaches";
 }
 
 interface OutstandingAlertsCardProps {

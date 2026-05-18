@@ -28,6 +28,33 @@ function getWarningMessage(code: string): string {
   return messages[code] || "Unknown configuration error";
 }
 
+async function getEffectiveContracts(coachId: string): Promise<any[]> {
+  const contracts = await storage.getCoachContractsByCoach(coachId);
+  if (contracts.length > 0) {
+    return contracts;
+  }
+  const coachRows = await db
+    .select({ id: coaches.id, academyId: coaches.academyId, hourlyRate: coaches.hourlyRate })
+    .from(coaches)
+    .where(eq(coaches.id, coachId))
+    .limit(1);
+  const coachRecord = coachRows[0];
+  if (!coachRecord || coachRecord.hourlyRate == null) {
+    return [];
+  }
+  return [{
+    id: "profile-rate",
+    coachId,
+    academyId: coachRecord.academyId,
+    payType: "hourly",
+    hourlyRate: String(coachRecord.hourlyRate),
+    sessionRate: null,
+    percentageRate: null,
+    currency: "AED",
+    status: "active",
+  }];
+}
+
   async function calculateSessionEarning(
   session: { id?: string; academyId?: string | null; duration?: number | null; sessionType?: string | null },
   coachId: string,
@@ -202,7 +229,7 @@ router.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthReques
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
     
-    const contracts = await storage.getCoachContractsByCoach(coachId);
+    const contracts = await getEffectiveContracts(coachId);
     
     const primaryContract = contracts[0];
     
@@ -404,7 +431,7 @@ router.get("/api/coach/earnings/breakdown", authMiddleware, async (req: AuthRequ
     const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
     const year = parseInt(req.query.year as string) || new Date().getFullYear();
     
-    const contracts = await storage.getCoachContractsByCoach(coachId);
+    const contracts = await getEffectiveContracts(coachId);
     const primaryContract = contracts[0];
     const currency = primaryContract?.currency || "AED";
     
@@ -549,7 +576,7 @@ router.get("/api/coach/earnings/history", authMiddleware, async (req: AuthReques
       return res.status(400).json({ error: "Coach ID required" });
     }
     
-    const contracts = await storage.getCoachContractsByCoach(coachId);
+    const contracts = await getEffectiveContracts(coachId);
     const primaryContract = contracts[0];
     const currency = primaryContract?.currency || "AED";
     
@@ -660,7 +687,7 @@ router.get("/api/coach/earnings/analytics", authMiddleware, async (req: AuthRequ
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
 
-    const contracts = await storage.getCoachContractsByCoach(coachId);
+    const contracts = await getEffectiveContracts(coachId);
     const primaryContract = contracts[0];
     const currency = primaryContract?.currency || "AED";
 
