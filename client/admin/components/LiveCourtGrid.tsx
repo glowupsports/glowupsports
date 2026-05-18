@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Modal,
+  ScrollView,
 } from "react-native";
 import Animated, {
   useSharedValue,
@@ -50,6 +51,8 @@ interface LiveCourtGridProps {
   sessions: CourtSession[];
   alerts?: TaskAlertRef[];
   totalCourts?: number;
+  scrollable?: boolean;
+  navigationOnly?: boolean;
   onCheckIn?: (sessionId: string) => void;
   onFlagIssue?: (sessionId: string) => void;
   onViewSession?: (sessionId: string) => void;
@@ -110,11 +113,13 @@ function CourtTileCard({
   index,
   onTap,
   onMorePress,
+  navigationOnly = false,
 }: {
   tile: CourtTile;
   index: number;
   onTap: (tile: CourtTile) => void;
   onMorePress: (tile: CourtTile) => void;
+  navigationOnly?: boolean;
 }) {
   const config = COURT_COLORS[tile.status];
   const scale = useSharedValue(0.85);
@@ -134,15 +139,17 @@ function CourtTileCard({
   const handlePressIn = () => { pressScale.value = withSpring(0.95, { damping: 15 }); };
   const handlePressOut = () => { pressScale.value = withSpring(1, { damping: 15 }); };
 
-  const canCheckIn = tile.session && (tile.status === "active" || tile.status === "upcoming_soon");
+  const canCheckIn = !navigationOnly && tile.session && (tile.status === "active" || tile.status === "upcoming_soon");
 
   return (
     <Animated.View style={[styles.tileWrapper, animStyle]}>
       <Pressable
         style={[styles.tile, { backgroundColor: config.bg, borderColor: config.border }]}
         onPress={() => {
-          if (canCheckIn) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          if (navigationOnly) {
+            onTap(tile);
+          } else if (canCheckIn) {
             onTap(tile);
           } else {
             onMorePress(tile);
@@ -182,6 +189,13 @@ function CourtTileCard({
                 <Text style={[styles.checkInHintText, { color: config.border }]}>Tap to check in</Text>
               </View>
             )}
+
+            {navigationOnly && (
+              <View style={[styles.checkInHint, { backgroundColor: config.border + "18" }]}>
+                <Ionicons name="arrow-forward" size={10} color={config.border} />
+                <Text style={[styles.checkInHintText, { color: config.border }]}>View schedule</Text>
+              </View>
+            )}
           </>
         ) : (
           <>
@@ -190,7 +204,7 @@ function CourtTileCard({
           </>
         )}
 
-        {tile.session && (
+        {tile.session && !navigationOnly && (
           <Pressable
             style={styles.moreBtn}
             hitSlop={8}
@@ -310,6 +324,8 @@ export function LiveCourtGrid({
   sessions,
   alerts = [],
   totalCourts = 6,
+  scrollable = false,
+  navigationOnly = false,
   onCheckIn,
   onFlagIssue,
   onViewSession,
@@ -340,10 +356,13 @@ export function LiveCourtGrid({
   });
 
   const handleTileTap = useCallback((tile: CourtTile) => {
-    if (tile.session && (tile.status === "active" || tile.status === "upcoming_soon")) {
+    if (!tile.session) return;
+    if (navigationOnly) {
+      onViewSession?.(tile.session.id);
+    } else if (tile.status === "active" || tile.status === "upcoming_soon") {
       onCheckIn?.(tile.session.id);
     }
-  }, [onCheckIn]);
+  }, [navigationOnly, onViewSession, onCheckIn]);
 
   const handleMorePress = useCallback((tile: CourtTile) => {
     setSelectedTile(tile);
@@ -394,27 +413,49 @@ export function LiveCourtGrid({
           ))}
       </View>
 
-      <View style={styles.grid}>
-        {tiles.map((tile, i) => (
-          <CourtTileCard
-            key={tile.courtNumber}
-            tile={tile}
-            index={i}
-            onTap={handleTileTap}
-            onMorePress={handleMorePress}
-          />
-        ))}
-      </View>
+      {scrollable ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.gridScrollContent}
+        >
+          {tiles.map((tile, i) => (
+            <CourtTileCard
+              key={tile.courtNumber}
+              tile={tile}
+              index={i}
+              onTap={handleTileTap}
+              onMorePress={handleMorePress}
+              navigationOnly={navigationOnly}
+            />
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={styles.grid}>
+          {tiles.map((tile, i) => (
+            <CourtTileCard
+              key={tile.courtNumber}
+              tile={tile}
+              index={i}
+              onTap={handleTileTap}
+              onMorePress={handleMorePress}
+              navigationOnly={navigationOnly}
+            />
+          ))}
+        </View>
+      )}
 
-      <CourtActionSheet
-        tile={selectedTile}
-        visible={sheetVisible}
-        onClose={() => setSheetVisible(false)}
-        onCheckIn={onCheckIn}
-        onFlagIssue={onFlagIssue}
-        onViewSession={onViewSession}
-        onReassignCoach={onReassignCoach}
-      />
+      {!navigationOnly && (
+        <CourtActionSheet
+          tile={selectedTile}
+          visible={sheetVisible}
+          onClose={() => setSheetVisible(false)}
+          onCheckIn={onCheckIn}
+          onFlagIssue={onFlagIssue}
+          onViewSession={onViewSession}
+          onReassignCoach={onReassignCoach}
+        />
+      )}
     </View>
   );
 }
@@ -500,6 +541,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
+  },
+  gridScrollContent: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingRight: Spacing.sm,
   },
   tileWrapper: {
     width: TILE_SIZE,

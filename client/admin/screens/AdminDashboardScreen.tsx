@@ -482,22 +482,6 @@ export default function AdminDashboardScreen() {
             />
 
             <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-              <LiveCourtGrid
-                sessions={courtSessions}
-                alerts={taskAlerts}
-                totalCourts={6}
-                onCheckIn={handleCheckIn}
-                onFlagIssue={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)}
-                onViewSession={(_id) => navigateToTab("AdminSchedule")}
-                onReassignCoach={(_id) => navigateToTab("AdminCoaches")}
-              />
-            </Animated.View>
-
-            <Animated.View entering={FadeInDown.duration(400).delay(180)}>
-              <CoachLoadStrip sessions={sessionQueue} onCoachPress={(_name) => navigateToTab("AdminCoaches")} />
-            </Animated.View>
-
-            <Animated.View entering={FadeInDown.duration(400).delay(240)}>
               <OutstandingAlertsCard
                 alerts={taskAlerts}
                 onAlertPress={(_id) => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
@@ -555,6 +539,22 @@ export default function AdminDashboardScreen() {
                 />
               </View>
             </View>
+
+            <Animated.View entering={FadeInDown.duration(400).delay(200)}>
+              <LiveCourtGrid
+                sessions={courtSessions}
+                alerts={taskAlerts}
+                totalCourts={6}
+                scrollable
+                navigationOnly
+                onViewSession={(_id) => navigateToTab("AdminSchedule")}
+                onReassignCoach={(_id) => navigateToTab("AdminCoaches")}
+              />
+            </Animated.View>
+
+            <Animated.View entering={FadeInDown.duration(400).delay(280)}>
+              <CoachLoadStrip sessions={sessionQueue} onCoachPress={(_name) => navigateToTab("AdminCoaches")} />
+            </Animated.View>
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Quick Actions</Text>
