@@ -1772,16 +1772,34 @@ function SessionHeroCard({
             </View>
           </View>
 
-          <View style={[styles.commandActions, { marginTop: Spacing.md }]}>
-            <SwipeBlocker>
-              <Pressable
-                style={({ pressed }) => [styles.commandOutlineButton, pressed && styles.buttonPressed]}
-                onPress={handleBookSession}
-              >
-                <Feather name="calendar" size={16} color={Colors.dark.accentText} />
-                <Text style={styles.commandOutlineButtonText}>{t("player.home.bookLesson")}</Text>
-              </Pressable>
-            </SwipeBlocker>
+          <View style={[styles.commandActions, { marginTop: Spacing.md, marginBottom: Spacing.sm }]}>
+            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+              <SwipeBlocker style={{ flex: 1 }}>
+                <Pressable
+                  style={({ pressed }) => [styles.cleanPrimaryButton, pressed && styles.buttonPressed]}
+                  onPress={handleBookSession}
+                >
+                  <LinearGradient
+                    colors={[GlowColors.primary, GlowColors.soft]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.cleanPrimaryGradient}
+                  >
+                    <Feather name="calendar" size={15} color={Backgrounds.root} />
+                    <Text style={styles.cleanPrimaryButtonText}>{t("player.home.bookLesson")}</Text>
+                  </LinearGradient>
+                </Pressable>
+              </SwipeBlocker>
+              <SwipeBlocker>
+                <Pressable
+                  style={({ pressed }) => [styles.futureWontAttendButton, pressed && styles.buttonPressed]}
+                  onPress={handleCancel}
+                >
+                  <Feather name="x-circle" size={15} color={TextColors.secondary} />
+                  <Text style={styles.futureWontAttendButtonText}>{t("player.home.wontAttend")}</Text>
+                </Pressable>
+              </SwipeBlocker>
+            </View>
           </View>
         </View>
       </View>
@@ -3960,6 +3978,24 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
     color: Colors.dark.text,
     fontSize: 14,
+  },
+  futureWontAttendButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.chipBorder,
+    backgroundColor: Colors.dark.chipBackground,
+  },
+  futureWontAttendButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: TextColors.secondary,
+    letterSpacing: 0.2,
   },
 }));
 

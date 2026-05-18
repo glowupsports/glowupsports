@@ -8,6 +8,7 @@ import {
   Pressable,
   Alert,
   Modal,
+  TextInput,
   Platform,
   I18nManager,
   useWindowDimensions} from "react-native";
@@ -15,7 +16,7 @@ import { openDirections } from "@/lib/maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useScheduleFocus } from "@/player/context/ScheduleFocusContext";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Feather } from "@expo/vector-icons";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -333,6 +334,40 @@ export default function PlayerScheduleScreen() {
   const [showBankSheet, setShowBankSheet] = useState(false);
   const [copiedBankField, setCopiedBankField] = useState<string | null>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Won't Attend cancel modal state
+  const [wontAttendItem, setWontAttendItem] = useState<ScheduledItem | null>(null);
+  const [showWontAttendModal, setShowWontAttendModal] = useState(false);
+  const [wontAttendReason, setWontAttendReason] = useState<string | null>(null);
+  const [wontAttendReasonText, setWontAttendReasonText] = useState("");
+
+  const SCHEDULE_CANCEL_REASONS = [
+    { id: "sick", labelKey: "player.home.feelingUnwell", icon: "thermometer" as const },
+    { id: "schedule_conflict", labelKey: "player.home.scheduleConflict", icon: "calendar" as const },
+    { id: "family_event", labelKey: "player.home.familyEvent", icon: "users" as const },
+    { id: "work_trip", labelKey: "player.home.workTrip", icon: "briefcase" as const },
+    { id: "other", labelKey: "player.home.otherReason", icon: "more-horizontal" as const },
+  ];
+
+  const wontAttendMutation = useMutation({
+    mutationFn: async ({ sessionId, sessionType, reason, reasonText }: { sessionId: string; sessionType: string; reason: string; reasonText?: string }) => {
+      const endpoint = sessionType === "group" || sessionType === "semi_private"
+        ? `/api/player/me/sessions/${sessionId}/mark-unavailable`
+        : `/api/player/me/sessions/${sessionId}/cancel`;
+      return apiRequest("POST", endpoint, { reason, reasonText });
+    },
+    onSuccess: () => {
+      setShowWontAttendModal(false);
+      setWontAttendItem(null);
+      setWontAttendReason(null);
+      setWontAttendReasonText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/player/me/schedule-data"] });
+      Alert.alert(t("player.home.sessionCancelled"), t("player.home.sessionCancelledMsg"));
+    },
+    onError: (error: any) => {
+      Alert.alert(t("common.error"), error?.message || t("player.home.failedCancelSession"));
+    },
+  });
 
   useEffect(() => {
     return () => {
@@ -1418,6 +1453,13 @@ export default function PlayerScheduleScreen() {
               navigation.navigate("TrainingDetail", { sessionId });
             }
           }}
+          onWontAttend={(it) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setWontAttendItem(it);
+            setWontAttendReason(null);
+            setWontAttendReasonText("");
+            setShowWontAttendModal(true);
+          }}
           getTypeLabel={getTypeLabel}
         />
         ) : null}
@@ -1698,6 +1740,96 @@ export default function PlayerScheduleScreen() {
             </Pressable>
           </Pressable>
         </Pressable>
+      </Modal>
+
+      {/* Won't Attend cancel modal */}
+      <Modal
+        visible={showWontAttendModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowWontAttendModal(false)}
+      >
+        <View style={styles.wontAttendOverlay} pointerEvents="box-none">
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowWontAttendModal(false)} />
+          <View style={[styles.wontAttendContent, { zIndex: 1 }]}>
+            <View style={styles.wontAttendHeader}>
+              <Text style={styles.wontAttendTitle}>{t("player.home.cancelSession")}</Text>
+              <Pressable onPress={() => setShowWontAttendModal(false)} hitSlop={8}>
+                <Feather name="x" size={22} color={TextColors.secondary} />
+              </Pressable>
+            </View>
+            <Text style={styles.wontAttendSubtitle}>{t("player.home.reasonForCancellation")}</Text>
+            <View style={styles.wontAttendReasons}>
+              {SCHEDULE_CANCEL_REASONS.map((reason) => (
+                <Pressable
+                  key={reason.id}
+                  style={[
+                    styles.wontAttendReasonBtn,
+                    wontAttendReason === reason.id && styles.wontAttendReasonBtnSelected,
+                  ]}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setWontAttendReason(reason.id);
+                  }}
+                >
+                  <Feather
+                    name={reason.icon}
+                    size={16}
+                    color={wontAttendReason === reason.id ? Colors.dark.error : TextColors.secondary}
+                  />
+                  <Text
+                    style={[
+                      styles.wontAttendReasonText,
+                      wontAttendReason === reason.id && styles.wontAttendReasonTextSelected,
+                    ]}
+                  >
+                    {t(reason.labelKey)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {wontAttendReason === "other" ? (
+              <TextInput
+                style={styles.wontAttendInput}
+                placeholder={t("player.home.whyCancel")}
+                placeholderTextColor={TextColors.secondary}
+                multiline
+                numberOfLines={2}
+                value={wontAttendReasonText}
+                onChangeText={setWontAttendReasonText}
+              />
+            ) : null}
+            <View style={styles.wontAttendButtons}>
+              <Pressable
+                style={styles.wontAttendCancelBtn}
+                onPress={() => { setShowWontAttendModal(false); setWontAttendReason(null); setWontAttendReasonText(""); }}
+              >
+                <Text style={styles.wontAttendCancelBtnText}>{t("player.home.neverMind")}</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.wontAttendConfirmBtn,
+                  (!wontAttendReason || wontAttendMutation.isPending) && styles.wontAttendConfirmBtnDisabled,
+                ]}
+                onPress={() => {
+                  if (!wontAttendItem || !wontAttendReason) return;
+                  const sessionId = wontAttendItem.sessionId || wontAttendItem.id;
+                  wontAttendMutation.mutate({
+                    sessionId,
+                    sessionType: wontAttendItem.type,
+                    reason: wontAttendReason,
+                    reasonText: wontAttendReasonText,
+                  });
+                }}
+                disabled={!wontAttendReason || wontAttendMutation.isPending}
+              >
+                <Text style={styles.wontAttendConfirmBtnText}>
+                  {wontAttendMutation.isPending ? t("player.home.cancelling") : t("player.home.confirmCancel")}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* Log a payment sheet */}
@@ -1992,6 +2124,7 @@ function DayHero({
   onAddToCalendar,
   onOpenDirections,
   onPressEvent,
+  onWontAttend,
   getTypeLabel,
 }: {
   selectedDate: Date;
@@ -2003,6 +2136,7 @@ function DayHero({
   onAddToCalendar: (it: ScheduledItem) => void;
   onOpenDirections: (it: ScheduledItem) => void;
   onPressEvent: (it: ScheduledItem) => void;
+  onWontAttend?: (item: ScheduledItem) => void;
   getTypeLabel: (type: string) => string;
 }) {
   const { t } = useTranslation();
@@ -2186,6 +2320,19 @@ function DayHero({
               {t("player.schedule.addToCalendar")}
             </Text>
           </Pressable>
+          {primary.status === "upcoming" &&
+          (primary.type === "private" || primary.type === "group" || primary.type === "semi_private") &&
+          onWontAttend ? (
+            <Pressable
+              style={[styles.heroActionBtn, styles.heroActionBtnGhost]}
+              onPress={() => onWontAttend(primary)}
+            >
+              <Feather name="x-circle" size={14} color={TextColors.secondary} />
+              <Text style={[styles.heroActionText, { color: TextColors.secondary }]}>
+                {t("player.home.wontAttend")}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -3277,6 +3424,115 @@ const styles = makeReactiveStyles(() =>
       fontSize: 16,
       fontWeight: "700",
       color: Colors.dark.buttonText,
+    },
+
+    // Won't Attend modal
+    wontAttendOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.7)",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingHorizontal: Spacing.lg,
+    },
+    wontAttendContent: {
+      width: "100%",
+      backgroundColor: Backgrounds.elevated,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      borderWidth: 1,
+      borderColor: Colors.dark.chipBorder,
+    },
+    wontAttendHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: Spacing.lg,
+    },
+    wontAttendTitle: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: TextColors.primary,
+    },
+    wontAttendSubtitle: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: TextColors.secondary,
+      marginBottom: Spacing.md,
+      letterSpacing: 0.3,
+    },
+    wontAttendReasons: {
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    wontAttendReasonBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Spacing.sm,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: Colors.dark.chipBorder,
+      backgroundColor: Colors.dark.chipBackground,
+    },
+    wontAttendReasonBtnSelected: {
+      borderColor: Colors.dark.error + "60",
+      backgroundColor: Colors.dark.error + "18",
+    },
+    wontAttendReasonText: {
+      fontSize: 14,
+      color: TextColors.secondary,
+      fontWeight: "500",
+      flex: 1,
+    },
+    wontAttendReasonTextSelected: {
+      color: Colors.dark.error,
+      fontWeight: "600",
+    },
+    wontAttendInput: {
+      backgroundColor: "rgba(255,255,255,0.06)",
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.12)",
+      padding: Spacing.md,
+      color: TextColors.primary,
+      fontSize: 14,
+      marginBottom: Spacing.md,
+      minHeight: 60,
+    },
+    wontAttendButtons: {
+      flexDirection: "row",
+      gap: Spacing.sm,
+      marginTop: Spacing.sm,
+    },
+    wontAttendCancelBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: BorderRadius.md,
+      borderWidth: 1,
+      borderColor: Colors.dark.chipBorder,
+      backgroundColor: Colors.dark.chipBackground,
+      alignItems: "center",
+    },
+    wontAttendCancelBtnText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: TextColors.secondary,
+    },
+    wontAttendConfirmBtn: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: BorderRadius.md,
+      backgroundColor: Colors.dark.error,
+      alignItems: "center",
+    },
+    wontAttendConfirmBtnDisabled: {
+      opacity: 0.45,
+    },
+    wontAttendConfirmBtnText: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: "#FFFFFF",
     },
   }),
 );
