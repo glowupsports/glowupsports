@@ -315,10 +315,6 @@ export default function AdminDashboardScreen() {
     { icon: "rocket", iconColor: "#9B59B6", title: "Let's Build Your Academy!", description: "Follow the Getting Started checklist on your dashboard. Each step brings you closer to a fully set up academy!" },
   ];
 
-  const [showNotificationGuide, setShowNotificationGuide] = useState(false);
-  const [showFirstCelebration, setShowFirstCelebration] = useState(false);
-  const [celebrationData] = useState({ title: "", description: "", icon: "trophy", xpReward: 0 });
-
   const isDesktop = useDesktop();
 
   if (isLoading && !operationsData) {
