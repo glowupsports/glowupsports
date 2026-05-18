@@ -1,9 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQuery } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
+
+const DISMISSED_KEY_PREFIX = "coach_profile_banner_dismissed_at";
+const TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function dismissedKey(userId: string | undefined): string {
+  return userId ? `${DISMISSED_KEY_PREFIX}_${userId}` : DISMISSED_KEY_PREFIX;
+}
 
 interface CoachProfileData {
   onboardingCompleted?: boolean;
@@ -39,11 +48,48 @@ interface Props {
 }
 
 export function CompleteProfileBanner({ onPressCTA }: Props) {
-  const [dismissed, setDismissed] = useState(false);
+  const { user } = useAuth();
+  const [dismissed, setDismissed] = useState(true);
 
   const { data: profile } = useQuery<CoachProfile>({
     queryKey: ["/api/coach/me/profile"],
   });
+
+  useEffect(() => {
+    const key = dismissedKey(user?.id);
+    AsyncStorage.getItem(key)
+      .then((raw) => {
+        if (raw) {
+          const ts = parseInt(raw, 10);
+          if (Date.now() - ts < TTL_MS) {
+            setDismissed(true);
+            return;
+          }
+          AsyncStorage.removeItem(key).catch(() => {});
+        }
+        setDismissed(false);
+      })
+      .catch(() => {
+        setDismissed(false);
+      });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!profile?.coach) return;
+    const coach = profile.coach;
+    const onboardingDone = coach.onboardingCompleted === true;
+    const completedCount = COMPLETENESS_FIELDS.filter(({ key }) =>
+      isFieldComplete(coach, key)
+    ).length;
+    if (onboardingDone && completedCount === COMPLETENESS_FIELDS.length) {
+      AsyncStorage.removeItem(dismissedKey(user?.id)).catch(() => {});
+    }
+  }, [profile, user?.id]);
+
+  const handleDismiss = async () => {
+    await AsyncStorage.setItem(dismissedKey(user?.id), String(Date.now()));
+    setDismissed(true);
+  };
 
   if (dismissed) return null;
   if (!profile?.coach) return null;
@@ -79,7 +125,7 @@ export function CompleteProfileBanner({ onPressCTA }: Props) {
             </Text>
           </View>
           <Pressable
-            onPress={() => setDismissed(true)}
+            onPress={handleDismiss}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.closeBtn}
           >
