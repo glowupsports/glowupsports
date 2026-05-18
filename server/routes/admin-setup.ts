@@ -74,15 +74,50 @@ import { Router, type Request, type Response } from "express";
           allSessions = [];
         }
 
-        const sessionsWithPlayers = await Promise.all(
-          allSessions.map(async (session) => {
-            const players = await storage.getSessionPlayers(session.id);
-            return {
-              ...session,
-              players: players.map((p: any) => ({ id: p.id, name: p.name })),
-            };
-          }),
-        );
+        const sessionIds = allSessions.map((s) => s.id);
+
+        // Batch fetch all session_player rows in one query
+        const allSessionPlayerRows =
+          sessionIds.length > 0
+            ? await storage.getSessionPlayersBatch(sessionIds)
+            : [];
+
+        // Batch fetch player names in one query
+        const playerIds = [
+          ...new Set(
+            allSessionPlayerRows
+              .map((sp) => sp.playerId)
+              .filter((id): id is string => !!id),
+          ),
+        ];
+        const playerNameMap = new Map<string, string>();
+        if (playerIds.length > 0) {
+          const playerRows = await db
+            .select({ id: players.id, name: players.name })
+            .from(players)
+            .where(inArray(players.id, playerIds));
+          for (const p of playerRows) {
+            playerNameMap.set(p.id, p.name ?? "");
+          }
+        }
+
+        // Group players by session ID
+        const playersBySession = new Map<string, { id: string; name: string }[]>();
+        for (const sp of allSessionPlayerRows) {
+          if (!sp.sessionId || !sp.playerId) continue;
+          if (!playersBySession.has(sp.sessionId)) {
+            playersBySession.set(sp.sessionId, []);
+          }
+          playersBySession.get(sp.sessionId)!.push({
+            id: sp.playerId,
+            name: playerNameMap.get(sp.playerId) ?? "",
+          });
+        }
+
+        const sessionsWithPlayers = allSessions.map((session) => ({
+          ...session,
+          players: playersBySession.get(session.id) ?? [],
+        }));
 
         res.json(sessionsWithPlayers);
       } catch (error) {

@@ -16,7 +16,7 @@ function requireOwnerOrAdmin(req: AuthRequest, res: Response, next: () => void):
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  if (user.role === "academy_owner" || user.role === "admin") {
+  if (user.role === "academy_owner" || user.role === "admin" || user.role === "platform_owner") {
     next();
     return;
   }
@@ -33,7 +33,7 @@ router.get(
   requireOwnerOrAdmin,
   async (req: AuthRequest, res: Response) => {
     try {
-      const academyId = req.user!.academyId;
+      const academyId = req.user!.academyId ?? req.user!.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "No academy found for this user" });
       }
@@ -141,7 +141,7 @@ router.get(
   requireOwnerOrAdmin,
   async (req: AuthRequest, res: Response) => {
     try {
-      const academyId = req.user!.academyId;
+      const academyId = req.user!.academyId ?? req.user!.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "No academy found for this user" });
       }

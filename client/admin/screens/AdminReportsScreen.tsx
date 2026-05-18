@@ -131,7 +131,15 @@ export default function AdminReportsScreen() {
   });
 
   const { data: revenueData, isLoading: isLoadingRevenue } = useQuery<RevenueData>({
-    queryKey: ["/api/admin/revenue", { month: selectedMonth, year: selectedYear }],
+    queryKey: ["/api/admin/revenue", selectedMonth, selectedYear],
+    queryFn: async () => {
+      const url = new URL(`/api/admin/revenue`, getApiUrl());
+      url.searchParams.set("month", String(selectedMonth));
+      url.searchParams.set("year", String(selectedYear));
+      const response = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!response.ok) throw new Error("Failed to fetch revenue data");
+      return response.json();
+    },
   });
   const stats: AdminStats = {
     totalCoaches: coaches.length,
