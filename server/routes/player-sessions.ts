@@ -6385,6 +6385,106 @@ import fs from "fs";
     },
   );
 
+  // Get players with negative credit balances (overdue)
+  router.get(
+    "/api/admin/payments/overdue",
+    authMiddleware,
+    requireRole("admin", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user?.academyId;
+        if (!academyId) {
+          return res.status(400).json({ error: "Academy ID required" });
+        }
+
+        // Fetch all negative balances for this academy
+        const balancesResult = await db.execute(sql`
+          SELECT
+            pcb.player_id,
+            pcb.type,
+            pcb.credits,
+            p.name AS player_name,
+            p.profile_photo AS player_photo
+          FROM player_credit_balance pcb
+          JOIN players p ON p.id = pcb.player_id
+          WHERE pcb.academy_id = ${academyId}
+            AND pcb.credits < 0
+          ORDER BY pcb.player_id, pcb.type
+        `);
+
+        if (balancesResult.rows.length === 0) {
+          return res.json({ players: [], totalAed: 0, playerCount: 0 });
+        }
+
+        // Collect unique player IDs
+        const playerIds = [...new Set(balancesResult.rows.map((r: any) => r.player_id as string))];
+
+        // For each player+type combo, find the most recent lot's price_per_credit
+        const lotsResult = await db.execute(sql`
+          SELECT DISTINCT ON (player_id, type)
+            player_id,
+            type,
+            price_per_credit,
+            currency,
+            purchased_at
+          FROM credit_lots
+          WHERE player_id = ANY(${playerIds}::text[])
+            AND academy_id = ${academyId}
+          ORDER BY player_id, type, purchased_at DESC
+        `);
+
+        // Build a price map: player_id -> type -> price_per_credit
+        const priceMap: Record<string, Record<string, number>> = {};
+        const currencyMap: Record<string, Record<string, string>> = {};
+        for (const row of lotsResult.rows as any[]) {
+          if (!priceMap[row.player_id]) priceMap[row.player_id] = {};
+          if (!currencyMap[row.player_id]) currencyMap[row.player_id] = {};
+          priceMap[row.player_id][row.type] = Number(row.price_per_credit);
+          currencyMap[row.player_id][row.type] = row.currency || "AED";
+        }
+
+        // Group rows by player
+        const playerMap: Record<string, {
+          playerId: string;
+          playerName: string;
+          playerPhoto: string | null;
+          balances: { type: string; credits: number; pricePerCredit: number; currency: string; estimatedAed: number }[];
+          totalAed: number;
+        }> = {};
+
+        for (const row of balancesResult.rows as any[]) {
+          const pid = row.player_id as string;
+          const creditType = row.type as string;
+          const credits = Number(row.credits);
+          const pricePerCredit = priceMap[pid]?.[creditType] ?? 0;
+          const currency = currencyMap[pid]?.[creditType] ?? "AED";
+          const estimatedAed = Math.abs(credits) * pricePerCredit;
+
+          if (!playerMap[pid]) {
+            playerMap[pid] = {
+              playerId: pid,
+              playerName: row.player_name as string,
+              playerPhoto: row.player_photo as string | null,
+              balances: [],
+              totalAed: 0,
+            };
+          }
+          playerMap[pid].balances.push({ type: creditType, credits, pricePerCredit, currency, estimatedAed });
+          playerMap[pid].totalAed += estimatedAed;
+        }
+
+        // Sort players by most debt (highest AED) first
+        const players = Object.values(playerMap).sort((a, b) => b.totalAed - a.totalAed);
+        const totalAed = players.reduce((sum, p) => sum + p.totalAed, 0);
+
+        res.json({ players, totalAed, playerCount: players.length });
+      } catch (error) {
+        console.error("Admin overdue payments error:", error);
+        res.status(500).json({ error: "Failed to fetch overdue balances" });
+      }
+    },
+  );
+
   // Create a new payment (admin only)
   router.post(
     "/api/admin/payments",

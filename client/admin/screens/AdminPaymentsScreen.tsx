@@ -54,11 +54,35 @@ interface Player {
 
 type FilterStatus = "all" | "pending" | "confirmed" | "rejected";
 type FilterMethod = "all" | "cash" | "bank_transfer";
+type MainTab = "payments" | "overdue";
+
+interface OverdueBalance {
+  type: string;
+  credits: number;
+  pricePerCredit: number;
+  currency: string;
+  estimatedAed: number;
+}
+
+interface OverduePlayer {
+  playerId: string;
+  playerName: string;
+  playerPhoto: string | null;
+  balances: OverdueBalance[];
+  totalAed: number;
+}
+
+interface OverdueData {
+  players: OverduePlayer[];
+  totalAed: number;
+  playerCount: number;
+}
 
 export default function AdminPaymentsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const navigation = useNavigation();
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>("payments");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterMethod, setFilterMethod] = useState<FilterMethod>("all");
   const [filterCoach, setFilterCoach] = useState<string>("all");
@@ -98,11 +122,16 @@ export default function AdminPaymentsScreen() {
     queryKey: ["/api/players"],
   });
 
+  const { data: overdueData } = useQuery<OverdueData>({
+    queryKey: ["/api/admin/payments/overdue"],
+  });
+
   const invalidatePayments = () => {
     queryClient.invalidateQueries({ predicate: (query) => {
       const key = query.queryKey[0];
       return typeof key === 'string' && key.startsWith('/api/admin/payments');
     }});
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/payments/overdue"] });
   };
 
   const createMutation = useMutation({
@@ -254,11 +283,7 @@ export default function AdminPaymentsScreen() {
 
   const pendingCount = payments.filter((p: Payment) => p.status === "pending").length;
   const confirmedTotal = payments.filter((p: Payment) => p.status === "confirmed").reduce((sum: number, p: Payment) => sum + parseFloat(p.amount), 0);
-  const overdueCount = payments.filter((p: Payment) => {
-    if (p.status !== "pending") return false;
-    const dueDate = p.dueDate ? new Date(p.dueDate) : null;
-    return dueDate !== null && dueDate < new Date();
-  }).length;
+  const overdueCount = overdueData?.playerCount ?? 0;
   const thisMonthTotal = payments
     .filter((p: Payment) => {
       const d = new Date(p.paymentDate);
@@ -293,6 +318,21 @@ export default function AdminPaymentsScreen() {
       <View style={payStyles.root}>
         <View style={payStyles.toolbar}>
           <Text style={payStyles.title}>Payments</Text>
+          <Pressable
+            style={[payStyles.tabBtn, activeMainTab === "payments" && payStyles.tabBtnActive]}
+            onPress={() => setActiveMainTab("payments")}
+          >
+            <Text style={[payStyles.tabBtnText, activeMainTab === "payments" && payStyles.tabBtnTextActive]}>All Payments</Text>
+          </Pressable>
+          <Pressable
+            style={[payStyles.tabBtn, activeMainTab === "overdue" && payStyles.tabBtnOverdueActive]}
+            onPress={() => setActiveMainTab("overdue")}
+          >
+            <Ionicons name="alert-circle-outline" size={13} color={activeMainTab === "overdue" ? "#FF3B30" : Colors.dark.textMuted} />
+            <Text style={[payStyles.tabBtnText, activeMainTab === "overdue" && { color: "#FF3B30", fontWeight: "700" }]}>
+              Overdue {overdueCount > 0 ? `(${overdueCount})` : ""}
+            </Text>
+          </Pressable>
           <View style={{ flex: 1 }} />
           <Pressable style={payStyles.addBtn} onPress={() => { setShowAddModal(true); setSelectedPayment(null); setShowDetailModal(false); }}>
             <Ionicons name="add" size={16} color="#0B0D10" />
@@ -376,6 +416,77 @@ export default function AdminPaymentsScreen() {
           </View>
 
           <View style={payStyles.tableArea}>
+            {activeMainTab === "overdue" ? (
+              <ScrollView showsVerticalScrollIndicator={false} style={payStyles.tableScroll}>
+                {overdueData == null ? (
+                  <View style={payStyles.emptyRow}>
+                    <TennisBallSpinner size="small" color={Colors.dark.error} />
+                  </View>
+                ) : overdueData.players.length === 0 ? (
+                  <View style={[payStyles.emptyRow, { flexDirection: "column", gap: 10 }]}>
+                    <Ionicons name="checkmark-circle" size={40} color={Colors.dark.successNeon} />
+                    <Text style={[payStyles.emptyText, { color: Colors.dark.successNeon, fontWeight: "700" }]}>All players are in the positive</Text>
+                    <Text style={payStyles.emptyText}>No negative credit balances found.</Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={payStyles.overdueSummaryCard}>
+                      <View>
+                        <Text style={payStyles.overdueSummaryLabel}>Total Outstanding</Text>
+                        <Text style={payStyles.overdueSummaryAmount}>
+                          AED {overdueData.totalAed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                        </Text>
+                      </View>
+                      <View style={payStyles.overdueSummaryPill}>
+                        <Text style={payStyles.overdueSummaryPillText}>{overdueData.playerCount} player{overdueData.playerCount !== 1 ? "s" : ""}</Text>
+                      </View>
+                    </View>
+                    <View style={payStyles.tableHeader}>
+                      <View style={[payStyles.thCell, payStyles.colPlayer]}><Text style={payStyles.thText}>Player</Text></View>
+                      <View style={[payStyles.thCell, { flex: 3 }]}><Text style={payStyles.thText}>Credit Balance</Text></View>
+                      <View style={[payStyles.thCell, payStyles.colAmount]}><Text style={payStyles.thText}>Est. AED</Text></View>
+                      <View style={[payStyles.thCell, payStyles.colActions]}><Text style={payStyles.thText}>Action</Text></View>
+                    </View>
+                    {overdueData.players.map((op: OverduePlayer) => (
+                      <View key={op.playerId} style={[payStyles.tableRow, { borderLeftWidth: 2, borderLeftColor: "#FF3B30" }]}>
+                        <View style={[payStyles.tdCell, payStyles.colPlayer]}>
+                          <View style={[payStyles.playerIcon, { backgroundColor: "rgba(255,59,48,0.15)" }]}>
+                            <Text style={[payStyles.playerIconText, { color: "#FF3B30" }]}>{op.playerName[0]?.toUpperCase() ?? "?"}</Text>
+                          </View>
+                          <Text style={payStyles.playerName} numberOfLines={1}>{op.playerName}</Text>
+                        </View>
+                        <View style={[payStyles.tdCell, { flex: 3, gap: 6, flexWrap: "wrap" }]}>
+                          {op.balances.map((b) => (
+                            <View key={b.type} style={payStyles.creditBadge}>
+                              <Text style={payStyles.creditBadgeText}>
+                                {b.type === "private" ? "Private" : b.type === "group" ? "Group" : "Semi"}: {b.credits}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                        <View style={[payStyles.tdCell, payStyles.colAmount]}>
+                          <Text style={[payStyles.amountText, { color: "#FF3B30" }]}>
+                            {op.totalAed > 0 ? `AED ${op.totalAed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
+                          </Text>
+                        </View>
+                        <View style={[payStyles.tdCell, payStyles.colActions]}>
+                          <Pressable
+                            style={payStyles.actionBtn}
+                            onPress={() => {
+                              setFormData({ playerId: op.playerId, payerName: op.playerName, amount: "", paymentMethod: "cash", notes: "", status: "pending" });
+                              setShowAddModal(true);
+                            }}
+                          >
+                            <Text style={payStyles.actionBtnText}>Record Payment</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ))}
+                  </>
+                )}
+              </ScrollView>
+            ) : (
+            <>
             <View style={payStyles.tableHeader}>
               <View style={[payStyles.thCell, payStyles.colPlayer]}>
                 <Text style={payStyles.thText}>Player / Payer</Text>
@@ -480,6 +591,8 @@ export default function AdminPaymentsScreen() {
                 );
               })}
             </ScrollView>
+            </>
+            )}
           </View>
 
           {(showAddModal || showDetailModal) ? (
@@ -692,39 +805,111 @@ export default function AdminPaymentsScreen() {
 
       <View style={styles.filters}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {(["all", "pending", "confirmed", "rejected"] as FilterStatus[]).map((status) => (
-            <Pressable
-              key={status}
-              style={[styles.filterChip, filterStatus === status && styles.filterChipActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setFilterStatus(status);
-              }}
-            >
-              <Text style={[styles.filterChipText, filterStatus === status && styles.filterChipTextActive]}>
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </Text>
-            </Pressable>
-          ))}
-          <View style={styles.filterDivider} />
-          {(["all", "cash", "bank_transfer"] as FilterMethod[]).map((method) => (
-            <Pressable
-              key={method}
-              style={[styles.filterChip, filterMethod === method && styles.filterChipActive]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setFilterMethod(method);
-              }}
-            >
-              <Text style={[styles.filterChipText, filterMethod === method && styles.filterChipTextActive]}>
-                {method === "all" ? "All Methods" : method === "cash" ? "Cash" : "Bank"}
-              </Text>
-            </Pressable>
-          ))}
+          <Pressable
+            style={[styles.filterChip, activeMainTab === "payments" && styles.filterChipActive]}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveMainTab("payments"); }}
+          >
+            <Text style={[styles.filterChipText, activeMainTab === "payments" && styles.filterChipTextActive]}>Payments</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.filterChip, activeMainTab === "overdue" && { backgroundColor: "rgba(255,59,48,0.12)", borderColor: "#FF3B30" }]}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveMainTab("overdue"); }}
+          >
+            <Ionicons name="alert-circle-outline" size={12} color={activeMainTab === "overdue" ? "#FF3B30" : Colors.dark.textMuted} />
+            <Text style={[styles.filterChipText, activeMainTab === "overdue" && { color: "#FF3B30", fontWeight: "700" }]}>
+              Overdue{overdueCount > 0 ? ` (${overdueCount})` : ""}
+            </Text>
+          </Pressable>
+          {activeMainTab === "payments" ? (
+            <>
+              <View style={styles.filterDivider} />
+              {(["all", "pending", "confirmed", "rejected"] as FilterStatus[]).map((status) => (
+                <Pressable
+                  key={status}
+                  style={[styles.filterChip, filterStatus === status && styles.filterChipActive]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterStatus(status); }}
+                >
+                  <Text style={[styles.filterChipText, filterStatus === status && styles.filterChipTextActive]}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </Text>
+                </Pressable>
+              ))}
+              <View style={styles.filterDivider} />
+              {(["all", "cash", "bank_transfer"] as FilterMethod[]).map((method) => (
+                <Pressable
+                  key={method}
+                  style={[styles.filterChip, filterMethod === method && styles.filterChipActive]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterMethod(method); }}
+                >
+                  <Text style={[styles.filterChipText, filterMethod === method && styles.filterChipTextActive]}>
+                    {method === "all" ? "All Methods" : method === "cash" ? "Cash" : "Bank"}
+                  </Text>
+                </Pressable>
+              ))}
+            </>
+          ) : null}
         </ScrollView>
       </View>
 
-      {isLoading ? (
+      {activeMainTab === "overdue" ? (
+        <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
+          {overdueData == null ? (
+            <View style={styles.loadingContainer}>
+              <TennisBallSpinner size="large" color={Colors.dark.error} />
+            </View>
+          ) : overdueData.players.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="checkmark-circle" size={52} color={Colors.dark.successNeon} />
+              <Text style={[styles.emptyText, { color: Colors.dark.successNeon }]}>All players are positive</Text>
+              <Text style={styles.emptySubtext}>No negative credit balances found.</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.overdueHeaderCard}>
+                <Text style={styles.overdueHeaderLabel}>Total Outstanding</Text>
+                <Text style={styles.overdueHeaderAmount}>
+                  AED {overdueData.totalAed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                </Text>
+                <Text style={styles.overdueHeaderSub}>{overdueData.playerCount} player{overdueData.playerCount !== 1 ? "s" : ""} in the red</Text>
+              </View>
+              {overdueData.players.map((op: OverduePlayer) => (
+                <View key={op.playerId} style={styles.overdueCard}>
+                  <View style={styles.overdueCardHeader}>
+                    <View style={styles.overdueAvatar}>
+                      <Text style={styles.overdueAvatarText}>{op.playerName[0]?.toUpperCase() ?? "?"}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.overduePlayerName}>{op.playerName}</Text>
+                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                        {op.balances.map((b) => (
+                          <View key={b.type} style={styles.overdueCreditBadge}>
+                            <Text style={styles.overdueCreditBadgeText}>
+                              {b.type === "private" ? "Private" : b.type === "group" ? "Group" : "Semi"}: {b.credits}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                    <Text style={styles.overdueAmount}>
+                      {op.totalAed > 0 ? `AED ${op.totalAed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
+                    </Text>
+                  </View>
+                  <Pressable
+                    style={styles.overdueRecordBtn}
+                    onPress={() => {
+                      setFormData({ playerId: op.playerId, payerName: op.playerName, amount: "", paymentMethod: "cash", notes: "", status: "pending" });
+                      setShowAddModal(true);
+                    }}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color={Colors.dark.orange} />
+                    <Text style={styles.overdueRecordBtnText}>Record Payment</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </>
+          )}
+        </ScrollView>
+      ) : isLoading ? (
         <View style={styles.loadingContainer}>
           <TennisBallSpinner size="large" color={Colors.dark.orange} />
         </View>
@@ -1541,6 +1726,101 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.text,
   },
+  overdueHeaderCard: {
+    backgroundColor: "rgba(255,59,48,0.08)",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,59,48,0.25)",
+    alignItems: "center",
+  },
+  overdueHeaderLabel: {
+    ...Typography.caption,
+    color: "#FF3B30",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  overdueHeaderAmount: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    marginBottom: 2,
+  },
+  overdueHeaderSub: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+  },
+  overdueCard: {
+    backgroundColor: Backgrounds.card,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    borderLeftWidth: 3,
+    borderLeftColor: "#FF3B30",
+  },
+  overdueCardHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+  },
+  overdueAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,59,48,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  overdueAvatarText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FF3B30",
+  },
+  overduePlayerName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "600",
+  },
+  overdueCreditBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: "rgba(255,59,48,0.12)",
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,59,48,0.3)",
+  },
+  overdueCreditBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#FF3B30",
+  },
+  overdueAmount: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FF3B30",
+  },
+  overdueRecordBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.dark.orange + "15",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "40",
+    alignSelf: "flex-start",
+  },
+  overdueRecordBtnText: {
+    ...Typography.small,
+    color: Colors.dark.orange,
+    fontWeight: "600",
+  },
 });
 
 const payStyles = StyleSheet.create({
@@ -1753,5 +2033,80 @@ const payStyles = StyleSheet.create({
   emptyText: {
     color: "#7C8290",
     fontSize: 14,
+  },
+  tabBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  tabBtnActive: {
+    backgroundColor: "rgba(200,255,61,0.08)",
+    borderColor: "rgba(200,255,61,0.25)",
+  },
+  tabBtnOverdueActive: {
+    backgroundColor: "rgba(255,59,48,0.10)",
+    borderColor: "rgba(255,59,48,0.30)",
+  },
+  tabBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  tabBtnTextActive: {
+    color: "#C8FF3D",
+    fontWeight: "700",
+  },
+  overdueSummaryCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    margin: 16,
+    padding: 16,
+    backgroundColor: "rgba(255,59,48,0.08)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,59,48,0.25)",
+  },
+  overdueSummaryLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FF3B30",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  overdueSummaryAmount: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: Colors.dark.text,
+  },
+  overdueSummaryPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255,59,48,0.15)",
+    borderRadius: 20,
+  },
+  overdueSummaryPillText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FF3B30",
+  },
+  creditBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    backgroundColor: "rgba(255,59,48,0.12)",
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: "rgba(255,59,48,0.30)",
+  },
+  creditBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#FF3B30",
   },
 });
