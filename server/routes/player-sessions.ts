@@ -6404,7 +6404,7 @@ import fs from "fs";
             pcb.type,
             pcb.credits,
             p.name AS player_name,
-            p.profile_photo AS player_photo
+            p.profile_photo_url AS player_photo
           FROM player_credit_balance pcb
           JOIN players p ON p.id = pcb.player_id
           WHERE pcb.academy_id = ${academyId}
