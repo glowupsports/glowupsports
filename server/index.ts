@@ -408,6 +408,9 @@ function setupExpoDevProxy(app: express.Application) {
     if (req.path.startsWith('/.well-known/') || req.path.startsWith('/group/') || req.path.startsWith('/invite/') || req.path.startsWith('/spectate/') || req.path.startsWith('/coach-overview/')) {
       return next();
     }
+    if (req.path === '/robots.txt' || req.path === '/sitemap.xml') {
+      return next();
+    }
     if (templateRoutes.includes(req.path)) {
       return next();
     }
@@ -974,6 +977,47 @@ function configureExpoAndLanding(app: express.Application) {
   app.use("/uploads", uploadsAuthGuard, express.static(path.resolve(process.cwd(), "uploads")));
 
   app.use("/images", express.static(path.resolve(process.cwd(), "server/public/images")));
+
+  // robots.txt — override Expo's default "Disallow: /" with crawler-friendly rules.
+  // Expo web export always writes `User-agent: * / Disallow: /` to block indexing;
+  // this Express route wins because it is registered before express.static(dist).
+  app.get("/robots.txt", (_req: Request, res: Response) => {
+    res.type("text/plain").send(
+      [
+        "User-agent: *",
+        "Allow: /$",
+        "Allow: /privacy-policy",
+        "Allow: /support",
+        "Allow: /invite/",
+        "Disallow: /api/",
+        "Disallow: /Admin/",
+        "Disallow: /coach/",
+        "Disallow: /player/",
+        "Disallow: /owner/",
+        "Disallow: /uploads/",
+        "",
+        `Sitemap: https://glow-up-sports--ltvjeugd.replit.app/sitemap.xml`,
+      ].join("\n")
+    );
+  });
+
+  // sitemap.xml — list the publicly indexable pages
+  app.get("/sitemap.xml", (_req: Request, res: Response) => {
+    const base = "https://glow-up-sports--ltvjeugd.replit.app";
+    const now = new Date().toISOString().split("T")[0];
+    const urls = ["/", "/privacy-policy", "/support"];
+    const xml = [
+      `<?xml version="1.0" encoding="UTF-8"?>`,
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+      ...urls.map(
+        (u) =>
+          `  <url><loc>${base}${u}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq><priority>${u === "/" ? "1.0" : "0.6"}</priority></url>`
+      ),
+      `</urlset>`,
+    ].join("\n");
+    res.type("application/xml").send(xml);
+  });
+
   // Try static-build first, then fall back to dist for static web files
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
   app.use(express.static(path.resolve(process.cwd(), "dist")));
