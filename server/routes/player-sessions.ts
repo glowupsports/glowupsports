@@ -6443,6 +6443,24 @@ import fs from "fs";
           currencyMap[row.player_id][row.type] = row.currency || "AED";
         }
 
+        // Academy-wide fallback prices: most common price per credit type
+        const academyFallbackResult = await db.execute(sql`
+          SELECT DISTINCT ON (type) type, price_per_credit, currency
+          FROM (
+            SELECT type, price_per_credit, currency, COUNT(*) AS cnt
+            FROM credit_lots
+            WHERE academy_id = ${academyId}
+            GROUP BY type, price_per_credit, currency
+          ) sub
+          ORDER BY type, cnt DESC
+        `);
+        const academyFallbackPrices: Record<string, number> = {};
+        const academyFallbackCurrency: Record<string, string> = {};
+        for (const row of academyFallbackResult.rows as any[]) {
+          academyFallbackPrices[row.type] = Number(row.price_per_credit);
+          academyFallbackCurrency[row.type] = row.currency || "AED";
+        }
+
         // Group rows by player
         const playerMap: Record<string, {
           playerId: string;
@@ -6456,8 +6474,8 @@ import fs from "fs";
           const pid = row.player_id as string;
           const creditType = row.type as string;
           const credits = Number(row.credits);
-          const pricePerCredit = priceMap[pid]?.[creditType] ?? 0;
-          const currency = currencyMap[pid]?.[creditType] ?? "AED";
+          const pricePerCredit = priceMap[pid]?.[creditType] ?? academyFallbackPrices[creditType] ?? 0;
+          const currency = currencyMap[pid]?.[creditType] ?? academyFallbackCurrency[creditType] ?? "AED";
           const estimatedAed = Math.abs(credits) * pricePerCredit;
 
           if (!playerMap[pid]) {
