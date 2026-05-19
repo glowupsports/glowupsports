@@ -149,6 +149,9 @@ export function AdminCreditV2Panel({ playerId }: Props) {
     queryClient.invalidateQueries({
       queryKey: [`/api/v2/credits/ledger/${playerId}`],
     });
+    queryClient.invalidateQueries({
+      queryKey: ["/api/admin/payments/overdue"],
+    });
   };
 
   const adjustMutation = useMutation({

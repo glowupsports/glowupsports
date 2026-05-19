@@ -31,6 +31,7 @@ export function AdminRecordPaymentModal({ visible, onClose, onDone, packages, se
       queryClient.invalidateQueries({ queryKey: ["/api/admin/players", selectedPlayerId, "stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/payments/overdue"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Payment Recorded", "Package marked as paid.");
     } catch {

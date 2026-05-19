@@ -122,8 +122,10 @@ export default function AdminPaymentsScreen() {
     queryKey: ["/api/players"],
   });
 
-  const { data: overdueData } = useQuery<OverdueData>({
+  const { data: overdueData, refetch: refetchOverdue } = useQuery<OverdueData>({
     queryKey: ["/api/admin/payments/overdue"],
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   const invalidatePayments = () => {
@@ -437,8 +439,13 @@ export default function AdminPaymentsScreen() {
                           AED {overdueData.totalAed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </Text>
                       </View>
-                      <View style={payStyles.overdueSummaryPill}>
-                        <Text style={payStyles.overdueSummaryPillText}>{overdueData.playerCount} player{overdueData.playerCount !== 1 ? "s" : ""}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <View style={payStyles.overdueSummaryPill}>
+                          <Text style={payStyles.overdueSummaryPillText}>{overdueData.playerCount} player{overdueData.playerCount !== 1 ? "s" : ""}</Text>
+                        </View>
+                        <Pressable onPress={() => refetchOverdue()} style={{ padding: 6 }}>
+                          <Ionicons name="refresh" size={16} color={Colors.dark.textMuted} />
+                        </Pressable>
                       </View>
                     </View>
                     <View style={payStyles.tableHeader}>
@@ -866,11 +873,18 @@ export default function AdminPaymentsScreen() {
           ) : (
             <>
               <View style={styles.overdueHeaderCard}>
-                <Text style={styles.overdueHeaderLabel}>Total Outstanding</Text>
-                <Text style={styles.overdueHeaderAmount}>
-                  AED {overdueData.totalAed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                </Text>
-                <Text style={styles.overdueHeaderSub}>{overdueData.playerCount} player{overdueData.playerCount !== 1 ? "s" : ""} in the red</Text>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <View>
+                    <Text style={styles.overdueHeaderLabel}>Total Outstanding</Text>
+                    <Text style={styles.overdueHeaderAmount}>
+                      AED {overdueData.totalAed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                    </Text>
+                    <Text style={styles.overdueHeaderSub}>{overdueData.playerCount} player{overdueData.playerCount !== 1 ? "s" : ""} in the red</Text>
+                  </View>
+                  <Pressable onPress={() => refetchOverdue()} style={{ padding: 6, marginTop: 4 }}>
+                    <Ionicons name="refresh" size={18} color={Colors.dark.textMuted} />
+                  </Pressable>
+                </View>
               </View>
               {overdueData.players.map((op: OverduePlayer) => (
                 <View key={op.playerId} style={styles.overdueCard}>
