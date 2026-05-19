@@ -18,7 +18,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -78,11 +78,16 @@ interface OverdueData {
   playerCount: number;
 }
 
+type PaymentsRoute = RouteProp<{ PaymentsManagement: { initialTab?: MainTab } }, "PaymentsManagement">;
+
 export default function AdminPaymentsScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const navigation = useNavigation();
-  const [activeMainTab, setActiveMainTab] = useState<MainTab>("payments");
+  const route = useRoute<PaymentsRoute>();
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>(
+    route.params?.initialTab ?? "payments",
+  );
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterMethod, setFilterMethod] = useState<FilterMethod>("all");
   const [filterCoach, setFilterCoach] = useState<string>("all");

@@ -5176,8 +5176,144 @@ import fs from "fs";
               )
             : 0;
 
-        // Get recent payments with player names
-        const recentPayments = allPayments.slice(0, 10);
+        // YTD total (Jan 1 of current year)
+        const ytdStart = new Date(now.getFullYear(), 0, 1);
+        const ytdTotal = allPayments
+          .filter(
+            (p) =>
+              p.status === "confirmed" &&
+              p.paymentDate &&
+              new Date(p.paymentDate) >= ytdStart,
+          )
+          .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+        // 6-month collected/pending history
+        const sixMonthHistory: {
+          month: string;
+          collected: number;
+          pending: number;
+        }[] = [];
+        for (let i = 5; i >= 0; i--) {
+          const mStart = new Date(
+            now.getFullYear(),
+            now.getMonth() - i,
+            1,
+          );
+          const mEnd = new Date(
+            now.getFullYear(),
+            now.getMonth() - i + 1,
+            0,
+            23,
+            59,
+            59,
+          );
+          const mCollected = allPayments
+            .filter(
+              (p) =>
+                p.status === "confirmed" &&
+                p.paymentDate &&
+                new Date(p.paymentDate) >= mStart &&
+                new Date(p.paymentDate) <= mEnd,
+            )
+            .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+          const mPending = allPayments
+            .filter(
+              (p) =>
+                p.status === "pending" &&
+                p.paymentDate &&
+                new Date(p.paymentDate) >= mStart &&
+                new Date(p.paymentDate) <= mEnd,
+            )
+            .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+          sixMonthHistory.push({
+            month: mStart.toLocaleDateString("en-US", { month: "short" }),
+            collected: mCollected,
+            pending: mPending,
+          });
+        }
+
+        // Debt Ageing — bucket pending payments by age since creation
+        const age30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const age60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+        const debtAcc = {
+          b30: { amount: 0, players: new Set<string>() },
+          b60: { amount: 0, players: new Set<string>() },
+          b60plus: { amount: 0, players: new Set<string>() },
+        };
+        for (const p of pendingPayments) {
+          const refDate = p.createdAt
+            ? new Date(p.createdAt)
+            : p.paymentDate
+              ? new Date(p.paymentDate)
+              : null;
+          if (!refDate) continue;
+          const amt = Number(p.amount || 0);
+          const pid = p.playerId || p.payerName || "unknown";
+          if (refDate >= age30) {
+            debtAcc.b30.amount += amt;
+            debtAcc.b30.players.add(pid);
+          } else if (refDate >= age60) {
+            debtAcc.b60.amount += amt;
+            debtAcc.b60.players.add(pid);
+          } else {
+            debtAcc.b60plus.amount += amt;
+            debtAcc.b60plus.players.add(pid);
+          }
+        }
+        const debtAgeing = {
+          bucket30: {
+            amount: debtAcc.b30.amount,
+            playerCount: debtAcc.b30.players.size,
+          },
+          bucket60: {
+            amount: debtAcc.b60.amount,
+            playerCount: debtAcc.b60.players.size,
+          },
+          bucket60plus: {
+            amount: debtAcc.b60plus.amount,
+            playerCount: debtAcc.b60plus.players.size,
+          },
+        };
+
+        // Coach Payables — estimate from active contracts
+        const coachContracts = await storage.getCoachContracts(academyId);
+        const activeContracts = coachContracts.filter(
+          (c) => c.status === "active",
+        );
+        const uniqueCoachIds = new Set(
+          activeContracts.map((c) => c.coachId),
+        );
+        let coachPayablesTotal = 0;
+        for (const contract of activeContracts) {
+          if (contract.payType === "per_session" && contract.sessionRate) {
+            coachPayablesTotal += Number(contract.sessionRate) * 4;
+          } else if (
+            contract.payType === "percentage" &&
+            contract.percentageRate
+          ) {
+            coachPayablesTotal +=
+              collectedThisMonth * (Number(contract.percentageRate) / 100);
+          } else if (contract.payType === "hourly" && contract.hourlyRate) {
+            coachPayablesTotal += Number(contract.hourlyRate) * 8;
+          }
+        }
+        const coachPayables = {
+          totalOwed: Math.round(coachPayablesTotal),
+          coachCount: uniqueCoachIds.size,
+        };
+
+        // Refunds this month (rejected payments)
+        const refundsTotal = allPayments
+          .filter(
+            (p) =>
+              p.status === "rejected" &&
+              p.paymentDate &&
+              new Date(p.paymentDate) >= thisMonthStart,
+          )
+          .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+        // Get recent payments with player names (20 items)
+        const recentPayments = allPayments.slice(0, 20);
         const paymentsWithPlayers = await Promise.all(
           recentPayments.map(async (payment) => {
             const player = payment.playerId
@@ -5204,6 +5340,11 @@ import fs from "fs";
 
         res.json({
           currency,
+          ytdTotal,
+          sixMonthHistory,
+          debtAgeing,
+          coachPayables,
+          refundsTotal,
           // Section 1: Collected Revenue (confirmed payments only)
           collected: {
             thisWeek: collectedThisWeek,

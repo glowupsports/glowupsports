@@ -9790,17 +9790,6 @@ export const storage = {
       const cashTotal = cashPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
       const bankTotal = bankPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-      const paymentIds = confirmedPayments.map(p => p.id);
-      let refundsTotal = 0;
-      if (paymentIds.length > 0) {
-        const allRefunds = await db.select().from(refunds).where(
-          inArray(refunds.paymentId, paymentIds)
-        );
-        refundsTotal = allRefunds
-          .filter(r => r.status === 'succeeded')
-          .reduce((sum, r) => sum + Number(r.amount || 0), 0);
-      }
-
       const monthSessions = await db.select().from(sessions).where(and(
         eq(sessions.academyId, academyId),
         gte(sessions.startTime, startDate),

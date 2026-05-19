@@ -53,7 +53,7 @@ export type OwnerStackParamList = {
   CourtsManagement: undefined;
   PlayersManagement: undefined;
   ClassesManagement: { focusSeriesId?: string } | undefined;
-  PaymentsManagement: undefined;
+  PaymentsManagement: { initialTab?: "payments" | "overdue" } | undefined;
   RulesAndPolicies: undefined;
   Pricing: undefined;
   CoachCompensation: undefined;

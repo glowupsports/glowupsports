@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Alert } from "react-native";
+import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -124,7 +125,17 @@ export default function PeopleScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<OwnerStackParamList>>();
   const queryClient = useQueryClient();
+  const { registerTabCallback } = useTabNavigation();
   const [activeTab, setActiveTab] = useState<TabType>("coaches");
+
+  useEffect(() => {
+    const unregister = registerTabCallback("People", (screen) => {
+      if (screen === "coaches" || screen === "players" || screen === "admins") {
+        setActiveTab(screen as TabType);
+      }
+    });
+    return unregister;
+  }, [registerTabCallback]);
   const [selectedPerson, setSelectedPerson] = useState<PersonData | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);

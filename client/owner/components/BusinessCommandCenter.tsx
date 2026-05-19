@@ -14,6 +14,13 @@ import Animated, {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 
+interface FinanceSummary {
+  collected: number;
+  pending: number;
+  debt: number;
+  currency: string;
+}
+
 interface BusinessCommandCenterProps {
   academyName: string;
   monthlyRevenue: number;
@@ -22,6 +29,7 @@ interface BusinessCommandCenterProps {
   currency: string;
   onNotificationPress?: () => void;
   notificationCount?: number;
+  financeSummary?: FinanceSummary;
 }
 
 export function BusinessCommandCenter({
@@ -32,6 +40,7 @@ export function BusinessCommandCenter({
   currency,
   onNotificationPress,
   notificationCount = 0,
+  financeSummary,
 }: BusinessCommandCenterProps) {
   const { logoUrl } = useAcademyTheme();
   const academyLogo = buildPhotoUrl(logoUrl);
@@ -60,7 +69,7 @@ export function BusinessCommandCenter({
   }));
 
   const revenueProgress = Math.min((monthlyRevenue / revenueTarget) * 100, 100);
-  
+
   const getHealthColor = () => {
     if (healthScore >= 80) return Colors.dark.primary;
     if (healthScore >= 60) return Colors.dark.gold;
@@ -79,7 +88,7 @@ export function BusinessCommandCenter({
         colors={[Colors.dark.gold + "30", Colors.dark.gold + "10", "transparent"]}
         style={styles.gradientBg}
       />
-      
+
       <View style={styles.borderContainer}>
         <LinearGradient
           colors={[Colors.dark.gold, "#B8860B", Colors.dark.gold]}
@@ -87,7 +96,7 @@ export function BusinessCommandCenter({
           end={{ x: 1, y: 1 }}
           style={styles.gradientBorder}
         />
-        
+
         <View style={styles.innerContainer}>
           <View style={styles.header}>
             <View style={styles.logoSection}>
@@ -107,7 +116,7 @@ export function BusinessCommandCenter({
                 <Text style={styles.academyName} numberOfLines={1}>{academyName}</Text>
               </View>
             </View>
-            
+
             <Pressable style={styles.notificationBtn} onPress={onNotificationPress}>
               <Ionicons name="notifications" size={22} color={Colors.dark.gold} />
               {notificationCount > 0 && (
@@ -118,39 +127,83 @@ export function BusinessCommandCenter({
             </Pressable>
           </View>
 
-          <View style={styles.metricsRow}>
-            <View style={styles.revenueBox}>
-              <Text style={styles.metricLabel}>Monthly Revenue</Text>
-              <View style={styles.revenueValueRow}>
-                <Text style={styles.currencySymbol}>{currency}</Text>
-                <Text style={styles.revenueValue}>{formatCurrency(monthlyRevenue)}</Text>
+          {financeSummary ? (
+            <View style={styles.financeStatRow}>
+              <View style={styles.financeStat}>
+                <Text style={styles.financeStatLabel}>Collected</Text>
+                <Text style={[styles.financeStatValue, { color: Colors.dark.primary }]}>
+                  {financeSummary.currency} {formatCurrency(financeSummary.collected)}
+                </Text>
+                <View style={[styles.financeStatDot, { backgroundColor: Colors.dark.primary }]} />
               </View>
-              <View style={styles.progressBar}>
-                <LinearGradient
-                  colors={[Colors.dark.gold, Colors.dark.orange]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.progressFill, { width: `${revenueProgress}%` }]}
-                />
+              <View style={styles.financeStatDivider} />
+              <View style={styles.financeStat}>
+                <Text style={styles.financeStatLabel}>Pending</Text>
+                <Text style={[styles.financeStatValue, { color: Colors.dark.gold }]}>
+                  {financeSummary.currency} {formatCurrency(financeSummary.pending)}
+                </Text>
+                <View style={[styles.financeStatDot, { backgroundColor: Colors.dark.gold }]} />
               </View>
-              <Text style={styles.progressText}>
-                {Math.round(revenueProgress)}% of {currency} {formatCurrency(revenueTarget)} target
-              </Text>
+              <View style={styles.financeStatDivider} />
+              <View style={styles.financeStat}>
+                <Text style={styles.financeStatLabel}>Debt</Text>
+                <Text style={[styles.financeStatValue, { color: financeSummary.debt > 0 ? Colors.dark.error : Colors.dark.textMuted }]}>
+                  {financeSummary.debt > 0
+                    ? `${financeSummary.currency} ${formatCurrency(financeSummary.debt)}`
+                    : "—"}
+                </Text>
+                <View style={[styles.financeStatDot, { backgroundColor: financeSummary.debt > 0 ? Colors.dark.error : Colors.dark.border }]} />
+              </View>
             </View>
+          ) : (
+            <View style={styles.metricsRow}>
+              <View style={styles.revenueBox}>
+                <Text style={styles.metricLabel}>Monthly Revenue</Text>
+                <View style={styles.revenueValueRow}>
+                  <Text style={styles.currencySymbol}>{currency}</Text>
+                  <Text style={styles.revenueValue}>{formatCurrency(monthlyRevenue)}</Text>
+                </View>
+                <View style={styles.progressBar}>
+                  <LinearGradient
+                    colors={[Colors.dark.gold, Colors.dark.orange]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.progressFill, { width: `${revenueProgress}%` }]}
+                  />
+                </View>
+                <Text style={styles.progressText}>
+                  {Math.round(revenueProgress)}% of {currency} {formatCurrency(revenueTarget)} target
+                </Text>
+              </View>
 
-            <View style={styles.healthBox}>
-              <Text style={styles.metricLabel}>Health Score</Text>
-              <View style={styles.healthCircle}>
-                <Animated.View style={[styles.healthPulse, pulseStyle, { backgroundColor: getHealthColor() }]} />
-                <View style={[styles.healthInner, { borderColor: getHealthColor() }]}>
-                  <Text style={[styles.healthValue, { color: getHealthColor() }]}>{healthScore}</Text>
+              <View style={styles.healthBox}>
+                <Text style={styles.metricLabel}>Health Score</Text>
+                <View style={styles.healthCircle}>
+                  <Animated.View style={[styles.healthPulse, pulseStyle, { backgroundColor: getHealthColor() }]} />
+                  <View style={[styles.healthInner, { borderColor: getHealthColor() }]}>
+                    <Text style={[styles.healthValue, { color: getHealthColor() }]}>{healthScore}</Text>
+                  </View>
+                </View>
+                <Text style={[styles.healthLabel, { color: getHealthColor() }]}>
+                  {healthScore >= 80 ? "Excellent" : healthScore >= 60 ? "Good" : "Needs Work"}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {financeSummary ? (
+            <View style={styles.healthRowCompact}>
+              <View style={styles.healthRowCompactInner}>
+                <Animated.View style={[styles.healthPulseSmall, pulseStyle, { backgroundColor: getHealthColor() }]} />
+                <View style={[styles.healthInnerSmall, { borderColor: getHealthColor() }]}>
+                  <Text style={[styles.healthValueSmall, { color: getHealthColor() }]}>{healthScore}</Text>
                 </View>
               </View>
-              <Text style={[styles.healthLabel, { color: getHealthColor() }]}>
-                {healthScore >= 80 ? "Excellent" : healthScore >= 60 ? "Good" : "Needs Work"}
+              <Text style={[styles.healthLabelCompact, { color: getHealthColor() }]}>
+                Health: {healthScore >= 80 ? "Excellent" : healthScore >= 60 ? "Good" : "Needs Work"}
               </Text>
             </View>
-          </View>
+          ) : null}
         </View>
       </View>
     </View>
@@ -333,6 +386,77 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   healthLabel: {
+    ...Typography.small,
+    fontWeight: "600",
+    fontSize: 11,
+  },
+  financeStatRow: {
+    flexDirection: "row",
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  financeStat: {
+    flex: 1,
+    alignItems: "center",
+  },
+  financeStatLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  financeStatValue: {
+    ...Typography.body,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  financeStatDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 4,
+  },
+  financeStatDivider: {
+    width: 1,
+    backgroundColor: Colors.dark.border,
+    marginHorizontal: 2,
+  },
+  healthRowCompact: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  healthRowCompactInner: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  healthPulseSmall: {
+    position: "absolute",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  healthInnerSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  healthValueSmall: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  healthLabelCompact: {
     ...Typography.small,
     fontWeight: "600",
     fontSize: 11,

@@ -155,6 +155,19 @@ export default function OwnerDashboardScreen() {
     queryKey: ["/api/owner/dashboard/business"],
   });
 
+  const { data: financeData } = useQuery<{
+    currency: string;
+    collected: { thisMonth: number };
+    pending: { amount: number };
+    debtAgeing: {
+      bucket30: { amount: number };
+      bucket60: { amount: number };
+      bucket60plus: { amount: number };
+    };
+  }>({
+    queryKey: ["/api/owner/finance"],
+  });
+
   const onRefresh = async () => {
     setRefreshing(true);
     await refetch();
@@ -312,6 +325,14 @@ export default function OwnerDashboardScreen() {
             currency={currency}
             notificationCount={dashboardData?.alerts?.length || 0}
             onNotificationPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            financeSummary={financeData ? {
+              collected: financeData.collected?.thisMonth ?? 0,
+              pending: financeData.pending?.amount ?? 0,
+              debt: (financeData.debtAgeing?.bucket30?.amount ?? 0) +
+                (financeData.debtAgeing?.bucket60?.amount ?? 0) +
+                (financeData.debtAgeing?.bucket60plus?.amount ?? 0),
+              currency: financeData.currency ?? currency,
+            } : undefined}
           />
         
 
