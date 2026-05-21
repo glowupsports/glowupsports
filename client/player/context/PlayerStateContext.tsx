@@ -485,7 +485,7 @@ export function PlayerStateProvider({ children }: { children: ReactNode }) {
       sessionsToPromotion,
       sessionCourtName: nextSession?.courtName || null,
       sessionType: nextSession?.type || null,
-      coachPhotoUrl: buildPhotoUrl(dashboardData.coach?.photoUrl) || null,
+      coachPhotoUrl: buildPhotoUrl((nextSession?.coachPhotoUrl as string | null | undefined) ?? dashboardData.coach?.photoUrl) || null,
       sessionId: nextSession?.id || null,
       sessionDuration: nextSession?.duration ?? null,
       nextSessionStartIso: nextSession?.date || null,

@@ -380,6 +380,7 @@ function SessionHeroCard({
   const [lateMessage, setLateMessage] = useState("");
   const [dismissed, setDismissed] = useState(false);
   const [checkedIn, setCheckedIn] = useState(false);
+  const [checkedInXp, setCheckedInXp] = useState<number | null>(null);
   const dismissKey = sessionId ? `dismissed-next-session:${sessionId}` : null;
 
   useEffect(() => {
@@ -478,12 +479,16 @@ function SessionHeroCard({
     mutationFn: async () => {
       return apiRequest("POST", `/api/player/me/sessions/${sessionId}/check-in`, {});
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       setHasCheckedIn(true);
       setCheckedIn(true);
+      setCheckedInXp(data?.xpAwarded ?? null);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
-      setTimeout(() => setCheckedIn(false), 3000);
+      setTimeout(() => {
+        setCheckedIn(false);
+        setCheckedInXp(null);
+      }, 3000);
     },
     onError: (error: any) => {
       Alert.alert(t("player.home.checkInFailed"), extractApiErrorMessage(error));
@@ -2005,7 +2010,9 @@ function SessionHeroCard({
                 style={[styles.liveButton, styles.checkedInChip, { flex: 1 }]}
               >
                 <Feather name="check-circle" size={18} color="#fff" />
-                <Text style={styles.checkedInChipText}>Checked in!</Text>
+                <Text style={styles.checkedInChipText}>
+                  {checkedInXp ? `Checked in! +${checkedInXp} XP` : "Checked in!"}
+                </Text>
               </Pressable>
             ) : (
               <Pressable

@@ -496,6 +496,7 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
       type: session.sessionType,
       courtName: sessionCourt?.name,
       coachName: sessionCoach?.name || null,
+      coachPhotoUrl: sessionCoach?.photoUrl || null,
       isLive: session.isActive,
       duration: durationMinutes,
       playerCheckedIn,

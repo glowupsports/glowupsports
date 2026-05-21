@@ -4529,6 +4529,7 @@ router.get(
           type: session.sessionType,
           courtName: court?.name,
           coachName: sessionCoach?.name || null,
+          coachPhotoUrl: sessionCoach?.photoUrl || null,
           isLive: session.isActive,
           duration: durationMinutes,
           playerCheckedIn,
