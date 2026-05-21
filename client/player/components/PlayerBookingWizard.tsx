@@ -225,6 +225,10 @@ export default function PlayerBookingWizard({
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   const [showCoachFilterPicker, setShowCoachFilterPicker] = useState(false);
 
+  // Step 1: location sub-picker (venue grouping — Bug #1)
+  const [expandedVenueId, setExpandedVenueId] = useState<string | null>(null);
+  const [filterCourtId, setFilterCourtId] = useState<string | null>(null);
+
   // Step 2: slot/session selection
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [selectedSession, setSelectedSession] = useState<JoinableSession | null>(null);
@@ -234,6 +238,12 @@ export default function PlayerBookingWizard({
   // Group sessions: week commitment
   const [weekCommitment, setWeekCommitment] = useState<number>(1);
   const [customWeeks, setCustomWeeks] = useState("");
+
+  // Step 3: recurring weeks (private / semi-private) — Bug #6
+  const [repeatWeeks, setRepeatWeeks] = useState<number>(1);
+
+  // Bug #7: book-again card dismissal
+  const [bookAgainDismissed, setBookAgainDismissed] = useState(false);
 
   // Semi-private: partner selection
   const [partnerQuery, setPartnerQuery] = useState("");
@@ -308,8 +318,10 @@ export default function PlayerBookingWizard({
     });
     if (filterCoachId) params.append("coachId", filterCoachId);
     if (preselectedCoachId && !filterCoachId) params.append("coachId", preselectedCoachId);
+    // Bug #1: pass filterCourtId so the server pre-filters slots to this court
+    if (filterCourtId) params.append("courtId", filterCourtId);
     return `/api/player/availability?${params}`;
-  }, [selectedDateString, duration, filterCoachId, preselectedCoachId]);
+  }, [selectedDateString, duration, filterCoachId, preselectedCoachId, filterCourtId]);
 
   const { data: availableSlots = [], isLoading: slotsLoading } = useQuery<AvailableSlot[]>({
     queryKey: [availabilityQueryUrl],
@@ -356,15 +368,17 @@ export default function PlayerBookingWizard({
   });
 
   // Available courts after slot selection (for court selection in details)
+  // Bug #2: if slot has no locationId, fall back to filterLocationId to avoid showing all courts
   const availableCourtsUrl = useMemo(() => {
     if (!selectedSlot || isJoining) return null;
     const params = new URLSearchParams({
       startTime: selectedSlot.startTime,
       endTime: selectedSlot.endTime,
     });
-    if (selectedSlot.locationId) params.append("locationId", selectedSlot.locationId);
+    const effectiveLocId = selectedSlot.locationId ?? filterLocationId;
+    if (effectiveLocId) params.append("locationId", effectiveLocId);
     return `/api/player/available-courts?${params}`;
-  }, [selectedSlot, isJoining]);
+  }, [selectedSlot, isJoining, filterLocationId]);
 
   const { data: availableCourts = [] } = useQuery<{
     id: string;
@@ -551,7 +565,7 @@ export default function PlayerBookingWizard({
     const topCoach = Array.from(coachCounts.values()).sort((a, b) => b.count - a.count)[0];
     if (!topCoach) return [];
 
-    const suggestions: { key: string; text: string; coachId: string; coachName: string }[] = [];
+    const suggestions: { key: string; text: string; coachId: string; coachName: string; locationId?: string | null; courtId?: string | null; duration?: number; nextDate?: Date }[] = [];
 
     // Suggestion 1: usual coach
     const mostFreqTime = topCoach.times.length > 0
@@ -588,6 +602,36 @@ export default function PlayerBookingWizard({
     }
 
     return suggestions.slice(0, 2);
+  }, [bookingHistory]);
+
+  // Bug #7: "Book Again" — the last confirmed private session
+  const bookAgainSuggestion = useMemo(() => {
+    const reqs: any[] = bookingHistory?.requests || [];
+    const confirmed = reqs.find(
+      (r: any) =>
+        r.status === "approved" &&
+        (r.sessionType === "private" || r.sessionType === "semi_private") &&
+        r.requestedStart &&
+        r.coachId,
+    );
+    if (!confirmed) return null;
+    const past = new Date(confirmed.requestedStart);
+    const dayOfWeek = past.getDay();
+    // Next occurrence of that day-of-week
+    const next = new Date();
+    const daysUntil = (dayOfWeek - next.getDay() + 7) % 7 || 7;
+    next.setDate(next.getDate() + daysUntil);
+    const timeStr = past.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const dayName = past.toLocaleDateString([], { weekday: "long" });
+    return {
+      coachId: confirmed.coachId as string,
+      coachName: (confirmed.coachName as string) || "Coach",
+      locationId: (confirmed.locationId as string | null) ?? null,
+      courtId: (confirmed.courtId as string | null) ?? null,
+      duration: (confirmed.duration as number) || 60,
+      nextDate: next,
+      label: `${dayName} at ${timeStr}`,
+    };
   }, [bookingHistory]);
 
   // ─── Reservation system ───────────────────────────────────────────────────────
@@ -807,6 +851,8 @@ export default function PlayerBookingWizard({
     setSelectedDate(new Date());
     setFilterCoachId(null);
     setFilterLocationId(null);
+    setFilterCourtId(null);
+    setExpandedVenueId(null);
     setDuration(60);
     setSelectedSlot(null);
     setSelectedSession(null);
@@ -814,6 +860,8 @@ export default function PlayerBookingWizard({
     setExpandedSlotKey(null);
     setWeekCommitment(1);
     setCustomWeeks("");
+    setRepeatWeeks(1);
+    setBookAgainDismissed(false);
     setPartnerQuery("");
     setSelectedPartner(null);
     setLetCoachPair(false);
@@ -1017,7 +1065,7 @@ export default function PlayerBookingWizard({
 
       const bookingData = {
         coachId: selectedSlot.coachId ?? undefined,
-        locationId: selectedSlot.locationId ?? undefined,
+        locationId: selectedSlot.locationId ?? filterLocationId ?? undefined,
         courtId: (selectedCourtId ?? selectedSlot.courtId) ?? undefined,
         requestedStart: selectedSlot.startTime,
         requestedEnd: selectedSlot.endTime,
@@ -1028,6 +1076,8 @@ export default function PlayerBookingWizard({
         letCoachPair: sessionType === "semi_private" && letCoachPair ? true : undefined,
         reservationId: reservationId || undefined,
         paymentIntent: paymentMethod === "pay_later" ? "pay_later" : "credits",
+        // Bug #6: Recurring bookings — send repeatWeeks for private/semi-private
+        repeatWeeks: (sessionType === "private" || sessionType === "semi_private") && repeatWeeks > 1 ? repeatWeeks : undefined,
         ...courtBookingPayload,
       };
       bookingMutation.mutate(bookingData);
@@ -1036,7 +1086,7 @@ export default function PlayerBookingWizard({
     isJoining, selectedSession, selectedSlot, sessionType, playerNote, selectedCourtId,
     bookingMutation, dropInLessonMutation, isCrossAcademyDropInCoach, isAcademyCourt,
     courtBookingStatus, courtBookingNote, courtBookingUrl, paymentMethod, weekCommitment,
-    selectedPartner, letCoachPair, reservationId,
+    selectedPartner, letCoachPair, reservationId, repeatWeeks, filterLocationId,
   ]);
 
   // ─── Animated styles ──────────────────────────────────────────────────────────
@@ -1089,6 +1139,46 @@ export default function PlayerBookingWizard({
   // ─── SLIDE 0: Session Type ────────────────────────────────────────────────────
   const renderSessionTypeSlide = () => (
     <Animated.View entering={FadeIn} style={styles.slideContent}>
+      {/* Bug #7: Book Again card */}
+      {bookAgainSuggestion && !bookAgainDismissed && (
+        <View style={styles.bookAgainCard}>
+          <LinearGradient
+            colors={[Colors.dark.primary + "18", Colors.dark.backgroundSecondary]}
+            style={styles.bookAgainGradient}
+          >
+            <View style={styles.bookAgainHeader}>
+              <View style={[styles.bookAgainIconWrap]}>
+                <Ionicons name="repeat" size={18} color={Colors.dark.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.bookAgainTitle}>Book again with {bookAgainSuggestion.coachName}</Text>
+                <Text style={styles.bookAgainSub}>{bookAgainSuggestion.label}</Text>
+              </View>
+              <Pressable
+                hitSlop={8}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setBookAgainDismissed(true); }}
+              >
+                <Ionicons name="close" size={16} color={Colors.dark.textSecondary} />
+              </Pressable>
+            </View>
+            <Pressable
+              style={styles.bookAgainBtn}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setFilterCoachId(bookAgainSuggestion.coachId);
+                if (bookAgainSuggestion.locationId) setFilterLocationId(bookAgainSuggestion.locationId);
+                if (bookAgainSuggestion.duration) setDuration(bookAgainSuggestion.duration);
+                setSelectedDate(bookAgainSuggestion.nextDate);
+                setSessionType("private");
+                setCurrentSlide(2);
+              }}
+            >
+              <Ionicons name="flash" size={14} color={Colors.dark.buttonText} />
+              <Text style={styles.bookAgainBtnText}>Book same slot</Text>
+            </Pressable>
+          </LinearGradient>
+        </View>
+      )}
       <Text style={styles.slideSubtitle}>What kind of session?</Text>
       <View style={styles.sessionTypeGrid}>
         {SESSION_TYPE_CARDS.map((type) => {
@@ -1212,14 +1302,20 @@ export default function PlayerBookingWizard({
             ))}
           </ScrollView>
 
-          {/* Location filter — visual cards */}
+          {/* Location filter — visual cards with venue grouping (Bug #1) */}
           {locations.length > 0 && (
             <>
               <Text style={styles.filterLabel}>Location</Text>
+              {/* "Any" tile */}
               <View style={styles.locationGrid}>
                 <Pressable
                   style={[styles.locationCard, !filterLocationId && styles.locationCardSelected]}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterLocationId(null); }}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setFilterLocationId(null);
+                    setFilterCourtId(null);
+                    setExpandedVenueId(null);
+                  }}
                 >
                   <View style={[styles.locationCardIcon, !filterLocationId && { backgroundColor: Colors.dark.primary + "20" }]}>
                     <Ionicons name="earth-outline" size={18} color={!filterLocationId ? Colors.dark.primary : Colors.dark.textSecondary} />
@@ -1229,21 +1325,78 @@ export default function PlayerBookingWizard({
                 </Pressable>
                 {locations.map((loc) => {
                   const isLocSel = filterLocationId === loc.id;
+                  // Courts at this venue (from the academy-courts query)
+                  const venueCourts = academyCourts.filter((c) => c.locationId === loc.id);
+                  const isMultiCourt = venueCourts.length > 1;
+                  const isExpanded = expandedVenueId === loc.id;
                   return (
                     <Pressable
                       key={loc.id}
                       style={[styles.locationCard, isLocSel && styles.locationCardSelected]}
-                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterLocationId(loc.id); }}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        if (isMultiCourt && !isLocSel) {
+                          // Open court sub-picker instead of immediately filtering
+                          setExpandedVenueId(isExpanded ? null : loc.id);
+                        } else {
+                          // Single-court venue OR re-tap to deselect — set filter directly
+                          if (isLocSel) {
+                            setFilterLocationId(null);
+                            setFilterCourtId(null);
+                          } else {
+                            setFilterLocationId(loc.id);
+                            setFilterCourtId(null);
+                          }
+                          setExpandedVenueId(null);
+                        }
+                      }}
                     >
                       <View style={[styles.locationCardIcon, isLocSel && { backgroundColor: Colors.dark.primary + "20" }]}>
                         <Ionicons name="tennisball-outline" size={18} color={isLocSel ? Colors.dark.primary : Colors.dark.textSecondary} />
                       </View>
                       <Text style={[styles.locationCardName, isLocSel && styles.locationCardNameSelected]} numberOfLines={2}>{loc.name}</Text>
-                      {isLocSel ? <Ionicons name="checkmark-circle" size={13} color={Colors.dark.primary} style={{ marginTop: 2 }} /> : null}
+                      {isLocSel ? (
+                        <Ionicons name="checkmark-circle" size={13} color={Colors.dark.primary} style={{ marginTop: 2 }} />
+                      ) : isMultiCourt ? (
+                        <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={12} color={Colors.dark.textSecondary} style={{ marginTop: 2 }} />
+                      ) : null}
                     </Pressable>
                   );
                 })}
               </View>
+              {/* Court sub-row for expanded multi-court venue (Bug #1) */}
+              {expandedVenueId && (() => {
+                const venueCourts = academyCourts.filter((c) => c.locationId === expandedVenueId);
+                if (venueCourts.length === 0) return null;
+                return (
+                  <View style={styles.courtSubRow}>
+                    <Text style={styles.courtSubRowLabel}>Pick a court at {locations.find((l) => l.id === expandedVenueId)?.name ?? "venue"}:</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      {venueCourts.map((court) => {
+                        const isCourtSel = filterCourtId === court.id;
+                        return (
+                          <Pressable
+                            key={court.id}
+                            style={[styles.courtSubChip, isCourtSel && styles.courtSubChipSelected]}
+                            onPress={() => {
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                              setFilterLocationId(expandedVenueId);
+                              setFilterCourtId(isCourtSel ? null : court.id);
+                              if (!isCourtSel) setExpandedVenueId(null);
+                            }}
+                          >
+                            <Ionicons name="grid-outline" size={13} color={isCourtSel ? Colors.dark.primary : Colors.dark.textSecondary} />
+                            <Text style={[styles.courtSubChipText, isCourtSel && styles.courtSubChipTextSelected]}>
+                              {court.name}
+                            </Text>
+                            {isCourtSel && <Ionicons name="checkmark" size={12} color={Colors.dark.primary} />}
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                );
+              })()}
             </>
           )}
 
@@ -1727,6 +1880,34 @@ export default function PlayerBookingWizard({
             </View>
           )}
 
+          {/* Bug #6: Repeat weeks selector (private / semi-private only) */}
+          {(sessionType === "private" || sessionType === "semi_private") && (
+            <View style={styles.repeatSection}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="repeat" size={16} color={Colors.dark.primary} />
+                <Text style={styles.sectionTitle}>Repeat for</Text>
+              </View>
+              <View style={styles.weekCommitRow}>
+                {[1, 2, 4, 8].map((w) => (
+                  <Pressable
+                    key={w}
+                    style={[styles.weekChip, repeatWeeks === w && styles.repeatChipSelected]}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setRepeatWeeks(w); }}
+                  >
+                    <Text style={[styles.weekChipText, repeatWeeks === w && styles.repeatChipTextSelected]}>
+                      {w === 1 ? "1 week" : `${w} weeks`}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {repeatWeeks > 1 && (
+                <Text style={styles.repeatHint}>
+                  {repeatWeeks} booking requests will be sent — one per week.
+                </Text>
+              )}
+            </View>
+          )}
+
           {/* Semi-private: partner selection */}
           {sessionType === "semi_private" && (
             <View style={styles.partnerSection}>
@@ -1921,7 +2102,25 @@ export default function PlayerBookingWizard({
                 <View style={styles.confirmRow}>
                   <Ionicons name="location" size={16} color={Colors.dark.primary} />
                   <Text style={styles.confirmText}>
-                    {"locationName" in sessionInfo ? sessionInfo.locationName : ""} · {selectedCourtName ?? ("courtName" in sessionInfo ? sessionInfo.courtName : "")}
+                    {(() => {
+                      // Bug #4: prefer resolvedLocationName (from filterLocationId), fall back to
+                      // slot's locationName only when it isn't the generic "Any Location" placeholder.
+                      const locName =
+                        resolvedLocationName ??
+                        ("locationName" in sessionInfo &&
+                        (sessionInfo as any).locationName &&
+                        (sessionInfo as any).locationName !== "Any Location"
+                          ? (sessionInfo as any).locationName
+                          : null);
+                      const courtName =
+                        selectedCourtName ??
+                        ("courtName" in sessionInfo &&
+                        (sessionInfo as any).courtName &&
+                        (sessionInfo as any).courtName !== "Any Court"
+                          ? (sessionInfo as any).courtName
+                          : null);
+                      return [locName, courtName].filter(Boolean).join(" · ") || "—";
+                    })()}
                   </Text>
                 </View>
 
@@ -2273,6 +2472,38 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   suggestionIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   suggestionText: { flex: 1, fontSize: 14, color: Colors.dark.text, fontWeight: "500" },
 
+  // Bug #7: Book Again card
+  bookAgainCard: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  bookAgainGradient: { padding: Spacing.md, gap: Spacing.sm },
+  bookAgainHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  bookAgainIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bookAgainTitle: { fontSize: 14, fontWeight: "700", color: Colors.dark.text },
+  bookAgainSub: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 1 },
+  bookAgainBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  bookAgainBtnText: { fontSize: 13, fontWeight: "700", color: Colors.dark.buttonText },
+
   // Section headers
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm, marginTop: Spacing.md },
   sectionTitle: { fontSize: 15, fontWeight: "700", color: Colors.dark.text },
@@ -2468,6 +2699,39 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
   },
   weekChipSelected: { borderColor: Colors.dark.orange, backgroundColor: Colors.dark.orange + "20" },
+
+  // Bug #1: Court sub-row for multi-court venues
+  courtSubRow: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  courtSubRowLabel: { fontSize: 12, color: Colors.dark.textSecondary, marginBottom: 4, fontWeight: "500" },
+  courtSubChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  courtSubChipSelected: { borderColor: Colors.dark.primary, backgroundColor: Colors.dark.primary + "20" },
+  courtSubChipText: { fontSize: 13, color: Colors.dark.textSecondary, fontWeight: "500" },
+  courtSubChipTextSelected: { color: Colors.dark.primary, fontWeight: "700" },
+
+  // Bug #6: Repeat weeks selector
+  repeatSection: { marginBottom: Spacing.md },
+  repeatChipSelected: { borderColor: Colors.dark.primary, backgroundColor: Colors.dark.primary + "20" },
+  repeatChipTextSelected: { color: Colors.dark.primary, fontWeight: "700" },
+  repeatHint: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 4, fontStyle: "italic" },
   weekChipText: { fontSize: 13, fontWeight: "600", color: Colors.dark.textSecondary },
   weekChipTextSelected: { color: Colors.dark.orange },
   weekCustomInput: {

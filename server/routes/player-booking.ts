@@ -99,6 +99,9 @@ const bookingRequestSchema = z.object({
   // the request. Card payments don't go through this endpoint (they
   // materialise via Stripe webhook).
   paymentIntent: z.enum(["credits", "pay_later"]).optional().nullable(),
+  // Task #2000 — Recurring bookings: create N weekly copies of the same request.
+  // Only honoured for private/semi_private session types.
+  repeatWeeks: z.number().int().min(1).max(52).optional().nullable(),
 });
 
 const bookingDeclineSchema = z.object({
@@ -812,6 +815,7 @@ router.post(
         courtBookingNote,
         courtBookingUrl,
         paymentIntent,
+        repeatWeeks,
       } = parsedBooking.data;
 
       // Task #1037: Public Coach Profiles. If the player is booking a public
@@ -1167,7 +1171,73 @@ router.post(
         }
       }
 
-      res.status(201).json(request);
+      // Task #2000 — Recurring bookings: create additional weekly copies.
+      // Only for private / semi-private non-join requests. Best-effort — the
+      // primary request was already committed so we don't roll back on failure.
+      const effectiveRepeat =
+        !isJoinRequest &&
+        (sessionType === "private" || sessionType === "semi_private")
+          ? Math.min(Math.max(repeatWeeks ?? 1, 1), 52)
+          : 1;
+
+      if (effectiveRepeat > 1) {
+        const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+        const startBase = new Date(requestedStart).getTime();
+        const endBase = new Date(requestedEnd).getTime();
+        // Compute coach response window once for reuse
+        let windowMins = 120;
+        if (coachId) {
+          try {
+            const [cs] = await db
+              .select({ bookingResponseWindowMinutes: coachSettings.bookingResponseWindowMinutes })
+              .from(coachSettings)
+              .where(eq(coachSettings.coachId, coachId))
+              .limit(1);
+            windowMins = cs?.bookingResponseWindowMinutes ?? 120;
+          } catch { /* use default */ }
+        }
+        for (let w = 1; w < effectiveRepeat; w++) {
+          try {
+            const wStart = new Date(startBase + w * WEEK_MS);
+            const wEnd = new Date(endBase + w * WEEK_MS);
+            const [extra] = await db.insert(bookingRequests).values({
+              academyId: bookingAcademyId,
+              playerId,
+              coachId: coachId || null,
+              locationId: locationId || null,
+              courtId: courtId || null,
+              requestedStart: wStart,
+              requestedEnd: wEnd,
+              duration,
+              sessionType,
+              playerNote: playerNote || null,
+              status: "pending",
+              expiresAt: new Date(Date.now() + windowMins * 60 * 1000),
+              courtBookingStatus: courtBookingStatus || null,
+              courtBookingNote: courtBookingNote || null,
+              courtBookingUrl: courtBookingUrl || null,
+              paymentIntent: paymentIntent || null,
+            }).returning();
+            if (extra && coachId) {
+              try {
+                await db.insert(coachNotifications).values({
+                  coachId,
+                  type: "booking_request",
+                  title: "New Lesson Request",
+                  message: `${player.name} wants a ${duration}-min lesson on ${wStart.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`,
+                  priority: "high",
+                  actionUrl: `/coach/booking-requests/${extra.id}`,
+                  metadata: { bookingRequestId: extra.id, playerId, isJoinRequest: false },
+                });
+              } catch { /* non-fatal */ }
+            }
+          } catch (weekErr) {
+            console.error(`[Booking] Failed to create week-${w} repeat booking:`, weekErr);
+          }
+        }
+      }
+
+      res.status(201).json({ ...request, repeatWeeks: effectiveRepeat });
     } catch (error) {
       console.error("Create booking request error:", error);
       res.status(500).json({ error: "Failed to create booking request" });
@@ -6682,7 +6752,9 @@ router.get(
         return res.status(404).json({ error: "Player not found" });
       }
 
-      if (!coachId) {
+      // Allow: coach (manages players), the player themselves, or a linked parent
+      const isSelf = req.user?.playerId === playerId;
+      if (!coachId && !isSelf) {
         // Resolve parent identity via the canonical parent_player_relations
         // join, NOT via users.email — emails in this codebase are explicitly
         // not unique (a family can share one inbox), so an email lookup

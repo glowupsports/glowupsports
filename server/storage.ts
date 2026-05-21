@@ -10941,19 +10941,24 @@ export const storage = {
     );
 
     // Pre-index travel times by "coachId:locationA:locationB" (both orderings) for O(1) lookup
-    // inside the hot slot-generation loop. Mirrors checkCoachConflict's coach-scoped behavior.
+    // inside the hot slot-generation loop. Coach-specific entries take precedence over
+    // academy-wide entries (coachId=null → stored as "_global").
     const travelTimeIndex = new Map<string, number>();
     for (const tt of travelTimesData) {
-      if (!tt.coachId) continue;
-      const keyAB = `${tt.coachId}:${tt.fromLocationId}:${tt.toLocationId}`;
-      const keyBA = `${tt.coachId}:${tt.toLocationId}:${tt.fromLocationId}`;
+      const cid = tt.coachId ?? "_global";
+      const keyAB = `${cid}:${tt.fromLocationId}:${tt.toLocationId}`;
+      const keyBA = `${cid}:${tt.toLocationId}:${tt.fromLocationId}`;
       travelTimeIndex.set(keyAB, tt.travelTimeMinutes);
       travelTimeIndex.set(keyBA, tt.travelTimeMinutes);
     }
 
     function getTravelMinutes(coachId: string, fromLocId: string, toLocId: string): number {
       if (fromLocId === toLocId) return 0;
-      return travelTimeIndex.get(`${coachId}:${fromLocId}:${toLocId}`) ?? 0;
+      // Coach-specific travel time takes priority
+      const coachSpecific = travelTimeIndex.get(`${coachId}:${fromLocId}:${toLocId}`);
+      if (coachSpecific !== undefined) return coachSpecific;
+      // Fall back to academy-wide travel time (rows without a coachId)
+      return travelTimeIndex.get(`_global:${fromLocId}:${toLocId}`) ?? 0;
     }
 
     // Fetch court availability blocks for the date range (blocked/booked from ALL coaches)
