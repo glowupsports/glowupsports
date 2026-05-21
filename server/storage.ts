@@ -2354,9 +2354,18 @@ export const storage = {
     return result[0];
   },
 
-  async getAllLocations(academyId?: string): Promise<Location[]> {
+  async getAllLocations(academyId?: string, opts?: { includeInactive?: boolean }): Promise<Location[]> {
+    const includeInactive = opts?.includeInactive === true;
     if (academyId) {
-      return db.select().from(locations).where(eq(locations.academyId, academyId));
+      const conditions = [eq(locations.academyId, academyId)];
+      // Task #2004: filter out is_active=false locations by default.
+      // Pass { includeInactive: true } only when the admin UI needs to see
+      // deactivated entries (e.g., to reactivate or permanently delete them).
+      if (!includeInactive) conditions.push(eq(locations.isActive, true));
+      return db.select().from(locations).where(and(...conditions));
+    }
+    if (!includeInactive) {
+      return db.select().from(locations).where(eq(locations.isActive, true));
     }
     return db.select().from(locations);
   },

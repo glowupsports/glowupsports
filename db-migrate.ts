@@ -940,6 +940,57 @@ async function run() {
     `);
     console.log("[db-migrate] coach_blocked_slots table — OK");
 
+    // ── Task #2004 — Fix booking wizard location duplicates ──────────────────
+    // The DB had 8 locations: 4 real parent venues + 4 orphaned child sub-locations
+    // that were mistakenly created as locations instead of courts.  Courts were
+    // linked to the child entries.  Fix: move courts to their parent venue and
+    // deactivate the 4 empty child sub-locations so the wizard shows only 4 tiles.
+    //
+    // Parent → Child mapping (child IDs are hardcoded because they are the ones
+    // being deactivated and their names could drift):
+    //   Sidra 1 tennis          (ee142c78) → sidra tennis courts    (fc9b9253)
+    //   Maple 1 Tennis Court    (1e178e26) → Maple tennis court     (358f3887)
+    //   Safa Club 1             (61dfd4fa) → Safa tennis club       (d0193c3e)
+    //   Ambassador Intl Academy (f8e73856) → ambassender school al qouz (211cdfc0)
+    //
+    // NOTE: the two "ambassender" locations are intentionally left active — the
+    // academy owner will remove one manually once they are ready.
+    //
+    // To safely remove a location in the future:
+    //   1. Reassign all sessions/series pointing to it to a replacement location.
+    //   2. Set is_active = false on the location.
+    await client.query(`
+      UPDATE courts
+      SET location_id = 'fc9b9253-763f-4d63-852d-eb2034ef0097'
+      WHERE location_id = 'ee142c78-731e-4861-bdb2-d181307bb492'
+    `);
+    await client.query(`
+      UPDATE courts
+      SET location_id = '358f3887-4224-444a-a6a8-dcbbb06a6bd9'
+      WHERE location_id = '1e178e26-2996-40e6-a186-36c58cd76efe'
+    `);
+    await client.query(`
+      UPDATE courts
+      SET location_id = 'd0193c3e-af23-4234-845c-7d6a9b1cbc79'
+      WHERE location_id = '61dfd4fa-0be6-4a99-81ac-66ce3e20f2cf'
+    `);
+    await client.query(`
+      UPDATE courts
+      SET location_id = '211cdfc0-7304-48a5-9535-df157e1b687c'
+      WHERE location_id = 'f8e73856-dc28-44aa-ab90-f2f7aab7d321'
+    `);
+    await client.query(`
+      UPDATE locations
+      SET is_active = false
+      WHERE id IN (
+        'ee142c78-731e-4861-bdb2-d181307bb492',
+        '1e178e26-2996-40e6-a186-36c58cd76efe',
+        '61dfd4fa-0be6-4a99-81ac-66ce3e20f2cf',
+        'f8e73856-dc28-44aa-ab90-f2f7aab7d321'
+      )
+    `);
+    console.log("[db-migrate] Task #2004 location dedup — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"
