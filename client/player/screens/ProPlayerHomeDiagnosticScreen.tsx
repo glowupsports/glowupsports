@@ -55,7 +55,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
 
 import { useAuth } from "@/coach/context/AuthContext";
 import type { AuthPlayer } from "@/coach/context/AuthContext";
@@ -113,7 +112,6 @@ import AchievementCelebrationModal from "@/player/components/AchievementCelebrat
 import { useAchievementCelebration } from "@/player/hooks/useAchievementCelebration";
 import { useSafeEffect } from "@/hooks/useSafeEffect";
 import { WellnessSnapshotCard } from "@/player/components/WellnessSnapshotCard";
-import { CreditSummaryChip } from "@/player/components/CreditSummaryChip";
 
 // ─── Types (exact from ProPlayerHomeScreen) ────────────────────────────────
 interface DashboardData {
@@ -246,7 +244,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   const { user, isGuest, patchPlayer } = useAuth();
   const playerCtx = usePlayer();
   const { openDrawer } = usePlayerDrawer();
-  const { isFamilyMember, isParent } = useFamily();
+  const { isFamilyMember: _isFamilyMember, isParent: _isParent } = useFamily();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -334,7 +332,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   };
 
   // ── Achievement nudge query ────────────────────────────────────────────────
-  const { data: achievementNudge } = useQuery<{
+  const { data: _achievementNudge } = useQuery<{
     achievementId: string;
     name: string;
     sessionsAway: number;
@@ -674,64 +672,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
             />
           </View>
 
-          {/* CREDIT SUMMARY CHIP */}
-          {!isGuest && credits ? (
-            <CreditSummaryChip
-              credits={credits}
-              onViewPress={() => {
-                if (isFamilyMember || isParent) {
-                  setShowPinModal(true);
-                } else {
-                  (navigation as any).navigate("PlayerProfile");
-                }
-              }}
-              onBuyPress={() => {
-                if (isFamilyMember || isParent) {
-                  setShowPinModal(true);
-                } else {
-                  (navigation as any).navigate("PlayerProfile");
-                }
-              }}
-            />
-          ) : null}
-
-          {/* ACHIEVEMENT NUDGE STRIP */}
-          {!isGuest && achievementNudge ? (
-            <Pressable
-              style={styles.nudgeStrip}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                (navigation as any).navigate("PlayerProfile");
-              }}
-            >
-              <View style={[styles.nudgeIconWrap, { backgroundColor: achievementNudge.iconColor + "20" }]}>
-                <Ionicons name={achievementNudge.iconName as IoniconsName} size={18} color={achievementNudge.iconColor} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.nudgeTitle} numberOfLines={1}>
-                  {achievementNudge.sessionsAway === 1
-                    ? `1 session away from "${achievementNudge.name}"`
-                    : `${achievementNudge.sessionsAway} sessions away from "${achievementNudge.name}"`}
-                </Text>
-                <View style={styles.nudgeBarTrack}>
-                  <View
-                    style={[
-                      styles.nudgeBarFill,
-                      {
-                        width: `${Math.min(
-                          (achievementNudge.currentProgress / achievementNudge.triggerThreshold) * 100,
-                          100,
-                        )}%` as DimensionValue,
-                        backgroundColor: achievementNudge.iconColor,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={14} color={achievementNudge.iconColor} />
-            </Pressable>
-          ) : null}
-
           {/* PLAYER DNA BANNER */}
           {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
 
@@ -759,27 +699,6 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
             <RamadanBonusCard onDismiss={handleDismissRamadan} />
           ) : null}
 
-
-          {/* FIND MATCH QUICK ACTION — primary action entry point to Open Match feed */}
-          {!isGuest ? (
-            <Pressable
-              style={styles.findMatchBanner}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                navigation.navigate("FindGame");
-              }}
-              accessibilityLabel="Find a match — browse open game requests"
-            >
-              <View style={styles.findMatchIconWrap}>
-                <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
-              </View>
-              <View style={styles.findMatchText}>
-                <Text style={styles.findMatchTitle}>Find a Match</Text>
-                <Text style={styles.findMatchSub}>Browse open game requests near you</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.dark.primary} />
-            </Pressable>
-          ) : null}
 
           {/* HERO CAROUSEL */}
           <HeroCarousel onBookSession={handleBookLesson} onRateSession={handleRateEndedSession} />
@@ -1109,75 +1028,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   improveCardGap: {
     height: Spacing.sm,
-  },
-  nudgeStrip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm,
-    backgroundColor: Colors.dark.card,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.borderSubtle,
-  },
-  nudgeIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  nudgeTitle: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.dark.text,
-    marginBottom: 4,
-  },
-  nudgeBarTrack: {
-    height: 3,
-    backgroundColor: Colors.dark.chipBackground,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  nudgeBarFill: {
-    height: 3,
-    borderRadius: 2,
-  },
-  findMatchBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
-    backgroundColor: Colors.dark.primary + "12",
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
-    padding: Spacing.md,
-  },
-  findMatchIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.dark.primary + "20",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  findMatchText: {
-    flex: 1,
-  },
-  findMatchTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  findMatchSub: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
   },
 }));
 

@@ -433,41 +433,41 @@ function ProPlayerCard({
 
           </View>
 
+          {credits ? (() => {
+            const cPrivate = Number(credits.private ?? 0) || 0;
+            const cGroup = Number(credits.group ?? 0) || 0;
+            const cSemi = Number(credits.semi_private ?? 0) || 0;
+            const totalNum = cPrivate + cGroup + cSemi;
+            const creditStatus: "ok" | "low" | "empty" = totalNum <= 0 ? "empty" : totalNum < 2 ? "low" : "ok";
+            const dotColor = creditStatus === "ok" ? "#00E676" : creditStatus === "low" ? "#FFC107" : "#FF4D4D";
+            const typeParts: string[] = [];
+            if (cPrivate > 0) typeParts.push(`${cPrivate} private`);
+            if (cSemi > 0) typeParts.push(`${cSemi} semi`);
+            if (cGroup > 0) typeParts.push(`${cGroup} group`);
+            return (
+              <Pressable
+                style={styles.creditsRow}
+                onPress={handleWalletPress}
+                accessibilityRole="button"
+                accessibilityLabel={`${totalNum} credits — tap to view`}
+              >
+                <View style={[styles.creditsDot, { backgroundColor: dotColor }]} />
+                <Text style={[styles.creditsTotalText, { color: dotColor }]}>
+                  {formatCredits(totalNum)}
+                  <Text style={styles.creditsUnitText}> {totalNum === 1 ? "credit" : "credits"}</Text>
+                </Text>
+                {typeParts.length > 1 ? (
+                  <Text style={styles.creditsBreakdownText} numberOfLines={1}> · {typeParts.join(" · ")}</Text>
+                ) : null}
+                <View style={{ flex: 1 }} />
+                <Ionicons name="chevron-forward" size={13} color={Colors.dark.textMuted} />
+              </Pressable>
+            );
+          })() : null}
+
           <View style={styles.cardDivider} />
 
-          {(() => {
-            // Coerce every credit field via Number(...) — pg numerics
-            // deserialize as strings, and "12" + 12 = "1212" is the
-            // exact bug this avoids. Sum from the per-type breakdown
-            // so we never trust a pre-summed total that may have been
-            // string-concatenated upstream.
-            const cPrivate = Number(credits?.private ?? 0) || 0;
-            const cGroup = Number(credits?.group ?? 0) || 0;
-            const cSemi = Number(credits?.semi_private ?? 0) || 0;
-            const totalNum = cPrivate + cGroup + cSemi;
-            return (
           <View style={styles.cardBottomRow}>
-            <Pressable 
-              style={[
-                styles.walletChip,
-                totalNum <= 0 && styles.walletChipDanger,
-              ]} 
-              onPress={handleWalletPress}
-            >
-              {totalNum <= 0 ? (
-                <Ionicons name="alert-circle" size={14} color="#FF4D4D" />
-              ) : null}
-              <Ionicons 
-                name="wallet-outline" 
-                size={14} 
-                color={totalNum <= 0 ? "#FF4D4D" : Colors.dark.accentText} 
-              />
-              <Text style={[
-                styles.walletText,
-                totalNum <= 0 && styles.walletTextDanger,
-              ]}>{formatCredits(totalNum)} {t("player.home.credits")}</Text>
-            </Pressable>
-
             <Pressable
               style={styles.journeyChip}
               onPress={() => {
@@ -523,8 +523,6 @@ function ProPlayerCard({
               </Pressable>
             ) : null}
           </View>
-            );
-          })()}
         </View>
         </Animated.View>
       </View>
@@ -863,25 +861,31 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs + 2,
   },
-  walletChip: {
+  creditsRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: Colors.dark.chipBackground,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.sm,
-    gap: 4,
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingTop: 5,
+    paddingBottom: 4,
   },
-  walletChipDanger: {
-    backgroundColor: "rgba(255, 77, 77, 0.12)",
+  creditsDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
-  walletText: {
+  creditsTotalText: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.dark.accentText,
   },
-  walletTextDanger: {
-    color: "#FF4D4D",
+  creditsUnitText: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: Colors.dark.textSecondary,
+  },
+  creditsBreakdownText: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
   },
   streakChip: {
     flexDirection: "row",
