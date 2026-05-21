@@ -23,6 +23,19 @@ import * as Haptics from "expo-haptics";
 import { useTranslation } from "react-i18next";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
+
+function extractApiErrorMessage(error: any): string {
+  const raw: string = error?.message || "";
+  const jsonStart = raw.indexOf("{");
+  if (jsonStart !== -1) {
+    try {
+      const parsed = JSON.parse(raw.slice(jsonStart));
+      if (parsed?.error) return parsed.error;
+    } catch {}
+  }
+  return raw || "Something went wrong.";
+}
+
 interface SessionHeroCardProps {
   onCheckIn?: () => void;
   onCancel?: () => void;
@@ -366,6 +379,7 @@ function SessionHeroCard({
   const [lateMinutes, setLateMinutes] = useState(10);
   const [lateMessage, setLateMessage] = useState("");
   const [dismissed, setDismissed] = useState(false);
+  const [checkedIn, setCheckedIn] = useState(false);
   const dismissKey = sessionId ? `dismissed-next-session:${sessionId}` : null;
 
   useEffect(() => {
@@ -409,7 +423,7 @@ function SessionHeroCard({
       Alert.alert(t("player.home.issueReported"), t("player.home.issueReportedMsg"));
     },
     onError: (error: any) => {
-      Alert.alert(t("common.error"), error?.message || t("player.home.failedReportIssue"));
+      Alert.alert(t("common.error"), extractApiErrorMessage(error) || t("player.home.failedReportIssue"));
     },
   });
 
@@ -438,7 +452,7 @@ function SessionHeroCard({
       );
     },
     onError: (error: any) => {
-      Alert.alert(t("common.error"), error?.message || t("player.home.failedCancelSession"));
+      Alert.alert(t("common.error"), extractApiErrorMessage(error));
     },
   });
 
@@ -456,7 +470,7 @@ function SessionHeroCard({
       Alert.alert(t("player.home.coachNotified"), t("player.home.coachNotifiedMsg"));
     },
     onError: (error: any) => {
-      Alert.alert(t("common.error"), error?.message || t("player.home.failedNotifyCoach"));
+      Alert.alert(t("common.error"), extractApiErrorMessage(error) || t("player.home.failedNotifyCoach"));
     },
   });
 
@@ -464,15 +478,15 @@ function SessionHeroCard({
     mutationFn: async () => {
       return apiRequest("POST", `/api/player/me/sessions/${sessionId}/check-in`, {});
     },
-    onSuccess: (response: any) => {
+    onSuccess: () => {
       setHasCheckedIn(true);
+      setCheckedIn(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/dashboard"] });
-      const xpMsg = response?.xpAwarded ? `\n+${response.xpAwarded} XP` : "";
-      Alert.alert(t("player.home.checkedIn"), `${t("player.home.checkedInMsg")}${xpMsg}`);
+      setTimeout(() => setCheckedIn(false), 3000);
     },
     onError: (error: any) => {
-      Alert.alert(t("player.home.checkInFailed"), error?.message || t("player.home.failedCheckIn"));
+      Alert.alert(t("player.home.checkInFailed"), extractApiErrorMessage(error));
     },
   });
 
@@ -590,8 +604,6 @@ function SessionHeroCard({
   const handleExtend = () => {
     if (onExtend) {
       onExtend();
-    } else {
-      Alert.alert(t("player.home.extendSession"), t("player.home.contactCoachExtend"));
     }
   };
 
@@ -1987,21 +1999,33 @@ function SessionHeroCard({
           ) : null}
 
           <View style={styles.liveButtonsRow}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.liveButton,
-                styles.cleanAttendButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleCheckIn}
-            >
-              <Feather name="check-circle" size={18} color={Backgrounds.root} />
-              <Text style={styles.cleanAttendButtonText}>{t("player.home.attend")}</Text>
-            </Pressable>
+            {checkedIn ? (
+              <Pressable
+                disabled
+                style={[styles.liveButton, styles.checkedInChip, { flex: 1 }]}
+              >
+                <Feather name="check-circle" size={18} color="#fff" />
+                <Text style={styles.checkedInChipText}>Checked in!</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.liveButton,
+                  styles.cleanAttendButton,
+                  { flex: 1 },
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleCheckIn}
+              >
+                <Feather name="check-circle" size={18} color={Backgrounds.root} />
+                <Text style={styles.cleanAttendButtonText}>{t("player.home.attend")}</Text>
+              </Pressable>
+            )}
             <Pressable
               style={({ pressed }) => [
                 styles.liveButton,
                 styles.cleanMutedButton,
+                { flex: 1 },
                 pressed && styles.buttonPressed,
               ]}
               onPress={handleExtend}
@@ -2013,6 +2037,7 @@ function SessionHeroCard({
               style={({ pressed }) => [
                 styles.liveButton,
                 styles.cleanMutedButton,
+                { flex: 1 },
                 pressed && styles.buttonPressed,
               ]}
               onPress={() => {
@@ -2036,19 +2061,21 @@ function SessionHeroCard({
               <Feather name="clock" size={14} color={ProTennisColors.warning} />
               <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.warning }]}>{t("player.home.delay")}</Text>
             </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.cleanTextButton,
-                pressed && { opacity: 0.6 },
-              ]}
-              onPress={handleCancel}
-              accessibilityLabel={t("player.home.cancelSession")}
-            >
-              <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
-              <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.danger }]}>
-                {t("player.home.cancelSession")}
-              </Text>
-            </Pressable>
+            {sessionStatus !== "live" ? (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cleanTextButton,
+                  pressed && { opacity: 0.6 },
+                ]}
+                onPress={handleCancel}
+                accessibilityLabel={t("player.home.cancelSession")}
+              >
+                <Feather name="x-circle" size={14} color={ProTennisColors.danger} />
+                <Text style={[styles.cleanTextButtonLabel, { color: ProTennisColors.danger }]}>
+                  {t("player.home.cancelSession")}
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {/* Report Issue Modal */}
@@ -3053,7 +3080,16 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   liveButtonsRow: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    gap: Spacing.sm,
+  },
+  checkedInChip: {
+    backgroundColor: "#22c55e",
+    justifyContent: "center",
+  },
+  checkedInChipText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
   },
   liveButton: {
     flexDirection: "row",

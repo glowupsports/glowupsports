@@ -374,6 +374,7 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
     .catch(() => []);
 
   const sortedSessions = upcomingSessions
+    .filter((s) => s.status !== "cancelled")
     .map((s) => ({
       ...s,
       isActive: s.startTime <= now && s.endTime > now,

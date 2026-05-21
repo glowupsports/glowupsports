@@ -701,7 +701,7 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
 
 
           {/* HERO CAROUSEL */}
-          <HeroCarousel onBookSession={handleBookLesson} onRateSession={handleRateEndedSession} />
+          <HeroCarousel onBookSession={handleBookLesson} onRateSession={handleRateEndedSession} onExtend={() => setShowBookingWizard(true)} />
 
           {/* UPCOMING PROVIDER SESSION */}
           {!isGuest ? (
