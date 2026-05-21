@@ -589,7 +589,10 @@ function PlayerHomeContent() {
   useFocusEffect(
     useCallback(() => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
-    }, [queryClient])
+      if (user?.playerId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/players/${user.playerId}/credits-summary`] });
+      }
+    }, [queryClient, user?.playerId])
   );
 
   // Task #1495 — Auth-ready watcher (primary cold-start fix):
@@ -1191,6 +1194,10 @@ function PlayerHomeContent() {
         visible={showBookingWizard}
         onClose={() => setShowBookingWizard(false)}
         onBookingSuccess={handleBookingSuccess}
+        onBuyPackage={() => {
+          setShowBookingWizard(false);
+          setShowPinModal(true);
+        }}
         playerId={player?.id}
         playerBallLevel={player?.ballLevel}
         sport={bookingWizardSport}

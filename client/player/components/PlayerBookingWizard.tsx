@@ -42,7 +42,6 @@ import { AnimatedCheck } from "@/components/AnimatedCheck";
 import CoachProfileDrawer from "./CoachProfileDrawer";
 import { CourtBookingPicker } from "./CourtBookingPicker";
 import PaymentMethodPicker, { PaymentMethod } from "@/components/PaymentMethodPicker";
-import { CreditPackagesList } from "@/components/CreditPackagesList";
 import { useTranslation } from "react-i18next";
 import { getSportLabel, getSportColor } from "@/player/context/SportContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
@@ -133,6 +132,7 @@ interface PlayerBookingWizardProps {
   visible: boolean;
   onClose: () => void;
   onBookingSuccess?: () => void;
+  onBuyPackage?: () => void;
   playerId?: string;
   playerBallLevel?: string | null;
   sport?: string;
@@ -194,6 +194,7 @@ export default function PlayerBookingWizard({
   visible,
   onClose,
   onBookingSuccess,
+  onBuyPackage,
   playerId,
   playerBallLevel: _playerBallLevel,
   sport = "tennis",
@@ -269,7 +270,6 @@ export default function PlayerBookingWizard({
 
   // Step 4: confirm
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("credits");
-  const [showCreditPackages, setShowCreditPackages] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [policyModalVisible, setPolicyModalVisible] = useState(false);
 
@@ -1057,6 +1057,14 @@ export default function PlayerBookingWizard({
     elevation: 10,
   }));
 
+  // ─── Resolved location name (for filter-based display) ───────────────────────
+  const resolvedLocationName = useMemo(() => {
+    if (filterLocationId) {
+      return locations.find((l) => l.id === filterLocationId)?.name ?? null;
+    }
+    return null;
+  }, [filterLocationId, locations]);
+
   // ─── Helpers ──────────────────────────────────────────────────────────────────
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -1204,33 +1212,42 @@ export default function PlayerBookingWizard({
             ))}
           </ScrollView>
 
-          {/* Location filter */}
+          {/* Location filter — visual cards */}
           {locations.length > 0 && (
             <>
               <Text style={styles.filterLabel}>Location</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
+              <View style={styles.locationGrid}>
                 <Pressable
-                  style={[styles.filterChip, !filterLocationId && styles.filterChipSelected]}
+                  style={[styles.locationCard, !filterLocationId && styles.locationCardSelected]}
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterLocationId(null); }}
                 >
-                  <Text style={[styles.filterChipText, !filterLocationId && styles.filterChipTextSelected]}>Any</Text>
+                  <View style={[styles.locationCardIcon, !filterLocationId && { backgroundColor: Colors.dark.primary + "20" }]}>
+                    <Ionicons name="earth-outline" size={18} color={!filterLocationId ? Colors.dark.primary : Colors.dark.textSecondary} />
+                  </View>
+                  <Text style={[styles.locationCardName, !filterLocationId && styles.locationCardNameSelected]} numberOfLines={2}>Any</Text>
+                  {!filterLocationId ? <Ionicons name="checkmark-circle" size={13} color={Colors.dark.primary} style={{ marginTop: 2 }} /> : null}
                 </Pressable>
-                {locations.map((loc) => (
-                  <Pressable
-                    key={loc.id}
-                    style={[styles.filterChip, filterLocationId === loc.id && styles.filterChipSelected]}
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterLocationId(loc.id); }}
-                  >
-                    <Text style={[styles.filterChipText, filterLocationId === loc.id && styles.filterChipTextSelected]}>
-                      {loc.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+                {locations.map((loc) => {
+                  const isLocSel = filterLocationId === loc.id;
+                  return (
+                    <Pressable
+                      key={loc.id}
+                      style={[styles.locationCard, isLocSel && styles.locationCardSelected]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterLocationId(loc.id); }}
+                    >
+                      <View style={[styles.locationCardIcon, isLocSel && { backgroundColor: Colors.dark.primary + "20" }]}>
+                        <Ionicons name="tennisball-outline" size={18} color={isLocSel ? Colors.dark.primary : Colors.dark.textSecondary} />
+                      </View>
+                      <Text style={[styles.locationCardName, isLocSel && styles.locationCardNameSelected]} numberOfLines={2}>{loc.name}</Text>
+                      {isLocSel ? <Ionicons name="checkmark-circle" size={13} color={Colors.dark.primary} style={{ marginTop: 2 }} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
             </>
           )}
 
-          {/* Coach filter */}
+          {/* Coach filter — chips with avatars */}
           {directoryCoaches.length > 0 && (
             <>
               <Text style={styles.filterLabel}>Coach</Text>
@@ -1241,17 +1258,30 @@ export default function PlayerBookingWizard({
                 >
                   <Text style={[styles.filterChipText, !filterCoachId && styles.filterChipTextSelected]}>Any Coach</Text>
                 </Pressable>
-                {directoryCoaches.map((coach) => (
-                  <Pressable
-                    key={coach.id}
-                    style={[styles.filterChip, filterCoachId === coach.id && styles.filterChipSelected]}
-                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterCoachId(coach.id); }}
-                  >
-                    <Text style={[styles.filterChipText, filterCoachId === coach.id && styles.filterChipTextSelected]}>
-                      {coach.name}
-                    </Text>
-                  </Pressable>
-                ))}
+                {directoryCoaches.map((coach) => {
+                  const isCoachSel = filterCoachId === coach.id;
+                  const coachPhotoUrl = coach.profilePhotoUrl ? buildPhotoUrl(coach.profilePhotoUrl) : null;
+                  return (
+                    <Pressable
+                      key={coach.id}
+                      style={[styles.filterChip, styles.coachFilterChip, isCoachSel && styles.filterChipSelected]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterCoachId(coach.id); }}
+                    >
+                      <View style={styles.coachFilterAvatar}>
+                        {coachPhotoUrl ? (
+                          <ExpoImage source={{ uri: coachPhotoUrl }} style={styles.coachFilterAvatarImg} contentFit="cover" />
+                        ) : (
+                          <Text style={[styles.coachFilterAvatarText, isCoachSel && { color: Colors.dark.primary }]}>
+                            {(coach.name || "C").charAt(0).toUpperCase()}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={[styles.filterChipText, isCoachSel && styles.filterChipTextSelected]}>
+                        {coach.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </ScrollView>
             </>
           )}
@@ -1471,7 +1501,7 @@ export default function PlayerBookingWizard({
                   <View style={styles.coachGroupHeader}>
                     <View style={styles.coachGroupAvatar}>
                       {group.coach.photoUrl ? (
-                        <ExpoImage source={{ uri: buildPhotoUrl(group.coach.photoUrl) }} style={styles.coachGroupPhoto} contentFit="cover" />
+                        <ExpoImage source={{ uri: buildPhotoUrl(group.coach.photoUrl) ?? undefined }} style={styles.coachGroupPhoto} contentFit="cover" />
                       ) : (
                         <Text style={styles.coachGroupAvatarText}>{(group.coach.name || "C").charAt(0)}</Text>
                       )}
@@ -1487,7 +1517,11 @@ export default function PlayerBookingWizard({
                         )}
                       </View>
                       <Text style={styles.coachGroupSub}>
-                        {sortedSlots.length} slot{sortedSlots.length !== 1 ? "s" : ""} · {sortedSlots[0]?.locationName || ""}
+                        {sortedSlots.length} slot{sortedSlots.length !== 1 ? "s" : ""}
+                        {(() => {
+                          const locDisplay = resolvedLocationName ?? (sortedSlots[0]?.locationName && sortedSlots[0].locationName !== "Any Location" ? sortedSlots[0].locationName : null);
+                          return locDisplay ? ` · ${locDisplay}` : "";
+                        })()}
                       </Text>
                     </View>
                   </View>
@@ -1552,16 +1586,49 @@ export default function PlayerBookingWizard({
                               </View>
                               <View style={styles.slotDetailRow}>
                                 <Ionicons name="location-outline" size={14} color={Colors.dark.textSecondary} />
-                                <Text style={styles.slotDetailText}>{slot.locationName} · {slot.courtName}</Text>
+                                <Text style={styles.slotDetailText}>
+                                  {(() => {
+                                    const locName = resolvedLocationName || (slot.locationName && slot.locationName !== "Any Location" ? slot.locationName : null);
+                                    const courtName = slot.courtName && slot.courtName !== "Any Court" ? slot.courtName : null;
+                                    return [locName, courtName].filter(Boolean).join(" · ") || "—";
+                                  })()}
+                                </Text>
                               </View>
-                              {reservationId && (
+                              {reservationId ? (
                                 <View style={styles.slotDetailRow}>
                                   <Ionicons name="lock-closed" size={14} color={Colors.dark.primary} />
                                   <Text style={[styles.slotDetailText, { color: Colors.dark.primary, fontWeight: "600" }]}>
                                     Held for {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}
                                   </Text>
                                 </View>
-                              )}
+                              ) : null}
+                              {/* Inline court picker — moved from Step 4 */}
+                              {availableCourts.length > 0 ? (
+                                <View style={{ marginTop: Spacing.sm }}>
+                                  <Text style={styles.courtPickerLabel}>Choose Court</Text>
+                                  <View style={styles.courtPickerChips}>
+                                    {availableCourts.map((court) => {
+                                      const isCourtSel = (selectedCourtId ?? slot.courtId) === court.id;
+                                      return (
+                                        <Pressable
+                                          key={court.id}
+                                          style={[styles.courtPickerChip, isCourtSel && styles.courtPickerChipSelected]}
+                                          onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            setSelectedCourtId(court.id);
+                                            setSelectedCourtName(court.name);
+                                          }}
+                                        >
+                                          <Ionicons name="tennisball" size={12} color={isCourtSel ? Colors.dark.buttonText : Colors.dark.textSecondary} />
+                                          <Text style={[styles.courtPickerChipText, isCourtSel && styles.courtPickerChipTextSelected]}>
+                                            {court.name}{court.surface ? ` · ${court.surface}` : ""}
+                                          </Text>
+                                        </Pressable>
+                                      );
+                                    })}
+                                  </View>
+                                </View>
+                              ) : null}
                               <Pressable
                                 style={styles.selectSlotBtn}
                                 onPress={() => {
@@ -1630,8 +1697,8 @@ export default function PlayerBookingWizard({
                 {creditsForType} remaining
               </Text>
             </View>
-            {creditsForType === 0 && (
-              <Pressable style={styles.buyCreditsBtn} onPress={() => setShowCreditPackages(true)}>
+            {creditsForType === 0 && onBuyPackage && (
+              <Pressable style={styles.buyCreditsBtn} onPress={onBuyPackage}>
                 <Text style={styles.buyCreditsBtnText}>Buy a Package</Text>
               </Pressable>
             )}
@@ -1649,7 +1716,12 @@ export default function PlayerBookingWizard({
                   {formatDateHeader(selectedDate)} · {formatTime(sessionInfo.startTime)} – {formatTime(sessionInfo.endTime)}
                 </Text>
                 <Text style={styles.summaryMiniCoach}>
-                  {sessionInfo.coachName} · {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
+                  {sessionInfo.coachName}
+                  {(() => {
+                    const locName = resolvedLocationName ?? ("locationName" in sessionInfo && sessionInfo.locationName && sessionInfo.locationName !== "Any Location" ? sessionInfo.locationName : null);
+                    return locName ? ` · ${locName}` : "";
+                  })()}
+                  {selectedCourtName ? ` · ${selectedCourtName}` : ""}
                 </Text>
               </LinearGradient>
             </View>
@@ -1762,32 +1834,6 @@ export default function PlayerBookingWizard({
               onSubmitEditing={Keyboard.dismiss}
             />
           </View>
-
-          {/* Court selection */}
-          {selectedSlot && !isJoining && availableCourts.length > 0 && (
-            <View style={styles.inputGroup}>
-              <View style={styles.inputLabel}>
-                <Ionicons name="tennisball" size={16} color={Colors.dark.primary} />
-                <Text style={styles.inputLabelText}>Court</Text>
-              </View>
-              <View style={styles.aiFocusChips}>
-                {availableCourts.map((court) => {
-                  const isSelected = (selectedCourtId ?? selectedSlot.courtId) === court.id;
-                  return (
-                    <Pressable
-                      key={court.id}
-                      style={[styles.aiFocusChip, isSelected && styles.aiFocusChipSelected]}
-                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedCourtId(court.id); setSelectedCourtName(court.name); }}
-                    >
-                      <Text style={[styles.aiFocusChipText, isSelected && styles.aiFocusChipTextSelected]}>
-                        {court.name}{court.surface ? ` · ${court.surface}` : ""}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          )}
 
           {/* Court booking declaration (for external courts) */}
           {requiresExternalBooking && (
@@ -1924,7 +1970,7 @@ export default function PlayerBookingWizard({
                   return (
                     <Pressable
                       style={styles.confirmDirectionsRow}
-                      onPress={() => openDirections(loc.lat, loc.lng ?? undefined, loc.address ?? undefined, loc.name)}
+                      onPress={() => openDirections({ lat: loc.lat, lng: loc.lng ?? undefined, address: loc.address ?? undefined, label: loc.name })}
                     >
                       <Ionicons name="navigate" size={13} color={Colors.dark.primary} />
                       <Text style={styles.confirmDirectionsText}>Get directions</Text>
@@ -1944,25 +1990,13 @@ export default function PlayerBookingWizard({
 
             {/* Payment method */}
             <PaymentMethodPicker
-              value={paymentMethod}
+              selected={paymentMethod}
               onChange={setPaymentMethod}
               creditsAvailable={creditsForType}
-              creditType={sessionType === "group" ? "group" : sessionType === "semi_private" ? "semi_private" : "private"}
               cardEnabled={cardEnabled}
-              priceInfo={lessonPriceInfo ?? undefined}
-              onBuyCredits={() => setShowCreditPackages(true)}
+              cardPriceLabel={lessonPriceInfo ? `${lessonPriceInfo.currency ?? ""}${lessonPriceInfo.amount ?? ""}` : null}
+              onBuyCredits={onBuyPackage}
             />
-
-            {/* Buy credits modal */}
-            <Modal visible={showCreditPackages} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreditPackages(false)}>
-              <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.dark.border }}>
-                  <Text style={{ fontSize: 18, fontWeight: "700", color: Colors.dark.text }}>{t("booking.payment.buyCredits", "Buy credits")}</Text>
-                  <Pressable onPress={() => setShowCreditPackages(false)}><Ionicons name="close" size={24} color={Colors.dark.text} /></Pressable>
-                </View>
-                <CreditPackagesList playerId={playerId || ""} />
-              </View>
-            </Modal>
 
             {/* Cancellation policy modal */}
             <Modal visible={policyModalVisible} animationType="fade" transparent onRequestClose={() => setPolicyModalVisible(false)}>
@@ -2009,9 +2043,7 @@ export default function PlayerBookingWizard({
 
         {/* Header */}
         <View style={styles.header}>
-          <Pressable style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={22} color={Colors.dark.text} />
-          </Pressable>
+          <View style={{ width: 40 }} />
 
           <View style={styles.headerCenter}>
             <Text style={styles.headerTitle}>{SLIDE_TITLES[currentSlide]}</Text>
@@ -2039,7 +2071,11 @@ export default function PlayerBookingWizard({
         {/* Footer */}
         {!showSuccess && (
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + Spacing.md }]}>
-            {currentSlide > 0 && (
+            {currentSlide === 0 ? (
+              <Pressable style={styles.backButton} onPress={onClose}>
+                <Text style={styles.backButtonText}>Cancel</Text>
+              </Pressable>
+            ) : (
               <Pressable style={styles.backButton} onPress={goBack}>
                 <Ionicons name="arrow-back" size={20} color={Colors.dark.text} />
                 <Text style={styles.backButtonText}>Back</Text>
@@ -2162,14 +2198,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    alignItems: "center",
-    justifyContent: "center",
   },
   headerCenter: { alignItems: "center" },
   headerTitle: { fontSize: 17, fontWeight: "700", color: Colors.dark.text },
@@ -2721,4 +2749,97 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   calendarDayTextPast: { color: Colors.dark.textMuted },
   calendarCloseButton: { marginTop: Spacing.lg, paddingVertical: Spacing.md, backgroundColor: Colors.dark.backgroundTertiary, borderRadius: BorderRadius.md, alignItems: "center" },
   calendarCloseButtonText: { fontSize: 15, color: Colors.dark.text, fontWeight: "500" },
+
+  // Location cards (Step 2 visual filter)
+  locationGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  locationCard: {
+    flexBasis: "30%",
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    minHeight: 82,
+    position: "relative",
+  },
+  locationCardSelected: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: Colors.dark.primary + "12",
+  },
+  locationCardIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  locationCardName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    textAlign: "center",
+  },
+  locationCardNameSelected: {
+    color: Colors.dark.primary,
+  },
+
+  // Coach filter chip with avatar
+  coachFilterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingLeft: 6,
+  },
+  coachFilterAvatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.dark.primary + "30",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  coachFilterAvatarImg: { width: 22, height: 22, borderRadius: 11 },
+  coachFilterAvatarText: { fontSize: 10, fontWeight: "700", color: Colors.dark.textSecondary },
+
+  // Inline court picker (Step 3)
+  courtPickerLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.textSecondary,
+    marginBottom: 6,
+  },
+  courtPickerChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  courtPickerChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  courtPickerChipSelected: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  courtPickerChipText: { fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary },
+  courtPickerChipTextSelected: { color: Colors.dark.buttonText },
 }));

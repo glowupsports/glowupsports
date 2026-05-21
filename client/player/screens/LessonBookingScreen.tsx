@@ -36,6 +36,10 @@ export default function LessonBookingScreen() {
         visible={true}
         onClose={handleClose}
         onBookingSuccess={handleBookingSuccess}
+        onBuyPackage={() => {
+          navigation.goBack();
+          navigation.navigate("ParentCreditStore", { playerId: user?.playerId });
+        }}
         playerId={user?.playerId || undefined}
         sport={sport}
         preselectedCoachId={preselectedCoachId}

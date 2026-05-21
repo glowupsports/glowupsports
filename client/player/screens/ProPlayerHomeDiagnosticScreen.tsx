@@ -556,7 +556,10 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   useFocusEffect(
     useCallback(() => {
       queryClient.invalidateQueries({ queryKey: ["/api/player/me/home-data"] });
-    }, [queryClient]),
+      if (player?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/players/${player.id}/credits-summary`] });
+      }
+    }, [queryClient, player?.id]),
   );
 
   // ── Auth-ready watcher (exact from ProPlayerHomeScreen #1495) ─────────────
@@ -960,6 +963,13 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
             setBookingWizardPreselectedSlot(undefined);
           }}
           onBookingSuccess={handleBookingSuccess}
+          onBuyPackage={() => {
+            setShowBookingWizard(false);
+            setBookingWizardPreselectedDate(undefined);
+            setBookingWizardPreselectedCoachId(undefined);
+            setBookingWizardPreselectedSlot(undefined);
+            setShowPinModal(true);
+          }}
           sport={bookingWizardSport}
           preselectedDate={bookingWizardPreselectedDate}
           preselectedCoachId={bookingWizardPreselectedCoachId}
