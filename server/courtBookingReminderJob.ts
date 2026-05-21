@@ -1,4 +1,4 @@
-// Court Booking Reminder Job — Task #1712 (rev 2)
+// Court Booking Reminder Job — Task #1712 (rev 2), Task #1990 (24h no-upload pass)
 //
 // Runs hourly. Fires reminders at 08:00 academy local time (once per local
 // calendar day per academy), targeting sessions 14, 7, and 3 days out.
@@ -214,6 +214,123 @@ async function processSeriesReminders(series: SeriesRow): Promise<number> {
   return sent;
 }
 
+/**
+ * Task #1990 — 24 h "nobody uploaded" last-chance pass.
+ *
+ * Runs on every hourly tick (not time-of-day gated).
+ * Finds sessions whose courtLocation is set and that start 23–25 h from now.
+ * If ZERO players have any courtBookingConfirmation row for that session,
+ * sends one push per enrolled player (idempotent via reminderKey
+ * `court_booking_24h_noshow:{sessionId}:{playerId}`).
+ */
+async function processNoUploadReminders(): Promise<number> {
+  let sent = 0;
+  const now = new Date();
+  const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+  const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+
+  // Find scheduled sessions in the 23–25 h window whose series has a courtLocation
+  const upcomingSessions = await db
+    .select({
+      sessionId: sessions.id,
+      seriesId: sessions.seriesId,
+      startTime: sessions.startTime,
+      courtLocation: coachingSeries.courtLocation,
+      seriesTitle: coachingSeries.title,
+      courtReminderGroupIds: coachingSeries.courtReminderGroupIds,
+    })
+    .from(sessions)
+    .innerJoin(coachingSeries, eq(coachingSeries.id, sessions.seriesId))
+    .where(
+      and(
+        eq(sessions.status, "scheduled"),
+        isNotNull(coachingSeries.courtLocation),
+        gte(sessions.startTime, windowStart),
+        lte(sessions.startTime, windowEnd)
+      )
+    );
+
+  for (const session of upcomingSessions) {
+    if (!session.courtLocation) continue;
+
+    // Check if anyone has uploaded for this session
+    const [anyUpload] = await db
+      .select({ id: courtBookingConfirmations.id })
+      .from(courtBookingConfirmations)
+      .where(eq(courtBookingConfirmations.sessionId, session.sessionId))
+      .limit(1);
+
+    if (anyUpload) continue; // someone already uploaded — skip
+
+    // Get enrolled players
+    const enrolled = await db
+      .select({ playerId: seriesPlayers.playerId })
+      .from(seriesPlayers)
+      .where(
+        and(
+          eq(seriesPlayers.seriesId, session.seriesId!),
+          eq(seriesPlayers.status, "active")
+        )
+      );
+
+    // Apply group filter if configured
+    const groupFilter = session.courtReminderGroupIds;
+    let targetPlayers = enrolled;
+    if (groupFilter && groupFilter.length > 0) {
+      const members = await db
+        .select({ playerId: lessonGroupMembers.playerId })
+        .from(lessonGroupMembers)
+        .where(
+          and(
+            inArray(lessonGroupMembers.groupId, groupFilter),
+            eq(lessonGroupMembers.status, "active")
+          )
+        );
+      const allowedIds = new Set(members.map((m) => m.playerId));
+      targetPlayers = enrolled.filter((e) => allowedIds.has(e.playerId));
+    }
+
+    const title = "Court Booking — Last Chance";
+    const body = `Nobody has confirmed the court at ${session.courtLocation} yet. Your session starts in ~24 h — please upload your booking screenshot now.`;
+
+    for (const { playerId } of targetPlayers) {
+      const reminderKey = `court_booking_24h_noshow:${session.sessionId}:${playerId}`;
+
+      // Idempotency — reuse the same getSentReminderKeys helper used by the regular pass
+      const sentKeys = await getSentReminderKeys(playerId);
+      if (sentKeys.has(reminderKey)) continue;
+
+      await db.insert(playerNotifications).values({
+        playerId,
+        type: "court_booking_reminder",
+        title,
+        body,
+        data: {
+          type: "court_booking_reminder",
+          reminderKey,
+          sessionId: session.sessionId,
+          seriesId: session.seriesId,
+          courtLocation: session.courtLocation,
+          screen: "CourtBookingConfirmation",
+        },
+      });
+
+      const tokens = await getPlayerPushTokens(playerId);
+      if (tokens.length > 0) {
+        await sendPushNotification(tokens, title, body, {
+          type: "court_booking_reminder",
+          screen: "CourtBookingConfirmation",
+          sessionId: session.sessionId,
+        });
+      }
+
+      sent++;
+    }
+  }
+
+  return sent;
+}
+
 export async function processCourtBookingReminders(): Promise<{
   processed: number;
   sent: number;
@@ -268,6 +385,17 @@ export async function processCourtBookingReminders(): Promise<{
     console.log(
       `[CourtBookingReminder] ${academyKey} (${timezone}) — ${dateKey}: sent=${sent}`
     );
+  }
+
+  // 24h no-upload pass — runs every tick, not time-gated
+  try {
+    const noUploadSent = await processNoUploadReminders();
+    if (noUploadSent > 0) {
+      console.log(`[CourtBookingReminder] 24h no-upload pass: sent=${noUploadSent}`);
+      sent += noUploadSent;
+    }
+  } catch (err) {
+    console.error("[CourtBookingReminder] 24h no-upload pass failed:", err);
   }
 
   return { processed, sent };

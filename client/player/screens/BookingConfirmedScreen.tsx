@@ -384,7 +384,7 @@ export default function BookingConfirmedScreen() {
           <Animated.View style={[styles.skippedNote, { opacity: cardOpacity }]}>
             <Ionicons name="information-circle-outline" size={15} color={Colors.dark.textMuted} />
             <Text style={styles.skippedNoteText}>
-              We'll remind you 3 days before the session.
+              {"We'll remind you 3 days before the session."}
             </Text>
           </Animated.View>
         ) : null}
