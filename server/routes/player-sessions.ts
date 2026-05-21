@@ -7597,24 +7597,26 @@ import fs from "fs";
           return res.status(400).json({ error: "Academy ID required" });
         }
 
-        const locations = await storage.getAllLocations(academyId);
+        const locations = await storage.getAllLocations(academyId, { includeInactive: true });
         const courts = await storage.getAllCourts(academyId);
         const allSessions = await storage.getSessionsByAcademy(academyId);
+        const now = new Date();
 
         const locationsWithCounts = locations.map((loc) => {
           const courtsAtLocation = courts.filter((c) => c.locationId === loc.id);
           const courtIds = courtsAtLocation.map(c => c.id);
-          const sessionCount = allSessions.filter(s => {
-            // Count sessions via court->location mapping
+          const sessionsAtLocation = allSessions.filter(s => {
             if (s.courtId && courtIds.includes(s.courtId)) return true;
-            // Also count sessions assigned directly to this location (no court)
             if (s.locationId === loc.id) return true;
             return false;
-          }).length;
+          });
+          const sessionCount = sessionsAtLocation.length;
+          const upcomingSessionCount = sessionsAtLocation.filter(s => new Date(s.startTime) > now).length;
           return {
             ...loc,
             courtCount: courtsAtLocation.length,
             sessionCount,
+            upcomingSessionCount,
           };
         });
 

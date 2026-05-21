@@ -33,6 +33,7 @@ interface Location {
   googlePlaceId?: string | null;
   courtCount?: number;
   sessionCount?: number;
+  upcomingSessionCount?: number;
 }
 
 export default function AdminLocationsScreen() {
@@ -106,6 +107,67 @@ export default function AdminLocationsScreen() {
       Alert.alert("Error", error.message || "Failed to delete location. Make sure there are no courts at this location.");
     },
   });
+
+  const archiveMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("PUT", `/api/admin/locations/${id}`, { isActive: false }),
+    onSuccess: () => {
+      invalidateLocations();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to archive location");
+    },
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("PUT", `/api/admin/locations/${id}`, { isActive: true }),
+    onSuccess: () => {
+      invalidateLocations();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      Alert.alert("Error", error.message || "Failed to reactivate location");
+    },
+  });
+
+  const handleArchive = (location: Location) => {
+    const upcoming = location.upcomingSessionCount ?? 0;
+    const warningLine = upcoming > 0
+      ? `\n\nWarning: This location has ${upcoming} upcoming session${upcoming !== 1 ? "s" : ""} linked to it. Those sessions will not be removed but the location will no longer appear in the booking wizard.`
+      : "";
+
+    if (Platform.OS === "web") {
+      if (window.confirm(`Archive "${location.name}"? It will be hidden from players and the booking wizard.${warningLine}`)) {
+        archiveMutation.mutate(location.id);
+      }
+    } else {
+      Alert.alert(
+        "Archive Location",
+        `Archive "${location.name}"? It will be hidden from players and the booking wizard.${warningLine}`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Archive", style: "destructive", onPress: () => archiveMutation.mutate(location.id) },
+        ]
+      );
+    }
+  };
+
+  const handleReactivate = (location: Location) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`Reactivate "${location.name}"?`)) {
+        reactivateMutation.mutate(location.id);
+      }
+    } else {
+      Alert.alert(
+        "Reactivate Location",
+        `Reactivate "${location.name}"? It will become visible again in the booking wizard.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Reactivate", style: "default", onPress: () => reactivateMutation.mutate(location.id) },
+        ]
+      );
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -427,67 +489,91 @@ export default function AdminLocationsScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Active</Text>
                 {activeLocations.map((location) => (
-                  <Pressable
-                    key={location.id}
-                    style={[styles.locationCard, CardStyles.elevated]}
-                    onPress={() => openEditModal(location)}
-                  >
-                    <View style={styles.locationIcon}>
-                      <Ionicons name="location" size={24} color={Colors.dark.primary} />
-                    </View>
-                    <View style={styles.locationInfo}>
-                      <Text style={styles.locationName}>{location.name}</Text>
-                      {location.address ? (
-                        <Text style={styles.locationAddress}>{location.address}</Text>
-                      ) : null}
-                      <View style={styles.statsRow}>
-                        <Text style={styles.courtCount}>
-                          {location.courtCount || 0} court{(location.courtCount || 0) !== 1 ? "s" : ""}
-                        </Text>
-                        {(location.sessionCount || 0) > 0 ? (
-                          <Text style={styles.sessionCount}>
-                            {location.sessionCount} session{location.sessionCount !== 1 ? "s" : ""}
-                          </Text>
-                        ) : null}
-                        {location.lat && location.lng ? (
-                          <View style={styles.coordBadge}>
-                            <Ionicons name="navigate" size={10} color={Colors.dark.primary} />
-                            <Text style={styles.coordBadgeText}>GPS</Text>
-                          </View>
-                        ) : null}
+                  <View key={location.id} style={[styles.locationCard, CardStyles.elevated]}>
+                    <Pressable style={styles.locationCardMain} onPress={() => openEditModal(location)}>
+                      <View style={styles.locationIcon}>
+                        <Ionicons name="location" size={24} color={Colors.dark.primary} />
                       </View>
+                      <View style={styles.locationInfo}>
+                        <Text style={styles.locationName}>{location.name}</Text>
+                        {location.address ? (
+                          <Text style={styles.locationAddress}>{location.address}</Text>
+                        ) : null}
+                        <View style={styles.statsRow}>
+                          <Text style={styles.courtCount}>
+                            {location.courtCount || 0} court{(location.courtCount || 0) !== 1 ? "s" : ""}
+                          </Text>
+                          {(location.sessionCount || 0) > 0 ? (
+                            <Text style={styles.sessionCount}>
+                              {location.sessionCount} session{location.sessionCount !== 1 ? "s" : ""}
+                            </Text>
+                          ) : null}
+                          {(location.upcomingSessionCount || 0) > 0 ? (
+                            <View style={styles.upcomingBadge}>
+                              <Ionicons name="calendar-outline" size={10} color={Colors.dark.gold} />
+                              <Text style={styles.upcomingBadgeText}>
+                                {location.upcomingSessionCount} upcoming
+                              </Text>
+                            </View>
+                          ) : null}
+                          {location.lat && location.lng ? (
+                            <View style={styles.coordBadge}>
+                              <Ionicons name="navigate" size={10} color={Colors.dark.primary} />
+                              <Text style={styles.coordBadgeText}>GPS</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+                    </Pressable>
+                    <View style={styles.cardActions}>
+                      <Pressable
+                        style={styles.archiveButton}
+                        onPress={() => handleArchive(location)}
+                        disabled={archiveMutation.isPending}
+                      >
+                        <Ionicons name="archive-outline" size={14} color={Colors.dark.textMuted} />
+                        <Text style={styles.archiveButtonText}>Archive</Text>
+                      </Pressable>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-                  </Pressable>
+                  </View>
                 ))}
               </View>
             )}
 
             {inactiveLocations.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Inactive</Text>
+                <Text style={styles.sectionTitle}>Archived</Text>
                 {inactiveLocations.map((location) => (
-                  <Pressable
-                    key={location.id}
-                    style={[styles.locationCard, CardStyles.elevated, styles.inactiveCard]}
-                    onPress={() => openEditModal(location)}
-                  >
-                    <View style={[styles.locationIcon, styles.inactiveIcon]}>
-                      <Ionicons name="location-outline" size={24} color={Colors.dark.textMuted} />
-                    </View>
-                    <View style={styles.locationInfo}>
-                      <Text style={[styles.locationName, styles.inactiveText]}>{location.name}</Text>
-                      {location.address ? (
-                        <Text style={[styles.locationAddress, styles.inactiveText]}>{location.address}</Text>
-                      ) : null}
-                      <View style={styles.statsRow}>
-                        <Text style={[styles.courtCount, styles.inactiveText]}>
-                          {location.courtCount || 0} court{(location.courtCount || 0) !== 1 ? "s" : ""}
-                        </Text>
+                  <View key={location.id} style={[styles.locationCard, CardStyles.elevated, styles.inactiveCard]}>
+                    <Pressable style={styles.locationCardMain} onPress={() => openEditModal(location)}>
+                      <View style={[styles.locationIcon, styles.inactiveIcon]}>
+                        <Ionicons name="location-outline" size={24} color={Colors.dark.textMuted} />
                       </View>
+                      <View style={styles.locationInfo}>
+                        <Text style={[styles.locationName, styles.inactiveText]}>{location.name}</Text>
+                        {location.address ? (
+                          <Text style={[styles.locationAddress, styles.inactiveText]}>{location.address}</Text>
+                        ) : null}
+                        <View style={styles.statsRow}>
+                          <Text style={[styles.courtCount, styles.inactiveText]}>
+                            {location.courtCount || 0} court{(location.courtCount || 0) !== 1 ? "s" : ""}
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+                    </Pressable>
+                    <View style={styles.cardActions}>
+                      <Pressable
+                        style={styles.reactivateButton}
+                        onPress={() => handleReactivate(location)}
+                        disabled={reactivateMutation.isPending}
+                      >
+                        <Ionicons name="refresh-outline" size={14} color={GlowColors.primary} />
+                        <Text style={styles.reactivateButtonText}>Reactivate</Text>
+                      </Pressable>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-                  </Pressable>
+                  </View>
                 ))}
               </View>
             )}
@@ -697,17 +783,64 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   locationCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.06)",
+    overflow: "hidden",
+  },
+  locationCardMain: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
   },
   inactiveCard: {
     opacity: 0.7,
+  },
+  cardActions: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  archiveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  archiveButtonText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+  },
+  reactivateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  reactivateButtonText: {
+    fontSize: Typography.caption.fontSize,
+    color: GlowColors.primary,
+    fontWeight: "600",
+  },
+  upcomingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: `${Colors.dark.gold}20`,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.xs,
+  },
+  upcomingBadgeText: {
+    fontSize: 10,
+    color: Colors.dark.gold,
+    fontWeight: "600",
   },
   locationIcon: {
     width: 44,
