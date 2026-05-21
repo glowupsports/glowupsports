@@ -3886,9 +3886,9 @@ export const storage = {
     type RefundResult = { success: boolean; creditType?: string; reason?: string; alreadyRefunded?: boolean; debtRemoved?: boolean };
 
     // Phase 3 — Task #651. If this academy is on the new Credit Engine V2,
-    // route the refund through the engine. Policy is derived from the
-    // session start time: ≥24h before start = 'early' (full refund), else
-    // 'late' (no refund — late cancellations are not credited back).
+    // route the refund through the engine. Always uses "force" policy so
+    // coach/admin cancellations always return credits regardless of timing
+    // (the time-based "late" policy is only for player self-cancellations).
     const v2AcademyId = academyId ?? (await (async () => {
       const r = await db.execute(sql`
         SELECT s.academy_id FROM sessions s WHERE s.id = ${sessionId} LIMIT 1
@@ -3911,9 +3911,12 @@ export const storage = {
           if (!spRow?.sp_id) {
             return { success: false, reason: "session_player_not_found" };
           }
-          const startMs = spRow.start_time ? new Date(spRow.start_time).getTime() : 0;
-          const hoursUntilStart = startMs > 0 ? (startMs - Date.now()) / (1000 * 60 * 60) : 0;
-          const policy = hoursUntilStart >= 24 ? "early" as const : "late" as const;
+          // Always use "force" here. This function is called from coach/admin cancel
+          // routes that already verify creditDeductedAt is set — meaning credits were
+          // consumed. The time-based "late" policy is for player self-cancellations
+          // (before a session). When a coach cancels, the player is owed their credit
+          // back regardless of timing.
+          const policy = "force" as const;
 
           const { refundCredit } = await import("./services/credit-engine");
           const v2Result = await refundCredit({
