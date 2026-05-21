@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useInterval } from "@/hooks/useInterval";
 import {
   View,
@@ -13,21 +13,32 @@ import {
   ScrollView,
   FlatList,
   Keyboard,
-  Linking} from "react-native";
+  Linking,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { openDirections } from "@/lib/maps";
-import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, interpolate, runOnJS, FadeIn, withSequence, withRepeat, withDelay } from "react-native-reanimated";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolate,
+  runOnJS,
+  FadeIn,
+  withSequence,
+  withRepeat,
+  withDelay,
+} from "react-native-reanimated";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, GlowColors } from "@/constants/theme";
 import { apiRequest, apiFetch, buildPhotoUrl } from "@/lib/query-client";
 import { Image as ExpoImage } from "expo-image";
-import { AnimatedCheck } from "@/components/AnimatedCheck";import BookingCoachCard from "./BookingCoachCard";
+import { AnimatedCheck } from "@/components/AnimatedCheck";
 import CoachProfileDrawer from "./CoachProfileDrawer";
 import { CourtBookingPicker } from "./CourtBookingPicker";
 import PaymentMethodPicker, { PaymentMethod } from "@/components/PaymentMethodPicker";
@@ -35,10 +46,9 @@ import { CreditPackagesList } from "@/components/CreditPackagesList";
 import { useTranslation } from "react-i18next";
 import { getSportLabel, getSportColor } from "@/player/context/SportContext";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { useTabNavigation } from "@/components/TabNavigationContext";
-
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+
 const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Coach {
@@ -65,9 +75,6 @@ interface DirectoryCoach {
   bio?: string | null;
   certifications?: string[] | null;
   ballLevels?: string[] | null;
-  /** Task #1052: true when the coach was injected from the public directory
-   *  (cross-academy). Drop-in lessons with these coaches require Stripe
-   *  payment up front instead of the regular credit / approval flow. */
   isExternalPublicCoach?: boolean | null;
   hourlyRate?: string | number | null;
 }
@@ -113,36 +120,6 @@ interface JoinableSession {
   hasWaitlist?: boolean;
 }
 
-interface PlayerBookingWizardProps {
-  visible: boolean;
-  onClose: () => void;
-  onBookingSuccess?: () => void;
-  playerId?: string;
-  playerBallLevel?: string | null;
-  sport?: string;
-  /**
-   * Task #1037 — Public Coach Profiles. When set, the wizard locks coach
-   * selection to this coach (including coaches from another academy via
-   * the public directory) and skips straight to the slot picker.
-   */
-  preselectedCoachId?: string;
-  /** Optional open lesson the player wants to join from a public profile. */
-  preselectedSessionId?: string;
-  /**
-   * Task #1570 — Play Now card. When set, pre-fills the date picker to this
-   * date and skips ahead to the slot-selection step.
-   */
-  preselectedDate?: Date;
-  /**
-   * Task #1598 — Play Now slot deep-link. When set, the wizard opens at the
-   * slot-selection step with this slot already highlighted and auto-selected.
-   */
-  preselectedSlot?: AvailableSlot;
-}
-
-type SessionType = "private" | "semi_private" | "group" | "open_play";
-type BrowseMode = "by_time" | "by_coach" | "by_court";
-
 interface AcademyCourt {
   id: string;
   name: string;
@@ -151,6 +128,21 @@ interface AcademyCourt {
   locationName: string | null;
   requiresExternalBooking?: boolean | null;
 }
+
+interface PlayerBookingWizardProps {
+  visible: boolean;
+  onClose: () => void;
+  onBookingSuccess?: () => void;
+  playerId?: string;
+  playerBallLevel?: string | null;
+  sport?: string;
+  preselectedCoachId?: string;
+  preselectedSessionId?: string;
+  preselectedDate?: Date;
+  preselectedSlot?: AvailableSlot;
+}
+
+type SessionType = "private" | "semi_private" | "group";
 
 const SESSION_TYPE_CARDS: {
   value: SessionType;
@@ -163,10 +155,18 @@ const SESSION_TYPE_CARDS: {
   {
     value: "private",
     label: "Private Lesson",
-    subtitle: "Train 1-on-1 with a coach",
+    subtitle: "1-on-1 with your coach",
     icon: "person",
     color: Colors.dark.primary,
     gradient: [Colors.dark.primary + "40", Colors.dark.primary + "10"],
+  },
+  {
+    value: "semi_private",
+    label: "Semi-Private",
+    subtitle: "Train with 1 partner",
+    icon: "people-outline",
+    color: "#A855F7",
+    gradient: ["#A855F740", "#A855F710"],
   },
   {
     value: "group",
@@ -176,37 +176,19 @@ const SESSION_TYPE_CARDS: {
     color: Colors.dark.orange,
     gradient: [Colors.dark.orange + "40", Colors.dark.orange + "10"],
   },
-  {
-    value: "semi_private",
-    label: "Semi-Private",
-    subtitle: "Train with 1 partner",
-    icon: "people-outline",
-    color: Colors.dark.primary,
-    gradient: [Colors.dark.primary + "40", Colors.dark.primary + "10"],
-  },
-  {
-    value: "open_play",
-    label: "Open Play",
-    subtitle: "Just play & meet players",
-    icon: "tennisball",
-    color: Colors.dark.gold,
-    gradient: [Colors.dark.gold + "40", Colors.dark.gold + "10"],
-  },
 ];
 
+const DURATIONS = [30, 45, 60, 90];
+const WEEK_OPTIONS = [1, 4, 8];
 const HOLD_STORAGE_KEY = "glowup:activeSlotReservation";
-
-const _TOTAL_SLIDES = 6;
+const TOTAL_SLIDES = 5;
 const SLIDE_TITLES = [
-  "Choose Your Mode",
-  "How to Browse",
-  "Find Your Session",
+  "Session Type",
+  "When to Play",
+  "Choose Session",
   "Details",
-  "Court Booking",
-  "Confirm & Book",
+  "Confirm",
 ];
-
-const DURATIONS = [30, 45, 60, 90, 120];
 
 export default function PlayerBookingWizard({
   visible,
@@ -222,79 +204,82 @@ export default function PlayerBookingWizard({
 }: PlayerBookingWizardProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
-  // Reserve enough room below scrollable slide content so the sticky footer
-  // (Back / Next buttons) never overlaps the last item. Footer height ≈
-  // button (~52) + paddingTop (12) + paddingBottom (insets.bottom + md=12).
-  // We round up to ~96 to give a small breathing room above the buttons.
   const slideScrollPadding = useMemo(
     () => ({ paddingBottom: insets.bottom + 96, flexGrow: 1 }),
     [insets.bottom],
   );
 
-  const navigation = useNavigation<any>();
-  const { navigateToTab } = useTabNavigation();
-  // Current slide (0-4)
+  // ─── Core state ──────────────────────────────────────────────────────────────
   const [currentSlide, setCurrentSlide] = useState(0);
-
-  // Slide 0: Session Type
   const [sessionType, setSessionType] = useState<SessionType>("private");
 
-  // Slide 1: Browse Mode (by time or by coach)
-  const [browseMode, setBrowseMode] = useState<BrowseMode>("by_time");
-  const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
-
-  // Slide 2: When & Where
+  // Step 1: date + filters
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [filterCoachId, setFilterCoachId] = useState<string | null>(null);
+  const [filterLocationId, setFilterLocationId] = useState<string | null>(null);
   const [duration, setDuration] = useState(60);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+  const [showCoachFilterPicker, setShowCoachFilterPicker] = useState(false);
 
-  // Slide 2: Pick Session
+  // Step 2: slot/session selection
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [selectedSession, setSelectedSession] = useState<JoinableSession | null>(null);
-  const [isJoining, setIsJoining] = useState(false); // true = joining existing, false = requesting new
+  const [isJoining, setIsJoining] = useState(false);
+  const [expandedSlotKey, setExpandedSlotKey] = useState<string | null>(null);
 
-  // Court selection (can override the slot's pre-assigned court)
+  // Group sessions: week commitment
+  const [weekCommitment, setWeekCommitment] = useState<number>(1);
+  const [customWeeks, setCustomWeeks] = useState("");
+
+  // Semi-private: partner selection
+  const [partnerQuery, setPartnerQuery] = useState("");
+  const [selectedPartner, setSelectedPartner] = useState<{ id: string; name: string; profilePhotoUrl?: string | null } | null>(null);
+  const [letCoachPair, setLetCoachPair] = useState(false);
+
+  // Court availability cache: "locationId|startTime|endTime" -> boolean
+  const [slotCourtValid, setSlotCourtValid] = useState<Map<string, boolean>>(new Map());
+
+  // Court selection (existing override logic)
   const [selectedCourtId, setSelectedCourtId] = useState<string | null>(null);
   const [selectedCourtName, setSelectedCourtName] = useState<string | null>(null);
 
-  // Pre-selected court when player chose the "Choose Court" browse mode
-  const [presetCourtId, setPresetCourtId] = useState<string | null>(null);
-  const [presetCourt, setPresetCourt] = useState<AcademyCourt | null>(null);
-
-  // Slot reservation — temp lock to prevent race-condition double-booking
-  const activeReservationRef = React.useRef<string | null>(null); // ref so resetForm can access without dep
+  // Reservation system
+  const activeReservationRef = useRef<string | null>(null);
   const [reservationId, setReservationId] = useState<string | null>(null);
-  // Refs for pre-highlighted slot scroll-into-view (Task #1598)
-  const slotListScrollViewRef = React.useRef<ScrollView>(null);
-  const preHighlightedSlotYRef = React.useRef<number | null>(null);
   const [reservationExpiresAt, setReservationExpiresAt] = useState<Date | null>(null);
   const [reservationSecondsLeft, setReservationSecondsLeft] = useState(0);
   const [reservationError, setReservationError] = useState<string | null>(null);
   const [reservationLoading, setReservationLoading] = useState(false);
 
-  // Slide 3: Details
+  // Step 3: details
   const [playerNote, setPlayerNote] = useState("");
-  const [friendEmail, setFriendEmail] = useState("");
-
-  // AI Focus suggestions
   const [aiFocusSuggestions, setAiFocusSuggestions] = useState<string[]>([]);
   const [aiFocusLoading, setAiFocusLoading] = useState(false);
   const [aiFocusFetched, setAiFocusFetched] = useState(false);
 
-  // Slide: Court Booking declaration (Dubai community courts)
+  // Court booking declaration (for external courts)
   const [courtBookingStatus, setCourtBookingStatus] = useState<
     "academy_court" | "external_booked" | "external_pending" | null
   >(null);
   const [courtBookingNote, setCourtBookingNote] = useState("");
   const [courtBookingUrl, setCourtBookingUrl] = useState("");
 
-  // Slide 4: Confirm
+  // Step 4: confirm
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("credits");
+  const [showCreditPackages, setShowCreditPackages] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [policyModalVisible, setPolicyModalVisible] = useState(false);
 
-  // Calendar modal
-  const [showCalendarModal, setShowCalendarModal] = useState(false);
-  const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+  // Coach profile drawer
+  const [showCoachDrawer, setShowCoachDrawer] = useState(false);
+  const [selectedCoachForDrawer, setSelectedCoachForDrawer] = useState<DirectoryCoach | null>(null);
+
+  // Ref for scroll
+  const slotListScrollViewRef = useRef<ScrollView>(null);
+  const preHighlightedSlotYRef = useRef<number | null>(null);
 
   // Animation values
   const slideProgress = useSharedValue(0);
@@ -302,108 +287,82 @@ export default function PlayerBookingWizard({
   const glowPulse = useSharedValue(0);
   const xpGain = useSharedValue(0);
 
-  // Date string for API
+  // ─── Computed ────────────────────────────────────────────────────────────────
   const selectedDateString = useMemo(() => {
     return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
   }, [selectedDate]);
 
-  // Fetch locations
+  // ─── Queries ─────────────────────────────────────────────────────────────────
+
+  // Locations
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: ["/api/locations"],
     enabled: visible,
   });
 
-  // Build availability query URL with params
-  // Note: We don't filter by locationId because coach_availability doesn't have location set
+  // Available slots (coach availability)
   const availabilityQueryUrl = useMemo(() => {
     const params = new URLSearchParams({
       date: selectedDateString,
       duration: duration.toString(),
     });
-    // When browsing by coach, filter to that coach only
-    if (browseMode === "by_coach" && selectedCoachId) {
-      params.append("coachId", selectedCoachId);
-    }
-    // When a court is preselected (browse by_court), let the server filter slots
-    // to that court (or court-agnostic slots) to shrink the response payload.
-    if (presetCourtId) {
-      params.append("courtId", presetCourtId);
-    }
-
+    if (filterCoachId) params.append("coachId", filterCoachId);
+    if (preselectedCoachId && !filterCoachId) params.append("coachId", preselectedCoachId);
     return `/api/player/availability?${params}`;
-  }, [selectedDateString, duration, browseMode, selectedCoachId, presetCourtId]);
+  }, [selectedDateString, duration, filterCoachId, preselectedCoachId]);
 
-  // Fetch available slots using default queryFn
-  // Enable when on slide 2 (When & Where) or later
-  const { data: availableSlots = [], isLoading: slotsLoading, error: _slotsError } = useQuery<AvailableSlot[]>({
+  const { data: availableSlots = [], isLoading: slotsLoading } = useQuery<AvailableSlot[]>({
     queryKey: [availabilityQueryUrl],
     enabled: visible && currentSlide >= 2,
   });
 
-  // Build joinable sessions query URL with server-side filtering
+  // Joinable sessions
   const joinableSessionsUrl = useMemo(() => {
-    const params = new URLSearchParams({
-      date: selectedDateString,
-    });
-    // Task #1037: when a specific session is preselected (e.g. tapped on a
-    // public coach's open lesson), don't constrain by sessionType — the
-    // open lesson could be group/semi_private/open_play and we want to
-    // resolve it regardless of the wizard's current sessionType state.
-    if (!preselectedSessionId) {
-      params.set("sessionType", sessionType);
-    }
+    const params = new URLSearchParams({ date: selectedDateString });
+    if (!preselectedSessionId) params.set("sessionType", sessionType);
     if (sport) params.set("sport", sport);
-    // Task #1037: when looking at a public coach (potentially in another
-    // academy), include their coachId so the server can return that
-    // coach's sessions even when they're outside our academy.
     if (preselectedCoachId) params.set("coachId", preselectedCoachId);
+    if (filterCoachId && !preselectedCoachId) params.set("coachId", filterCoachId);
     return `/api/player/joinable-sessions?${params}`;
-  }, [selectedDateString, sessionType, sport, preselectedCoachId, preselectedSessionId]);
+  }, [selectedDateString, sessionType, sport, preselectedCoachId, filterCoachId, preselectedSessionId]);
 
-  // Fetch joinable sessions using the dedicated player endpoint (server-filtered)
-  // Enable when on slide 2 (When & Where) or later
   const { data: joinableSessions = [], isLoading: sessionsLoading } = useQuery<JoinableSession[]>({
     queryKey: [joinableSessionsUrl],
-    // Task #1037: also enable when arriving with a preselectedSessionId so
-    // we can resolve and auto-select the open lesson regardless of the
-    // current sessionType (which starts as "private").
     enabled:
       visible &&
       currentSlide >= 2 &&
-      (!!preselectedSessionId ||
-        sessionType === "group" ||
-        sessionType === "semi_private" ||
-        sessionType === "open_play"),
+      (!!preselectedSessionId || sessionType === "group" || sessionType === "semi_private"),
   });
 
-  // Task #1037 — when entered from a public coach profile with a specific
-  // open lesson, auto-select that session as soon as it shows up in the
-  // joinable list, so the player isn't forced to find it again.
-  useEffect(() => {
-    if (!preselectedSessionId) return;
-    if (selectedSession?.id === preselectedSessionId) return;
-    const match = joinableSessions.find((s) => s.id === preselectedSessionId);
-    if (match) {
-      setSelectedSession(match);
-      // Sync the wizard's sessionType to the resolved session so the rest
-      // of the flow (filters, summary, submit) reflects the actual type.
-      const validSessionTypes = ["private", "semi_private", "group", "open_play"] as const;
-      if (validSessionTypes.includes(match.sessionType as typeof validSessionTypes[number])) {
-        setSessionType(match.sessionType as typeof validSessionTypes[number]);
-      }
-    }
-  }, [preselectedSessionId, joinableSessions, selectedSession?.id]);
+  // Academy coaches (for filter picker + coach drawer)
+  const { data: academyCoachesData, isLoading: academyCoachesLoading } = useQuery<{ coaches: DirectoryCoach[] }>({
+    queryKey: ["/api/player/academy-coaches", preselectedCoachId || null],
+    queryFn: async () => {
+      const url = preselectedCoachId
+        ? `/api/player/academy-coaches?coachId=${encodeURIComponent(preselectedCoachId)}`
+        : "/api/player/academy-coaches";
+      const response = await apiFetch(url);
+      if (!response.ok) throw new Error("Failed to load coaches");
+      return response.json();
+    },
+    enabled: visible,
+  });
+  const directoryCoaches = academyCoachesData?.coaches || [];
 
-  // Fetch available courts when a slot is selected (for court selection step)
+  // Academy courts (for court booking declaration)
+  const { data: academyCourts = [] } = useQuery<AcademyCourt[]>({
+    queryKey: ["/api/player/academy-courts"],
+    enabled: visible,
+  });
+
+  // Available courts after slot selection (for court selection in details)
   const availableCourtsUrl = useMemo(() => {
     if (!selectedSlot || isJoining) return null;
     const params = new URLSearchParams({
       startTime: selectedSlot.startTime,
       endTime: selectedSlot.endTime,
     });
-    if (selectedSlot.locationId) {
-      params.append("locationId", selectedSlot.locationId);
-    }
+    if (selectedSlot.locationId) params.append("locationId", selectedSlot.locationId);
     return `/api/player/available-courts?${params}`;
   }, [selectedSlot, isJoining]);
 
@@ -418,7 +377,7 @@ export default function PlayerBookingWizard({
     enabled: !!availableCourtsUrl && visible,
   });
 
-  // Auto-select when the location has exactly one court — no need to make the player choose
+  // Auto-select single court
   useEffect(() => {
     if (availableCourts.length === 1 && !selectedCourtId) {
       setSelectedCourtId(availableCourts[0].id);
@@ -426,116 +385,51 @@ export default function PlayerBookingWizard({
     }
   }, [availableCourts]);
 
-  // Fetch coaches for "browse by coach" mode
-  const { data: _coaches = [] } = useQuery<Coach[]>({
-    queryKey: ["/api/coaches"],
-    enabled: visible,
+  // Booking history for smart suggestions
+  const { data: bookingHistory } = useQuery<{ requests: any[] }>({
+    queryKey: ["/api/player/booking-requests?limit=20"],
+    enabled: visible && currentSlide >= 1,
   });
 
-  // Fetch all bookable courts in player's academy (for "Choose Court" browse mode)
-  const { data: academyCourts = [], isLoading: academyCourtsLoading } = useQuery<AcademyCourt[]>({
-    queryKey: ["/api/player/academy-courts"],
-    enabled: visible,
+  // Partner search
+  const { data: partnerSearchData, isLoading: partnerSearchLoading } = useQuery<{ players: { id: string; name: string; profilePhotoUrl?: string | null; level?: number | null }[] }>({
+    queryKey: [`/api/player/search-players?q=${encodeURIComponent(partnerQuery)}`],
+    enabled: visible && partnerQuery.length >= 2 && sessionType === "semi_private",
   });
 
-  // Auto-select for the "Choose Court" browse step when only one bookable
-  // court exists in the academy — keeps Next enabled/full color instead of
-  // forcing the player to tap the only option.
-  useEffect(() => {
-    if (
-      browseMode === "by_court" &&
-      academyCourts.length === 1 &&
-      !presetCourtId
-    ) {
-      const only = academyCourts[0];
-      setPresetCourtId(only.id);
-      setPresetCourt(only);
-      setSelectedCourtId(only.id);
-      setSelectedCourtName(only.name);
-      setSelectedLocationId(only.locationId ?? null);
-    }
-  }, [browseMode, academyCourts, presetCourtId]);
-
-  // Fetch all coaches from player's academy for coach selection screen
-  const { data: academyCoachesData, isLoading: academyCoachesLoading } = useQuery<{ coaches: DirectoryCoach[] }>({
-    queryKey: ["/api/player/academy-coaches", preselectedCoachId || null],
-    queryFn: async () => {
-      // Task #1037: pass preselectedCoachId so the server can include a
-      // public coach who is not in this player's academy.
-      const url = preselectedCoachId
-        ? `/api/player/academy-coaches?coachId=${encodeURIComponent(preselectedCoachId)}`
-        : "/api/player/academy-coaches";
-      const response = await apiFetch(url);
-      if (!response.ok) throw new Error("Failed to load coaches");
-      return response.json();
-    },
-    enabled: visible,
-  });
-  const directoryCoaches = academyCoachesData?.coaches || [];
-
-  // Task #1093 — Translation hook for the new payment strings.
-  const { t } = useTranslation();
-
-  // Task #1093 — Payment method state for the Confirm step.
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("credits");
-  const [showCreditPackages, setShowCreditPackages] = useState(false);
-
-  // Resolve the academy that will own this booking (mirrors server-side
-  // logic — public coaches from another academy route the booking through
-  // the coach's academy).
-  const resolvedCoachId =
-    selectedSlot?.coachId || selectedSession?.coachId || preselectedCoachId || null;
-  const resolvedCoach = resolvedCoachId
-    ? directoryCoaches.find((c) => c.id === resolvedCoachId)
-    : null;
-  const resolvedAcademyId = resolvedCoach?.academyId || null;
-  const isCrossAcademyResolvedCoach =
-    !!resolvedCoach?.isExternalPublicCoach;
-
-  // Pull the player's current credit balance — the picker uses it to
-  // toggle the Credits row enabled/disabled and show the "(N left)" badge.
+  // Credits
   const { data: creditsData } = useQuery<{ credits: { group: number; private: number; semi_private: number; court: number } }>({
     queryKey: [`/api/players/${playerId}/credits-summary`],
     enabled: !!playerId && visible,
   });
 
-  // Pull the academy_pricing row for the resolved coach's academy +
-  // selected session_type. A 404 means the academy hasn't configured a
-  // price yet — the picker hides the Card option in that case.
+  // Pricing
+  const resolvedCoachId = selectedSlot?.coachId || selectedSession?.coachId || preselectedCoachId || null;
+  const resolvedCoach = resolvedCoachId ? directoryCoaches.find((c) => c.id === resolvedCoachId) : null;
+  const resolvedAcademyId = resolvedCoach?.academyId || null;
+  const isCrossAcademyResolvedCoach = !!resolvedCoach?.isExternalPublicCoach;
+
   const pricingType: "private" | "semi_private" | "group" | null =
-    sessionType === "private" || sessionType === "semi_private" || sessionType === "group"
-      ? sessionType
-      : null;
+    sessionType === "private" || sessionType === "semi_private" || sessionType === "group" ? sessionType : null;
   const pricingQueryKey = resolvedAcademyId && pricingType
     ? [`/api/player/academy-pricing/${resolvedAcademyId}/${pricingType}`]
     : ["/api/player/academy-pricing/none"];
-  const { data: pricingData, isFetched: pricingFetched } = useQuery<
-    | {
-        available: true;
-        sessionType: string;
-        currency: string;
-        pricePerSession: number | null;
-        pricePerHour: number | null;
-        isPerPerson: boolean;
-      }
+  const { data: pricingData } = useQuery<
+    | { available: true; sessionType: string; currency: string; pricePerSession: number | null; pricePerHour: number | null; isPerPerson: boolean }
     | { available: false }
   >({
     queryKey: pricingQueryKey,
     queryFn: async () => {
       if (!resolvedAcademyId || !pricingType) return { available: false } as const;
-      const res = await apiFetch(
-        `/api/player/academy-pricing/${resolvedAcademyId}/${pricingType}`,
-      );
+      const res = await apiFetch(`/api/player/academy-pricing/${resolvedAcademyId}/${pricingType}`);
       if (res.status === 404) return { available: false } as const;
       if (!res.ok) throw new Error("Failed to load pricing");
       return res.json();
     },
-    enabled: visible && currentSlide >= 2 && !!resolvedAcademyId && !!pricingType,
+    enabled: visible && currentSlide >= 3 && !!resolvedAcademyId && !!pricingType,
     retry: false,
   });
 
-  // Compute the displayable lesson price for the chosen duration. We mirror
-  // the server-side rule: pricePerHour wins when set, else pricePerSession.
   const lessonPriceInfo = useMemo(() => {
     if (!pricingData || !("available" in pricingData) || !pricingData.available) return null;
     const perHour = pricingData.pricePerHour || 0;
@@ -547,7 +441,6 @@ export default function PlayerBookingWizard({
     return { amount, currency: pricingData.currency || "AED" };
   }, [pricingData, duration]);
 
-  // Credits available for the chosen sessionType.
   const creditsForType = useMemo(() => {
     const c = creditsData?.credits;
     if (!c) return 0;
@@ -557,51 +450,155 @@ export default function PlayerBookingWizard({
     return 0;
   }, [creditsData, sessionType]);
 
-  // The Card option is shown only when the booking has a clear price source.
-  // For cross-academy drop-ins we fall back to the legacy hourlyRate path,
-  // which we treat as always card-payable.
-  const cardEnabled = isCrossAcademyResolvedCoach
-    ? true
-    : !!lessonPriceInfo;
+  const cardEnabled = isCrossAcademyResolvedCoach ? true : !!lessonPriceInfo;
 
-  // Fetch the academy's cancellation policy to show on the confirm step.
-  const [policyModalVisible, setPolicyModalVisible] = useState(false);
+  // Cancellation policy
   const { data: policyData } = useQuery<{ cancellationPolicy: string }>({
     queryKey: [`/api/player/academy-cancellation-policy/${resolvedAcademyId}`],
     enabled: visible && !!resolvedAcademyId,
     staleTime: 5 * 60 * 1000,
   });
-  const cancellationPolicy = policyData?.cancellationPolicy
-    || "Free cancellation up to 24 hours before the lesson";
+  const cancellationPolicy = policyData?.cancellationPolicy || "Free cancellation up to 24 hours before the lesson";
 
-  // Default selection: prefer Credits when available, else Card if enabled,
-  // else Pay later. Re-runs when the inputs that drive availability change.
+  // ─── Court availability enforcement ─────────────────────────────────────────
   useEffect(() => {
-    if (!visible) return;
-    if (currentSlide < 2) return;
-    if (creditsForType >= 1) {
-      setPaymentMethod("credits");
-    } else if (cardEnabled) {
-      setPaymentMethod("card");
-    } else {
-      setPaymentMethod("pay_later");
+    if (!availableSlots.length || currentSlide < 2) return;
+
+    const uniqueChecks = new Map<string, { locationId: string; startTime: string; endTime: string }>();
+    availableSlots.forEach((slot) => {
+      if (!slot.locationId) return;
+      const key = `${slot.locationId}|${slot.startTime}|${slot.endTime}`;
+      if (!uniqueChecks.has(key)) {
+        uniqueChecks.set(key, { locationId: slot.locationId, startTime: slot.startTime, endTime: slot.endTime });
+      }
+    });
+
+    if (uniqueChecks.size === 0) return;
+
+    const checks = Array.from(uniqueChecks.entries());
+    Promise.all(
+      checks.map(async ([key, { locationId, startTime, endTime }]) => {
+        const url = `/api/player/available-courts?locationId=${encodeURIComponent(locationId)}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`;
+        try {
+          const res = await apiFetch(url);
+          const courts = await res.json();
+          return { key, hasFreeCourt: Array.isArray(courts) && courts.length > 0 };
+        } catch {
+          return { key, hasFreeCourt: true };
+        }
+      }),
+    ).then((results) => {
+      setSlotCourtValid((prev) => {
+        const next = new Map(prev);
+        results.forEach(({ key, hasFreeCourt }) => next.set(key, hasFreeCourt));
+        return next;
+      });
+    });
+  }, [availableSlots, currentSlide]);
+
+  // Filter slots: only show if court is confirmed free (or no locationId)
+  const courtEnforcedSlots = useMemo(() => {
+    return availableSlots.filter((slot) => {
+      if (!slot.locationId) return true;
+      const key = `${slot.locationId}|${slot.startTime}|${slot.endTime}`;
+      if (!slotCourtValid.has(key)) return true; // optimistically show while checking
+      return slotCourtValid.get(key) === true;
+    });
+  }, [availableSlots, slotCourtValid]);
+
+  // Location-filtered slots
+  const filteredSlots = useMemo(() => {
+    return courtEnforcedSlots.filter((slot) => {
+      if (!filterLocationId) return true;
+      return !slot.locationId || slot.locationId === filterLocationId;
+    });
+  }, [courtEnforcedSlots, filterLocationId]);
+
+  // Group slots by coach
+  const slotsByCoach = useMemo(() => {
+    const map = new Map<string, { coach: { id: string; name: string; photoUrl?: string | null }; slots: AvailableSlot[] }>();
+    filteredSlots.forEach((slot) => {
+      if (!map.has(slot.coachId)) {
+        map.set(slot.coachId, { coach: { id: slot.coachId, name: slot.coachName, photoUrl: slot.coachPhotoUrl }, slots: [] });
+      }
+      map.get(slot.coachId)!.slots.push(slot);
+    });
+    return Array.from(map.values());
+  }, [filteredSlots]);
+
+  // ─── Smart suggestions ───────────────────────────────────────────────────────
+  const smartSuggestions = useMemo(() => {
+    const reqs: any[] = bookingHistory?.requests || [];
+    if (reqs.length < 2) return [];
+
+    // Find most frequent coach
+    const coachCounts = new Map<string, { id: string; name: string; count: number; times: string[] }>();
+    reqs.forEach((r: any) => {
+      if (!r.coachId || !r.coachName) return;
+      if (!coachCounts.has(r.coachId)) {
+        coachCounts.set(r.coachId, { id: r.coachId, name: r.coachName, count: 0, times: [] });
+      }
+      const entry = coachCounts.get(r.coachId)!;
+      entry.count++;
+      if (r.requestedStart) {
+        const d = new Date(r.requestedStart);
+        const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        const dayStr = d.toLocaleDateString([], { weekday: "long" });
+        entry.times.push(`${dayStr} ${timeStr}`);
+      }
+    });
+
+    const topCoach = Array.from(coachCounts.values()).sort((a, b) => b.count - a.count)[0];
+    if (!topCoach) return [];
+
+    const suggestions: { key: string; text: string; coachId: string; coachName: string }[] = [];
+
+    // Suggestion 1: usual coach
+    const mostFreqTime = topCoach.times.length > 0
+      ? topCoach.times.sort((a, b) =>
+          topCoach.times.filter((t) => t === b).length - topCoach.times.filter((t) => t === a).length,
+        )[0]
+      : null;
+
+    if (mostFreqTime) {
+      suggestions.push({
+        key: "usual",
+        text: `Your usual session with ${topCoach.name} (${mostFreqTime})`,
+        coachId: topCoach.id,
+        coachName: topCoach.name,
+      });
     }
-  }, [visible, currentSlide, creditsForType, cardEnabled, sessionType]);
 
-  // Coach profile drawer state
-  const [showCoachDrawer, setShowCoachDrawer] = useState(false);
-  const [selectedCoachForDrawer, setSelectedCoachForDrawer] = useState<DirectoryCoach | null>(null);
+    // Suggestion 2: train more this week
+    const today = new Date();
+    const thisWeekCount = reqs.filter((r: any) => {
+      if (!r.requestedStart) return false;
+      const d = new Date(r.requestedStart);
+      const diffDays = Math.abs((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays <= 7;
+    }).length;
 
-  // Reservation mutation — atomically locks the slot for 5 min on the server
+    if (thisWeekCount === 1 && topCoach.count >= 2) {
+      suggestions.push({
+        key: "train_more",
+        text: `You usually train 2x/week. Book another session with ${topCoach.name}?`,
+        coachId: topCoach.id,
+        coachName: topCoach.name,
+      });
+    }
+
+    return suggestions.slice(0, 2);
+  }, [bookingHistory]);
+
+  // ─── Reservation system ───────────────────────────────────────────────────────
   const reserveSlotMutation = useMutation({
     mutationFn: async (data: { coachId: string; startTime: string; endTime: string }) => {
       const res = await apiRequest("POST", "/api/player/reserve-slot", data);
       return res.json() as Promise<{ reservationId: string; expiresAt: string }>;
     },
-    onSuccess: (data: { reservationId: string; expiresAt: string }) => {
-      const id = data.reservationId;
-      activeReservationRef.current = id;
-      setReservationId(id);
+    onSuccess: (data) => {
+      activeReservationRef.current = data.reservationId;
+      setReservationId(data.reservationId);
       setReservationExpiresAt(new Date(data.expiresAt));
       setReservationError(null);
       setReservationLoading(false);
@@ -619,9 +616,6 @@ export default function PlayerBookingWizard({
     },
   });
 
-  // Countdown timer — ticks every second when a reservation is active.
-  // When the hold expires (left === 0) we set reservationExpiresAt to null,
-  // which flips delayMs to null and pauses the interval automatically.
   useInterval(() => {
     if (!reservationExpiresAt) return;
     const left = Math.max(0, Math.round((reservationExpiresAt.getTime() - Date.now()) / 1000));
@@ -637,64 +631,7 @@ export default function PlayerBookingWizard({
     }
   }, reservationExpiresAt ? 1000 : null);
 
-  // Task #1598 — Auto-select the preselected slot once the available slots load.
-  // Matches by coachId + UTC time portion (HH:MM) extracted from the ISO startTime.
-  useEffect(() => {
-    if (!preselectedSlot || !visible || currentSlide < 2) return;
-    if (availableSlots.length === 0 || slotsLoading) return;
-    if (selectedSlot) return; // already selected
-    const preTime = preselectedSlot.startTime.substring(11, 16);
-    const match = availableSlots.find(
-      (s) =>
-        s.coachId === preselectedSlot.coachId &&
-        s.startTime.substring(11, 16) === preTime,
-    );
-    if (!match) return;
-    setSelectedSlot(match);
-    setSelectedSession(null);
-    setIsJoining(false);
-    setReservationLoading(true);
-    reserveSlotMutation.mutate({
-      coachId: match.coachId,
-      startTime: match.startTime,
-      endTime: match.endTime,
-    });
-    // Scroll to the slot after a brief delay to let layout settle
-    setTimeout(() => {
-      if (preHighlightedSlotYRef.current !== null) {
-        slotListScrollViewRef.current?.scrollTo({
-          y: Math.max(0, preHighlightedSlotYRef.current - 80),
-          animated: true,
-        });
-      }
-    }, 500);
-  }, [preselectedSlot, availableSlots, slotsLoading, visible, currentSlide, selectedSlot]);
-
-  // Drive pulsing glow on the Next button while a slot hold is active
-  useEffect(() => {
-    if (reservationId && selectedSlot) {
-      holdGlowOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.85, { duration: 700 }),
-          withTiming(0.2, { duration: 700 }),
-        ),
-        -1,
-        true,
-      );
-    } else {
-      holdGlowOpacity.value = withTiming(0, { duration: 250 });
-    }
-  }, [reservationId, selectedSlot]);
-
-  const holdGlowAnimStyle = useAnimatedStyle(() => ({
-    shadowColor: Colors.dark.primary,
-    shadowOpacity: holdGlowOpacity.value,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
-  }));
-
-  // Persist active reservation to AsyncStorage whenever it becomes set
+  // Persist reservation to AsyncStorage
   useEffect(() => {
     if (reservationId && reservationExpiresAt && selectedSlot) {
       const holdData = {
@@ -709,299 +646,82 @@ export default function PlayerBookingWizard({
     }
   }, [reservationId, reservationExpiresAt, selectedSlot]);
 
-  // Dynamic slide count - add extra slide when browsing by coach or by court
-  // +1 for new Court Booking step inserted between Details and Confirm
-  const getTotalSlides = () =>
-    browseMode === "by_coach" || browseMode === "by_court" ? 7 : 6;
-  const getSlideTitle = (slide: number) => {
-    if (browseMode === "by_coach") {
-      const titles = ["Choose Your Mode", "How to Browse", "Select Coach", "Find Your Session", "Details", "Court Booking", "Confirm & Book"];
-      return titles[slide] || "";
+  // Auto-select preselected session
+  useEffect(() => {
+    if (!preselectedSessionId) return;
+    if (selectedSession?.id === preselectedSessionId) return;
+    const match = joinableSessions.find((s) => s.id === preselectedSessionId);
+    if (match) {
+      setSelectedSession(match);
+      setIsJoining(true);
+      const validTypes = ["private", "semi_private", "group"] as const;
+      if (validTypes.includes(match.sessionType as typeof validTypes[number])) {
+        setSessionType(match.sessionType as typeof validTypes[number]);
+      }
     }
-    if (browseMode === "by_court") {
-      const titles = ["Choose Your Mode", "How to Browse", "Select Court", "Find Your Session", "Details", "Court Booking", "Confirm & Book"];
-      return titles[slide] || "";
-    }
-    return SLIDE_TITLES[slide] || "";
-  };
+  }, [preselectedSessionId, joinableSessions, selectedSession?.id]);
 
-  // Reset form on close — does NOT release the server hold (5-min TTL handles cleanup)
-  // so the player can reopen the wizard and still see their slot held
-  const resetForm = useCallback(() => {
-    activeReservationRef.current = null;
-    setCurrentSlide(0);
-    setSessionType("private");
-    setBrowseMode("by_time");
-    setSelectedCoachId(null);
-    setSelectedDate(new Date());
-    setSelectedLocationId(null);
-    setDuration(60);
-    setSelectedSlot(null);
+  // Auto-select preselected slot
+  useEffect(() => {
+    if (!preselectedSlot || !visible || currentSlide < 2) return;
+    if (availableSlots.length === 0 || slotsLoading) return;
+    if (selectedSlot) return;
+    const preTime = preselectedSlot.startTime.substring(11, 16);
+    const match = availableSlots.find(
+      (s) => s.coachId === preselectedSlot.coachId && s.startTime.substring(11, 16) === preTime,
+    );
+    if (!match) return;
+    setSelectedSlot(match);
     setSelectedSession(null);
     setIsJoining(false);
-    setPlayerNote("");
-    setFriendEmail("");
-    setShowSuccess(false);
-    setShowCoachDrawer(false);
-    setSelectedCoachForDrawer(null);
-    setAiFocusSuggestions([]);
-    setAiFocusFetched(false);
-    setSelectedCourtId(null);
-    setSelectedCourtName(null);
-    setPresetCourtId(null);
-    setPresetCourt(null);
-    setCourtBookingStatus(null);
-    setCourtBookingNote("");
-    setCourtBookingUrl("");
-    setReservationId(null);
-    setReservationExpiresAt(null);
-    setReservationSecondsLeft(0);
-    setReservationError(null);
-    setReservationLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (visible) {
-      slideProgress.value = 0;
-      // Restore an active reservation from AsyncStorage (if still valid)
-      AsyncStorage.getItem(HOLD_STORAGE_KEY).then((raw) => {
-        if (!raw) return;
-        try {
-          const stored = JSON.parse(raw);
-          if (!stored?.expiresAt || !stored?.slot || !stored?.reservationId) return;
-          const expiresAt = new Date(stored.expiresAt);
-          if (expiresAt.getTime() <= Date.now()) {
-            AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
-            return;
-          }
-          // Rehydrate all relevant state and jump to the time-selection slide
-          activeReservationRef.current = stored.reservationId;
-          setReservationId(stored.reservationId);
-          setReservationExpiresAt(expiresAt);
-          setSelectedSlot(stored.slot);
-          if (stored.selectedDate) {
-            const [y, m, d] = stored.selectedDate.split("-").map(Number);
-            setSelectedDate(new Date(y, m - 1, d));
-          }
-          if (stored.duration) setDuration(stored.duration);
-          const validSessionTypes = ["private", "semi_private", "group", "open_play"] as const;
-          if (stored.sessionType && validSessionTypes.includes(stored.sessionType)) {
-            setSessionType(stored.sessionType as typeof validSessionTypes[number]);
-          }
-          setCurrentSlide(2);
-        } catch {
-          // corrupted entry — ignore
-        }
-      }).catch(() => {});
-
-      // Task #1037: when the wizard is opened from a public coach profile,
-      // lock the booking to that coach (and optionally to a preselected
-      // open lesson) and skip ahead to the slot picker.
-      if (preselectedCoachId) {
-        setBrowseMode("by_coach");
-        setSelectedCoachId(preselectedCoachId);
-        if (preselectedSessionId) {
-          // Don't lock sessionType yet — the open lesson could be group,
-          // semi_private, or open_play. The effect below will derive it
-          // from the resolved session record once joinable-sessions loads.
-          setIsJoining(true);
-        } else {
-          setSessionType("private");
-        }
-        if (preselectedDate) {
-          setSelectedDate(preselectedDate);
-        }
-        setCurrentSlide(2);
-      } else if (preselectedDate) {
-        // Task #1570 — Play Now card: pre-set the date and jump to slot picker
-        setSelectedDate(preselectedDate);
-        setCurrentSlide(2);
+    setReservationLoading(true);
+    reserveSlotMutation.mutate({ coachId: match.coachId, startTime: match.startTime, endTime: match.endTime });
+    setTimeout(() => {
+      if (preHighlightedSlotYRef.current !== null) {
+        slotListScrollViewRef.current?.scrollTo({ y: Math.max(0, preHighlightedSlotYRef.current - 80), animated: true });
       }
-    } else {
-      resetForm();
-    }
-  }, [visible, preselectedCoachId, preselectedSessionId, preselectedDate]);
+    }, 500);
+  }, [preselectedSlot, availableSlots, slotsLoading, visible, currentSlide, selectedSlot]);
 
-  // Animate slide progress
+  // Reset court when slot changes
   useEffect(() => {
-    const totalSlides = getTotalSlides();
-    slideProgress.value = withSpring(currentSlide / (totalSlides - 1), {
-      damping: 20,
-      stiffness: 90,
-    });
-  }, [currentSlide, browseMode]);
-
-  // Glow pulse animation
-  useEffect(() => {
-    const pulse = () => {
-      glowPulse.value = withTiming(1, { duration: 1500 }, () => {
-        glowPulse.value = withTiming(0, { duration: 1500 }, () => {
-          runOnJS(pulse)();
-        });
-      });
-    };
-    if (visible) pulse();
-  }, [visible]);
-
-  // Reset court override whenever the selected slot changes (prevents stale court from previous selection).
-  // When a preset court is active (Choose Court browse mode), keep it pre-selected so the player sees
-  // their chosen court locked-in on the Details step.
-  useEffect(() => {
-    // When joining an existing session, never override its court — show the actual court
-    // assigned to that session (don't apply the preset court).
     if (isJoining) {
       setSelectedCourtId(null);
       setSelectedCourtName(null);
       return;
     }
-    if (presetCourtId && presetCourt) {
-      setSelectedCourtId(presetCourtId);
-      setSelectedCourtName(presetCourt.name);
-    } else {
-      setSelectedCourtId(null);
-      setSelectedCourtName(null);
-    }
-  }, [selectedSlot, selectedSession, isJoining, presetCourtId, presetCourt]);
+    setSelectedCourtId(null);
+    setSelectedCourtName(null);
+  }, [selectedSlot, selectedSession, isJoining]);
 
-  // Fetch AI focus suggestions when entering the Details slide
-  const detailsSlideIndex = (browseMode === "by_coach" || browseMode === "by_court") ? 4 : 3;
+  // AI focus suggestions when entering details slide
   useEffect(() => {
-    if (currentSlide === detailsSlideIndex && !aiFocusFetched && visible) {
+    if (currentSlide === 3 && !aiFocusFetched && visible) {
       setAiFocusLoading(true);
       setAiFocusFetched(true);
       apiRequest("POST", "/api/player/booking-ai-focus", {})
         .then((res) => res.json())
-        .then((data: any) => {
-          const suggestions = data?.suggestions || [];
-          setAiFocusSuggestions(suggestions);
-        })
-        .catch(() => {
-          setAiFocusSuggestions([]);
-        })
-        .finally(() => {
-          setAiFocusLoading(false);
-        });
+        .then((data: any) => setAiFocusSuggestions(data?.suggestions || []))
+        .catch(() => setAiFocusSuggestions([]))
+        .finally(() => setAiFocusLoading(false));
     }
-  }, [currentSlide, detailsSlideIndex, aiFocusFetched, visible]);
+  }, [currentSlide, aiFocusFetched, visible]);
 
-  // Navigation
-  const goNext = useCallback(() => {
-    const totalSlides = getTotalSlides();
-    // Active interception (in addition to the disabled-button state):
-    // when the user taps Next on the find-session step without picking a
-    // slot/session, surface a clear toast instead of silently no-op'ing.
-    const findSessionIndex =
-      browseMode === "by_coach" || browseMode === "by_court" ? 3 : 2;
-    if (
-      currentSlide === findSessionIndex &&
-      !selectedSlot &&
-      !selectedSession
-    ) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert("Pick a time first", "Tap one of the available time slots before continuing.");
-      return;
-    }
-    if (currentSlide < totalSlides - 1) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setCurrentSlide((prev) => prev + 1);
-    }
-  }, [currentSlide, browseMode, selectedSlot, selectedSession]);
+  // Payment method defaults
+  useEffect(() => {
+    if (!visible || currentSlide < 3) return;
+    if (creditsForType >= 1) setPaymentMethod("credits");
+    else if (cardEnabled) setPaymentMethod("card");
+    else setPaymentMethod("pay_later");
+  }, [visible, currentSlide, creditsForType, cardEnabled, sessionType]);
 
-  const goBack = useCallback(() => {
-    if (currentSlide > 0) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setCurrentSlide((prev) => prev - 1);
-    }
-  }, [currentSlide]);
-
-  // Resolve court from either academy-scoped list; cross-academy/no-academy
-  // courts won't be found and fall through to the all-options picker.
-  const resolvedCourtId = useMemo<string | null>(() => {
-    return (
-      selectedCourtId ??
-      presetCourtId ??
-      selectedSlot?.courtId ??
-      (isJoining && selectedSession
-        ? (selectedSession as { courtId?: string | null }).courtId ?? null
-        : null)
-    );
-  }, [selectedCourtId, presetCourtId, selectedSlot, selectedSession, isJoining]);
-
-  const resolvedCourt = useMemo<{ requiresExternalBooking?: boolean | null } | null>(() => {
-    if (!resolvedCourtId) return null;
-    const fromAvailable = availableCourts.find((c) => c.id === resolvedCourtId);
-    if (fromAvailable) return fromAvailable;
-    const fromAcademy = academyCourts.find((c) => c.id === resolvedCourtId);
-    if (fromAcademy) return fromAcademy;
-    return null;
-  }, [resolvedCourtId, availableCourts, academyCourts]);
-
-  const isAcademyCourt = useMemo(() => {
-    if (!resolvedCourt) return false;
-    if (resolvedCourt.requiresExternalBooking) return false;
-    return true;
-  }, [resolvedCourt]);
-
-  const requiresExternalBooking = useMemo(() => {
-    return !!resolvedCourt?.requiresExternalBooking;
-  }, [resolvedCourt]);
-
-  // Court Booking step is the second-to-last slide
-  const courtBookingValid = useMemo(() => {
-    if (isAcademyCourt) return true;
-    return !!courtBookingStatus;
-  }, [isAcademyCourt, courtBookingStatus]);
-
-  // Can proceed to next slide? (dynamic based on browse mode)
-  const canProceed = useMemo(() => {
-    if (browseMode === "by_coach") {
-      // 7 slides: Mode -> Browse -> Coach -> Session -> Details -> CourtBooking -> Confirm
-      switch (currentSlide) {
-        case 0: return !!sessionType;
-        case 1: return true; // Browse mode already selected
-        case 2: return !!selectedCoachId; // Must select a coach
-        case 3: return !!selectedSlot || !!selectedSession; // Find Session
-        case 4: return true; // Details optional
-        case 5: return courtBookingValid; // Court booking declaration
-        case 6: return true; // Confirm
-        default: return false;
-      }
-    } else if (browseMode === "by_court") {
-      // 7 slides: Mode -> Browse -> Court -> Session -> Details -> CourtBooking -> Confirm
-      switch (currentSlide) {
-        case 0: return !!sessionType;
-        case 1: return true;
-        case 2: return !!presetCourtId; // Must select a court
-        case 3: return !!selectedSlot || !!selectedSession;
-        case 4: return true;
-        case 5: return courtBookingValid;
-        case 6: return true;
-        default: return false;
-      }
-    } else {
-      // 6 slides: Mode -> Browse -> Session -> Details -> CourtBooking -> Confirm
-      switch (currentSlide) {
-        case 0: return !!sessionType;
-        case 1: return true; // Browse mode
-        case 2: return !!selectedSlot || !!selectedSession; // Find Session
-        case 3: return true; // Details optional
-        case 4: return courtBookingValid;
-        case 5: return true; // Confirm
-        default: return false;
-      }
-    }
-  }, [currentSlide, sessionType, browseMode, selectedCoachId, presetCourtId, selectedSlot, selectedSession, courtBookingValid]);
-
-  // Create booking request mutation - always uses booking request flow
-  // For joining an existing session, we include the sessionId in the request
+  // ─── Booking mutations ────────────────────────────────────────────────────────
   const bookingMutation = useMutation({
     mutationFn: async (bookingData: any) => {
-      // Both flows use booking requests - coach will approve
       return apiRequest("POST", "/api/player/booking-requests", bookingData);
     },
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Explicitly release the server-side hold on booking success
       const holdId = activeReservationRef.current;
       if (holdId) {
         apiRequest("DELETE", `/api/player/reserve-slot/${holdId}`, undefined).catch(() => {});
@@ -1011,19 +731,13 @@ export default function PlayerBookingWizard({
       setReservationExpiresAt(null);
       AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
       setShowSuccess(true);
-      xpGain.value = withSequence(
-        withTiming(1, { duration: 500 }),
-        withDelay(2000, withTiming(0, { duration: 300 }))
-      );
+      xpGain.value = withSequence(withTiming(1, { duration: 500 }), withDelay(2000, withTiming(0, { duration: 300 })));
       queryClient.invalidateQueries({ queryKey: ["/api/player/booking-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
       setTimeout(() => {
         resetForm();
-        if (onBookingSuccess) {
-          onBookingSuccess();
-        } else {
-          onClose();
-        }
+        if (onBookingSuccess) onBookingSuccess();
+        else onClose();
       }, 2500);
     },
     onError: (error: Error) => {
@@ -1042,12 +756,6 @@ export default function PlayerBookingWizard({
     },
   });
 
-  // Task #1052 — Drop-in lesson Stripe checkout for non-academy players.
-  // When the player books a private slot with a public coach from another
-  // academy, we don't have a credit / approval flow available. Instead we
-  // collect payment up front via Stripe Checkout. The coach + session +
-  // sessionPlayer (joinType=drop_in) are created server-side by the
-  // checkout.session.completed webhook handler.
   const dropInLessonMutation = useMutation({
     mutationFn: async (bookingData: any) => {
       const res = await apiRequest("POST", "/api/player/drop-in-lesson/checkout", bookingData);
@@ -1063,35 +771,16 @@ export default function PlayerBookingWizard({
       setReservationId(null);
       setReservationExpiresAt(null);
       AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
-
       try {
-        if (data?.checkoutUrl) {
-          await Linking.openURL(data.checkoutUrl);
-        }
-      } catch (_err) {
-        Alert.alert(
-          "Couldn't open payment",
-          "We couldn't open the secure payment page. Please try again.",
-        );
+        if (data?.checkoutUrl) await Linking.openURL(data.checkoutUrl);
+      } catch {
+        Alert.alert("Couldn't open payment", "We couldn't open the secure payment page. Please try again.");
         return;
       }
-
-      // The session + roster spot are only created by the Stripe webhook
-      // *after* the player completes payment. Make this explicit instead of
-      // showing an immediate booking-success state, so the player isn't
-      // misled if they abandon the checkout.
       Alert.alert(
         "Payment in progress",
         "Finish payment in the secure window to confirm your lesson. You'll see it in your bookings once payment is confirmed.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              resetForm();
-              onClose();
-            },
-          },
-        ],
+        [{ text: "OK", onPress: () => { resetForm(); onClose(); } }],
       );
     },
     onError: (error: Error) => {
@@ -1110,23 +799,183 @@ export default function PlayerBookingWizard({
     },
   });
 
-  // Task #1052: when the resolved coach for the chosen slot/session is an
-  // external public coach (i.e., not in the player's academy), we route
-  // brand-new private lessons through the Stripe drop-in checkout instead
-  // of the credit-based booking-request flow.
-  const isCrossAcademyDropInCoach = useCallback(
-    (coachId: string | null | undefined) => {
-      if (!coachId) return false;
-      const dc = directoryCoaches.find((c) => c.id === coachId);
-      return !!dc?.isExternalPublicCoach;
-    },
-    [directoryCoaches],
-  );
+  // ─── Reset form ───────────────────────────────────────────────────────────────
+  const resetForm = useCallback(() => {
+    activeReservationRef.current = null;
+    setCurrentSlide(0);
+    setSessionType("private");
+    setSelectedDate(new Date());
+    setFilterCoachId(null);
+    setFilterLocationId(null);
+    setDuration(60);
+    setSelectedSlot(null);
+    setSelectedSession(null);
+    setIsJoining(false);
+    setExpandedSlotKey(null);
+    setWeekCommitment(1);
+    setCustomWeeks("");
+    setPartnerQuery("");
+    setSelectedPartner(null);
+    setLetCoachPair(false);
+    setSelectedCourtId(null);
+    setSelectedCourtName(null);
+    setPlayerNote("");
+    setAiFocusSuggestions([]);
+    setAiFocusFetched(false);
+    setCourtBookingStatus(null);
+    setCourtBookingNote("");
+    setCourtBookingUrl("");
+    setReservationId(null);
+    setReservationExpiresAt(null);
+    setReservationSecondsLeft(0);
+    setReservationError(null);
+    setReservationLoading(false);
+    setShowSuccess(false);
+    setShowCoachDrawer(false);
+    setSelectedCoachForDrawer(null);
+    setSlotCourtValid(new Map());
+  }, []);
 
-  // Handle booking - both flows create booking requests for coach approval
+  // ─── Mount/unmount effects ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (visible) {
+      slideProgress.value = 0;
+      // Restore reservation from AsyncStorage
+      AsyncStorage.getItem(HOLD_STORAGE_KEY).then((raw) => {
+        if (!raw) return;
+        try {
+          const stored = JSON.parse(raw);
+          if (!stored?.expiresAt || !stored?.slot || !stored?.reservationId) return;
+          const expiresAt = new Date(stored.expiresAt);
+          if (expiresAt.getTime() <= Date.now()) { AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {}); return; }
+          activeReservationRef.current = stored.reservationId;
+          setReservationId(stored.reservationId);
+          setReservationExpiresAt(expiresAt);
+          setSelectedSlot(stored.slot);
+          if (stored.selectedDate) {
+            const [y, m, d] = stored.selectedDate.split("-").map(Number);
+            setSelectedDate(new Date(y, m - 1, d));
+          }
+          if (stored.duration) setDuration(stored.duration);
+          const validSessionTypes = ["private", "semi_private", "group"] as const;
+          if (stored.sessionType && validSessionTypes.includes(stored.sessionType)) {
+            setSessionType(stored.sessionType as typeof validSessionTypes[number]);
+          }
+          setCurrentSlide(2);
+        } catch { /* ignore */ }
+      }).catch(() => {});
+
+      if (preselectedCoachId) {
+        setFilterCoachId(preselectedCoachId);
+        if (preselectedSessionId) { setIsJoining(true); }
+        else { setSessionType("private"); }
+        if (preselectedDate) setSelectedDate(preselectedDate);
+        setCurrentSlide(2);
+      } else if (preselectedDate) {
+        setSelectedDate(preselectedDate);
+        setCurrentSlide(1);
+      }
+    } else {
+      resetForm();
+    }
+  }, [visible, preselectedCoachId, preselectedSessionId, preselectedDate]);
+
+  // Glow pulse animation
+  useEffect(() => {
+    const pulse = () => {
+      glowPulse.value = withTiming(1, { duration: 1500 }, () => {
+        glowPulse.value = withTiming(0, { duration: 1500 }, () => { runOnJS(pulse)(); });
+      });
+    };
+    if (visible) pulse();
+  }, [visible]);
+
+  // Progress bar
+  useEffect(() => {
+    slideProgress.value = withSpring(currentSlide / (TOTAL_SLIDES - 1), { damping: 20, stiffness: 90 });
+  }, [currentSlide]);
+
+  // Hold glow
+  useEffect(() => {
+    if (reservationId && selectedSlot) {
+      holdGlowOpacity.value = withRepeat(
+        withSequence(withTiming(0.85, { duration: 700 }), withTiming(0.2, { duration: 700 })),
+        -1, true,
+      );
+    } else {
+      holdGlowOpacity.value = withTiming(0, { duration: 250 });
+    }
+  }, [reservationId, selectedSlot]);
+
+  // ─── Resolved court/booking logic ─────────────────────────────────────────────
+  const resolvedCourtId = useMemo<string | null>(() => {
+    return selectedCourtId ?? selectedSlot?.courtId ?? (isJoining && selectedSession ? (selectedSession as any).courtId ?? null : null);
+  }, [selectedCourtId, selectedSlot, selectedSession, isJoining]);
+
+  const resolvedCourt = useMemo<{ requiresExternalBooking?: boolean | null } | null>(() => {
+    if (!resolvedCourtId) return null;
+    const fromAvailable = availableCourts.find((c) => c.id === resolvedCourtId);
+    if (fromAvailable) return fromAvailable;
+    const fromAcademy = academyCourts.find((c) => c.id === resolvedCourtId);
+    return fromAcademy ?? null;
+  }, [resolvedCourtId, availableCourts, academyCourts]);
+
+  const isAcademyCourt = useMemo(() => {
+    if (!resolvedCourt) return false;
+    return !resolvedCourt.requiresExternalBooking;
+  }, [resolvedCourt]);
+
+  const requiresExternalBooking = useMemo(() => !!resolvedCourt?.requiresExternalBooking, [resolvedCourt]);
+  const courtBookingValid = useMemo(() => isAcademyCourt ? true : !!courtBookingStatus, [isAcademyCourt, courtBookingStatus]);
+
+  // ─── Cross-academy logic ──────────────────────────────────────────────────────
+  const isCrossAcademyDropInCoach = useCallback((coachId: string | null | undefined) => {
+    if (!coachId) return false;
+    const dc = directoryCoaches.find((c) => c.id === coachId);
+    return !!dc?.isExternalPublicCoach;
+  }, [directoryCoaches]);
+
+  // ─── canProceed ───────────────────────────────────────────────────────────────
+  const canProceed = useMemo(() => {
+    switch (currentSlide) {
+      case 0: return !!sessionType;
+      case 1: return true;
+      case 2:
+        if (sessionType === "group") return !!selectedSession;
+        return !!selectedSlot || !!selectedSession;
+      case 3:
+        if (sessionType === "semi_private" && !letCoachPair && !selectedPartner) return false;
+        if (requiresExternalBooking) return courtBookingValid;
+        return true;
+      case 4: return true;
+      default: return false;
+    }
+  }, [currentSlide, sessionType, selectedSlot, selectedSession, selectedPartner, letCoachPair, courtBookingValid, requiresExternalBooking]);
+
+  // ─── Navigation ────────────────────────────────────────────────────────────────
+  const goNext = useCallback(() => {
+    if (currentSlide === 2 && !selectedSlot && !selectedSession) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert("Pick a session first", "Tap an available time or session before continuing.");
+      return;
+    }
+    if (currentSlide < TOTAL_SLIDES - 1) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setCurrentSlide((prev) => prev + 1);
+    }
+  }, [currentSlide, selectedSlot, selectedSession]);
+
+  const goBack = useCallback(() => {
+    if (currentSlide > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentSlide((prev) => prev - 1);
+    }
+  }, [currentSlide]);
+
+  // ─── Handle book ──────────────────────────────────────────────────────────────
   const handleBook = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    
+
     const courtBookingPayload = {
       courtBookingStatus: isAcademyCourt ? "academy_court" : (courtBookingStatus || null),
       courtBookingNote: !isAcademyCourt && courtBookingNote ? courtBookingNote.trim() : null,
@@ -1134,7 +983,6 @@ export default function PlayerBookingWizard({
     };
 
     if (isJoining && selectedSession) {
-      // Request to join existing session
       const bookingData = {
         sessionId: selectedSession.id,
         coachId: selectedSession.coachId,
@@ -1144,18 +992,13 @@ export default function PlayerBookingWizard({
         sessionType: selectedSession.sessionType,
         playerNote: playerNote || null,
         isJoinRequest: true,
-        // Task #1093 — tag the join request so the coach knows whether to
-        // expect a credit deduction or to collect cash on attendance.
+        weeksCommitment: sessionType === "group" ? weekCommitment : undefined,
         paymentIntent: paymentMethod === "pay_later" ? "pay_later" : "credits",
         ...courtBookingPayload,
       };
       bookingMutation.mutate(bookingData);
     } else if (selectedSlot) {
-      // Task #1052 / #1093: Card payments (cross-academy drop-ins AND
-      // same-academy internal lessons) go through Stripe checkout. The
-      // Stripe webhook materialises the session + roster entry on success.
-      const wantsCardPath =
-        isCrossAcademyDropInCoach(selectedSlot.coachId) || paymentMethod === "card";
+      const wantsCardPath = isCrossAcademyDropInCoach(selectedSlot.coachId) || paymentMethod === "card";
       if (wantsCardPath) {
         const checkoutData = {
           coachId: selectedSlot.coachId,
@@ -1166,16 +1009,12 @@ export default function PlayerBookingWizard({
           duration: selectedSlot.duration,
           sessionType,
           playerNote: playerNote || null,
-          bookingType: isCrossAcademyDropInCoach(selectedSlot.coachId)
-            ? "drop_in"
-            : "internal_lesson",
+          bookingType: isCrossAcademyDropInCoach(selectedSlot.coachId) ? "drop_in" : "internal_lesson",
         };
         dropInLessonMutation.mutate(checkoutData);
         return;
       }
 
-      // Request new session slot (use player-selected court if overridden, else slot's pre-assigned court)
-      // Convert null → undefined so optional Zod fields are treated as absent (null fails z.string())
       const bookingData = {
         coachId: selectedSlot.coachId ?? undefined,
         locationId: selectedSlot.locationId ?? undefined,
@@ -1185,52 +1024,61 @@ export default function PlayerBookingWizard({
         duration: selectedSlot.duration,
         sessionType,
         playerNote: playerNote || null,
-        // Task #1093 — tag the booking so the coach sees an "Awaiting
-        // payment" pill when the player chose pay-later, or proceeds with
-        // the normal credit deduction otherwise.
+        partnerPlayerId: sessionType === "semi_private" && selectedPartner ? selectedPartner.id : undefined,
+        letCoachPair: sessionType === "semi_private" && letCoachPair ? true : undefined,
+        reservationId: reservationId || undefined,
         paymentIntent: paymentMethod === "pay_later" ? "pay_later" : "credits",
         ...courtBookingPayload,
       };
       bookingMutation.mutate(bookingData);
     }
-  }, [selectedSlot, selectedSession, isJoining, sessionType, playerNote, selectedCourtId, bookingMutation, dropInLessonMutation, isCrossAcademyDropInCoach, isAcademyCourt, courtBookingStatus, courtBookingNote, courtBookingUrl, paymentMethod]);
+  }, [
+    isJoining, selectedSession, selectedSlot, sessionType, playerNote, selectedCourtId,
+    bookingMutation, dropInLessonMutation, isCrossAcademyDropInCoach, isAcademyCourt,
+    courtBookingStatus, courtBookingNote, courtBookingUrl, paymentMethod, weekCommitment,
+    selectedPartner, letCoachPair, reservationId,
+  ]);
 
-  // Progress bar animated style
-  const progressStyle = useAnimatedStyle(() => ({
-    width: `${slideProgress.value * 100}%`,
-  }));
-
+  // ─── Animated styles ──────────────────────────────────────────────────────────
+  const progressStyle = useAnimatedStyle(() => ({ width: `${slideProgress.value * 100}%` }));
   const glowStyle = useAnimatedStyle(() => ({
     opacity: interpolate(glowPulse.value, [0, 1], [0.3, 0.8]),
     transform: [{ scale: interpolate(glowPulse.value, [0, 1], [1, 1.02]) }],
   }));
-
   const xpStyle = useAnimatedStyle(() => ({
     opacity: xpGain.value,
-    transform: [
-      { translateY: interpolate(xpGain.value, [0, 1], [20, 0]) },
-      { scale: interpolate(xpGain.value, [0, 1], [0.8, 1]) },
-    ],
+    transform: [{ translateY: interpolate(xpGain.value, [0, 1], [20, 0]) }, { scale: interpolate(xpGain.value, [0, 1], [0.8, 1]) }],
+  }));
+  const holdGlowAnimStyle = useAnimatedStyle(() => ({
+    shadowColor: Colors.dark.primary,
+    shadowOpacity: holdGlowOpacity.value,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
   }));
 
-  // Format time for display
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
+  // ─── Helpers ──────────────────────────────────────────────────────────────────
+  const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  // Format date for header
   const formatDateHeader = (date: Date) => {
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-
     if (date.toDateString() === today.toDateString()) return "Today";
     if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
     return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
   };
 
-  // SLIDE 0: Choose Your Mode
+  const releaseSlot = useCallback((slotId: string | null) => {
+    if (!slotId) return;
+    apiRequest("DELETE", `/api/player/reserve-slot/${slotId}`, undefined).catch(() => {});
+    activeReservationRef.current = null;
+    setReservationId(null);
+    setReservationExpiresAt(null);
+    AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
+  }, []);
+
+  // ─── SLIDE 0: Session Type ────────────────────────────────────────────────────
   const renderSessionTypeSlide = () => (
     <Animated.View entering={FadeIn} style={styles.slideContent}>
       <Text style={styles.slideSubtitle}>What kind of session?</Text>
@@ -1245,10 +1093,7 @@ export default function PlayerBookingWizard({
                 setSessionType(type.value);
                 goNext();
               }}
-              style={[
-                styles.sessionTypeCard,
-                isSelected && { borderColor: type.color, borderWidth: 2 },
-              ]}
+              style={[styles.sessionTypeCard, isSelected && { borderColor: type.color, borderWidth: 2 }]}
             >
               <LinearGradient
                 colors={isSelected ? type.gradient : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
@@ -1258,10 +1103,11 @@ export default function PlayerBookingWizard({
                 <View style={[styles.sessionTypeIcon, { backgroundColor: type.color + "30" }]}>
                   <Ionicons name={type.icon} size={32} color={type.color} />
                 </View>
-                <Text style={[styles.sessionTypeLabel, isSelected && { color: type.color }]}>
-                  {type.label}
-                </Text>
-                <Text style={styles.sessionTypeSubtitle}>{type.subtitle}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.sessionTypeLabel, isSelected && { color: type.color }]}>{type.label}</Text>
+                  <Text style={styles.sessionTypeSubtitle}>{type.subtitle}</Text>
+                </View>
+                {isSelected && <Ionicons name="checkmark-circle" size={22} color={type.color} />}
               </LinearGradient>
             </Pressable>
           );
@@ -1270,326 +1116,44 @@ export default function PlayerBookingWizard({
     </Animated.View>
   );
 
-  // SLIDE 1: How to Browse (by time or by coach)
-  const renderBrowseModeSlide = () => (
-    <Animated.View entering={FadeIn} style={styles.slideContent}>
-      <Text style={styles.slideSubtitle}>How would you like to find a session?</Text>
-
-      <View style={[styles.browseModeGrid, { flex: 1 }]}>
-        {/* Browse by Time option */}
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setBrowseMode("by_time");
-            setSelectedCoachId(null);
-            setPresetCourtId(null);
-            setPresetCourt(null);
-            setSelectedLocationId(null);
-            goNext();
-          }}
-          style={[
-            styles.browseModeCard,
-            { flex: 1 },
-            browseMode === "by_time" && { borderColor: Colors.dark.primary, borderWidth: 2 },
-          ]}
-        >
-          <LinearGradient
-            colors={browseMode === "by_time" ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
-            style={styles.browseModeCardGradient}
-          >
-            <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.primary + "30" }]}>
-              <Ionicons name="calendar" size={28} color={Colors.dark.primary} />
-            </View>
-            <Text style={[styles.browseModeLabel, browseMode === "by_time" && { color: Colors.dark.primary }]}>
-              Browse by Time
-            </Text>
-            <Text style={styles.browseModeSubtitle}>See available courts & times first</Text>
-          </LinearGradient>
-        </Pressable>
-
-        {/* Browse by Coach option */}
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setBrowseMode("by_coach");
-            setPresetCourtId(null);
-            setPresetCourt(null);
-            setSelectedLocationId(null);
-            goNext();
-          }}
-          style={[
-            styles.browseModeCard,
-            { flex: 1 },
-            browseMode === "by_coach" && { borderColor: Colors.dark.primary, borderWidth: 2 },
-          ]}
-        >
-          <LinearGradient
-            colors={browseMode === "by_coach" ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
-            style={styles.browseModeCardGradient}
-          >
-            <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.primary + "30" }]}>
-              <Ionicons name="person" size={28} color={Colors.dark.primary} />
-            </View>
-            <Text style={[styles.browseModeLabel, browseMode === "by_coach" && { color: Colors.dark.primary }]}>
-              Choose Coach
-            </Text>
-            <Text style={styles.browseModeSubtitle}>Select your preferred coach first</Text>
-          </LinearGradient>
-        </Pressable>
-
-        {/* Browse by Court option */}
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setBrowseMode("by_court");
-            setSelectedCoachId(null);
-            goNext();
-          }}
-          style={[
-            styles.browseModeCard,
-            { flex: 1 },
-            browseMode === "by_court" && { borderColor: Colors.dark.primary, borderWidth: 2 },
-          ]}
-        >
-          <LinearGradient
-            colors={browseMode === "by_court" ? [Colors.dark.primary + "40", Colors.dark.primary + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
-            style={styles.browseModeCardGradient}
-          >
-            <View style={[styles.browseModeIcon, { backgroundColor: Colors.dark.primary + "30" }]}>
-              <Ionicons name="tennisball" size={28} color={Colors.dark.primary} />
-            </View>
-            <Text style={[styles.browseModeLabel, browseMode === "by_court" && { color: Colors.dark.primary }]}>
-              Choose Court
-            </Text>
-            <Text style={styles.browseModeSubtitle}>Pick a favorite court first</Text>
-          </LinearGradient>
-        </Pressable>
-      </View>
-    </Animated.View>
-  );
-
-  // SLIDE 2 (only when by_court): Select Court
-  const renderSelectCourtSlide = () => {
-    // Group courts by location for cleaner browsing
-    const grouped = new Map<string, { locationName: string; courts: AcademyCourt[] }>();
-    for (const court of academyCourts) {
-      const key = court.locationId ?? "__none__";
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          locationName: court.locationName ?? "Other",
-          courts: [],
-        });
-      }
-      grouped.get(key)!.courts.push(court);
-    }
-    const groups = Array.from(grouped.values());
-
-    const handleCourtSelect = (court: AcademyCourt) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setPresetCourtId(court.id);
-      setPresetCourt(court);
-      setSelectedCourtId(court.id);
-      setSelectedCourtName(court.name);
-      // Pin location filter to the chosen court's location
-      setSelectedLocationId(court.locationId ?? null);
-      // Clear any stale slot selection from prior court
-      setSelectedSlot(null);
-      setSelectedSession(null);
-      goNext();
-    };
-
+  // ─── SLIDE 1: When to Play ─────────────────────────────────────────────────────
+  const renderWhenSlide = () => {
+    const selectedTypeCard = SESSION_TYPE_CARDS.find((t) => t.value === sessionType);
     return (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
-        {academyCourtsLoading ? (
-          <View style={styles.loadingContainer}>
-            <TennisBallSpinner size="large" color={Colors.dark.accentText} />
-            <Text style={styles.loadingText}>Loading courts...</Text>
-          </View>
-        ) : academyCourts.length === 0 ? (
-          <View style={styles.emptyCoachesContainer}>
-            <Ionicons name="tennisball-outline" size={56} color={Colors.dark.textMuted} />
-            <Text style={[styles.emptyCoachesText, { fontWeight: "600", marginTop: Spacing.sm }]}>No courts available</Text>
-            <Text style={[styles.emptyCoachesText, { fontSize: 13, textAlign: "center", paddingHorizontal: Spacing.xl }]}>
-              Your academy hasn&apos;t added any courts yet. Try Browse by Time or Choose Coach instead.
-            </Text>
-          </View>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={slideScrollPadding}>
-            <Text style={styles.slideSubtitle}>Pick a court to play on</Text>
-            {groups.map((group, gi) => (
-              <View key={gi} style={{ marginBottom: Spacing.lg }}>
-                <Text style={styles.sessionSectionTitle}>{group.locationName}</Text>
-                {group.courts.map((court) => {
-                  const isSelected = presetCourtId === court.id;
-                  return (
-                    <Pressable
-                      key={court.id}
-                      onPress={() => handleCourtSelect(court)}
-                      style={[styles.slotCard, isSelected && styles.slotCardSelected]}
-                    >
-                      <View style={[styles.slotInfoColumn, { flex: 1 }]}>
-                        <Text style={[styles.slotCoachName, { fontSize: 16 }]}>
-                          {court.name}
-                          {court.surface ? ` · ${court.surface}` : ""}
-                        </Text>
-                        {court.locationName ? (
-                          <View style={styles.locationRow}>
-                            <Ionicons name="location" size={12} color={Colors.dark.textSecondary} />
-                            <Text style={styles.slotLocationText}>{court.locationName}</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      {isSelected ? (
-                        <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
-                      ) : null}
-                    </Pressable>
-                  );
-                })}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={slideScrollPadding}>
+
+          {/* Smart suggestions */}
+          {smartSuggestions.length > 0 && (
+            <View style={styles.suggestionsSection}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="sparkles" size={16} color={Colors.dark.primary} />
+                <Text style={styles.sectionTitle}>Smart Suggestions</Text>
               </View>
-            ))}
-          </ScrollView>
-        )}
-      </Animated.View>
-    );
-  };
-
-  // SLIDE 2 (only when by_coach): Select Coach - Premium coach cards
-  const renderSelectCoachSlide = () => {
-    const handleCoachSelect = (coach: DirectoryCoach) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      setSelectedCoachId(coach.id);
-      goNext();
-    };
-
-    const handleCoachInfoPress = (coach: DirectoryCoach) => {
-      setSelectedCoachForDrawer(coach);
-      setShowCoachDrawer(true);
-    };
-
-    const mapCoachForCard = (coach: DirectoryCoach) => ({
-      id: coach.id,
-      name: coach.name,
-      profilePhotoUrl: coach.profilePhotoUrl,
-      specialty: coach.specialty,
-      yearsExperience: coach.yearsExperience,
-      specializations: coach.specializations,
-      ballLevels: coach.ballLevels,
-      rating: coach.rating,
-      totalSessions: coach.totalSessions,
-      bio: coach.bio,
-      availableForPrivate: true,
-      availableForGroup: true,
-    });
-
-    const mapCoachForDrawer = (coach: DirectoryCoach) => ({
-      id: coach.id,
-      name: coach.name,
-      profilePhotoUrl: coach.profilePhotoUrl,
-      specialty: coach.specialty,
-      yearsExperience: coach.yearsExperience,
-      specializations: coach.specializations,
-      ballLevels: coach.ballLevels,
-      rating: coach.rating,
-      totalSessions: coach.totalSessions,
-      bio: coach.bio,
-      certifications: coach.certifications,
-      languages: coach.languages,
-      availableForPrivate: true,
-      availableForGroup: true,
-    });
-
-    return (
-      <Animated.View entering={FadeIn} style={styles.slideContent}>
-        <Text style={styles.slideSubtitle}>Choose your tennis coach</Text>
-        
-        {academyCoachesLoading ? (
-          <View style={styles.loadingContainer}>
-            <TennisBallSpinner size="large" color={Colors.dark.accentText} />
-            <Text style={styles.loadingText}>Loading coaches...</Text>
-          </View>
-        ) : directoryCoaches.length === 0 ? (
-          <View style={styles.emptyCoachesContainer}>
-            <Ionicons name="people-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyCoachesText}>No coaches available</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={directoryCoaches}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
-              <BookingCoachCard
-                coach={mapCoachForCard(item)}
-                isSelected={selectedCoachId === item.id}
-                onSelect={() => handleCoachSelect(item)}
-                onInfoPress={() => handleCoachInfoPress(item)}
-                index={index}
-              />
-            )}
-            contentContainerStyle={styles.coachCardsContainer}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-
-        <CoachProfileDrawer
-          visible={showCoachDrawer}
-          onClose={() => setShowCoachDrawer(false)}
-          onSelectCoach={() => {
-            if (selectedCoachForDrawer) {
-              setSelectedCoachId(selectedCoachForDrawer.id);
-            }
-          }}
-          coach={selectedCoachForDrawer ? mapCoachForDrawer(selectedCoachForDrawer) : null}
-        />
-      </Animated.View>
-    );
-  };
-
-  // SLIDE 2 or 3: Find Your Session (combined date/duration + available slots)
-  const renderFindSessionSlide = () => {
-    const isLoading = slotsLoading || sessionsLoading;
-
-    // Combine joinable sessions and available slots for display
-    const showJoinable = sessionType === "group" || sessionType === "semi_private";
-
-    // Filter slots by location. Court filtering (when presetCourtId is set) is now
-    // handled server-side via the courtId query param, so no client-side court filter.
-    const filteredSlots = availableSlots.filter(slot => {
-      const locOk = !selectedLocationId || slot.locationId === selectedLocationId || slot.locationId === null;
-      return locOk;
-    });
-
-    return (
-      <Animated.View entering={FadeIn} style={styles.slideContent}>
-        <ScrollView ref={slotListScrollViewRef} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-          {/* Prominent SLOT LOCKED banner — shown at the top when a hold is active */}
-          {reservationId && selectedSlot && !reservationLoading ? (
-            <View style={styles.slotLockedCard}>
-              <View style={styles.slotLockedAccent} />
-              <View style={styles.slotLockedBody}>
-                <View style={styles.slotLockedTop}>
-                  <View style={styles.slotLockedTitleRow}>
-                    <Ionicons name="lock-closed" size={16} color={Colors.dark.primary} />
-                    <Text style={styles.slotLockedTitle}>SLOT LOCKED</Text>
+              {smartSuggestions.map((s) => (
+                <Pressable
+                  key={s.key}
+                  style={styles.suggestionCard}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setFilterCoachId(s.coachId);
+                    goNext();
+                  }}
+                >
+                  <View style={[styles.suggestionIcon, { backgroundColor: Colors.dark.primary + "20" }]}>
+                    <Ionicons name="person" size={18} color={Colors.dark.primary} />
                   </View>
-                  <View style={styles.slotLockedCountdownBox}>
-                    <Ionicons name="time-outline" size={13} color={Colors.dark.primary} />
-                    <Text style={styles.slotLockedCountdown}>
-                      {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.slotLockedInfo} numberOfLines={1}>
-                  {selectedSlot.coachName} · {formatTime(selectedSlot.startTime)} ({selectedSlot.duration}min)
-                </Text>
-                <Text style={styles.slotLockedHint}>Tap Next to confirm your booking</Text>
-              </View>
+                  <Text style={styles.suggestionText} numberOfLines={2}>{s.text}</Text>
+                  <Ionicons name="arrow-forward" size={16} color={Colors.dark.primary} />
+                </Pressable>
+              ))}
             </View>
-          ) : null}
+          )}
 
-          {/* Date Selector */}
+          {/* Date picker */}
           <View style={styles.sectionHeader}>
-            <Ionicons name="calendar" size={18} color={Colors.dark.primary} />
-            <Text style={styles.sectionTitle}>Date</Text>
+            <Ionicons name="calendar" size={16} color={Colors.dark.primary} />
+            <Text style={styles.sectionTitle}>Choose Date</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroll}>
             {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
@@ -1600,10 +1164,7 @@ export default function PlayerBookingWizard({
                 <Pressable
                   key={offset}
                   style={[styles.dateChip, isSelected && styles.dateChipSelected]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedDate(date);
-                  }}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedDate(date); }}
                 >
                   <Text style={[styles.dateChipDay, isSelected && styles.dateChipTextSelected]}>
                     {offset === 0 ? "Today" : offset === 1 ? "Tomorrow" : date.toLocaleDateString([], { weekday: "short" })}
@@ -1620,85 +1181,47 @@ export default function PlayerBookingWizard({
             </Pressable>
           </ScrollView>
 
-          {/* Duration Selector */}
-          <View style={styles.sectionHeader}>
-            <Ionicons name="time" size={18} color={Colors.dark.primary} />
-            <Text style={styles.sectionTitle}>Duration</Text>
+          {/* Filters */}
+          <View style={[styles.sectionHeader, { marginTop: Spacing.lg }]}>
+            <Ionicons name="options" size={16} color={Colors.dark.primary} />
+            <Text style={styles.sectionTitle}>Filters</Text>
+            <Text style={styles.filterOptional}>(optional)</Text>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.durationScroll}>
-            {DURATIONS.map((dur) => {
-              const isSelected = duration === dur;
-              return (
-                <Pressable
-                  key={dur}
-                  style={[styles.durationChip, isSelected && styles.durationChipSelected]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setDuration(dur);
-                  }}
-                >
-                  <Text style={[styles.durationChipText, isSelected && styles.durationChipTextSelected]}>
-                    {dur} min
-                  </Text>
-                </Pressable>
-              );
-            })}
+
+          {/* Duration filter */}
+          <Text style={styles.filterLabel}>Duration</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
+            {DURATIONS.map((dur) => (
+              <Pressable
+                key={dur}
+                style={[styles.filterChip, duration === dur && styles.filterChipSelected]}
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDuration(dur); }}
+              >
+                <Text style={[styles.filterChipText, duration === dur && styles.filterChipTextSelected]}>
+                  {dur} min
+                </Text>
+              </Pressable>
+            ))}
           </ScrollView>
 
-          {/* Pinned Court banner — shown when player picked a court via "Choose Court" mode */}
-          {presetCourt ? (
-            <View style={[styles.sectionHeader, { marginTop: Spacing.md }]}>
-              <Ionicons name="tennisball" size={18} color={Colors.dark.primary} />
-              <Text style={styles.sectionTitle}>
-                Court: {presetCourt.name}
-                {presetCourt.surface ? ` · ${presetCourt.surface}` : ""}
-                {presetCourt.locationName ? ` · ${presetCourt.locationName}` : ""}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Location Filter — hidden when a court is locked-in (location is auto-pinned) */}
-          {!presetCourt && locations.length > 0 && (
+          {/* Location filter */}
+          {locations.length > 0 && (
             <>
-              <View style={[styles.sectionHeader, { marginTop: Spacing.md }]}>
-                <Ionicons name="location" size={18} color={Colors.dark.primary} />
-                <Text style={styles.sectionTitle}>Location</Text>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.durationScroll}>
+              <Text style={styles.filterLabel}>Location</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
                 <Pressable
-                  style={[styles.locationChip, selectedLocationId === null && styles.locationChipSelected]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setSelectedLocationId(null);
-                  }}
+                  style={[styles.filterChip, !filterLocationId && styles.filterChipSelected]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterLocationId(null); }}
                 >
-                  <Text style={[styles.locationChipText, selectedLocationId === null && styles.locationChipTextSelected]}>
-                    All
-                  </Text>
+                  <Text style={[styles.filterChipText, !filterLocationId && styles.filterChipTextSelected]}>Any</Text>
                 </Pressable>
                 {locations.map((loc) => (
                   <Pressable
                     key={loc.id}
-                    style={[styles.locationChip, selectedLocationId === loc.id && styles.locationChipSelected]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setSelectedLocationId(loc.id);
-                      // Only clear the selected slot if it belongs to a DIFFERENT specific location.
-                      // Slots with locationId === null (any-location) are compatible with all filters.
-                      if (selectedSlot?.locationId && selectedSlot.locationId !== loc.id) {
-                        const prevId = activeReservationRef.current;
-                        if (prevId) {
-                          apiRequest("DELETE", `/api/player/reserve-slot/${prevId}`, undefined).catch(() => {});
-                          activeReservationRef.current = null;
-                          setReservationId(null);
-                          setReservationExpiresAt(null);
-                          AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
-                        }
-                        setSelectedSlot(null);
-                      }
-                    }}
+                    style={[styles.filterChip, filterLocationId === loc.id && styles.filterChipSelected]}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterLocationId(loc.id); }}
                   >
-                    <Text style={[styles.locationChipText, selectedLocationId === loc.id && styles.locationChipTextSelected]}>
+                    <Text style={[styles.filterChipText, filterLocationId === loc.id && styles.filterChipTextSelected]}>
                       {loc.name}
                     </Text>
                   </Pressable>
@@ -1707,261 +1230,382 @@ export default function PlayerBookingWizard({
             </>
           )}
 
-          {/* Available Sessions Section */}
-          <View style={[styles.sectionHeader, { marginTop: Spacing.lg }]}>
-            <Ionicons name="tennisball" size={18} color={Colors.dark.primary} />
-            <Text style={styles.sectionTitle}>
-              {showJoinable ? "Available Sessions" : "Available Times"}
-            </Text>
-          </View>
-
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <TennisBallSpinner size="large" color={Colors.dark.primary} />
-              <Text style={styles.loadingText}>Finding sessions...</Text>
-            </View>
-          ) : (
+          {/* Coach filter */}
+          {directoryCoaches.length > 0 && (
             <>
-            {/* Joinable Sessions — filtered by chosen court when in by_court mode */}
-            {(() => {
-              const filteredJoinable = presetCourtId
-                ? joinableSessions.filter(s => s.courtId === presetCourtId)
-                : joinableSessions;
-              return showJoinable && filteredJoinable.length > 0 ? (
-              <>
-                <Text style={styles.sessionSectionTitle}>Join Existing Group</Text>
-                {filteredJoinable.map((session) => {
-                  const isSelected = selectedSession?.id === session.id;
-                  const spotsLeft = (session.maxPlayers || 6) - session.currentPlayers;
-                  return (
-                    <Pressable
-                      key={session.id}
-                      style={[styles.sessionCard, isSelected && styles.sessionCardSelected]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        setSelectedSession(session);
-                        setSelectedSlot(null);
-                        setIsJoining(true);
-                      }}
-                    >
-                      <LinearGradient
-                        colors={isSelected ? [Colors.dark.primary + "30", Colors.dark.primary + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
-                        style={styles.sessionCardGradient}
-                      >
-                        <View style={styles.sessionCardHeader}>
-                          <View style={styles.sessionTimeRow}>
-                            <Ionicons name="time" size={16} color={Colors.dark.primary} />
-                            <Text style={styles.sessionTime}>
-                              {formatTime(session.startTime)} - {formatTime(session.endTime)}
-                            </Text>
-                          </View>
-                          <View style={[styles.spotsBadge, spotsLeft <= 2 && styles.spotsBadgeHot]}>
-                            <Text style={styles.spotsText}>
-                              {spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View style={styles.sessionCardInfo}>
-                          <View style={styles.coachRow}>
-                            <View style={styles.coachAvatar}>
-                              <Text style={styles.coachAvatarText}>
-                                {(session.coachName || "C").charAt(0)}
-                              </Text>
-                            </View>
-                            <Text style={styles.coachName}>{session.coachName}</Text>
-                          </View>
-
-                          <View style={styles.locationRow}>
-                            <Ionicons name="location" size={14} color={Colors.dark.textSecondary} />
-                            <Text style={styles.locationText}>{session.locationName}</Text>
-                          </View>
-
-                          {/* Player avatars */}
-                          <View style={styles.playersRow}>
-                            {session.players.slice(0, 4).map((p, i) => (
-                              <View key={p.id} style={[styles.playerAvatar, { marginLeft: i > 0 ? -8 : 0, zIndex: 4 - i }]}>
-                                <Text style={styles.playerAvatarText}>{(p.name || "P").charAt(0)}</Text>
-                              </View>
-                            ))}
-                            {session.currentPlayers > 4 && (
-                              <View style={[styles.playerAvatar, { marginLeft: -8 }]}>
-                                <Text style={styles.playerAvatarText}>+{session.currentPlayers - 4}</Text>
-                              </View>
-                            )}
-                            <Text style={styles.playersLabel}>
-                              {session.currentPlayers}/{session.maxPlayers || 6} players
-                            </Text>
-                          </View>
-                        </View>
-
-                        {isSelected && (
-                          <View style={styles.selectedBadge}>
-                            <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
-                          </View>
-                        )}
-                      </LinearGradient>
-                    </Pressable>
-                  );
-                })}
-              </>
-              ) : null;
-            })()}
-
-            {/* Reservation error banner */}
-            {reservationError ? (
-              <View style={styles.reservationErrorBanner}>
-                <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
-                <Text style={styles.reservationErrorText}>{reservationError}</Text>
-              </View>
-            ) : null}
-
-            {/* Available Slots for New Booking */}
-            {filteredSlots.length > 0 && (
-              <>
-                <Text style={styles.sessionSectionTitle}>
-                  {showJoinable ? "Or Request New Session" : "Available Times"}
-                </Text>
-                {filteredSlots.map((slot, index) => {
-                  const isSelected = selectedSlot?.startTime === slot.startTime && selectedSlot?.coachId === slot.coachId;
-                  // Task #1598: pre-highlight the slot that was deep-linked from Play Now
-                  const isPreHighlighted =
-                    !!preselectedSlot &&
-                    !isSelected &&
-                    slot.coachId === preselectedSlot.coachId &&
-                    slot.startTime.substring(11, 16) === preselectedSlot.startTime.substring(11, 16);
-                  const displayLocationName = slot.locationId
-                    ? slot.locationName
-                    : selectedLocationId
-                      ? (locations.find(l => l.id === selectedLocationId)?.name ?? slot.locationName)
-                      : slot.locationName;
-                  return (
-                    <Pressable
-                      key={`${slot.coachId}-${slot.startTime}-${index}`}
-                      style={[styles.slotCard, isSelected && styles.slotCardSelected, isPreHighlighted && styles.slotCardPreHighlighted]}
-                      onLayout={isPreHighlighted ? (e) => {
-                        preHighlightedSlotYRef.current = e.nativeEvent.layout.y;
-                      } : undefined}
-                      onPress={() => {
-                        if (reservationLoading) return;
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        // Release any previous reservation before claiming a new slot
-                        const prevId = activeReservationRef.current;
-                        if (prevId) {
-                          AsyncStorage.removeItem(HOLD_STORAGE_KEY).catch(() => {});
-                          apiRequest("DELETE", `/api/player/reserve-slot/${prevId}`, undefined).catch(() => {});
-                          activeReservationRef.current = null;
-                          setReservationId(null);
-                          setReservationExpiresAt(null);
-                        }
-                        setReservationError(null);
-                        const effectiveSlot = (!slot.locationId && selectedLocationId)
-                          ? { ...slot, locationId: selectedLocationId, locationName: locations.find(l => l.id === selectedLocationId)?.name ?? slot.locationName }
-                          : slot;
-                        setSelectedSlot(effectiveSlot);
-                        setSelectedSession(null);
-                        setIsJoining(false);
-                        // Immediately reserve the slot to prevent race conditions
-                        setReservationLoading(true);
-                        reserveSlotMutation.mutate({
-                          coachId: slot.coachId,
-                          startTime: slot.startTime,
-                          endTime: slot.endTime,
-                        });
-                      }}
-                    >
-                      <View style={styles.slotTimeColumn}>
-                        <Text style={[styles.slotTime, isSelected && styles.slotTimeSelected]}>
-                          {formatTime(slot.startTime)}
-                        </Text>
-                        <Text style={styles.slotDuration}>{slot.duration}min</Text>
-                      </View>
-
-                      <View style={styles.slotInfoColumn}>
-                        <View style={styles.coachRow}>
-                          <View style={[styles.coachAvatarSmall, isSelected && { borderColor: Colors.dark.primary }]}>
-                            <Text style={styles.coachAvatarTextSmall}>
-                              {(slot.coachName || "C").charAt(0)}
-                            </Text>
-                          </View>
-                          <Text style={styles.slotCoachName}>{slot.coachName}</Text>
-                        </View>
-                        <View style={styles.locationRow}>
-                          <Ionicons name="location" size={12} color={Colors.dark.textSecondary} />
-                          <Text style={styles.slotLocationText}>{displayLocationName} - {slot.courtName}</Text>
-                        </View>
-                      </View>
-
-                      {isSelected ? (
-                        reservationLoading ? (
-                          <TennisBallSpinner size="small" color={Colors.dark.primary} />
-                        ) : reservationId ? (
-                          <View style={styles.countdownBadge}>
-                            <Ionicons name="time-outline" size={11} color="#000" />
-                            <Text style={styles.countdownText}>
-                              {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}
-                            </Text>
-                          </View>
-                        ) : (
-                          <Ionicons name="checkmark-circle" size={24} color={Colors.dark.primary} />
-                        )
-                      ) : null}
-                    </Pressable>
-                  );
-                })}
-              </>
-            )}
-
-            {filteredSlots.length === 0 && (presetCourtId ? joinableSessions.filter(s => s.courtId === presetCourtId) : joinableSessions).length === 0 && !isLoading && (
-              <View style={styles.emptyState}>
-                <Ionicons name="calendar-outline" size={48} color={Colors.dark.textSecondary} />
-                <Text style={styles.emptyStateTitle}>
-                  {(() => {
-                    const now = new Date();
-                    const isToday = selectedDate.toDateString() === now.toDateString();
-                    const isLateInDay = isToday && now.getHours() >= 17;
-                    if (isLateInDay) return "No more slots today";
-                    if (isToday) return "Nothing available right now";
-                    return "No sessions available";
-                  })()}
-                </Text>
-                <Text style={styles.emptyStateText}>
-                  {(() => {
-                    const now = new Date();
-                    const isToday = selectedDate.toDateString() === now.toDateString();
-                    const isLateInDay = isToday && now.getHours() >= 17;
-                    if (isLateInDay && selectedLocationId) {
-                      return "It's getting late — try tomorrow, a different location, or a shorter session";
-                    } else if (isLateInDay) {
-                      return "It's getting late — try tomorrow or a shorter session";
-                    } else if (isToday && selectedLocationId) {
-                      return "Try a different duration, location, or pick another date";
-                    } else if (isToday) {
-                      return "Try a different duration or pick another date";
-                    } else if (selectedLocationId) {
-                      return "Try a different date, location, or duration";
-                    } else {
-                      return "Try a different date or duration";
-                    }
-                  })()}
-                </Text>
-              </View>
-            )}
+              <Text style={styles.filterLabel}>Coach</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
+                <Pressable
+                  style={[styles.filterChip, !filterCoachId && styles.filterChipSelected]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterCoachId(null); }}
+                >
+                  <Text style={[styles.filterChipText, !filterCoachId && styles.filterChipTextSelected]}>Any Coach</Text>
+                </Pressable>
+                {directoryCoaches.map((coach) => (
+                  <Pressable
+                    key={coach.id}
+                    style={[styles.filterChip, filterCoachId === coach.id && styles.filterChipSelected]}
+                    onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setFilterCoachId(coach.id); }}
+                  >
+                    <Text style={[styles.filterChipText, filterCoachId === coach.id && styles.filterChipTextSelected]}>
+                      {coach.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
             </>
+          )}
+
+          {/* Session type reminder */}
+          {selectedTypeCard && (
+            <View style={styles.sessionTypePill}>
+              <Ionicons name={selectedTypeCard.icon} size={14} color={selectedTypeCard.color} />
+              <Text style={[styles.sessionTypePillText, { color: selectedTypeCard.color }]}>
+                {selectedTypeCard.label}
+              </Text>
+            </View>
           )}
         </ScrollView>
       </Animated.View>
     );
   };
 
-  // SLIDE 3: Details
+  // ─── SLIDE 2: Choose Session ─────────────────────────────────────────────────
+  const renderChooseSessionSlide = () => {
+    const isLoading = slotsLoading || sessionsLoading;
+
+    if (sessionType === "group") {
+      return (
+        <Animated.View entering={FadeIn} style={styles.slideContent}>
+          <ScrollView ref={slotListScrollViewRef} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="people" size={16} color={Colors.dark.orange} />
+              <Text style={styles.sectionTitle}>Group Sessions</Text>
+              <Text style={styles.dateLabel}>{formatDateHeader(selectedDate)}</Text>
+            </View>
+
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <TennisBallSpinner size="large" color={Colors.dark.orange} />
+                <Text style={styles.loadingText}>Finding sessions...</Text>
+              </View>
+            ) : joinableSessions.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="calendar-outline" size={48} color={Colors.dark.textSecondary} />
+                <Text style={styles.emptyStateTitle}>No group sessions available</Text>
+                <Text style={styles.emptyStateText}>Try a different date or check back later</Text>
+              </View>
+            ) : (
+              joinableSessions.map((session) => {
+                const isSelected = selectedSession?.id === session.id;
+                const spotsLeft = session.maxPlayers - session.currentPlayers;
+                const isFull = spotsLeft <= 0;
+                return (
+                  <Pressable
+                    key={session.id}
+                    onPress={() => {
+                      if (isFull) return;
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setSelectedSession(session);
+                      setSelectedSlot(null);
+                      setIsJoining(true);
+                    }}
+                    style={[styles.groupSessionCard, isSelected && styles.groupSessionCardSelected, isFull && { opacity: 0.5 }]}
+                  >
+                    <LinearGradient
+                      colors={isSelected ? [Colors.dark.orange + "30", Colors.dark.orange + "10"] : [Colors.dark.backgroundSecondary, Colors.dark.backgroundRoot]}
+                      style={styles.groupSessionGradient}
+                    >
+                      <View style={styles.groupSessionHeader}>
+                        <View>
+                          <Text style={styles.groupSessionCoach}>{session.coachName}</Text>
+                          <Text style={styles.groupSessionType}>Group {session.ballLevel ? `· ${session.ballLevel}` : ""}</Text>
+                        </View>
+                        <View style={[styles.spotsBadge, spotsLeft <= 2 && !isFull && styles.spotsBadgeHot]}>
+                          <Text style={[styles.spotsText, spotsLeft <= 2 && !isFull && { color: Colors.dark.orange }]}>
+                            {isFull ? "Full" : `${spotsLeft} spots`}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.groupSessionDetails}>
+                        <View style={styles.detailRow}>
+                          <Ionicons name="time-outline" size={14} color={Colors.dark.textSecondary} />
+                          <Text style={styles.detailText}>
+                            {formatDateHeader(new Date(session.startTime))} · {formatTime(session.startTime)} – {formatTime(session.endTime)} · {session.duration}min
+                          </Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                          <Ionicons name="location-outline" size={14} color={Colors.dark.textSecondary} />
+                          <Text style={styles.detailText}>{session.locationName} · {session.courtName}</Text>
+                        </View>
+                      </View>
+
+                      {/* Week commitment selector */}
+                      {isSelected && (
+                        <View style={styles.weekCommitSection}>
+                          <Text style={styles.weekCommitLabel}>How many weeks?</Text>
+                          <View style={styles.weekCommitRow}>
+                            {WEEK_OPTIONS.map((w) => (
+                              <Pressable
+                                key={w}
+                                style={[styles.weekChip, weekCommitment === w && styles.weekChipSelected]}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setWeekCommitment(w); setCustomWeeks(""); }}
+                              >
+                                <Text style={[styles.weekChipText, weekCommitment === w && styles.weekChipTextSelected]}>{w}w</Text>
+                              </Pressable>
+                            ))}
+                            <TextInput
+                              style={[styles.weekCustomInput, !WEEK_OPTIONS.includes(weekCommitment) && styles.weekChipSelected]}
+                              value={customWeeks}
+                              onChangeText={(v) => {
+                                setCustomWeeks(v);
+                                const n = parseInt(v, 10);
+                                if (!isNaN(n) && n > 0) setWeekCommitment(n);
+                              }}
+                              placeholder="Custom"
+                              placeholderTextColor={Colors.dark.textSecondary}
+                              keyboardType="numeric"
+                              maxLength={3}
+                            />
+                          </View>
+                        </View>
+                      )}
+
+                      {isSelected && (
+                        <View style={styles.groupJoinBar}>
+                          <Ionicons name="checkmark-circle" size={18} color={Colors.dark.orange} />
+                          <Text style={[styles.groupJoinText, { color: Colors.dark.orange }]}>
+                            Selected · {weekCommitment} week{weekCommitment !== 1 ? "s" : ""}
+                          </Text>
+                        </View>
+                      )}
+
+                      {isFull && session.hasWaitlist && (
+                        <View style={styles.waitlistBar}>
+                          <Text style={styles.waitlistText}>Join Waitlist</Text>
+                        </View>
+                      )}
+                    </LinearGradient>
+                  </Pressable>
+                );
+              })
+            )}
+          </ScrollView>
+        </Animated.View>
+      );
+    }
+
+    // Private / Semi-private: grouped by coach
+    return (
+      <Animated.View entering={FadeIn} style={styles.slideContent}>
+        <ScrollView ref={slotListScrollViewRef} showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+          {/* Slot locked banner */}
+          {reservationId && selectedSlot && !reservationLoading ? (
+            <View style={styles.slotLockedCard}>
+              <View style={styles.slotLockedAccent} />
+              <View style={styles.slotLockedBody}>
+                <View style={styles.slotLockedTop}>
+                  <View style={styles.slotLockedTitleRow}>
+                    <Ionicons name="lock-closed" size={14} color={Colors.dark.primary} />
+                    <Text style={styles.slotLockedTitle}>SLOT LOCKED</Text>
+                  </View>
+                  <View style={styles.slotLockedCountdownBox}>
+                    <Ionicons name="time-outline" size={12} color={Colors.dark.primary} />
+                    <Text style={styles.slotLockedCountdown}>
+                      {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.slotLockedInfo} numberOfLines={1}>
+                  {selectedSlot.coachName} · {formatTime(selectedSlot.startTime)} ({selectedSlot.duration}min)
+                </Text>
+                <Text style={styles.slotLockedHint}>Tap Next to confirm your booking</Text>
+              </View>
+            </View>
+          ) : null}
+
+          <View style={styles.sectionHeader}>
+            <Ionicons name="person" size={16} color={Colors.dark.primary} />
+            <Text style={styles.sectionTitle}>Available Times</Text>
+            <Text style={styles.dateLabel}>{formatDateHeader(selectedDate)}</Text>
+          </View>
+
+          {/* Reservation error */}
+          {reservationError ? (
+            <View style={styles.reservationErrorBanner}>
+              <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
+              <Text style={styles.reservationErrorText}>{reservationError}</Text>
+            </View>
+          ) : null}
+
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <TennisBallSpinner size="large" color={Colors.dark.primary} />
+              <Text style={styles.loadingText}>Finding available coaches...</Text>
+            </View>
+          ) : slotsByCoach.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="calendar-outline" size={48} color={Colors.dark.textSecondary} />
+              <Text style={styles.emptyStateTitle}>No sessions available</Text>
+              <Text style={styles.emptyStateText}>
+                {filterCoachId ? "This coach has no availability. Try any coach or another date." : "Try a different date or duration."}
+              </Text>
+              {filterCoachId ? (
+                <Pressable style={styles.clearFilterBtn} onPress={() => { setFilterCoachId(null); }}>
+                  <Text style={styles.clearFilterBtnText}>Show all coaches</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : (
+            slotsByCoach.map((group) => {
+              const isUsualCoach = smartSuggestions.some((s) => s.coachId === group.coach.id);
+              const sortedSlots = [...group.slots].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+              const INITIAL_SHOW = 4;
+              const isExpanded = expandedSlotKey === group.coach.id;
+              const visibleSlots = isExpanded ? sortedSlots : sortedSlots.slice(0, INITIAL_SHOW);
+
+              return (
+                <View key={group.coach.id} style={styles.coachGroup}>
+                  {/* Coach header */}
+                  <View style={styles.coachGroupHeader}>
+                    <View style={styles.coachGroupAvatar}>
+                      {group.coach.photoUrl ? (
+                        <ExpoImage source={{ uri: buildPhotoUrl(group.coach.photoUrl) }} style={styles.coachGroupPhoto} contentFit="cover" />
+                      ) : (
+                        <Text style={styles.coachGroupAvatarText}>{(group.coach.name || "C").charAt(0)}</Text>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={styles.coachGroupName}>{group.coach.name}</Text>
+                        {isUsualCoach && (
+                          <View style={styles.usualBadge}>
+                            <Ionicons name="star" size={10} color={Colors.dark.primary} />
+                            <Text style={styles.usualBadgeText}>Usual</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.coachGroupSub}>
+                        {sortedSlots.length} slot{sortedSlots.length !== 1 ? "s" : ""} · {sortedSlots[0]?.locationName || ""}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Time chips */}
+                  <View style={styles.timeChipsContainer}>
+                    {visibleSlots.map((slot) => {
+                      const slotKey = `${slot.coachId}|${slot.startTime}`;
+                      const isSelected = selectedSlot?.coachId === slot.coachId && selectedSlot?.startTime === slot.startTime;
+                      const isExpandedSlot = expandedSlotKey === slotKey;
+                      const isPreHighlighted = !!preselectedSlot &&
+                        !isSelected &&
+                        slot.coachId === preselectedSlot.coachId &&
+                        slot.startTime.substring(11, 16) === preselectedSlot.startTime.substring(11, 16);
+
+                      return (
+                        <View key={slotKey}>
+                          <Pressable
+                            style={[
+                              styles.timeChip,
+                              isSelected && styles.timeChipSelected,
+                              isPreHighlighted && styles.timeChipHighlighted,
+                            ]}
+                            onLayout={isPreHighlighted ? (e) => { preHighlightedSlotYRef.current = e.nativeEvent.layout.y; } : undefined}
+                            onPress={() => {
+                              if (reservationLoading) return;
+                              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+                              if (isSelected) {
+                                setExpandedSlotKey(expandedSlotKey === slotKey ? null : slotKey);
+                                return;
+                              }
+
+                              const prevId = activeReservationRef.current;
+                              if (prevId) { releaseSlot(prevId); }
+                              setReservationError(null);
+                              setSelectedSlot(slot);
+                              setSelectedSession(null);
+                              setIsJoining(false);
+                              setExpandedSlotKey(slotKey);
+                              setReservationLoading(true);
+                              reserveSlotMutation.mutate({ coachId: slot.coachId, startTime: slot.startTime, endTime: slot.endTime });
+                            }}
+                          >
+                            {reservationLoading && isSelected ? (
+                              <TennisBallSpinner size="small" color={isSelected ? Colors.dark.buttonText : Colors.dark.primary} />
+                            ) : (
+                              <Text style={[styles.timeChipText, isSelected && styles.timeChipTextSelected]}>
+                                {formatTime(slot.startTime)}
+                              </Text>
+                            )}
+                          </Pressable>
+
+                          {/* Expanded detail card */}
+                          {isExpandedSlot && isSelected && !reservationLoading && (
+                            <View style={styles.slotDetailCard}>
+                              <View style={styles.slotDetailRow}>
+                                <Ionicons name="time-outline" size={14} color={Colors.dark.textSecondary} />
+                                <Text style={styles.slotDetailText}>
+                                  {formatTime(slot.startTime)} – {formatTime(slot.endTime)} · {slot.duration} min
+                                </Text>
+                              </View>
+                              <View style={styles.slotDetailRow}>
+                                <Ionicons name="location-outline" size={14} color={Colors.dark.textSecondary} />
+                                <Text style={styles.slotDetailText}>{slot.locationName} · {slot.courtName}</Text>
+                              </View>
+                              {reservationId && (
+                                <View style={styles.slotDetailRow}>
+                                  <Ionicons name="lock-closed" size={14} color={Colors.dark.primary} />
+                                  <Text style={[styles.slotDetailText, { color: Colors.dark.primary, fontWeight: "600" }]}>
+                                    Held for {`${Math.floor(reservationSecondsLeft / 60)}:${String(reservationSecondsLeft % 60).padStart(2, "0")}`}
+                                  </Text>
+                                </View>
+                              )}
+                              <Pressable
+                                style={styles.selectSlotBtn}
+                                onPress={() => {
+                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                  goNext();
+                                }}
+                              >
+                                <Text style={styles.selectSlotBtnText}>Select This Slot</Text>
+                                <Ionicons name="arrow-forward" size={16} color={Colors.dark.buttonText} />
+                              </Pressable>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+
+                    {/* Show more/less */}
+                    {sortedSlots.length > INITIAL_SHOW && (
+                      <Pressable
+                        style={styles.showMoreChip}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setExpandedSlotKey(expandedSlotKey === group.coach.id ? null : group.coach.id);
+                        }}
+                      >
+                        <Text style={styles.showMoreText}>
+                          {isExpanded ? "Less" : `+${sortedSlots.length - INITIAL_SHOW} more`}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      </Animated.View>
+    );
+  };
+
+  // ─── SLIDE 3: Details ─────────────────────────────────────────────────────────
   const renderDetailsSlide = () => {
     const sessionInfo = selectedSlot ?? selectedSession;
-    // Fall back to a neutral card when sessionType is unknown so the slide
-    // never collapses to empty just because of a missing card definition.
-    const typeCard =
-      SESSION_TYPE_CARDS.find((t) => t.value === sessionType) ??
-      SESSION_TYPE_CARDS[0];
+    const typeCard = SESSION_TYPE_CARDS.find((t) => t.value === sessionType) ?? SESSION_TYPE_CARDS[0];
 
     const inner = (
       <Animated.View entering={FadeIn} style={styles.slideContent}>
@@ -1971,210 +1615,209 @@ export default function PlayerBookingWizard({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={slideScrollPadding}
         >
-          <Text style={styles.slideSubtitle}>Any special requests? (Optional)</Text>
-
-          {/* Placeholder when no session has been picked — keeps the slide
-              from looking empty if the user somehow lands here without a slot. */}
-          {!sessionInfo ? (
-            <View style={[styles.emptyCoachesContainer, { paddingVertical: Spacing.lg, marginBottom: Spacing.lg }]}>
-              <Ionicons name="alert-circle-outline" size={40} color={Colors.dark.textMuted} />
-              <Text style={[styles.emptyCoachesText, { fontWeight: "600" }]}>No session selected</Text>
-              <Text style={[styles.emptyCoachesText, { fontSize: 13, textAlign: "center", paddingHorizontal: Spacing.xl }]}>
-                Tap Back and pick a time to continue. You can still leave a note for your coach below.
+          {/* Credits check */}
+          <View style={[styles.creditsCard, creditsForType === 0 && styles.creditsCardWarn]}>
+            <View style={styles.creditsRow}>
+              <Ionicons
+                name={creditsForType > 0 ? "flash" : "alert-circle-outline"}
+                size={18}
+                color={creditsForType > 0 ? Colors.dark.primary : "#F59E0B"}
+              />
+              <Text style={styles.creditsLabel}>
+                {sessionType === "group" ? "Group" : sessionType === "semi_private" ? "Semi-Private" : "Private"} Credits
+              </Text>
+              <Text style={[styles.creditsCount, creditsForType === 0 && { color: "#F59E0B" }]}>
+                {creditsForType} remaining
               </Text>
             </View>
-          ) : null}
+            {creditsForType === 0 && (
+              <Pressable style={styles.buyCreditsBtn} onPress={() => setShowCreditPackages(true)}>
+                <Text style={styles.buyCreditsBtnText}>Buy a Package</Text>
+              </Pressable>
+            )}
+          </View>
 
-          {/* Booking Summary Card */}
-          {sessionInfo && typeCard ? (
-            <View style={[styles.confirmCard, { marginBottom: Spacing.lg }]}>
-              <LinearGradient colors={typeCard.gradient} style={styles.confirmCardGradient}>
-                <View style={styles.confirmTypeBadge}>
-                  <Ionicons name={typeCard.icon} size={15} color={typeCard.color} />
-                  <Text style={[styles.confirmTypeText, { color: typeCard.color, fontSize: 15 }]}>
-                    {typeCard.label}
-                  </Text>
-                  <View style={{ flex: 1 }} />
-                  {"duration" in sessionInfo ? (
-                    <View style={{ backgroundColor: typeCard.color + "22", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <Text style={{ color: typeCard.color, fontSize: 11, fontWeight: "600" }}>
-                        {sessionInfo.duration} min
-                      </Text>
-                    </View>
-                  ) : null}
+          {/* Session summary mini card */}
+          {sessionInfo && (
+            <View style={[styles.summaryMini, { borderColor: typeCard.color + "40" }]}>
+              <LinearGradient colors={typeCard.gradient} style={styles.summaryMiniGradient}>
+                <View style={styles.summaryMiniRow}>
+                  <Ionicons name={typeCard.icon} size={14} color={typeCard.color} />
+                  <Text style={[styles.summaryMiniType, { color: typeCard.color }]}>{typeCard.label}</Text>
                 </View>
-                <View style={styles.confirmRow}>
-                  <Ionicons name="time-outline" size={15} color={Colors.dark.primary} />
-                  <Text style={[styles.confirmText, { fontSize: 14 }]}>
-                    {formatDateHeader(selectedDate)} · {formatTime(sessionInfo.startTime)} – {formatTime(sessionInfo.endTime)}
-                  </Text>
-                </View>
-                <View style={styles.confirmRow}>
-                  <Ionicons name="location-outline" size={15} color={Colors.dark.primary} />
-                  <Text style={[styles.confirmText, { fontSize: 14 }]}>
-                    {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
-                    {" · "}
-                    {selectedCourtName ?? ("courtName" in sessionInfo ? sessionInfo.courtName : "")}
-                    {(() => {
-                      const cid = selectedCourtId ?? ("courtId" in sessionInfo ? sessionInfo.courtId : null);
-                      const surface =
-                        (presetCourt && presetCourt.id === cid && presetCourt.surface) ||
-                        (cid ? availableCourts.find(c => c.id === cid)?.surface : null) ||
-                        (cid ? academyCourts.find(c => c.id === cid)?.surface : null);
-                      return surface ? ` · ${surface}` : "";
-                    })()}
-                  </Text>
-                </View>
-                <View style={styles.confirmRow}>
-                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: typeCard.color + "30", alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: typeCard.color, fontSize: 13, fontWeight: "700" }}>
-                      {(("coachName" in sessionInfo ? sessionInfo.coachName : null) || "C").charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <Text style={[styles.confirmText, { fontSize: 14 }]}>
-                    {"coachName" in sessionInfo ? sessionInfo.coachName : ""}
-                  </Text>
-                </View>
+                <Text style={styles.summaryMiniTime}>
+                  {formatDateHeader(selectedDate)} · {formatTime(sessionInfo.startTime)} – {formatTime(sessionInfo.endTime)}
+                </Text>
+                <Text style={styles.summaryMiniCoach}>
+                  {sessionInfo.coachName} · {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
+                </Text>
               </LinearGradient>
             </View>
-          ) : null}
+          )}
 
-          {/* Court Selection - shown only for new slot requests with available courts */}
-          {selectedSlot && !isJoining && availableCourts.length > 0 ? (
-            <View style={styles.courtSelectionSection}>
-              <View style={styles.aiFocusHeader}>
-                <Ionicons
-                  name={presetCourtId ? "lock-closed" : "tennisball"}
-                  size={15}
-                  color={Colors.dark.primary}
-                />
-                <Text style={[styles.aiFocusLabel, { color: Colors.dark.primary }]}>
-                  {presetCourtId ? "Court (Locked In)" : "Court Selection"}
-                </Text>
+          {/* Semi-private: partner selection */}
+          {sessionType === "semi_private" && (
+            <View style={styles.partnerSection}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="people-outline" size={16} color="#A855F7" />
+                <Text style={[styles.sectionTitle, { color: "#A855F7" }]}>Training Partner</Text>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.aiFocusChips}>
-                  {availableCourts.map((court) => {
-                    const isPreassigned = court.id === selectedSlot.courtId;
-                    const isSelected = (selectedCourtId ?? selectedSlot.courtId) === court.id;
-                    return (
-                      <Pressable
-                        key={court.id}
-                        style={[
-                          styles.aiFocusChip,
-                          isSelected && styles.aiFocusChipSelected,
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setSelectedCourtId(court.id);
-                          setSelectedCourtName(court.name);
-                        }}
-                      >
-                        <Text style={[
-                          styles.aiFocusChipText,
-                          isSelected && styles.aiFocusChipTextSelected,
-                        ]}>
-                          {court.name}
-                          {presetCourtId === court.id
-                            ? " (your pick)"
-                            : isPreassigned && !presetCourtId
-                              ? " (suggested)"
-                              : ""}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            </View>
-          ) : null}
 
-          {/* AI Focus Suggestions — only shown when loading or has results */}
+              <Pressable
+                style={[styles.pairMeBtn, letCoachPair && styles.pairMeBtnSelected]}
+                onPress={() => { setLetCoachPair(true); setSelectedPartner(null); setPartnerQuery(""); }}
+              >
+                <Ionicons name={letCoachPair ? "checkmark-circle" : "shuffle"} size={18} color={letCoachPair ? "#A855F7" : Colors.dark.textSecondary} />
+                <Text style={[styles.pairMeBtnText, letCoachPair && { color: "#A855F7" }]}>Let the coach pair me</Text>
+              </Pressable>
+
+              <Text style={styles.orDivider}>— or search a partner —</Text>
+
+              <View style={styles.partnerSearchBox}>
+                <Ionicons name="search" size={16} color={Colors.dark.textSecondary} />
+                <TextInput
+                  style={styles.partnerSearchInput}
+                  value={partnerQuery}
+                  onChangeText={(v) => { setPartnerQuery(v); setLetCoachPair(false); }}
+                  placeholder="Search by name..."
+                  placeholderTextColor={Colors.dark.textSecondary}
+                />
+                {partnerQuery.length > 0 && (
+                  <Pressable onPress={() => { setPartnerQuery(""); }}>
+                    <Ionicons name="close-circle" size={16} color={Colors.dark.textSecondary} />
+                  </Pressable>
+                )}
+              </View>
+
+              {partnerSearchLoading ? (
+                <View style={{ padding: Spacing.md, alignItems: "center" }}>
+                  <TennisBallSpinner size="small" color="#A855F7" />
+                </View>
+              ) : (partnerSearchData?.players || []).map((p) => (
+                <Pressable
+                  key={p.id}
+                  style={[styles.partnerRow, selectedPartner?.id === p.id && styles.partnerRowSelected]}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedPartner(p); setLetCoachPair(false); }}
+                >
+                  <View style={styles.partnerAvatar}>
+                    <Text style={styles.partnerAvatarText}>{(p.name || "P").charAt(0)}</Text>
+                  </View>
+                  <Text style={styles.partnerName}>{p.name}</Text>
+                  {selectedPartner?.id === p.id && <Ionicons name="checkmark-circle" size={20} color="#A855F7" />}
+                </Pressable>
+              ))}
+
+              {selectedPartner && (
+                <View style={styles.partnerSelectedBanner}>
+                  <Ionicons name="checkmark-circle" size={16} color="#A855F7" />
+                  <Text style={[styles.partnerSelectedText, { color: "#A855F7" }]}>
+                    {selectedPartner.name} will receive an invite
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* AI Focus suggestions */}
           {(aiFocusLoading || aiFocusSuggestions.length > 0) ? (
             <View style={styles.aiFocusSection}>
-              <View style={styles.aiFocusHeader}>
-                <Ionicons name="sparkles" size={15} color={Colors.dark.primary} />
-                <Text style={styles.aiFocusLabel}>AI Focus Suggestions</Text>
-                {aiFocusLoading ? (
-                  <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginLeft: 4 }} />
-                ) : null}
+              <View style={styles.sectionHeader}>
+                <Ionicons name="sparkles" size={16} color={Colors.dark.primary} />
+                <Text style={styles.sectionTitle}>AI Focus Suggestions</Text>
+                {aiFocusLoading && <TennisBallSpinner size="small" color={Colors.dark.primary} style={{ marginLeft: 4 }} />}
               </View>
-              {aiFocusSuggestions.length > 0 ? (
+              {aiFocusSuggestions.length > 0 && (
                 <View style={styles.aiFocusChips}>
                   {aiFocusSuggestions.map((s, i) => (
                     <Pressable
                       key={i}
-                      style={[
-                        styles.aiFocusChip,
-                        playerNote === s && styles.aiFocusChipSelected,
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setPlayerNote(playerNote === s ? "" : s);
-                      }}
+                      style={[styles.aiFocusChip, playerNote === s && styles.aiFocusChipSelected]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setPlayerNote(playerNote === s ? "" : s); }}
                     >
-                      <Text style={[
-                        styles.aiFocusChipText,
-                        playerNote === s && styles.aiFocusChipTextSelected,
-                      ]}>
-                        {s}
-                      </Text>
+                      <Text style={[styles.aiFocusChipText, playerNote === s && styles.aiFocusChipTextSelected]}>{s}</Text>
                     </Pressable>
                   ))}
                 </View>
-              ) : null}
+              )}
             </View>
           ) : null}
 
-          <View style={styles.detailsForm}>
+          {/* Note to coach */}
+          <View style={styles.inputGroup}>
+            <View style={styles.inputLabel}>
+              <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
+              <Text style={styles.inputLabelText}>Note to Coach</Text>
+              <Text style={styles.optional}>(optional · max 200 chars)</Text>
+            </View>
+            <TextInput
+              style={styles.textInput}
+              value={playerNote}
+              onChangeText={(v) => setPlayerNote(v.slice(0, 200))}
+              placeholder="What do you want to focus on?"
+              placeholderTextColor={Colors.dark.textSecondary}
+              multiline
+              numberOfLines={3}
+              blurOnSubmit
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
+            />
+          </View>
+
+          {/* Court selection */}
+          {selectedSlot && !isJoining && availableCourts.length > 0 && (
             <View style={styles.inputGroup}>
               <View style={styles.inputLabel}>
-                <Ionicons name="chatbubble-outline" size={18} color={Colors.dark.primary} />
-                <Text style={styles.inputLabelText}>Note for Coach</Text>
+                <Ionicons name="tennisball" size={16} color={Colors.dark.primary} />
+                <Text style={styles.inputLabelText}>Court</Text>
               </View>
-              <TextInput
-                style={styles.textInput}
-                value={playerNote}
-                onChangeText={setPlayerNote}
-                placeholder="E.g., Working on backhand this week"
-                placeholderTextColor={Colors.dark.textSecondary}
-                multiline
-                numberOfLines={3}
-                blurOnSubmit
-                returnKeyType="done"
-                onSubmitEditing={Keyboard.dismiss}
-              />
+              <View style={styles.aiFocusChips}>
+                {availableCourts.map((court) => {
+                  const isSelected = (selectedCourtId ?? selectedSlot.courtId) === court.id;
+                  return (
+                    <Pressable
+                      key={court.id}
+                      style={[styles.aiFocusChip, isSelected && styles.aiFocusChipSelected]}
+                      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedCourtId(court.id); setSelectedCourtName(court.name); }}
+                    >
+                      <Text style={[styles.aiFocusChipText, isSelected && styles.aiFocusChipTextSelected]}>
+                        {court.name}{court.surface ? ` · ${court.surface}` : ""}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
+          )}
 
-            {(sessionType === "semi_private" || sessionType === "group") ? (
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabel}>
-                  <Ionicons name="person-add-outline" size={18} color={Colors.dark.primary} />
-                  <Text style={styles.inputLabelText}>Invite a Friend</Text>
-                </View>
-                <TextInput
-                  style={styles.textInput}
-                  value={friendEmail}
-                  onChangeText={setFriendEmail}
-                  placeholder="Enter friend's email"
-                  placeholderTextColor={Colors.dark.textSecondary}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-                <Pressable
-                  style={styles.browseFriendsButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onClose();
-                    navigateToTab("PlayStack", { screen: "Players" });
-                  }}
-                >
-                  <Ionicons name="people-outline" size={16} color={Colors.dark.accentText} />
-                  <Text style={styles.browseFriendsText}>Browse Friends on Glow</Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
+          {/* Court booking declaration (for external courts) */}
+          {requiresExternalBooking && (
+            <View style={styles.courtNoticeCard}>
+              <Ionicons name="information-circle" size={18} color="#F59E0B" />
+              <Text style={styles.courtNoticeText}>
+                {"This venue requires a court booking. You\u2019ll be reminded to upload your confirmation after booking."}
+              </Text>
+            </View>
+          )}
+
+          {requiresExternalBooking && (
+            <CourtBookingPicker
+              isAcademyCourt={isAcademyCourt}
+              requiresExternalBooking={requiresExternalBooking}
+              status={courtBookingStatus}
+              note={courtBookingNote}
+              url={courtBookingUrl}
+              onStatusChange={setCourtBookingStatus}
+              onNoteChange={setCourtBookingNote}
+              onUrlChange={setCourtBookingUrl}
+            />
+          )}
+
+          {/* Cancellation policy */}
+          <Pressable style={styles.policyRow} onPress={() => setPolicyModalVisible(true)}>
+            <Ionicons name="shield-checkmark-outline" size={16} color={Colors.dark.primary} />
+            <Text style={styles.policyRowText} numberOfLines={2}>{cancellationPolicy}</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.dark.textSecondary} />
+          </Pressable>
         </KeyboardAwareScrollViewCompat>
       </Animated.View>
     );
@@ -2187,33 +1830,10 @@ export default function PlayerBookingWizard({
     );
   };
 
-  // SLIDE: Court Booking declaration (Dubai community courts)
-  const renderCourtBookingSlide = () => (
-    <Animated.View entering={FadeIn} style={styles.slideContent}>
-      <KeyboardAwareScrollViewCompat
-        contentContainerStyle={slideScrollPadding}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <CourtBookingPicker
-          isAcademyCourt={isAcademyCourt}
-          requiresExternalBooking={requiresExternalBooking}
-          status={courtBookingStatus}
-          note={courtBookingNote}
-          url={courtBookingUrl}
-          onStatusChange={setCourtBookingStatus}
-          onNoteChange={setCourtBookingNote}
-          onUrlChange={setCourtBookingUrl}
-        />
-      </KeyboardAwareScrollViewCompat>
-    </Animated.View>
-  );
-
-  // SLIDE 4: Confirm & Rewards
+  // ─── SLIDE 4: Confirm ─────────────────────────────────────────────────────────
   const renderConfirmSlide = () => {
     const sessionInfo = selectedSession || selectedSlot;
     if (!sessionInfo) return null;
-
     const typeCard = SESSION_TYPE_CARDS.find((t) => t.value === sessionType);
 
     return (
@@ -2221,217 +1841,131 @@ export default function PlayerBookingWizard({
         {showSuccess ? (
           <View style={styles.successContainer}>
             <View style={styles.successCheckmark}>
-              <AnimatedCheck 
-                size={72}
-                variant="glow"
-                autoPlay={true}
-              />
+              <AnimatedCheck size={72} variant="glow" autoPlay />
             </View>
-            <Text style={styles.successTitle}>
-              {isJoining ? "You're In!" : "Request Sent!"}
-            </Text>
-            <Text style={styles.successSubtitle}>
-              {isJoining ? "See you on the court!" : "Coach will confirm soon"}
-            </Text>
+            <Text style={styles.successTitle}>{isJoining ? "You're In!" : "Request Sent!"}</Text>
+            <Text style={styles.successSubtitle}>{isJoining ? "See you on the court!" : "Coach will confirm soon"}</Text>
             <Animated.View style={[styles.xpReward, xpStyle]}>
               <Ionicons name="flash" size={24} color={Colors.dark.primary} />
               <Text style={styles.xpRewardText}>+10 Glow XP</Text>
             </Animated.View>
           </View>
         ) : (
-          <>
-            <Text style={styles.slideSubtitle}>Confirm your booking</Text>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={slideScrollPadding}>
+            <Text style={styles.slideSubtitle}>Review your booking</Text>
 
+            {/* Booking summary */}
             <View style={styles.confirmCard}>
               <LinearGradient
                 colors={[typeCard?.gradient[0] || Colors.dark.backgroundSecondary, typeCard?.gradient[1] || Colors.dark.backgroundRoot]}
                 style={styles.confirmCardGradient}
               >
-                {/* Session Type Badge */}
                 <View style={styles.confirmTypeBadge}>
                   <Ionicons name={typeCard?.icon || "tennisball"} size={20} color={typeCard?.color || Colors.dark.primary} />
-                  <Text style={[styles.confirmTypeText, { color: typeCard?.color }]}>
-                    {typeCard?.label}
-                  </Text>
+                  <Text style={[styles.confirmTypeText, { color: typeCard?.color }]}>{typeCard?.label}</Text>
                 </View>
 
-                {/* Time & Date */}
                 <View style={styles.confirmRow}>
-                  <Ionicons name="time" size={18} color={Colors.dark.primary} />
+                  <Ionicons name="time" size={16} color={Colors.dark.primary} />
                   <Text style={styles.confirmText}>
-                    {formatDateHeader(selectedDate)} · {formatTime(sessionInfo.startTime)} - {formatTime(sessionInfo.endTime)}
+                    {formatDateHeader(selectedDate)} · {formatTime(sessionInfo.startTime)} – {formatTime(sessionInfo.endTime)}
                   </Text>
                 </View>
 
-                {/* Location */}
                 <View style={styles.confirmRow}>
-                  <Ionicons name="location" size={18} color={Colors.dark.primary} />
+                  <Ionicons name="location" size={16} color={Colors.dark.primary} />
                   <Text style={styles.confirmText}>
-                    {"locationName" in sessionInfo ? sessionInfo.locationName : ""}
-                    {" · "}
-                    {selectedCourtName ?? ("courtName" in sessionInfo ? sessionInfo.courtName : "")}
-                    {(() => {
-                      const cid = selectedCourtId ?? ("courtId" in sessionInfo ? sessionInfo.courtId : null);
-                      const surface =
-                        (presetCourt && presetCourt.id === cid && presetCourt.surface) ||
-                        (cid ? availableCourts.find(c => c.id === cid)?.surface : null) ||
-                        (cid ? academyCourts.find(c => c.id === cid)?.surface : null);
-                      return surface ? ` · ${surface}` : "";
-                    })()}
+                    {"locationName" in sessionInfo ? sessionInfo.locationName : ""} · {selectedCourtName ?? ("courtName" in sessionInfo ? sessionInfo.courtName : "")}
                   </Text>
                 </View>
-                {(() => {
-                  const locName = "locationName" in sessionInfo ? sessionInfo.locationName : null;
-                  const locId = "locationId" in sessionInfo ? (sessionInfo as AvailableSlot).locationId : null;
-                  const loc = locId
-                    ? locations.find(l => l.id === locId)
-                    : locations.find(l => l.name === locName);
-                  if (!locName && !loc?.address) return null;
-                  return (
-                    <Pressable
-                      style={styles.confirmDirectionsRow}
-                      onPress={() => openDirections({ lat: loc?.lat, lng: loc?.lng, label: locName, address: loc?.address })}
-                    >
-                      <Ionicons name="navigate" size={14} color={Colors.dark.primary} />
-                      <Text style={styles.confirmDirectionsText}>Get Directions</Text>
-                    </Pressable>
-                  );
-                })()}
 
-                {/* Coach */}
                 <View style={styles.confirmRow}>
-                  {(() => {
-                    const coachPhotoUrl = "coachPhotoUrl" in sessionInfo ? sessionInfo.coachPhotoUrl : null;
-                    const photoUri = buildPhotoUrl(coachPhotoUrl);
-                    const coachName = "coachName" in sessionInfo ? sessionInfo.coachName : "";
-                    return (
-                      <>
-                        {photoUri ? (
-                          <ExpoImage
-                            source={{ uri: photoUri }}
-                            style={styles.confirmCoachAvatar}
-                            contentFit="cover"
-                          />
-                        ) : (
-                          <View style={styles.confirmCoachAvatarPlaceholder}>
-                            <Text style={styles.confirmCoachAvatarInitial}>
-                              {(coachName || "C").charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                        )}
-                        <Text style={styles.confirmText}>
-                          Coach: {coachName}
-                        </Text>
-                      </>
-                    );
-                  })()}
+                  <View style={styles.confirmCoachAvatarPlaceholder}>
+                    <Text style={styles.confirmCoachAvatarInitial}>
+                      {(sessionInfo.coachName || "C").charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.confirmText}>{sessionInfo.coachName}</Text>
                 </View>
 
-                {/* Players for group */}
-                {isJoining && selectedSession && (
+                <View style={styles.confirmRow}>
+                  <Ionicons name="hourglass" size={16} color={Colors.dark.primary} />
+                  <Text style={styles.confirmText}>{sessionInfo.duration} min</Text>
+                </View>
+
+                {sessionType === "group" && (
                   <View style={styles.confirmRow}>
-                    <Ionicons name="people" size={18} color={Colors.dark.primary} />
+                    <Ionicons name="calendar" size={16} color={Colors.dark.primary} />
+                    <Text style={styles.confirmText}>{weekCommitment} week{weekCommitment !== 1 ? "s" : ""} commitment</Text>
+                  </View>
+                )}
+
+                {sessionType === "semi_private" && (selectedPartner || letCoachPair) && (
+                  <View style={styles.confirmRow}>
+                    <Ionicons name="people" size={16} color="#A855F7" />
                     <Text style={styles.confirmText}>
-                      {selectedSession.currentPlayers}/{selectedSession.maxPlayers || 6} players joining
+                      {letCoachPair ? "Coach will pair you" : `With ${selectedPartner?.name}`}
                     </Text>
                   </View>
                 )}
+
+                {playerNote ? (
+                  <View style={styles.confirmRow}>
+                    <Ionicons name="chatbubble-outline" size={16} color={Colors.dark.primary} />
+                    <Text style={[styles.confirmText, { fontStyle: "italic" }]} numberOfLines={2}>{playerNote}</Text>
+                  </View>
+                ) : null}
+
+                {/* Directions */}
+                {(() => {
+                  const locId = "locationId" in sessionInfo ? (sessionInfo as AvailableSlot).locationId : null;
+                  const loc = locId ? locations.find((l) => l.id === locId) : null;
+                  if (!loc || (!loc.lat && !loc.address)) return null;
+                  return (
+                    <Pressable
+                      style={styles.confirmDirectionsRow}
+                      onPress={() => openDirections(loc.lat, loc.lng ?? undefined, loc.address ?? undefined, loc.name)}
+                    >
+                      <Ionicons name="navigate" size={13} color={Colors.dark.primary} />
+                      <Text style={styles.confirmDirectionsText}>Get directions</Text>
+                    </Pressable>
+                  );
+                })()}
               </LinearGradient>
             </View>
 
-            {/* Task #1093 — Price summary row (only shown when academy_pricing exists). */}
-            {lessonPriceInfo ? (
+            {/* Price summary */}
+            {lessonPriceInfo && (
               <View style={styles.priceSummaryRow}>
-                <Text style={styles.priceSummaryLabel}>
-                  {t("booking.payment.lessonPrice", "Lesson price")}
-                </Text>
-                <Text style={styles.priceSummaryValue}>
-                  {lessonPriceInfo.currency} {lessonPriceInfo.amount.toFixed(2)}
-                </Text>
+                <Text style={styles.priceSummaryLabel}>Session cost</Text>
+                <Text style={styles.priceSummaryValue}>{lessonPriceInfo.currency} {lessonPriceInfo.amount}</Text>
               </View>
-            ) : null}
+            )}
 
-            {/* Task #1093 — Payment method picker. Hidden until pricing has
-                resolved so we don't briefly show the Card option then hide
-                it after the academy_pricing 404 lands. */}
-            {pricingFetched || isCrossAcademyResolvedCoach || !pricingType ? (
-              <PaymentMethodPicker
-                selected={paymentMethod}
-                onChange={setPaymentMethod}
-                creditsAvailable={creditsForType}
-                creditsRequired={1}
-                cardEnabled={cardEnabled}
-                cardPriceLabel={
-                  lessonPriceInfo
-                    ? `${lessonPriceInfo.currency} ${lessonPriceInfo.amount.toFixed(2)}`
-                    : null
-                }
-                onBuyCredits={() => setShowCreditPackages(true)}
-              />
-            ) : null}
+            {/* Payment method */}
+            <PaymentMethodPicker
+              value={paymentMethod}
+              onChange={setPaymentMethod}
+              creditsAvailable={creditsForType}
+              creditType={sessionType === "group" ? "group" : sessionType === "semi_private" ? "semi_private" : "private"}
+              cardEnabled={cardEnabled}
+              priceInfo={lessonPriceInfo ?? undefined}
+              onBuyCredits={() => setShowCreditPackages(true)}
+            />
 
-            {/* Cancellation Policy */}
-            {resolvedAcademyId ? (
-              <Pressable
-                style={styles.policyRow}
-                onPress={() => setPolicyModalVisible(true)}
-              >
-                <Ionicons name="shield-checkmark-outline" size={14} color={Colors.dark.textSecondary} />
-                <Text style={styles.policyRowText} numberOfLines={1}>
-                  {cancellationPolicy}
-                </Text>
-                <Ionicons name="information-circle-outline" size={14} color={Colors.dark.textMuted} />
-              </Pressable>
-            ) : null}
-
-            {/* XP Preview */}
-            <View style={styles.rewardPreview}>
-              <View style={styles.rewardItem}>
-                <Ionicons name="flash" size={20} color={Colors.dark.primary} />
-                <Text style={styles.rewardText}>+10 Glow XP</Text>
-              </View>
-              <View style={styles.rewardItem}>
-                <Ionicons name="flame" size={20} color={Colors.dark.orange} />
-                <Text style={styles.rewardText}>Streak continues</Text>
-              </View>
-            </View>
-
-            {/* Task #1093 — Buy-credits modal launched from the picker. */}
-            <Modal
-              visible={showCreditPackages}
-              animationType="slide"
-              presentationStyle="pageSheet"
-              onRequestClose={() => setShowCreditPackages(false)}
-            >
+            {/* Buy credits modal */}
+            <Modal visible={showCreditPackages} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCreditPackages(false)}>
               <View style={{ flex: 1, backgroundColor: Colors.dark.backgroundRoot }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: Spacing.md,
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                    borderBottomColor: Colors.dark.border,
-                  }}
-                >
-                  <Text style={{ fontSize: 18, fontWeight: "700", color: Colors.dark.text }}>
-                    {t("booking.payment.buyCredits", "Buy credits")}
-                  </Text>
-                  <Pressable onPress={() => setShowCreditPackages(false)}>
-                    <Ionicons name="close" size={24} color={Colors.dark.text} />
-                  </Pressable>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.dark.border }}>
+                  <Text style={{ fontSize: 18, fontWeight: "700", color: Colors.dark.text }}>{t("booking.payment.buyCredits", "Buy credits")}</Text>
+                  <Pressable onPress={() => setShowCreditPackages(false)}><Ionicons name="close" size={24} color={Colors.dark.text} /></Pressable>
                 </View>
                 <CreditPackagesList playerId={playerId || ""} />
               </View>
             </Modal>
 
-            {/* Cancellation policy detail modal */}
-            <Modal
-              visible={policyModalVisible}
-              animationType="fade"
-              transparent={true}
-              onRequestClose={() => setPolicyModalVisible(false)}
-            >
+            {/* Cancellation policy modal */}
+            <Modal visible={policyModalVisible} animationType="fade" transparent onRequestClose={() => setPolicyModalVisible(false)}>
               <Pressable style={styles.policyOverlay} onPress={() => setPolicyModalVisible(false)}>
                 <View style={styles.policyModalBox}>
                   <View style={styles.policyModalHeader}>
@@ -2439,65 +1973,34 @@ export default function PlayerBookingWizard({
                     <Text style={styles.policyModalTitle}>Cancellation Policy</Text>
                   </View>
                   <Text style={styles.policyModalBody}>{cancellationPolicy}</Text>
-                  <Pressable
-                    style={styles.policyModalClose}
-                    onPress={() => setPolicyModalVisible(false)}
-                  >
+                  <Pressable style={styles.policyModalClose} onPress={() => setPolicyModalVisible(false)}>
                     <Text style={styles.policyModalCloseText}>Got it</Text>
                   </Pressable>
                 </View>
               </Pressable>
             </Modal>
-          </>
+          </ScrollView>
         )}
       </Animated.View>
     );
   };
 
-  // Render slide content (dynamic based on browse mode)
+  // ─── Render slide content ─────────────────────────────────────────────────────
   const renderSlideContent = () => {
-    if (browseMode === "by_coach") {
-      // 7 slides: Mode -> Browse -> Coach -> Session -> Details -> CourtBooking -> Confirm
-      switch (currentSlide) {
-        case 0: return renderSessionTypeSlide();
-        case 1: return renderBrowseModeSlide();
-        case 2: return renderSelectCoachSlide();
-        case 3: return renderFindSessionSlide();
-        case 4: return renderDetailsSlide();
-        case 5: return renderCourtBookingSlide();
-        case 6: return renderConfirmSlide();
-        default: return null;
-      }
-    } else if (browseMode === "by_court") {
-      // 7 slides: Mode -> Browse -> Court -> Session -> Details -> CourtBooking -> Confirm
-      switch (currentSlide) {
-        case 0: return renderSessionTypeSlide();
-        case 1: return renderBrowseModeSlide();
-        case 2: return renderSelectCourtSlide();
-        case 3: return renderFindSessionSlide();
-        case 4: return renderDetailsSlide();
-        case 5: return renderCourtBookingSlide();
-        case 6: return renderConfirmSlide();
-        default: return null;
-      }
-    } else {
-      // 6 slides: Mode -> Browse -> Session -> Details -> CourtBooking -> Confirm
-      switch (currentSlide) {
-        case 0: return renderSessionTypeSlide();
-        case 1: return renderBrowseModeSlide();
-        case 2: return renderFindSessionSlide();
-        case 3: return renderDetailsSlide();
-        case 4: return renderCourtBookingSlide();
-        case 5: return renderConfirmSlide();
-        default: return null;
-      }
+    switch (currentSlide) {
+      case 0: return renderSessionTypeSlide();
+      case 1: return renderWhenSlide();
+      case 2: return renderChooseSessionSlide();
+      case 3: return renderDetailsSlide();
+      case 4: return renderConfirmSlide();
+      default: return null;
     }
   };
 
+  // ─── Main render ──────────────────────────────────────────────────────────────
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        {/* Background blur */}
         {Platform.OS === "ios" ? (
           <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
         ) : (
@@ -2507,19 +2010,15 @@ export default function PlayerBookingWizard({
         {/* Header */}
         <View style={styles.header}>
           <Pressable style={styles.closeButton} onPress={onClose}>
-            <Ionicons name="close" size={24} color={Colors.dark.text} />
+            <Ionicons name="close" size={22} color={Colors.dark.text} />
           </Pressable>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>{getSlideTitle(currentSlide)}</Text>
+            <Text style={styles.headerTitle}>{SLIDE_TITLES[currentSlide]}</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
-              <Text style={styles.headerSlide}>
-                Step {currentSlide + 1} of {getTotalSlides()}
-              </Text>
+              <Text style={styles.headerSlide}>Step {currentSlide + 1} of {TOTAL_SLIDES}</Text>
               <View style={{ backgroundColor: getSportColor(sport) + "22", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
-                <Text style={{ color: getSportColor(sport), fontSize: 10, fontWeight: "600" }}>
-                  {getSportLabel(sport)}
-                </Text>
+                <Text style={{ color: getSportColor(sport), fontSize: 10, fontWeight: "600" }}>{getSportLabel(sport)}</Text>
               </View>
             </View>
           </View>
@@ -2527,17 +2026,17 @@ export default function PlayerBookingWizard({
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Progress Bar */}
+        {/* Progress bar */}
         <View style={styles.progressContainer}>
           <Animated.View style={[styles.progressBar, progressStyle]}>
             <Animated.View style={[styles.progressGlow, glowStyle]} />
           </Animated.View>
         </View>
 
-        {/* Slide Content */}
+        {/* Content */}
         <View style={styles.contentContainer}>{renderSlideContent()}</View>
 
-        {/* Footer Navigation */}
+        {/* Footer */}
         {!showSuccess && (
           <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + Spacing.md }]}>
             {currentSlide > 0 && (
@@ -2546,135 +2045,107 @@ export default function PlayerBookingWizard({
                 <Text style={styles.backButtonText}>Back</Text>
               </Pressable>
             )}
-
             <Animated.View style={[styles.nextButtonWrapper, holdGlowAnimStyle]}>
-            <Pressable
-              style={[
-                styles.nextButton,
-                !canProceed && styles.nextButtonDisabled,
-                currentSlide === getTotalSlides() - 1 && styles.confirmButton,
-              ]}
-              onPress={currentSlide === getTotalSlides() - 1 ? handleBook : goNext}
-              disabled={!canProceed || bookingMutation.isPending || dropInLessonMutation.isPending}
-            >
-              {bookingMutation.isPending || dropInLessonMutation.isPending ? (
-                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
-              ) : (
-                <>
-                  <Text style={styles.nextButtonText}>
-                    {currentSlide === getTotalSlides() - 1
-                      ? isJoining
-                        ? "Join Session"
-                        : selectedSlot && isCrossAcademyDropInCoach(selectedSlot.coachId)
-                          ? "Pay & Book"
-                          : "Request Booking"
-                      : "Next"}
-                  </Text>
-                  {currentSlide < getTotalSlides() - 1 && (
-                    <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />
-                  )}
-                </>
-              )}
-            </Pressable>
+              <Pressable
+                style={[styles.nextButton, !canProceed && styles.nextButtonDisabled, currentSlide === TOTAL_SLIDES - 1 && styles.confirmButton]}
+                onPress={currentSlide === TOTAL_SLIDES - 1 ? handleBook : goNext}
+                disabled={!canProceed || bookingMutation.isPending || dropInLessonMutation.isPending}
+              >
+                {bookingMutation.isPending || dropInLessonMutation.isPending ? (
+                  <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
+                ) : (
+                  <>
+                    <Text style={styles.nextButtonText}>
+                      {currentSlide === TOTAL_SLIDES - 1
+                        ? isJoining ? "Join Session" : selectedSlot && isCrossAcademyDropInCoach(selectedSlot.coachId) ? "Pay & Book" : "Request Booking"
+                        : "Next"}
+                    </Text>
+                    {currentSlide < TOTAL_SLIDES - 1 && <Ionicons name="arrow-forward" size={20} color={Colors.dark.buttonText} />}
+                  </>
+                )}
+              </Pressable>
             </Animated.View>
           </View>
         )}
 
-        {/* Calendar Modal */}
+        {/* Calendar modal */}
         <Modal visible={showCalendarModal} transparent animationType="fade">
           <View style={styles.calendarOverlay}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowCalendarModal(false)} />
             <View style={styles.calendarModal}>
               <View style={styles.calendarHeader}>
-                <Pressable
-                  onPress={() => {
-                    const newDate = new Date(calendarViewDate);
-                    newDate.setMonth(newDate.getMonth() - 1);
-                    setCalendarViewDate(newDate);
-                  }}
-                  style={styles.calendarNavButton}
-                >
+                <Pressable onPress={() => { const d = new Date(calendarViewDate); d.setMonth(d.getMonth() - 1); setCalendarViewDate(d); }} style={styles.calendarNavButton}>
                   <Ionicons name="chevron-back" size={24} color={Colors.dark.text} />
                 </Pressable>
                 <Text style={styles.calendarMonthText}>
                   {calendarViewDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </Text>
-                <Pressable
-                  onPress={() => {
-                    const newDate = new Date(calendarViewDate);
-                    newDate.setMonth(newDate.getMonth() + 1);
-                    setCalendarViewDate(newDate);
-                  }}
-                  style={styles.calendarNavButton}
-                >
+                <Pressable onPress={() => { const d = new Date(calendarViewDate); d.setMonth(d.getMonth() + 1); setCalendarViewDate(d); }} style={styles.calendarNavButton}>
                   <Ionicons name="chevron-forward" size={24} color={Colors.dark.text} />
                 </Pressable>
               </View>
-
               <View style={styles.calendarWeekdays}>
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                   <Text key={day} style={styles.calendarWeekdayText}>{day}</Text>
                 ))}
               </View>
-
               <View style={styles.calendarGrid}>
                 {(() => {
                   const firstDay = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), 1);
                   const lastDay = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 0);
-                  const startPadding = firstDay.getDay();
                   const days: (number | null)[] = [];
-                  
-                  for (let i = 0; i < startPadding; i++) days.push(null);
+                  for (let i = 0; i < firstDay.getDay(); i++) days.push(null);
                   for (let d = 1; d <= lastDay.getDate(); d++) days.push(d);
-                  
                   return days.map((day, idx) => {
-                    if (day === null) {
-                      return <View key={`pad-${idx}`} style={styles.calendarDayEmpty} />;
-                    }
+                    if (day === null) return <View key={`pad-${idx}`} style={styles.calendarDayEmpty} />;
                     const dateObj = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), day);
                     const isSelected = dateObj.toDateString() === selectedDate.toDateString();
                     const isToday = dateObj.toDateString() === new Date().toDateString();
                     const isPast = dateObj < new Date(new Date().setHours(0, 0, 0, 0));
-                    
                     return (
                       <Pressable
                         key={day}
-                        style={[
-                          styles.calendarDay,
-                          isSelected && styles.calendarDaySelected,
-                          isToday && !isSelected && styles.calendarDayToday,
-                          isPast && styles.calendarDayPast,
-                        ]}
-                        onPress={() => {
-                          if (!isPast) {
-                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            setSelectedDate(dateObj);
-                            setShowCalendarModal(false);
-                          }
-                        }}
+                        style={[styles.calendarDay, isSelected && styles.calendarDaySelected, isToday && !isSelected && styles.calendarDayToday, isPast && styles.calendarDayPast]}
+                        onPress={() => { if (!isPast) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedDate(dateObj); setShowCalendarModal(false); } }}
                         disabled={isPast}
                       >
-                        <Text
-                          style={[
-                            styles.calendarDayText,
-                            isSelected && styles.calendarDayTextSelected,
-                            isPast && styles.calendarDayTextPast,
-                          ]}
-                        >
-                          {day}
-                        </Text>
+                        <Text style={[styles.calendarDayText, isSelected && styles.calendarDayTextSelected, isPast && styles.calendarDayTextPast]}>{day}</Text>
                       </Pressable>
                     );
                   });
                 })()}
               </View>
-
               <Pressable style={styles.calendarCloseButton} onPress={() => setShowCalendarModal(false)}>
                 <Text style={styles.calendarCloseButtonText}>Close</Text>
               </Pressable>
             </View>
           </View>
         </Modal>
+
+        {/* Coach profile drawer */}
+        <CoachProfileDrawer
+          visible={showCoachDrawer}
+          onClose={() => setShowCoachDrawer(false)}
+          onSelectCoach={() => {
+            if (selectedCoachForDrawer) setFilterCoachId(selectedCoachForDrawer.id);
+          }}
+          coach={selectedCoachForDrawer ? {
+            id: selectedCoachForDrawer.id,
+            name: selectedCoachForDrawer.name,
+            profilePhotoUrl: selectedCoachForDrawer.profilePhotoUrl,
+            specialty: selectedCoachForDrawer.specialty,
+            yearsExperience: selectedCoachForDrawer.yearsExperience,
+            specializations: selectedCoachForDrawer.specializations,
+            ballLevels: selectedCoachForDrawer.ballLevels,
+            rating: selectedCoachForDrawer.rating,
+            totalSessions: selectedCoachForDrawer.totalSessions,
+            bio: selectedCoachForDrawer.bio,
+            certifications: selectedCoachForDrawer.certifications,
+            languages: selectedCoachForDrawer.languages,
+            availableForPrivate: true,
+            availableForGroup: true,
+          } : null}
+        />
       </View>
     </Modal>
   );
@@ -2700,21 +2171,11 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerCenter: {
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: Colors.dark.text,
-  },
-  headerSlide: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    marginTop: 2,
-  },
+  headerCenter: { alignItems: "center" },
+  headerTitle: { fontSize: 17, fontWeight: "700", color: Colors.dark.text },
+  headerSlide: { fontSize: 13, color: Colors.dark.textSecondary, marginTop: 2 },
   progressContainer: {
-    height: 4,
+    height: 3,
     backgroundColor: Colors.dark.backgroundSecondary,
     marginHorizontal: Spacing.lg,
     borderRadius: 2,
@@ -2731,33 +2192,30 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     top: -2,
     right: -2,
     bottom: -2,
-    width: 20,
+    width: 16,
     backgroundColor: Colors.dark.primary,
-    borderRadius: 10,
+    borderRadius: 8,
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xl,
+    paddingTop: Spacing.lg,
   },
-  slideContent: {
-    flex: 1,
-  },
+  slideContent: { flex: 1 },
   slideSubtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.dark.textSecondary,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
     textAlign: "center",
   },
-  sessionTypeGrid: {
-    gap: Spacing.md,
-  },
+
+  // Session type cards
+  sessionTypeGrid: { gap: Spacing.sm },
   sessionTypeCard: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: Colors.dark.border,
-    marginBottom: Spacing.sm,
   },
   sessionTypeCardGradient: {
     padding: Spacing.lg,
@@ -2766,582 +2224,361 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     gap: Spacing.md,
     position: "relative",
   },
-  glowOrb: {
-    position: "absolute",
-    top: -20,
-    right: -20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    opacity: 0.3,
-  },
-  sessionTypeIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sessionTypeLabel: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: Colors.dark.text,
-    flex: 1,
-  },
-  sessionTypeSubtitle: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    position: "absolute",
-    bottom: Spacing.md,
-    left: 88,
-  },
-  browseModeGrid: {
-    gap: Spacing.sm,
-  },
-  browseModeCard: {
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  browseModeCardGradient: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-  },
-  browseModeIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  browseModeLabel: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: Colors.dark.text,
-  },
-  browseModeSubtitle: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
-  },
-  coachSelectionContainer: {
-    marginTop: Spacing.xl,
-  },
-  coachScroll: {
-    marginTop: Spacing.md,
-  },
-  coachScrollContent: {
-    paddingRight: Spacing.lg,
-  },
-  coachSelectionCard: {
-    alignItems: "center",
-    padding: Spacing.md,
-    marginRight: Spacing.md,
-    borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    minWidth: 100,
-  },
-  coachSelectionCardSelected: {
-    borderColor: Colors.dark.primary,
-    backgroundColor: Colors.dark.primary + "15",
-  },
-  coachSelectionAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  coachSelectionPhoto: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-  },
-  coachSelectionAvatarText: {
-    fontSize: 24,
-    fontWeight: 700,
-    color: Colors.dark.buttonText,
-  },
-  coachSelectionName: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: Colors.dark.text,
-    marginTop: Spacing.sm,
-    textAlign: "center",
-  },
-  coachCheckmark: {
-    position: "absolute",
-    top: Spacing.sm,
-    right: Spacing.sm,
-  },
-  sectionHeader: {
+  glowOrb: { position: "absolute", top: -20, right: -20, width: 60, height: 60, borderRadius: 30, opacity: 0.3 },
+  sessionTypeIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
+  sessionTypeLabel: { fontSize: 17, fontWeight: "700", color: Colors.dark.text },
+  sessionTypeSubtitle: { fontSize: 13, color: Colors.dark.textSecondary, marginTop: 2 },
+
+  // Smart suggestions
+  suggestionsSection: { marginBottom: Spacing.lg },
+  suggestionCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     marginBottom: Spacing.sm,
-    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: Colors.dark.text,
-  },
-  locationScroll: {
-    flexGrow: 0,
-    marginBottom: Spacing.sm,
-  },
-  dateScroll: {
-    flexGrow: 0,
-    marginBottom: Spacing.sm,
-  },
+  suggestionIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  suggestionText: { flex: 1, fontSize: 14, color: Colors.dark.text, fontWeight: "500" },
+
+  // Section headers
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm, marginTop: Spacing.md },
+  sectionTitle: { fontSize: 15, fontWeight: "700", color: Colors.dark.text },
+  dateLabel: { flex: 1, textAlign: "right", fontSize: 13, color: Colors.dark.textSecondary, fontWeight: "500" },
+
+  // Date strip
+  dateScroll: { flexGrow: 0, marginBottom: Spacing.sm },
   dateChip: {
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.dark.backgroundSecondary,
     marginRight: Spacing.sm,
-    minWidth: 70,
+    minWidth: 64,
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  dateChipSelected: {
-    borderColor: Colors.dark.primary,
-    backgroundColor: Colors.dark.primary + "20",
-  },
-  dateChipDay: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-  },
-  dateChipDate: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: Colors.dark.text,
-    marginTop: 2,
-  },
-  dateChipTextSelected: {
-    color: Colors.dark.primary,
-  },
-  durationScroll: {
-    flexGrow: 0,
-  },
-  durationChip: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+  dateChipSelected: { borderColor: Colors.dark.primary, backgroundColor: Colors.dark.primary + "20" },
+  dateChipDay: { fontSize: 12, color: Colors.dark.textSecondary },
+  dateChipDate: { fontSize: 18, fontWeight: "700", color: Colors.dark.text, marginTop: 2 },
+  dateChipTextSelected: { color: Colors.dark.primary },
+
+  // Filters
+  filterOptional: { fontSize: 12, color: Colors.dark.textMuted, marginLeft: 2 },
+  filterLabel: { fontSize: 13, fontWeight: "600", color: Colors.dark.textSecondary, marginBottom: 6, marginTop: Spacing.sm },
+  filterRow: { flexGrow: 0, marginBottom: Spacing.sm },
+  filterChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.dark.backgroundSecondary,
     marginRight: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  durationChipSelected: {
-    borderColor: Colors.dark.primary,
-    backgroundColor: Colors.dark.primary + "20",
-  },
-  durationChipText: {
-    fontSize: 16,
-    color: Colors.dark.textSecondary,
-  },
-  durationChipTextSelected: {
-    color: Colors.dark.primary,
-  },
-  loadingContainer: {
-    flex: 1,
+  filterChipSelected: { borderColor: Colors.dark.primary, backgroundColor: Colors.dark.primary + "20" },
+  filterChipText: { fontSize: 13, color: Colors.dark.textSecondary, fontWeight: "500" },
+  filterChipTextSelected: { color: Colors.dark.primary, fontWeight: "700" },
+  sessionTypePill: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.md,
+    gap: 5,
+    alignSelf: "center",
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
-  loadingText: {
-    fontSize: 16,
-    color: Colors.dark.textSecondary,
-  },
-  emptyCoachesContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.md,
-    paddingVertical: Spacing.xxl,
-  },
-  emptyCoachesText: {
-    fontSize: 16,
-    color: Colors.dark.textMuted,
-  },
-  coachCardsContainer: {
-    paddingBottom: Spacing.lg,
-  },
-  sessionsList: {
-    flex: 1,
-  },
-  sessionSectionTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: Colors.dark.primary,
+  sessionTypePillText: { fontSize: 13, fontWeight: "600" },
+
+  // Coach groups
+  coachGroup: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
     marginBottom: Spacing.md,
+    overflow: "hidden",
+  },
+  coachGroupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  coachGroupAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  coachGroupPhoto: { width: 40, height: 40, borderRadius: 20 },
+  coachGroupAvatarText: { fontSize: 16, fontWeight: "700", color: Colors.dark.buttonText },
+  coachGroupName: { fontSize: 15, fontWeight: "700", color: Colors.dark.text },
+  coachGroupSub: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 1 },
+  usualBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.primary + "20",
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  usualBadgeText: { fontSize: 10, fontWeight: "700", color: Colors.dark.primary },
+
+  // Time chips
+  timeChipsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+  },
+  timeChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 9,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.background,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    minWidth: 72,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeChipSelected: { borderColor: Colors.dark.primary, backgroundColor: Colors.dark.primary, borderWidth: 2 },
+  timeChipHighlighted: { borderColor: Colors.dark.primary, borderWidth: 2, backgroundColor: Colors.dark.primary + "20" },
+  timeChipText: { fontSize: 14, fontWeight: "600", color: Colors.dark.text },
+  timeChipTextSelected: { color: Colors.dark.buttonText },
+  showMoreChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 9,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    borderStyle: "dashed",
+    minWidth: 72,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  showMoreText: { fontSize: 12, color: Colors.dark.textSecondary, fontWeight: "500" },
+
+  // Slot detail card
+  slotDetailCard: {
+    width: "100%",
+    backgroundColor: Colors.dark.background,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: 4,
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  slotDetailRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  slotDetailText: { fontSize: 13, color: Colors.dark.textSecondary },
+  selectSlotBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: 10,
     marginTop: Spacing.sm,
   },
-  sessionCard: {
+  selectSlotBtnText: { fontSize: 14, fontWeight: "700", color: Colors.dark.buttonText },
+
+  // Group sessions
+  groupSessionCard: {
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     marginBottom: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  sessionCardSelected: {
-    borderColor: Colors.dark.primary,
-    borderWidth: 2,
-  },
-  sessionCardGradient: {
-    padding: Spacing.md,
-    position: "relative",
-  },
-  sessionCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.sm,
-  },
-  sessionTimeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  sessionTime: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: Colors.dark.text,
-  },
+  groupSessionCardSelected: { borderColor: Colors.dark.orange, borderWidth: 2 },
+  groupSessionGradient: { padding: Spacing.md, gap: Spacing.sm },
+  groupSessionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  groupSessionCoach: { fontSize: 16, fontWeight: "700", color: Colors.dark.text },
+  groupSessionType: { fontSize: 13, color: Colors.dark.textSecondary, marginTop: 2 },
+  groupSessionDetails: { gap: 4 },
+  detailRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  detailText: { fontSize: 13, color: Colors.dark.textSecondary },
   spotsBadge: {
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: BorderRadius.full,
     backgroundColor: Colors.dark.primary + "30",
   },
-  spotsBadgeHot: {
-    backgroundColor: Colors.dark.orange + "30",
-  },
-  spotsText: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: Colors.dark.primary,
-  },
-  sessionCardInfo: {
-    gap: Spacing.xs,
-  },
-  coachRow: {
-    flexDirection: "row",
+  spotsBadgeHot: { backgroundColor: Colors.dark.orange + "30" },
+  spotsText: { fontSize: 11, fontWeight: "600", color: Colors.dark.primary },
+  weekCommitSection: { marginTop: Spacing.sm },
+  weekCommitLabel: { fontSize: 13, fontWeight: "600", color: Colors.dark.textSecondary, marginBottom: 6 },
+  weekCommitRow: { flexDirection: "row", gap: Spacing.sm, flexWrap: "wrap" },
+  weekChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.background,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    minWidth: 48,
     alignItems: "center",
-    gap: Spacing.sm,
   },
-  coachAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.dark.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  coachAvatarText: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: Colors.dark.buttonText,
-  },
-  coachName: {
-    fontSize: 16,
-    fontWeight: 600,
+  weekChipSelected: { borderColor: Colors.dark.orange, backgroundColor: Colors.dark.orange + "20" },
+  weekChipText: { fontSize: 13, fontWeight: "600", color: Colors.dark.textSecondary },
+  weekChipTextSelected: { color: Colors.dark.orange },
+  weekCustomInput: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.background,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
     color: Colors.dark.text,
+    fontSize: 13,
+    minWidth: 72,
+    textAlign: "center",
   },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  locationText: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-  },
-  playersRow: {
-    flexDirection: "row",
+  groupJoinBar: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: Spacing.sm },
+  groupJoinText: { fontSize: 13, fontWeight: "600" },
+  waitlistBar: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
     alignItems: "center",
     marginTop: Spacing.sm,
   },
-  playerAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.dark.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: Colors.dark.backgroundRoot,
-  },
-  playerAvatarText: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: Colors.dark.buttonText,
-  },
-  playersLabel: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    marginLeft: Spacing.sm,
-  },
-  selectedBadge: {
-    position: "absolute",
-    top: Spacing.md,
-    right: Spacing.md,
-  },
-  slotCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-    gap: Spacing.md,
-  },
-  slotCardSelected: {
-    borderColor: Colors.dark.primary,
-    backgroundColor: Colors.dark.primary + "10",
-  },
-  slotCardPreHighlighted: {
-    borderColor: Colors.dark.primary,
-    borderWidth: 2,
-    backgroundColor: Colors.dark.primary + "15",
-    shadowColor: Colors.dark.primary,
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
-  },
-  slotTimeColumn: {
-    alignItems: "center",
-    minWidth: 60,
-  },
-  slotTime: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: Colors.dark.text,
-  },
-  slotTimeSelected: {
-    color: Colors.dark.primary,
-  },
-  slotDuration: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-  },
-  slotInfoColumn: {
-    flex: 1,
-    gap: 4,
-  },
-  coachAvatarSmall: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.dark.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
-  },
-  coachAvatarTextSmall: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: Colors.dark.buttonText,
-  },
-  slotCoachName: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: Colors.dark.text,
-  },
-  slotLocationText: {
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-  },
-  countdownBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: Colors.dark.primary,
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  countdownText: {
-    fontSize: 11,
-    fontWeight: 700,
-    color: "#000",
-  },
-  reservationErrorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: "rgba(255,107,107,0.12)",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,107,107,0.3)",
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  reservationErrorText: {
-    flex: 1,
-    fontSize: 13,
-    color: "#FF6B6B",
-    fontWeight: 500,
-  },
-  reservationSuccessBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: Colors.dark.primary + "18",
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.dark.primary + "40",
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  reservationSuccessText: {
-    flex: 1,
-    fontSize: 13,
-    color: Colors.dark.primary,
-    fontWeight: 600,
-  },
+  waitlistText: { fontSize: 13, color: Colors.dark.textSecondary, fontWeight: "500" },
+
+  // Slot locked
   slotLockedCard: {
     flexDirection: "row",
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.dark.backgroundSecondary,
     borderWidth: 1,
     borderColor: Colors.dark.primary + "50",
     marginBottom: Spacing.md,
     overflow: "hidden",
   },
-  slotLockedAccent: {
-    width: 4,
-    backgroundColor: Colors.dark.primary,
-  },
-  slotLockedBody: {
-    flex: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 2,
-    gap: 3,
-  },
-  slotLockedTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  slotLockedTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  slotLockedTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: Colors.dark.primary,
-    letterSpacing: 0.5,
-  },
-  slotLockedCountdownBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: Colors.dark.primary + "22",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  slotLockedCountdown: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: Colors.dark.primary,
-    fontVariant: ["tabular-nums"],
-  },
-  slotLockedInfo: {
-    fontSize: 13,
-    color: Colors.dark.text,
-    fontWeight: "500",
-  },
-  slotLockedHint: {
-    fontSize: 11,
-    color: Colors.dark.textSecondary,
-    marginTop: 1,
-  },
-  nextButtonWrapper: {
-    flex: 1,
-    borderRadius: BorderRadius.md,
-    overflow: "visible",
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing["2xl"],
-    gap: Spacing.md,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: Colors.dark.text,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: Colors.dark.textSecondary,
-    textAlign: "center",
-  },
-  courtSelectionSection: {
-    marginBottom: Spacing.lg,
-  },
-  locationChip: {
+  slotLockedAccent: { width: 3, backgroundColor: Colors.dark.primary },
+  slotLockedBody: { flex: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, gap: 2 },
+  slotLockedTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  slotLockedTitleRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  slotLockedTitle: { fontSize: 12, fontWeight: "700", color: Colors.dark.primary, letterSpacing: 0.5 },
+  slotLockedCountdownBox: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
+  slotLockedCountdown: { fontSize: 13, fontWeight: "800", color: Colors.dark.primary, fontVariant: ["tabular-nums"] },
+  slotLockedInfo: { fontSize: 12, color: Colors.dark.text, fontWeight: "500" },
+  slotLockedHint: { fontSize: 11, color: Colors.dark.textSecondary },
+
+  // Details slide
+  creditsCard: {
     backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: 20,
-    paddingHorizontal: 16,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  creditsCardWarn: { borderColor: "#F59E0B40" },
+  creditsRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  creditsLabel: { flex: 1, fontSize: 14, fontWeight: "600", color: Colors.dark.text },
+  creditsCount: { fontSize: 14, fontWeight: "700", color: Colors.dark.primary },
+  buyCreditsBtn: {
+    backgroundColor: "#F59E0B20",
+    borderRadius: BorderRadius.sm,
     paddingVertical: 8,
-    marginRight: Spacing.sm,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#F59E0B40",
+  },
+  buyCreditsBtnText: { fontSize: 13, fontWeight: "700", color: "#F59E0B" },
+
+  summaryMini: {
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+  },
+  summaryMiniGradient: { padding: Spacing.md, gap: 4 },
+  summaryMiniRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  summaryMiniType: { fontSize: 12, fontWeight: "700" },
+  summaryMiniTime: { fontSize: 14, fontWeight: "700", color: Colors.dark.text },
+  summaryMiniCoach: { fontSize: 13, color: Colors.dark.textSecondary },
+
+  // Partner section
+  partnerSection: { marginBottom: Spacing.lg },
+  pairMeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  locationChipSelected: {
-    backgroundColor: Colors.dark.primary + "20",
-    borderColor: Colors.dark.primary,
-  },
-  locationChipText: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-    fontWeight: "500",
-  },
-  locationChipTextSelected: {
-    color: Colors.dark.primary,
-    fontWeight: "700",
-  },
-  aiFocusSection: {
-    marginBottom: Spacing.lg,
-  },
-  aiFocusHeader: {
+  pairMeBtnSelected: { borderColor: "#A855F740", backgroundColor: "#A855F710" },
+  pairMeBtnText: { fontSize: 14, fontWeight: "600", color: Colors.dark.textSecondary },
+  orDivider: { fontSize: 12, color: Colors.dark.textMuted, textAlign: "center", marginVertical: Spacing.sm },
+  partnerSearchBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
     marginBottom: Spacing.sm,
   },
-  aiFocusLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.dark.primary,
-    flex: 1,
-  },
-  aiFocusChips: {
+  partnerSearchInput: { flex: 1, fontSize: 14, color: Colors.dark.text },
+  partnerRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
     gap: Spacing.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
+  partnerRowSelected: { borderColor: "#A855F750", backgroundColor: "#A855F710" },
+  partnerAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#A855F7", alignItems: "center", justifyContent: "center" },
+  partnerAvatarText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  partnerName: { flex: 1, fontSize: 14, fontWeight: "600", color: Colors.dark.text },
+  partnerSelectedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#A855F710",
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: "#A855F730",
+  },
+  partnerSelectedText: { fontSize: 13, fontWeight: "600" },
+
+  // AI focus
+  aiFocusSection: { marginBottom: Spacing.lg },
+  aiFocusChips: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.sm, marginTop: Spacing.sm },
   aiFocusChip: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: 20,
@@ -3350,268 +2587,83 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.dark.border,
   },
-  aiFocusChipSelected: {
-    backgroundColor: Colors.dark.primary + "20",
-    borderColor: Colors.dark.primary,
-  },
-  aiFocusChipText: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-    fontWeight: "500",
-  },
-  aiFocusChipTextSelected: {
-    color: Colors.dark.primary,
-    fontWeight: "600",
-  },
-  aiFocusEmpty: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-    fontStyle: "italic",
-  },
-  detailsForm: {
-    gap: Spacing.lg,
-  },
-  inputGroup: {
-    gap: Spacing.sm,
-  },
-  inputLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  inputLabelText: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: Colors.dark.text,
-  },
+  aiFocusChipSelected: { backgroundColor: Colors.dark.primary + "20", borderColor: Colors.dark.primary },
+  aiFocusChipText: { fontSize: 13, color: Colors.dark.textSecondary, fontWeight: "500" },
+  aiFocusChipTextSelected: { color: Colors.dark.primary, fontWeight: "600" },
+
+  // Note/form
+  inputGroup: { marginBottom: Spacing.md },
+  inputLabel: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm },
+  inputLabelText: { fontSize: 14, fontWeight: "600", color: Colors.dark.text },
+  optional: { fontSize: 11, color: Colors.dark.textMuted },
   textInput: {
     backgroundColor: Colors.dark.backgroundSecondary,
     borderRadius: BorderRadius.md,
     padding: Spacing.md,
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.dark.text,
     borderWidth: 1,
     borderColor: Colors.dark.border,
     minHeight: 80,
     textAlignVertical: "top",
   },
-  browseFriendsButton: {
+
+  // Court notice
+  courtNoticeCard: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    gap: 6,
-  },
-  browseFriendsText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.dark.accentText,
-  },
-  confirmCard: {
-    borderRadius: BorderRadius.lg,
-    overflow: "hidden",
-    marginBottom: Spacing.lg,
-  },
-  confirmCardGradient: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  confirmTypeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    backgroundColor: "#F59E0B10",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: "#F59E0B30",
+    marginBottom: Spacing.md,
   },
-  confirmTypeText: {
-    fontSize: 18,
-    fontWeight: 700,
-  },
-  confirmRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  confirmCoachAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-  },
-  confirmCoachAvatarPlaceholder: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.dark.primary + "40",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  confirmCoachAvatarInitial: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: Colors.dark.primary,
-  },
-  confirmText: {
-    fontSize: 16,
-    color: Colors.dark.text,
-  },
-  confirmDirectionsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingLeft: 26,
-    marginTop: 2,
-  },
-  confirmDirectionsText: {
-    fontSize: 13,
-    color: Colors.dark.primary,
-    textDecorationLine: "underline",
-  },
+  courtNoticeText: { flex: 1, fontSize: 13, color: "#F59E0B", lineHeight: 18 },
+
+  // Policy row
   policyRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     backgroundColor: Backgrounds.elevated,
     borderRadius: BorderRadius.md,
     marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
-  policyRowText: {
-    flex: 1,
-    fontSize: 12,
-    color: Colors.dark.textSecondary,
-  },
-  policyOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: Spacing.xl,
-  },
-  policyModalBox: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    width: "100%",
-    gap: Spacing.md,
-  },
-  policyModalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  policyModalTitle: {
-    fontSize: 16,
-    fontWeight: "700" as const,
-    color: Colors.dark.text,
-  },
-  policyModalBody: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    lineHeight: 22,
-  },
-  policyModalClose: {
-    backgroundColor: GlowColors.primary,
-    borderRadius: BorderRadius.md,
-    paddingVertical: 10,
-    alignItems: "center" as const,
-    marginTop: Spacing.xs,
-  },
-  policyModalCloseText: {
-    fontSize: 15,
-    fontWeight: "700" as const,
-    color: Colors.dark.buttonText,
-  },
-  priceSummaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    backgroundColor: Backgrounds.elevated,
-    borderRadius: BorderRadius.md,
-    marginTop: Spacing.md,
-  },
-  priceSummaryLabel: {
-    fontSize: 14,
-    color: Colors.dark.textSecondary,
-    fontWeight: "600",
-  },
-  priceSummaryValue: {
-    fontSize: 18,
-    color: Colors.dark.text,
-    fontWeight: "800",
-  },
-  rewardPreview: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: Spacing.xl,
-    padding: Spacing.lg,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-  },
-  rewardItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  rewardText: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: Colors.dark.text,
-  },
-  successContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.lg,
-  },
-  successCheckmark: {
-    marginBottom: Spacing.md,
-  },
-  successTitle: {
-    fontSize: 28,
-    fontWeight: 700,
-    color: Colors.dark.text,
-  },
-  successSubtitle: {
-    fontSize: 16,
-    color: Colors.dark.textSecondary,
-  },
-  xpReward: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    backgroundColor: Colors.dark.primary + "20",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.full,
-    marginTop: Spacing.md,
-  },
-  xpRewardText: {
-    fontSize: 18,
-    fontWeight: 700,
-    color: Colors.dark.primary,
-  },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.md,
-    gap: Spacing.md,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: Colors.dark.text,
-  },
+  policyRowText: { flex: 1, fontSize: 12, color: Colors.dark.textSecondary },
+
+  // Confirm slide
+  confirmCard: { borderRadius: BorderRadius.lg, overflow: "hidden", marginBottom: Spacing.md },
+  confirmCardGradient: { padding: Spacing.lg, gap: Spacing.sm },
+  confirmTypeBadge: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.sm },
+  confirmTypeText: { fontSize: 16, fontWeight: "700" },
+  confirmRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  confirmCoachAvatarPlaceholder: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.dark.primary + "40", alignItems: "center", justifyContent: "center" },
+  confirmCoachAvatarInitial: { fontSize: 11, fontWeight: "700", color: Colors.dark.primary },
+  confirmText: { fontSize: 15, color: Colors.dark.text, flex: 1 },
+  confirmDirectionsRow: { flexDirection: "row", alignItems: "center", gap: Spacing.xs, paddingLeft: 28, marginTop: 2 },
+  confirmDirectionsText: { fontSize: 13, color: Colors.dark.primary, textDecorationLine: "underline" },
+  priceSummaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: Spacing.md, paddingHorizontal: Spacing.md, backgroundColor: Backgrounds.elevated, borderRadius: BorderRadius.md, marginBottom: Spacing.md },
+  priceSummaryLabel: { fontSize: 14, color: Colors.dark.textSecondary, fontWeight: "600" },
+  priceSummaryValue: { fontSize: 18, color: Colors.dark.text, fontWeight: "800" },
+
+  // Success
+  successContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: Spacing.lg },
+  successCheckmark: { marginBottom: Spacing.md },
+  successTitle: { fontSize: 28, fontWeight: "700", color: Colors.dark.text },
+  successSubtitle: { fontSize: 16, color: Colors.dark.textSecondary },
+  xpReward: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, backgroundColor: Colors.dark.primary + "20", paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.full, marginTop: Spacing.md },
+  xpRewardText: { fontSize: 18, fontWeight: "700", color: Colors.dark.primary },
+
+  // Footer
+  footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, gap: Spacing.md },
+  backButton: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+  backButtonText: { fontSize: 15, color: Colors.dark.text },
+  nextButtonWrapper: { flex: 1, borderRadius: BorderRadius.md, overflow: "visible" },
   nextButton: {
     alignSelf: "stretch",
     flexDirection: "row",
@@ -3624,102 +2676,49 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: Colors.dark.primary,
     borderRadius: BorderRadius.full,
   },
-  nextButtonDisabled: {
-    opacity: 0.5,
-  },
-  confirmButton: {
-    backgroundColor: GlowColors.primary,
-  },
-  nextButtonText: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: Colors.dark.buttonText,
-  },
-  calendarOverlay: {
-    flex: 1,
-    backgroundColor: Backgrounds.card,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: Spacing.lg,
-  },
-  calendarModal: {
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    width: "100%",
-    maxWidth: 350,
-  },
-  calendarHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-  },
-  calendarNavButton: {
-    padding: Spacing.sm,
-  },
-  calendarMonthText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: Colors.dark.text,
-  },
-  calendarWeekdays: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: Spacing.sm,
-  },
-  calendarWeekdayText: {
-    fontSize: 12,
-    color: Colors.dark.textMuted,
-    width: 40,
-    textAlign: "center",
-  },
-  calendarGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-  },
-  calendarDay: {
-    width: "14.28%",
-    aspectRatio: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: BorderRadius.md,
-  },
-  calendarDayEmpty: {
-    width: "14.28%",
-    aspectRatio: 1,
-  },
-  calendarDaySelected: {
-    backgroundColor: Colors.dark.primary,
-  },
-  calendarDayToday: {
-    borderWidth: 1,
-    borderColor: Colors.dark.primary,
-  },
-  calendarDayPast: {
-    opacity: 0.3,
-  },
-  calendarDayText: {
-    fontSize: 14,
-    color: Colors.dark.text,
-  },
-  calendarDayTextSelected: {
-    color: Colors.dark.buttonText,
-    fontWeight: "600",
-  },
-  calendarDayTextPast: {
-    color: Colors.dark.textMuted,
-  },
-  calendarCloseButton: {
-    marginTop: Spacing.lg,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.dark.backgroundTertiary,
-    borderRadius: BorderRadius.md,
-    alignItems: "center",
-  },
-  calendarCloseButtonText: {
-    fontSize: 16,
-    color: Colors.dark.text,
-    fontWeight: "500",
-  },
+  nextButtonDisabled: { opacity: 0.5 },
+  confirmButton: { backgroundColor: GlowColors.primary },
+  nextButtonText: { fontSize: 16, fontWeight: "700", color: Colors.dark.buttonText },
+
+  // Empty/loading
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: Spacing.md, paddingVertical: Spacing.xxl },
+  loadingText: { fontSize: 15, color: Colors.dark.textSecondary },
+  emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: Spacing["2xl"], gap: Spacing.md },
+  emptyStateTitle: { fontSize: 18, fontWeight: "600", color: Colors.dark.text },
+  emptyStateText: { fontSize: 14, color: Colors.dark.textSecondary, textAlign: "center" },
+  clearFilterBtn: { marginTop: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.lg, backgroundColor: Colors.dark.backgroundSecondary, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: Colors.dark.border },
+  clearFilterBtnText: { fontSize: 13, fontWeight: "600", color: Colors.dark.text },
+
+  // Error
+  reservationErrorBanner: { flexDirection: "row", alignItems: "center", gap: Spacing.sm, backgroundColor: "rgba(255,107,107,0.12)", borderRadius: BorderRadius.md, borderWidth: 1, borderColor: "rgba(255,107,107,0.3)", padding: Spacing.md, marginBottom: Spacing.sm },
+  reservationErrorText: { flex: 1, fontSize: 13, color: "#FF6B6B", fontWeight: "500" },
+
+  // Policy modal
+  policyOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: Spacing.xl },
+  policyModalBox: { backgroundColor: Colors.dark.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.xl, width: "100%", gap: Spacing.md },
+  policyModalHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  policyModalTitle: { fontSize: 16, fontWeight: "700", color: Colors.dark.text },
+  policyModalBody: { fontSize: 14, color: Colors.dark.textSecondary, lineHeight: 22 },
+  policyModalClose: { backgroundColor: GlowColors.primary, borderRadius: BorderRadius.md, paddingVertical: 10, alignItems: "center", marginTop: Spacing.xs },
+  policyModalCloseText: { fontSize: 15, fontWeight: "700", color: Colors.dark.buttonText },
+
+  // Calendar
+  calendarOverlay: { flex: 1, backgroundColor: Backgrounds.card, justifyContent: "center", alignItems: "center", padding: Spacing.lg },
+  calendarModal: { backgroundColor: Colors.dark.backgroundSecondary, borderRadius: BorderRadius.lg, padding: Spacing.lg, width: "100%", maxWidth: 350 },
+  calendarHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: Spacing.md },
+  calendarNavButton: { padding: Spacing.sm },
+  calendarMonthText: { fontSize: 17, fontWeight: "600", color: Colors.dark.text },
+  calendarWeekdays: { flexDirection: "row", justifyContent: "space-around", marginBottom: Spacing.sm },
+  calendarWeekdayText: { fontSize: 12, color: Colors.dark.textMuted, width: 40, textAlign: "center" },
+  calendarGrid: { flexDirection: "row", flexWrap: "wrap" },
+  calendarDay: { width: "14.28%", aspectRatio: 1, justifyContent: "center", alignItems: "center", borderRadius: BorderRadius.sm },
+  calendarDayEmpty: { width: "14.28%", aspectRatio: 1 },
+  calendarDaySelected: { backgroundColor: Colors.dark.primary },
+  calendarDayToday: { borderWidth: 1, borderColor: Colors.dark.primary },
+  calendarDayPast: { opacity: 0.3 },
+  calendarDayText: { fontSize: 14, color: Colors.dark.text },
+  calendarDayTextSelected: { color: Colors.dark.buttonText, fontWeight: "600" },
+  calendarDayTextPast: { color: Colors.dark.textMuted },
+  calendarCloseButton: { marginTop: Spacing.lg, paddingVertical: Spacing.md, backgroundColor: Colors.dark.backgroundTertiary, borderRadius: BorderRadius.md, alignItems: "center" },
+  calendarCloseButtonText: { fontSize: 15, color: Colors.dark.text, fontWeight: "500" },
 }));

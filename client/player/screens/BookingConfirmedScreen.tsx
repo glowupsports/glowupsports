@@ -31,6 +31,7 @@ type BookingConfirmedParams = {
     durationMinutes?: number;
     locationName?: string;
     focusArea?: string;
+    courtLocation?: string | null;
   };
 };
 
@@ -102,6 +103,7 @@ export default function BookingConfirmedScreen() {
     durationMinutes,
     locationName,
     focusArea,
+    courtLocation,
   } = route.params ?? {};
 
   const checkAnim = useRef(new Animated.Value(0)).current;
@@ -259,6 +261,26 @@ export default function BookingConfirmedScreen() {
               <Text style={styles.welcomeFrom}>Message from your coach</Text>
             </View>
             <Text style={styles.welcomeText}>{coachWelcomeMessage}</Text>
+          </Animated.View>
+        ) : null}
+
+        {/* Court booking CTA — shown when the series has an external court location */}
+        {courtLocation ? (
+          <Animated.View style={[styles.courtCtaCard, { opacity: cardOpacity }]}>
+            <View style={styles.courtCtaRow}>
+              <Ionicons name="tennisball" size={18} color="#F59E0B" />
+              <Text style={styles.courtCtaTitle}>Book your court</Text>
+            </View>
+            <Text style={styles.courtCtaBody}>
+              {`This session uses ${courtLocation}. Remember to book your court and upload the confirmation in My Bookings.`}
+            </Text>
+            <Pressable
+              style={styles.courtCtaBtn}
+              onPress={() => navigation.navigate("MyLessonRequests")}
+            >
+              <Ionicons name="cloud-upload-outline" size={16} color="#F59E0B" />
+              <Text style={styles.courtCtaBtnText}>Upload court confirmation</Text>
+            </Pressable>
           </Animated.View>
         ) : null}
 
@@ -457,5 +479,46 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.dark.border || Colors.dark.primary + "30",
+  },
+  courtCtaCard: {
+    width: "100%",
+    backgroundColor: "#F59E0B10",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "#F59E0B40",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  courtCtaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  courtCtaTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#F59E0B",
+  },
+  courtCtaBody: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary,
+    lineHeight: 18,
+  },
+  courtCtaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#F59E0B20",
+    borderRadius: BorderRadius.md,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#F59E0B50",
+    marginTop: 2,
+  },
+  courtCtaBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#F59E0B",
   },
 }));
