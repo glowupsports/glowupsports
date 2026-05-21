@@ -66,6 +66,16 @@ if (process.env.SENTRY_DSN) {
   console.log("[Sentry] Server-side error tracking initialized");
 }
 
+process.on("uncaughtException", (err) => {
+  console.error("[UncaughtException] Server kept alive:", err);
+  if (process.env.SENTRY_DSN) Sentry.captureException(err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[UnhandledRejection] Server kept alive:", reason);
+  if (process.env.SENTRY_DSN) Sentry.captureException(reason);
+});
+
 const app = express();
 app.set('trust proxy', 1);
 const log = console.log;
@@ -1052,6 +1062,11 @@ function setupErrorHandler(app: express.Application) {
   setupSecurityHeaders(app);
   setupCors(app);
 
+  // Health endpoint — registered early so it responds even during long startup
+  app.get("/health", (_req: Request, res: Response) => {
+    res.json({ status: "ok", uptime: process.uptime() });
+  });
+
   // Stripe webhook MUST be registered BEFORE express.json() so it receives raw Buffer
   app.post(
     '/api/stripe/webhook',
@@ -1107,8 +1122,26 @@ function setupErrorHandler(app: express.Application) {
 
   setupErrorHandler(app);
 
-  // Initialize Stripe schema and sync after server is set up
+  // ── Bind port immediately ─────────────────────────────────────────────────
+  // Port is opened BEFORE any slow async startup jobs so Replit's health-check
+  // never sees "We couldn't reach this app" during boot.
+  const port = parseInt(process.env.PORT || "5000", 10);
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    },
+    () => {
+      log(`express server serving on port ${port}`);
+    },
+  );
+
+  // ── Background startup jobs ───────────────────────────────────────────────
+  // All slow/async tasks run in a fire-and-forget IIFE AFTER the port is open.
+  // Each individual job is isolated so one failure never kills the others.
   (async () => {
+    // Initialize Stripe schema and sync
     try {
       const { runMigrations } = await import('stripe-replit-sync');
       const databaseUrl = process.env.DATABASE_URL;
@@ -1134,17 +1167,6 @@ function setupErrorHandler(app: express.Application) {
     } catch (err: any) {
       log(`[Stripe] Init warning: ${err.message}`);
     }
-  })();
-
-  const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    async () => {
-      log(`express server serving on port ${port}`);
 
       // Task #905 — Drift watchdog for the player merge/delete code paths.
       // Runs once at boot, fully wrapped in try/catch internally; never blocks startup.
@@ -1192,27 +1214,27 @@ function setupErrorHandler(app: express.Application) {
         log(`[SeriesAcademyBackfill] Failed: ${(err as Error)?.message ?? err}`);
       }
 
-      startReminderScheduler();
-      startDailyTipScheduler();
-      startMatchPrepNotificationScheduler();
-      startBookingExpiryJob();
-      startPlayerOfWeekJob();
+      try { startReminderScheduler(); } catch (e) { console.error("[Scheduler] startReminderScheduler failed:", e); }
+      try { startDailyTipScheduler(); } catch (e) { console.error("[Scheduler] startDailyTipScheduler failed:", e); }
+      try { startMatchPrepNotificationScheduler(); } catch (e) { console.error("[Scheduler] startMatchPrepNotificationScheduler failed:", e); }
+      try { startBookingExpiryJob(); } catch (e) { console.error("[Scheduler] startBookingExpiryJob failed:", e); }
+      try { startPlayerOfWeekJob(); } catch (e) { console.error("[Scheduler] startPlayerOfWeekJob failed:", e); }
       // Family G — Task #1138 — daily 30-day-pre-18 graduation pre-notification.
-      startFamilyGraduationJob();
+      try { startFamilyGraduationJob(); } catch (e) { console.error("[Scheduler] startFamilyGraduationJob failed:", e); }
       // Task #1126 — weekly/monthly/yearly digests + family/coach digests.
-      startDigestJobs();
-      startFeedPruneScheduler();
-      startFamilyPickupNotificationsJob();
+      try { startDigestJobs(); } catch (e) { console.error("[Scheduler] startDigestJobs failed:", e); }
+      try { startFeedPruneScheduler(); } catch (e) { console.error("[Scheduler] startFeedPruneScheduler failed:", e); }
+      try { startFamilyPickupNotificationsJob(); } catch (e) { console.error("[Scheduler] startFamilyPickupNotificationsJob failed:", e); }
       // Task #1712 — daily court booking reminders at 14/7/3 days before lesson.
-      startCourtBookingReminderJob();
+      try { startCourtBookingReminderJob(); } catch (e) { console.error("[Scheduler] startCourtBookingReminderJob failed:", e); }
       // Legacy startAutoSessionCompletionScheduler DISABLED — processAutoCompleteSession now handles
       // both session completion AND attendance+credit processing atomically (every 5 min)
-      startMonthlyReportScheduler();
-      startDailyScheduleNotifier();
-      startCreditExpiryReminderScheduler();
-      startWeeklyAIDigestScheduler();
-      startGlowPlansScheduler();
-      startBirthdayNotificationScheduler();
+      try { startMonthlyReportScheduler(); } catch (e) { console.error("[Scheduler] startMonthlyReportScheduler failed:", e); }
+      try { startDailyScheduleNotifier(); } catch (e) { console.error("[Scheduler] startDailyScheduleNotifier failed:", e); }
+      try { startCreditExpiryReminderScheduler(); } catch (e) { console.error("[Scheduler] startCreditExpiryReminderScheduler failed:", e); }
+      try { startWeeklyAIDigestScheduler(); } catch (e) { console.error("[Scheduler] startWeeklyAIDigestScheduler failed:", e); }
+      try { startGlowPlansScheduler(); } catch (e) { console.error("[Scheduler] startGlowPlansScheduler failed:", e); }
+      try { startBirthdayNotificationScheduler(); } catch (e) { console.error("[Scheduler] startBirthdayNotificationScheduler failed:", e); }
       // Onboarding email scheduler DISABLED - was sending duplicate emails on every server restart
       
       // Task #958 — V1 credit system fully retired. The legacy startup repair
@@ -1606,6 +1628,7 @@ function setupErrorHandler(app: express.Application) {
           err,
         );
       }
-    },
-  );
+  })().catch((err: unknown) => {
+    console.error("[StartupJobs] Unexpected error in background startup:", err);
+  });
 })();
