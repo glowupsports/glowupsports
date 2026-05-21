@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Dimensions,
   Platform,
   Share,
+  ScrollView,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +16,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
@@ -32,8 +34,25 @@ type BookingConfirmedParams = {
     locationName?: string;
     focusArea?: string;
     courtLocation?: string | null;
+    sessionId?: string;
   };
 };
+
+interface SessionCourtInfo {
+  id: string;
+  date: string;
+  time: string;
+  coachName: string;
+  locationName?: string | null;
+  courtLocation?: string | null;
+}
+
+interface CourtBookingStatus {
+  id?: string;
+  status?: "pending" | "confirmed" | "rejected";
+  anyPlayerUploaded?: boolean;
+  uploadedByName?: string | null;
+}
 
 function Particle({ delay, x, color }: { delay: number; x: number; color: string }) {
   const y = useRef(new Animated.Value(0)).current;
@@ -103,8 +122,11 @@ export default function BookingConfirmedScreen() {
     durationMinutes,
     locationName,
     focusArea,
-    courtLocation,
+    courtLocation: courtLocationParam,
+    sessionId,
   } = route.params ?? {};
+
+  const [courtSkipped, setCourtSkipped] = useState(false);
 
   const checkAnim = useRef(new Animated.Value(0)).current;
   const titleAnim = useRef(new Animated.Value(0)).current;
@@ -124,6 +146,21 @@ export default function BookingConfirmedScreen() {
       ]),
     ]).start();
   }, []);
+
+  // Fetch session court info when sessionId is available but courtLocation not in params
+  const { data: sessionCourtInfo } = useQuery<SessionCourtInfo | null>({
+    queryKey: [`/api/player/me/session/${sessionId}/court-booking`],
+    enabled: !!sessionId && !courtLocationParam,
+  });
+
+  // Fetch court booking confirmation status (includes anyPlayerUploaded for group coverage)
+  const { data: courtBookingStatus } = useQuery<CourtBookingStatus | null>({
+    queryKey: [`/api/player/sessions/${sessionId}/court-booking-confirmation`],
+    enabled: !!sessionId,
+  });
+
+  // Resolve courtLocation from params or fetched session info
+  const courtLocation = courtLocationParam ?? sessionCourtInfo?.courtLocation ?? null;
 
   const sessionTypeLabel =
     sessionType === "private"
@@ -147,6 +184,23 @@ export default function BookingConfirmedScreen() {
     } catch { /* non-fatal */ }
   };
 
+  const handleUploadCourt = () => {
+    if (!sessionId) return;
+    navigation.navigate("CourtBookingConfirmation", { sessionId });
+  };
+
+  // Group coverage: another player has already uploaded a booking for this court
+  const isCoveredByOtherPlayer =
+    !!courtBookingStatus?.anyPlayerUploaded && !!courtBookingStatus.uploadedByName;
+  const coveredByName = courtBookingStatus?.uploadedByName ?? null;
+
+  // Current player already has a record (uploaded themselves)
+  const playerAlreadyUploaded =
+    !!courtBookingStatus?.id &&
+    (courtBookingStatus.status === "pending" || courtBookingStatus.status === "confirmed");
+
+  const showCourtCard = !!courtLocation && !!sessionId && !courtSkipped;
+
   return (
     <View style={styles.root}>
       <LinearGradient
@@ -161,7 +215,14 @@ export default function BookingConfirmedScreen() {
         ))}
       </View>
 
-      <View style={[styles.content, { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl }]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Coach photo or check mark hero */}
         <Animated.View style={[styles.checkWrap, { transform: [{ scale: checkAnim }] }]}>
           {coachPhotoUrl ? (
@@ -264,23 +325,67 @@ export default function BookingConfirmedScreen() {
           </Animated.View>
         ) : null}
 
-        {/* Court booking CTA — shown when the series has an external court location */}
-        {courtLocation ? (
-          <Animated.View style={[styles.courtCtaCard, { opacity: cardOpacity }]}>
-            <View style={styles.courtCtaRow}>
-              <Ionicons name="tennisball" size={18} color="#F59E0B" />
-              <Text style={styles.courtCtaTitle}>Book your court</Text>
-            </View>
-            <Text style={styles.courtCtaBody}>
-              {`This session uses ${courtLocation}. Remember to book your court and upload the confirmation in My Bookings.`}
+        {/* Court booking prompt — only when series requires external court booking */}
+        {showCourtCard ? (
+          <Animated.View style={[styles.courtCard, { opacity: cardOpacity }]}>
+            {isCoveredByOtherPlayer ? (
+              /* Group coverage: someone else already booked the court */
+              <>
+                <View style={styles.courtCardHeader}>
+                  <View style={styles.courtCoveredIcon}>
+                    <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+                  </View>
+                  <Text style={styles.courtCardTitleCovered}>Court already booked</Text>
+                </View>
+                <Text style={styles.courtCardBody}>
+                  {`${coveredByName} has uploaded a booking for this court. You're all set.`}
+                </Text>
+              </>
+            ) : playerAlreadyUploaded ? (
+              /* Current player already uploaded */
+              <>
+                <View style={styles.courtCardHeader}>
+                  <View style={styles.courtUploadedIcon}>
+                    <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
+                  </View>
+                  <Text style={styles.courtCardTitle}>Court screenshot submitted</Text>
+                </View>
+                <Text style={styles.courtCardBody}>
+                  Your booking screenshot is pending coach review.
+                </Text>
+              </>
+            ) : (
+              /* Not yet booked — prompt to upload */
+              <>
+                <View style={styles.courtCardHeader}>
+                  <Ionicons name="alert-circle-outline" size={20} color="#F59E0B" />
+                  <Text style={styles.courtCardTitle}>Book your court</Text>
+                </View>
+                <Text style={styles.courtCardVenue}>{courtLocation}</Text>
+                <Text style={styles.courtCardBody}>
+                  {`Book your court via the venue's booking app, then upload your confirmation screenshot here.`}
+                </Text>
+
+                <Pressable style={styles.uploadBtn} onPress={handleUploadCourt}>
+                  <Ionicons name="cloud-upload-outline" size={16} color="#000" />
+                  <Text style={styles.uploadBtnText}>Upload Screenshot</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.skipBtn}
+                  onPress={() => setCourtSkipped(true)}
+                >
+                  <Text style={styles.skipBtnText}>Skip for now</Text>
+                </Pressable>
+              </>
+            )}
+          </Animated.View>
+        ) : courtSkipped && courtLocation ? (
+          <Animated.View style={[styles.skippedNote, { opacity: cardOpacity }]}>
+            <Ionicons name="information-circle-outline" size={15} color={Colors.dark.textMuted} />
+            <Text style={styles.skippedNoteText}>
+              We'll remind you 3 days before the session.
             </Text>
-            <Pressable
-              style={styles.courtCtaBtn}
-              onPress={() => navigation.navigate("MyLessonRequests")}
-            >
-              <Ionicons name="cloud-upload-outline" size={16} color="#F59E0B" />
-              <Text style={styles.courtCtaBtnText}>Upload court confirmation</Text>
-            </Pressable>
           </Animated.View>
         ) : null}
 
@@ -313,7 +418,7 @@ export default function BookingConfirmedScreen() {
             </Pressable>
           </View>
         </Animated.View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -323,12 +428,13 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  content: {
     alignItems: "center",
     paddingHorizontal: Spacing.xl,
     gap: Spacing.lg,
-    justifyContent: "center",
   },
   particle: {
     position: "absolute",
@@ -438,6 +544,89 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     lineHeight: 20,
     fontStyle: "italic",
   },
+  // Court booking card
+  courtCard: {
+    width: "100%",
+    backgroundColor: "#F59E0B10",
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: "#F59E0B40",
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  courtCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  courtCardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#F59E0B",
+  },
+  courtCardTitleCovered: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#22C55E",
+  },
+  courtCoveredIcon: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  courtUploadedIcon: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  courtCardVenue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  courtCardBody: {
+    fontSize: 13,
+    color: Colors.dark.textSecondary || Colors.dark.textMuted,
+    lineHeight: 18,
+  },
+  uploadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    backgroundColor: "#F59E0B",
+    borderRadius: BorderRadius.md,
+    paddingVertical: 12,
+    marginTop: 2,
+  },
+  uploadBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#000",
+  },
+  skipBtn: {
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  skipBtnText: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
+    textDecorationLine: "underline",
+  },
+  skippedNote: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: "center",
+  },
+  skippedNoteText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
+  },
   actions: {
     width: "100%",
     gap: Spacing.sm,
@@ -479,46 +668,5 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.dark.border || Colors.dark.primary + "30",
-  },
-  courtCtaCard: {
-    width: "100%",
-    backgroundColor: "#F59E0B10",
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: "#F59E0B40",
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  courtCtaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  courtCtaTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#F59E0B",
-  },
-  courtCtaBody: {
-    fontSize: 13,
-    color: Colors.dark.textSecondary,
-    lineHeight: 18,
-  },
-  courtCtaBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    backgroundColor: "#F59E0B20",
-    borderRadius: BorderRadius.md,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "#F59E0B50",
-    marginTop: 2,
-  },
-  courtCtaBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#F59E0B",
   },
 }));

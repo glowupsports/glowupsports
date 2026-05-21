@@ -197,8 +197,13 @@ export type PlayerV2StackParamList = {
     dateStr: string;
     timeStr: string;
     coachName?: string;
+    coachPhotoUrl?: string;
     coachWelcomeMessage?: string;
     durationMinutes?: number;
+    locationName?: string;
+    focusArea?: string;
+    courtLocation?: string | null;
+    sessionId?: string;
   };
   BookingPreferences: undefined;
   BookingInvites: undefined;

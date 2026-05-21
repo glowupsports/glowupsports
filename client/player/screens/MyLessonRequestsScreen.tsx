@@ -42,6 +42,7 @@ interface BookingRequest {
   counterProposalStatus?: string | null;
   expiresAt?: string | null;
   createdAt: string;
+  sessionId?: string | null;
 }
 
 const DECLINE_REASON_LABELS: Record<string, string> = {
@@ -107,6 +108,7 @@ function ApprovedCard({ item }: { item: BookingRequest }) {
       coachWelcomeMessage: item.coachWelcomeMessage ?? undefined,
       durationMinutes: item.duration,
       locationName: item.locationName ?? undefined,
+      sessionId: item.sessionId ?? undefined,
     });
   };
 
@@ -270,6 +272,7 @@ function CounterProposalCard({
           coachWelcomeMessage: item.coachWelcomeMessage,
           durationMinutes: item.duration,
           locationName: item.locationName ?? undefined,
+          sessionId: item.sessionId ?? undefined,
         });
       }
       onAccepted();

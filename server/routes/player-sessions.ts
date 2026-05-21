@@ -9671,6 +9671,7 @@ router.get(
 
 // GET /api/player/sessions/:sessionId/court-booking-confirmation
 // Returns the player's current confirmation record for this session (or null).
+// Also returns anyPlayerUploaded + uploadedByName for group coverage logic.
 router.get(
   "/api/player/sessions/:sessionId/court-booking-confirmation",
   authMiddleware,
@@ -9681,7 +9682,7 @@ router.get(
       const playerId = req.user!.playerId;
       if (!playerId) return res.status(403).json({ error: "Player account required" });
 
-      const { courtBookingConfirmations } = await import("@shared/schema");
+      const { courtBookingConfirmations, players } = await import("@shared/schema");
       const { getSignedUrl } = await import("../objectStorage");
 
       const [conf] = await db
@@ -9695,14 +9696,33 @@ router.get(
         )
         .limit(1);
 
-      if (!conf) return res.json(null);
+      // Check if any OTHER player in this session has already uploaded
+      const otherUploads = await db
+        .select({
+          playerName: players.name,
+        })
+        .from(courtBookingConfirmations)
+        .innerJoin(players, eq(courtBookingConfirmations.playerId, players.id))
+        .where(
+          and(
+            eq(courtBookingConfirmations.sessionId, sessionId),
+            ne(courtBookingConfirmations.playerId, playerId),
+            inArray(courtBookingConfirmations.status, ["pending", "confirmed"])
+          )
+        )
+        .limit(1);
+
+      const anyPlayerUploaded = otherUploads.length > 0;
+      const uploadedByName = otherUploads[0]?.playerName ?? undefined;
+
+      if (!conf) return res.json({ anyPlayerUploaded, uploadedByName: uploadedByName ?? null });
 
       let screenshotUrl: string | null = conf.screenshotUrl ?? null;
       if (conf.screenshotKey && !screenshotUrl) {
         screenshotUrl = await getSignedUrl(conf.screenshotKey);
       }
 
-      return res.json({ ...conf, screenshotUrl });
+      return res.json({ ...conf, screenshotUrl, anyPlayerUploaded, uploadedByName: uploadedByName ?? null });
     } catch (err) {
       console.error("[court-booking] GET confirmation failed:", err);
       return res.status(500).json({ error: "Failed to fetch confirmation" });
