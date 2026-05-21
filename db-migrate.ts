@@ -953,8 +953,11 @@ async function run() {
     //   Safa Club 1             (61dfd4fa) → Safa tennis club       (d0193c3e)
     //   Ambassador Intl Academy (f8e73856) → ambassender school al qouz (211cdfc0)
     //
-    // NOTE: the two "ambassender" locations are intentionally left active — the
-    // academy owner will remove one manually once they are ready.
+    // NOTE: "ambassender school al qouz" (211cdfc0) is the PARENT venue and is
+    // intentionally left active — the academy owner will deactivate it manually
+    // when they decide to remove it.  "Ambassador International Academy" (f8e73856)
+    // is the ORPHANED child sub-location whose court has been moved to the parent
+    // above; it IS deactivated by this migration (see IN list below).
     //
     // To safely remove a location in the future:
     //   1. Reassign all sessions/series pointing to it to a replacement location.

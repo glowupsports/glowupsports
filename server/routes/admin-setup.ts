@@ -234,8 +234,11 @@ import { Router, type Request, type Response } from "express";
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId;
+        // Task #2004: pass includeInactive so admin can see and reactivate
+        // deactivated locations (e.g., the orphaned sub-locations cleaned up in the fix).
         const allLocations = await storage.getAllLocations(
           academyId ?? undefined,
+          { includeInactive: true },
         );
         res.json(allLocations);
       } catch (error) {
