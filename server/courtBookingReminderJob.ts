@@ -23,11 +23,13 @@ import {
   playerNotifications,
   courtBookingConfirmations,
   lessonGroupMembers,
+  sessionPlayers,
 } from "@shared/schema";
-import { eq, and, gte, lte, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, gte, lte, isNotNull, inArray, sql } from "drizzle-orm";
 import {
   sendPushNotification,
   getPlayerPushTokens,
+  sendCoachNotification,
 } from "./pushNotifications";
 
 const TICK_INTERVAL_MS = 60 * 60 * 1000; // hourly
@@ -214,16 +216,12 @@ async function processSeriesReminders(series: SeriesRow): Promise<number> {
   return sent;
 }
 
-/**
- * Task #1990 — 24 h "nobody uploaded" last-chance pass.
- *
- * Runs on every hourly tick (not time-of-day gated).
- * Finds sessions whose courtLocation is set and that start 23–25 h from now.
- * If ZERO players have any courtBookingConfirmation row for that session,
- * sends one push per enrolled player (idempotent via reminderKey
- * `court_booking_24h_noshow:{sessionId}:{playerId}`).
- */
-async function processNoUploadReminders(): Promise<number> {
+// Pass 2: 24h last-chance — fires every hour; no 08:00 gate.
+// If a session starts in 23-25h AND has courtLocation set AND zero players have
+// a pending/confirmed court booking, pushes all enrolled session players + coach.
+// Idempotent per session: sentinel row written to playerNotifications AFTER the
+// full fanout completes, preventing any re-fire even when enrolled count is zero.
+async function processNobodyUploadedReminders(): Promise<number> {
   let sent = 0;
   const now = new Date();
   const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
@@ -235,8 +233,8 @@ async function processNoUploadReminders(): Promise<number> {
       sessionId: sessions.id,
       seriesId: sessions.seriesId,
       startTime: sessions.startTime,
+      coachId: sessions.coachId,
       courtLocation: coachingSeries.courtLocation,
-      seriesTitle: coachingSeries.title,
       courtReminderGroupIds: coachingSeries.courtReminderGroupIds,
     })
     .from(sessions)
@@ -253,29 +251,53 @@ async function processNoUploadReminders(): Promise<number> {
   for (const session of upcomingSessions) {
     if (!session.courtLocation) continue;
 
-    // Check if anyone has uploaded for this session
-    const [anyUpload] = await db
-      .select({ id: courtBookingConfirmations.id })
+    // Skip if at least one player has already uploaded (pending or confirmed)
+    const [uploadCount] = await db
+      .select({ cnt: sql<number>`COUNT(*)::int` })
       .from(courtBookingConfirmations)
-      .where(eq(courtBookingConfirmations.sessionId, session.sessionId))
-      .limit(1);
-
-    if (anyUpload) continue; // someone already uploaded — skip
-
-    // Get enrolled players
-    const enrolled = await db
-      .select({ playerId: seriesPlayers.playerId })
-      .from(seriesPlayers)
       .where(
         and(
-          eq(seriesPlayers.seriesId, session.seriesId!),
-          eq(seriesPlayers.status, "active")
+          eq(courtBookingConfirmations.sessionId, session.sessionId),
+          inArray(courtBookingConfirmations.status, ["pending", "confirmed"])
         )
       );
+    if ((uploadCount?.cnt ?? 0) > 0) continue;
 
-    // Apply group filter if configured
+    // Idempotency: look for the sentinel row written at the end of a completed
+    // fanout.  Checking sentinel:true means a partial failure on a previous tick
+    // does NOT block the next tick from retrying for that session.
+    const sessionReminderKey = `court_booking_24h_noshow:${session.sessionId}`;
+    const [sentinel] = await db
+      .select({ id: playerNotifications.id })
+      .from(playerNotifications)
+      .where(
+        sql`${playerNotifications.data}->>'reminderKey' = ${sessionReminderKey}
+            AND (${playerNotifications.data}->>'sentinel')::boolean = true`
+      )
+      .limit(1);
+    if (sentinel) continue;
+
+    // Build a human-readable time label for the coach message
+    const sessionTimeLabel = session.startTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    // Get players enrolled in this specific session (session_players rows).
+    // session_players has no status column — a row existing means the player
+    // is enrolled for that session.
+    const spRows = await db
+      .select({ playerId: sessionPlayers.playerId })
+      .from(sessionPlayers)
+      .where(eq(sessionPlayers.sessionId, session.sessionId));
+
+    let targetPlayerIds = spRows
+      .map((r) => r.playerId)
+      .filter((id): id is string => id !== null);
+
+    // Apply group filter if configured on the series
     const groupFilter = session.courtReminderGroupIds;
-    let targetPlayers = enrolled;
     if (groupFilter && groupFilter.length > 0) {
       const members = await db
         .select({ playerId: lessonGroupMembers.playerId })
@@ -287,24 +309,24 @@ async function processNoUploadReminders(): Promise<number> {
           )
         );
       const allowedIds = new Set(members.map((m) => m.playerId));
-      targetPlayers = enrolled.filter((e) => allowedIds.has(e.playerId));
+      targetPlayerIds = targetPlayerIds.filter((id) => allowedIds.has(id));
     }
 
-    const title = "Court Booking — Last Chance";
-    const body = `Nobody has confirmed the court at ${session.courtLocation} yet. Your session starts in ~24 h — please upload your booking screenshot now.`;
+    const playerTitle = "Court Booking — Last Chance";
+    const playerBody = `Nobody has confirmed the court at ${session.courtLocation} yet. Your session starts in ~24 h — please upload your booking screenshot now.`;
 
-    for (const { playerId } of targetPlayers) {
+    for (const playerId of targetPlayerIds) {
       const reminderKey = `court_booking_24h_noshow:${session.sessionId}:${playerId}`;
 
-      // Idempotency — reuse the same getSentReminderKeys helper used by the regular pass
+      // Per-player idempotency via existing getSentReminderKeys helper
       const sentKeys = await getSentReminderKeys(playerId);
-      if (sentKeys.has(reminderKey)) continue;
+      if (sentKeys.has(reminderKey)) { sent++; continue; }
 
       await db.insert(playerNotifications).values({
         playerId,
         type: "court_booking_reminder",
-        title,
-        body,
+        title: playerTitle,
+        body: playerBody,
         data: {
           type: "court_booking_reminder",
           reminderKey,
@@ -317,15 +339,45 @@ async function processNoUploadReminders(): Promise<number> {
 
       const tokens = await getPlayerPushTokens(playerId);
       if (tokens.length > 0) {
-        await sendPushNotification(tokens, title, body, {
+        await sendPushNotification(tokens, playerTitle, playerBody, {
           type: "court_booking_reminder",
           screen: "CourtBookingConfirmation",
           sessionId: session.sessionId,
         });
       }
-
       sent++;
     }
+
+    // Notify the coach
+    if (session.coachId) {
+      const coachTitle = "No court booking uploaded";
+      const coachBody = `None of your players have uploaded a court booking for tomorrow's ${sessionTimeLabel} session at ${session.courtLocation}.`;
+      await sendCoachNotification(session.coachId, coachTitle, coachBody, {
+        type: "court_booking_reminder",
+        screen: "CourtBookingConfirmation",
+        sessionId: session.sessionId,
+      });
+    }
+
+    // Sentinel inserted AFTER full fanout — guards against re-running the coach
+    // push on subsequent ticks even when there are zero enrolled players.
+    await db.insert(playerNotifications).values({
+      playerId: "00000000-0000-0000-0000-000000000000",
+      type: "court_booking_reminder",
+      title: "sentinel",
+      body: "sentinel",
+      data: {
+        type: "court_booking_reminder",
+        reminderKey: sessionReminderKey,
+        sessionId: session.sessionId,
+        sentinel: true,
+      },
+    });
+
+
+    console.log(
+      `[CourtBookingReminder] 24h no-upload push sent for session ${session.sessionId} — ${targetPlayerIds.length} player(s) notified`
+    );
   }
 
   return sent;
@@ -389,7 +441,7 @@ export async function processCourtBookingReminders(): Promise<{
 
   // 24h no-upload pass — runs every tick, not time-gated
   try {
-    const noUploadSent = await processNoUploadReminders();
+    const noUploadSent = await processNobodyUploadedReminders();
     if (noUploadSent > 0) {
       console.log(`[CourtBookingReminder] 24h no-upload pass: sent=${noUploadSent}`);
       sent += noUploadSent;
