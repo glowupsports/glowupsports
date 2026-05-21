@@ -11153,19 +11153,50 @@ export const storage = {
             return false;
           });
 
-          // Check court-level conflict via courtAvailability (blocked/booked by ANY coach)
-          const hasCourtBlock = availability.courtId ? courtBlocks.some(block =>
-            block.courtId === availability.courtId &&
-            block.date === dateStr &&
-            block.startTime < slotEndTime && block.endTime > slotStartTime
-          ) : false;
+          // Check court-level conflict via courtAvailability (blocked/booked by ANY coach).
+          // When the availability record is court-agnostic (courtId = null) but the player
+          // filtered to a specific location, fall back to a location-level check so that
+          // manually-blocked courts at that location still prevent slot generation.
+          const hasCourtBlock = (() => {
+            if (availability.courtId) {
+              return courtBlocks.some(block =>
+                block.courtId === availability.courtId &&
+                block.date === dateStr &&
+                block.startTime < slotEndTime && block.endTime > slotStartTime
+              );
+            }
+            if (slotLocationId) {
+              return courtBlocks.some(block =>
+                block.date === dateStr &&
+                block.startTime < slotEndTime && block.endTime > slotStartTime &&
+                (courtLocationMap.get(block.courtId) ?? null) === slotLocationId
+              );
+            }
+            return false;
+          })();
 
-          // Check court-level conflict via sessions with courts (cross-coach)
-          const hasCourtSessionConflict = availability.courtId ? sessionCourtConflicts.some(session =>
-            session.courtId === availability.courtId &&
-            session.startTime && session.endTime &&
-            slotStart < session.endTime && slotEnd > session.startTime
-          ) : false;
+          // Check court-level conflict via sessions with courts (cross-coach).
+          // Same fallback: when availability is court-agnostic, check any session whose
+          // court belongs to the player's target location so that e.g. Dean's 5–7 PM
+          // group class at Maple blocks Dewi's slots at Maple in the booking wizard.
+          const hasCourtSessionConflict = (() => {
+            if (availability.courtId) {
+              return sessionCourtConflicts.some(session =>
+                session.courtId === availability.courtId &&
+                session.startTime && session.endTime &&
+                slotStart < session.endTime && slotEnd > session.startTime
+              );
+            }
+            if (slotLocationId) {
+              return sessionCourtConflicts.some(session => {
+                if (!session.courtId || !session.startTime || !session.endTime) return false;
+                const sessionLocId = courtLocationMap.get(session.courtId) ?? null;
+                return sessionLocId === slotLocationId &&
+                  slotStart < session.endTime && slotEnd > session.startTime;
+              });
+            }
+            return false;
+          })();
 
           // Check if another player has temporarily reserved this exact coach+slot
           const hasReservationConflict = activeReservations.some(res =>
