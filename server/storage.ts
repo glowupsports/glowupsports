@@ -10849,6 +10849,12 @@ export const storage = {
     // IMPORTANT: Drizzle's node-postgres adapter overrides pg type parsers so that
     // TIMESTAMP/TIMESTAMPTZ columns are returned as raw strings, NOT Date objects.
     // We must explicitly wrap them in new Date() so that JS comparisons work correctly.
+    // PostgreSQL returns timestamptz as "2026-05-21 13:00:00+00" (space, no colon in offset).
+    // new Date() in V8 requires ISO 8601 "T" separator and "+HH:MM" offset to parse reliably.
+    // Normalise before constructing Date objects so conflict comparisons are never NaN.
+    const normalizeDbTimestamp = (ts: string): Date =>
+      new Date(ts.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00'));
+
     const existingSessions = (sessionResult.rows as {
       id: string;
       coachId: string;
@@ -10859,8 +10865,8 @@ export const storage = {
       endTime: string;
     }[]).map(row => ({
       ...row,
-      startTime: new Date(row.startTime),
-      endTime: new Date(row.endTime),
+      startTime: normalizeDbTimestamp(row.startTime),
+      endTime: normalizeDbTimestamp(row.endTime),
     }));
 
     // booking_requests.requested_start / requested_end are also UTC (sent by the
@@ -10910,8 +10916,8 @@ export const storage = {
       requestedEnd: string;
     }[]).map(row => ({
       ...row,
-      requestedStart: new Date(row.requestedStart),
-      requestedEnd: new Date(row.requestedEnd),
+      requestedStart: normalizeDbTimestamp(row.requestedStart),
+      requestedEnd: normalizeDbTimestamp(row.requestedEnd),
     }));
 
     // Fetch travel times between locations for the academy, scoped per-coach.
@@ -10984,9 +10990,33 @@ export const storage = {
       endTime: string;
     }[]).map(row => ({
       coachId: row.coachId,
-      startTime: new Date(row.startTime),
-      endTime: new Date(row.endTime),
+      startTime: normalizeDbTimestamp(row.startTime),
+      endTime: normalizeDbTimestamp(row.endTime),
     }));
+
+    // Fetch coach_time_blocks for the date range — these are denormalised UTC-minute
+    // records created when any session is scheduled (series or one-off). They are the
+    // authoritative source for "coach already committed at this time" and catch cases
+    // where the sessions-table conflict check could silently fail (e.g. timestamp
+    // string format issues). Uses integer UTC-minute arithmetic, completely immune to
+    // any Date-parsing ambiguity.
+    const timeBlocksResult = await db.execute(sql`
+      SELECT coach_id AS "coachId",
+             date::text AS "date",
+             start_utc_minutes AS "startUtcMinutes",
+             end_utc_minutes AS "endUtcMinutes"
+      FROM coach_time_blocks
+      WHERE date >= ${startDateStr}::date
+        AND date <= ${endDateStr}::date
+        AND status != 'cancelled'
+    `);
+    // Index by "coachId:YYYY-MM-DD" for O(1) lookup inside the hot slot loop
+    const timeBlocksByCoachDate = new Map<string, { startUtcMinutes: number; endUtcMinutes: number }[]>();
+    for (const block of (timeBlocksResult.rows as { coachId: string; date: string; startUtcMinutes: number; endUtcMinutes: number }[])) {
+      const key = `${block.coachId}:${block.date}`;
+      if (!timeBlocksByCoachDate.has(key)) timeBlocksByCoachDate.set(key, []);
+      timeBlocksByCoachDate.get(key)!.push({ startUtcMinutes: Number(block.startUtcMinutes), endUtcMinutes: Number(block.endUtcMinutes) });
+    }
 
     const availableSlots: {
       coachId: string;
@@ -11126,8 +11156,18 @@ export const storage = {
             res.coachId === availability.coachId &&
             slotStart < res.endTime && slotEnd > res.startTime
           );
-          
-          if (!hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict && !hasReservationConflict) {
+
+          // Belt-and-suspenders: check coach_time_blocks using integer UTC-minute arithmetic.
+          // These denormalised records are written when any session is created and are
+          // unaffected by Date-parsing differences. Catches any case where the sessions
+          // Date comparison above silently fails (e.g. unusual PostgreSQL timestamp formats).
+          const slotStartUtcMins = slotStart.getUTCHours() * 60 + slotStart.getUTCMinutes();
+          const slotEndUtcMins = slotEnd.getUTCHours() * 60 + slotEnd.getUTCMinutes();
+          const hasTimeBlockConflict = (timeBlocksByCoachDate.get(`${availability.coachId}:${dateStr}`) ?? []).some(
+            block => slotStartUtcMins < block.endUtcMinutes && slotEndUtcMins > block.startUtcMinutes
+          );
+
+          if (!hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict && !hasReservationConflict && !hasTimeBlockConflict) {
             availableSlots.push({
               coachId: availability.coachId,
               locationId: availability.locationId,
