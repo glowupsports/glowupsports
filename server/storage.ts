@@ -11017,7 +11017,6 @@ export const storage = {
       if (!timeBlocksByCoachDate.has(key)) timeBlocksByCoachDate.set(key, []);
       timeBlocksByCoachDate.get(key)!.push({ startUtcMinutes: Number(block.startUtcMinutes), endUtcMinutes: Number(block.endUtcMinutes) });
     }
-    console.log("[AvailDebug] timeBlocks rows:", timeBlocksResult.rows.length, "keys:", Array.from(timeBlocksByCoachDate.keys()));
 
     const availableSlots: {
       coachId: string;
@@ -11166,9 +11165,6 @@ export const storage = {
           const slotEndUtcMins = slotEnd.getUTCHours() * 60 + slotEnd.getUTCMinutes();
           const tbKey = `${availability.coachId}:${dateStr}`;
           const tbBlocks = timeBlocksByCoachDate.get(tbKey) ?? [];
-          if (tbBlocks.length > 0 || slotStartUtcMins >= 770) {
-            console.log(`[AvailDebug] slot ${slotStartUtcMins}-${slotEndUtcMins} coach=${availability.coachId} key=${tbKey} blocks=${JSON.stringify(tbBlocks)}`);
-          }
           const hasTimeBlockConflict = tbBlocks.some(
             block => slotStartUtcMins < block.endUtcMinutes && slotEndUtcMins > block.startUtcMinutes
           );
