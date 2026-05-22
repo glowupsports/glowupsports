@@ -3384,6 +3384,21 @@ export type DiagnosticReport = typeof diagnosticReports.$inferSelect;
 
 // ==================== PLAYER BOOKING SYSTEM ====================
 
+// Task #2026 — Batch record that groups N booking_requests submitted together
+// for a "repeat X weeks" lesson. One batch = one coach home card.
+export const bookingRequestBatches = pgTable("booking_request_batches", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  coachId: varchar("coach_id").references(() => coaches.id),
+  playerId: varchar("player_id").notNull(),
+  academyId: varchar("academy_id").references(() => academies.id),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type BookingRequestBatch = typeof bookingRequestBatches.$inferSelect;
+
 // Booking Requests - Player lesson requests (pending approval)
 export const bookingRequests = pgTable("booking_requests", {
   id: varchar("id")
@@ -3445,11 +3460,13 @@ export const bookingRequests = pgTable("booking_requests", {
   // confirmed payments row is recorded as the money-side audit trail).
   paymentIntent: text("payment_intent"), // 'credits' | 'pay_later' | 'paid' | null
 
-  // Task #2026 — Groups all N booking_requests created from a single
-  // "repeat for X weeks" submission under one shared UUID. Null for
-  // single-week bookings. Used by the coach home to show N requests as
-  // one grouped card instead of N separate cards.
-  batchId: varchar("batch_id"),
+  // Task #2026 — FK to booking_request_batches. Set for all requests in a
+  // multi-week repeat submission. Null for single-week bookings.
+  batchId: varchar("batch_id").references(() => bookingRequestBatches.id),
+
+  // Task #2026 — Per-week player availability: null = not responded yet,
+  // true = player confirmed available, false = player marked unavailable.
+  playerConfirmed: boolean("player_confirmed"),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

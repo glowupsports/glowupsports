@@ -106,6 +106,7 @@ import MarketplaceListingDetailScreen from "@/player/screens/MarketplaceListingD
 import MyListingsScreen from "@/player/screens/MyListingsScreen";
 import BookingPreferencesScreen from "@/player/screens/BookingPreferencesScreen";
 import BookingInvitesScreen from "@/player/screens/BookingInvitesScreen";
+import PlayerBatchBookingResponseScreen from "@/player/screens/PlayerBatchBookingResponseScreen";
 import CorporateBenefitsScreen from "@/player/screens/CorporateBenefitsScreen";
 import CompanyContactDashboardScreen from "@/player/screens/CompanyContactDashboardScreen";
 import FindGameScreen from "@/player/screens/FindGameScreen";
@@ -207,6 +208,7 @@ export type PlayerV2StackParamList = {
   };
   BookingPreferences: undefined;
   BookingInvites: undefined;
+  BatchBookingResponse: { batchId: string };
   ManageMatch: { matchId: string };
   // Shop / Marketplace
   Shop: undefined;
@@ -688,6 +690,7 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} options={{ presentation: "modal", headerShown: false, animation: "slide_from_bottom" }} />
         <Stack.Screen name="BookingPreferences" component={BookingPreferencesScreen} options={{ presentation: "card", headerShown: true, headerTitle: t("player.booking.preferences"), headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "700" } }} />
         <Stack.Screen name="BookingInvites" component={BookingInvitesScreen} options={{ presentation: "card", headerShown: true, headerTitle: t("player.booking.invites"), headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="BatchBookingResponse" component={PlayerBatchBookingResponseScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Weekly Availability", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" }, headerBackTitle: "Back" }} />
         <Stack.Screen name="ManageMatch" component={ManageMatchScreen} options={{ headerShown: true, headerTitle: t("player.booking.manageMatch"), headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" }, headerBackVisible: true, presentation: "card" }} />
 
         {/* ── Shop / Marketplace ── */}

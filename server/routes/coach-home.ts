@@ -424,6 +424,7 @@ async function fetchPendingBookingRequests(
         lessonsWithCoach: pastSessionCounts[req.playerId] ?? 0,
         playerXp: xpMap.get(req.playerId) ?? 0,
         batchId: req.batchId || null,
+        playerConfirmed: req.playerConfirmed ?? null,
       };
     });
   } catch (err) {

@@ -1156,6 +1156,8 @@ interface PendingBookingRequest {
   paymentIntent?: "credits" | "pay_later" | "paid" | null;
   // Task #2026 — groups repeat bookings submitted together under one card
   batchId?: string | null;
+  // Task #2026 — per-week player availability: null=not responded, true=confirmed, false=declined
+  playerConfirmed?: boolean | null;
 }
 
 function BookingRequestCard({
@@ -1728,22 +1730,43 @@ function BatchBookingRequestCard({
         </View>
       </View>
 
-      {/* Date list */}
+      {/* Date list with per-week player availability status */}
       <View style={bBatchStyles.dateList}>
-        {sortedReqs.map((req, i) => (
-          <View key={req.id} style={bBatchStyles.dateRow}>
-            <View style={bBatchStyles.dateDot}>
-              <Text style={bBatchStyles.dateDotText}>{i + 1}</Text>
+        {sortedReqs.map((req, i) => {
+          const pc = req.playerConfirmed;
+          return (
+            <View key={req.id} style={bBatchStyles.dateRow}>
+              <View style={bBatchStyles.dateDot}>
+                <Text style={bBatchStyles.dateDotText}>{i + 1}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={bBatchStyles.dateText}>
+                  {formatDateInTimezone(req.requestedStart, tz)}
+                  {"  ·  "}
+                  <Text style={bBatchStyles.timeText}>
+                    {formatTimeInTimezone(req.requestedStart, tz)} – {formatTimeInTimezone(req.requestedEnd, tz)}
+                  </Text>
+                </Text>
+              </View>
+              {pc === true ? (
+                <View style={bBatchStyles.availBadge}>
+                  <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
+                  <Text style={[bBatchStyles.availText, { color: Colors.dark.primary }]}>Available</Text>
+                </View>
+              ) : pc === false ? (
+                <View style={bBatchStyles.unavailBadge}>
+                  <Ionicons name="close-circle" size={14} color="#EF4444" />
+                  <Text style={[bBatchStyles.availText, { color: "#EF4444" }]}>No</Text>
+                </View>
+              ) : (
+                <View style={bBatchStyles.pendingBadge}>
+                  <Ionicons name="time-outline" size={13} color={Colors.dark.textMuted} />
+                  <Text style={[bBatchStyles.availText, { color: Colors.dark.textMuted }]}>Pending</Text>
+                </View>
+              )}
             </View>
-            <Text style={bBatchStyles.dateText}>
-              {formatDateInTimezone(req.requestedStart, tz)}
-              {"  ·  "}
-              <Text style={bBatchStyles.timeText}>
-                {formatTimeInTimezone(req.requestedStart, tz)} – {formatTimeInTimezone(req.requestedEnd, tz)}
-              </Text>
-            </Text>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       {/* Player note */}
@@ -1753,20 +1776,54 @@ function BatchBookingRequestCard({
 
       {/* Actions */}
       <View style={bBatchStyles.actions}>
-        <Pressable
-          style={[bStyles.approveBtn, loadingApprove && { opacity: 0.6 }]}
-          onPress={handleApproveAll}
-          disabled={loadingApprove || loadingDecline}
-        >
-          {loadingApprove ? (
-            <TennisBallSpinner size="small" color="#000" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle" size={14} color="#000" />
-              <Text style={bStyles.approveBtnText}>Approve All</Text>
-            </>
-          )}
-        </Pressable>
+        {/* "Approve confirmed weeks" — only weeks where playerConfirmed===true */}
+        {sortedReqs.some((r) => r.playerConfirmed === true) ? (
+          <Pressable
+            style={[bStyles.approveBtn, { flex: 1 }, loadingApprove && { opacity: 0.6 }]}
+            onPress={async () => {
+              setLoadingApprove(true);
+              try {
+                const confirmedReqs = sortedReqs.filter((r) => r.playerConfirmed === true);
+                await Promise.all(confirmedReqs.map((req) =>
+                  apiRequest("POST", `/api/coach/booking-requests/${req.id}/approve`, {})
+                ));
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                onApproved(confirmedReqs.map((r) => r.id));
+              } catch {
+                RNAlert.alert("Error", "Failed to approve confirmed weeks.");
+              } finally {
+                setLoadingApprove(false);
+              }
+            }}
+            disabled={loadingApprove || loadingDecline}
+          >
+            {loadingApprove ? (
+              <TennisBallSpinner size="small" color="#000" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={14} color="#000" />
+                <Text style={bStyles.approveBtnText}>
+                  Approve {sortedReqs.filter((r) => r.playerConfirmed === true).length} confirmed
+                </Text>
+              </>
+            )}
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[bStyles.approveBtn, { flex: 1 }, loadingApprove && { opacity: 0.6 }]}
+            onPress={handleApproveAll}
+            disabled={loadingApprove || loadingDecline}
+          >
+            {loadingApprove ? (
+              <TennisBallSpinner size="small" color="#000" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={14} color="#000" />
+                <Text style={bStyles.approveBtnText}>Approve All</Text>
+              </>
+            )}
+          </Pressable>
+        )}
         <Pressable
           style={[bStyles.declineBtn, loadingDecline && { opacity: 0.6 }]}
           onPress={handleDeclineAll}
@@ -1855,6 +1912,37 @@ const bBatchStyles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
+  },
+  availBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.primary + "18",
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  unavailBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#EF4444" + "18",
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  pendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: Colors.dark.cardAlt,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  availText: {
+    fontSize: 10,
+    fontWeight: "600",
   },
 });
 

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db, pool } from "../db";
-import { storage } from "../storage";import { players, coaches, users, sessions, coachingSeries, seriesPlayers, creditTransactions, payments, sessionPlayers, sessionWaitlist, leaderboardSnapshots, locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions, coachTimeBlocks, courtAvailability, courtBookings, courts, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, bookingRequests, academyPricing, submitReviewSchema, inSessionFeedback, sessionSkillObservations, xpTransactions, playerSkillScores, glowSkills, sessionRatings, sessionRatingInputSchema, academies, coachReviewStats, locations, parentPlayerRelations, academySettings, conversations, conversationParticipants, messages, type Coach, type InsertInvoice, type InsertPayment } from "@shared/schema";
+import { storage } from "../storage";import { players, coaches, users, sessions, coachingSeries, seriesPlayers, creditTransactions, payments, sessionPlayers, sessionWaitlist, leaderboardSnapshots, locationTravelTimes, coachSettings, coachAvailability, availabilityExceptions, coachTimeBlocks, courtAvailability, courtBookings, courts, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, bookingRequests, bookingRequestBatches, academyPricing, submitReviewSchema, inSessionFeedback, sessionSkillObservations, xpTransactions, playerSkillScores, glowSkills, sessionRatings, sessionRatingInputSchema, academies, coachReviewStats, locations, parentPlayerRelations, academySettings, conversations, conversationParticipants, messages, type Coach, type InsertInvoice, type InsertPayment } from "@shared/schema";
 import { eq, sql, desc, and, ne, gte, asc, inArray, lte, or, count, isNull, isNotNull, not } from "drizzle-orm";
 import { HIDDEN_PLAYER_IDS } from "../config/hiddenPlayers";
 import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, optionalAuthMiddleware, type JWTPayload } from "../auth";
@@ -1085,10 +1085,40 @@ router.post(
         }
       }
 
-      // Notify coach (in-app + push). The in-app row is ALWAYS written so the
-      // coach sees the request even if push delivery fails (no tokens, stale
-      // tokens, transport error, etc.). Push is best-effort and logged.
-      if (coachId) {
+      // Task #2026 — Compute effectiveRepeat early so we can decide the
+      // notification strategy before sending anything.
+      const effectiveRepeat =
+        !isJoinRequest &&
+        (sessionType === "private" || sessionType === "semi_private")
+          ? Math.min(Math.max(repeatWeeks ?? 1, 1), 52)
+          : 1;
+
+      // Task #2026 — For multi-week batches: create the batch record first,
+      // then stamp the primary request and all repeat requests with its ID.
+      // This must happen before notifications so the batchId is ready.
+      let batchId: string | null = null;
+      if (effectiveRepeat > 1) {
+        try {
+          const [batchRow] = await db.insert(bookingRequestBatches).values({
+            coachId: coachId || null,
+            playerId,
+            academyId: bookingAcademyId,
+          }).returning();
+          batchId = batchRow.id;
+          await db.update(bookingRequests).set({ batchId }).where(eq(bookingRequests.id, request.id));
+          request = { ...request, batchId };
+        } catch (batchErr) {
+          console.error("[Booking] Failed to create batch record:", batchErr);
+          // Fall back to UUID-only batch (no FK) so the rest still works
+          batchId = crypto.randomUUID();
+        }
+      }
+
+      // Notify coach (in-app + push).
+      // For single-week requests: send one notification per request (existing behaviour).
+      // For multi-week batches: skip here — one consolidated notification is sent
+      // after all repeat rows are inserted (see below).
+      if (coachId && effectiveRepeat <= 1) {
         const sessionTypeLabel =
           sessionType === "private"
             ? "Private Lesson"
@@ -1139,11 +1169,7 @@ router.post(
           console.log(
             `[Booking] coach ${coachId} push notify for request ${request.id}: ${coachTokens.length} active token(s) (isJoinRequest=${!!isJoinRequest})`,
           );
-          if (coachTokens.length === 0) {
-            console.warn(
-              `[Booking] coach ${coachId} has 0 active push tokens — request ${request.id} will only show in-app`,
-            );
-          } else {
+          if (coachTokens.length > 0) {
             const tickets = await sendPushNotification(
               coachTokens,
               notifTitle,
@@ -1174,29 +1200,8 @@ router.post(
         }
       }
 
-      // Task #2000 — Recurring bookings: create additional weekly copies.
-      // Only for private / semi-private non-join requests. Best-effort — the
-      // primary request was already committed so we don't roll back on failure.
-      const effectiveRepeat =
-        !isJoinRequest &&
-        (sessionType === "private" || sessionType === "semi_private")
-          ? Math.min(Math.max(repeatWeeks ?? 1, 1), 52)
-          : 1;
-
-      // Task #2026 — Grouped multi-week bookings: stamp all N requests with
-      // a shared batchId so the coach home can show them as one card.
-      let batchId: string | null = null;
-      if (effectiveRepeat > 1) {
-        batchId = crypto.randomUUID();
-        // Stamp the primary request with the batchId
-        try {
-          await db.update(bookingRequests).set({ batchId } as any).where(eq(bookingRequests.id, request.id));
-          request = { ...request, batchId };
-        } catch (err) {
-          console.error("[Booking] Failed to stamp primary request with batchId:", err);
-        }
-      }
-
+      // Task #2000 / #2026 — Recurring bookings: create weekly copies.
+      // All copies share the same batchId (FK to booking_request_batches).
       if (effectiveRepeat > 1) {
         const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
         const startBase = new Date(requestedStart).getTime();
@@ -1214,7 +1219,7 @@ router.post(
           } catch { /* use default */ }
         }
 
-        const allWeekStarts: Date[] = [];
+        const allWeekStarts: Date[] = [new Date(requestedStart)]; // index 0 = primary
         for (let w = 1; w < effectiveRepeat; w++) {
           try {
             const wStart = new Date(startBase + w * WEEK_MS);
@@ -1237,29 +1242,63 @@ router.post(
               courtBookingNote: courtBookingNote || null,
               courtBookingUrl: courtBookingUrl || null,
               paymentIntent: paymentIntent || null,
-              batchId: batchId as any,
+              batchId,
             }).returning();
           } catch (weekErr) {
             console.error(`[Booking] Failed to create week-${w} repeat booking:`, weekErr);
           }
         }
 
-        // Send ONE grouped coach notification for the whole batch (not N separate ones)
+        // Send ONE consolidated batch notification to the COACH (in-app + push)
         if (coachId) {
           try {
-            const firstStart = new Date(requestedStart);
-            const lastStart = allWeekStarts[allWeekStarts.length - 1] ?? firstStart;
-            const rangeLabel = `${firstStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${lastStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+            const firstStart = allWeekStarts[0];
+            const lastStart = allWeekStarts[allWeekStarts.length - 1];
+            const dateOpts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+            const rangeLabel = `${firstStart.toLocaleDateString("en-GB", dateOpts)} – ${lastStart.toLocaleDateString("en-GB", dateOpts)}`;
+            const batchTitle = "New Multi-Week Request";
+            const batchBody = `${player.name} requests ${effectiveRepeat} weekly ${duration}-min lessons (${rangeLabel})`;
+
             await db.insert(coachNotifications).values({
               coachId,
               type: "booking_request",
-              title: "New Multi-Week Request",
-              message: `${player.name} requests ${effectiveRepeat} weekly ${duration}-min lessons (${rangeLabel})`,
+              title: batchTitle,
+              message: batchBody,
               priority: "high",
               actionUrl: `/coach/booking-requests`,
               metadata: { batchId, playerId, weekCount: effectiveRepeat, isJoinRequest: false },
             });
-          } catch { /* non-fatal */ }
+
+            const coachTokens = await getCoachPushTokens(coachId);
+            if (coachTokens.length > 0) {
+              await sendPushNotification(
+                coachTokens,
+                batchTitle,
+                batchBody,
+                { type: "batch_booking_request", batchId, playerId },
+                undefined,
+              );
+            }
+          } catch (batchNotifErr) {
+            console.error("[Booking] Failed to send batch coach notification:", batchNotifErr);
+          }
+        }
+
+        // Send ONE summary push to the PLAYER so they can confirm per-week availability
+        try {
+          const playerTokens = await getPlayerPushTokens(playerId);
+          if (playerTokens.length > 0) {
+            const firstDate = allWeekStarts[0].toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+            await sendPushNotification(
+              playerTokens,
+              `${effectiveRepeat} lessons requested`,
+              `Starting ${firstDate} — tap to confirm which weeks work for you.`,
+              { type: "batch_booking_created", batchId },
+              playerId,
+            );
+          }
+        } catch (playerNotifErr) {
+          console.error("[Booking] Failed to send batch player push:", playerNotifErr);
         }
       }
 
@@ -1427,6 +1466,115 @@ router.post(
     } catch (error) {
       console.error("Cancel booking request error:", error);
       res.status(500).json({ error: "Failed to cancel booking request" });
+    }
+  },
+);
+
+// ==================== BATCH BOOKING ENDPOINTS (Task #2026) ====================
+
+// GET /api/player/booking-batches/:batchId
+// Returns all booking_requests in this batch that belong to the calling player,
+// sorted chronologically. Used by PlayerBatchBookingResponseScreen.
+router.get(
+  "/api/player/booking-batches/:batchId",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player access required" });
+
+      const { batchId } = req.params;
+
+      const rows = await db
+        .select({
+          id: bookingRequests.id,
+          requestedStart: bookingRequests.requestedStart,
+          requestedEnd: bookingRequests.requestedEnd,
+          duration: bookingRequests.duration,
+          sessionType: bookingRequests.sessionType,
+          status: bookingRequests.status,
+          playerNote: bookingRequests.playerNote,
+          playerConfirmed: bookingRequests.playerConfirmed,
+          batchId: bookingRequests.batchId,
+          coachId: bookingRequests.coachId,
+          locationId: bookingRequests.locationId,
+          expiresAt: bookingRequests.expiresAt,
+          createdAt: bookingRequests.createdAt,
+        })
+        .from(bookingRequests)
+        .where(
+          and(
+            eq(bookingRequests.batchId, batchId),
+            eq(bookingRequests.playerId, playerId),
+          ),
+        )
+        .orderBy(asc(bookingRequests.requestedStart));
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "Batch not found or does not belong to you" });
+      }
+
+      // Enrich with coach name
+      const coachId = rows[0].coachId;
+      let coachName: string | null = null;
+      let coachPhotoUrl: string | null = null;
+      if (coachId) {
+        const [coachRow] = await db
+          .select({ name: coaches.name, profilePhotoUrl: coaches.profilePhotoUrl })
+          .from(coaches)
+          .where(eq(coaches.id, coachId))
+          .limit(1);
+        coachName = coachRow?.name || null;
+        coachPhotoUrl = (coachRow as any)?.profilePhotoUrl || null;
+      }
+
+      return res.json({
+        batchId,
+        coachName,
+        coachPhotoUrl,
+        requests: rows,
+      });
+    } catch (error) {
+      console.error("[Booking] GET batch error:", error);
+      return res.status(500).json({ error: "Failed to fetch batch" });
+    }
+  },
+);
+
+// PATCH /api/player/booking-requests/:id/player-confirm
+// Sets playerConfirmed = true/false for one request in a batch.
+// Body: { confirmed: boolean }
+router.patch(
+  "/api/player/booking-requests/:id/player-confirm",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player access required" });
+
+      const { id } = req.params;
+      const { confirmed } = req.body as { confirmed: boolean };
+      if (typeof confirmed !== "boolean") {
+        return res.status(400).json({ error: "confirmed must be a boolean" });
+      }
+
+      const [existing] = await db
+        .select({ id: bookingRequests.id, playerId: bookingRequests.playerId })
+        .from(bookingRequests)
+        .where(and(eq(bookingRequests.id, id), eq(bookingRequests.playerId, playerId)))
+        .limit(1);
+
+      if (!existing) return res.status(404).json({ error: "Booking request not found" });
+
+      await db
+        .update(bookingRequests)
+        .set({ playerConfirmed: confirmed })
+        .where(eq(bookingRequests.id, id));
+
+      return res.json({ success: true, id, playerConfirmed: confirmed });
+    } catch (error) {
+      console.error("[Booking] PATCH player-confirm error:", error);
+      return res.status(500).json({ error: "Failed to update availability" });
     }
   },
 );
