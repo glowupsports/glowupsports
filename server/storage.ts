@@ -3435,6 +3435,7 @@ export const storage = {
         actorId: 'system',
         actorRole: 'system',
         eventKey: `package_delete:${id}`,
+        allowOverdraw: true,
       });
     }
 
