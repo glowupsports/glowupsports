@@ -359,13 +359,21 @@ export function ScheduleExtraLessonModal({
     },
   });
 
-  // Toggle selection of a session row (multi-select)
+  // Toggle selection of a session row (multi-select, coach surface only).
+  // Admin surface keeps the original immediate-fire behavior.
   const handleSelectSession = (session: CalendarSession) => {
     if (isConfirming || addPlayerMutation.isPending) return;
     if (playerAlreadyInSession(session)) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
+    if (adminMode) {
+      // Admin: immediate single-tap add (unchanged original behavior)
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      addPlayerMutation.mutate({ session });
+      return;
+    }
+    // Coach: toggle multi-select
     Haptics.selectionAsync();
     setSelectedSessionIds((prev) =>
       prev.includes(session.id)
@@ -374,7 +382,9 @@ export function ScheduleExtraLessonModal({
     );
   };
 
-  // Confirm: add player to all selected sessions sequentially
+  // Confirm: add player to all selected sessions sequentially.
+  // Only closes modal on full success. Partial failures keep modal open and
+  // show a summary so the coach knows what happened.
   const handleConfirmAll = async () => {
     if (isConfirming || selectedSessionIds.length === 0) return;
     setIsConfirming(true);
@@ -384,18 +394,22 @@ export function ScheduleExtraLessonModal({
       .map((id) => sessionsForDay.find((s) => s.id === id))
       .filter((s): s is CalendarSession => !!s);
 
+    let successCount = 0;
+    const failureLabels: string[] = [];
+
     for (const session of toAdd) {
       setPendingSessionId(session.id);
+      const timeLabel = formatTimeRange(session.startTime, session.endTime, timezone);
       try {
         await addPlayerMutation.mutateAsync({ session });
+        successCount++;
       } catch (err: any) {
         if (err?.creditMismatch) {
-          // Ask per-session whether to add anyway
           const shouldAdd = await new Promise<boolean>((resolve) => {
             const creditLabel = sessionType.replace("_", "-");
             Alert.alert(
               "No matching credits",
-              `${playerName} has no ${creditLabel} credits for the ${formatTimeRange(session.startTime, session.endTime, timezone)} session. Add anyway? A debt will be recorded.`,
+              `${playerName} has no ${creditLabel} credits for the ${timeLabel} session. Add anyway? A debt will be recorded.`,
               [
                 { text: "Skip", style: "cancel", onPress: () => resolve(false) },
                 { text: "Add anyway", onPress: () => resolve(true) },
@@ -405,26 +419,46 @@ export function ScheduleExtraLessonModal({
           if (shouldAdd) {
             try {
               await addPlayerMutation.mutateAsync({ session, skipCreditCheck: true });
-            } catch (_) {
-              // Continue regardless
+              successCount++;
+            } catch (e2: any) {
+              failureLabels.push(`${timeLabel}: ${e2?.message || "Failed"}`);
             }
           }
+          // "Skip" is intentional — not counted as a failure
+        } else {
+          // Unexpected server or network error — surface it
+          failureLabels.push(`${timeLabel}: ${err?.message || "Failed"}`);
         }
-        // Non-credit errors: continue with next session
       }
     }
 
     setPendingSessionId(null);
     isBatchModeRef.current = false;
     setIsConfirming(false);
-    setSelectedSessionIds([]);
-    queryClient.invalidateQueries({
-      predicate: (q) =>
-        typeof q.queryKey[0] === "string" &&
-        (q.queryKey[0] as string).includes("/api/coach/calendar"),
-      refetchType: "all",
-    });
-    onClose();
+
+    // Always invalidate calendar if anything was added
+    if (successCount > 0) {
+      queryClient.invalidateQueries({
+        predicate: (q) =>
+          typeof q.queryKey[0] === "string" &&
+          (q.queryKey[0] as string).includes("/api/coach/calendar"),
+        refetchType: "all",
+      });
+    }
+
+    if (failureLabels.length > 0) {
+      // Partial or total failure — keep modal open, clear selection, show summary
+      setSelectedSessionIds([]);
+      const heading =
+        successCount > 0
+          ? `Added ${successCount} of ${toAdd.length} sessions`
+          : "Couldn't add sessions";
+      Alert.alert(heading, failureLabels.join("\n"));
+    } else {
+      // Full success — close modal
+      setSelectedSessionIds([]);
+      onClose();
+    }
   };
 
   const handleCreateNew = () => {
