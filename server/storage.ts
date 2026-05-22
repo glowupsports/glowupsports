@@ -10792,12 +10792,15 @@ export const storage = {
     duration: number;
     requestingPlayerId?: string;
   }): Promise<{
-    coachId: string;
-    locationId: string | null;
-    courtId: string | null;
-    startTime: Date;
-    endTime: Date;
-  }[]> {
+    slots: {
+      coachId: string;
+      locationId: string | null;
+      courtId: string | null;
+      startTime: Date;
+      endTime: Date;
+    }[];
+    academyTimezone: string;
+  }> {
     // Fetch the academy's timezone so availability windows are interpreted in local time
     const academyRow = await db.select({ timezone: academies.timezone }).from(academies).where(eq(academies.id, params.academyId)).limit(1);
     const academyTimezone = academyRow[0]?.timezone ?? 'Asia/Dubai';
@@ -11250,7 +11253,13 @@ export const storage = {
             block => slotStartUtcMins < block.endUtcMinutes && slotEndUtcMins > block.startUtcMinutes
           );
 
-          if (!hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict && !hasReservationConflict && !hasTimeBlockConflict) {
+          // Only emit this slot if its duration matches what the player requested.
+          // slotDuration may come from availability.slotDuration (coach-configured) or
+          // fall back to params.duration. Either way, skip slots that don't match the
+          // requested duration so the duration filter in the wizard actually works.
+          const durationMatches = slotDuration === params.duration;
+
+          if (durationMatches && !hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict && !hasReservationConflict && !hasTimeBlockConflict) {
             availableSlots.push({
               coachId: availability.coachId,
               locationId: availability.locationId,
@@ -11267,7 +11276,7 @@ export const storage = {
       currentDayUtcMs += 24 * 60 * 60 * 1000;
     }
     
-    return availableSlots;
+    return { slots: availableSlots, academyTimezone };
   },
 
   // ==================== PARENT PORTAL ====================

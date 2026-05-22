@@ -219,7 +219,7 @@ router.get(
         "academyId:",
         scopedAcademyId,
       );
-      const slots = await storage.getAvailableSlots({
+      const availabilityResult = await storage.getAvailableSlots({
         academyId: scopedAcademyId,
         coachId: coachId as string | undefined,
         locationId: locationId as string | undefined,
@@ -229,6 +229,8 @@ router.get(
         duration: parseInt(duration as string) || 60,
         requestingPlayerId: playerId,
       });
+      const slots = availabilityResult.slots;
+      const academyTimezone = availabilityResult.academyTimezone;
       // Enrich slots with coach, location, and court names. Batch-fetch each
       // entity collection in a single query (avoid N+1: was 3 storage calls
       // per slot).
@@ -296,7 +298,7 @@ router.get(
       });
 
       console.log("[Availability] Returning", enrichedSlots.length, "slots");
-      res.json(enrichedSlots);
+      res.json({ slots: enrichedSlots, academyTimezone: academyTimezone ?? "Asia/Dubai" });
     } catch (error) {
       console.error("Player availability error:", error);
       res.status(500).json({ error: "Failed to fetch availability" });
@@ -340,13 +342,14 @@ router.get(
       const rangeStart = new Date(`${todayStr}T00:00:00.000Z`);
       const rangeEnd = new Date(`${todayStr}T23:59:59.999Z`);
 
-      const slots = await storage.getAvailableSlots({
+      const todayAvailResult = await storage.getAvailableSlots({
         academyId,
         startDate: rangeStart,
         endDate: rangeEnd,
         duration: 60,
         requestingPlayerId: playerId,
       });
+      const slots = todayAvailResult.slots;
 
       const slotCoachIds = [...new Set(slots.map((s) => s.coachId).filter(Boolean) as string[])];
       const slotCourtIds = [...new Set(slots.map((s) => s.courtId).filter(Boolean) as string[])];
@@ -3012,7 +3015,7 @@ router.post(
         startDate.getUTCDate(),
         23, 59, 59, 999,
       ));
-      const offeredSlots = await storage.getAvailableSlots({
+      const offeredSlotsResult = await storage.getAvailableSlots({
         academyId: coach.academyId,
         coachId,
         locationId: locationId || undefined,
@@ -3022,6 +3025,7 @@ router.post(
         duration,
         requestingPlayerId: playerId,
       });
+      const offeredSlots = offeredSlotsResult.slots;
       const matchesOfferedSlot = offeredSlots.some((slot) => {
         const slotStart = new Date(slot.startTime).getTime();
         const slotEnd = new Date(slot.endTime).getTime();

@@ -323,10 +323,20 @@ export default function PlayerBookingWizard({
     return `/api/player/availability?${params}`;
   }, [selectedDateString, duration, filterCoachId, preselectedCoachId, filterCourtId]);
 
-  const { data: availableSlots = [], isLoading: slotsLoading } = useQuery<AvailableSlot[]>({
+  const [academyTimezone, setAcademyTimezone] = useState("Asia/Dubai");
+
+  const { data: availabilityData, isLoading: slotsLoading } = useQuery<{ slots: AvailableSlot[]; academyTimezone: string }>({
     queryKey: [availabilityQueryUrl],
     enabled: visible && currentSlide >= 2,
   });
+
+  const availableSlots: AvailableSlot[] = availabilityData?.slots ?? [];
+
+  useEffect(() => {
+    if (availabilityData?.academyTimezone) {
+      setAcademyTimezone(availabilityData.academyTimezone);
+    }
+  }, [availabilityData?.academyTimezone]);
 
   // Joinable sessions
   const joinableSessionsUrl = useMemo(() => {
@@ -556,8 +566,8 @@ export default function PlayerBookingWizard({
       entry.count++;
       if (r.requestedStart) {
         const d = new Date(r.requestedStart);
-        const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-        const dayStr = d.toLocaleDateString([], { weekday: "long" });
+        const timeStr = d.toLocaleTimeString("en-US", { timeZone: academyTimezone, hour: "numeric", minute: "2-digit" });
+        const dayStr = d.toLocaleDateString("en-US", { timeZone: academyTimezone, weekday: "long" });
         entry.times.push(`${dayStr} ${timeStr}`);
       }
     });
@@ -602,7 +612,7 @@ export default function PlayerBookingWizard({
     }
 
     return suggestions.slice(0, 2);
-  }, [bookingHistory]);
+  }, [bookingHistory, academyTimezone]);
 
   // Bug #7: "Book Again" — the last confirmed private session
   const bookAgainSuggestion = useMemo(() => {
@@ -621,8 +631,8 @@ export default function PlayerBookingWizard({
     const next = new Date();
     const daysUntil = (dayOfWeek - next.getDay() + 7) % 7 || 7;
     next.setDate(next.getDate() + daysUntil);
-    const timeStr = past.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    const dayName = past.toLocaleDateString([], { weekday: "long" });
+    const timeStr = past.toLocaleTimeString("en-US", { timeZone: academyTimezone, hour: "numeric", minute: "2-digit" });
+    const dayName = past.toLocaleDateString("en-US", { timeZone: academyTimezone, weekday: "long" });
     return {
       coachId: confirmed.coachId as string,
       coachName: (confirmed.coachName as string) || "Coach",
@@ -632,7 +642,7 @@ export default function PlayerBookingWizard({
       nextDate: next,
       label: `${dayName} at ${timeStr}`,
     };
-  }, [bookingHistory]);
+  }, [bookingHistory, academyTimezone]);
 
   // ─── Reservation system ───────────────────────────────────────────────────────
   const reserveSlotMutation = useMutation({
@@ -1116,15 +1126,22 @@ export default function PlayerBookingWizard({
   }, [filterLocationId, locations]);
 
   // ─── Helpers ──────────────────────────────────────────────────────────────────
-  const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const formatTime = (dateStr: string) =>
+    new Date(dateStr).toLocaleTimeString("en-US", {
+      timeZone: academyTimezone,
+      hour: "2-digit",
+      minute: "2-digit",
+    });
 
   const formatDateHeader = (date: Date) => {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    if (date.toDateString() === today.toDateString()) return "Today";
-    if (date.toDateString() === tomorrow.toDateString()) return "Tomorrow";
-    return date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+    const tz = academyTimezone;
+    const localDateStr = date.toLocaleDateString("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
+    const todayStr = new Date().toLocaleDateString("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
+    const tomorrowDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const tomorrowStr = tomorrowDate.toLocaleDateString("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
+    if (localDateStr === todayStr) return "Today";
+    if (localDateStr === tomorrowStr) return "Tomorrow";
+    return date.toLocaleDateString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric" });
   };
 
   const releaseSlot = useCallback((slotId: string | null) => {
