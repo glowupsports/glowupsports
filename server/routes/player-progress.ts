@@ -1280,7 +1280,9 @@ import { getPlayerHealthSnapshot } from "./player-health";
             return {
               seriesId: row.series_id,
               dayOfWeek: seriesInfo?.dayOfWeek ?? 0,
-              dayName: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][seriesInfo?.dayOfWeek ?? 0],
+              dayName: seriesInfo?.dayOfWeek === -1
+                ? "Extra"
+                : (["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][seriesInfo?.dayOfWeek ?? 0] ?? ""),
               startTime: seriesInfo?.startTime || "",
               title: seriesInfo?.title || "",
               totalSessions: total_s,
@@ -1421,14 +1423,32 @@ import { getPlayerHealthSnapshot } from "./player-health";
         const wasCharged = oldStatus === "present" || oldStatus === "late";
         const willBeCharged = newStatus === "present" || newStatus === "late";
 
+        // V2 ledger check: credit may have been consumed via auto-complete or
+        // a bulk route without explicitly setting attendance_status = 'present'.
+        // If a consume entry exists in the ledger we must still refund on
+        // holiday/absent changes — even when oldStatus is null.
+        let hasV2Consume = false;
+        if (!wasCharged) {
+          const v2Rows = await db.execute(sql`
+            SELECT id FROM credit_ledger_v2
+            WHERE session_player_id = ${spRecord.id}
+              AND reason = 'consume'
+              AND delta < 0
+            LIMIT 1
+          `);
+          hasV2Consume = v2Rows.rows.length > 0;
+        }
+        const effectivelyWasCharged = wasCharged || hasV2Consume;
+
         let creditAdjustment = 0;
         let adjustmentReason = "";
 
-        if (wasCharged && !willBeCharged) {
-          // Refund credit (changing from present/late to absent/holiday)
+        if (effectivelyWasCharged && !willBeCharged) {
+          // Refund credit (changing from present/late to absent/holiday,
+          // OR when a V2 consume exists even though oldStatus wasn't 'present')
           creditAdjustment = 1;
           adjustmentReason = "attendance_correction_refund";
-        } else if (!wasCharged && willBeCharged) {
+        } else if (!effectivelyWasCharged && willBeCharged) {
           // Deduct credit (changing from absent/holiday to present/late)
           creditAdjustment = -1;
           adjustmentReason = "attendance_correction_deduct";
