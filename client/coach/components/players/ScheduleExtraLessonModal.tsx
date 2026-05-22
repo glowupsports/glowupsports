@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -131,15 +131,30 @@ export function ScheduleExtraLessonModal({
   const timezone = academy?.timezone || "Asia/Dubai";
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [sessionType, setSessionType] = useState<SessionTypeFilter>("group");
+  // Multi-select: tracks which session IDs the coach has tapped (not yet confirmed)
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
+  // Per-row spinner: the session ID currently being submitted
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  // Confirm-all button loading state
+  const [isConfirming, setIsConfirming] = useState(false);
+  // Suppresses auto-close in onSuccess when running a batch
+  const isBatchModeRef = useRef(false);
 
   useEffect(() => {
     if (visible) {
       setSelectedDate(new Date());
       setSessionType("group");
+      setSelectedSessionIds([]);
       setPendingSessionId(null);
+      setIsConfirming(false);
+      isBatchModeRef.current = false;
     }
   }, [visible]);
+
+  // Clear selection when date or type changes so stale IDs don't carry over
+  useEffect(() => {
+    setSelectedSessionIds([]);
+  }, [selectedDate, sessionType]);
 
   const dateParam = useMemo(() => formatDateLocal(selectedDate), [selectedDate]);
 
@@ -183,29 +198,22 @@ export function ScheduleExtraLessonModal({
   // is backfilled through code paths that actually run credit processing
   // (markAttendance + ensureCreditProcessed), not just status updates.
   //
-  //   COACH surface, past session in a series:
+  //   COACH surface, past session in a series (primary path):
   //     POST /api/coach/series/:seriesId/players
   //          { playerId, attendedSessionIds:[sessionId] }
-  //     Reuses the existing series add-with-backfill flow, which inside its
-  //     loop calls storage.markAttendance + ensureCreditProcessed (see
-  //     server/routes/coaching-series.ts ~3038-3070). The new-player path of
-  //     that endpoint only enrolls the player into the explicit
-  //     attendedSessionIds — no other future sessions are touched.
+  //     Reuses the existing series add-with-backfill flow which calls
+  //     storage.markAttendance + ensureCreditProcessed.
+  //     Falls through to the per-session path below if the player is
+  //     already in the series (series endpoint returns 400).
   //
-  //   COACH surface, future session OR session with no series:
+  //   COACH surface, per-session path (future session, no series, or
+  //   player already in series):
   //     POST /api/coach/sessions/:sessionId/players
-  //     Future sessions don't need credit processing at add time. One-off
-  //     past sessions (no seriesId) can't use the series flow, so the
-  //     normal completion flow handles credits later.
+  //     + POST /api/coach/sessions/:sessionId/attendance  (if past)
   //
   //   ADMIN surface (any case):
-  //     POST /api/coach/sessions/:sessionId/players  (academy-scoped, works
-  //         for admin/academy_owner; coach series endpoint enforces coachId
-  //         so admins would 403)
-  //     plus, if past:
-  //     POST /api/admin/sessions/:sessionId/attendance   { attendance:[…] }
-  //         which DOES call ensureCreditProcessed per record (see
-  //         server/routes/admin-series.ts ~1418-1443).
+  //     POST /api/coach/sessions/:sessionId/players  (academy-scoped)
+  //     + POST /api/admin/sessions/:sessionId/attendance  (if past)
   const addPlayerMutation = useMutation({
     mutationFn: async (input: {
       session: CalendarSession;
@@ -217,32 +225,43 @@ export function ScheduleExtraLessonModal({
         !adminMode && isPast && !!session.seriesId;
 
       if (useCoachSeriesBackfill && session.seriesId) {
-        const seriesRes = await apiRequest(
-          "POST",
-          `/api/coach/series/${session.seriesId}/players`,
-          {
-            playerId,
-            attendedSessionIds: [session.id],
-            skipCreditCheck,
-          },
-        );
-        const seriesPayload = (await seriesRes.json().catch(() => ({}))) as {
-          warning?: string;
-          message?: string;
-          requiredCreditType?: string;
-        };
-        if (seriesPayload?.warning === "credit_mismatch" && !skipCreditCheck) {
-          throw Object.assign(
-            new Error(
-              seriesPayload.message ||
-                `Player has no ${seriesPayload.requiredCreditType ?? sessionType.replace("_", "-")} credits available`,
-            ),
-            { creditMismatch: true, session },
+        try {
+          const seriesRes = await apiRequest(
+            "POST",
+            `/api/coach/series/${session.seriesId}/players`,
+            {
+              playerId,
+              attendedSessionIds: [session.id],
+              skipCreditCheck,
+            },
           );
+          const seriesPayload = (await seriesRes.json().catch(() => ({}))) as {
+            warning?: string;
+            message?: string;
+            requiredCreditType?: string;
+          };
+          if (seriesPayload?.warning === "credit_mismatch" && !skipCreditCheck) {
+            throw Object.assign(
+              new Error(
+                seriesPayload.message ||
+                  `Player has no ${seriesPayload.requiredCreditType ?? sessionType.replace("_", "-")} credits available`,
+              ),
+              { creditMismatch: true, session },
+            );
+          }
+          return seriesPayload;
+        } catch (seriesErr: any) {
+          // Credit errors and genuine server failures bubble up immediately
+          if (seriesErr?.creditMismatch) throw seriesErr;
+          // "Player already in this class" (400) → fall through to per-session
+          // path so we can still add them to this specific session + mark present.
+          if (!String(seriesErr?.message ?? "").includes("400")) throw seriesErr;
+          // Fall through to per-session path below
         }
-        return seriesPayload;
       }
 
+      // Per-session path — used for future sessions, no-series sessions, admin
+      // surface, and as fallback when the player is already enrolled in the series.
       const addRes = await apiRequest(
         "POST",
         `/api/coach/sessions/${session.id}/players`,
@@ -264,14 +283,17 @@ export function ScheduleExtraLessonModal({
         );
       }
 
-      if (adminMode && isPast) {
-        await apiRequest(
-          "POST",
-          `/api/admin/sessions/${session.id}/attendance`,
-          {
-            attendance: [{ playerId, status: "present" }],
-          },
-        );
+      // Mark attendance as present for any past session (coach AND admin).
+      // Previously only adminMode did this — omitting it for coach surface meant
+      // players were added but attendance_status stayed NULL, making the
+      // "will be marked Present" note a lie.
+      if (isPast) {
+        const attendanceEndpoint = adminMode
+          ? `/api/admin/sessions/${session.id}/attendance`
+          : `/api/coach/sessions/${session.id}/attendance`;
+        await apiRequest("POST", attendanceEndpoint, {
+          attendance: [{ playerId, status: "present" }],
+        });
       }
 
       return addPayload;
@@ -300,10 +322,15 @@ export function ScheduleExtraLessonModal({
       });
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
       setPendingSessionId(null);
-      onClose();
+      // In batch mode handleConfirmAll manages close; single-tap closes immediately
+      if (!isBatchModeRef.current) {
+        onClose();
+      }
     },
     onError: (err: Error & { creditMismatch?: boolean; session?: CalendarSession }) => {
       setPendingSessionId(null);
+      // In batch mode, handleConfirmAll handles credit alerts and error reporting
+      if (isBatchModeRef.current) return;
       if (err?.creditMismatch && err.session) {
         const creditLabel = sessionType.replace("_", "-");
         Alert.alert(
@@ -332,20 +359,81 @@ export function ScheduleExtraLessonModal({
     },
   });
 
+  // Toggle selection of a session row (multi-select)
   const handleSelectSession = (session: CalendarSession) => {
-    if (addPlayerMutation.isPending) return;
+    if (isConfirming || addPlayerMutation.isPending) return;
     if (playerAlreadyInSession(session)) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    addPlayerMutation.mutate({ session });
+    Haptics.selectionAsync();
+    setSelectedSessionIds((prev) =>
+      prev.includes(session.id)
+        ? prev.filter((id) => id !== session.id)
+        : [...prev, session.id],
+    );
+  };
+
+  // Confirm: add player to all selected sessions sequentially
+  const handleConfirmAll = async () => {
+    if (isConfirming || selectedSessionIds.length === 0) return;
+    setIsConfirming(true);
+    isBatchModeRef.current = true;
+
+    const toAdd = selectedSessionIds
+      .map((id) => sessionsForDay.find((s) => s.id === id))
+      .filter((s): s is CalendarSession => !!s);
+
+    for (const session of toAdd) {
+      setPendingSessionId(session.id);
+      try {
+        await addPlayerMutation.mutateAsync({ session });
+      } catch (err: any) {
+        if (err?.creditMismatch) {
+          // Ask per-session whether to add anyway
+          const shouldAdd = await new Promise<boolean>((resolve) => {
+            const creditLabel = sessionType.replace("_", "-");
+            Alert.alert(
+              "No matching credits",
+              `${playerName} has no ${creditLabel} credits for the ${formatTimeRange(session.startTime, session.endTime, timezone)} session. Add anyway? A debt will be recorded.`,
+              [
+                { text: "Skip", style: "cancel", onPress: () => resolve(false) },
+                { text: "Add anyway", onPress: () => resolve(true) },
+              ],
+            );
+          });
+          if (shouldAdd) {
+            try {
+              await addPlayerMutation.mutateAsync({ session, skipCreditCheck: true });
+            } catch (_) {
+              // Continue regardless
+            }
+          }
+        }
+        // Non-credit errors: continue with next session
+      }
+    }
+
+    setPendingSessionId(null);
+    isBatchModeRef.current = false;
+    setIsConfirming(false);
+    setSelectedSessionIds([]);
+    queryClient.invalidateQueries({
+      predicate: (q) =>
+        typeof q.queryKey[0] === "string" &&
+        (q.queryKey[0] as string).includes("/api/coach/calendar"),
+      refetchType: "all",
+    });
+    onClose();
   };
 
   const handleCreateNew = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onCreateNewLesson(selectedDate, sessionType);
   };
+
+  const selectionCount = selectedSessionIds.length;
+  const isBusy = isConfirming || addPlayerMutation.isPending;
 
   return (
     <Modal
@@ -383,7 +471,7 @@ export function ScheduleExtraLessonModal({
         <ScrollView
           contentContainerStyle={{
             paddingHorizontal: Spacing.lg,
-            paddingBottom: insets.bottom + Spacing.xl,
+            paddingBottom: insets.bottom + Spacing.xl + (selectionCount > 0 ? 80 : 0),
             gap: Spacing.lg,
           }}
           showsVerticalScrollIndicator={false}
@@ -471,6 +559,7 @@ export function ScheduleExtraLessonModal({
 
             {sessionsForDay.map((session) => {
               const enrolled = playerAlreadyInSession(session);
+              const isSelected = selectedSessionIds.includes(session.id);
               const playersCount = (session.players ?? []).filter(
                 (p) => p.status !== "left",
               ).length;
@@ -480,9 +569,10 @@ export function ScheduleExtraLessonModal({
                 <Pressable
                   key={session.id}
                   onPress={() => handleSelectSession(session)}
-                  disabled={enrolled || addPlayerMutation.isPending}
+                  disabled={enrolled || isBusy}
                   style={({ pressed }) => [
                     modalStyles.sessionRow,
+                    isSelected && modalStyles.sessionRowSelected,
                     pressed && !enrolled && { opacity: 0.7 },
                     enrolled && { opacity: 0.55 },
                   ]}
@@ -518,6 +608,12 @@ export function ScheduleExtraLessonModal({
                       />
                       <Text style={modalStyles.enrolledText}>Enrolled</Text>
                     </View>
+                  ) : isSelected ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={26}
+                      color={Colors.dark.successNeon}
+                    />
                   ) : (
                     <Ionicons
                       name="add-circle"
@@ -532,7 +628,7 @@ export function ScheduleExtraLessonModal({
             {sessionsForDay.length === 0 && !calendarLoading ? (
               <Pressable
                 onPress={handleCreateNew}
-                disabled={addPlayerMutation.isPending}
+                disabled={isBusy}
                 style={({ pressed }) => [
                   modalStyles.createNewBtn,
                   pressed && { opacity: 0.8 },
@@ -556,6 +652,37 @@ export function ScheduleExtraLessonModal({
             ) : null}
           </View>
         </ScrollView>
+
+        {/* Sticky confirm button — shown when ≥1 session is selected */}
+        {selectionCount > 0 ? (
+          <View
+            style={[
+              modalStyles.confirmBar,
+              { paddingBottom: insets.bottom > 0 ? insets.bottom : Spacing.md },
+            ]}
+          >
+            <Pressable
+              onPress={handleConfirmAll}
+              disabled={isConfirming}
+              style={({ pressed }) => [
+                modalStyles.confirmBtn,
+                pressed && { opacity: 0.85 },
+                isConfirming && { opacity: 0.7 },
+              ]}
+            >
+              {isConfirming ? (
+                <TennisBallSpinner size="small" color="#000" />
+              ) : (
+                <Ionicons name="checkmark-circle" size={20} color="#000" />
+              )}
+              <Text style={modalStyles.confirmBtnText}>
+                {isConfirming
+                  ? "Adding..."
+                  : `Add to ${selectionCount} session${selectionCount > 1 ? "s" : ""}`}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </Modal>
   );
@@ -639,6 +766,10 @@ const modalStyles = StyleSheet.create({
     borderColor: "rgba(0,224,255,0.12)",
     marginBottom: Spacing.xs,
   },
+  sessionRowSelected: {
+    backgroundColor: `${Colors.dark.successNeon}10`,
+    borderColor: `${Colors.dark.successNeon}55`,
+  },
   sessionTimeBlock: {
     flexDirection: "row",
     alignItems: "center",
@@ -710,6 +841,31 @@ const modalStyles = StyleSheet.create({
     fontStyle: "italic",
     marginTop: Spacing.sm,
     textAlign: "center",
+  },
+  confirmBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    backgroundColor: Colors.dark.background,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.08)",
+  },
+  confirmBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.dark.successNeon,
+  },
+  confirmBtnText: {
+    color: "#000",
+    fontSize: 15,
+    fontWeight: "700" as const,
   },
 });
 

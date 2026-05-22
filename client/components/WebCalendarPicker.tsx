@@ -156,6 +156,9 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.dark.border,
+    maxWidth: 420,
+    alignSelf: "center" as const,
+    width: "100%",
   },
   header: {
     flexDirection: "row",
@@ -190,7 +193,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   dayCell: {
     width: "14.28%",
-    aspectRatio: 1,
+    height: 40,
     padding: 2,
     alignSelf: "center",
   },
