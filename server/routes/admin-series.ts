@@ -1388,6 +1388,31 @@ router.post(
               `[AdminAttendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to ${record.status} status`,
             );
           }
+
+          // V2 credit refund — cancelSessionDebt is a no-op for V2 academies; explicitly refund here
+          if (updated) {
+            try {
+              const { refundCredit } = await import("../services/credit-engine");
+              const v2Refund = await refundCredit({
+                sessionPlayerId: updated.id,
+                policy: "force",
+                actorRole: "system",
+                reason: cancelReason,
+                ledgerReason: "holiday_charge_reversal",
+                eventKey: `refund:${cancelReason}:${updated.id}`,
+              });
+              if (v2Refund.refunded) {
+                console.log(
+                  `[AdminAttendance] V2 refunded ${v2Refund.amount} ${v2Refund.type} for player ${record.playerId}`,
+                );
+              }
+            } catch (refundErr) {
+              console.error(
+                `[AdminAttendance] V2 holiday refund failed for player ${record.playerId}:`,
+                refundErr,
+              );
+            }
+          }
         }
 
         // Process credits immediately — same rules as the coach attendance route:
