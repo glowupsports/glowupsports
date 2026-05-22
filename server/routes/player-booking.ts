@@ -1183,6 +1183,20 @@ router.post(
           ? Math.min(Math.max(repeatWeeks ?? 1, 1), 52)
           : 1;
 
+      // Task #2026 — Grouped multi-week bookings: stamp all N requests with
+      // a shared batchId so the coach home can show them as one card.
+      let batchId: string | null = null;
+      if (effectiveRepeat > 1) {
+        batchId = crypto.randomUUID();
+        // Stamp the primary request with the batchId
+        try {
+          await db.update(bookingRequests).set({ batchId } as any).where(eq(bookingRequests.id, request.id));
+          request = { ...request, batchId };
+        } catch (err) {
+          console.error("[Booking] Failed to stamp primary request with batchId:", err);
+        }
+      }
+
       if (effectiveRepeat > 1) {
         const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
         const startBase = new Date(requestedStart).getTime();
@@ -1199,11 +1213,14 @@ router.post(
             windowMins = cs?.bookingResponseWindowMinutes ?? 120;
           } catch { /* use default */ }
         }
+
+        const allWeekStarts: Date[] = [];
         for (let w = 1; w < effectiveRepeat; w++) {
           try {
             const wStart = new Date(startBase + w * WEEK_MS);
             const wEnd = new Date(endBase + w * WEEK_MS);
-            const [extra] = await db.insert(bookingRequests).values({
+            allWeekStarts.push(wStart);
+            await db.insert(bookingRequests).values({
               academyId: bookingAcademyId,
               playerId,
               coachId: coachId || null,
@@ -1220,27 +1237,33 @@ router.post(
               courtBookingNote: courtBookingNote || null,
               courtBookingUrl: courtBookingUrl || null,
               paymentIntent: paymentIntent || null,
+              batchId: batchId as any,
             }).returning();
-            if (extra && coachId) {
-              try {
-                await db.insert(coachNotifications).values({
-                  coachId,
-                  type: "booking_request",
-                  title: "New Lesson Request",
-                  message: `${player.name} wants a ${duration}-min lesson on ${wStart.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`,
-                  priority: "high",
-                  actionUrl: `/coach/booking-requests/${extra.id}`,
-                  metadata: { bookingRequestId: extra.id, playerId, isJoinRequest: false },
-                });
-              } catch { /* non-fatal */ }
-            }
           } catch (weekErr) {
             console.error(`[Booking] Failed to create week-${w} repeat booking:`, weekErr);
           }
         }
+
+        // Send ONE grouped coach notification for the whole batch (not N separate ones)
+        if (coachId) {
+          try {
+            const firstStart = new Date(requestedStart);
+            const lastStart = allWeekStarts[allWeekStarts.length - 1] ?? firstStart;
+            const rangeLabel = `${firstStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" })} – ${lastStart.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+            await db.insert(coachNotifications).values({
+              coachId,
+              type: "booking_request",
+              title: "New Multi-Week Request",
+              message: `${player.name} requests ${effectiveRepeat} weekly ${duration}-min lessons (${rangeLabel})`,
+              priority: "high",
+              actionUrl: `/coach/booking-requests`,
+              metadata: { batchId, playerId, weekCount: effectiveRepeat, isJoinRequest: false },
+            });
+          } catch { /* non-fatal */ }
+        }
       }
 
-      res.status(201).json({ ...request, repeatWeeks: effectiveRepeat });
+      res.status(201).json({ ...request, repeatWeeks: effectiveRepeat, batchId });
     } catch (error) {
       console.error("Create booking request error:", error);
       res.status(500).json({ error: "Failed to create booking request" });

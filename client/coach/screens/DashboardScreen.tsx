@@ -1154,6 +1154,8 @@ interface PendingBookingRequest {
   // we surface an "Awaiting payment" pill on this card so the coach knows
   // to collect cash / bank-transfer at attendance time.
   paymentIntent?: "credits" | "pay_later" | "paid" | null;
+  // Task #2026 — groups repeat bookings submitted together under one card
+  batchId?: string | null;
 }
 
 function BookingRequestCard({
@@ -1644,8 +1646,221 @@ function BookingRequestCard({
   );
 }
 
+function BatchBookingRequestCard({
+  reqs,
+  onApproved,
+  onDeclined,
+}: {
+  reqs: PendingBookingRequest[];
+  onApproved: (ids: string[]) => void;
+  onDeclined: () => void;
+}) {
+  const firstReq = reqs[0];
+  const { academy: _bAcademy } = useCoach();
+  const tz = _bAcademy?.timezone || "Asia/Dubai";
+  const [loadingApprove, setLoadingApprove] = useState(false);
+  const [loadingDecline, setLoadingDecline] = useState(false);
+  const levelColor = firstReq.playerLevel ? (LEVEL_COLORS[firstReq.playerLevel] || Colors.dark.primary) : Colors.dark.primary;
+
+  const sessionTypeLabel =
+    firstReq.sessionType === "private" ? "Private" :
+    firstReq.sessionType === "semi_private" ? "Semi-Private" : "Group";
+
+  const sortedReqs = useMemo(() =>
+    [...reqs].sort((a, b) => new Date(a.requestedStart).getTime() - new Date(b.requestedStart).getTime()),
+    [reqs]
+  );
+
+  const handleApproveAll = async () => {
+    setLoadingApprove(true);
+    try {
+      await Promise.all(sortedReqs.map(req =>
+        apiRequest("POST", `/api/coach/booking-requests/${req.id}/approve`, {})
+      ));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onApproved(sortedReqs.map(r => r.id));
+    } catch {
+      RNAlert.alert("Error", "Failed to approve all requests. Please try again.");
+    } finally {
+      setLoadingApprove(false);
+    }
+  };
+
+  const handleDeclineAll = async () => {
+    setLoadingDecline(true);
+    try {
+      await Promise.all(sortedReqs.map(req =>
+        apiRequest("POST", `/api/coach/booking-requests/${req.id}/decline`, { declineReason: "schedule_conflict" })
+      ));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      onDeclined();
+    } catch {
+      RNAlert.alert("Error", "Failed to decline all requests. Please try again.");
+    } finally {
+      setLoadingDecline(false);
+    }
+  };
+
+  return (
+    <View style={[bStyles.card, bBatchStyles.card]}>
+      {/* Batch header */}
+      <View style={bBatchStyles.batchHeader}>
+        <View style={bBatchStyles.batchBadge}>
+          <Ionicons name="repeat" size={11} color={Colors.dark.primary} />
+          <Text style={bBatchStyles.batchBadgeText}>{sortedReqs.length} weeks · {sessionTypeLabel} · {firstReq.duration} min</Text>
+        </View>
+      </View>
+
+      {/* Player row */}
+      <View style={[bStyles.playerRow, { paddingTop: Spacing.sm }]}>
+        <View style={bStyles.avatarWrap}>
+          {firstReq.playerPhotoUrl ? (
+            <Image source={{ uri: firstReq.playerPhotoUrl }} style={bStyles.avatar} contentFit="cover" />
+          ) : (
+            <View style={[bStyles.avatarFallback, { backgroundColor: levelColor + "30" }]}>
+              <Ionicons name="person" size={20} color={levelColor} />
+            </View>
+          )}
+        </View>
+        <View style={bStyles.playerInfo}>
+          <Text style={bStyles.playerName} numberOfLines={1}>{firstReq.playerName || "Player"}</Text>
+          <Text style={bBatchStyles.subText}>{sortedReqs.length} sessions requested</Text>
+        </View>
+      </View>
+
+      {/* Date list */}
+      <View style={bBatchStyles.dateList}>
+        {sortedReqs.map((req, i) => (
+          <View key={req.id} style={bBatchStyles.dateRow}>
+            <View style={bBatchStyles.dateDot}>
+              <Text style={bBatchStyles.dateDotText}>{i + 1}</Text>
+            </View>
+            <Text style={bBatchStyles.dateText}>
+              {formatDateInTimezone(req.requestedStart, tz)}
+              {"  ·  "}
+              <Text style={bBatchStyles.timeText}>
+                {formatTimeInTimezone(req.requestedStart, tz)} – {formatTimeInTimezone(req.requestedEnd, tz)}
+              </Text>
+            </Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Player note */}
+      {firstReq.playerNote ? (
+        <Text style={bBatchStyles.noteText} numberOfLines={2}>{firstReq.playerNote}</Text>
+      ) : null}
+
+      {/* Actions */}
+      <View style={bBatchStyles.actions}>
+        <Pressable
+          style={[bStyles.approveBtn, loadingApprove && { opacity: 0.6 }]}
+          onPress={handleApproveAll}
+          disabled={loadingApprove || loadingDecline}
+        >
+          {loadingApprove ? (
+            <TennisBallSpinner size="small" color="#000" />
+          ) : (
+            <>
+              <Ionicons name="checkmark-circle" size={14} color="#000" />
+              <Text style={bStyles.approveBtnText}>Approve All</Text>
+            </>
+          )}
+        </Pressable>
+        <Pressable
+          style={[bStyles.declineBtn, loadingDecline && { opacity: 0.6 }]}
+          onPress={handleDeclineAll}
+          disabled={loadingApprove || loadingDecline}
+        >
+          {loadingDecline ? (
+            <TennisBallSpinner size="small" color="#FF6B6B" />
+          ) : (
+            <Text style={bStyles.declineBtnText}>Decline All</Text>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const bBatchStyles = StyleSheet.create({
+  card: {
+    borderColor: Colors.dark.primary + "40",
+  },
+  batchHeader: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
+  batchBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.dark.primary + "18",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignSelf: "flex-start",
+  },
+  batchBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  subText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+  },
+  dateList: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    gap: 6,
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dateDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.dark.primary + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dateDotText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  dateText: {
+    fontSize: 12,
+    color: Colors.dark.text,
+    fontWeight: "600",
+    flex: 1,
+  },
+  timeText: {
+    fontWeight: "400",
+    color: Colors.dark.textSecondary,
+  },
+  noteText: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    fontStyle: "italic",
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+  },
+});
+
 function BookingRequestsPanel({ requests, queryClient }: { requests: PendingBookingRequest[]; queryClient: QueryClient }) {
-  const onApproved = (approvedId: string) => {
+  const onApproved = (approvedId: string | string[]) => {
+    const approvedIds = Array.isArray(approvedId) ? approvedId : [approvedId];
     queryClient.setQueryData<{
       pendingBookingRequests: PendingBookingRequest[];
       pendingBookingCount: number;
@@ -1653,7 +1868,7 @@ function BookingRequestsPanel({ requests, queryClient }: { requests: PendingBook
     }>(["/api/coach/me/home-data"], (old) => {
       if (!old) return old;
       const filtered = old.pendingBookingRequests.filter(
-        (r) => r.id !== approvedId
+        (r) => !approvedIds.includes(r.id)
       );
       const removed = old.pendingBookingRequests.length - filtered.length;
       return {
@@ -1671,6 +1886,23 @@ function BookingRequestsPanel({ requests, queryClient }: { requests: PendingBook
     queryClient.invalidateQueries({ queryKey: ["/api/sessions"], refetchType: "all" });
     queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"), refetchType: "all" });
   };
+
+  // Group requests by batchId — batched ones render as a single card
+  const { singles, batches } = useMemo(() => {
+    const batchMap = new Map<string, PendingBookingRequest[]>();
+    const singles: PendingBookingRequest[] = [];
+    for (const req of requests) {
+      if (req.batchId) {
+        const group = batchMap.get(req.batchId) || [];
+        group.push(req);
+        batchMap.set(req.batchId, group);
+      } else {
+        singles.push(req);
+      }
+    }
+    return { singles, batches: Array.from(batchMap.values()) };
+  }, [requests]);
+
   return (
     <View style={bStyles.section}>
       <View style={bStyles.sectionHeader}>
@@ -1682,8 +1914,21 @@ function BookingRequestsPanel({ requests, queryClient }: { requests: PendingBook
           </View>
         </View>
       </View>
-      {requests.slice(0, 5).map(req => (
-        <BookingRequestCard key={req.id} req={req} onApproved={onApproved} onDeclined={onDeclined} />
+      {batches.map(batchReqs => (
+        <BatchBookingRequestCard
+          key={batchReqs[0].batchId!}
+          reqs={batchReqs}
+          onApproved={onApproved}
+          onDeclined={onDeclined}
+        />
+      ))}
+      {singles.slice(0, Math.max(0, 5 - batches.length)).map(req => (
+        <BookingRequestCard
+          key={req.id}
+          req={req}
+          onApproved={(id) => onApproved(id)}
+          onDeclined={onDeclined}
+        />
       ))}
     </View>
   );

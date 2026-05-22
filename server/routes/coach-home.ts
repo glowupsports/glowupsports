@@ -423,6 +423,7 @@ async function fetchPendingBookingRequests(
         playerSkillLevel: player?.skillLevel || null,
         lessonsWithCoach: pastSessionCounts[req.playerId] ?? 0,
         playerXp: xpMap.get(req.playerId) ?? 0,
+        batchId: req.batchId || null,
       };
     });
   } catch (err) {

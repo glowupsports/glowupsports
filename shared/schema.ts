@@ -3445,6 +3445,12 @@ export const bookingRequests = pgTable("booking_requests", {
   // confirmed payments row is recorded as the money-side audit trail).
   paymentIntent: text("payment_intent"), // 'credits' | 'pay_later' | 'paid' | null
 
+  // Task #2026 — Groups all N booking_requests created from a single
+  // "repeat for X weeks" submission under one shared UUID. Null for
+  // single-week bookings. Used by the coach home to show N requests as
+  // one grouped card instead of N separate cards.
+  batchId: varchar("batch_id"),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

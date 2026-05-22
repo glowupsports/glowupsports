@@ -1919,7 +1919,7 @@ export default function PlayerBookingWizard({
               </View>
               {repeatWeeks > 1 && (
                 <Text style={styles.repeatHint}>
-                  {repeatWeeks} booking requests will be sent — one per week.
+                  Sent as 1 grouped request with all {repeatWeeks} dates — your coach sees them on one card.
                 </Text>
               )}
             </View>
