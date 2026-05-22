@@ -2354,14 +2354,28 @@ export const storage = {
     return result[0];
   },
 
-  async getAllLocations(academyId?: string, opts?: { includeInactive?: boolean }): Promise<Location[]> {
+  async getAllLocations(academyId?: string, opts?: { includeInactive?: boolean; requireActiveCourts?: boolean }): Promise<Location[]> {
     const includeInactive = opts?.includeInactive === true;
+    const requireActiveCourts = opts?.requireActiveCourts === true;
     if (academyId) {
       const conditions = [eq(locations.academyId, academyId)];
       // Task #2004: filter out is_active=false locations by default.
       // Pass { includeInactive: true } only when the admin UI needs to see
       // deactivated entries (e.g., to reactivate or permanently delete them).
       if (!includeInactive) conditions.push(eq(locations.isActive, true));
+      // Task #2016: belt-and-suspenders for ghost venues — only return locations
+      // that have at least one active court. This catches any orphan venues that
+      // were not auto-deactivated (e.g. created before this fix was deployed).
+      if (requireActiveCourts) {
+        conditions.push(
+          sql`EXISTS (
+            SELECT 1 FROM ${courts}
+            WHERE ${courts.locationId} = ${locations.id}
+              AND ${courts.academyId} = ${academyId}
+              AND ${courts.isActive} = true
+          )`,
+        );
+      }
       return db.select().from(locations).where(and(...conditions));
     }
     if (!includeInactive) {
@@ -2499,6 +2513,25 @@ export const storage = {
       .where(and(...conditions))
       .returning();
     return result[0];
+  },
+
+  async deactivateLocationIfEmpty(locationId: string, academyId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ cnt: sql<number>`count(*)::int` })
+      .from(courts)
+      .where(and(
+        eq(courts.locationId, locationId),
+        eq(courts.academyId, academyId),
+        eq(courts.isActive, true),
+      ));
+    const activeCourts = Number(row?.cnt ?? 0);
+    if (activeCourts > 0) return false;
+    await db
+      .update(locations)
+      .set({ isActive: false })
+      .where(and(eq(locations.id, locationId), eq(locations.academyId, academyId)));
+    console.log(`[deactivateLocationIfEmpty] Location ${locationId} deactivated — no active courts remain`);
+    return true;
   },
 
   async getCourtDependents(

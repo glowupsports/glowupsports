@@ -237,8 +237,12 @@ import { Router, type Request, type Response } from "express";
         // Return only active locations — player booking wizard and other callers
         // of this endpoint should never see deactivated locations.
         // Admin management uses /api/admin/locations which passes includeInactive.
+        // requireActiveCourts: true — belt-and-suspenders fix (Task #2016).
+        // Excludes any venues that have zero active courts, catching orphan
+        // venue records that existed before the auto-deactivate logic was added.
         const allLocations = await storage.getAllLocations(
           academyId ?? undefined,
+          { requireActiveCourts: true },
         );
         res.json(allLocations);
       } catch (error) {
@@ -487,6 +491,11 @@ import { Router, type Request, type Response } from "express";
           return res.status(404).json({ error: "Court not found" });
         }
 
+        // Read the court's locationId before deleting so we can deactivate
+        // an empty parent venue afterwards.
+        const courtRecord = await storage.getCourt(id, academyId ?? undefined);
+        const courtLocationId = courtRecord?.locationId ?? null;
+
         const dependents = await storage.getCourtDependents(id);
 
         if (dependents.total > 0) {
@@ -494,6 +503,10 @@ import { Router, type Request, type Response } from "express";
           const updated = await storage.softDeleteCourt(id, academyId ?? undefined);
           if (!updated) {
             return res.status(404).json({ error: "Court not found" });
+          }
+          // Auto-deactivate venue if this was its last active court
+          if (courtLocationId && academyId) {
+            await storage.deactivateLocationIfEmpty(courtLocationId, academyId);
           }
           return res.json({
             success: true,
@@ -506,6 +519,10 @@ import { Router, type Request, type Response } from "express";
 
         try {
           await storage.deleteCourt(id, academyId ?? undefined);
+          // Auto-deactivate venue if this was its last active court
+          if (courtLocationId && academyId) {
+            await storage.deactivateLocationIfEmpty(courtLocationId, academyId);
+          }
         } catch (err) {
           // Foreign-key violations from tables we don't yet check explicitly
           const e = err as { code?: string; message?: string };
@@ -523,6 +540,10 @@ import { Router, type Request, type Response } from "express";
                 dependents: recheck.counts,
                 totalReferences: recheck.total,
               });
+            }
+            // Auto-deactivate venue if this was its last active court
+            if (courtLocationId && academyId) {
+              await storage.deactivateLocationIfEmpty(courtLocationId, academyId);
             }
             return res.json({
               success: true,
