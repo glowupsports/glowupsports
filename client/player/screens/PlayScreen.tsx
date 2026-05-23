@@ -3045,7 +3045,7 @@ export default function PlayScreen() {
               </View>
             ) : null}
 
-            {/* Lessons section hero row — Take a lesson */}
+            {/* Lessons section hero row — Take a lesson + Rent a Court */}
             {playSection === "Lessons" ? (
             <View style={styles.heroRow}>
               <Pressable
@@ -3084,6 +3084,25 @@ export default function PlayScreen() {
                     {lessonsThisWeekCount} this week
                   </Text>
                 ) : null}
+              </Pressable>
+
+              <Pressable
+                style={styles.heroCard}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  navigation.navigate("CourtRentalWizard");
+                }}
+              >
+                <View style={styles.heroCardIcon}>
+                  <Ionicons
+                    name="tennisball-outline"
+                    size={18}
+                    color={Colors.dark.accentCyan}
+                  />
+                </View>
+                <Text style={styles.heroCardLabel} numberOfLines={1}>
+                  Rent a Court
+                </Text>
               </Pressable>
 
             </View>

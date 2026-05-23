@@ -33,6 +33,7 @@ import LevelUpHistoryScreen from "@/player/screens/LevelUpHistoryScreen";
 import CourtBookingScreen from "@/player/screens/CourtBookingScreen";
 import CourtDetailScreen from "@/player/screens/CourtDetailScreen";
 import MyCourtBookingsScreen from "@/player/screens/MyCourtBookingsScreen";
+import CourtRentalWizardScreen from "@/player/screens/CourtRentalWizardScreen";
 import MatchScreen from "@/player/screens/MatchScreen";
 import MatchDetailScreen from "@/player/screens/MatchDetailScreen";
 import MatchPrepScreen from "@/player/screens/MatchPrepScreen";
@@ -69,6 +70,7 @@ export type PlayStackParamList = {
   };
   BookingInvites: undefined;
   BookingPreferences: undefined;
+  CourtRentalWizard: undefined;
 };
 
 export type ScheduleStackParamList = {
@@ -345,6 +347,14 @@ export function PlayStackNavigator() {
           headerStyle: { backgroundColor: Colors.dark.backgroundRoot },
           headerTintColor: Colors.dark.primary,
           headerTitleStyle: { color: Colors.dark.text, fontWeight: '600' },
+        }}
+      />
+      <PlayStack.Screen
+        name="CourtRentalWizard"
+        component={CourtRentalWizardScreen}
+        options={{
+          headerShown: false,
+          animation: "slide_from_bottom",
         }}
       />
     </PlayStack.Navigator>

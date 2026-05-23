@@ -1520,12 +1520,12 @@ router.get(
       let coachPhotoUrl: string | null = null;
       if (coachId) {
         const [coachRow] = await db
-          .select({ name: coaches.name, profilePhotoUrl: coaches.profilePhotoUrl })
+          .select({ name: coaches.name, photoUrl: coaches.photoUrl })
           .from(coaches)
           .where(eq(coaches.id, coachId))
           .limit(1);
         coachName = coachRow?.name || null;
-        coachPhotoUrl = (coachRow as any)?.profilePhotoUrl || null;
+        coachPhotoUrl = coachRow?.photoUrl || null;
       }
 
       return res.json({
@@ -11583,6 +11583,412 @@ router.post(
       res.status(500).json({ error: "Failed to decline booking request" });
     }
   },
+);
+
+// ==================== PLAYER SELF-SERVICE COURT RENTAL ====================
+
+function toMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function timeRangesOverlap(startA: string, endA: string, startB: string, endB: string): boolean {
+  return toMinutes(startA) < toMinutes(endB) && toMinutes(endA) > toMinutes(startB);
+}
+
+function addMinutesToTime(time: string, minutes: number): string {
+  const totalMins = toMinutes(time) + minutes;
+  const h = Math.floor(totalMins / 60) % 24;
+  const m = totalMins % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+
+// GET /api/player/courts/pricing
+// Returns courts for the player's academy with pricing for 60/90/120 min durations.
+router.get(
+  "/api/player/courts/pricing",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.json({ courts: [], durations: [60, 90, 120] });
+      }
+
+      const allCourts = await db
+        .select()
+        .from(courts)
+        .where(and(eq(courts.academyId, academyId), eq(courts.isActive, true)));
+
+      const bookableCourts = allCourts.filter(
+        (c) => c.bookingEnabled !== false && !c.requiresExternalBooking
+      );
+
+      const DURATIONS = [60, 90, 120];
+
+      const enriched = bookableCourts.map((court) => {
+        const pricePerHour = parseFloat(court.pricePerHour ?? "0") || 0;
+        const creditsPerHour = court.creditsPerHour ?? 0;
+        const currency = court.currency ?? "AED";
+
+        const pricingOptions = DURATIONS.map((mins) => {
+          const fraction = mins / 60;
+          const price = Math.round(pricePerHour * fraction * 100) / 100;
+          const credits = Math.round(creditsPerHour * fraction);
+          return { durationMinutes: mins, price, credits };
+        });
+
+        return {
+          id: court.id,
+          name: court.name,
+          surface: court.surface,
+          indoor: court.indoor,
+          description: court.description,
+          photoUrl: court.photoUrl,
+          locationId: court.locationId,
+          currency,
+          pricePerHour,
+          creditsPerHour,
+          maxBookingDurationHours: court.maxBookingDurationHours ?? 2,
+          minBookingDurationMinutes: court.minBookingDurationMinutes ?? 60,
+          pricingOptions,
+          xpRewardPerHour: court.xpRewardPerHour ?? 10,
+        };
+      });
+
+      res.json({ courts: enriched, durations: DURATIONS });
+    } catch (error) {
+      console.error("[CourtRental] GET pricing error:", error);
+      res.status(500).json({ error: "Failed to fetch court pricing" });
+    }
+  }
+);
+
+// GET /api/player/courts/slots?date=YYYY-MM-DD&duration=60[&courtId=X]
+// When courtId is supplied: returns slots for that specific court with availability.
+// When courtId is omitted: returns union across all academy courts — a slot is available
+// if at least one court has it free. Also returns minPrice/minCredits per slot.
+router.get(
+  "/api/player/courts/slots",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const { courtId, date, duration } = req.query;
+      if (!date || typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "date (YYYY-MM-DD) is required" });
+      }
+      const durationMins = parseInt(typeof duration === "string" ? duration : "60", 10) || 60;
+      const specificCourtId = typeof courtId === "string" && courtId ? courtId : null;
+
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.json({ slots: [] });
+      }
+
+      const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+      const dayOfWeek = new Date(date + "T00:00:00").getDay();
+      const dayKey = dayNames[dayOfWeek];
+
+      // Helper: compute available slots for a single court
+      async function getSlotsForCourt(court: typeof courts.$inferSelect): Promise<{
+        startTime: string; endTime: string; available: boolean;
+        price: number; credits: number; currency: string;
+      }[]> {
+        const operatingHours = (court.operatingHours as any)?.[dayKey];
+        let openTime = "06:00";
+        let closeTime = "22:00";
+        if (operatingHours) {
+          if (operatingHours.closed) return [];
+          if (operatingHours.open) openTime = operatingHours.open;
+          if (operatingHours.close) closeTime = operatingHours.close;
+        }
+
+        // Existing court bookings
+        const existingBookings = await db
+          .select({ startTime: courtBookings.startTime, endTime: courtBookings.endTime })
+          .from(courtBookings)
+          .where(
+            and(
+              eq(courtBookings.courtId, court.id),
+              eq(courtBookings.date, date as string),
+              or(eq(courtBookings.status, "confirmed"), eq(courtBookings.status, "pending"))
+            )
+          );
+
+        // Coaching session conflicts
+        const sessionConflicts = await pool.query(
+          `SELECT TO_CHAR(start_time AT TIME ZONE 'UTC', 'HH24:MI') as start_hhmm,
+                  TO_CHAR(end_time AT TIME ZONE 'UTC', 'HH24:MI') as end_hhmm
+           FROM sessions
+           WHERE court_id = $1
+             AND DATE(start_time AT TIME ZONE 'UTC') = $2
+             AND status NOT IN ('cancelled')`,
+          [court.id, date]
+        );
+
+        const blockedRanges = [
+          ...existingBookings,
+          ...sessionConflicts.rows.map((r: any) => ({ startTime: r.start_hhmm, endTime: r.end_hhmm })),
+        ];
+
+        // Price for this duration
+        const phPerHour = court.pricePerHour ?? 0;
+        const cpPerHour = court.creditsPerHour ?? 0;
+        const fraction = durationMins / 60;
+        const slotPrice = Math.round(phPerHour * fraction * 100) / 100;
+        const slotCredits = Math.round(cpPerHour * fraction);
+
+        const result: { startTime: string; endTime: string; available: boolean; price: number; credits: number; currency: string }[] = [];
+        let cursor = openTime;
+        while (toMinutes(cursor) + durationMins <= toMinutes(closeTime)) {
+          const slotEnd = addMinutesToTime(cursor, durationMins);
+          const isBlocked = blockedRanges.some((b) =>
+            timeRangesOverlap(cursor, slotEnd, b.startTime, b.endTime)
+          );
+          result.push({
+            startTime: cursor,
+            endTime: slotEnd,
+            available: !isBlocked,
+            price: slotPrice,
+            credits: slotCredits,
+            currency: court.currency ?? "AED",
+          });
+          cursor = addMinutesToTime(cursor, 30);
+        }
+        return result;
+      }
+
+      if (specificCourtId) {
+        // Single-court mode
+        const [court] = await db
+          .select()
+          .from(courts)
+          .where(and(eq(courts.id, specificCourtId), eq(courts.academyId, academyId)))
+          .limit(1);
+
+        if (!court) {
+          return res.status(404).json({ error: "Court not found" });
+        }
+
+        const slots = await getSlotsForCourt(court);
+        return res.json({ slots });
+      }
+
+      // Multi-court mode: union of all bookable courts
+      const allCourts = await db
+        .select()
+        .from(courts)
+        .where(
+          and(
+            eq(courts.academyId, academyId),
+            eq(courts.isActive, true),
+            eq(courts.bookingEnabled, true),
+            eq(courts.requiresExternalBooking, false)
+          )
+        );
+
+      if (allCourts.length === 0) {
+        return res.json({ slots: [] });
+      }
+
+      // Build a map: slotKey → { available: bool, minPrice, minCredits, currency }
+      const slotMap = new Map<string, { startTime: string; endTime: string; available: boolean; minPrice: number; minCredits: number; currency: string }>();
+
+      for (const court of allCourts) {
+        const courtSlots = await getSlotsForCourt(court);
+        for (const s of courtSlots) {
+          const key = s.startTime;
+          const existing = slotMap.get(key);
+          if (!existing) {
+            slotMap.set(key, {
+              startTime: s.startTime,
+              endTime: s.endTime,
+              available: s.available,
+              minPrice: s.price,
+              minCredits: s.credits,
+              currency: s.currency,
+            });
+          } else {
+            // Slot is available if at least one court has it free
+            if (s.available) existing.available = true;
+            if (s.price < existing.minPrice) {
+              existing.minPrice = s.price;
+              existing.currency = s.currency;
+            }
+            if (s.credits < existing.minCredits) existing.minCredits = s.credits;
+          }
+        }
+      }
+
+      const slots = Array.from(slotMap.values())
+        .map((s) => ({
+          startTime: s.startTime,
+          endTime: s.endTime,
+          available: s.available,
+          price: s.minPrice,
+          credits: s.minCredits,
+          currency: s.currency,
+        }))
+        .sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime));
+
+      res.json({ slots });
+    } catch (error) {
+      console.error("[CourtRental] GET slots error:", error);
+      res.status(500).json({ error: "Failed to fetch court slots" });
+    }
+  }
+);
+
+// POST /api/player/court-rental
+// Creates a self-service court booking for the authenticated player.
+const courtRentalSchema = z.object({
+  courtId: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  durationMinutes: z.number().int().positive(),
+  paymentMethod: z.enum(["credits", "pay_later"]).default("pay_later"),
+  notes: z.string().max(500).optional().nullable(),
+});
+
+router.post(
+  "/api/player/court-rental",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.userId;
+      const playerId = req.user?.playerId;
+      if (!playerId || !userId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+
+      const academyId = req.user!.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+
+      const parsed = courtRentalSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+      }
+      const { courtId, date, startTime, endTime, durationMinutes, paymentMethod, notes } = parsed.data;
+
+      // Verify court belongs to academy and is bookable
+      const [court] = await db
+        .select()
+        .from(courts)
+        .where(and(eq(courts.id, courtId), eq(courts.academyId, academyId)))
+        .limit(1);
+
+      if (!court) {
+        return res.status(404).json({ error: "Court not found in your academy" });
+      }
+      if (court.bookingEnabled === false) {
+        return res.status(403).json({ error: "This court is not available for booking" });
+      }
+      if (court.requiresExternalBooking) {
+        return res.status(403).json({ error: "This court requires external booking" });
+      }
+
+      // Check existing court booking conflicts
+      const existingBookings = await db
+        .select({ id: courtBookings.id, startTime: courtBookings.startTime, endTime: courtBookings.endTime })
+        .from(courtBookings)
+        .where(
+          and(
+            eq(courtBookings.courtId, courtId),
+            eq(courtBookings.date, date),
+            or(eq(courtBookings.status, "confirmed"), eq(courtBookings.status, "pending"))
+          )
+        );
+
+      const hasConflict = existingBookings.some((b) =>
+        timeRangesOverlap(startTime, endTime, b.startTime, b.endTime)
+      );
+      if (hasConflict) {
+        return res.status(409).json({
+          error: "This time slot is already booked. Please choose a different time.",
+        });
+      }
+
+      // Check coaching session conflicts
+      const sessionConflict = await pool.query(
+        `SELECT 1 FROM sessions
+         WHERE court_id = $1
+           AND DATE(start_time AT TIME ZONE 'UTC') = $2
+           AND status NOT IN ('cancelled')
+           AND TO_CHAR(start_time AT TIME ZONE 'UTC', 'HH24:MI') < $4
+           AND TO_CHAR(end_time AT TIME ZONE 'UTC', 'HH24:MI') > $3
+         LIMIT 1`,
+        [courtId, date, startTime, endTime]
+      );
+      if ((sessionConflict.rows?.length ?? 0) > 0) {
+        return res.status(409).json({
+          error: "This time slot conflicts with a scheduled coaching session.",
+        });
+      }
+
+      // Calculate price
+      const pricePerHour = parseFloat(court.pricePerHour ?? "0") || 0;
+      const creditsPerHour = court.creditsPerHour ?? 0;
+      const fraction = durationMinutes / 60;
+      const price = Math.round(pricePerHour * fraction * 100) / 100;
+      const creditsUsed = paymentMethod === "credits" ? Math.round(creditsPerHour * fraction) : 0;
+      const currency = court.currency ?? "AED";
+      const paymentStatus = price === 0 ? "free" : paymentMethod === "credits" ? "credits" : "pending";
+
+      const [newBooking] = await db
+        .insert(courtBookings)
+        .values({
+          courtId,
+          userId,
+          playerId,
+          academyId,
+          date,
+          startTime,
+          endTime,
+          durationMinutes,
+          bookingType: "public",
+          status: "confirmed",
+          notes: notes ?? null,
+          price: price.toFixed(2),
+          currency,
+          paymentStatus,
+          creditsUsed,
+        })
+        .returning();
+
+      // Award XP for the booking
+      const xpReward = Math.round((court.xpRewardPerHour ?? 10) * fraction);
+      if (xpReward > 0) {
+        try {
+          await db.insert(xpTransactions).values({
+            playerId,
+            xpAmount: xpReward,
+            source: "court_rental",
+            description: `Court rental on ${date}: ${court.name}`,
+            metadata: { bookingId: newBooking.id, courtId, date },
+          });
+        } catch (xpErr) {
+          console.warn("[CourtRental] XP award failed (non-fatal):", xpErr);
+        }
+      }
+
+      res.status(201).json({ success: true, booking: newBooking, xpAwarded: xpReward });
+    } catch (error) {
+      console.error("[CourtRental] POST error:", error);
+      res.status(500).json({ error: "Failed to create court booking" });
+    }
+  }
 );
 
 export default router;
