@@ -11764,8 +11764,8 @@ router.get(
         ];
 
         // Price for this duration
-        const phPerHour = court.pricePerHour ?? 0;
-        const cpPerHour = court.creditsPerHour ?? 0;
+        const phPerHour = parseFloat(court.pricePerHour ?? "0") || 0;
+        const cpPerHour = parseFloat(String(court.creditsPerHour ?? "0")) || 0;
         const fraction = durationMins / 60;
         const slotPrice = Math.round(phPerHour * fraction * 100) / 100;
         const slotCredits = Math.round(cpPerHour * fraction);
