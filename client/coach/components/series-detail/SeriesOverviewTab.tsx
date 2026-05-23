@@ -184,7 +184,6 @@ export function SeriesOverviewTab({
   };
 
   // Camp inclusions & original price state (Task #2035)
-  const queryClient = useQueryClient();
   const [inclusionItems, setInclusionItems] = useState<string[]>(series.inclusions ?? []);
   const [newInclusionText, setNewInclusionText] = useState("");
   const [editingOriginalPrice, setEditingOriginalPrice] = useState(false);
