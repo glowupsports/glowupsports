@@ -3898,6 +3898,22 @@ export const insertAcademyPricingSchema = createInsertSchema(academyPricing).omi
 export type InsertAcademyPricing = z.infer<typeof insertAcademyPricingSchema>;
 export type AcademyPricing = typeof academyPricing.$inferSelect;
 
+// Coach Tier Pricing — per-role private lesson rates set by academy owner (Task #2036)
+export const coachTierPricing = pgTable("coach_tier_pricing", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id).notNull(),
+  role: text("role").notNull(), // head_coach | coach | assistant | intern
+  price60min: numeric("price_60min"),
+  price90min: numeric("price_90min"),
+  price120min: numeric("price_120min"),
+  currency: text("currency").default("AED"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("coach_tier_pricing_academy_role_idx").on(table.academyId, table.role),
+]);
+export type CoachTierPricing = typeof coachTierPricing.$inferSelect;
+
 // Layer 2: Coach Compensation - What coaches earn per academy (contract)
 // One coach can work for multiple academies with different rates
 export const coachContracts = pgTable("coach_contracts", {

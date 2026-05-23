@@ -73,6 +73,13 @@ export default function AcademyScreen() {
               description="Attendance, cancellation, and XP rules"
               onPress={() => navigateTo("RulesAndPolicies")}
             />
+
+            <SectionCard
+              icon="cash-outline"
+              title="Coach Rates"
+              description="Set private lesson prices per coach tier"
+              onPress={() => navigateTo("CoachTierPricing")}
+            />
           
         </View>
       </ScrollView>

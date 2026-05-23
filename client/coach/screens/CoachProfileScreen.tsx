@@ -189,6 +189,19 @@ export default function CoachProfileScreen() {
     enabled: !!coach?.id,
   });
 
+  const { data: tierData } = useQuery<{
+    role: string;
+    pricing: {
+      price60min: string | null;
+      price90min: string | null;
+      price120min: string | null;
+      currency: string | null;
+    } | null;
+  }>({
+    queryKey: ["/api/coach/me/tier-pricing"],
+    enabled: !!coach?.id,
+  });
+
   const updateMutation = useMutation({
     mutationFn: async (data: { coachId: string; updates: Partial<CoachProfile> }) =>
       apiRequest("PATCH", `/api/coach/profile/${data.coachId}`, data.updates),
@@ -737,6 +750,66 @@ export default function CoachProfileScreen() {
             </View>
           ) : null}
         </View>
+
+        {tierData ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>MY RATE</Text>
+            <View style={styles.tierRateCard}>
+              <View style={styles.tierRateRow}>
+                <View style={[styles.statIconBadge, { backgroundColor: Colors.dark.primary + "20" }]}>
+                  <Ionicons name="ribbon-outline" size={20} color={Colors.dark.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.tierRoleText}>
+                    {tierData.role === "head_coach"
+                      ? "Head Coach"
+                      : tierData.role === "coach"
+                      ? "Coach"
+                      : tierData.role === "assistant"
+                      ? "Assistant Coach"
+                      : tierData.role === "intern"
+                      ? "Intern"
+                      : tierData.role}
+                  </Text>
+                  <Text style={styles.tierRoleSubtext}>Your coaching tier</Text>
+                </View>
+              </View>
+              {tierData.pricing ? (
+                <View style={styles.tierPriceRow}>
+                  {tierData.pricing.price60min ? (
+                    <View style={styles.tierPriceChip}>
+                      <Text style={styles.tierPriceChipLabel}>60 min</Text>
+                      <Text style={styles.tierPriceChipValue}>
+                        {tierData.pricing.currency || "AED"} {tierData.pricing.price60min}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {tierData.pricing.price90min ? (
+                    <View style={styles.tierPriceChip}>
+                      <Text style={styles.tierPriceChipLabel}>90 min</Text>
+                      <Text style={styles.tierPriceChipValue}>
+                        {tierData.pricing.currency || "AED"} {tierData.pricing.price90min}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {tierData.pricing.price120min ? (
+                    <View style={styles.tierPriceChip}>
+                      <Text style={styles.tierPriceChipLabel}>120 min</Text>
+                      <Text style={styles.tierPriceChipValue}>
+                        {tierData.pricing.currency || "AED"} {tierData.pricing.price120min}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {!tierData.pricing.price60min && !tierData.pricing.price90min && !tierData.pricing.price120min ? (
+                    <Text style={styles.tierNoRateText}>No rates configured for your tier yet</Text>
+                  ) : null}
+                </View>
+              ) : (
+                <Text style={styles.tierNoRateText}>No rates configured for your tier yet</Text>
+              )}
+            </View>
+          </View>
+        ) : null}
       </KeyboardAwareScrollViewCompat>
     </LinearGradient>
   );
@@ -1040,5 +1113,58 @@ const styles = StyleSheet.create({
     fontSize: Typography.body.fontSize,
     fontWeight: "600",
     color: Colors.dark.text,
+  },
+  tierRateCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "30",
+    gap: Spacing.md,
+  },
+  tierRateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  tierRoleText: {
+    fontSize: Typography.body.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  tierRoleSubtext: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  tierPriceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  tierPriceChip: {
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    alignItems: "center",
+    minWidth: 80,
+  },
+  tierPriceChipLabel: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    marginBottom: 2,
+  },
+  tierPriceChipValue: {
+    fontSize: Typography.small.fontSize,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  tierNoRateText: {
+    fontSize: Typography.caption.fontSize,
+    color: Colors.dark.textMuted,
+    fontStyle: "italic",
   },
 });

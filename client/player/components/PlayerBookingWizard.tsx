@@ -476,6 +476,21 @@ export default function PlayerBookingWizard({
 
   const cardEnabled = isCrossAcademyResolvedCoach ? true : !!lessonPriceInfo;
 
+  // Coach tier pricing (for private lesson rate overview)
+  const { data: tierPricingData } = useQuery<{
+    tiers: Array<{
+      role: string;
+      price60min: string | null;
+      price90min: string | null;
+      price120min: string | null;
+      currency: string | null;
+    }>;
+  }>({
+    queryKey: ["/api/player/academy-tier-pricing"],
+    enabled: visible && sessionType === "private" && currentSlide >= 1,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Cancellation policy
   const { data: policyData } = useQuery<{ cancellationPolicy: string }>({
     queryKey: [`/api/player/academy-cancellation-policy/${resolvedAcademyId}`],
@@ -1455,6 +1470,111 @@ export default function PlayerBookingWizard({
               </ScrollView>
             </>
           )}
+
+          {/* Tier pricing overview — shown for private sessions */}
+          {sessionType === "private" &&
+            tierPricingData?.tiers &&
+            tierPricingData.tiers.length > 0 &&
+            tierPricingData.tiers.some(
+              (t) => t.price60min || t.price90min || t.price120min,
+            ) && (
+              <View style={{ marginTop: Spacing.lg }}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="pricetag-outline" size={16} color={Colors.dark.gold} />
+                  <Text style={styles.sectionTitle}>Lesson Rates</Text>
+                  <Text style={styles.filterOptional}>(by coach tier)</Text>
+                </View>
+                <View style={styles.tierPricingCard}>
+                  {[
+                    { role: "head_coach", label: "Head Coach", color: Colors.dark.gold },
+                    { role: "coach", label: "Coach", color: Colors.dark.primary },
+                    { role: "assistant", label: "Assistant", color: "#A855F7" },
+                    { role: "intern", label: "Intern", color: Colors.dark.textSecondary },
+                  ].map(({ role, label, color }) => {
+                    const tier = tierPricingData.tiers.find((t) => t.role === role);
+                    if (!tier) return null;
+                    if (!tier.price60min && !tier.price90min && !tier.price120min)
+                      return null;
+                    const cur = tier.currency || "AED";
+                    return (
+                      <View key={role} style={styles.tierPricingRow}>
+                        <View style={styles.tierPricingRoleCell}>
+                          <View
+                            style={[styles.tierPricingDot, { backgroundColor: color + "30" }]}
+                          >
+                            <View
+                              style={[
+                                styles.tierPricingDotInner,
+                                { backgroundColor: color },
+                              ]}
+                            />
+                          </View>
+                          <Text style={[styles.tierPricingRoleLabel, { color }]}>
+                            {label}
+                          </Text>
+                        </View>
+                        <View style={styles.tierPricingPrices}>
+                          {tier.price60min ? (
+                            <View
+                              style={[
+                                styles.tierPricingPill,
+                                duration === 60 && styles.tierPricingPillActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.tierPricingPillText,
+                                  duration === 60 && styles.tierPricingPillTextActive,
+                                ]}
+                              >
+                                {cur} {tier.price60min}
+                              </Text>
+                              <Text style={styles.tierPricingPillDur}>60m</Text>
+                            </View>
+                          ) : null}
+                          {tier.price90min ? (
+                            <View
+                              style={[
+                                styles.tierPricingPill,
+                                duration === 90 && styles.tierPricingPillActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.tierPricingPillText,
+                                  duration === 90 && styles.tierPricingPillTextActive,
+                                ]}
+                              >
+                                {cur} {tier.price90min}
+                              </Text>
+                              <Text style={styles.tierPricingPillDur}>90m</Text>
+                            </View>
+                          ) : null}
+                          {tier.price120min ? (
+                            <View
+                              style={[
+                                styles.tierPricingPill,
+                                duration === 120 && styles.tierPricingPillActive,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.tierPricingPillText,
+                                  duration === 120 && styles.tierPricingPillTextActive,
+                                ]}
+                              >
+                                {cur} {tier.price120min}
+                              </Text>
+                              <Text style={styles.tierPricingPillDur}>120m</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
           {/* Session type reminder */}
           {selectedTypeCard && (
@@ -3123,4 +3243,79 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   courtPickerChipText: { fontSize: 12, fontWeight: "600", color: Colors.dark.textSecondary },
   courtPickerChipTextSelected: { color: Colors.dark.buttonText },
+
+  // Tier pricing overview in "When to Play" slide
+  tierPricingCard: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.gold + "25",
+    overflow: "hidden",
+  },
+  tierPricingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border + "50",
+    gap: Spacing.sm,
+  },
+  tierPricingRoleCell: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    width: 110,
+  },
+  tierPricingDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tierPricingDotInner: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  tierPricingRoleLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    flex: 1,
+  },
+  tierPricingPrices: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    justifyContent: "flex-end",
+  },
+  tierPricingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  tierPricingPillActive: {
+    backgroundColor: Colors.dark.gold + "20",
+    borderColor: Colors.dark.gold + "60",
+  },
+  tierPricingPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textSecondary,
+  },
+  tierPricingPillTextActive: {
+    color: Colors.dark.gold,
+  },
+  tierPricingPillDur: {
+    fontSize: 10,
+    color: Colors.dark.textMuted,
+  },
 }));

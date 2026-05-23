@@ -994,6 +994,26 @@ async function run() {
     `);
     console.log("[db-migrate] Task #2004 location dedup — OK");
 
+    // ── Task #2036: coach_tier_pricing table ───────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS coach_tier_pricing (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        academy_id VARCHAR NOT NULL REFERENCES academies(id),
+        role TEXT NOT NULL,
+        price_60min NUMERIC,
+        price_90min NUMERIC,
+        price_120min NUMERIC,
+        currency TEXT DEFAULT 'AED',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS coach_tier_pricing_academy_role_idx
+      ON coach_tier_pricing(academy_id, role)
+    `);
+    console.log("[db-migrate] coach_tier_pricing table — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

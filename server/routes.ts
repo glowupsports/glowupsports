@@ -67,6 +67,7 @@ import coachManagementRouter from "./routes/coach-management";
 import coachAnalyticsRouter from "./routes/coach-analytics";
 import academySettingsRouter from "./routes/academy-settings";
 import academyPricingRouter from "./routes/academy-pricing";
+import coachTierPricingRouter from "./routes/coach-tier-pricing";
 import platformOwnerRouter from "./routes/platform-owner";
 import featureInterestRouter from "./routes/feature-interest";
 import playerSessionsRouter from "./routes/player-sessions";
@@ -434,6 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(coachAnalyticsRouter);
   app.use(academySettingsRouter);
   app.use(academyPricingRouter);
+  app.use(coachTierPricingRouter);
   app.use(platformOwnerRouter);
   app.use(featureInterestRouter);
   app.use(playerSessionsRouter);

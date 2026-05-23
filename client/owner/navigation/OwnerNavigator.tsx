@@ -22,6 +22,7 @@ import AdminClassesScreen from "@/admin/screens/AdminClassesScreen";
 import AdminPaymentsScreen from "@/admin/screens/AdminPaymentsScreen";
 import RulesAndPoliciesScreen from "@/owner/screens/RulesAndPoliciesScreen";
 import PricingScreen from "@/owner/screens/PricingScreen";
+import CoachTierPricingScreen from "@/owner/screens/CoachTierPricingScreen";
 import CoachCompensationScreen from "@/owner/screens/CoachCompensationScreen";
 import CreditPackagesScreen from "@/owner/screens/CreditPackagesScreen";
 import ShopManagementScreen from "@/owner/screens/ShopManagementScreen";
@@ -56,6 +57,7 @@ export type OwnerStackParamList = {
   PaymentsManagement: { initialTab?: "payments" | "overdue" } | undefined;
   RulesAndPolicies: undefined;
   Pricing: undefined;
+  CoachTierPricing: undefined;
   CoachCompensation: undefined;
   CreditPackages: undefined;
   ShopManagement: undefined;
@@ -112,6 +114,7 @@ function OwnerStackNavigator({ onboardingCompleted }: { onboardingCompleted: boo
       <Stack.Screen name="PaymentsManagement" component={AdminPaymentsScreen} />
       <Stack.Screen name="RulesAndPolicies" component={RulesAndPoliciesScreen} />
       <Stack.Screen name="Pricing" component={PricingScreen} />
+      <Stack.Screen name="CoachTierPricing" component={CoachTierPricingScreen} />
       <Stack.Screen name="CoachCompensation" component={CoachCompensationScreen} />
       <Stack.Screen name="CreditPackages" component={CreditPackagesScreen} />
       <Stack.Screen name="ShopManagement" component={ShopManagementScreen} />
