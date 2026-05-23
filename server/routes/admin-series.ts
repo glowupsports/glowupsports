@@ -5353,6 +5353,8 @@ router.get(
         requiredLevelMin?: number;
         requiredLevelMax?: number;
         seriesImageUrl?: string | null;
+        inclusions?: string[];
+        originalPrice?: number;
       }[] = [];
       // Track total filtered session count for correct open-match pagination (set inside sessions block below)
       let totalSessionCount = 0;
@@ -5370,6 +5372,8 @@ router.get(
         const seriesPriceMap = new Map<string, number>();
         const seriesSportMap = new Map<string, string>();
         const seriesImageMap = new Map<string, string | null>();
+        const seriesInclusionsMap = new Map<string, string[]>();
+        const seriesOriginalPriceMap = new Map<string, number>();
         const seriesIds = [
           ...new Set(
             academySessions.map((s) => (s as any).seriesId).filter(Boolean),
@@ -5401,6 +5405,12 @@ router.get(
                 );
               }
               seriesImageMap.set(series.id, series.imageUrl ?? null);
+              if (Array.isArray((series as any)?.inclusions) && (series as any).inclusions.length > 0) {
+                seriesInclusionsMap.set(series.id, (series as any).inclusions as string[]);
+              }
+              if ((series as any)?.originalPrice != null) {
+                seriesOriginalPriceMap.set(series.id, Number((series as any).originalPrice));
+              }
             }
             // Resolve object-storage keys to signed URLs before sending to client
             try {
@@ -5727,9 +5737,12 @@ router.get(
             : undefined;
           const sessionSport: string | undefined =
             rawSessionSportVal ?? rawSeriesSportVal;
-          const sessionSeriesImageUrl: string | null = (session as any).seriesId
-            ? (seriesImageMap.get((session as any).seriesId) ?? null)
+          const seriesIdForSession = (session as any).seriesId as string | undefined;
+          const sessionSeriesImageUrl: string | null = seriesIdForSession
+            ? (seriesImageMap.get(seriesIdForSession) ?? null)
             : null;
+          const sessionInclusions = seriesIdForSession ? seriesInclusionsMap.get(seriesIdForSession) : undefined;
+          const sessionOriginalPrice = seriesIdForSession ? seriesOriginalPriceMap.get(seriesIdForSession) : undefined;
 
           openSessions.push({
             id: session.id,
@@ -5748,6 +5761,8 @@ router.get(
             sport: sessionSport,
             distanceKm: sessionDistanceKm,
             seriesImageUrl: sessionSeriesImageUrl,
+            inclusions: sessionInclusions,
+            originalPrice: sessionOriginalPrice,
           });
         }
       }

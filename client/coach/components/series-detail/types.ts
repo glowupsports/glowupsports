@@ -105,6 +105,9 @@ export interface SeriesDetail {
   courtReminderGroupIds?: string[] | null;
   // Cover photo (Task #2034)
   imageUrl?: string | null;
+  // Camp inclusions & discount price (Task #2035)
+  inclusions?: string[] | null;
+  originalPrice?: string | null;
   players: Player[];
   sessions: SessionInstance[];
   stats: {

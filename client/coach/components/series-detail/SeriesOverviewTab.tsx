@@ -183,6 +183,27 @@ export function SeriesOverviewTab({
     uploadPhotoMutation.mutate(uri);
   };
 
+  // Camp inclusions & original price state (Task #2035)
+  const queryClient = useQueryClient();
+  const [inclusionItems, setInclusionItems] = useState<string[]>(series.inclusions ?? []);
+  const [newInclusionText, setNewInclusionText] = useState("");
+  const [editingOriginalPrice, setEditingOriginalPrice] = useState(false);
+  const [originalPriceInput, setOriginalPriceInput] = useState(series.originalPrice ?? "");
+
+  useEffect(() => {
+    setInclusionItems(series.inclusions ?? []);
+    setOriginalPriceInput(series.originalPrice ?? "");
+  }, [series.id, series.inclusions, series.originalPrice]);
+
+  const saveCampFieldsMutation = useMutation({
+    mutationFn: async (data: { inclusions?: string[]; originalPrice?: string | null }) => {
+      return apiRequest("PATCH", `/api/coach/series/${series.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${series.id}`] });
+    },
+  });
+
   // ------- Inline schedule editor state -------
   const [draftDay, setDraftDay] = useState<number>(series.dayOfWeek);
   const [draftStartTime, setDraftStartTime] = useState<string>(series.startTime);
@@ -624,6 +645,106 @@ export function SeriesOverviewTab({
           </View>
         ) : null}
       </View>
+
+      {series.sessionType === "camp" && (
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Camp inclusions</Text>
+
+          {inclusionItems.map((item, idx) => (
+            <View key={idx} style={campStyles.inclusionRow}>
+              <Ionicons name="checkmark-circle-outline" size={16} color={Colors.dark.successNeon} />
+              <Text style={campStyles.inclusionText}>{item}</Text>
+              <Pressable
+                onPress={() => {
+                  const next = inclusionItems.filter((_, i) => i !== idx);
+                  setInclusionItems(next);
+                  saveCampFieldsMutation.mutate({ inclusions: next });
+                }}
+                style={campStyles.removeBtn}
+              >
+                <Ionicons name="close-circle" size={16} color={Colors.dark.error} />
+              </Pressable>
+            </View>
+          ))}
+
+          {inclusionItems.length < 8 && (
+            <View style={campStyles.addInclusionRow}>
+              <TextInput
+                style={campStyles.inclusionInput}
+                value={newInclusionText}
+                onChangeText={setNewInclusionText}
+                placeholder="e.g. 5x Groepsles"
+                placeholderTextColor={Colors.dark.textMuted}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  const trimmed = newInclusionText.trim();
+                  if (!trimmed) return;
+                  const next = [...inclusionItems, trimmed];
+                  setInclusionItems(next);
+                  setNewInclusionText("");
+                  saveCampFieldsMutation.mutate({ inclusions: next });
+                }}
+              />
+              <Pressable
+                style={campStyles.addBtn}
+                onPress={() => {
+                  const trimmed = newInclusionText.trim();
+                  if (!trimmed) return;
+                  const next = [...inclusionItems, trimmed];
+                  setInclusionItems(next);
+                  setNewInclusionText("");
+                  saveCampFieldsMutation.mutate({ inclusions: next });
+                }}
+              >
+                <Ionicons name="add" size={20} color={Colors.dark.successNeon} />
+              </Pressable>
+            </View>
+          )}
+
+          <View style={campStyles.originalPriceSection}>
+            <Text style={campStyles.originalPriceLabel}>Original price (crossed out)</Text>
+            {editingOriginalPrice ? (
+              <View style={campStyles.originalPriceEditRow}>
+                <TextInput
+                  style={campStyles.originalPriceInput}
+                  value={originalPriceInput}
+                  onChangeText={setOriginalPriceInput}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 500"
+                  placeholderTextColor={Colors.dark.textMuted}
+                  autoFocus
+                />
+                <Pressable
+                  onPress={() => {
+                    const trimmed = originalPriceInput.trim();
+                    saveCampFieldsMutation.mutate({ originalPrice: trimmed || null });
+                    setEditingOriginalPrice(false);
+                  }}
+                  style={campStyles.originalPriceSaveBtn}
+                >
+                  <Ionicons name="checkmark" size={18} color={Colors.dark.successNeon} />
+                </Pressable>
+                <Pressable onPress={() => setEditingOriginalPrice(false)} style={campStyles.originalPriceCancelBtn}>
+                  <Ionicons name="close" size={18} color={Colors.dark.error} />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={() => {
+                  setOriginalPriceInput(series.originalPrice ?? "");
+                  setEditingOriginalPrice(true);
+                }}
+                style={campStyles.originalPriceDisplayRow}
+              >
+                <Text style={campStyles.originalPriceValue}>
+                  {series.originalPrice ? `AED ${series.originalPrice}` : "Not set"}
+                </Text>
+                <Ionicons name="pencil-outline" size={14} color={Colors.dark.disabled} style={{ marginLeft: 6 }} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
 
       <View style={[styles.infoSection, { overflow: "visible" }]}>
         {playerActionMenuId ? (
@@ -1451,6 +1572,85 @@ const scheduleStyles = StyleSheet.create({
     color: Colors.dark.text,
     fontSize: 14,
     fontWeight: "700",
+  },
+});
+
+const campStyles = StyleSheet.create({
+  inclusionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 5,
+  },
+  inclusionText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.dark.text,
+  },
+  removeBtn: {
+    padding: 2,
+  },
+  addInclusionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+  },
+  inclusionInput: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  addBtn: {
+    padding: 6,
+  },
+  originalPriceSection: {
+    marginTop: 14,
+    gap: 4,
+  },
+  originalPriceLabel: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  originalPriceDisplayRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  originalPriceValue: {
+    fontSize: 14,
+    color: Colors.dark.text,
+  },
+  originalPriceEditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  originalPriceInput: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  originalPriceSaveBtn: {
+    padding: 4,
+  },
+  originalPriceCancelBtn: {
+    padding: 4,
   },
 });
 

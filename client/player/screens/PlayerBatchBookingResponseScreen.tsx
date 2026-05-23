@@ -66,7 +66,7 @@ export default function PlayerBatchBookingResponseScreen() {
 
   const { data, isLoading, isError, refetch } = useQuery<BatchData>({
     queryKey: ["/api/player/booking-batches", batchId],
-    queryFn: () => apiRequest("GET", `/api/player/booking-batches/${batchId}`).then((r) => r.json()),
+    queryFn: () => apiRequest("GET", `/api/player/booking-batches/${batchId}`).then((r) => r.json() as Promise<BatchData>),
     staleTime: 30_000,
   });
 

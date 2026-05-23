@@ -1890,6 +1890,11 @@ export const coachingSeries = pgTable("coaching_series", {
 
   // Cover photo (Task #2034) — GCS object key uploaded by the coach; shown as hero on session cards
   imageUrl: text("image_url"),
+  // Camp package inclusions (Task #2035) — only shown/edited for sessionType="camp"
+  // e.g. ["5x Groepsles", "1x Privé sessie", "Player pack", "Shake"]
+  inclusions: jsonb("inclusions").$type<string[]>(),
+  // Optional "from price" shown struck-through next to the actual price
+  originalPrice: numeric("original_price"),
 
   createdAt: timestamp("created_at").defaultNow(),
 });

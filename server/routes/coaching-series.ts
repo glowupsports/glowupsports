@@ -1550,6 +1550,9 @@ router.patch(
         // Court booking confirmation flow (Task #1712)
         "courtLocation",
         "courtReminderGroupIds",
+        // Camp inclusions & discount price (Task #2035)
+        "inclusions",
+        "originalPrice",
       ];
 
       // Validation for schedule fields
@@ -1605,6 +1608,30 @@ router.patch(
             }
             // Normalize to string representation of the valid numeric value
             updates["publicDropInPrice"] = String(price);
+            continue;
+          }
+          if (field === "originalPrice" && req.body[field] !== null && req.body[field] !== undefined) {
+            const raw = String(req.body[field]).trim();
+            const price = Number(raw);
+            if (!/^\d+(\.\d+)?$/.test(raw) || isNaN(price) || price < 0) {
+              return res.status(400).json({
+                error: "originalPrice must be a non-negative number or null",
+              });
+            }
+            updates["originalPrice"] = String(price);
+            continue;
+          }
+          if (field === "inclusions") {
+            const val = req.body[field];
+            if (val !== null && val !== undefined) {
+              if (!Array.isArray(val) || val.some((v: unknown) => typeof v !== "string")) {
+                return res.status(400).json({ error: "inclusions must be an array of strings or null" });
+              }
+              // Limit to 8 items
+              updates["inclusions"] = (val as string[]).slice(0, 8).map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+            } else {
+              updates["inclusions"] = null;
+            }
             continue;
           }
           updates[field] =

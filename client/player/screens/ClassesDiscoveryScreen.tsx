@@ -62,6 +62,8 @@ interface ClassSession {
   title?: string;
   distanceKm?: number;
   seriesImageUrl?: string | null;
+  inclusions?: string[];
+  originalPrice?: number;
 }
 
 interface DateGroup {
@@ -333,6 +335,16 @@ function SessionCard({
           )}
         </View>
 
+        {session.type === "camp" && session.inclusions && session.inclusions.length > 0 && (
+          <View style={styles.inclusionsList}>
+            {session.inclusions.map((item, i) => (
+              <View key={i} style={styles.inclusionRow}>
+                <Ionicons name="checkmark-circle" size={13} color={ACCENT} />
+                <Text style={styles.inclusionText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        )}
         {!eligible && session.ballLevel && !session.isEnrolled && (
           <View style={styles.levelWarningBanner}>
             <Ionicons name="warning-outline" size={13} color="#F97316" />
@@ -361,12 +373,17 @@ function SessionCard({
             >
               {isJoining ? (
                 <TennisBallSpinner size="small" color={BG} />
+              ) : session.type === "camp" && session.price != null ? (
+                <View style={styles.joinButtonPriceWrap}>
+                  {session.originalPrice != null && session.originalPrice > session.price ? (
+                    <Text style={styles.joinButtonOriginalPrice}>AED {session.originalPrice}</Text>
+                  ) : null}
+                  <Text style={styles.joinButtonText}>AED {session.price}</Text>
+                </View>
+              ) : session.price != null ? (
+                <Text style={styles.joinButtonText}>Join — AED {session.price}</Text>
               ) : (
-                <>
-                  <Text style={styles.joinButtonText}>
-                    Join{session.price != null ? ` — AED ${session.price}` : ""}
-                  </Text>
-                </>
+                <Text style={styles.joinButtonText}>Join</Text>
               )}
             </Pressable>
           )}
@@ -997,6 +1014,31 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: Backgrounds.root,
+  },
+  joinButtonPriceWrap: {
+    alignItems: "center",
+    gap: 0,
+  },
+  joinButtonOriginalPrice: {
+    fontSize: 10,
+    color: Backgrounds.root,
+    opacity: 0.7,
+    textDecorationLine: "line-through",
+    fontWeight: "600",
+  },
+  inclusionsList: {
+    gap: 4,
+    paddingBottom: 2,
+  },
+  inclusionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  inclusionText: {
+    fontSize: 12,
+    color: TEXT_SECONDARY,
+    flex: 1,
   },
   bookedBadge: {
     flexDirection: "row",
