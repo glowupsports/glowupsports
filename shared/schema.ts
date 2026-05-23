@@ -1888,6 +1888,9 @@ export const coachingSeries = pgTable("coaching_series", {
   // Which lesson group IDs receive automated booking reminder pushes (null = all enrolled groups)
   courtReminderGroupIds: jsonb("court_reminder_group_ids").$type<string[]>(),
 
+  // Cover photo (Task #2034) — GCS object key uploaded by the coach; shown as hero on session cards
+  imageUrl: text("image_url"),
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 

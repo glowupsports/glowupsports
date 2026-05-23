@@ -5352,6 +5352,7 @@ router.get(
         title?: string;
         requiredLevelMin?: number;
         requiredLevelMax?: number;
+        seriesImageUrl?: string | null;
       }[] = [];
       // Track total filtered session count for correct open-match pagination (set inside sessions block below)
       let totalSessionCount = 0;
@@ -5368,6 +5369,7 @@ router.get(
         const seriesLevelMap = new Map<string, string>();
         const seriesPriceMap = new Map<string, number>();
         const seriesSportMap = new Map<string, string>();
+        const seriesImageMap = new Map<string, string | null>();
         const seriesIds = [
           ...new Set(
             academySessions.map((s) => (s as any).seriesId).filter(Boolean),
@@ -5397,6 +5399,23 @@ router.get(
                   series.id,
                   ((series as any).sport as string).toLowerCase(),
                 );
+              }
+              seriesImageMap.set(series.id, series.imageUrl ?? null);
+            }
+            // Resolve object-storage keys to signed URLs before sending to client
+            try {
+              const { resolveMediaUrl } = await import("../objectStorage");
+              for (const [sid, raw] of seriesImageMap.entries()) {
+                if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+                  seriesImageMap.set(sid, (await resolveMediaUrl(raw)) ?? null);
+                }
+              }
+            } catch (_resolveErr) {
+              // Normalize any unresolved GCS keys to null for clean fallback
+              for (const [sid, raw] of seriesImageMap.entries()) {
+                if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+                  seriesImageMap.set(sid, null);
+                }
               }
             }
           } catch (_e) {}
@@ -5708,6 +5727,10 @@ router.get(
             : undefined;
           const sessionSport: string | undefined =
             rawSessionSportVal ?? rawSeriesSportVal;
+          const sessionSeriesImageUrl: string | null = (session as any).seriesId
+            ? (seriesImageMap.get((session as any).seriesId) ?? null)
+            : null;
+
           openSessions.push({
             id: session.id,
             type: session.sessionType || "group",
@@ -5724,6 +5747,7 @@ router.get(
             price: sessionPrice,
             sport: sessionSport,
             distanceKm: sessionDistanceKm,
+            seriesImageUrl: sessionSeriesImageUrl,
           });
         }
       }

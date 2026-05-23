@@ -13,8 +13,8 @@ import { sanitizeTemplateName } from "../utils/sanitize";
 import { utcToLocalTime, getFirstSessionDate, addDaysToLocalDate, ensureResolvableLocalTime } from "../utils/timezone";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
 import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, sessionFeedback, inSessionFeedback, xpTransactions, coachTimeBlocks, playerHolidays, playerNotifications, coaches, courtBookingConfirmations } from "@shared/schema";
-import { uploadToObjectStorage, getSignedUrl } from "../objectStorage";
-import { courtScreenshotUpload, wrapUploadHandler } from "../upload-middleware";
+import { uploadToObjectStorage, getSignedUrl, deleteFromObjectStorage, objectKeyFromUrl } from "../objectStorage";
+import { courtScreenshotUpload, seriesPhotoUpload, wrapUploadHandler } from "../upload-middleware";
 import fs from "fs";
 const router = Router();
 
@@ -422,6 +422,17 @@ router.get(
       // Combine regular series with virtual flexible entries
       const allSeries = [...enrichedSeries, ...virtualFlexibleSeries];
 
+      // Resolve object-storage cover photo keys to signed URLs before caching
+      try {
+        const { resolveMediaUrl: _resolveImg } = await import("../objectStorage");
+        for (const s of allSeries) {
+          const raw = (s as any).imageUrl;
+          if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+            (s as any).imageUrl = (await _resolveImg(raw)) ?? null;
+          }
+        }
+      } catch { /* non-fatal — imageUrl stays null, client falls back to gradient */ }
+
       // Cache the response for 5 minutes
       apiCache.set(cacheKey, allSeries, CACHE_TTL.COACH_SERIES);
       console.log(
@@ -715,8 +726,18 @@ router.get(
         }
       }
 
+      // Resolve cover photo key to a signed/public URL if needed
+      let resolvedSeriesImageUrl: string | null = (series as any).imageUrl ?? null;
+      try {
+        if (resolvedSeriesImageUrl?.startsWith(".private/") || resolvedSeriesImageUrl?.startsWith("public/")) {
+          const { resolveMediaUrl: _resolveImg } = await import("../objectStorage");
+          resolvedSeriesImageUrl = (await _resolveImg(resolvedSeriesImageUrl)) ?? null;
+        }
+      } catch { resolvedSeriesImageUrl = null; /* normalize to null on failure */ }
+
       res.json({
         ...series,
+        imageUrl: resolvedSeriesImageUrl,
         locationName,
         locationAddress,
         locationLat,
@@ -4707,6 +4728,144 @@ router.patch(
     } catch (err) {
       console.error("[court-booking] PATCH confirmation failed:", err);
       return res.status(500).json({ error: "Failed to update confirmation" });
+    }
+  }
+);
+
+// ==================== SERIES COVER PHOTO ====================
+
+// POST /api/coach/series/:id/photo — upload cover photo for a series
+router.post(
+  "/api/coach/series/:id/photo",
+  authMiddleware,
+  requireAcademy,
+  wrapUploadHandler(seriesPhotoUpload.single("photo"), {
+    context: "SeriesPhoto",
+    maxBytes: 10 * 1024 * 1024,
+  }),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const userRole = req.user!.role;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No photo uploaded", code: "NO_FILE" });
+      }
+
+      const existing = await db
+        .select({ coachId: coachingSeries.coachId, academyId: coachingSeries.academyId, imageUrl: coachingSeries.imageUrl })
+        .from(coachingSeries)
+        .where(eq(coachingSeries.id, id))
+        .limit(1);
+
+      if (!existing.length) {
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      const authError = await checkSeriesAuthority(existing[0], coachId, academyId, isOwnerRole);
+      if (authError) {
+        fs.unlinkSync(req.file.path);
+        return res.status(403).json({ error: authError });
+      }
+
+      // Delete old photo if present
+      if (existing[0].imageUrl) {
+        const oldKey = objectKeyFromUrl(existing[0].imageUrl);
+        if (oldKey) {
+          await deleteFromObjectStorage(oldKey).catch(() => {});
+        }
+      }
+
+      let imageUrl: string;
+      const localPath = req.file.path;
+      const fileName = req.file.filename;
+
+      try {
+        const contentType = req.file.mimetype || "image/jpeg";
+        imageUrl = await uploadToObjectStorage(localPath, fileName, "series-photos", contentType);
+        try { fs.unlinkSync(localPath); } catch { /* already gone */ }
+      } catch (_uploadErr) {
+        imageUrl = `/uploads/series-photos/${fileName}`;
+      }
+
+      await db
+        .update(coachingSeries)
+        .set({ imageUrl })
+        .where(eq(coachingSeries.id, id));
+
+      // Invalidate series cache
+      if (coachId) {
+        apiCache.invalidate(CACHE_KEYS.COACH_SERIES(coachId, "all"));
+        apiCache.invalidate(CACHE_KEYS.COACH_SERIES(coachId, "active"));
+      }
+
+      // Resolve URL for immediate display
+      const { resolveMediaUrl } = await import("../objectStorage");
+      const resolvedUrl = await resolveMediaUrl(imageUrl);
+
+      return res.json({ success: true, imageUrl, resolvedUrl });
+    } catch (err) {
+      console.error("[SeriesPhoto] Upload error:", err);
+      return res.status(500).json({ error: "Failed to upload photo" });
+    }
+  }
+);
+
+// DELETE /api/coach/series/:id/photo — remove cover photo from a series
+router.delete(
+  "/api/coach/series/:id/photo",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const userRole = req.user!.role;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+
+      const existing = await db
+        .select({ coachId: coachingSeries.coachId, academyId: coachingSeries.academyId, imageUrl: coachingSeries.imageUrl })
+        .from(coachingSeries)
+        .where(eq(coachingSeries.id, id))
+        .limit(1);
+
+      if (!existing.length) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+
+      const authError = await checkSeriesAuthority(existing[0], coachId, academyId, isOwnerRole);
+      if (authError) {
+        return res.status(403).json({ error: authError });
+      }
+
+      if (existing[0].imageUrl) {
+        const objKey = objectKeyFromUrl(existing[0].imageUrl);
+        if (objKey) {
+          await deleteFromObjectStorage(objKey).catch(() => {});
+        } else if (existing[0].imageUrl.startsWith("/uploads/")) {
+          try { fs.unlinkSync(`${process.cwd()}${existing[0].imageUrl}`); } catch { /* already gone */ }
+        }
+      }
+
+      await db
+        .update(coachingSeries)
+        .set({ imageUrl: null })
+        .where(eq(coachingSeries.id, id));
+
+      if (coachId) {
+        apiCache.invalidate(CACHE_KEYS.COACH_SERIES(coachId, "all"));
+        apiCache.invalidate(CACHE_KEYS.COACH_SERIES(coachId, "active"));
+      }
+
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[SeriesPhoto] Delete error:", err);
+      return res.status(500).json({ error: "Failed to delete photo" });
     }
   }
 );

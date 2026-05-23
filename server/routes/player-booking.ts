@@ -1961,6 +1961,7 @@ router.get(
         { isPublic: boolean; publicDropInPrice: number | null }
       >();
       const seriesLocationMap = new Map<string, string>();
+      const seriesImageMap = new Map<string, string | null>();
       if (seriesIds.length > 0) {
         try {
           const seriesRows = await db
@@ -1978,6 +1979,23 @@ router.get(
             });
             if (series.locationId)
               seriesLocationMap.set(series.id, series.locationId);
+            seriesImageMap.set(series.id, series.imageUrl ?? null);
+          }
+          // Resolve object-storage keys to signed URLs before sending to client
+          try {
+            const { resolveMediaUrl } = await import("../objectStorage");
+            for (const [sid, raw] of seriesImageMap.entries()) {
+              if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+                seriesImageMap.set(sid, (await resolveMediaUrl(raw)) ?? null);
+              }
+            }
+          } catch (_resolveErr) {
+            // Normalize any unresolved GCS keys to null for clean fallback
+            for (const [sid, raw] of seriesImageMap.entries()) {
+              if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+                seriesImageMap.set(sid, null);
+              }
+            }
           }
         } catch (_e) {}
       }
@@ -2292,6 +2310,10 @@ router.get(
             (session.price ? parseFloat(session.price.toString()) : null))
           : null;
 
+        const seriesImageUrl = session.seriesId
+          ? (seriesImageMap.get(session.seriesId) ?? null)
+          : null;
+
         return {
           id: session.id,
           title:
@@ -2343,6 +2365,7 @@ router.get(
           sessionAcademyName: session.academyId
             ? academyNameCache.get(session.academyId) || null
             : null,
+          seriesImageUrl,
         };
       });
 

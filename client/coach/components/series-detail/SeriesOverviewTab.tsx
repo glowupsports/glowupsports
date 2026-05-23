@@ -12,8 +12,9 @@ import { DAY_NAMES, getBallLevelColor } from "./utils";
 import type { SeriesDetail, Player, CourtOption } from "./types";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, buildPhotoUrl } from "@/lib/query-client";
+import { apiRequest, buildPhotoUrl, getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 
 const DURATION_OPTIONS = [30, 45, 60, 75, 90, 120];
 
@@ -109,8 +110,78 @@ export function SeriesOverviewTab({
   onSendReminder,
 }: SeriesOverviewTabProps) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [editingDropInPrice, setEditingDropInPrice] = useState(false);
   const [dropInPriceInput, setDropInPriceInput] = useState("");
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
+
+  const resolvedCurrentPhoto = series.imageUrl
+    ? buildPhotoUrl(series.imageUrl)
+    : null;
+  const displayPhotoUri = localPhotoUri || resolvedCurrentPhoto;
+
+  const uploadPhotoMutation = useMutation({
+    mutationFn: async (uri: string) => {
+      const formData = new FormData();
+      const ext = uri.split(".").pop()?.toLowerCase() || "jpg";
+      const mime = ext === "png" ? "image/png" : "image/jpeg";
+      formData.append("photo", { uri, name: `series-cover.${ext}`, type: mime } as any);
+      const url = new URL(`/api/coach/series/${series.id}/photo`, getApiUrl()).toString();
+      const res = await fetch(url, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Upload failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      // Keep the preview showing via the resolved (signed) URL returned by the server
+      if (data?.resolvedUrl) setLocalPhotoUri(data.resolvedUrl);
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${series.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+    },
+    onError: (err: any) => {
+      setLocalPhotoUri(null);
+      Alert.alert("Upload Failed", err.message || "Could not upload photo");
+    },
+    onSettled: () => setPhotoUploading(false),
+  });
+
+  const deletePhotoMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/coach/series/${series.id}/photo`);
+    },
+    onSuccess: () => {
+      setLocalPhotoUri(null);
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${series.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+    },
+    onError: () => Alert.alert("Error", "Could not remove photo"),
+  });
+
+  const handlePickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission required", "Photo library access is needed to upload a cover photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const uri = result.assets[0].uri;
+    setLocalPhotoUri(uri);
+    setPhotoUploading(true);
+    uploadPhotoMutation.mutate(uri);
+  };
 
   // ------- Inline schedule editor state -------
   const [draftDay, setDraftDay] = useState<number>(series.dayOfWeek);
@@ -199,6 +270,54 @@ export function SeriesOverviewTab({
           </View>
         </View>
       ) : null}
+
+      {/* Cover Photo */}
+      <View style={coverPhotoStyles.section}>
+        <Text style={styles.sectionTitle}>Cover Photo</Text>
+        {displayPhotoUri ? (
+          <View style={coverPhotoStyles.previewWrapper}>
+            <Image
+              source={{ uri: displayPhotoUri }}
+              style={coverPhotoStyles.preview}
+              contentFit="cover"
+            />
+            {photoUploading ? (
+              <View style={coverPhotoStyles.uploadingOverlay}>
+                <TennisBallSpinner size="small" color="#fff" />
+                <Text style={coverPhotoStyles.uploadingText}>Uploading…</Text>
+              </View>
+            ) : null}
+            <View style={coverPhotoStyles.photoActions}>
+              <Pressable style={coverPhotoStyles.changeBtn} onPress={handlePickPhoto} disabled={photoUploading}>
+                <Ionicons name="image-outline" size={15} color="#fff" />
+                <Text style={coverPhotoStyles.changeBtnText}>Change</Text>
+              </Pressable>
+              <Pressable
+                style={coverPhotoStyles.removeBtn}
+                onPress={() => Alert.alert("Remove Cover Photo", "Remove this cover photo?", [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Remove", style: "destructive", onPress: () => deletePhotoMutation.mutate() },
+                ])}
+                disabled={deletePhotoMutation.isPending}
+              >
+                <Ionicons name="trash-outline" size={15} color={Colors.dark.danger} />
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <Pressable style={coverPhotoStyles.uploadPlaceholder} onPress={handlePickPhoto} disabled={photoUploading}>
+            {photoUploading ? (
+              <TennisBallSpinner size="small" color={Colors.dark.textMuted} />
+            ) : (
+              <Ionicons name="camera-outline" size={28} color={Colors.dark.textMuted} />
+            )}
+            <Text style={coverPhotoStyles.uploadLabel}>
+              {photoUploading ? "Uploading…" : "Add cover photo"}
+            </Text>
+            <Text style={coverPhotoStyles.uploadHint}>Shown as a hero image on session cards</Text>
+          </Pressable>
+        )}
+      </View>
 
       <View style={styles.infoSection}>
         <Text style={styles.sectionTitle}>Schedule</Text>
@@ -1393,6 +1512,80 @@ const publicStyles = StyleSheet.create({
   },
   priceCancelBtn: {
     padding: 6,
+  },
+});
+
+const coverPhotoStyles = StyleSheet.create({
+  section: {
+    marginBottom: 16,
+  },
+  uploadPlaceholder: {
+    height: 130,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderStyle: "dashed",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  uploadLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+  },
+  uploadHint: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    opacity: 0.7,
+  },
+  previewWrapper: {
+    borderRadius: 10,
+    overflow: "hidden",
+    position: "relative",
+  },
+  preview: {
+    width: "100%",
+    height: 160,
+  },
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  uploadingText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  photoActions: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    flexDirection: "row",
+    gap: 8,
+  },
+  changeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  changeBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  removeBtn: {
+    backgroundColor: "rgba(0,0,0,0.65)",
+    padding: 8,
+    borderRadius: 20,
   },
 });
 

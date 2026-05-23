@@ -61,6 +61,7 @@ interface ClassSession {
   sport?: string;
   title?: string;
   distanceKm?: number;
+  seriesImageUrl?: string | null;
 }
 
 interface DateGroup {
@@ -264,6 +265,10 @@ function SessionCard({
 
   const sessionTime = formatSessionTime(session.date, session.time);
 
+  const resolvedHeroUrl = session.seriesImageUrl
+    ? buildPhotoUrl(session.seriesImageUrl)
+    : null;
+
   return (
     <Pressable
       style={({ pressed }) => [
@@ -278,6 +283,13 @@ function SessionCard({
         }
       }}
     >
+      {resolvedHeroUrl ? (
+        <ExpoImage
+          source={{ uri: resolvedHeroUrl }}
+          style={styles.sessionCardHero}
+          contentFit="cover"
+        />
+      ) : null}
       <View style={styles.sessionCardInner}>
         <View style={styles.sessionCardTop}>
           <View style={styles.sessionTypeTag}>
@@ -840,6 +852,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     backgroundColor: CARD_BG,
     marginBottom: Spacing.sm,
     overflow: "hidden",
+  },
+  sessionCardHero: {
+    width: "100%",
+    height: 120,
   },
   sessionCardInner: {
     padding: Spacing.md,

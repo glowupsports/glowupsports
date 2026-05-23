@@ -103,6 +103,8 @@ export interface SeriesDetail {
   // Court booking confirmation flow (Task #1712)
   courtLocation?: string | null;
   courtReminderGroupIds?: string[] | null;
+  // Cover photo (Task #2034)
+  imageUrl?: string | null;
   players: Player[];
   sessions: SessionInstance[];
   stats: {

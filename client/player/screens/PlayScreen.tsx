@@ -130,6 +130,7 @@ interface PlaySession {
   claimWindowMinutes?: number;
   sessionAcademyId?: string | null;
   sessionAcademyName?: string | null;
+  seriesImageUrl?: string | null;
 }
 
 interface NearbyPlayer {
@@ -1474,7 +1475,12 @@ export default function PlayScreen() {
     // Use server-provided status which accounts for offered waitlist spots as reserved seats
     const isFull = session.status === "full";
     const isJoining = joiningSessionId === session.id;
-    const backgroundImage = session.courtImageUrl
+    const resolvedSeriesImg = session.seriesImageUrl
+      ? buildPhotoUrl(session.seriesImageUrl)
+      : null;
+    const backgroundImage = resolvedSeriesImg
+      ? { uri: resolvedSeriesImg }
+      : session.courtImageUrl
       ? { uri: session.courtImageUrl }
       : courtBackground;
     const sessionLevelColor = getBallLevelColor(session.ballLevel || "");

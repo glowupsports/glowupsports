@@ -10,6 +10,7 @@ const SOCIAL_POSTS_DIR = path.join(UPLOADS_DIR, "social-posts");
 const VIDEO_FEEDBACK_DIR = path.join(UPLOADS_DIR, "video-feedback");
 const TECHNIQUE_VIDEO_DIR = path.join(UPLOADS_DIR, "technique-videos");
 const COURT_SCREENSHOTS_DIR = path.join(UPLOADS_DIR, "court-screenshots");
+const SERIES_PHOTOS_DIR = path.join(UPLOADS_DIR, "series-photos");
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 if (!fs.existsSync(COURT_PHOTOS_DIR)) fs.mkdirSync(COURT_PHOTOS_DIR, { recursive: true });
@@ -18,6 +19,7 @@ if (!fs.existsSync(SOCIAL_POSTS_DIR)) fs.mkdirSync(SOCIAL_POSTS_DIR, { recursive
 if (!fs.existsSync(VIDEO_FEEDBACK_DIR)) fs.mkdirSync(VIDEO_FEEDBACK_DIR, { recursive: true });
 if (!fs.existsSync(TECHNIQUE_VIDEO_DIR)) fs.mkdirSync(TECHNIQUE_VIDEO_DIR, { recursive: true });
 if (!fs.existsSync(COURT_SCREENSHOTS_DIR)) fs.mkdirSync(COURT_SCREENSHOTS_DIR, { recursive: true });
+if (!fs.existsSync(SERIES_PHOTOS_DIR)) fs.mkdirSync(SERIES_PHOTOS_DIR, { recursive: true });
 
 /**
  * Thrown by `fileFilter` callbacks when a file's mimetype isn't on the
@@ -141,6 +143,19 @@ export const socialPostUpload = multer({
   }),
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: makeMimeFilter(SOCIAL_POST_TYPES),
+});
+
+// Series cover photo — coaches upload a hero image for a coaching series
+export const seriesPhotoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, SERIES_PHOTOS_DIR),
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      cb(null, `series-${uniqueSuffix}${path.extname(file.originalname) || ".jpg"}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: imageFilter,
 });
 
 // Court booking confirmation screenshot — players upload proof they booked the community court
