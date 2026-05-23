@@ -5922,6 +5922,7 @@ router.get(
           courtsAvailable,
         },
         groupLevelFallback,
+        playerBallLevel,
       });
     } catch (error) {
       console.error("Error fetching player social data:", error);

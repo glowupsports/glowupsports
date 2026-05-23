@@ -80,6 +80,27 @@ function getBallLevelColor(level?: string): string {
   return ACCENT;
 }
 
+function getBaseBallLevel(level?: string | null): string {
+  const l = (level || "").toLowerCase().trim();
+  const LEVELS = ["mini", "blue", "red", "orange", "green", "yellow", "glow"];
+  for (const lvl of LEVELS) {
+    if (l.startsWith(lvl)) return lvl;
+  }
+  return l;
+}
+
+function isLevelEligible(playerLevel?: string | null, sessionLevel?: string | null): boolean {
+  if (!sessionLevel) return true;
+  if (!playerLevel) return true;
+  return getBaseBallLevel(playerLevel) === getBaseBallLevel(sessionLevel);
+}
+
+function getLevelLabel(level?: string | null): string {
+  if (!level) return "";
+  const base = getBaseBallLevel(level);
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
 function formatDateLabel(dateStr: string): string {
   if (!dateStr) return "Today";
   const d = new Date(dateStr);
@@ -216,15 +237,18 @@ function SessionCard({
   onJoin,
   isJoining,
   onPressCard,
+  playerBallLevel,
 }: {
   session: ClassSession;
   onJoin: (id: string, type: string) => void;
   isJoining: boolean;
   onPressCard?: (session: ClassSession) => void;
+  playerBallLevel?: string | null;
 }) {
   const levelColor = getBallLevelColor(session.ballLevel);
   const _currentPlayers = (session.maxPlayers || 6) - session.spotsLeft;
   const isFull = session.spotsLeft === 0;
+  const eligible = isLevelEligible(playerBallLevel, session.ballLevel);
 
   const typeLabel =
     session.type === "group"
@@ -297,6 +321,15 @@ function SessionCard({
           )}
         </View>
 
+        {!eligible && session.ballLevel && !session.isEnrolled && (
+          <View style={styles.levelWarningBanner}>
+            <Ionicons name="warning-outline" size={13} color="#F97316" />
+            <Text style={styles.levelWarningText} numberOfLines={1}>
+              Your level ({getLevelLabel(playerBallLevel)}) does not match this class ({getLevelLabel(session.ballLevel)})
+            </Text>
+          </View>
+        )}
+
         <View style={styles.sessionBottom}>
           <ParticipantAvatars participants={session.participants} maxPlayers={session.maxPlayers || 6} />
 
@@ -354,6 +387,7 @@ export default function ClassesDiscoveryScreen() {
 
   const { data, isLoading, refetch, isRefetching } = useQuery<{
     openSessions: ClassSession[];
+    playerBallLevel?: string;
   }>({
     queryKey: [socialQueryKey],
   });
@@ -365,6 +399,7 @@ export default function ClassesDiscoveryScreen() {
   const playerLng = playerProfile?.player?.lastLongitude ?? null;
 
   const allSessions: ClassSession[] = data?.openSessions || [];
+  const playerBallLevel = data?.playerBallLevel ?? null;
 
   useEffect(() => {
     if (playerLat == null || playerLng == null || allSessions.length === 0) return;
@@ -525,11 +560,12 @@ export default function ClassesDiscoveryScreen() {
             onJoin={handleJoin}
             isJoining={joiningId === session.id}
             onPressCard={(s) => navigation.navigate("ClassDetail", { session: s })}
+            playerBallLevel={playerBallLevel}
           />
         </Animated.View>
       );
     },
-    [handleJoin, joiningId],
+    [handleJoin, joiningId, playerBallLevel],
   );
 
   const keyExtractor = useCallback((item: typeof listData[0], index: number) => {
@@ -974,6 +1010,23 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#EF4444",
+  },
+  levelWarningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#F9731610",
+    borderWidth: 1,
+    borderColor: "#F9731630",
+  },
+  levelWarningText: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#F97316",
+    flex: 1,
   },
   centered: {
     flex: 1,
