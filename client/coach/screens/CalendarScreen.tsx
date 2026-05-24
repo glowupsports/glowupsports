@@ -514,15 +514,21 @@ export default function CalendarScreen() {
       (calendarData as any)?.availabilityExceptions ?? [];
     const dates: string[] = [];
     for (const ex of exceptions) {
-      const start = new Date(ex.startDate);
-      const end = new Date(ex.endDate);
-      const cur = new Date(start);
-      while (cur <= end) {
-        const y = cur.getFullYear();
-        const m = String(cur.getMonth() + 1).padStart(2, "0");
-        const d = String(cur.getDate()).padStart(2, "0");
-        dates.push(`${y}-${m}-${d}`);
-        cur.setDate(cur.getDate() + 1);
+      // Use string slicing to get YYYY-MM-DD regardless of timezone
+      const startStr = typeof ex.startDate === "string"
+        ? ex.startDate.slice(0, 10)
+        : new Date(ex.startDate).toISOString().slice(0, 10);
+      const endStr = typeof ex.endDate === "string"
+        ? ex.endDate.slice(0, 10)
+        : new Date(ex.endDate).toISOString().slice(0, 10);
+      // Iterate by incrementing the date string to avoid any local-timezone shift
+      let cur = startStr;
+      while (cur <= endStr) {
+        dates.push(cur);
+        // Advance by one calendar day via UTC Date arithmetic (no local offset applied)
+        const d = new Date(cur + "T12:00:00Z");
+        d.setUTCDate(d.getUTCDate() + 1);
+        cur = d.toISOString().slice(0, 10);
       }
     }
     return dates;
