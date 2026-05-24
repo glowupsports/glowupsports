@@ -11071,6 +11071,37 @@ export const storage = {
       timeBlocksByCoachDate.get(key)!.push({ startUtcMinutes: Number(block.startUtcMinutes), endUtcMinutes: Number(block.endUtcMinutes) });
     }
 
+    // Fetch availability exceptions (day-blocks) for bookable coaches in the date range.
+    // Exception rows block entire days — any slot whose date falls within [startDate, endDate]
+    // of an exception is excluded from the booking wizard.
+    const exceptionRows = bookableCoachIds.size > 0
+      ? await db.select({
+          coachId: availabilityExceptions.coachId,
+          startDate: availabilityExceptions.startDate,
+          endDate: availabilityExceptions.endDate,
+        })
+        .from(availabilityExceptions)
+        .where(
+          and(
+            inArray(availabilityExceptions.coachId, [...bookableCoachIds]),
+            lte(availabilityExceptions.startDate, endDateStr),
+            gte(availabilityExceptions.endDate, startDateStr),
+          )
+        )
+      : [];
+
+    // Index by coachId for O(1) lookup inside the hot slot loop
+    const exceptionsByCoach = new Map<string, { startDate: string; endDate: string }[]>();
+    for (const exc of exceptionRows) {
+      const cid = exc.coachId;
+      if (!exceptionsByCoach.has(cid)) exceptionsByCoach.set(cid, []);
+      // Drizzle returns date columns as strings "YYYY-MM-DD"
+      exceptionsByCoach.get(cid)!.push({
+        startDate: String(exc.startDate).slice(0, 10),
+        endDate: String(exc.endDate).slice(0, 10),
+      });
+    }
+
     const availableSlots: {
       coachId: string;
       locationId: string | null;
@@ -11235,6 +11266,12 @@ export const storage = {
             return false;
           })();
 
+          // Check coach availability exceptions — exception dates are never bookable
+          const hasExceptionBlock = (() => {
+            const coachExceptions = exceptionsByCoach.get(availability.coachId) ?? [];
+            return coachExceptions.some(exc => dateStr >= exc.startDate && dateStr <= exc.endDate);
+          })();
+
           // Check if another player has temporarily reserved this exact coach+slot
           const hasReservationConflict = activeReservations.some(res =>
             res.coachId === availability.coachId &&
@@ -11259,7 +11296,7 @@ export const storage = {
           // requested duration so the duration filter in the wizard actually works.
           const durationMatches = slotDuration === params.duration;
 
-          if (durationMatches && !hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict && !hasReservationConflict && !hasTimeBlockConflict) {
+          if (durationMatches && !hasExceptionBlock && !hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict && !hasReservationConflict && !hasTimeBlockConflict) {
             availableSlots.push({
               coachId: availability.coachId,
               locationId: availability.locationId,

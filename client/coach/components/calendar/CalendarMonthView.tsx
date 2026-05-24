@@ -42,6 +42,7 @@ interface CalendarMonthViewProps {
   setShowCreateDrawer: (v: boolean) => void;
   formatTime: (hour: number) => string;
   bottomInset: number;
+  blockedDates?: string[];
 }
 
 export function CalendarMonthView({
@@ -57,6 +58,7 @@ export function CalendarMonthView({
   setShowCreateDrawer,
   formatTime,
   bottomInset,
+  blockedDates = [],
 }: CalendarMonthViewProps) {
   return (
     <ScrollView
@@ -101,6 +103,8 @@ export function CalendarMonthView({
               const isToday = date.toDateString() === new Date().toDateString();
               const isSelected = date.toDateString() === selectedDate.toDateString();
               const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+              const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+              const isBlockedDay = blockedDates.includes(dateStr);
 
               const loadHeight = Math.min(100, (stats.totalMinutes / 480) * 100);
               const loadGradient: [string, string] = stats.totalMinutes >= 360
@@ -125,6 +129,7 @@ export function CalendarMonthView({
                     isWeekend && styles.monthDayCardWeekend,
                     isToday && styles.monthDayCardToday,
                     isSelected && styles.monthDayCardSelected,
+                    isBlockedDay && { opacity: 0.6 },
                   ]}
                   onPress={() => handleDateSelect(date)}
                 >
@@ -135,6 +140,18 @@ export function CalendarMonthView({
                   ]}>
                     {date.getDate()}
                   </Text>
+
+                  {isBlockedDay ? (
+                    <View style={{
+                      position: "absolute",
+                      top: 2,
+                      right: 2,
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: "#FF4444",
+                    }} />
+                  ) : null}
 
                   {monthMode === "load" ? (
                     <>
@@ -154,15 +171,28 @@ export function CalendarMonthView({
                     </>
                   ) : (
                     <>
-                      <View style={[
-                        styles.monthAvailabilityIndicator,
-                        availabilityStatus === "open" && styles.monthAvailabilityOpen,
-                        availabilityStatus === "limited" && styles.monthAvailabilityLimited,
-                        availabilityStatus === "full" && styles.monthAvailabilityFull,
-                      ]} />
-                      {availabilityStatus !== "full" && displaySlots > 0 ? (
-                        <Text style={styles.monthSlotsLabel}>{displaySlots}h</Text>
-                      ) : null}
+                      {isBlockedDay ? (
+                        <View style={{
+                          marginTop: 2,
+                          backgroundColor: "rgba(255,68,68,0.15)",
+                          borderRadius: 2,
+                          paddingHorizontal: 2,
+                        }}>
+                          <Text style={{ fontSize: 7, color: "#FF4444", fontWeight: "600" }}>OFF</Text>
+                        </View>
+                      ) : (
+                        <>
+                          <View style={[
+                            styles.monthAvailabilityIndicator,
+                            availabilityStatus === "open" && styles.monthAvailabilityOpen,
+                            availabilityStatus === "limited" && styles.monthAvailabilityLimited,
+                            availabilityStatus === "full" && styles.monthAvailabilityFull,
+                          ]} />
+                          {availabilityStatus !== "full" && displaySlots > 0 ? (
+                            <Text style={styles.monthSlotsLabel}>{displaySlots}h</Text>
+                          ) : null}
+                        </>
+                      )}
                     </>
                   )}
                 </Pressable>

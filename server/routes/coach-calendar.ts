@@ -586,6 +586,27 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
           // Table might not exist in all environments
         }
 
+        // Fetch availability exceptions (day-blocks) for this coach in the date range
+        // so the client can show visual blocked-day markers on the calendar.
+        const startDateStr2 = `${startDate.getUTCFullYear()}-${(startDate.getUTCMonth() + 1).toString().padStart(2, "0")}-${startDate.getUTCDate().toString().padStart(2, "0")}`;
+        const endDateStr2 = `${endDate.getUTCFullYear()}-${(endDate.getUTCMonth() + 1).toString().padStart(2, "0")}-${endDate.getUTCDate().toString().padStart(2, "0")}`;
+        const calendarExceptions = await db
+          .select({
+            id: availabilityExceptions.id,
+            coachId: availabilityExceptions.coachId,
+            startDate: availabilityExceptions.startDate,
+            endDate: availabilityExceptions.endDate,
+            reason: availabilityExceptions.reason,
+          })
+          .from(availabilityExceptions)
+          .where(
+            and(
+              eq(availabilityExceptions.coachId, coachId as string),
+              lte(availabilityExceptions.startDate, endDateStr2),
+              gte(availabilityExceptions.endDate, startDateStr2),
+            )
+          );
+
         res.json({
           ownSessions: sessionsWithPlayers,
           blockedSessions: [
@@ -595,6 +616,13 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
           externalBlocks,
           coachBlocks: coachPersonalBlocks,
           slotReservations: slotReservationsForResponse,
+          availabilityExceptions: calendarExceptions.map(e => ({
+            id: e.id,
+            coachId: e.coachId,
+            startDate: String(e.startDate).slice(0, 10),
+            endDate: String(e.endDate).slice(0, 10),
+            reason: e.reason,
+          })),
           courts,
           locations,
           dateRange: { start: startDate, end: endDate },

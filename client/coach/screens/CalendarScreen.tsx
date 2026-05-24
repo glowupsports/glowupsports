@@ -1,6 +1,6 @@
 import logger from "@/lib/logger";
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions, Alert, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, useWindowDimensions, Alert, Platform, Modal } from "react-native";
 import * as Haptics from "expo-haptics";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
@@ -137,6 +137,8 @@ export default function CalendarScreen() {
   const [showBlockActionModal, setShowBlockActionModal] = useState(false);
   const [blockReason, _setBlockReason] = useState<string>("training");
   const [_blockMode, setBlockMode] = useState<"coach" | "court">("coach");
+  const [showBlockDayModal, setShowBlockDayModal] = useState(false);
+  const [blockDayReason, setBlockDayReason] = useState<string>("Holiday");
   const [_blockDateFrom, setBlockDateFrom] = useState<Date>(new Date());
   const [_blockDateTo, setBlockDateTo] = useState<Date>(new Date());
   const [_blockWeekdays, setBlockWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
@@ -507,6 +509,25 @@ export default function CalendarScreen() {
   const coachBlocks = (calendarData as any)?.coachBlocks || [];
   const slotReservations = calendarData?.slotReservations || [];
 
+  const blockedDatesSet = useMemo<string[]>(() => {
+    const exceptions: { startDate: string; endDate: string }[] =
+      (calendarData as any)?.availabilityExceptions ?? [];
+    const dates: string[] = [];
+    for (const ex of exceptions) {
+      const start = new Date(ex.startDate);
+      const end = new Date(ex.endDate);
+      const cur = new Date(start);
+      while (cur <= end) {
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2, "0");
+        const d = String(cur.getDate()).padStart(2, "0");
+        dates.push(`${y}-${m}-${d}`);
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+    return dates;
+  }, [(calendarData as any)?.availabilityExceptions]);
+
   // Compute cross-location busy blocks - show "Busy Elsewhere" on courts where coach is unavailable
   // because they have a session at another location at the same time
   const crossLocationBusyBlocks = useMemo(() => {
@@ -799,6 +820,28 @@ export default function CalendarScreen() {
     },
     onError: (error: any) => {
       Alert.alert("Error", error?.message || "Failed to create time blocks");
+    },
+  });
+
+  const blockDayMutation = useMutation({
+    mutationFn: async ({ date, reason }: { date: string; reason: string }) => {
+      return apiRequest("POST", `/api/coaches/${coach?.id}/availability-exceptions`, {
+        startDate: date,
+        endDate: date,
+        reason,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (q) => typeof q.queryKey[0] === "string" && (q.queryKey[0] as string).includes("/api/coach/calendar"),
+        refetchType: "all",
+      });
+      setShowBlockDayModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Day Blocked", "This day has been blocked. Players can no longer book sessions on this date.");
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to block day. Please try again.");
     },
   });
 
@@ -1311,6 +1354,18 @@ export default function CalendarScreen() {
               </LinearGradient>
             </Pressable>
             <Pressable
+              style={[styles.headerBookButton, { marginLeft: 8 }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowBlockDayModal(true);
+              }}
+            >
+              <View style={[styles.headerBookButtonGradient, { backgroundColor: "rgba(255,68,68,0.15)", borderWidth: 1, borderColor: "rgba(255,68,68,0.4)" }]}>
+                <Feather name="slash" size={14} color="#FF4444" />
+                <Text style={[styles.headerBookButtonText, { color: "#FF4444" }]}>Block</Text>
+              </View>
+            </Pressable>
+            <Pressable
               style={[styles.toggleButton, isExporting && styles.toggleActive]}
               onPress={exportCalendarToICS}
               disabled={isExporting}
@@ -1579,6 +1634,7 @@ export default function CalendarScreen() {
           setShowCreateDrawer={setShowCreateDrawer}
           formatTime={formatTime}
           bottomInset={insets.bottom}
+          blockedDates={blockedDatesSet}
         />
       )}
 
@@ -1615,6 +1671,88 @@ export default function CalendarScreen() {
         onConfirm={(data) => coachBlockMutation.mutate(data)}
         isConfirming={coachBlockMutation.isPending}
       />
+
+      {/* Block Day Quick Modal */}
+      <Modal
+        visible={showBlockDayModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBlockDayModal(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }}
+          onPress={() => setShowBlockDayModal(false)}
+        >
+          <Pressable onPress={() => {}} style={{
+            backgroundColor: "#1A1A2E",
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 24,
+            paddingBottom: Math.max(insets.bottom, 24),
+            borderTopWidth: 1,
+            borderTopColor: "rgba(255,68,68,0.3)",
+          }}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
+              <Feather name="slash" size={18} color="#FF4444" />
+              <Text style={{ color: "#FF4444", fontSize: 16, fontWeight: "700", marginLeft: 8 }}>
+                Block Day
+              </Text>
+            </View>
+            <Text style={{ color: Colors.dark.textMuted, fontSize: 13, marginBottom: 20 }}>
+              {formatDate(selectedDate)} — players cannot book on this day
+            </Text>
+            <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.8 }}>
+              Reason
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+              {["Holiday", "Sick", "Tournament", "Personal"].map((r) => (
+                <Pressable
+                  key={r}
+                  onPress={() => {
+                    setBlockDayReason(r);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 20,
+                    borderWidth: 1.5,
+                    borderColor: blockDayReason === r ? "#FF4444" : "rgba(255,255,255,0.15)",
+                    backgroundColor: blockDayReason === r ? "rgba(255,68,68,0.15)" : "transparent",
+                  }}
+                >
+                  <Text style={{
+                    color: blockDayReason === r ? "#FF4444" : Colors.dark.textMuted,
+                    fontWeight: blockDayReason === r ? "600" : "400",
+                    fontSize: 14,
+                  }}>
+                    {r}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              onPress={() => {
+                const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+                blockDayMutation.mutate({ date: dateStr, reason: blockDayReason });
+              }}
+              disabled={blockDayMutation.isPending}
+              style={{
+                backgroundColor: blockDayMutation.isPending ? "rgba(255,68,68,0.3)" : "rgba(255,68,68,0.15)",
+                borderWidth: 1.5,
+                borderColor: "#FF4444",
+                borderRadius: 12,
+                paddingVertical: 14,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: "#FF4444", fontWeight: "700", fontSize: 15 }}>
+                {blockDayMutation.isPending ? "Blocking..." : "Block this day"}
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Loading Overlay - Only show on initial load when there's no data */}
       {isLoading && !calendarData && (

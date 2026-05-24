@@ -314,19 +314,49 @@ export default function AvailabilityScreen() {
     setHasChanges(true);
   }, []);
 
+  const addExceptionMutation = useMutation({
+    mutationFn: async ({ startDate, endDate, reason }: { startDate: string; endDate: string; reason: string }) => {
+      return apiRequest("POST", `/api/coaches/${coach?.id}/availability-exceptions`, { startDate, endDate, reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "availability-exceptions"] });
+      setShowAddException(false);
+      setExceptionStartDate("");
+      setExceptionEndDate("");
+      setExceptionReason("Holiday");
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to save blocked day. Please try again.");
+    },
+  });
+
+  const removeExceptionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/coaches/${coach?.id}/availability-exceptions/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/coaches", coach?.id, "availability-exceptions"] });
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    },
+    onError: () => {
+      Alert.alert("Error", "Failed to remove blocked day. Please try again.");
+    },
+  });
+
   const addException = useCallback((startDate: string, endDate: string, reason: string) => {
-    setExceptions((prev) => [
-      ...prev,
-      { id: `exc-${Date.now()}`, startDate, endDate, reason },
-    ]);
-    setHasChanges(true);
-    setShowAddException(false);
-  }, []);
+    if (!coach?.id) return;
+    addExceptionMutation.mutate({ startDate, endDate, reason });
+  }, [coach?.id, addExceptionMutation]);
 
   const removeException = useCallback((id: string) => {
-    setExceptions((prev) => prev.filter((e) => e.id !== id));
-    setHasChanges(true);
-  }, []);
+    if (!coach?.id) return;
+    removeExceptionMutation.mutate(id);
+  }, [coach?.id, removeExceptionMutation]);
 
   const incrementTime = (time: string, hours: number): string => {
     const [h, m] = time.split(":").map(Number);
