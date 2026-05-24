@@ -5295,6 +5295,16 @@ router.get(
   async (req: AuthRequest, res: Response) => {
     try {
       const { coachId } = req.params;
+      const callerCoachId = req.user?.coachId;
+      const callerRole = req.user?.role;
+      if (
+        callerCoachId !== coachId &&
+        callerRole !== "admin" &&
+        callerRole !== "platform_owner" &&
+        callerRole !== "academy_owner"
+      ) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
 
       const exceptions = await db
         .select()
@@ -5317,6 +5327,17 @@ router.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const { coachId } = req.params;
+      const callerCoachId = req.user?.coachId;
+      const callerRole = req.user?.role;
+      if (
+        callerCoachId !== coachId &&
+        callerRole !== "admin" &&
+        callerRole !== "platform_owner" &&
+        callerRole !== "academy_owner"
+      ) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
       const { startDate, endDate, reason } = req.body;
 
       if (!startDate) {
@@ -5342,7 +5363,32 @@ router.delete(
   authMiddleware,
   async (req: AuthRequest, res: Response) => {
     try {
-      const { id } = req.params;
+      const { coachId, id } = req.params;
+      const callerCoachId = req.user?.coachId;
+      const callerRole = req.user?.role;
+      if (
+        callerCoachId !== coachId &&
+        callerRole !== "admin" &&
+        callerRole !== "platform_owner" &&
+        callerRole !== "academy_owner"
+      ) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      // Verify the exception belongs to this coach before deleting
+      const [existing] = await db
+        .select({ id: availabilityExceptions.id })
+        .from(availabilityExceptions)
+        .where(
+          and(
+            eq(availabilityExceptions.id, id),
+            eq(availabilityExceptions.coachId, coachId),
+          ),
+        );
+
+      if (!existing) {
+        return res.status(404).json({ error: "Exception not found" });
+      }
 
       await db
         .delete(availabilityExceptions)
