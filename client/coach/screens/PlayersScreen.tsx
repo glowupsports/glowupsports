@@ -1345,18 +1345,18 @@ export default function PlayersScreen() {
 
       <Animated.View style={[localStyles.mainContent, animatedMainContentStyle]}>
       {currentIsLoading ? (
-        <View style={[styles.loadingContainer, { paddingTop: headerHeight }]}>
+        <View style={[styles.loadingContainer, { paddingTop: headerHeight + insets.top }]}>
           <TennisBallSpinner size="large" color={Colors.dark.xpCyan} />
         </View>
       ) : filteredPlayers.length === 0 ? (
         searchQuery ? (
-          <View style={[styles.emptyContainer, { paddingTop: headerHeight }]}>
+          <View style={[styles.emptyContainer, { paddingTop: headerHeight + insets.top }]}>
             <Ionicons name="search-outline" size={48} color={Colors.dark.xpCyan + "60"} />
             <Text style={styles.emptyText}>No players found</Text>
             <Text style={styles.emptySubtext}>Try a different search</Text>
           </View>
         ) : rosterTab === "past" ? (
-          <View style={{ paddingTop: headerHeight }}>
+          <View style={{ paddingTop: headerHeight + insets.top }}>
             <GuidedEmptyState
               icon="archive-outline"
               title="No Past Players"
@@ -1368,7 +1368,7 @@ export default function PlayersScreen() {
             />
           </View>
         ) : rosterTab === "pending_payment" ? (
-          <View style={{ paddingTop: headerHeight }}>
+          <View style={{ paddingTop: headerHeight + insets.top }}>
             <GuidedEmptyState
               icon="wallet-outline"
               title="No Pending Payments"
@@ -1380,7 +1380,7 @@ export default function PlayersScreen() {
             />
           </View>
         ) : (
-          <View style={{ paddingTop: headerHeight }}>
+          <View style={{ paddingTop: headerHeight + insets.top }}>
             <GuidedEmptyState
               icon="people-outline"
               title="No Players Yet"
@@ -1402,10 +1402,10 @@ export default function PlayersScreen() {
           scrollEventThrottle={16}
           style={styles.playerList}
           contentContainerStyle={{
-            paddingTop: headerHeight,
+            paddingTop: headerHeight + insets.top,
             paddingBottom: TAB_BAR_HEIGHT + insets.bottom + Spacing.xl,
           }}
-          scrollIndicatorInsets={{ top: headerHeight }}
+          scrollIndicatorInsets={{ top: headerHeight + insets.top }}
           keyboardShouldPersistTaps="handled"
           initialNumToRender={12}
           maxToRenderPerBatch={10}
