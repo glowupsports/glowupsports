@@ -136,6 +136,8 @@ export default function AcademySettingsScreen() {
     vatRegistrationNumber: "",
     openJoin: true,
     cancellationPolicy: "Free cancellation up to 24 hours before the lesson",
+    defaultLateFeeAmount: "",
+    defaultLateFeeType: "flat",
   });
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -251,6 +253,8 @@ export default function AcademySettingsScreen() {
         vatRegistrationNumber: (settings as any).vatRegistrationNumber || "",
         openJoin: settings.openJoin !== false,
         cancellationPolicy: settings.cancellationPolicy || "Free cancellation up to 24 hours before the lesson",
+        defaultLateFeeAmount: (settings as any).defaultLateFeeAmount != null ? String((settings as any).defaultLateFeeAmount) : "",
+        defaultLateFeeType: (settings as any).defaultLateFeeType || "flat",
       });
       setHasChanges(false);
     }
@@ -298,6 +302,8 @@ export default function AcademySettingsScreen() {
       vatRegistrationNumber: formData.vatRegistrationNumber || null,
       openJoin: formData.openJoin,
       cancellationPolicy: formData.cancellationPolicy || "Free cancellation up to 24 hours before the lesson",
+      defaultLateFeeAmount: formData.defaultLateFeeAmount ? parseFloat(formData.defaultLateFeeAmount) || null : null,
+      defaultLateFeeType: formData.defaultLateFeeType || "flat",
     } as any);
   };
 
@@ -627,6 +633,63 @@ export default function AcademySettingsScreen() {
             multiline
             numberOfLines={2}
           />
+        </View>
+      </View>
+
+      <View style={styles.glassSection}>
+        <Text style={styles.sectionTitle}>LATE FEES</Text>
+        <Text style={styles.sectionSubtitle}>Default late fee pre-filled when you add a late fee to an overdue invoice</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Default Late Fee Type</Text>
+          <View style={styles.optionRow}>
+            {(["flat", "percent"] as const).map((type) => (
+              <Pressable
+                key={type}
+                style={[
+                  styles.optionButton,
+                  (formData as any).defaultLateFeeType === type && styles.optionButtonActive,
+                ]}
+                onPress={() => {
+                  setFormData((prev) => ({ ...prev, defaultLateFeeType: type }));
+                  setHasChanges(true);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.optionText,
+                    (formData as any).defaultLateFeeType === type && styles.optionTextActive,
+                  ]}
+                >
+                  {type === "flat" ? "Flat Amount" : "Percentage (%)"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>
+            {(formData as any).defaultLateFeeType === "percent"
+              ? "Late Fee Percentage (%)"
+              : "Late Fee Amount"}
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={String((formData as any).defaultLateFeeAmount ?? "")}
+            onChangeText={(text) => {
+              setFormData((prev) => ({ ...prev, defaultLateFeeAmount: text }));
+              setHasChanges(true);
+            }}
+            placeholder={(formData as any).defaultLateFeeType === "percent" ? "e.g. 5" : "e.g. 50"}
+            placeholderTextColor={Colors.dark.textMuted}
+            keyboardType="decimal-pad"
+          />
+          <Text style={{ color: Colors.dark.textMuted, fontSize: 12, marginTop: 4 }}>
+            {(formData as any).defaultLateFeeType === "percent"
+              ? "Entered as a percentage of the invoice total (e.g. 5 = 5%)."
+              : `Flat fee in your academy currency. Leave blank to enter manually each time.`}
+          </Text>
         </View>
       </View>
 

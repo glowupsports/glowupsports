@@ -42,6 +42,7 @@ interface Invoice {
   lineItems: any;
   notes: string | null;
   createdAt: string;
+  reminderSentAt: string | null;
 }
 
 interface Payment {
@@ -128,7 +129,21 @@ export default function BillingScreen() {
       createdAt: invoice.createdAt,
       notes: invoice.notes,
       lineItems: invoice.lineItems,
+      reminderSentAt: invoice.reminderSentAt,
     });
+  };
+
+  const isInvoiceOverdue = (invoice: Invoice) =>
+    invoice.status !== "paid" &&
+    !!invoice.dueDate &&
+    new Date(invoice.dueDate) < new Date();
+
+  const daysOverdueFor = (invoice: Invoice): number => {
+    if (!invoice.dueDate) return 0;
+    return Math.max(
+      0,
+      Math.floor((Date.now() - new Date(invoice.dueDate).getTime()) / (1000 * 60 * 60 * 24)),
+    );
   };
 
   const { data: _account, isLoading: _accountLoading } = useQuery<BillingAccount>({
@@ -389,10 +404,19 @@ export default function BillingScreen() {
                 <Text style={styles.amountText}>
                   {invoice.currency} {invoice.amount.toLocaleString()}
                 </Text>
-                <View style={[styles.statusBadge, invoice.status === "paid" ? styles.paidBadge : styles.pendingBadge]}>
-                  <Text style={[styles.statusText, invoice.status === "paid" && styles.paidText]}>
-                    {invoice.status}
-                  </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  {isInvoiceOverdue(invoice) ? (
+                    <View style={{ paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, backgroundColor: `${Colors.dark.error}20` }}>
+                      <Text style={{ fontSize: 8, fontWeight: "800", color: Colors.dark.error }}>
+                        OVERDUE
+                      </Text>
+                    </View>
+                  ) : null}
+                  <View style={[styles.statusBadge, invoice.status === "paid" ? styles.paidBadge : styles.pendingBadge]}>
+                    <Text style={[styles.statusText, invoice.status === "paid" && styles.paidText]}>
+                      {invoice.status}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </Pressable>
@@ -476,10 +500,19 @@ export default function BillingScreen() {
           >
             <View style={styles.invoiceListHeader}>
               <Text style={styles.invoiceListNumber}>{invoice.invoiceNumber}</Text>
-              <View style={[styles.statusBadge, invoice.status === "paid" ? styles.paidBadge : styles.pendingBadge]}>
-                <Text style={[styles.statusText, invoice.status === "paid" && styles.paidText]}>
-                  {invoice.status}
-                </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                {isInvoiceOverdue(invoice) ? (
+                  <View style={{ paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5, backgroundColor: `${Colors.dark.error}20`, borderWidth: 1, borderColor: `${Colors.dark.error}40` }}>
+                    <Text style={{ fontSize: 9, fontWeight: "800", color: Colors.dark.error }}>
+                      {daysOverdueFor(invoice)}d OVERDUE
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={[styles.statusBadge, invoice.status === "paid" ? styles.paidBadge : styles.pendingBadge]}>
+                  <Text style={[styles.statusText, invoice.status === "paid" && styles.paidText]}>
+                    {invoice.status}
+                  </Text>
+                </View>
               </View>
             </View>
             <View style={styles.invoiceListDetails}>
@@ -490,7 +523,7 @@ export default function BillingScreen() {
                 Created: {new Date(invoice.createdAt).toLocaleDateString()}
               </Text>
               {invoice.dueDate ? (
-                <Text style={styles.invoiceListDue}>
+                <Text style={[styles.invoiceListDue, isInvoiceOverdue(invoice) && { color: Colors.dark.error }]}>
                   Due: {new Date(invoice.dueDate).toLocaleDateString()}
                 </Text>
               ) : null}
@@ -958,6 +991,9 @@ export default function BillingScreen() {
           queryClient.invalidateQueries({ queryKey: ["/api/billing/invoices"] });
           queryClient.invalidateQueries({ queryKey: ["/api/billing/payments"] });
           setViewerInvoice(null);
+        }}
+        onInvoiceUpdated={(updated) => {
+          setViewerInvoice((prev) => prev ? { ...prev, ...updated } : prev);
         }}
       />
 

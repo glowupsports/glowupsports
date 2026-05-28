@@ -2856,6 +2856,10 @@ export const academySettings = pgTable("academy_settings", {
   opnPublicKey: text("opn_public_key"),
   opnSecretKey: text("opn_secret_key"),
   promptPayEnabled: boolean("prompt_pay_enabled").notNull().default(false),
+
+  // Late Fee Defaults — pre-fills the Add Late Fee dialog on overdue invoices.
+  defaultLateFeeAmount: numeric("default_late_fee_amount"),
+  defaultLateFeeType: text("default_late_fee_type").default("flat"), // flat | percent
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -3160,6 +3164,8 @@ export const invoices = pgTable("invoices", {
   
   billToName: text("bill_to_name"),
   billToEmail: text("bill_to_email"),
+  
+  reminderSentAt: timestamp("reminder_sent_at"),
   
   createdAt: timestamp("created_at").defaultNow(),
 });

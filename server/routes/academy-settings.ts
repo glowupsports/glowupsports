@@ -1980,6 +1980,175 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     },
   );
 
+  // POST /api/billing/invoices/:id/send-reminder
+  // Sends a late-fee warning email to the invoice recipient and stamps reminderSentAt.
+  // Throttled: 24h cool-down between reminders.
+  router.post(
+    "/api/billing/invoices/:id/send-reminder",
+    authMiddleware,
+    requireRole("admin", "academy_owner", "platform_owner", "coach"),
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const academyId = req.user!.academyId!;
+        const { id } = req.params;
+
+        const invoice = await storage.getInvoice(id);
+        if (!invoice || invoice.academyId !== academyId) {
+          return res.status(404).json({ error: "Invoice not found" });
+        }
+
+        const allowedStatuses = ["pending", "overdue"];
+        const invoiceStatus = String(invoice.status || "").toLowerCase();
+        const dueDatePast =
+          invoice.dueDate && new Date(invoice.dueDate) < new Date();
+        const isEffectivelyOverdue = invoiceStatus === "pending" && dueDatePast;
+        if (
+          invoiceStatus === "paid" ||
+          (!allowedStatuses.includes(invoiceStatus) && !isEffectivelyOverdue)
+        ) {
+          return res.status(400).json({
+            error: "Reminders can only be sent for pending or overdue invoices.",
+          });
+        }
+
+        // 24-hour cool-down
+        if (invoice.reminderSentAt) {
+          const hoursSince =
+            (Date.now() - new Date(invoice.reminderSentAt).getTime()) /
+            (1000 * 60 * 60);
+          if (hoursSince < 24) {
+            return res.status(429).json({
+              error: `Reminder already sent. You can send another in ${Math.ceil(24 - hoursSince)} hour(s).`,
+            });
+          }
+        }
+
+        const billToEmail = invoice.billToEmail;
+        if (!billToEmail) {
+          return res
+            .status(400)
+            .json({ error: "Invoice has no recipient email. Edit the invoice to add a billing email first." });
+        }
+
+        const academy = await storage.getAcademy(academyId);
+        const academySettings = await storage.getAcademySettings(academyId);
+
+        const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
+        const now = new Date();
+        const daysOverdue = dueDate
+          ? Math.max(0, Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
+          : 0;
+
+        const currency = invoice.currency || "AED";
+        const amount = parseFloat(invoice.amount || "0");
+        const lateFeeAmount = (academySettings as any)?.defaultLateFeeAmount
+          ? parseFloat(String((academySettings as any).defaultLateFeeAmount))
+          : null;
+        const lateFeeType: "flat" | "percent" =
+          (academySettings as any)?.defaultLateFeeType === "percent" ? "percent" : "flat";
+
+        const lateFeeValue =
+          lateFeeAmount !== null
+            ? lateFeeType === "percent"
+              ? (amount * lateFeeAmount) / 100
+              : lateFeeAmount
+            : null;
+
+        // Grace period: 7 days from now for the warning date
+        const warningDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const warningDateStr = warningDate.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+
+        const { sendEmail } = await import("../emailService");
+
+        const recipientName = invoice.billToName || "Valued Client";
+        const academyName = academy?.name || "The Academy";
+
+        const lateFeeHtml =
+          lateFeeValue !== null
+            ? `<div style="margin:24px 0;padding:18px 20px;background:#FEF2F2;border-left:4px solid #EF4444;border-radius:8px;">
+                <p style="margin:0;font-size:15px;font-weight:700;color:#DC2626;">Late Fee Notice</p>
+                <p style="margin:8px 0 0;font-size:14px;color:#7F1D1D;">
+                  A late fee of <strong>${currency} ${lateFeeValue.toFixed(2)}</strong> will be added to this invoice 
+                  if payment is not received by <strong>${warningDateStr}</strong>.
+                </p>
+              </div>`
+            : "";
+
+        const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#1F2937;background:#F9FAFB;margin:0;padding:0;}
+  .container{max-width:560px;margin:40px auto;background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);}
+  .header{background:#111827;padding:28px 32px;}
+  .header h1{margin:0;font-size:22px;color:#FFFFFF;font-weight:700;}
+  .header p{margin:4px 0 0;color:#9CA3AF;font-size:13px;}
+  .body{padding:32px;}
+  .invoice-card{background:#F9FAFB;border-radius:10px;padding:20px;margin:20px 0;border:1px solid #E5E7EB;}
+  .invoice-card .label{font-size:11px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+  .invoice-card .value{font-size:17px;font-weight:700;color:#111827;}
+  .overdue-badge{display:inline-block;padding:4px 12px;border-radius:20px;background:#FEE2E2;color:#DC2626;font-size:12px;font-weight:700;margin-top:8px;}
+  .footer{background:#F9FAFB;padding:20px 32px;border-top:1px solid #E5E7EB;text-align:center;}
+  .footer p{color:#9CA3AF;font-size:12px;margin:0;}
+</style></head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${academyName}</h1>
+      <p>Invoice Payment Reminder</p>
+    </div>
+    <div class="body">
+      <p>Dear ${recipientName},</p>
+      <p>This is a friendly reminder that the following invoice is outstanding and awaiting payment:</p>
+      <div class="invoice-card">
+        <div class="label">Invoice Number</div>
+        <div class="value">${invoice.invoiceNumber}</div>
+        <div class="label" style="margin-top:14px;">Amount Due</div>
+        <div class="value" style="color:#DC2626;">${currency} ${amount.toFixed(2)}</div>
+        ${dueDate ? `<div class="label" style="margin-top:14px;">Due Date</div><div class="value">${dueDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>` : ""}
+        ${daysOverdue > 0 ? `<span class="overdue-badge">${daysOverdue} day${daysOverdue !== 1 ? "s" : ""} overdue</span>` : ""}
+      </div>
+      ${lateFeeHtml}
+      <p>Please arrange payment at your earliest convenience. If you have already paid, please disregard this notice.</p>
+      <p>For any questions, please contact us directly.</p>
+      <p style="margin-top:24px;">Kind regards,<br><strong>${academyName}</strong></p>
+    </div>
+    <div class="footer">
+      <p>Powered by Glow Up Sports</p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+        const emailResult = await sendEmail({
+          to: billToEmail,
+          subject: `Payment Reminder: Invoice ${invoice.invoiceNumber} — ${currency} ${amount.toFixed(2)}`,
+          html,
+          text: `Payment reminder for invoice ${invoice.invoiceNumber}. Amount due: ${currency} ${amount.toFixed(2)}. ${daysOverdue > 0 ? `This invoice is ${daysOverdue} day(s) overdue.` : ""}${lateFeeValue !== null ? ` A late fee of ${currency} ${lateFeeValue.toFixed(2)} will be added if not paid by ${warningDateStr}.` : ""}`,
+        });
+
+        if (!emailResult.success) {
+          return res
+            .status(500)
+            .json({ error: emailResult.error || "Failed to send reminder email" });
+        }
+
+        const updated = await storage.updateInvoice(id, {
+          reminderSentAt: new Date(),
+        } as any);
+
+        res.json(updated);
+      } catch (error) {
+        console.error("Error sending invoice reminder:", error);
+        res.status(500).json({ error: "Failed to send reminder" });
+      }
+    },
+  );
+
   router.post(
     "/api/billing/payments",
     authMiddleware,
