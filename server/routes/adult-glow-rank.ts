@@ -17,7 +17,7 @@ import { awardConqueredCard } from "../services/arena-card-service";
 import { checkAndClaimRealMatchBounty, checkIsNemesisConquest, grantLegacyRookieCard } from "../services/arena-battle-service";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
 import { fireQuestEvent } from "../services/quest-events";
-import { updateGlowRankAfterMatch, getRankInfo, getAllRanks, getSkillRubric, getSkillRubricsByPillar, getUnlockedSkillGates, mmrToRank, calculateExpectedScore, mmrToDssRating, formatDssRating, getDssBracket, estimateMatchesToNextRank, getPlayerRatingStatus, updateDoublesRatings, type MatchResult, type PlayerMatchStats } from "../services/glow-rank-engine-adult";
+import { updateGlowRankAfterMatch, getRankInfo, getAllRanks, getSkillRubric, getSkillRubricsByPillar, getUnlockedSkillGates, mmrToRank, calculateExpectedScore, mmrToDssRating, formatDssRating, getDssBracket, estimateMatchesToNextRank, getPlayerRatingStatus, updateDoublesRatings, generateMatchExplanation, type MatchResult, type PlayerMatchStats } from "../services/glow-rank-engine-adult";
 import { ADULT_GLOW_RANKS, ADULT_SKILL_RUBRICS, MMR_CONFIG } from "../seeds/adult-glow-rank-seed";
 import { ADULT_LESSON_TEMPLATES, getTemplatesByGoal, getTemplatesByType, selectTemplate } from "../seeds/adult-lesson-templates-seed";
 import { updatePillarProgressFromMatch } from "../services/match-pillar-update";
@@ -191,6 +191,7 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
       didWin,
       gamesDiff,
       setScore,
+      scoreJson,
       matchType = "friendly",
       verification = "self_reported",
     } = req.body;
@@ -200,6 +201,28 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
       return res.status(400).json({ 
         error: "Missing required fields: playerId, opponentId, didWin" 
       });
+    }
+
+    // scoreJson is required — reject unscored matches
+    const parsedScoreJsonRaw: { p: number; o: number }[] | undefined =
+      Array.isArray(scoreJson) && scoreJson.length > 0 ? scoreJson : undefined;
+    if (!parsedScoreJsonRaw) {
+      return res.status(400).json({
+        error: "scoreJson is required: provide per-set game counts, e.g. [{p:6,o:4},{p:6,o:3}]",
+      });
+    }
+
+    // Validate score/result consistency to prevent rating manipulation.
+    // Count sets won by each side; if unambiguous, it must match didWin.
+    const setsWonByPlayer = parsedScoreJsonRaw.filter((s) => s.p > s.o).length;
+    const setsWonByOpponent = parsedScoreJsonRaw.filter((s) => s.o > s.p).length;
+    if (setsWonByPlayer !== setsWonByOpponent) {
+      const scoreSaysWin = setsWonByPlayer > setsWonByOpponent;
+      if (scoreSaysWin !== didWin) {
+        return res.status(400).json({
+          error: "Score/result mismatch: set scores do not match the declared win/loss outcome",
+        });
+      }
     }
 
     // Authorization: caller must be the player themselves or a coach/admin in same academy
@@ -273,7 +296,7 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
     const currentRank = player[0].glowRank || 9;
     const skillGatesUnlocked = getUnlockedSkillGates(skillScoresArray);
     
-    // Build match result
+    // Build match result — use the already-validated scoreJson
     const matchResult: MatchResult = {
       matchId: `match_${Date.now()}`,
       playerId,
@@ -282,7 +305,8 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
       opponentRank: opponent[0].glowRank || 9,
       didWin,
       gamesDiff: gamesDiff || 0,
-      setScore,
+      setScore: setScore ?? parsedScoreJsonRaw.map((s) => `${s.p}-${s.o}`).join(", "),
+      scoreJson: parsedScoreJsonRaw,
       matchType,
       verification,
       matchDate: new Date(),
@@ -318,13 +342,14 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
     // Calculate new MMR/rank
     const result = updateGlowRankAfterMatch(playerStats, matchResult);
     
-    // Persist match record
+    // Persist match record — always store a canonical score string derived from validated scoreJson
+    const persistedSetScore = setScore ?? parsedScoreJsonRaw.map((s) => `${s.p}-${s.o}`).join(", ");
     await db.insert(adultGlowMatches).values({
       playerId,
       opponentId,
       didWin,
       gamesDiff: gamesDiff || 0,
-      setScore,
+      setScore: persistedSetScore,
       matchType,
       verification,
       playerMmrBefore: playerStats.currentMmr,
@@ -440,6 +465,9 @@ router.post("/match", async (req: AuthenticatedRequest, res) => {
       demoted: result.demoted,
       blockedByGates: result.blockedByGates,
       warnings: result.warnings,
+      explanation: result.explanation,
+      scoreRatioUsed: result.scoreRatioUsed,
+      achievementBadges: result.achievementBadges,
     });
   } catch (error) {
     console.error("Error recording match:", error);
@@ -911,6 +939,7 @@ router.get("/player/:playerId/full-profile", async (req: AuthenticatedRequest, r
         unlocked: skillGatesUnlocked,
         required: fullRankData?.skillGates || [],
       },
+      achievementBadges: skillGatesUnlocked,
       recentMatches: recentMatches.map(m => ({
         id: m.id,
         opponentName: opponentMap.get(m.opponentId) || "Unknown",
@@ -984,12 +1013,15 @@ router.get("/player/:playerId/dss-rating", async (req: AuthenticatedRequest, res
     const mmr = player.glowMmr || 1000;
     const rank = player.glowRank || 9;
     
-    // Get rating history for trend calculation
+    // Get rating history for trend calculation (includes last-match data for explanation)
     const ratingHistory = await db
       .select({
         mmr: adultGlowMatches.playerMmrBefore,
         delta: adultGlowMatches.mmrDelta,
         date: adultGlowMatches.matchDate,
+        didWin: adultGlowMatches.didWin,
+        setScore: adultGlowMatches.setScore,
+        opponentMmrBefore: adultGlowMatches.opponentMmrBefore,
       })
       .from(adultGlowMatches)
       .where(eq(adultGlowMatches.playerId, playerId))
@@ -1054,6 +1086,28 @@ router.get("/player/:playerId/dss-rating", async (req: AuthenticatedRequest, res
         dssRating: formatDssRating(mmrToDssRating(h.mmr)),
         date: h.date,
       })),
+
+      // Last match explanation (UTR-style post-match context)
+      ...(ratingHistory[0] ? (() => {
+        const last = ratingHistory[0];
+        const delta = last.delta ?? 0;
+        const opponentMmrDiff = (last.opponentMmrBefore ?? mmr) - (last.mmr ?? mmr);
+        // Parse stored score string back to scoreJson for explanation
+        const parsedScore = last.setScore
+          ? last.setScore.split(",").map(s => s.trim()).map(s => {
+              const [p, o] = s.split("-").map(Number);
+              return (!isNaN(p) && !isNaN(o)) ? { p, o } : null;
+            }).filter(Boolean) as { p: number; o: number }[]
+          : undefined;
+        const scoreRatio = parsedScore && parsedScore.length > 0
+          ? parsedScore.reduce((acc, s) => acc + s.p, 0) /
+            (parsedScore.reduce((acc, s) => acc + s.p + s.o, 0) || 1)
+          : (last.didWin ? 1 : 0);
+        return {
+          lastMatchExplanation: generateMatchExplanation(delta, scoreRatio, last.didWin, opponentMmrDiff, parsedScore),
+          lastMatchDelta: delta,
+        };
+      })() : {}),
     });
   } catch (error) {
     console.error("Error fetching DSS rating:", error);
@@ -1162,9 +1216,9 @@ router.post("/doubles-match", async (req: AuthenticatedRequest, res) => {
       team2Player1Id,
       team2Player2Id,
       team1Won,
-      gamesDiff: _gamesDiff,
-      setScore: _setScore,
-      matchType: _matchType = "friendly",
+      setScore,
+      scoreJson,
+      matchType = "friendly",
       verification = "self_reported",
     } = req.body;
     
@@ -1173,6 +1227,27 @@ router.post("/doubles-match", async (req: AuthenticatedRequest, res) => {
       return res.status(400).json({ 
         error: "Missing required fields: all 4 player IDs and team1Won required" 
       });
+    }
+
+    // scoreJson is required
+    const parsedScoreJsonRaw: { p: number; o: number }[] | undefined =
+      Array.isArray(scoreJson) && scoreJson.length > 0 ? scoreJson : undefined;
+    if (!parsedScoreJsonRaw) {
+      return res.status(400).json({
+        error: "scoreJson is required: provide per-set game counts, e.g. [{p:6,o:4},{p:6,o:3}]",
+      });
+    }
+
+    // Validate score/result consistency to prevent rating manipulation
+    const setsWonByTeam1 = parsedScoreJsonRaw.filter((s) => s.p > s.o).length;
+    const setsWonByTeam2 = parsedScoreJsonRaw.filter((s) => s.o > s.p).length;
+    if (setsWonByTeam1 !== setsWonByTeam2) {
+      const scoreSaysTeam1Win = setsWonByTeam1 > setsWonByTeam2;
+      if (scoreSaysTeam1Win !== team1Won) {
+        return res.status(400).json({
+          error: "Score/result mismatch: set scores do not match the declared team1Won outcome",
+        });
+      }
     }
 
     // Authorization: caller must be one of the 4 players, or a coach/admin in the same academy
@@ -1221,62 +1296,89 @@ router.post("/doubles-match", async (req: AuthenticatedRequest, res) => {
       return res.status(404).json({ error: "Player data incomplete" });
     }
     
-    // Calculate doubles rating updates for team 1
+    // Calculate doubles rating updates using the already-validated scoreJson
     const team1Updates = updateDoublesRatings(
       t1p1.glowMmr || 1000,
       t1p2.glowMmr || 1000,
       t2p1.glowMmr || 1000,
       t2p2.glowMmr || 1000,
       team1Won,
-      verification
+      verification,
+      parsedScoreJsonRaw,
     );
-    
-    // Calculate doubles rating updates for team 2
+
+    // Mirror scoreJson for team 2: flip p/o since they see opposite perspective
+    const mirroredScoreJson = parsedScoreJsonRaw.map((s) => ({ p: s.o, o: s.p }));
+
     const team2Updates = updateDoublesRatings(
       t2p1.glowMmr || 1000,
       t2p2.glowMmr || 1000,
       t1p1.glowMmr || 1000,
       t1p2.glowMmr || 1000,
       !team1Won,
-      verification
+      verification,
+      mirroredScoreJson,
     );
-    
-    // Update all players
+
+    // Update all players and save match records to adult_glow_matches
+    const matchDate = new Date();
+    const setScoreStr = setScore ?? parsedScoreJsonRaw.map((s) => `${s.p}-${s.o}`).join(", ");
+
     const updates = [
-      { id: team1Player1Id, delta: team1Updates.player1Delta, won: team1Won },
-      { id: team1Player2Id, delta: team1Updates.player2Delta, won: team1Won },
-      { id: team2Player1Id, delta: team2Updates.player1Delta, won: !team1Won },
-      { id: team2Player2Id, delta: team2Updates.player2Delta, won: !team1Won },
+      { id: team1Player1Id, delta: team1Updates.player1Delta, won: team1Won, oppId: team2Player1Id },
+      { id: team1Player2Id, delta: team1Updates.player2Delta, won: team1Won, oppId: team2Player2Id },
+      { id: team2Player1Id, delta: team2Updates.player1Delta, won: !team1Won, oppId: team1Player1Id },
+      { id: team2Player2Id, delta: team2Updates.player2Delta, won: !team1Won, oppId: team1Player2Id },
     ];
-    
+
     for (const update of updates) {
-      const player = getPlayer(update.id);
-      if (player) {
-        const newMmr = Math.max(0, Math.min(3000, (player.glowMmr || 1000) + update.delta));
+      const playerRow = getPlayer(update.id);
+      const oppRow = getPlayer(update.oppId);
+      if (playerRow) {
+        const mmrBefore = playerRow.glowMmr || 1000;
+        const newMmr = Math.max(0, Math.min(3000, mmrBefore + update.delta));
         const newRank = mmrToRank(newMmr);
-        
+
         await db.update(players)
           .set({
             glowMmr: newMmr,
             glowRank: newRank,
-            totalMatchesPlayed: (player.totalMatchesPlayed || 0) + 1,
+            totalMatchesPlayed: (playerRow.totalMatchesPlayed || 0) + 1,
           })
           .where(eq(players.id, update.id));
+
+        // Persist match record so it appears in rating history
+        await db.insert(adultGlowMatches).values({
+          playerId: update.id,
+          opponentId: update.oppId,
+          didWin: update.won,
+          gamesDiff: 0,
+          setScore: setScoreStr,
+          matchType: "doubles",
+          verification,
+          playerMmrBefore: mmrBefore,
+          opponentMmrBefore: oppRow?.glowMmr || 1000,
+          mmrDelta: update.delta,
+          matchDate,
+        });
       }
     }
-    
+
     res.json({
       success: true,
       matchType: "doubles",
+      explanation: team1Won ? team1Updates.explanation : team2Updates.explanation,
       team1: {
         players: [team1Player1Id, team1Player2Id],
         won: team1Won,
         mmrDeltas: [team1Updates.player1Delta, team1Updates.player2Delta],
+        explanation: team1Updates.explanation,
       },
       team2: {
         players: [team2Player1Id, team2Player2Id],
         won: !team1Won,
         mmrDeltas: [team2Updates.player1Delta, team2Updates.player2Delta],
+        explanation: team2Updates.explanation,
       },
     });
   } catch (error) {

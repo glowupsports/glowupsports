@@ -36,6 +36,8 @@ interface DssRatingData {
     dssRating: string;
     date: string;
   }[];
+  lastMatchExplanation?: string;
+  lastMatchDelta?: number;
 }
 
 const BRACKET_COLORS: Record<number, { primary: string; secondary: string; name: string }> = {
@@ -233,6 +235,28 @@ export function DssRatingWidget({
           <Text style={[styles.rankName, { color: bracketConfig.primary }]}>
             {bracketConfig.name}
           </Text>
+
+          {data.lastMatchExplanation ? (
+            <View style={styles.lastMatchRow}>
+              <Ionicons
+                name={
+                  data.lastMatchDelta !== undefined && data.lastMatchDelta >= 0
+                    ? "arrow-up-circle"
+                    : "arrow-down-circle"
+                }
+                size={14}
+                color={
+                  data.lastMatchDelta !== undefined && data.lastMatchDelta >= 0
+                    ? GlowColors.primary
+                    : "#EF4444"
+                }
+                style={{ marginRight: 4 }}
+              />
+              <Text style={styles.lastMatchText} numberOfLines={1}>
+                {data.lastMatchExplanation}
+              </Text>
+            </View>
+          ) : null}
 
           {showProgress && data.progressToNext.targetRank > 0 && data.progressToNext.matchesNeeded > 0 && (
             <View style={styles.progressSection}>
@@ -476,6 +500,18 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   confidenceNote: {
     color: Colors.textSecondary,
     fontSize: 10,
+    fontStyle: "italic",
+  },
+  lastMatchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+    paddingHorizontal: 2,
+  },
+  lastMatchText: {
+    flex: 1,
+    color: Colors.textSecondary,
+    fontSize: FontSizes.xs,
     fontStyle: "italic",
   },
   footer: {

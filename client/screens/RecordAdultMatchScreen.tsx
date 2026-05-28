@@ -1,32 +1,44 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   StyleSheet,
   ScrollView,
   Pressable,
   TextInput,
-  Alert} from "react-native";
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons, Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getApiUrl } from "@/lib/query-client";
 import { usePlayer } from "@/player/context/PlayerContext";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type MatchType = "friendly" | "ladder" | "tournament";
 type Verification = "self_reported" | "coach_verified";
+type MatchMode = "singles" | "doubles";
+
+interface SetScoreEntry {
+  p: string;
+  o: string;
+}
+
+interface SearchedPlayer {
+  id: string;
+  name: string;
+}
 
 interface MatchResult {
   success: boolean;
-  playerId: string;
+  playerId?: string;
   previousMmr: number;
   newMmr: number;
   mmrDelta: number;
@@ -36,6 +48,129 @@ interface MatchResult {
   demoted: boolean;
   blockedByGates: string[];
   warnings: string[];
+  explanation?: string;
+  // doubles
+  matchType?: string;
+  team1?: { players: string[]; won: boolean; mmrDeltas: number[]; explanation?: string };
+  team2?: { players: string[]; won: boolean; mmrDeltas: number[]; explanation?: string };
+}
+
+const EMPTY_SET: SetScoreEntry = { p: "", o: "" };
+
+function parseSetScoreToJson(sets: SetScoreEntry[]): Array<{ p: number; o: number }> {
+  return sets
+    .map((s) => ({ p: parseInt(s.p || "0", 10), o: parseInt(s.o || "0", 10) }))
+    .filter((s) => s.p > 0 || s.o > 0);
+}
+
+function PlayerSearchInput({
+  label,
+  value,
+  onChangeText,
+  selectedPlayer,
+  onSelectPlayer,
+  onClear,
+  placeholder = "Zoek speler op naam",
+  currentPlayerId,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  selectedPlayer: SearchedPlayer | null;
+  onSelectPlayer: (p: SearchedPlayer) => void;
+  onClear: () => void;
+  placeholder?: string;
+  currentPlayerId?: string;
+}) {
+  const [results, setResults] = useState<SearchedPlayer[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showDrop, setShowDrop] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const search = useCallback(
+    async (q: string) => {
+      if (q.trim().length < 2) {
+        setResults([]);
+        setShowDrop(false);
+        return;
+      }
+      setSearching(true);
+      try {
+        const url = new URL("/api/player/search-players", getApiUrl());
+        url.searchParams.set("q", q.trim());
+        const res = await fetch(url.toString());
+        const data = await res.json();
+        const filtered = (data.players ?? []).filter(
+          (p: SearchedPlayer) => p.id !== currentPlayerId,
+        );
+        setResults(filtered);
+        setShowDrop(true);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    },
+    [currentPlayerId],
+  );
+
+  const handleChange = useCallback(
+    (text: string) => {
+      onChangeText(text);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => search(text), 350);
+    },
+    [onChangeText, search],
+  );
+
+  return (
+    <View style={searchStyles.container}>
+      <ThemedText style={searchStyles.label}>{label}</ThemedText>
+      <View style={searchStyles.row}>
+        <TextInput
+          style={[searchStyles.input, searchStyles.flex]}
+          placeholder={placeholder}
+          placeholderTextColor={Colors.dark.disabled}
+          value={value}
+          onChangeText={handleChange}
+          autoCorrect={false}
+        />
+        {searching ? (
+          <ActivityIndicator size="small" color={Colors.dark.primary} style={{ marginLeft: 8 }} />
+        ) : value.length > 0 ? (
+          <Pressable onPress={onClear} hitSlop={10} style={{ padding: Spacing.xs }}>
+            <Feather name="x-circle" size={18} color={Colors.dark.disabled} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {selectedPlayer ? (
+        <View style={searchStyles.badge}>
+          <Feather name="user-check" size={13} color={Colors.dark.primary} />
+          <ThemedText style={searchStyles.badgeText}>{selectedPlayer.name} (in-app)</ThemedText>
+        </View>
+      ) : null}
+
+      {showDrop && results.length > 0 ? (
+        <View style={searchStyles.dropdown}>
+          {results.map((p) => (
+            <Pressable
+              key={p.id}
+              style={({ pressed }) => [searchStyles.dropItem, pressed && { opacity: 0.7 }]}
+              onPress={() => {
+                onSelectPlayer(p);
+                setShowDrop(false);
+                setResults([]);
+              }}
+            >
+              <Feather name="user" size={13} color={Colors.dark.disabled} />
+              <ThemedText style={searchStyles.dropText}>{p.name}</ThemedText>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 export default function RecordAdultMatchScreen() {
@@ -45,58 +180,48 @@ export default function RecordAdultMatchScreen() {
   const queryClient = useQueryClient();
   const { playerId, isLoading: playerLoading } = usePlayer();
 
+  // Match mode
+  const [matchMode, setMatchMode] = useState<MatchMode>("singles");
+
+  // Singles fields
   const [opponentName, setOpponentName] = useState("");
+  const [selectedOpponent, setSelectedOpponent] = useState<SearchedPlayer | null>(null);
+
+  // Doubles fields
+  const [partnerName, setPartnerName] = useState("");
+  const [selectedPartner, setSelectedPartner] = useState<SearchedPlayer | null>(null);
+  const [opponent2Name, setOpponent2Name] = useState("");
+  const [selectedOpponent2, setSelectedOpponent2] = useState<SearchedPlayer | null>(null);
+
+  // Common fields
   const [didWin, setDidWin] = useState<boolean | null>(null);
-  const [setScore, setSetScore] = useState("");
+  const [sets, setSets] = useState<SetScoreEntry[]>([{ ...EMPTY_SET }]);
   const [matchType, setMatchType] = useState<MatchType>("friendly");
   const [verification, setVerification] = useState<Verification>("self_reported");
   const [showResult, setShowResult] = useState(false);
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const recordMatchMutation = useMutation({
-    mutationFn: async (data: {
-      playerId: string;
-      opponentId: string;
-      didWin: boolean;
-      gamesDiff: number;
-      setScore: string;
-      matchType: string;
-      verification: string;
-    }) => {
-      const res = await apiRequest("POST", "/api/adult-glow/match", data);
-      return res.json();
-    },
-    onSuccess: (result: MatchResult) => {
-      setMatchResult(result);
-      setShowResult(true);
-      setIsSubmitting(false);
-      queryClient.invalidateQueries({ queryKey: [`/api/adult-glow/player/${playerId}/full-profile`] });
-    },
-    onError: (error) => {
-      setIsSubmitting(false);
-      Alert.alert("Error", "Failed to record match. Please try again.");
-      console.error("Match recording error:", error);
-    },
-  });
+  // Sets management
+  const updateSet = useCallback((idx: number, field: "p" | "o", value: string) => {
+    setSets((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: value.replace(/\D/g, "").slice(0, 2) };
+      return next;
+    });
+  }, []);
 
-  const parseGamesDiff = (score: string): number => {
-    const sets = score.split(",").map((s) => s.trim());
-    let totalDiff = 0;
-    for (const set of sets) {
-      const [p1, p2] = set.split("-").map((s) => parseInt(s.trim()) || 0);
-      totalDiff += p1 - p2;
-    }
-    return didWin ? Math.abs(totalDiff) : -Math.abs(totalDiff);
-  };
+  const addSet = useCallback(() => {
+    if (sets.length < 5) setSets((prev) => [...prev, { ...EMPTY_SET }]);
+  }, [sets.length]);
+
+  const removeSet = useCallback((idx: number) => {
+    if (sets.length > 1) setSets((prev) => prev.filter((_, i) => i !== idx));
+  }, [sets.length]);
 
   const handleSubmit = async () => {
     if (!playerId) {
       Alert.alert("Error", "You must be logged in to record a match.");
-      return;
-    }
-    if (!opponentName.trim()) {
-      Alert.alert("Missing Information", "Please enter the opponent's name.");
       return;
     }
     if (didWin === null) {
@@ -104,33 +229,140 @@ export default function RecordAdultMatchScreen() {
       return;
     }
 
-    setIsSubmitting(true);
+    // Validate score: at least one set must have valid entries
+    const validSets = sets.filter((s) => {
+      const p = parseInt(s.p, 10);
+      const o = parseInt(s.o, 10);
+      return !isNaN(p) && !isNaN(o) && (p > 0 || o > 0);
+    });
+    if (validSets.length === 0) {
+      Alert.alert("Score Required", "Please enter the score for at least one set (e.g. Set 1: 6 — 4).");
+      return;
+    }
 
+    // Validate score is consistent with the declared result
+    const setsWonByPlayer = validSets.filter((s) => parseInt(s.p, 10) > parseInt(s.o, 10)).length;
+    const setsWonByOpponent = validSets.filter((s) => parseInt(s.o, 10) > parseInt(s.p, 10)).length;
+    if (setsWonByPlayer !== setsWonByOpponent) {
+      const scoreSaysWin = setsWonByPlayer > setsWonByOpponent;
+      if (scoreSaysWin !== didWin) {
+        Alert.alert(
+          "Score / Result Mismatch",
+          didWin
+            ? "Your sets show a loss. Please check the score or change the result to 'Lost'."
+            : "Your sets show a win. Please check the score or change the result to 'Won'.",
+        );
+        return;
+      }
+    }
+
+    if (matchMode === "singles") {
+      if (!opponentName.trim()) {
+        Alert.alert("Missing Information", "Please enter the opponent's name.");
+        return;
+      }
+      await submitSingles();
+    } else {
+      if (!opponentName.trim()) {
+        Alert.alert("Missing Information", "Please enter the first opponent's name.");
+        return;
+      }
+      if (!partnerName.trim()) {
+        Alert.alert("Missing Information", "Please enter your partner's name.");
+        return;
+      }
+      if (!opponent2Name.trim()) {
+        Alert.alert("Missing Information", "Please enter the second opponent's name.");
+        return;
+      }
+      await submitDoubles();
+    }
+  };
+
+  const submitSingles = async () => {
+    setIsSubmitting(true);
     try {
       const opponentRes = await apiRequest("POST", "/api/adult-glow/find-or-create-opponent", {
-        name: opponentName.trim(),
+        name: selectedOpponent?.name ?? opponentName.trim(),
       });
       const opponentData = await opponentRes.json();
-      
+
       if (!opponentData.opponent?.id) {
         Alert.alert("Error", "Could not find or create opponent.");
         setIsSubmitting(false);
         return;
       }
 
-      recordMatchMutation.mutate({
+      const scoreJson = parseSetScoreToJson(sets);
+      const gamesDiff = scoreJson.reduce((sum, s) => sum + (s.p - s.o), 0);
+
+      const res = await apiRequest("POST", "/api/adult-glow/match", {
         playerId,
-        opponentId: opponentData.opponent.id,
+        opponentId: selectedOpponent?.id ?? opponentData.opponent.id,
         didWin,
-        gamesDiff: parseGamesDiff(setScore),
-        setScore: setScore || "Unknown",
+        gamesDiff: didWin ? Math.abs(gamesDiff) : -Math.abs(gamesDiff),
+        setScore: scoreJson.map((s) => `${s.p}-${s.o}`).join(", ") || "Unknown",
+        scoreJson: scoreJson.length > 0 ? scoreJson : undefined,
         matchType,
         verification,
       });
+
+      const result: MatchResult = await res.json();
+      setMatchResult(result);
+      setShowResult(true);
+      queryClient.invalidateQueries({ queryKey: [`/api/adult-glow/player/${playerId}/full-profile`] });
     } catch (error) {
+      Alert.alert("Error", "Failed to record match. Please try again.");
+      console.error("Match recording error:", error);
+    } finally {
       setIsSubmitting(false);
-      Alert.alert("Error", "Failed to process opponent. Please try again.");
-      console.error("Opponent lookup error:", error);
+    }
+  };
+
+  const submitDoubles = async () => {
+    setIsSubmitting(true);
+    try {
+      const [partnerData, opp1Data, opp2Data] = await Promise.all([
+        apiRequest("POST", "/api/adult-glow/find-or-create-opponent", {
+          name: selectedPartner?.name ?? partnerName.trim(),
+        }).then((r) => r.json()),
+        apiRequest("POST", "/api/adult-glow/find-or-create-opponent", {
+          name: selectedOpponent?.name ?? opponentName.trim(),
+        }).then((r) => r.json()),
+        apiRequest("POST", "/api/adult-glow/find-or-create-opponent", {
+          name: selectedOpponent2?.name ?? opponent2Name.trim(),
+        }).then((r) => r.json()),
+      ]);
+
+      if (!partnerData.opponent?.id || !opp1Data.opponent?.id || !opp2Data.opponent?.id) {
+        Alert.alert("Error", "Could not resolve all players.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const scoreJson = parseSetScoreToJson(sets);
+
+      const res = await apiRequest("POST", "/api/adult-glow/doubles-match", {
+        team1Player1Id: playerId,
+        team1Player2Id: selectedPartner?.id ?? partnerData.opponent.id,
+        team2Player1Id: selectedOpponent?.id ?? opp1Data.opponent.id,
+        team2Player2Id: selectedOpponent2?.id ?? opp2Data.opponent.id,
+        team1Won: didWin,
+        setScore: scoreJson.map((s) => `${s.p}-${s.o}`).join(", ") || "Unknown",
+        scoreJson: scoreJson.length > 0 ? scoreJson : undefined,
+        matchType,
+        verification,
+      });
+
+      const result: MatchResult = await res.json();
+      setMatchResult(result);
+      setShowResult(true);
+      queryClient.invalidateQueries({ queryKey: [`/api/adult-glow/player/${playerId}/full-profile`] });
+    } catch (error) {
+      Alert.alert("Error", "Failed to record doubles match. Please try again.");
+      console.error("Doubles match error:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -138,8 +370,13 @@ export default function RecordAdultMatchScreen() {
     setShowResult(false);
     setMatchResult(null);
     setOpponentName("");
+    setSelectedOpponent(null);
+    setPartnerName("");
+    setSelectedPartner(null);
+    setOpponent2Name("");
+    setSelectedOpponent2(null);
     setDidWin(null);
-    setSetScore("");
+    setSets([{ ...EMPTY_SET }]);
     setMatchType("friendly");
     setVerification("self_reported");
   };
@@ -164,7 +401,16 @@ export default function RecordAdultMatchScreen() {
     );
   }
 
+  // ---- Result screen ----
   if (showResult && matchResult) {
+    const isDoubles = matchResult.matchType === "doubles";
+    const mmrDelta = isDoubles
+      ? (matchResult.team1?.mmrDeltas[0] ?? 0)
+      : matchResult.mmrDelta;
+    const explanation = isDoubles
+      ? (didWin ? matchResult.team1?.explanation : matchResult.team2?.explanation) ?? matchResult.explanation
+      : matchResult.explanation;
+
     return (
       <View style={styles.container}>
         <ScrollView
@@ -178,69 +424,92 @@ export default function RecordAdultMatchScreen() {
           <View
             style={[
               styles.resultIcon,
-              matchResult.mmrDelta >= 0 ? styles.resultWin : styles.resultLoss,
+              mmrDelta >= 0 ? styles.resultWin : styles.resultLoss,
             ]}
           >
             <Ionicons
-              name={matchResult.mmrDelta >= 0 ? "trending-up" : "trending-down"}
+              name={mmrDelta >= 0 ? "trending-up" : "trending-down"}
               size={48}
               color={Colors.dark.buttonText}
             />
           </View>
 
-          <ThemedText style={styles.resultTitle}>Match Recorded!</ThemedText>
+          <ThemedText style={styles.resultTitle}>
+            {isDoubles ? "Doubles Match Recorded!" : "Match Recorded!"}
+          </ThemedText>
 
-          <Card elevation={2} style={styles.resultCard}>
-            <View style={styles.resultRow}>
-              <ThemedText style={styles.resultLabel}>MMR Change</ThemedText>
-              <ThemedText
-                style={[
-                  styles.resultValue,
-                  matchResult.mmrDelta >= 0 ? styles.gainText : styles.lossText,
-                ]}
-              >
-                {matchResult.mmrDelta >= 0 ? "+" : ""}
-                {matchResult.mmrDelta}
-              </ThemedText>
-            </View>
-            <View style={styles.resultDivider} />
-            <View style={styles.resultRow}>
-              <ThemedText style={styles.resultLabel}>New MMR</ThemedText>
-              <ThemedText style={styles.resultValue}>{matchResult.newMmr}</ThemedText>
-            </View>
-            <View style={styles.resultDivider} />
-            <View style={styles.resultRow}>
-              <ThemedText style={styles.resultLabel}>Rank</ThemedText>
-              <ThemedText style={styles.resultValue}>
-                {matchResult.newRank}
-                {matchResult.promoted && (
-                  <ThemedText style={styles.promotedText}> (Promoted!)</ThemedText>
-                )}
-                {matchResult.demoted && (
-                  <ThemedText style={styles.demotedText}> (Demoted)</ThemedText>
-                )}
-              </ThemedText>
-            </View>
-          </Card>
-
-          {matchResult.blockedByGates && matchResult.blockedByGates.length > 0 && (
-            <Card elevation={1} style={styles.warningCard}>
-              <View style={styles.warningHeader}>
-                <Ionicons name="warning-outline" size={20} color={Colors.dark.orange} />
-                <ThemedText style={styles.warningTitle}>Promotion Blocked</ThemedText>
+          {/* Explanation card */}
+          {explanation ? (
+            <Card elevation={2} style={styles.explanationCard}>
+              <View style={styles.explanationRow}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={18}
+                  color={mmrDelta >= 0 ? Colors.dark.primary : Colors.dark.error}
+                />
+                <ThemedText style={styles.explanationText}>{explanation}</ThemedText>
               </View>
-              <ThemedText style={styles.warningText}>
-                Complete these skill gates to unlock promotion:
-              </ThemedText>
-              {matchResult.blockedByGates.map((gate, i) => (
-                <ThemedText key={i} style={styles.warningItem}>
-                  {gate}
+            </Card>
+          ) : null}
+
+          {isDoubles ? (
+            <Card elevation={2} style={styles.resultCard}>
+              <View style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel}>Your Team</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.resultValue,
+                    mmrDelta >= 0 ? styles.gainText : styles.lossText,
+                  ]}
+                >
+                  {mmrDelta >= 0 ? "+" : ""}
+                  {mmrDelta} MMR each
                 </ThemedText>
-              ))}
+              </View>
+              <View style={styles.resultDivider} />
+              <View style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel}>Result</ThemedText>
+                <ThemedText style={[styles.resultValue, didWin ? styles.gainText : styles.lossText]}>
+                  {didWin ? "Win" : "Loss"}
+                </ThemedText>
+              </View>
+            </Card>
+          ) : (
+            <Card elevation={2} style={styles.resultCard}>
+              <View style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel}>MMR Change</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.resultValue,
+                    matchResult.mmrDelta >= 0 ? styles.gainText : styles.lossText,
+                  ]}
+                >
+                  {matchResult.mmrDelta >= 0 ? "+" : ""}
+                  {matchResult.mmrDelta}
+                </ThemedText>
+              </View>
+              <View style={styles.resultDivider} />
+              <View style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel}>New MMR</ThemedText>
+                <ThemedText style={styles.resultValue}>{matchResult.newMmr}</ThemedText>
+              </View>
+              <View style={styles.resultDivider} />
+              <View style={styles.resultRow}>
+                <ThemedText style={styles.resultLabel}>Rank</ThemedText>
+                <ThemedText style={styles.resultValue}>
+                  {matchResult.newRank}
+                  {matchResult.promoted ? (
+                    <ThemedText style={styles.promotedText}> (Promoted!)</ThemedText>
+                  ) : null}
+                  {matchResult.demoted ? (
+                    <ThemedText style={styles.demotedText}> (Demoted)</ThemedText>
+                  ) : null}
+                </ThemedText>
+              </View>
             </Card>
           )}
 
-          {matchResult.warnings && matchResult.warnings.length > 0 && (
+          {!isDoubles && matchResult.warnings && matchResult.warnings.length > 0 ? (
             <Card elevation={1} style={styles.warningCard}>
               <View style={styles.warningHeader}>
                 <Ionicons name="alert-circle-outline" size={20} color={Colors.dark.xpCyan} />
@@ -252,10 +521,12 @@ export default function RecordAdultMatchScreen() {
                 </ThemedText>
               ))}
             </Card>
-          )}
+          ) : null}
 
           <View style={styles.resultActions}>
-            <Pressable style={styles.recordAnotherBtn} onPress={handleNewMatch}><ThemedText style={styles.recordAnotherBtnText}>Record Another Match</ThemedText></Pressable>
+            <Pressable style={styles.recordAnotherBtn} onPress={handleNewMatch}>
+              <ThemedText style={styles.recordAnotherBtnText}>Record Another Match</ThemedText>
+            </Pressable>
             <Pressable style={styles.backLink} onPress={() => navigation.goBack()}>
               <ThemedText style={styles.backLinkText}>Back to Glow Rank</ThemedText>
             </Pressable>
@@ -265,6 +536,7 @@ export default function RecordAdultMatchScreen() {
     );
   }
 
+  // ---- Form ----
   return (
     <View style={styles.container}>
       <KeyboardAwareScrollViewCompat
@@ -274,16 +546,89 @@ export default function RecordAdultMatchScreen() {
           paddingHorizontal: Spacing.lg,
         }}
       >
-        <ThemedText style={styles.sectionTitle}>Opponent</ThemedText>
-        <Card elevation={1} style={styles.inputCard}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Opponent's name"
-            placeholderTextColor={Colors.dark.disabled}
-            value={opponentName}
-            onChangeText={setOpponentName}
-          />
-        </Card>
+        {/* Match Mode Toggle */}
+        <ThemedText style={styles.sectionTitle}>Match Type</ThemedText>
+        <View style={styles.modeRow}>
+          <Pressable
+            style={[styles.modeBtn, matchMode === "singles" && styles.modeBtnActive]}
+            onPress={() => setMatchMode("singles")}
+          >
+            <Feather
+              name="user"
+              size={16}
+              color={matchMode === "singles" ? Colors.dark.buttonText : Colors.dark.text}
+            />
+            <ThemedText
+              style={[styles.modeBtnText, matchMode === "singles" && styles.modeBtnTextActive]}
+            >
+              Singles
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.modeBtn, matchMode === "doubles" && styles.modeBtnActive]}
+            onPress={() => setMatchMode("doubles")}
+          >
+            <Feather
+              name="users"
+              size={16}
+              color={matchMode === "doubles" ? Colors.dark.buttonText : Colors.dark.text}
+            />
+            <ThemedText
+              style={[styles.modeBtnText, matchMode === "doubles" && styles.modeBtnTextActive]}
+            >
+              Doubles
+            </ThemedText>
+          </Pressable>
+        </View>
+
+        {/* Player fields */}
+        {matchMode === "doubles" ? (
+          <>
+            <PlayerSearchInput
+              label="Your Partner"
+              value={partnerName}
+              onChangeText={(t) => { setPartnerName(t); setSelectedPartner(null); }}
+              selectedPlayer={selectedPartner}
+              onSelectPlayer={(p) => { setSelectedPartner(p); setPartnerName(p.name); }}
+              onClear={() => { setPartnerName(""); setSelectedPartner(null); }}
+              placeholder="Partner name"
+              currentPlayerId={playerId}
+            />
+            <PlayerSearchInput
+              label="Opponent 1"
+              value={opponentName}
+              onChangeText={(t) => { setOpponentName(t); setSelectedOpponent(null); }}
+              selectedPlayer={selectedOpponent}
+              onSelectPlayer={(p) => { setSelectedOpponent(p); setOpponentName(p.name); }}
+              onClear={() => { setOpponentName(""); setSelectedOpponent(null); }}
+              placeholder="First opponent name"
+              currentPlayerId={playerId}
+            />
+            <PlayerSearchInput
+              label="Opponent 2"
+              value={opponent2Name}
+              onChangeText={(t) => { setOpponent2Name(t); setSelectedOpponent2(null); }}
+              selectedPlayer={selectedOpponent2}
+              onSelectPlayer={(p) => { setSelectedOpponent2(p); setOpponent2Name(p.name); }}
+              onClear={() => { setOpponent2Name(""); setSelectedOpponent2(null); }}
+              placeholder="Second opponent name"
+              currentPlayerId={playerId}
+            />
+          </>
+        ) : (
+          <>
+            <ThemedText style={styles.sectionTitle}>Opponent</ThemedText>
+            <Card elevation={1} style={styles.inputCard}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Opponent's name"
+                placeholderTextColor={Colors.dark.disabled}
+                value={opponentName}
+                onChangeText={setOpponentName}
+              />
+            </Card>
+          </>
+        )}
 
         <ThemedText style={styles.sectionTitle}>Result</ThemedText>
         <View style={styles.resultButtons}>
@@ -297,12 +642,9 @@ export default function RecordAdultMatchScreen() {
               color={didWin === true ? Colors.dark.buttonText : Colors.dark.successNeon}
             />
             <ThemedText
-              style={[
-                styles.resultButtonText,
-                didWin === true && styles.resultButtonTextActive,
-              ]}
+              style={[styles.resultButtonText, didWin === true && styles.resultButtonTextActive]}
             >
-              Won
+              {matchMode === "doubles" ? "My Team Won" : "Won"}
             </ThemedText>
           </Pressable>
           <Pressable
@@ -315,28 +657,68 @@ export default function RecordAdultMatchScreen() {
               color={didWin === false ? Colors.dark.buttonText : Colors.dark.error}
             />
             <ThemedText
-              style={[
-                styles.resultButtonText,
-                didWin === false && styles.resultButtonTextActive,
-              ]}
+              style={[styles.resultButtonText, didWin === false && styles.resultButtonTextActive]}
             >
-              Lost
+              {matchMode === "doubles" ? "My Team Lost" : "Lost"}
             </ThemedText>
           </Pressable>
         </View>
 
-        <ThemedText style={styles.sectionTitle}>Score (Optional)</ThemedText>
-        <Card elevation={1} style={styles.inputCard}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="e.g., 6-4, 6-3"
-            placeholderTextColor={Colors.dark.disabled}
-            value={setScore}
-            onChangeText={setSetScore}
-          />
+        {/* Score Entry (per set — required) */}
+        <ThemedText style={styles.sectionTitle}>Score</ThemedText>
+        <Card elevation={1} style={styles.setsCard}>
+          <View style={styles.setsHeader}>
+            <ThemedText style={[styles.setsColLabel, { flex: 1 }]}>Set</ThemedText>
+            <ThemedText style={[styles.setsColLabel, { width: 64, textAlign: "center" }]}>
+              {matchMode === "doubles" ? "Us" : "Me"}
+            </ThemedText>
+            <ThemedText style={[styles.setsColLabel, { width: 64, textAlign: "center" }]}>
+              Opp
+            </ThemedText>
+            <View style={{ width: 28 }} />
+          </View>
+          {sets.map((s, i) => (
+            <View key={i} style={styles.setRow}>
+              <ThemedText style={[styles.setLabel, { flex: 1 }]}>Set {i + 1}</ThemedText>
+              <TextInput
+                style={[styles.setInput, { width: 64 }]}
+                value={s.p}
+                onChangeText={(v) => updateSet(i, "p", v)}
+                keyboardType="number-pad"
+                maxLength={2}
+                placeholder="0"
+                placeholderTextColor={Colors.dark.disabled}
+                textAlign="center"
+              />
+              <TextInput
+                style={[styles.setInput, { width: 64 }]}
+                value={s.o}
+                onChangeText={(v) => updateSet(i, "o", v)}
+                keyboardType="number-pad"
+                maxLength={2}
+                placeholder="0"
+                placeholderTextColor={Colors.dark.disabled}
+                textAlign="center"
+              />
+              <Pressable
+                onPress={() => removeSet(i)}
+                hitSlop={8}
+                style={[styles.removeSetBtn, sets.length === 1 && { opacity: 0.3 }]}
+                disabled={sets.length === 1}
+              >
+                <Feather name="minus-circle" size={18} color={Colors.dark.disabled} />
+              </Pressable>
+            </View>
+          ))}
+          {sets.length < 5 ? (
+            <Pressable style={styles.addSetBtn} onPress={addSet}>
+              <Feather name="plus" size={15} color={Colors.dark.primary} />
+              <ThemedText style={styles.addSetText}>Add Set</ThemedText>
+            </Pressable>
+          ) : null}
         </Card>
 
-        <ThemedText style={styles.sectionTitle}>Match Type</ThemedText>
+        <ThemedText style={styles.sectionTitle}>Match Category</ThemedText>
         <View style={styles.chipRow}>
           {(["friendly", "ladder", "tournament"] as MatchType[]).map((type) => (
             <Pressable
@@ -362,17 +744,10 @@ export default function RecordAdultMatchScreen() {
             <Feather
               name="user"
               size={16}
-              color={
-                verification === "self_reported"
-                  ? Colors.dark.buttonText
-                  : Colors.dark.text
-              }
+              color={verification === "self_reported" ? Colors.dark.buttonText : Colors.dark.text}
             />
             <ThemedText
-              style={[
-                styles.chipText,
-                verification === "self_reported" && styles.chipTextActive,
-              ]}
+              style={[styles.chipText, verification === "self_reported" && styles.chipTextActive]}
             >
               Self Reported
             </ThemedText>
@@ -384,17 +759,10 @@ export default function RecordAdultMatchScreen() {
             <Feather
               name="check-circle"
               size={16}
-              color={
-                verification === "coach_verified"
-                  ? Colors.dark.buttonText
-                  : Colors.dark.text
-              }
+              color={verification === "coach_verified" ? Colors.dark.buttonText : Colors.dark.text}
             />
             <ThemedText
-              style={[
-                styles.chipText,
-                verification === "coach_verified" && styles.chipTextActive,
-              ]}
+              style={[styles.chipText, verification === "coach_verified" && styles.chipTextActive]}
             >
               Coach Verified
             </ThemedText>
@@ -403,20 +771,91 @@ export default function RecordAdultMatchScreen() {
 
         <ThemedText style={styles.trustNote}>
           <Ionicons name="information-circle-outline" size={14} color={Colors.dark.xpCyan} />{" "}
-          Coach-verified matches have higher trust factor and affect MMR more.
+          Score-gebaseerde MMR update — dominante overwinning geeft meer punten. Coach-verified
+          heeft hogere betrouwbaarheid.
         </ThemedText>
 
         <View style={styles.submitSection}>
-          {isSubmitting || recordMatchMutation.isPending ? (
+          {isSubmitting ? (
             <TennisBallSpinner size="large" color={Colors.dark.primary} />
           ) : (
-            <Pressable style={[styles.recordMatchBtn, !playerId && { opacity: 0.5 }]} onPress={handleSubmit} disabled={!playerId}><ThemedText style={styles.recordMatchBtnText}>Record Match</ThemedText></Pressable>
+            <Pressable style={styles.recordMatchBtn} onPress={handleSubmit}>
+              <ThemedText style={styles.recordMatchBtnText}>
+                {matchMode === "doubles" ? "Record Doubles Match" : "Record Match"}
+              </ThemedText>
+            </Pressable>
           )}
         </View>
       </KeyboardAwareScrollViewCompat>
     </View>
   );
 }
+
+const searchStyles = StyleSheet.create({
+  container: { marginBottom: Spacing.lg },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    paddingHorizontal: Spacing.md,
+  },
+  flex: { flex: 1 },
+  input: {
+    flex: 1,
+    padding: Spacing.md,
+    fontSize: 15,
+    color: Colors.dark.text,
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+    backgroundColor: Colors.dark.primary + "18",
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    alignSelf: "flex-start",
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+  dropdown: {
+    marginTop: 4,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    overflow: "hidden",
+  },
+  dropItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  dropText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.dark.text,
+    fontWeight: "500",
+  },
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -447,6 +886,34 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     marginBottom: Spacing.sm,
     marginTop: Spacing.lg,
+  },
+  modeRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  modeBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: 12,
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  modeBtnActive: {
+    backgroundColor: Colors.dark.primary,
+    borderColor: Colors.dark.primary,
+  },
+  modeBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  modeBtnTextActive: {
+    color: Colors.dark.buttonText,
   },
   inputCard: {
     padding: 0,
@@ -481,12 +948,61 @@ const styles = StyleSheet.create({
     borderColor: Colors.dark.error,
   },
   resultButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
   },
   resultButtonTextActive: {
     color: Colors.dark.buttonText,
+  },
+  setsCard: {
+    padding: Spacing.md,
+  },
+  setsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  setsColLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.disabled,
+    letterSpacing: 0.5,
+  },
+  setRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
+  setLabel: {
+    fontSize: 14,
+    color: Colors.dark.text,
+  },
+  setInput: {
+    backgroundColor: Colors.dark.backgroundDefault,
+    borderRadius: BorderRadius.sm,
+    paddingVertical: 8,
+    fontSize: 15,
+    color: Colors.dark.text,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    marginHorizontal: 4,
+  },
+  removeSetBtn: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  addSetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.sm,
+    paddingVertical: 6,
+  },
+  addSetText: {
+    fontSize: 14,
+    color: Colors.dark.primary,
+    fontWeight: "600",
   },
   chipRow: {
     flexDirection: "row",
@@ -522,6 +1038,7 @@ const styles = StyleSheet.create({
   submitSection: {
     marginTop: Spacing.xl,
   },
+  // Result screen
   resultIcon: {
     width: 80,
     height: 80,
@@ -540,7 +1057,24 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
     color: Colors.dark.text,
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.md,
+  },
+  explanationCard: {
+    width: "100%",
+    marginBottom: Spacing.lg,
+  },
+  explanationRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  explanationText: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.dark.text,
+    lineHeight: 20,
+    fontWeight: "500",
   },
   resultCard: {
     width: "100%",
@@ -595,12 +1129,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: Colors.dark.text,
-  },
-  warningText: {
-    fontSize: 13,
-    color: Colors.dark.text,
-    opacity: 0.8,
-    marginBottom: Spacing.sm,
   },
   warningItem: {
     fontSize: 13,

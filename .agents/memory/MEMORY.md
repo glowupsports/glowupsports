@@ -1,0 +1,1 @@
+- [Adult Glow rating engine](adult-glow-rating-engine.md) — UTR-style score ratio replaces binary win/loss; scoreJson is the source of truth; skill gates are achievements not promotion blockers.
