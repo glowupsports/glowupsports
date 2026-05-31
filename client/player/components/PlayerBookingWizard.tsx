@@ -299,7 +299,8 @@ export default function PlayerBookingWizard({
 
   // ─── Computed ────────────────────────────────────────────────────────────────
   const selectedDateString = useMemo(() => {
-    return `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`;
+    const d = selectedDate instanceof Date && !isNaN(selectedDate.getTime()) ? selectedDate : new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }, [selectedDate]);
 
   // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -942,10 +943,14 @@ export default function PlayerBookingWizard({
         setFilterCoachId(preselectedCoachId);
         if (preselectedSessionId) { setIsJoining(true); }
         else { setSessionType("private"); }
-        if (preselectedDate) setSelectedDate(preselectedDate);
+        if (preselectedDate) {
+          const d = preselectedDate instanceof Date ? preselectedDate : new Date(preselectedDate as any);
+          setSelectedDate(!isNaN(d.getTime()) ? d : new Date());
+        }
         setCurrentSlide(2);
       } else if (preselectedDate) {
-        setSelectedDate(preselectedDate);
+        const d = preselectedDate instanceof Date ? preselectedDate : new Date(preselectedDate as any);
+        setSelectedDate(!isNaN(d.getTime()) ? d : new Date());
         setCurrentSlide(1);
       }
     } else {
