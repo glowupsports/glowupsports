@@ -6,13 +6,14 @@
 //
 // Routes:
 //   GET  /coach-overview/dean/:token          — public view (shareable with Dean)
-//   POST /coach-overview/dean/:token/exclude  — toggle session exclusion (manage token required)
+//   POST /api/coach-report/dean/:token/exclude — toggle session exclusion (manage token required)
+//   POST /api/coach-report/dean/:token/pay     — toggle session paid status (manage token required)
 //
 // Tokens read from env vars (never stored in source):
 //   DEAN_REPORT_PUBLIC_TOKEN  — the token Dean uses in his URL
 //   DEAN_REPORT_MANAGE_TOKEN  — the ?manage= token for the admin toggle view
 //
-// Non-sensitive state (excluded session IDs only):
+// Non-sensitive state (excluded + paid session IDs):
 //   server/data/coach-report-dean.json  — gitignored, persisted on server only
 
 import { Router, type Request, type Response } from "express";
@@ -38,6 +39,7 @@ function getManageToken(): string {
 
 interface ReportState {
   excludedSessionIds: string[];
+  paidSessionIds: string[];
   startDate: string;
   ratePerSession: number;
   currency: string;
@@ -45,10 +47,17 @@ interface ReportState {
 
 function loadState(): ReportState {
   if (!fs.existsSync(CONFIG_PATH)) {
-    return { excludedSessionIds: [], startDate: "2026-05-11", ratePerSession: 200, currency: "AED" };
+    return { excludedSessionIds: [], paidSessionIds: [], startDate: "2026-05-11", ratePerSession: 200, currency: "AED" };
   }
   const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
-  return JSON.parse(raw) as ReportState;
+  const parsed = JSON.parse(raw) as Partial<ReportState>;
+  return {
+    excludedSessionIds: parsed.excludedSessionIds ?? [],
+    paidSessionIds: parsed.paidSessionIds ?? [],
+    startDate: parsed.startDate ?? "2026-05-11",
+    ratePerSession: parsed.ratePerSession ?? 200,
+    currency: parsed.currency ?? "AED",
+  };
 }
 
 function saveState(state: ReportState): void {
@@ -188,134 +197,181 @@ function monthKey(d: Date): string {
 
 function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean): string {
   const excluded = new Set(state.excludedSessionIds);
+  const paid = new Set(state.paidSessionIds);
   const rate = state.ratePerSession;
   const currency = state.currency;
 
-  const visible = sessions.filter(s =>
-    isManage ? true : !excluded.has(s.id)
+  // Openstaand: not paid, not excluded, not cancelled
+  const openstaandSessions = sessions.filter(s =>
+    !paid.has(s.id) && !excluded.has(s.id) && s.status !== "cancelled"
   );
 
-  const isCancelled = (s: SessionRow) =>
-    s.status === "cancelled";
+  // Betaald: marked as paid
+  const betaaldSessions = sessions.filter(s => paid.has(s.id));
 
-  const countsForPayment = (s: SessionRow) =>
-    !isCancelled(s) && !excluded.has(s.id);
+  // In manage view, the "Openstaand" tab shows everything that is NOT paid
+  // (including excluded/cancelled so admin can manage them)
+  const manageOpenstaand = sessions.filter(s => !paid.has(s.id));
 
-  const grandTotal = sessions.filter(countsForPayment).length * rate;
+  const openstaandTotal = openstaandSessions.length * rate;
+  const betaaldTotal = betaaldSessions.length * rate;
 
-  // Group by week → day
-  type DayMap = Map<string, SessionRow[]>;
-  type WeekMap = Map<string, DayMap>;
-  const weeks: WeekMap = new Map();
+  // ── build Openstaand tab body (week/day grouped) ──────────────────────────
+  function buildOpenstaandBody(tabSessions: SessionRow[]): string {
+    type DayMap = Map<string, SessionRow[]>;
+    type WeekMap = Map<string, DayMap>;
+    const weeks: WeekMap = new Map();
 
-  for (const s of visible) {
-    const wk = weekKey(s.start_time);
-    const dk = isoDate(s.start_time);
-    if (!weeks.has(wk)) weeks.set(wk, new Map());
-    const dayMap = weeks.get(wk)!;
-    if (!dayMap.has(dk)) dayMap.set(dk, []);
-    dayMap.get(dk)!.push(s);
-  }
-
-  // Count earned per week (from ALL sessions for accurate total, not just visible)
-  function weekEarned(wk: string): number {
-    return sessions
-      .filter(s => weekKey(s.start_time) === wk && countsForPayment(s))
-      .length * rate;
-  }
-  function monthEarned(mk: string): number {
-    return sessions
-      .filter(s => monthKey(s.start_time) === mk && countsForPayment(s))
-      .length * rate;
-  }
-
-  let body = "";
-  let lastMonth = "";
-
-  for (const [wk, dayMap] of weeks) {
-    const firstDay = dayMap.values().next().value![0].start_time;
-    const mk = monthKey(firstDay);
-
-    if (mk !== lastMonth) {
-      const me = monthEarned(mk);
-      body += `
-      <div class="month-header">
-        <span>${mk}</span>
-        <span class="month-total">${currency} ${me.toLocaleString()}</span>
-      </div>`;
-      lastMonth = mk;
+    for (const s of tabSessions) {
+      const wk = weekKey(s.start_time);
+      const dk = isoDate(s.start_time);
+      if (!weeks.has(wk)) weeks.set(wk, new Map());
+      const dayMap = weeks.get(wk)!;
+      if (!dayMap.has(dk)) dayMap.set(dk, []);
+      dayMap.get(dk)!.push(s);
     }
 
-    const we = weekEarned(wk);
-    body += `
-    <div class="week-block">
-      <div class="week-header">
-        <span class="week-label">Week of ${wk}</span>
-        <span class="week-earned">${currency} ${we.toLocaleString()}</span>
-      </div>`;
+    if (weeks.size === 0) {
+      return `<p class="empty-msg">No outstanding sessions.</p>`;
+    }
 
-    for (const [_dk, daySessions] of dayMap) {
-      const firstS = daySessions[0];
-      body += `<div class="day-group">
-        <div class="day-label">${friendlyDate(firstS.start_time)}</div>
-        <div class="sessions-list">`;
+    let body = "";
+    let lastMonth = "";
 
-      for (const s of daySessions) {
-        const isExcluded = excluded.has(s.id);
-        const isCanceled = isCancelled(s);
-        const rowClass = isExcluded
-          ? "session-row excluded"
-          : isCanceled
-            ? "session-row cancelled"
-            : "session-row";
+    for (const [wk, dayMap] of weeks) {
+      const firstDay = dayMap.values().next().value![0].start_time;
+      const mk = monthKey(firstDay);
 
-        const seriesName = s.series_title ?? typeLabel(s.session_type);
-
-        let excludeBtn = "";
-        if (isManage) {
-          excludeBtn = `
-            <button
-              class="toggle-btn ${isExcluded ? "btn-show" : "btn-hide"}"
-              onclick="toggleSession('${s.id}', this)"
-            >${isExcluded ? "Show" : "Hide"}</button>`;
-        }
-
-        const earnedCell = !isManage
-          ? ""
-          : `<span class="cell-earned">${isExcluded || isCanceled ? "—" : `${currency} ${rate}`}</span>`;
-
-        body += `
-          <div class="${rowClass}" data-id="${s.id}">
-            <span class="cell-time">${formatTimeRange(s.start_time, s.end_time)}</span>
-            <span class="cell-badge" style="${typeBadgeStyle(s.session_type)}">${typeLabel(s.session_type)}</span>
-            <span class="cell-level">${levelDot(s.ball_level)}</span>
-            <span class="cell-series">${seriesName}</span>
-            <span class="cell-status">${statusBadge(s.status)}</span>
-            ${earnedCell}
-            ${excludeBtn}
-          </div>`;
+      if (mk !== lastMonth) {
+        body += `<div class="month-header">
+          <span>${mk}</span>
+        </div>`;
+        lastMonth = mk;
       }
 
-      body += `</div></div>`;
+      body += `<div class="week-block">
+        <div class="week-header">
+          <span class="week-label">Week of ${wk}</span>
+        </div>`;
+
+      for (const [_dk, daySessions] of dayMap) {
+        const firstS = daySessions[0];
+        body += `<div class="day-group">
+          <div class="day-label">${friendlyDate(firstS.start_time)}</div>
+          <div class="sessions-list">`;
+
+        for (const s of daySessions) {
+          const isExcluded = excluded.has(s.id);
+          const isCanceled = s.status === "cancelled";
+          const rowClass = isExcluded
+            ? "session-row excluded"
+            : isCanceled
+              ? "session-row cancelled"
+              : "session-row";
+
+          const seriesName = s.series_title ?? typeLabel(s.session_type);
+          const amountStr = (!isExcluded && !isCanceled) ? `${currency} ${rate}` : "—";
+
+          let buttons = "";
+          if (isManage) {
+            buttons = `
+              <button
+                class="toggle-btn ${isExcluded ? "btn-show" : "btn-hide"}"
+                onclick="toggleSession('${s.id}', this)"
+              >${isExcluded ? "Show" : "Hide"}</button>
+              <button
+                class="toggle-btn btn-pay"
+                onclick="togglePay('${s.id}', this)"
+                data-friendly="${friendlyDate(s.start_time)}"
+                data-time="${formatTimeRange(s.start_time, s.end_time)}"
+                data-type-label="${typeLabel(s.session_type)}"
+                data-type-style="${typeBadgeStyle(s.session_type)}"
+                data-level-html="${levelDot(s.ball_level).replace(/"/g, '&quot;')}"
+                data-amount="${amountStr}"
+              >Mark Paid</button>`;
+          }
+
+          const earnedCell = isManage
+            ? `<span class="cell-earned">${amountStr}</span>`
+            : `<span class="cell-earned">${amountStr}</span>`;
+
+          body += `
+            <div class="${rowClass}" data-id="${s.id}">
+              <span class="cell-time">${formatTimeRange(s.start_time, s.end_time)}</span>
+              <span class="cell-badge" style="${typeBadgeStyle(s.session_type)}">${typeLabel(s.session_type)}</span>
+              <span class="cell-level">${levelDot(s.ball_level)}</span>
+              <span class="cell-series">${seriesName}</span>
+              ${earnedCell}
+              ${buttons}
+            </div>`;
+        }
+
+        body += `</div></div>`;
+      }
+
+      body += `</div>`;
     }
 
-    body += `</div>`;
+    return body;
   }
 
-  const totalSessions = sessions.filter(countsForPayment).length;
+  // ── build Betaald tab body (flat list, newest first) ──────────────────────
+  function buildBetaaldBody(tabSessions: SessionRow[]): string {
+    if (tabSessions.length === 0) {
+      return `<p class="empty-msg">No paid sessions yet.</p>`;
+    }
+
+    // Sort newest first
+    const sorted = [...tabSessions].sort((a, b) =>
+      new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+    );
+
+    let body = `<div id="betaald-list" class="betaald-list">`;
+    for (const s of sorted) {
+      let buttons = "";
+      if (isManage) {
+        buttons = `<button
+          class="toggle-btn btn-unpay"
+          onclick="togglePay('${s.id}', this)"
+        >Mark Unpaid</button>`;
+      }
+
+      body += `
+        <div class="session-row paid-row" data-id="${s.id}">
+          <span class="cell-date">${friendlyDate(s.start_time)}</span>
+          <span class="cell-time">${formatTimeRange(s.start_time, s.end_time)}</span>
+          <span class="cell-badge" style="${typeBadgeStyle(s.session_type)}">${typeLabel(s.session_type)}</span>
+          <span class="cell-earned">${currency} ${rate}</span>
+          <span class="paid-badge">Paid</span>
+          ${buttons}
+        </div>`;
+    }
+    body += `</div>`;
+    return body;
+  }
+
+  const openstaandBody = buildOpenstaandBody(isManage ? manageOpenstaand : openstaandSessions);
+  const betaaldBody = buildBetaaldBody(betaaldSessions);
+
   const manageNote = isManage
     ? `<div class="manage-banner">
-        <span>Admin View — Toggle sessions to show/hide from Dean's report</span>
+        <span>Admin View — Toggle sessions to show/hide · Mark sessions as paid/unpaid</span>
        </div>`
     : "";
 
+  // JavaScript for manage view
   const toggleScript = isManage ? `
   <script>
+    var _token = new URLSearchParams(window.location.search).get('manage');
+    var _base = '/api/coach-report/dean/' + window.location.pathname.split('/').pop();
+
+    function getManageUrl(action) {
+      return _base + '/' + action + '?manage=' + encodeURIComponent(_token);
+    }
+
     async function toggleSession(id, btn) {
       btn.disabled = true;
-      const url = window.location.pathname.replace(/\/$/, '') + '/exclude';
-      const token = new URLSearchParams(window.location.search).get('manage');
-      const res = await fetch(url + '?manage=' + token, {
+      const res = await fetch(getManageUrl('exclude'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: id })
@@ -337,7 +393,141 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
         btn.disabled = false;
       }
     }
-  </script>` : "";
+
+    async function togglePay(id, btn) {
+      btn.disabled = true;
+      const res = await fetch(getManageUrl('pay'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: id })
+      });
+      if (!res.ok) {
+        alert('Error toggling payment status');
+        btn.disabled = false;
+        return;
+      }
+      const data = await res.json();
+      const nowPaid = data.paid;
+
+      if (nowPaid) {
+        // Move from Openstaand to Betaald
+        const row = btn.closest('.session-row');
+        const friendlyDateStr = btn.dataset.friendly || '';
+        const timeStr = btn.dataset.time || '';
+        const typeLabel = btn.dataset.typeLabel || '';
+        const typeStyle = btn.dataset.typeStyle || '';
+        const currency = '${currency}';
+        const rate = ${rate};
+
+        // Remove from Openstaand
+        const dayList = row.parentElement;
+        row.remove();
+        cleanupEmptyGroups(dayList);
+        updateOpenstaandCount(-1);
+
+        // Add to Betaald list
+        const betaaldList = document.getElementById('betaald-list') || createBetaaldList();
+        const newRow = document.createElement('div');
+        newRow.className = 'session-row paid-row';
+        newRow.dataset.id = id;
+        newRow.innerHTML =
+          '<span class="cell-date">' + friendlyDateStr + '</span>' +
+          '<span class="cell-time">' + timeStr + '</span>' +
+          '<span class="cell-badge" style="' + typeStyle + '">' + typeLabel + '</span>' +
+          '<span class="cell-earned">' + currency + ' ' + rate + '</span>' +
+          '<span class="paid-badge">Paid</span>' +
+          '<button class="toggle-btn btn-unpay" onclick="togglePay(\\'' + id + '\\', this)">Mark Unpaid</button>';
+        betaaldList.insertBefore(newRow, betaaldList.firstChild);
+        updateBetaaldCount(1);
+
+        // Hide the empty message if present
+        const emptyMsg = document.querySelector('#tab-betaald .empty-msg');
+        if (emptyMsg) emptyMsg.style.display = 'none';
+      } else {
+        // Move from Betaald to Openstaand — just reload for simplicity
+        window.location.reload();
+        return;
+      }
+
+      btn.disabled = false;
+    }
+
+    function cleanupEmptyGroups(sessionsList) {
+      if (!sessionsList) return;
+      const dayGroup = sessionsList.parentElement;
+      if (dayGroup && sessionsList.children.length === 0) {
+        const weekBlock = dayGroup.parentElement;
+        dayGroup.remove();
+        if (weekBlock) {
+          const dayGroups = weekBlock.querySelectorAll('.day-group');
+          if (dayGroups.length === 0) {
+            const monthHeader = weekBlock.previousElementSibling;
+            weekBlock.remove();
+            if (monthHeader && monthHeader.classList.contains('month-header')) {
+              const next = monthHeader.nextElementSibling;
+              if (!next || !next.classList.contains('week-block')) {
+                monthHeader.remove();
+              }
+            }
+          }
+        }
+      }
+      const tabContent = document.getElementById('tab-openstaand');
+      const remaining = tabContent ? tabContent.querySelectorAll('.session-row') : [];
+      if (remaining.length === 0 && tabContent) {
+        const existing = tabContent.querySelector('.empty-msg');
+        if (!existing) {
+          tabContent.innerHTML = '<p class="empty-msg">No outstanding sessions.</p>';
+        }
+      }
+    }
+
+    function createBetaaldList() {
+      const tab = document.getElementById('tab-betaald');
+      const list = document.createElement('div');
+      list.id = 'betaald-list';
+      list.className = 'betaald-list';
+      tab.appendChild(list);
+      return list;
+    }
+
+    function updateOpenstaandCount(delta) {
+      const el = document.getElementById('openstaand-count');
+      const amtEl = document.getElementById('openstaand-amount');
+      if (el) {
+        const cur = parseInt(el.textContent, 10) || 0;
+        const next = Math.max(0, cur + delta);
+        el.textContent = next;
+        if (amtEl) amtEl.textContent = '${currency} ' + (next * ${rate}).toLocaleString();
+      }
+    }
+
+    function updateBetaaldCount(delta) {
+      const el = document.getElementById('betaald-count');
+      const amtEl = document.getElementById('betaald-amount');
+      if (el) {
+        const cur = parseInt(el.textContent, 10) || 0;
+        const next = Math.max(0, cur + delta);
+        el.textContent = next;
+        if (amtEl) amtEl.textContent = '${currency} ' + (next * ${rate}).toLocaleString();
+      }
+    }
+
+    function switchTab(tab) {
+      document.getElementById('tab-openstaand').style.display = tab === 'openstaand' ? 'block' : 'none';
+      document.getElementById('tab-betaald').style.display = tab === 'betaald' ? 'block' : 'none';
+      document.getElementById('tab-btn-openstaand').classList.toggle('tab-active', tab === 'openstaand');
+      document.getElementById('tab-btn-betaald').classList.toggle('tab-active', tab === 'betaald');
+    }
+  </script>` : `
+  <script>
+    function switchTab(tab) {
+      document.getElementById('tab-openstaand').style.display = tab === 'openstaand' ? 'block' : 'none';
+      document.getElementById('tab-betaald').style.display = tab === 'betaald' ? 'block' : 'none';
+      document.getElementById('tab-btn-openstaand').classList.toggle('tab-active', tab === 'openstaand');
+      document.getElementById('tab-btn-betaald').classList.toggle('tab-active', tab === 'betaald');
+    }
+  </script>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -360,6 +550,8 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
       --muted:    #8A95A3;
       --border:   rgba(255,255,255,0.07);
       --radius:   12px;
+      --orange:   #F97316;
+      --green:    #22C55E;
     }
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
@@ -390,12 +582,27 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
     }
     .coach-name { font-weight: 700; font-size: 17px; }
     .coach-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .grand-total {
+
+    /* Summary totals strip */
+    .summary-totals {
+      display: flex; gap: 12px; align-items: center;
+    }
+    .summary-total-item {
       text-align: right;
     }
-    .grand-total-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
-    .grand-total-value { font-size: 22px; font-weight: 800; color: var(--accent); }
-    .grand-total-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .summary-total-label {
+      font-size: 10px; color: var(--muted); text-transform: uppercase;
+      letter-spacing: .6px; font-weight: 600;
+    }
+    .summary-total-amount {
+      font-size: 20px; font-weight: 800;
+    }
+    .summary-total-count {
+      font-size: 11px; color: var(--muted); margin-top: 1px;
+    }
+    .color-orange { color: var(--orange); }
+    .color-green  { color: var(--green); }
+    .summary-divider { width: 1px; height: 40px; background: var(--border); }
 
     .manage-banner {
       background: linear-gradient(90deg, #7C3AED22, #2563EB22);
@@ -407,19 +614,42 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
       text-align: center;
     }
 
-    .content { max-width: 860px; margin: 0 auto; padding: 28px 16px 0; }
+    /* Tabs */
+    .tabs-bar {
+      max-width: 860px; margin: 24px auto 0; padding: 0 16px;
+      display: flex; gap: 4px;
+      border-bottom: 2px solid var(--border);
+    }
+    .tab-btn {
+      background: none; border: none; cursor: pointer;
+      font-family: inherit; font-size: 14px; font-weight: 700;
+      color: var(--muted); padding: 10px 20px 12px;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.tab-active { color: var(--text); border-bottom-color: var(--accent); }
+    .tab-count {
+      font-size: 11px; font-weight: 800;
+      padding: 2px 7px; border-radius: 20px;
+      background: var(--bg3);
+    }
+    .tab-btn.tab-active .tab-count { background: var(--accent); color: #0C1118; }
+
+    .content { max-width: 860px; margin: 0 auto; padding: 24px 16px 0; }
 
     .month-header {
       display: flex; align-items: center; justify-content: space-between;
-      margin: 32px 0 8px;
+      margin: 24px 0 8px;
       padding-bottom: 8px;
       border-bottom: 2px solid var(--border);
     }
     .month-header span:first-child { font-size: 20px; font-weight: 800; color: var(--text); }
-    .month-total { font-size: 16px; font-weight: 700; color: var(--accent); }
 
     .week-block {
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       background: var(--bg2);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -432,7 +662,6 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
       border-bottom: 1px solid var(--border);
     }
     .week-label  { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-    .week-earned { font-size: 13px; font-weight: 700; color: var(--accent); }
 
     .day-group { border-bottom: 1px solid var(--border); }
     .day-group:last-child { border-bottom: none; }
@@ -458,11 +687,22 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
     }
     .session-row.cancelled { opacity: .5; }
 
+    /* Betaald tab flat list */
+    .betaald-list { display: flex; flex-direction: column; gap: 6px; }
+    .paid-row { background: #0d1f14; border: 1px solid #22C55E22; }
+    .paid-row:hover { background: #122a1a; }
+    .paid-badge {
+      font-size: 11px; font-weight: 800;
+      padding: 3px 10px; border-radius: 20px;
+      background: #22C55E1a; color: #22C55E;
+      border: 1px solid #22C55E33;
+    }
+
+    .cell-date   { font-size: 12px; font-weight: 600; color: var(--muted); min-width: 160px; }
     .cell-time   { font-size: 13px; font-weight: 700; min-width: 110px; color: var(--text); }
     .cell-badge  { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; min-width: 84px; text-align: center; letter-spacing: .3px; }
     .cell-level  { min-width: 80px; }
     .cell-series { font-size: 12px; color: var(--muted); flex: 1; min-width: 100px; }
-    .cell-status { min-width: 80px; text-align: right; }
     .cell-earned { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 72px; text-align: right; }
 
     .toggle-btn {
@@ -471,25 +711,18 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
       transition: opacity .15s;
     }
     .toggle-btn:disabled { opacity: .4; cursor: not-allowed; }
-    .btn-hide { background: #EF44441a; color: #EF4444; border: 1px solid #EF444433; }
-    .btn-show { background: #22C55E1a; color: #22C55E; border: 1px solid #22C55E33; }
-    .btn-hide:hover:not(:disabled) { background: #EF444430; }
-    .btn-show:hover:not(:disabled) { background: #22C55E30; }
+    .btn-hide   { background: #EF44441a; color: #EF4444; border: 1px solid #EF444433; }
+    .btn-show   { background: #22C55E1a; color: #22C55E; border: 1px solid #22C55E33; }
+    .btn-pay    { background: #22C55E1a; color: #22C55E; border: 1px solid #22C55E33; }
+    .btn-unpay  { background: #F973161a; color: #F97316; border: 1px solid #F9731633; }
+    .btn-hide:hover:not(:disabled)  { background: #EF444430; }
+    .btn-show:hover:not(:disabled)  { background: #22C55E30; }
+    .btn-pay:hover:not(:disabled)   { background: #22C55E30; }
+    .btn-unpay:hover:not(:disabled) { background: #F9731630; }
 
-    .summary-strip {
-      max-width: 860px; margin: 28px auto 0; padding: 0 16px;
+    .empty-msg {
+      color: var(--muted); text-align: center; padding: 40px 0; font-size: 14px;
     }
-    .summary-card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 16px;
-    }
-    .summary-item { text-align: center; }
-    .summary-value { font-size: 28px; font-weight: 800; color: var(--accent); }
-    .summary-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-top: 2px; }
 
     .footer {
       text-align: center; color: var(--muted); font-size: 11px;
@@ -500,7 +733,10 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
       .session-row { gap: 7px; }
       .cell-time   { min-width: 90px; }
       .cell-series { display: none; }
+      .cell-date   { min-width: 0; font-size: 11px; }
       .top-bar { padding: 16px; }
+      .summary-totals { gap: 8px; }
+      .summary-total-amount { font-size: 16px; }
     }
   </style>
 </head>
@@ -514,38 +750,40 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
       <div class="coach-sub">Sessions from 11 May 2026 · ${currency} ${rate} / session</div>
     </div>
   </div>
-  <div class="grand-total">
-    <div class="grand-total-label">Total Earned</div>
-    <div class="grand-total-value">${currency} ${grandTotal.toLocaleString()}</div>
-    <div class="grand-total-sub">${totalSessions} sessions counted</div>
+  <div class="summary-totals">
+    <div class="summary-total-item">
+      <div class="summary-total-label">Openstaand</div>
+      <div class="summary-total-amount color-orange" id="openstaand-amount">${currency} ${openstaandTotal.toLocaleString()}</div>
+      <div class="summary-total-count"><span id="openstaand-count">${openstaandSessions.length}</span> sessions</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-total-item">
+      <div class="summary-total-label">Betaald</div>
+      <div class="summary-total-amount color-green" id="betaald-amount">${currency} ${betaaldTotal.toLocaleString()}</div>
+      <div class="summary-total-count"><span id="betaald-count">${betaaldSessions.length}</span> sessions</div>
+    </div>
   </div>
 </div>
 
 ${manageNote}
 
-<div class="content">
-  ${body || '<p style="color:var(--muted);text-align:center;padding:40px 0;">No sessions found.</p>'}
+<div class="tabs-bar">
+  <button class="tab-btn tab-active" id="tab-btn-openstaand" onclick="switchTab('openstaand')">
+    Openstaand
+    <span class="tab-count">${isManage ? manageOpenstaand.length : openstaandSessions.length}</span>
+  </button>
+  <button class="tab-btn" id="tab-btn-betaald" onclick="switchTab('betaald')">
+    Betaald
+    <span class="tab-count">${betaaldSessions.length}</span>
+  </button>
 </div>
 
-<div class="summary-strip">
-  <div class="summary-card">
-    <div class="summary-item">
-      <div class="summary-value">${totalSessions}</div>
-      <div class="summary-label">Sessions Counted</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value">${sessions.filter(s => s.status === "completed" && !excluded.has(s.id)).length}</div>
-      <div class="summary-label">Completed</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value">${sessions.filter(s => s.status === "cancelled").length}</div>
-      <div class="summary-label">Cancelled</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value" style="color:var(--accent)">${currency} ${grandTotal.toLocaleString()}</div>
-      <div class="summary-label">Total ${currency}</div>
-    </div>
-  </div>
+<div id="tab-openstaand" class="content">
+  ${openstaandBody}
+</div>
+
+<div id="tab-betaald" class="content" style="display:none;">
+  ${betaaldBody}
 </div>
 
 <div class="footer">
@@ -579,8 +817,6 @@ router.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], asy
     const sessions = await fetchSessions(state.startDate);
     const html = buildHTML(sessions, state, isManage);
 
-    // Set headers only after all data is ready — avoids committing headers
-    // before the catch block can run if buildHTML or fetchSessions throws.
     if (!res.headersSent) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
@@ -629,6 +865,40 @@ router.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:tok
     return res.json({ ok: true, excluded: state.excludedSessionIds.includes(sessionId) });
   } catch (err) {
     console.error("[CoachReport] Toggle error:", err);
+    return res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.post(["/coach-overview/dean/:token/pay", "/api/coach-report/dean/:token/pay"], async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const manageParam = req.query["manage"] as string | undefined;
+    const manageToken = getManageToken().trim();
+    const decodedManage = manageParam ? decodeURIComponent(manageParam).trim() : undefined;
+
+    if (token !== getPublicToken().trim() || !manageToken || decodedManage !== manageToken) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const { sessionId } = req.body as { sessionId?: string };
+    if (!sessionId || typeof sessionId !== "string") {
+      return res.status(400).json({ error: "Missing sessionId" });
+    }
+
+    const state = loadState();
+    const paidSet = new Set(state.paidSessionIds);
+    if (paidSet.has(sessionId)) {
+      paidSet.delete(sessionId);
+    } else {
+      paidSet.add(sessionId);
+    }
+
+    state.paidSessionIds = Array.from(paidSet);
+    saveState(state);
+
+    return res.json({ ok: true, paid: state.paidSessionIds.includes(sessionId) });
+  } catch (err) {
+    console.error("[CoachReport] Pay toggle error:", err);
     return res.status(500).json({ error: "Internal error" });
   }
 });
