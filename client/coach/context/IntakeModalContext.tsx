@@ -5,7 +5,7 @@ export interface PendingIntakeSession {
   sessionId: string;
   startTime: string;
   sessionType: string;
-  players: { id: string; name: string; attendanceStatus?: string }[];
+  players: { id: string; name: string; attendanceStatus?: string; ballLevel?: string | null }[];
   playerCount: number;
   needsGroupDynamics: boolean;
   cardType: "private" | "semi_private" | "group";

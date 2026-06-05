@@ -80,6 +80,7 @@ import subscriptionsRouter from "./routes/subscriptions";
 import aiProRouter from "./routes/ai-pro";
 import drillsRouter from "./routes/drills";
 import coachHomeRouter from "./routes/coach-home";
+import coachSkillTaxonomyRouter from "./routes/coach-skill-taxonomy";
 import playerHomeRouter from "./routes/player-home";
 import playerScoutRouter from "./routes/player-scout";
 import playerGlowAssessmentRouter from "./routes/player-glow-assessment";
@@ -448,6 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(aiProRouter);
   app.use(drillsRouter);
   app.use(coachHomeRouter);
+  app.use(coachSkillTaxonomyRouter);
   app.use(playerHomeRouter);
   app.use(playerScoutRouter);
   app.use(playerGlowAssessmentRouter);

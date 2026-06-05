@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { useSkillTaxonomy } from "@/hooks/useSkillTaxonomy";
 type IoniconsName = ComponentProps<typeof Ionicons>["name"];
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ type IoniconsName = ComponentProps<typeof Ionicons>["name"];
 interface PlayerEntry {
   id: string;
   name: string;
+  ballLevel?: string | null;
 }
 
 export interface IntakeResult {
@@ -123,57 +125,6 @@ const PLAYER_TAGS: { value: string; label: string }[] = [
   { value: "stood_out", label: "Stood Out" },
 ];
 
-const PILLAR_OPTIONS: {
-  field: string;
-  label: string;
-  options: { value: string; label: string }[];
-}[] = [
-  {
-    field: "effort",
-    label: "Effort",
-    options: [
-      { value: "needs_attention", label: "Needs Attention" },
-      { value: "developing", label: "Developing" },
-      { value: "good", label: "Good" },
-    ],
-  },
-  {
-    field: "technique",
-    label: "Technique",
-    options: [
-      { value: "needs_attention", label: "Needs Attention" },
-      { value: "developing", label: "Developing" },
-      { value: "good", label: "Good" },
-    ],
-  },
-  {
-    field: "tactical",
-    label: "Tactical",
-    options: [
-      { value: "needs_attention", label: "Needs Attention" },
-      { value: "developing", label: "Developing" },
-      { value: "good", label: "Good" },
-    ],
-  },
-  {
-    field: "physical",
-    label: "Physical",
-    options: [
-      { value: "needs_attention", label: "Needs Attention" },
-      { value: "developing", label: "Developing" },
-      { value: "good", label: "Good" },
-    ],
-  },
-  {
-    field: "mental",
-    label: "Mental",
-    options: [
-      { value: "needs_attention", label: "Needs Attention" },
-      { value: "developing", label: "Developing" },
-      { value: "good", label: "Good" },
-    ],
-  },
-];
 
 const HIGHLIGHT_OPTIONS: { value: string; label: string; icon: IoniconsName; color: string }[] = [
   { value: "breakthrough", label: "Breakthrough", icon: "star-outline", color: Colors.dark.gold },
@@ -244,6 +195,176 @@ function ChipRow({
           </Text>
         </Pressable>
       ))}
+    </View>
+  );
+}
+
+// ── Universal pillars (same for every player level) ───────────────────────────
+
+const UNIVERSAL_PILLAR_OPTIONS: {
+  field: string;
+  label: string;
+  options: { value: string; label: string }[];
+}[] = [
+  {
+    field: "effort",
+    label: "Effort",
+    options: [
+      { value: "needs_attention", label: "Needs Attention" },
+      { value: "developing",      label: "Developing" },
+      { value: "good",            label: "Good" },
+    ],
+  },
+  {
+    field: "physical",
+    label: "Physical",
+    options: [
+      { value: "needs_attention", label: "Needs Attention" },
+      { value: "developing",      label: "Developing" },
+      { value: "good",            label: "Good" },
+    ],
+  },
+  {
+    field: "mental",
+    label: "Mental",
+    options: [
+      { value: "needs_attention", label: "Needs Attention" },
+      { value: "developing",      label: "Developing" },
+      { value: "good",            label: "Good" },
+    ],
+  },
+];
+
+const SKILL_RATING_OPTIONS = [
+  { value: "needs_attention", label: "Needs Attention" },
+  { value: "developing",      label: "Developing" },
+  { value: "good",            label: "Good" },
+];
+
+/**
+ * Per-player pillar ratings step rendered as its own component so it can call
+ * the useSkillTaxonomy hook unconditionally at the top level.
+ */
+function PlayerPillarRatings({
+  player,
+  state,
+  updatePlayerState,
+}: {
+  player: PlayerEntry;
+  state: PlayerState;
+  updatePlayerState: (patch: Partial<PlayerState>) => void;
+}) {
+  const { techniqueSkills, tacticalSkills } = useSkillTaxonomy(player.ballLevel);
+
+  const handleRating = (field: string, value: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    updatePlayerState({
+      pillarRatings: {
+        ...state.pillarRatings,
+        [field]: state.pillarRatings[field] === value ? "" : value,
+      },
+    });
+  };
+
+  return (
+    <View>
+      <Text style={styles.stepTitle}>{player.name} — Quick Ratings</Text>
+      <Text style={styles.stepSubtitle}>Tap to rate key pillars this session</Text>
+
+      {/* Universal pillars: Effort, Physical, Mental */}
+      {UNIVERSAL_PILLAR_OPTIONS.map((cfg) => (
+        <View key={cfg.field} style={styles.pillarSection}>
+          <Text style={styles.pillarLabel}>{cfg.label}</Text>
+          <ChipRow
+            options={cfg.options}
+            selected={state.pillarRatings[cfg.field] ?? ""}
+            onToggle={(v) => handleRating(cfg.field, v)}
+          />
+        </View>
+      ))}
+
+      {/* Level-specific Technique skills */}
+      {techniqueSkills.length > 0 && (
+        <View style={styles.pillarSection}>
+          <Text style={styles.pillarLabel}>Technique</Text>
+          <Text style={styles.taxonomyHint}>Rate the specific skills you worked on</Text>
+          {techniqueSkills.map((skill) => (
+            <View key={skill.id} style={styles.taxonomyRow}>
+              <Text style={styles.taxonomySkillLabel}>{skill.label}</Text>
+              <ChipRow
+                options={SKILL_RATING_OPTIONS}
+                selected={state.pillarRatings[skill.id] ?? ""}
+                onToggle={(v) => handleRating(skill.id, v)}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Level-specific Tactical skills */}
+      {tacticalSkills.length > 0 && (
+        <View style={styles.pillarSection}>
+          <Text style={styles.pillarLabel}>Tactical</Text>
+          <Text style={styles.taxonomyHint}>Rate the specific skills you worked on</Text>
+          {tacticalSkills.map((skill) => (
+            <View key={skill.id} style={styles.taxonomyRow}>
+              <Text style={styles.taxonomySkillLabel}>{skill.label}</Text>
+              <ChipRow
+                options={SKILL_RATING_OPTIONS}
+                selected={state.pillarRatings[skill.id] ?? ""}
+                onToggle={(v) => handleRating(skill.id, v)}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Fallback: if taxonomy fetch not yet resolved, show generic technique/tactical */}
+      {techniqueSkills.length === 0 && tacticalSkills.length === 0 && (
+        <>
+          {["technique", "tactical"].map((field) => (
+            <View key={field} style={styles.pillarSection}>
+              <Text style={styles.pillarLabel}>
+                {field.charAt(0).toUpperCase() + field.slice(1)}
+              </Text>
+              <ChipRow
+                options={SKILL_RATING_OPTIONS}
+                selected={state.pillarRatings[field] ?? ""}
+                onToggle={(v) => handleRating(field, v)}
+              />
+            </View>
+          ))}
+        </>
+      )}
+
+      {/* Session Highlight */}
+      <Text style={[styles.pillarLabel, { marginTop: Spacing.lg }]}>Session Highlight</Text>
+      <View style={styles.highlightRow}>
+        {HIGHLIGHT_OPTIONS.map((opt) => (
+          <Pressable
+            key={opt.value}
+            style={[
+              styles.highlightCard,
+              state.highlight === opt.value && { borderColor: opt.color, backgroundColor: opt.color + "18" },
+            ]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              updatePlayerState({
+                highlight: state.highlight === opt.value ? undefined : opt.value,
+              });
+            }}
+          >
+            <Ionicons
+              name={opt.icon}
+              size={16}
+              color={state.highlight === opt.value ? opt.color : Colors.dark.textMuted}
+            />
+            <Text style={[styles.highlightLabel, state.highlight === opt.value && { color: opt.color }]}>
+              {opt.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
@@ -493,52 +614,11 @@ export function IntakeFlowModal({
       const player = players[pi];
       const state = playerStates[pi];
       return (
-        <View>
-          <Text style={styles.stepTitle}>{player.name} — Quick Ratings</Text>
-          <Text style={styles.stepSubtitle}>Tap to rate key pillars this session</Text>
-          {PILLAR_OPTIONS.map((cfg) => (
-            <View key={cfg.field} style={styles.pillarSection}>
-              <Text style={styles.pillarLabel}>{cfg.label}</Text>
-              <ChipRow
-                options={cfg.options}
-                selected={state.pillarRatings[cfg.field] ?? ""}
-                onToggle={(v) =>
-                  updatePlayerState(pi, {
-                    pillarRatings: {
-                      ...state.pillarRatings,
-                      [cfg.field]: state.pillarRatings[cfg.field] === v ? "" : v,
-                    },
-                  })
-                }
-              />
-            </View>
-          ))}
-
-          <Text style={[styles.pillarLabel, { marginTop: Spacing.lg }]}>Session Highlight</Text>
-          <View style={styles.highlightRow}>
-            {HIGHLIGHT_OPTIONS.map((opt) => (
-              <Pressable
-                key={opt.value}
-                style={[styles.highlightCard, state.highlight === opt.value && { borderColor: opt.color, backgroundColor: opt.color + "18" }]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  updatePlayerState(pi, {
-                    highlight: state.highlight === opt.value ? undefined : opt.value,
-                  });
-                }}
-              >
-                <Ionicons
-                  name={opt.icon}
-                  size={16}
-                  color={state.highlight === opt.value ? opt.color : Colors.dark.textMuted}
-                />
-                <Text style={[styles.highlightLabel, state.highlight === opt.value && { color: opt.color }]}>
-                  {opt.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+        <PlayerPillarRatings
+          player={player}
+          state={state}
+          updatePlayerState={(patch) => updatePlayerState(pi, patch)}
+        />
       );
     }
 
@@ -795,6 +875,21 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     fontWeight: "600",
     marginBottom: Spacing.xs,
+  },
+  taxonomyHint: {
+    fontSize: 11,
+    color: Colors.dark.textMuted,
+    marginBottom: Spacing.sm,
+    fontStyle: "italic",
+  },
+  taxonomyRow: {
+    marginBottom: Spacing.sm,
+  },
+  taxonomySkillLabel: {
+    fontSize: 12,
+    color: Colors.dark.textSecondary,
+    fontWeight: "500",
+    marginBottom: 4,
   },
   highlightRow: {
     flexDirection: "row",
