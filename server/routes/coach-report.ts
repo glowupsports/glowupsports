@@ -363,92 +363,109 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
   const toggleScript = isManage ? `
   <script>
     var _token = new URLSearchParams(window.location.search).get('manage');
-    var _base = '/api/coach-report/dean/' + window.location.pathname.split('/').pop();
+    var _base = '/api/coach-report/dean/' + window.location.pathname.split('/').filter(Boolean).at(-1);
 
     function getManageUrl(action) {
       return _base + '/' + action + '?manage=' + encodeURIComponent(_token);
     }
 
+    function showError(msg) {
+      var banner = document.getElementById('manage-error-banner');
+      if (!banner) return;
+      banner.textContent = msg || 'Something went wrong — please try again.';
+      banner.style.display = 'block';
+      clearTimeout(banner._hideTimer);
+      banner._hideTimer = setTimeout(function() { banner.style.display = 'none'; }, 6000);
+    }
+
     async function toggleSession(id, btn) {
       btn.disabled = true;
-      const res = await fetch(getManageUrl('exclude'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: id })
-      });
-      if (res.ok) {
-        const row = btn.closest('.session-row');
-        if (row.classList.contains('excluded')) {
-          row.classList.remove('excluded');
-          btn.textContent = 'Hide';
-          btn.className = 'toggle-btn btn-hide';
+      try {
+        const res = await fetch(getManageUrl('exclude'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: id })
+        });
+        if (res.ok) {
+          const row = btn.closest('.session-row');
+          if (row.classList.contains('excluded')) {
+            row.classList.remove('excluded');
+            btn.textContent = 'Hide';
+            btn.className = 'toggle-btn btn-hide';
+          } else {
+            row.classList.add('excluded');
+            btn.textContent = 'Show';
+            btn.className = 'toggle-btn btn-show';
+          }
         } else {
-          row.classList.add('excluded');
-          btn.textContent = 'Show';
-          btn.className = 'toggle-btn btn-show';
+          const err = await res.json().catch(() => ({}));
+          showError('Error toggling session: ' + (err.error || res.status));
         }
-        btn.disabled = false;
-      } else {
-        alert('Error toggling session');
-        btn.disabled = false;
+      } catch (err) {
+        showError('Network error — please check your connection.');
       }
+      btn.disabled = false;
     }
 
     async function togglePay(id, btn) {
       btn.disabled = true;
-      const res = await fetch(getManageUrl('pay'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: id })
-      });
-      if (!res.ok) {
-        alert('Error toggling payment status');
-        btn.disabled = false;
-        return;
+      try {
+        const res = await fetch(getManageUrl('pay'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: id })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          showError('Error toggling payment: ' + (err.error || res.status));
+          btn.disabled = false;
+          return;
+        }
+        const data = await res.json();
+        const nowPaid = data.paid;
+
+        if (nowPaid) {
+          // Move from Openstaand to Betaald
+          const row = btn.closest('.session-row');
+          const friendlyDateStr = btn.dataset.friendly || '';
+          const timeStr = btn.dataset.time || '';
+          const typeLabel = btn.dataset.typeLabel || '';
+          const typeStyle = btn.dataset.typeStyle || '';
+          const currency = '${currency}';
+          const rate = ${rate};
+
+          // Remove from Openstaand
+          const dayList = row.parentElement;
+          row.remove();
+          cleanupEmptyGroups(dayList);
+          updateOpenstaandCount(-1);
+
+          // Add to Betaald list
+          const betaaldList = document.getElementById('betaald-list') || createBetaaldList();
+          const newRow = document.createElement('div');
+          newRow.className = 'session-row paid-row';
+          newRow.dataset.id = id;
+          newRow.innerHTML =
+            '<span class="cell-date">' + friendlyDateStr + '</span>' +
+            '<span class="cell-time">' + timeStr + '</span>' +
+            '<span class="cell-badge" style="' + typeStyle + '">' + typeLabel + '</span>' +
+            '<span class="cell-earned">' + currency + ' ' + rate + '</span>' +
+            '<span class="paid-badge">Paid</span>' +
+            '<button class="toggle-btn btn-unpay" onclick="togglePay(\\'' + id + '\\', this)">Mark Unpaid</button>';
+          betaaldList.insertBefore(newRow, betaaldList.firstChild);
+          updateBetaaldCount(1);
+
+          // Hide the empty message if present
+          const emptyMsg = document.querySelector('#tab-betaald .empty-msg');
+          if (emptyMsg) emptyMsg.style.display = 'none';
+        } else {
+          // Move from Betaald to Openstaand — just reload for simplicity
+          window.location.reload();
+          return;
+        }
+      } catch (err) {
+        showError('Network error — please check your connection.');
       }
-      const data = await res.json();
-      const nowPaid = data.paid;
-
-      if (nowPaid) {
-        // Move from Openstaand to Betaald
-        const row = btn.closest('.session-row');
-        const friendlyDateStr = btn.dataset.friendly || '';
-        const timeStr = btn.dataset.time || '';
-        const typeLabel = btn.dataset.typeLabel || '';
-        const typeStyle = btn.dataset.typeStyle || '';
-        const currency = '${currency}';
-        const rate = ${rate};
-
-        // Remove from Openstaand
-        const dayList = row.parentElement;
-        row.remove();
-        cleanupEmptyGroups(dayList);
-        updateOpenstaandCount(-1);
-
-        // Add to Betaald list
-        const betaaldList = document.getElementById('betaald-list') || createBetaaldList();
-        const newRow = document.createElement('div');
-        newRow.className = 'session-row paid-row';
-        newRow.dataset.id = id;
-        newRow.innerHTML =
-          '<span class="cell-date">' + friendlyDateStr + '</span>' +
-          '<span class="cell-time">' + timeStr + '</span>' +
-          '<span class="cell-badge" style="' + typeStyle + '">' + typeLabel + '</span>' +
-          '<span class="cell-earned">' + currency + ' ' + rate + '</span>' +
-          '<span class="paid-badge">Paid</span>' +
-          '<button class="toggle-btn btn-unpay" onclick="togglePay(\\'' + id + '\\', this)">Mark Unpaid</button>';
-        betaaldList.insertBefore(newRow, betaaldList.firstChild);
-        updateBetaaldCount(1);
-
-        // Hide the empty message if present
-        const emptyMsg = document.querySelector('#tab-betaald .empty-msg');
-        if (emptyMsg) emptyMsg.style.display = 'none';
-      } else {
-        // Move from Betaald to Openstaand — just reload for simplicity
-        window.location.reload();
-        return;
-      }
-
       btn.disabled = false;
     }
 
@@ -766,6 +783,7 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
 </div>
 
 ${manageNote}
+${isManage ? `<div id="manage-error-banner" style="display:none;background:#7f1d1d;color:#fca5a5;border:1px solid #ef444466;border-radius:10px;padding:12px 16px;margin:0 16px 8px;font-size:13px;font-weight:500;"></div>` : ''}
 
 <div class="tabs-bar">
   <button class="tab-btn tab-active" id="tab-btn-openstaand" onclick="switchTab('openstaand')">
