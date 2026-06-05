@@ -151,7 +151,7 @@ OTA_MESSAGE = "Fix GLOW_2 display name, Skill Radar from pillar mastery data"
 
 [postMerge]
 path = "scripts/post-merge.sh"
-timeoutMs = 60000
+timeoutMs = 180000
 
 [[ports]]
 localPort = 5000
