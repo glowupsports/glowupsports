@@ -1055,6 +1055,30 @@ export default function SessionDetailDrawer({
         </View>
       ) : null}
 
+      {/* Open Dashboard CTA — shown for upcoming / in-progress sessions */}
+      {session.status !== "cancelled" && session.status !== "completed" ? (
+        <Pressable
+          style={styles.openDashboardButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onClose();
+            navigation.navigate("ActiveSession", {
+              sessionId: session.id,
+              sessionJson: JSON.stringify(liveSession ?? session),
+            });
+          }}
+        >
+          <View style={styles.openDashboardIconWrap}>
+            <Ionicons name="radio-button-on" size={18} color={Colors.dark.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.openDashboardTitle}>Open Session Dashboard</Text>
+            <Text style={styles.openDashboardSubtitle}>Attendance, quick actions & live controls</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.dark.primary} />
+        </Pressable>
+      ) : null}
+
       {showIntroCard ? (
         <View style={styles.introCard}>
           <View style={styles.introCardHeader}>
@@ -1916,7 +1940,17 @@ export default function SessionDetailDrawer({
             <Ionicons name="time-outline" size={18} color={Colors.dark.xpCyan} />
             <Text style={[styles.controlButtonText, { color: Colors.dark.xpCyan }]}>Extend</Text>
           </Pressable>
-          <Pressable style={styles.controlButton} onPress={() => setShowEndConfirm(true)}>
+          <Pressable
+            style={styles.controlButton}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onClose();
+              navigation.navigate("ActiveSession", {
+                sessionId: session.id,
+                sessionJson: JSON.stringify(liveSession ?? session),
+              });
+            }}
+          >
             <Ionicons name="stop-circle-outline" size={18} color={Colors.dark.error} />
             <Text style={[styles.controlButtonText, { color: Colors.dark.error }]}>End Now</Text>
           </Pressable>
@@ -3263,6 +3297,37 @@ const styles = StyleSheet.create({
   warningActionButton: {
     borderWidth: 1,
     borderColor: Colors.dark.orange + "40",
+  },
+  openDashboardButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Colors.dark.primary + "14",
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "40",
+  },
+  openDashboardIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.dark.primary + "25",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  openDashboardTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.primary,
+  },
+  openDashboardSubtitle: {
+    fontSize: 12,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 1,
   },
   introCard: {
     backgroundColor: Colors.dark.xpCyan + "10",

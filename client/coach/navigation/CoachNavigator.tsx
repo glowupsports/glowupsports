@@ -33,6 +33,7 @@ import MyReviewsScreen from "@/coach/screens/MyReviewsScreen";
 import CoachHQScreen from "@/coach/screens/glow/CoachHQScreen";
 import SessionPlanScreen from "@/coach/screens/glow/SessionPlanScreen";
 import ActiveSessionScreen from "@/coach/screens/glow/ActiveSessionScreen";
+import PostSessionEndScreen from "@/coach/screens/glow/PostSessionEndScreen";
 import EvidenceCaptureScreen from "@/coach/screens/glow/EvidenceCaptureScreen";
 import LevelCardsScreen from "@/coach/screens/glow/LevelCardsScreen";
 import CoachCalibrationScreen from "@/coach/screens/glow/CoachCalibrationScreen";
@@ -103,7 +104,8 @@ export type CoachStackParamList = {
   CoachHQ: undefined;
   CourtsManagement: undefined;
   SessionPlan: { sessionId: string; playerId: string };
-  ActiveSession: { sessionId: string; planId?: string };
+  ActiveSession: { sessionId: string; planId?: string; sessionJson?: string };
+  PostSessionEnd: { sessionId: string };
   EvidenceCapture: { skillTags?: string[]; sessionId?: string; blockId?: string; playerId?: string };
   LevelCards: undefined;
   CoachCalibration: undefined;
@@ -414,6 +416,14 @@ function CoachStackNavigator() {
         options={{
           headerShown: true,
           headerTitle: "Active Session",
+        }}
+      />
+      <Stack.Screen
+        name="PostSessionEnd"
+        component={PostSessionEndScreen}
+        options={{
+          headerShown: false,
+          presentation: "modal",
         }}
       />
       <Stack.Screen 

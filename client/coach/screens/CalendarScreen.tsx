@@ -10,7 +10,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCoach } from "@/coach/context/CoachContext";
-import { useRoute, RouteProp } from "@react-navigation/native";
+import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
 import { Colors, Spacing } from "@/constants/theme";
 import { 
   getLocalDateString, 
@@ -91,6 +93,7 @@ interface CoachData {
 export default function CalendarScreen() {
   const { coach, academy, calendarData, isLoading, isFetching, refetchCalendar, setCoach, focusMode, setFocusMode, timeGrid, setTimeGrid, selectedDate, setSelectedDate, viewMode, setViewMode } = useCoach();
   const route = useRoute<RouteProp<any>>();
+  const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const queryClient = useQueryClient();
@@ -1116,7 +1119,22 @@ export default function CalendarScreen() {
   };
 
   const handleSessionTap = (session: Session) => {
-    setSelectedSessionForDetail(session);
+    const now = new Date();
+    const start = parseUTCTimestamp(session.startTime);
+    const end = parseUTCTimestamp(session.endTime);
+    const isActiveOrStarting =
+      session.status === "in_progress" ||
+      (now >= start && now < end) ||
+      (start > now && start.getTime() - now.getTime() < 30 * 60 * 1000);
+    if (
+      isActiveOrStarting &&
+      session.status !== "cancelled" &&
+      session.status !== "completed"
+    ) {
+      navigation.navigate("ActiveSession", { sessionId: session.id });
+    } else {
+      setSelectedSessionForDetail(session);
+    }
   };
   
   const handleAttendance = (session: Session) => {

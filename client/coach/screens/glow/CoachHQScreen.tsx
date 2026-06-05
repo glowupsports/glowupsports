@@ -140,10 +140,22 @@ export default function CoachHQScreen() {
 
   const handleSessionPress = (session: TodaySession) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (session.status === "in_progress" || session.sessionPlanId) {
-      navigation.navigate("ActiveSession", { 
-        sessionId: session.id, 
-        planId: session.sessionPlanId 
+    const now = new Date();
+    const start = new Date(session.startTime);
+    const end = new Date(session.endTime);
+    const isActiveOrStarting =
+      session.status === "in_progress" ||
+      (start <= now && end >= now) ||
+      (start > now && start.getTime() - now.getTime() < 30 * 60 * 1000);
+    if (isActiveOrStarting) {
+      navigation.navigate("ActiveSession", {
+        sessionId: session.id,
+        planId: session.sessionPlanId,
+      });
+    } else if (session.sessionPlanId) {
+      navigation.navigate("ActiveSession", {
+        sessionId: session.id,
+        planId: session.sessionPlanId,
       });
     } else {
       navigation.navigate("SessionPlan", { sessionId: session.id, playerId: session.playerId });
