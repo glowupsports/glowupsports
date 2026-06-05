@@ -277,11 +277,9 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
             buttons = `
               <button
                 class="toggle-btn ${isExcluded ? "btn-show" : "btn-hide"}"
-                onclick="toggleSession('${s.id}', this)"
               >${isExcluded ? "Show" : "Hide"}</button>
               <button
                 class="toggle-btn btn-pay"
-                onclick="togglePay('${s.id}', this)"
                 data-friendly="${friendlyDate(s.start_time)}"
                 data-time="${formatTimeRange(s.start_time, s.end_time)}"
                 data-type-label="${typeLabel(s.session_type)}"
@@ -332,7 +330,6 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
       if (isManage) {
         buttons = `<button
           class="toggle-btn btn-unpay"
-          onclick="togglePay('${s.id}', this)"
         >Mark Unpaid</button>`;
       }
 
@@ -452,7 +449,7 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
             '<span class="cell-badge" style="' + typeStyle + '">' + typeLabel + '</span>' +
             '<span class="cell-earned">' + currency + ' ' + rate + '</span>' +
             '<span class="paid-badge">Paid</span>' +
-            '<button class="toggle-btn btn-unpay" onclick="togglePay(\\'' + id + '\\', this)">Mark Unpaid</button>';
+            '<button class="toggle-btn btn-unpay">Mark Unpaid</button>';
           betaaldList.insertBefore(newRow, betaaldList.firstChild);
           updateBetaaldCount(1);
 
@@ -537,6 +534,26 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
       document.getElementById('tab-btn-openstaand').classList.toggle('tab-active', tab === 'openstaand');
       document.getElementById('tab-btn-betaald').classList.toggle('tab-active', tab === 'betaald');
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var btnO = document.getElementById('tab-btn-openstaand');
+      var btnB = document.getElementById('tab-btn-betaald');
+      if (btnO) btnO.addEventListener('click', function() { switchTab('openstaand'); });
+      if (btnB) btnB.addEventListener('click', function() { switchTab('betaald'); });
+
+      document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.toggle-btn');
+        if (!btn) return;
+        var row = btn.closest('[data-id]');
+        if (!row) return;
+        var id = row.dataset.id;
+        if (btn.classList.contains('btn-hide') || btn.classList.contains('btn-show')) {
+          toggleSession(id, btn);
+        } else if (btn.classList.contains('btn-pay') || btn.classList.contains('btn-unpay')) {
+          togglePay(id, btn);
+        }
+      });
+    });
   </script>` : `
   <script>
     function switchTab(tab) {
@@ -545,6 +562,13 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
       document.getElementById('tab-btn-openstaand').classList.toggle('tab-active', tab === 'openstaand');
       document.getElementById('tab-btn-betaald').classList.toggle('tab-active', tab === 'betaald');
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var btnO = document.getElementById('tab-btn-openstaand');
+      var btnB = document.getElementById('tab-btn-betaald');
+      if (btnO) btnO.addEventListener('click', function() { switchTab('openstaand'); });
+      if (btnB) btnB.addEventListener('click', function() { switchTab('betaald'); });
+    });
   </script>`;
 
   return `<!DOCTYPE html>
@@ -787,11 +811,11 @@ ${manageNote}
 ${isManage ? `<div id="manage-error-banner" style="display:none;background:#7f1d1d;color:#fca5a5;border:1px solid #ef444466;border-radius:10px;padding:12px 16px;margin:0 16px 8px;font-size:13px;font-weight:500;"></div>` : ''}
 
 <div class="tabs-bar">
-  <button class="tab-btn tab-active" id="tab-btn-openstaand" onclick="switchTab('openstaand')">
+  <button class="tab-btn tab-active" id="tab-btn-openstaand">
     Openstaand
     <span class="tab-count">${isManage ? manageOpenstaand.length : openstaandSessions.length}</span>
   </button>
-  <button class="tab-btn" id="tab-btn-betaald" onclick="switchTab('betaald')">
+  <button class="tab-btn" id="tab-btn-betaald">
     Betaald
     <span class="tab-count">${betaaldSessions.length}</span>
   </button>
