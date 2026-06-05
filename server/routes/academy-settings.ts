@@ -1968,6 +1968,11 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             | "cancelled",
           paidAt: invoice.paidAt?.toISOString(),
           theme: academy?.theme ?? null,
+          bankName: (settings as any)?.bankName || undefined,
+          bankIban: (settings as any)?.bankIban || undefined,
+          bankAccountNumber: (settings as any)?.bankAccountNumber || undefined,
+          bankAccountHolder: (settings as any)?.bankAccountHolder || undefined,
+          bankSwiftCode: (settings as any)?.bankSwiftCode || undefined,
         };
 
         const html = generateInvoiceHtml(invoiceData);

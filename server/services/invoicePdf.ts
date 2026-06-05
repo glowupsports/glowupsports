@@ -36,6 +36,11 @@ export interface InvoiceData {
   notes?: string;
   status: 'pending' | 'paid' | 'overdue' | 'cancelled';
   paidAt?: string;
+  bankName?: string;
+  bankIban?: string;
+  bankAccountNumber?: string;
+  bankAccountHolder?: string;
+  bankSwiftCode?: string;
   /**
    * Optional academy theme. When provided, the invoice uses the academy's
    * primary/secondary colours for the header, status badge and totals row.
@@ -302,6 +307,42 @@ export function generateInvoiceHtml(data: InvoiceData): string {
       font-size: 13px;
     }
     
+    .bank-section {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 40px;
+    }
+    
+    .bank-section h4 {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #16A34A;
+      margin-bottom: 14px;
+    }
+    
+    .bank-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    
+    .bank-label {
+      color: #6B7280;
+      min-width: 140px;
+      flex-shrink: 0;
+    }
+    
+    .bank-value {
+      color: #111827;
+      font-weight: 500;
+      word-break: break-all;
+    }
+    
     .footer {
       text-align: center;
       padding-top: 32px;
@@ -416,6 +457,17 @@ export function generateInvoiceHtml(data: InvoiceData): string {
         </div>
       </div>
     </div>
+    
+    ${(data.bankName || data.bankIban || data.bankAccountNumber || data.bankAccountHolder) ? `
+    <div class="bank-section">
+      <h4>Payment Details</h4>
+      ${data.bankAccountHolder ? `<div class="bank-row"><span class="bank-label">Account Holder</span><span class="bank-value">${data.bankAccountHolder}</span></div>` : ''}
+      ${data.bankName ? `<div class="bank-row"><span class="bank-label">Bank Name</span><span class="bank-value">${data.bankName}</span></div>` : ''}
+      ${data.bankIban ? `<div class="bank-row"><span class="bank-label">IBAN</span><span class="bank-value">${data.bankIban}</span></div>` : ''}
+      ${data.bankAccountNumber ? `<div class="bank-row"><span class="bank-label">Account Number</span><span class="bank-value">${data.bankAccountNumber}</span></div>` : ''}
+      ${data.bankSwiftCode ? `<div class="bank-row"><span class="bank-label">SWIFT / BIC</span><span class="bank-value">${data.bankSwiftCode}</span></div>` : ''}
+    </div>
+    ` : ''}
     
     ${data.notes ? `
     <div class="notes-section">
