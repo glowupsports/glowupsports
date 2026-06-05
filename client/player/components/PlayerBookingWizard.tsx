@@ -1154,14 +1154,17 @@ export default function PlayerBookingWizard({
     });
 
   const formatDateHeader = (date: Date) => {
-    const tz = academyTimezone;
-    const localDateStr = date.toLocaleDateString("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
-    const todayStr = new Date().toLocaleDateString("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
-    const tomorrowDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const tomorrowStr = tomorrowDate.toLocaleDateString("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
-    if (localDateStr === todayStr) return "Today";
-    if (localDateStr === tomorrowStr) return "Tomorrow";
-    return date.toLocaleDateString("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric" });
+    const y = date.getFullYear();
+    const m = date.getMonth();
+    const d = date.getDate();
+    const today = new Date();
+    const todayY = today.getFullYear();
+    const todayM = today.getMonth();
+    const todayD = today.getDate();
+    if (y === todayY && m === todayM && d === todayD) return "Today";
+    const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    if (y === tomorrow.getFullYear() && m === tomorrow.getMonth() && d === tomorrow.getDate()) return "Tomorrow";
+    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   };
 
   const releaseSlot = useCallback((slotId: string | null) => {
