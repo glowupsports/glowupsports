@@ -363,7 +363,8 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
   const toggleScript = isManage ? `
   <script>
     var _token = new URLSearchParams(window.location.search).get('manage');
-    var _base = '/api/coach-report/dean/' + window.location.pathname.split('/').filter(Boolean).at(-1);
+    var _parts = window.location.pathname.split('/').filter(Boolean);
+    var _base = '/api/coach-report/dean/' + _parts[_parts.length - 1];
 
     function getManageUrl(action) {
       return _base + '/' + action + '?manage=' + encodeURIComponent(_token);
