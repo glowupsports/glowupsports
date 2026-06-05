@@ -266,6 +266,8 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
   }, []);
 
   // ── State (exact from ProPlayerHomeScreen) ────────────────────────────────
+  const [noAcademyBannerDismissed, setNoAcademyBannerDismissed] = useState(false);
+  const [showNameNudge, setShowNameNudge] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [showBookingWizard, setShowBookingWizard] = useState(false);
   const [bookingWizardSport, setBookingWizardSport] = useState<string | undefined>(undefined);
@@ -448,6 +450,17 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
     const key = `@glow_ramadan_dismissed_${new Date().getFullYear()}`;
     AsyncStorage.setItem(key, "true");
   }, []);
+
+  // ── No-name nudge (one-time bottom sheet) ─────────────────────────────────
+  useSafeEffect(() => {
+    if (!user?.playerId || isGuest || !homeData) return;
+    const name = player.name;
+    if (!name || name === "New Player") {
+      AsyncStorage.getItem("@glow_name_nudge_dismissed").then((val) => {
+        if (val !== "true") setShowNameNudge(true);
+      }).catch(() => {});
+    }
+  }, [homeData, user?.playerId, isGuest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Post-session check-in trigger ─────────────────────────────────────────
   // Fires once per screen visit: finds the most recent ended session (2–4 hrs ago)
@@ -671,6 +684,33 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
               accessibilityLabel={`Player card for ${player.name}, level ${player.level}, ${player.xp} XP`}
             />
           </View>
+
+          {/* NO-ACADEMY BANNER */}
+          {isFreePlayer && !isGuest && !noAcademyBannerDismissed ? (
+            <Pressable
+              style={styles.noAcademyBanner}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                (navigation as any).navigate("AcademyBrowser");
+              }}
+              accessibilityLabel="You haven't joined an academy — tap to find yours"
+            >
+              <Ionicons name="school-outline" size={18} color="#F59E0B" />
+              <Text style={styles.noAcademyBannerText}>
+                You haven&apos;t joined an academy — tap to find yours
+              </Text>
+              <Pressable
+                hitSlop={12}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setNoAcademyBannerDismissed(true);
+                }}
+                accessibilityLabel="Dismiss banner"
+              >
+                <Ionicons name="close" size={16} color="#F59E0B" />
+              </Pressable>
+            </Pressable>
+          ) : null}
 
           {/* PLAYER DNA BANNER */}
           {!isGuest && player?.id ? <PlayerDNABanner playerId={player.id} /> : null}
@@ -932,6 +972,54 @@ const DiagnosticHomeContent = React.memo(function DiagnosticHomeContent() {
           bottomOffset={145}
         />
 
+        {/* NO-NAME NUDGE */}
+        <Modal
+          visible={showNameNudge}
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowNameNudge(false);
+            AsyncStorage.setItem("@glow_name_nudge_dismissed", "true").catch(() => {});
+          }}
+        >
+          <Pressable
+            style={styles.nameNudgeScrim}
+            onPress={() => {
+              setShowNameNudge(false);
+              AsyncStorage.setItem("@glow_name_nudge_dismissed", "true").catch(() => {});
+            }}
+          >
+            <Pressable style={styles.nameNudgeSheet} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.nameNudgeHandle} />
+              <Ionicons name="person-circle-outline" size={40} color={Colors.dark.primary} style={{ alignSelf: "center" }} />
+              <Text style={styles.nameNudgeTitle}>What should we call you?</Text>
+              <Text style={styles.nameNudgeBody}>
+                You signed up without entering a name. Add one so coaches and teammates can recognise you.
+              </Text>
+              <Pressable
+                style={styles.nameNudgePrimaryBtn}
+                onPress={() => {
+                  setShowNameNudge(false);
+                  AsyncStorage.setItem("@glow_name_nudge_dismissed", "true").catch(() => {});
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  (navigation as any).navigate("EditProfile");
+                }}
+              >
+                <Text style={styles.nameNudgePrimaryText}>Add My Name</Text>
+              </Pressable>
+              <Pressable
+                style={styles.nameNudgeSecondaryBtn}
+                onPress={() => {
+                  setShowNameNudge(false);
+                  AsyncStorage.setItem("@glow_name_nudge_dismissed", "true").catch(() => {});
+                }}
+              >
+                <Text style={styles.nameNudgeSecondaryText}>Maybe Later</Text>
+              </Pressable>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
       </View>
 
       {/* ACHIEVEMENT CELEBRATION — fires from home when a milestone is hit */}
@@ -1028,6 +1116,81 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   improveCardGap: {
     height: Spacing.sm,
+  },
+  // No-academy banner
+  noAcademyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: "rgba(245,158,11,0.12)",
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.35)",
+  },
+  noAcademyBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#F59E0B",
+    lineHeight: 16,
+  },
+  // Name nudge bottom sheet
+  nameNudgeScrim: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: Colors.dark.modalScrim,
+  },
+  nameNudgeSheet: {
+    backgroundColor: Backgrounds.elevated,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: Spacing.xl,
+    paddingBottom: Spacing.xl + 24,
+    gap: Spacing.md,
+  },
+  nameNudgeHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.dark.chipBackgroundStrong,
+    alignSelf: "center",
+    marginBottom: Spacing.sm,
+  },
+  nameNudgeTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    textAlign: "center",
+  },
+  nameNudgeBody: {
+    fontSize: 14,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  nameNudgePrimaryBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    marginTop: Spacing.sm,
+  },
+  nameNudgePrimaryText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.dark.buttonText,
+  },
+  nameNudgeSecondaryBtn: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  nameNudgeSecondaryText: {
+    fontSize: 13,
+    color: Colors.dark.textMuted,
   },
 }));
 

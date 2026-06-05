@@ -216,7 +216,8 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
   const [joinCodeError, setJoinCodeError] = useState<string | null>(null);
   const [foundAcademy, setFoundAcademy] = useState<JoinCodeAcademy | null>(null);
   const [isLookingUp, setIsLookingUp] = useState(false);
-  const [showBrowse, setShowBrowse] = useState(false);
+  const [showBrowse, setShowBrowse] = useState(true);
+  const [showSkipWarning, setShowSkipWarning] = useState(false);
 
   const { data: academiesData, isLoading, isError, refetch, isFetching } = useQuery<{ academies: Academy[] }>({
     queryKey: ["/api/academies/browse"],
@@ -285,6 +286,44 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
   }
 
   return (
+    <>
+    <Modal
+      visible={showSkipWarning}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowSkipWarning(false)}
+    >
+      <View style={styles.skipModalScrim}>
+        <View style={styles.skipModalSheet}>
+          <View style={styles.skipModalIconRow}>
+            <Ionicons name="warning-outline" size={32} color="#F59E0B" />
+          </View>
+          <Text style={styles.skipModalTitle}>Are you sure?</Text>
+          <Text style={styles.skipModalBody}>
+            Without an academy you won&apos;t be able to book sessions, connect with coaches, or access training plans.
+          </Text>
+          <Pressable
+            style={styles.skipModalPrimaryBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowSkipWarning(false);
+            }}
+          >
+            <Text style={styles.skipModalPrimaryText}>Go Back and Join</Text>
+          </Pressable>
+          <Pressable
+            style={styles.skipModalSecondaryBtn}
+            onPress={() => {
+              setShowSkipWarning(false);
+              onNext();
+            }}
+          >
+            <Text style={styles.skipModalSecondaryText}>Skip for Now</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.stepContainer} showsVerticalScrollIndicator={false}>
       <Animated.View entering={FadeInDown.delay(100).duration(500)}>
         <Text style={styles.stepTitle}>Find Your Academy</Text>
@@ -294,6 +333,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
       </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.joinCodeSection}>
+        <Text style={styles.joinCodeLabel}>Got a code from your coach?</Text>
         <View style={styles.joinCodeInputRow}>
           <TextInput
             style={styles.joinCodeInput}
@@ -303,7 +343,7 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
               setJoinCodeError(null);
               setFoundAcademy(null);
             }}
-            placeholder="Enter join code (e.g. ABC123)"
+            placeholder="Enter it here (e.g. ABC123)"
             placeholderTextColor={Colors.dark.textMuted}
             autoCapitalize="characters"
             autoCorrect={false}
@@ -364,101 +404,88 @@ function AcademySelectionStep({ data, setData, onNext }: StepProps) {
         <View style={styles.dividerLine} />
       </Animated.View>
 
-      {!showBrowse ? (
-        <Animated.View entering={FadeInDown.delay(400).duration(500)}>
-          <Pressable
-            style={styles.browseButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowBrowse(true);
-            }}
-          >
-            <Ionicons name="globe-outline" size={20} color={Colors.dark.primary} />
-            <Text style={styles.browseButtonText}>Browse All Academies</Text>
-          </Pressable>
-        </Animated.View>
-      ) : (
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.optionsContainer}>
-          {isError ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="cloud-offline-outline" size={48} color={Colors.dark.textMuted} />
-              <Pressable
-                style={styles.retryButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  refetch();
-                }}
-                disabled={isFetching}
-              >
-                <Ionicons name="refresh-outline" size={20} color={Colors.dark.buttonText} />
-                <Text style={styles.retryButtonText}>
-                  {isFetching ? "Retrying..." : "Try Again"}
-                </Text>
-              </Pressable>
-            </View>
-          ) : academies.length === 0 ? (
-            <View style={styles.emptyAcademiesContainer}>
-              <Ionicons name="business-outline" size={48} color={Colors.dark.textMuted} />
-              <Text style={styles.emptyAcademiesText}>No academies available</Text>
-              <Text style={styles.emptyAcademiesSubtext}>
-                Ask your coach for a join code to get started.
+      <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.optionsContainer}>
+        {isLoading ? (
+          <View style={styles.emptyAcademiesContainer}>
+            <Text style={styles.emptyAcademiesSubtext}>Loading academies...</Text>
+          </View>
+        ) : isError ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="cloud-offline-outline" size={48} color={Colors.dark.textMuted} />
+            <Pressable
+              style={styles.retryButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                refetch();
+              }}
+              disabled={isFetching}
+            >
+              <Ionicons name="refresh-outline" size={20} color={Colors.dark.buttonText} />
+              <Text style={styles.retryButtonText}>
+                {isFetching ? "Retrying..." : "Try Again"}
               </Text>
-            </View>
-          ) : (
-            academies.map((academy) => (
-              <Pressable
-                key={academy.id}
-                style={[
-                  styles.academyCard,
-                  data.academyId === academy.id ? styles.academyCardActive : null,
-                ]}
-                onPress={() => handleSelectAcademy(academy)}
-              >
-                <View style={styles.academyIconContainer}>
-                  <Ionicons 
-                    name="tennisball-outline" 
-                    size={28} 
-                    color={data.academyId === academy.id ? Colors.dark.primary : Colors.dark.textMuted} 
-                  />
+            </Pressable>
+          </View>
+        ) : academies.length === 0 ? (
+          <View style={styles.emptyAcademiesContainer}>
+            <Ionicons name="business-outline" size={48} color={Colors.dark.textMuted} />
+            <Text style={styles.emptyAcademiesText}>No academies available</Text>
+            <Text style={styles.emptyAcademiesSubtext}>
+              Ask your coach for a join code to get started.
+            </Text>
+          </View>
+        ) : (
+          academies.map((academy) => (
+            <Pressable
+              key={academy.id}
+              style={[
+                styles.academyCard,
+                data.academyId === academy.id ? styles.academyCardActive : null,
+              ]}
+              onPress={() => handleSelectAcademy(academy)}
+            >
+              <View style={styles.academyIconContainer}>
+                <Ionicons 
+                  name="tennisball-outline" 
+                  size={28} 
+                  color={data.academyId === academy.id ? Colors.dark.primary : Colors.dark.textMuted} 
+                />
+              </View>
+              <View style={styles.academyInfo}>
+                <Text style={[
+                  styles.academyName,
+                  data.academyId === academy.id ? styles.academyNameActive : null,
+                ]}>
+                  {academy.name}
+                </Text>
+                <Text style={styles.academyStats}>
+                  {academy.coachCount} coaches · {academy.playerCount} players
+                </Text>
+              </View>
+              {data.academyId === academy.id ? (
+                <View style={styles.checkIcon}>
+                  <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
                 </View>
-                <View style={styles.academyInfo}>
-                  <Text style={[
-                    styles.academyName,
-                    data.academyId === academy.id ? styles.academyNameActive : null,
-                  ]}>
-                    {academy.name}
-                  </Text>
-                  <Text style={styles.academyStats}>
-                    {academy.coachCount} coaches · {academy.playerCount} players
-                  </Text>
-                </View>
-                {data.academyId === academy.id ? (
-                  <View style={styles.checkIcon}>
-                    <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
-                  </View>
-                ) : (
-                  <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
-                )}
-              </Pressable>
-            ))
-          )}
-        </Animated.View>
-      )}
+              ) : (
+                <Ionicons name="chevron-forward" size={20} color={Colors.dark.textMuted} />
+              )}
+            </Pressable>
+          ))
+        )}
+      </Animated.View>
 
       <Animated.View entering={FadeInDown.delay(500).duration(500)} style={styles.skipSection}>
         <Pressable
-          style={styles.skipButton}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onNext();
+            setShowSkipWarning(true);
           }}
         >
-          <Text style={styles.skipButtonText}>Continue without an academy</Text>
-          <Ionicons name="arrow-forward" size={16} color={Colors.dark.textMuted} />
+          <Text style={styles.skipLinkText}>Continue without an academy</Text>
         </Pressable>
-        <Text style={styles.skipHint}>You can join an academy later from your profile</Text>
       </Animated.View>
     </ScrollView>
+    </>
   );
 }
 
@@ -1834,21 +1861,66 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     alignItems: "center",
     paddingBottom: Spacing.xl,
   },
-  skipButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-  },
-  skipButtonText: {
-    ...Typography.body,
-    color: Colors.dark.textMuted,
-  },
-  skipHint: {
+  skipLinkText: {
     ...Typography.small,
     color: Colors.dark.textMuted,
-    marginTop: Spacing.xs,
+    textDecorationLine: "underline",
     opacity: 0.7,
+    paddingVertical: Spacing.md,
+  },
+  joinCodeLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+    marginBottom: Spacing.sm,
+  },
+  skipModalScrim: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+  },
+  skipModalSheet: {
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    width: "100%",
+    gap: Spacing.md,
+  },
+  skipModalIconRow: {
+    alignItems: "center",
+  },
+  skipModalTitle: {
+    ...Typography.h3,
+    color: Colors.dark.text,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  skipModalBody: {
+    ...Typography.body,
+    color: Colors.dark.textMuted,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  skipModalPrimaryBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+    marginTop: Spacing.sm,
+  },
+  skipModalPrimaryText: {
+    ...Typography.body,
+    color: Colors.dark.buttonText,
+    fontWeight: "700",
+  },
+  skipModalSecondaryBtn: {
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  skipModalSecondaryText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
   },
 }));
