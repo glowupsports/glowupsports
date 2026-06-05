@@ -81,6 +81,7 @@ __export(schema_exports, {
   billingAccounts: () => billingAccounts,
   bookingInviteGuests: () => bookingInviteGuests,
   bookingInvites: () => bookingInvites,
+  bookingRequestBatches: () => bookingRequestBatches,
   bookingRequests: () => bookingRequests,
   cardWishlists: () => cardWishlists,
   chatRoomCoachPins: () => chatRoomCoachPins,
@@ -92,6 +93,7 @@ __export(schema_exports, {
   coachAcademyMemberships: () => coachAcademyMemberships,
   coachAssignedDrills: () => coachAssignedDrills,
   coachAvailability: () => coachAvailability,
+  coachBlockedSlots: () => coachBlockedSlots,
   coachCalibration: () => coachCalibration,
   coachContracts: () => coachContracts,
   coachCourtPreferences: () => coachCourtPreferences,
@@ -110,6 +112,7 @@ __export(schema_exports, {
   coachReviews: () => coachReviews,
   coachSettings: () => coachSettings,
   coachStatsRollup: () => coachStatsRollup,
+  coachTierPricing: () => coachTierPricing,
   coachTimeBlocks: () => coachTimeBlocks,
   coachWellnessLogs: () => coachWellnessLogs,
   coachXpTransactions: () => coachXpTransactions,
@@ -636,7 +639,7 @@ function computeArenaRarity(ballLevel, skillLevel, glowRank) {
     order: entry.base + idx
   };
 }
-var users, passwordResetCodes, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, playerSelfUpdateSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, creditPackageTemplates, insertCreditPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, courtBookingConfirmations, insertCourtBookingConfirmationSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions, insertXpTransactionSchema, coachXpTransactions, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, userQuickReplies, insertUserQuickReplySchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, providerInvites, insertProviderInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, groupEvents, insertGroupEventSchema, groupEventRsvps, insertGroupEventRsvpSchema, posts, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, feedItems, insertFeedItemSchema, userFeedPreferences, insertUserFeedPreferenceSchema, commentLikes, insertCommentLikeSchema, contentReports, playerBlocks, openToPlay, insertOpenToPlaySchema, userSocialProfiles, playerSocialNotifPrefs, coachFollows, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, questChainBonusClaims, playerStreaks, insertPlayerStreakSchema, playerOfWeek, insertPlayerOfWeekSchema, weeklySkillChallenges, insertWeeklySkillChallengeSchema, weeklyDigests, insertWeeklyDigestSchema, monthlyDigests, insertMonthlyDigestSchema, yearlyRecaps, insertYearlyRecapSchema, highlightReels, insertHighlightReelSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, serviceProviders, insertServiceProviderSchema, providerClientNotes, insertProviderClientNoteSchema, providerClientPreferences, insertProviderClientPreferencesSchema, providerAvailability, insertProviderAvailabilitySchema, shopOrderUpsells, insertShopOrderUpsellSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, dssSpeelsterkteThresholds, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema, corporateAccounts, insertCorporateAccountSchema, corporateAccountInputSchema, addCorporateCreditsSchema, corporateMembers, insertCorporateMemberSchema, corporateCreditTransactions, insertCorporateCreditTransactionSchema, betaFeedback, insertBetaFeedbackSchema, videoFeedback, insertVideoFeedbackSchema, videoFeedbackInputSchema, equipment, insertEquipmentSchema, equipmentRentals, insertEquipmentRentalSchema, playRequests, insertPlayRequestSchema, playRequestInputSchema, playRequestParticipants, insertPlayRequestParticipantSchema, liveMatches, insertLiveMatchSchema, familyGroups, familyMembers, familyMemberSpendLimits, familyInviteCodes, insertFamilyInviteCodeSchema, spectatorLinks, insertSpectatorLinkSchema, accountPins, accountPinRecovery, accountGraduation, accountAuditLog, accountLocks, sessionAiSummaries, insertSessionAiSummarySchema, playerAiInsights, insertPlayerAiInsightSchema, sessionAiChats, insertSessionAiChatSchema, aiCoachConversations, insertAiCoachConversationSchema, AI_FEATURE_TYPES, aiUsageLogs, insertAiUsageLogSchema, playerAiUsage, insertPlayerAiUsageSchema, sessionAiBriefs, insertSessionAiBriefSchema, playerSessionReflections, insertPlayerSessionReflectionSchema, playerMonthlyAssessments, insertPlayerMonthlyAssessmentSchema, playerMatchReadiness, insertPlayerMatchReadinessSchema, playerAiTrainingPlans, insertPlayerAiTrainingPlanSchema, playerMonthlyReports, insertPlayerMonthlyReportSchema, sessionRatings, insertSessionRatingSchema, sessionRatingInputSchema, sessionIntakeData, insertSessionIntakeDataSchema, levelCoachingContext, insertLevelCoachingContextSchema, drills, insertDrillSchema, playerSavedDrills, playerDrillLogs, coachAssignedDrills, slotReservations, playerCreditBalance, creditLots, creditLedgerV2, creditShadowDiff, playerMoneyWallet, chatRooms, chatRoomMutes, chatRoomReports, chatRoomCoachPins, chatRoomMessageMentions, messageMentions, seriesReminderLog, leaderboardSnapshots, featureInterest, releaseNotesCache, outsideInvites, sessionCheckins, GLOW_CATEGORY_RANK_RANGES, arenaChampionCards, arenaPlayerCards, arenaCoachCards, arenaAbilityCards, playerAbilityCards, playerCollectedCards, arenaPacks, playerPackPity, arenaBattles, arenaBattleTurns, arenaSeasons, arenaSeasonStandings, arenaHeadToHead, arenaBounties, arenaCardEvolutions, arenaHallOfFame, arenaCosmeticsUnlocked, arenaTrophyRoomPins, arenaPredictions, academyClashes, arenaTournaments, arenaTournamentMatches, playerHealthSnapshots, arenaCardUpgrades, arenaGlobalSettings, playerLoginStreaks, arenaMissionTemplates, playerArenaMissions, playerArenaBadges, arenaShopDailyPurchases, cardWishlists, arenaDailyChallengeClaims;
+var users, passwordResetCodes, insertUserSchema, loginSchema, usernameSchema, childTshirtSizes, adultTshirtSizes, tshirtSizes, playerRegisterSchema, coachInviteRegisterSchema, registerSchema, academies, insertAcademySchema, academyApplications, insertAcademyApplicationSchema, academyApplicationInputSchema, academyOwnerProfiles, insertAcademyOwnerProfileSchema, invites, insertInviteSchema, joinRequests, insertJoinRequestSchema, joinRequestInputSchema, academyTransferRequests, insertAcademyTransferRequestSchema, transferRequestInputSchema, coachInvitations, insertCoachInvitationSchema, coachInvitationInputSchema, coaches, insertCoachSchema, coachFreelanceProfiles, insertCoachFreelanceProfileSchema, locations, insertLocationSchema, locationTravelTimes, insertLocationTravelTimeSchema, courts, insertCourtSchema, courtAvailability, insertCourtAvailabilitySchema, courtBookings, insertCourtBookingSchema, bookingInvites, insertBookingInviteSchema, bookingInviteGuests, insertBookingInviteGuestSchema, openMatches, insertOpenMatchSchema, openMatchSlots, insertOpenMatchSlotSchema, playerBookingPreferences, insertPlayerBookingPreferencesSchema, courtAvailabilitySnapshots, insertCourtAvailabilitySnapshotSchema, players, insertPlayerSchema, updatePlayerSchema, playerSelfUpdateSchema, youthBallStages, lessonGroups, insertLessonGroupSchema, lessonGroupMembers, insertLessonGroupMemberSchema, playerLevelEvents, insertPlayerLevelEventSchema, playerInvites, insertPlayerInviteSchema, playerMatches, insertPlayerMatchSchema, adultGlowMatches, insertAdultGlowMatchSchema, adultSkillAssessments, insertAdultSkillAssessmentSchema, playerConnections, packageTemplates, insertPackageTemplateSchema, creditPackageTemplates, insertCreditPackageTemplateSchema, packages, insertPackageSchema, playerCreditPackages, sessions, insertSessionSchema, coachingSeries, insertCoachingSeriesSchema, seriesPlayers, insertSeriesPlayerSchema, courtBookingConfirmations, insertCourtBookingConfirmationSchema, recurringSeries, insertRecurringSeriesSchema, sessionPlayers, insertSessionPlayerSchema, sessionWaitlist, insertSessionWaitlistSchema, squads, insertSquadSchema, squadMembers, insertSquadMemberSchema, playerSessionCancellations, insertPlayerSessionCancellationSchema, playerHolidays, insertPlayerHolidaySchema, sessionFeedback, insertSessionFeedbackSchema, inSessionFeedback, insertInSessionFeedbackSchema, auditLogs, insertAuditLogSchema, platformConfig, insertPlatformConfigSchema, offlineQueue, insertOfflineQueueSchema, playerNotes, insertPlayerNoteSchema, playerProgress, insertPlayerProgressSchema, sessionTemplates, insertSessionTemplateSchema, coachNotifications, insertCoachNotificationSchema, skillDomains, insertSkillDomainSchema, playerSkillState, insertPlayerSkillStateSchema, sessionSkillObservations, insertSessionSkillObservationSchema, levelRequirements, insertLevelRequirementSchema, coachStatsRollup, insertCoachStatsRollupSchema, playerProgressFlags, insertPlayerProgressFlagSchema, domainAssessments, insertDomainAssessmentSchema, xpTransactions, insertXpTransactionSchema, coachXpTransactions, insertCoachXpTransactionSchema, conversations, insertConversationSchema, conversationParticipants, insertConversationParticipantSchema, messages, insertMessageSchema, messageReactions, insertMessageReactionSchema, userQuickReplies, insertUserQuickReplySchema, coachAvailability, insertCoachAvailabilitySchema, availabilityExceptions, insertAvailabilityExceptionSchema, coachCourtPreferences, insertCoachCourtPreferenceSchema, coachCourtRules, insertCoachCourtRulesSchema, coachSettings, insertCoachSettingsSchema, academySettings, insertAcademySettingsSchema, academyInvites, insertAcademyInviteSchema, providerInvites, insertProviderInviteSchema, coachAcademyMemberships, insertCoachAcademyMembershipSchema, coachTimeBlocks, insertCoachTimeBlockSchema, pushDeviceTokens, insertPushDeviceTokenSchema, notificationPreferences, insertNotificationPreferenceSchema, scheduledNotifications, insertScheduledNotificationSchema, billingAccounts, insertBillingAccountSchema, subscriptionPlans, insertSubscriptionPlanSchema, subscriptions, insertSubscriptionSchema, invoices, insertInvoiceSchema, payments, insertPaymentSchema, creditTransactions, insertCreditTransactionSchema, playerSubscriptions, insertPlayerSubscriptionSchema, refunds, insertRefundSchema, coachPayouts, insertCoachPayoutSchema, diagnosticReports, insertDiagnosticReportSchema, bookingRequestBatches, bookingRequests, insertBookingRequestSchema, parentPlayerRelations, insertParentPlayerRelationSchema, parentSettings, insertParentSettingsSchema, paymentReminders, insertPaymentReminderSchema, coachPaymentRules, insertCoachPaymentRuleSchema, coachEarnings, insertCoachEarningSchema, reviewCategories, reviewerAgeCategories, coachReviews, insertCoachReviewSchema, submitReviewSchema, reviewResponses, insertReviewResponseSchema, reviewFlags, insertReviewFlagSchema, reviewPrompts, insertReviewPromptSchema, coachReviewStats, insertCoachReviewStatsSchema, academyPricing, insertAcademyPricingSchema, coachTierPricing, coachContracts, insertCoachContractSchema, communityGroups, insertCommunityGroupSchema, groupMembers, insertGroupMemberSchema, groupEvents, insertGroupEventSchema, groupEventRsvps, insertGroupEventRsvpSchema, posts, insertPostSchema, postReactions, insertPostReactionSchema, postComments, insertPostCommentSchema, feedItems, insertFeedItemSchema, userFeedPreferences, insertUserFeedPreferenceSchema, commentLikes, insertCommentLikeSchema, contentReports, playerBlocks, openToPlay, insertOpenToPlaySchema, userSocialProfiles, playerSocialNotifPrefs, coachFollows, insertUserSocialProfileSchema, badges, insertBadgeSchema, playerBadges, insertPlayerBadgeSchema, titles, insertTitleSchema, playerTitles, insertPlayerTitleSchema, questTemplates, insertQuestTemplateSchema, playerQuests, insertPlayerQuestSchema, dailyQuestSlots, insertDailyQuestSlotSchema, questChainBonusClaims, playerStreaks, insertPlayerStreakSchema, playerOfWeek, insertPlayerOfWeekSchema, weeklySkillChallenges, insertWeeklySkillChallengeSchema, weeklyDigests, insertWeeklyDigestSchema, monthlyDigests, insertMonthlyDigestSchema, yearlyRecaps, insertYearlyRecapSchema, highlightReels, insertHighlightReelSchema, shopCategories, insertShopCategorySchema, shopProducts, insertShopProductSchema, shopServices, insertShopServiceSchema, shopOrders, insertShopOrderSchema, shopOrderItems, insertShopOrderItemSchema, shopWishlist, insertShopWishlistSchema, serviceProviders, insertServiceProviderSchema, providerClientNotes, insertProviderClientNoteSchema, providerClientPreferences, insertProviderClientPreferencesSchema, providerAvailability, insertProviderAvailabilitySchema, shopOrderUpsells, insertShopOrderUpsellSchema, marketplaceListings, insertMarketplaceListingSchema, marketplaceFavorites, insertMarketplaceFavoriteSchema, marketplaceMessages, insertMarketplaceMessageSchema, sellerProfiles, insertSellerProfileSchema, glowPillars, glowStages, glowLanguageTiers, ballLevels, insertBallLevelSchema, dssSpeelsterkteThresholds, glowSkills, insertGlowSkillSchema, skillRubrics, insertSkillRubricSchema, levelSkills, insertLevelSkillSchema, levelTests, insertLevelTestSchema, playerBallLevels, insertPlayerBallLevelSchema, playerBaselines, insertPlayerBaselineSchema, playerBaselineSkillScores, insertPlayerBaselineSkillScoreSchema, playerSkillScores, insertPlayerSkillScoreSchema, playerPillarProgress, insertPlayerPillarProgressSchema, levelTrials, insertLevelTrialSchema, sessionSkillFeedback, insertSessionSkillFeedbackSchema, coachCalibration, insertCoachCalibrationSchema, lessonTemplates, insertLessonTemplateSchema, drillBlocks, insertDrillBlockSchema, sessionPlans, insertSessionPlanSchema, matchLogs, insertMatchLogSchema, skillEvidence, insertSkillEvidenceSchema, roleMessageTemplates, insertRoleMessageTemplateSchema, levelUpEvents, insertLevelUpEventSchema, playstyleTags, matchTypes, matchOpponents, insertMatchOpponentSchema, matchPlans, insertMatchPlanSchema, matches, insertMatchSchema, matchChallenges, insertMatchChallengeSchema, matchReflections, insertMatchReflectionSchema, matchPillarScores, insertMatchPillarScoreSchema, coachMatchReviews, insertCoachMatchReviewSchema, pressureMoments, insertPressureMomentSchema, matchTrainingSuggestions, insertMatchTrainingSuggestionSchema, playerLevelTitles, xpActionSources, playerLevelThresholds, insertPlayerLevelThresholdSchema, playerLevelXpRules, insertPlayerLevelXpRuleSchema, featureUnlockKeys, playerFeatureUnlocks, insertPlayerFeatureUnlockSchema, playerXpEvents, insertPlayerXpEventSchema, playerLevelUpCelebrations, insertPlayerLevelUpCelebrationSchema, playerFeatureUnlockHistory, deepAssessmentSkills, insertDeepAssessmentSkillSchema, playerDeepAssessments, insertPlayerDeepAssessmentSchema, deepAssessmentPillarSummaries, coachWellnessLogs, insertCoachWellnessLogSchema, playerNotifications, spotlightNominations, insertSpotlightNominationSchema, spotlightWeeklyWinners, insertSpotlightWeeklyWinnerSchema, spotlightMonthlyWinners, insertSpotlightMonthlyWinnerSchema, tournaments, insertTournamentSchema, tournamentParticipants, insertTournamentParticipantSchema, tournamentMatches, insertTournamentMatchSchema, ladders, insertLadderSchema, ladderPlayers, insertLadderPlayerSchema, ladderChallenges, insertLadderChallengeSchema, corporateAccounts, insertCorporateAccountSchema, corporateAccountInputSchema, addCorporateCreditsSchema, corporateMembers, insertCorporateMemberSchema, corporateCreditTransactions, insertCorporateCreditTransactionSchema, betaFeedback, insertBetaFeedbackSchema, videoFeedback, insertVideoFeedbackSchema, videoFeedbackInputSchema, equipment, insertEquipmentSchema, equipmentRentals, insertEquipmentRentalSchema, playRequests, insertPlayRequestSchema, playRequestInputSchema, playRequestParticipants, insertPlayRequestParticipantSchema, liveMatches, insertLiveMatchSchema, familyGroups, familyMembers, familyMemberSpendLimits, familyInviteCodes, insertFamilyInviteCodeSchema, spectatorLinks, insertSpectatorLinkSchema, accountPins, accountPinRecovery, accountGraduation, accountAuditLog, accountLocks, sessionAiSummaries, insertSessionAiSummarySchema, playerAiInsights, insertPlayerAiInsightSchema, sessionAiChats, insertSessionAiChatSchema, aiCoachConversations, insertAiCoachConversationSchema, AI_FEATURE_TYPES, aiUsageLogs, insertAiUsageLogSchema, playerAiUsage, insertPlayerAiUsageSchema, sessionAiBriefs, insertSessionAiBriefSchema, playerSessionReflections, insertPlayerSessionReflectionSchema, playerMonthlyAssessments, insertPlayerMonthlyAssessmentSchema, playerMatchReadiness, insertPlayerMatchReadinessSchema, playerAiTrainingPlans, insertPlayerAiTrainingPlanSchema, playerMonthlyReports, insertPlayerMonthlyReportSchema, sessionRatings, insertSessionRatingSchema, sessionRatingInputSchema, sessionIntakeData, insertSessionIntakeDataSchema, levelCoachingContext, insertLevelCoachingContextSchema, drills, insertDrillSchema, playerSavedDrills, playerDrillLogs, coachAssignedDrills, slotReservations, playerCreditBalance, creditLots, creditLedgerV2, creditShadowDiff, playerMoneyWallet, chatRooms, chatRoomMutes, chatRoomReports, chatRoomCoachPins, chatRoomMessageMentions, messageMentions, seriesReminderLog, leaderboardSnapshots, featureInterest, releaseNotesCache, outsideInvites, sessionCheckins, GLOW_CATEGORY_RANK_RANGES, arenaChampionCards, arenaPlayerCards, arenaCoachCards, arenaAbilityCards, playerAbilityCards, playerCollectedCards, arenaPacks, playerPackPity, arenaBattles, arenaBattleTurns, arenaSeasons, arenaSeasonStandings, arenaHeadToHead, arenaBounties, arenaCardEvolutions, arenaHallOfFame, arenaCosmeticsUnlocked, arenaTrophyRoomPins, arenaPredictions, academyClashes, arenaTournaments, arenaTournamentMatches, playerHealthSnapshots, arenaCardUpgrades, arenaGlobalSettings, playerLoginStreaks, arenaMissionTemplates, playerArenaMissions, playerArenaBadges, arenaShopDailyPurchases, cardWishlists, arenaDailyChallengeClaims, coachBlockedSlots;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -2190,6 +2193,13 @@ var init_schema = __esm({
       courtLocation: text("court_location"),
       // Which lesson group IDs receive automated booking reminder pushes (null = all enrolled groups)
       courtReminderGroupIds: jsonb("court_reminder_group_ids").$type(),
+      // Cover photo (Task #2034) — GCS object key uploaded by the coach; shown as hero on session cards
+      imageUrl: text("image_url"),
+      // Camp package inclusions (Task #2035) — only shown/edited for sessionType="camp"
+      // e.g. ["5x Groepsles", "1x Privé sessie", "Player pack", "Shake"]
+      inclusions: jsonb("inclusions").$type(),
+      // Optional "from price" shown struck-through next to the actual price
+      originalPrice: numeric("original_price"),
       createdAt: timestamp("created_at").defaultNow()
     });
     insertCoachingSeriesSchema = createInsertSchema(coachingSeries).omit({ id: true, createdAt: true });
@@ -2865,6 +2875,10 @@ var init_schema = __esm({
       opnPublicKey: text("opn_public_key"),
       opnSecretKey: text("opn_secret_key"),
       promptPayEnabled: boolean("prompt_pay_enabled").notNull().default(false),
+      // Late Fee Defaults — pre-fills the Add Late Fee dialog on overdue invoices.
+      defaultLateFeeAmount: numeric("default_late_fee_amount"),
+      defaultLateFeeType: text("default_late_fee_type").default("flat"),
+      // flat | percent
       createdAt: timestamp("created_at").defaultNow(),
       updatedAt: timestamp("updated_at").defaultNow()
     });
@@ -3083,6 +3097,7 @@ var init_schema = __esm({
       // cash | bank_transfer | stripe
       billToName: text("bill_to_name"),
       billToEmail: text("bill_to_email"),
+      reminderSentAt: timestamp("reminder_sent_at"),
       createdAt: timestamp("created_at").defaultNow()
     });
     insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true });
@@ -3251,6 +3266,14 @@ var init_schema = __esm({
       createdAt: timestamp("created_at").defaultNow()
     });
     insertDiagnosticReportSchema = createInsertSchema(diagnosticReports).omit({ id: true, createdAt: true });
+    bookingRequestBatches = pgTable("booking_request_batches", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      coachId: varchar("coach_id").references(() => coaches.id),
+      playerId: varchar("player_id").notNull(),
+      academyId: varchar("academy_id").references(() => academies.id),
+      note: text("note"),
+      createdAt: timestamp("created_at").defaultNow()
+    });
     bookingRequests = pgTable("booking_requests", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       academyId: varchar("academy_id").references(() => academies.id),
@@ -3308,6 +3331,12 @@ var init_schema = __esm({
       // confirmed payments row is recorded as the money-side audit trail).
       paymentIntent: text("payment_intent"),
       // 'credits' | 'pay_later' | 'paid' | null
+      // Task #2026 — FK to booking_request_batches. Set for all requests in a
+      // multi-week repeat submission. Null for single-week bookings.
+      batchId: varchar("batch_id").references(() => bookingRequestBatches.id),
+      // Task #2026 — Per-week player availability: null = not responded yet,
+      // true = player confirmed available, false = player marked unavailable.
+      playerConfirmed: boolean("player_confirmed"),
       createdAt: timestamp("created_at").defaultNow(),
       updatedAt: timestamp("updated_at").defaultNow()
     });
@@ -3611,6 +3640,20 @@ var init_schema = __esm({
       index("academy_pricing_active_idx").on(table.isActive)
     ]);
     insertAcademyPricingSchema = createInsertSchema(academyPricing).omit({ id: true, createdAt: true, updatedAt: true });
+    coachTierPricing = pgTable("coach_tier_pricing", {
+      id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+      academyId: varchar("academy_id").references(() => academies.id).notNull(),
+      role: text("role").notNull(),
+      // head_coach | coach | assistant | intern
+      price60min: numeric("price_60min"),
+      price90min: numeric("price_90min"),
+      price120min: numeric("price_120min"),
+      currency: text("currency").default("AED"),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    }, (table) => [
+      uniqueIndex("coach_tier_pricing_academy_role_idx").on(table.academyId, table.role)
+    ]);
     coachContracts = pgTable("coach_contracts", {
       id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
       coachId: varchar("coach_id").references(() => coaches.id).notNull(),
@@ -7650,6 +7693,17 @@ var init_schema = __esm({
       index("adcc_player_date_idx").on(t.playerId, t.challengeDate),
       unique("adcc_player_date_tier_unique").on(t.playerId, t.challengeDate, t.tier)
     ]);
+    coachBlockedSlots = pgTable("coach_blocked_slots", {
+      id: varchar("id", { length: 255 }).primaryKey(),
+      academyId: varchar("academy_id", { length: 255 }).notNull(),
+      date: varchar("date", { length: 10 }).notNull(),
+      // YYYY-MM-DD
+      hour: integer("hour").notNull(),
+      // 0-23
+      coachId: varchar("coach_id", { length: 255 }),
+      courtId: varchar("court_id", { length: 255 }),
+      createdAt: timestamp("created_at").defaultNow()
+    });
   }
 });
 
@@ -10100,9 +10154,9 @@ async function runGuardedPlayerDeletes(exec, playerId) {
     tableExistsCache.set(name, exists);
     return exists;
   };
-  for (const { table, sql: sql64 } of GUARDED_PLAYER_DELETE_STATEMENTS) {
+  for (const { table, sql: sql65 } of GUARDED_PLAYER_DELETE_STATEMENTS) {
     if (await tableExists2(table)) {
-      await exec(sql64, [playerId]);
+      await exec(sql65, [playerId]);
     }
   }
 }
@@ -11465,9 +11519,9 @@ async function buildPlayerAIContext(playerId, sessionId, coachId) {
       p.count += 1;
       pillarSums.set(pillar, p);
     }
-    const pillarAverages = Array.from(pillarSums.entries()).map(([pillar, { sum: sum3, count: count19 }]) => ({
+    const pillarAverages = Array.from(pillarSums.entries()).map(([pillar, { sum: sum3, count: count20 }]) => ({
       pillar,
-      avg: Math.round(sum3 / count19 * 10) / 10
+      avg: Math.round(sum3 / count20 * 10) / 10
     }));
     const latestScoreBySkillId = /* @__PURE__ */ new Map();
     for (const s of allSkillScoreHistory) {
@@ -12468,7 +12522,7 @@ async function buildRosterInsightsContext(coachId) {
           latestScoreBySkill.set(score.skillName, Number(score.movingAverage ?? score.score));
         }
       }
-      const levelTargets = levelSkillTargets.filter((lt13) => lt13.levelId === effectiveLevel);
+      const levelTargets = levelSkillTargets.filter((lt14) => lt14.levelId === effectiveLevel);
       const skillGaps = [];
       for (const target of levelTargets) {
         const currentScore = latestScoreBySkill.get(target.skillName);
@@ -12515,10 +12569,10 @@ async function buildRosterInsightsContext(coachId) {
         }
       }
     }
-    const commonSkillGaps = [...skillGapCount.entries()].map(([skillName, { pillar, count: count19 }]) => ({
+    const commonSkillGaps = [...skillGapCount.entries()].map(([skillName, { pillar, count: count20 }]) => ({
       skillName,
       pillar,
-      playerCount: count19,
+      playerCount: count20,
       totalPlayers: playerSummaries.length
     })).sort((a, b) => b.playerCount - a.playerCount).slice(0, 5);
     const attendanceConcerns = playerSummaries.filter((p) => p.missedSessionsLast30 >= 2).map((p) => ({
@@ -14490,10 +14544,10 @@ function hasValidOTP(email) {
 async function sendMonthlyReportEmail(data) {
   const attendanceRate = data.lessonsTotal > 0 ? Math.round(data.lessonsAttended / data.lessonsTotal * 100) : 0;
   const winRate = data.matchesPlayed > 0 ? Math.round(data.matchesWon / data.matchesPlayed * 100) : 0;
-  const lessonsByTypeHtml = data.lessonsByType.map((lt13) => `
+  const lessonsByTypeHtml = data.lessonsByType.map((lt14) => `
     <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333;">
-      <span style="color: #aaa;">${escapeHtml(lt13.type)}</span>
-      <span style="color: #fff; font-weight: 600;">${lt13.count} sessions</span>
+      <span style="color: #aaa;">${escapeHtml(lt14.type)}</span>
+      <span style="color: #fff; font-weight: 600;">${lt14.count} sessions</span>
     </div>
   `).join("");
   const creditsByTypeHtml = data.creditsByType.map((ct) => `
@@ -15163,8 +15217,8 @@ async function sendFCMNotification(tokens, title, body, data, channelId = "defau
         try {
           const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
           const { pushDeviceTokens: pushDeviceTokens4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-          const { eq: eq109 } = await import("drizzle-orm");
-          await db2.update(pushDeviceTokens4).set({ isActive: false }).where(eq109(pushDeviceTokens4.token, token));
+          const { eq: eq113 } = await import("drizzle-orm");
+          await db2.update(pushDeviceTokens4).set({ isActive: false }).where(eq113(pushDeviceTokens4.token, token));
         } catch (deactivateErr) {
           console.error("[FCM] Failed to deactivate invalid token:", deactivateErr);
         }
@@ -15871,8 +15925,8 @@ async function validatePackageOwnership(packageId, academyId, storage2) {
   if (!academyId) {
     return { valid: false };
   }
-  const pkg3 = await storage2.getPackage(packageId, academyId);
-  return { valid: !!pkg3, pkg: pkg3 };
+  const pkg2 = await storage2.getPackage(packageId, academyId);
+  return { valid: !!pkg2, pkg: pkg2 };
 }
 async function validateNotificationOwnership(notificationId, coachId, storage2) {
   if (!coachId) {
@@ -20556,13 +20610,13 @@ async function fixAlmaZaleskiCredits() {
       if (pkgRes.rows.length === 0) {
         console.log("[AlmaFix] No active group package found for Alma \u2014 skipping credit top-up");
       } else {
-        const pkg3 = pkgRes.rows[0];
-        const currentRemaining = Number(pkg3.remaining_credits);
+        const pkg2 = pkgRes.rows[0];
+        const currentRemaining = Number(pkg2.remaining_credits);
         if (currentRemaining >= 4) {
           console.log(`[AlmaFix] Package already at ${currentRemaining} credits (>= 4) \u2014 skipping credit top-up`);
         } else {
           console.warn(
-            `[AlmaFix][V2] academy=${pkg3.academy_id} player=${playerId} \u2014 V1 retired, skipping legacy refund + ledger insert. (would have bumped ${currentRemaining} -> ${currentRemaining + 1})`
+            `[AlmaFix][V2] academy=${pkg2.academy_id} player=${playerId} \u2014 V1 retired, skipping legacy refund + ledger insert. (would have bumped ${currentRemaining} -> ${currentRemaining + 1})`
           );
         }
       }
@@ -21049,8 +21103,8 @@ function stopDailyTipScheduler() {
 async function processAutoSessionCompletion() {
   try {
     const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { sessions: sessions3, sessionPlayers: sessionPlayers3, players: _players, packages: _packages } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq109, and: _and, lt: _lt, isNull: _isNull, inArray: _inArray } = await import("drizzle-orm");
+    const { sessions: sessions3, sessionPlayers: sessionPlayers4, players: _players, packages: _packages } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { eq: eq113, and: _and, lt: _lt, isNull: _isNull, inArray: _inArray } = await import("drizzle-orm");
     const { storage: storage2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
     const now = /* @__PURE__ */ new Date();
     const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1e3);
@@ -21081,11 +21135,11 @@ async function processAutoSessionCompletion() {
     for (const session of incompleteSessions) {
       try {
         const enrolledPlayers = await db2.select({
-          id: sessionPlayers3.id,
-          playerId: sessionPlayers3.playerId,
-          attendanceStatus: sessionPlayers3.attendanceStatus,
-          creditDeductedAt: sessionPlayers3.creditDeductedAt
-        }).from(sessionPlayers3).where(eq109(sessionPlayers3.sessionId, session.id));
+          id: sessionPlayers4.id,
+          playerId: sessionPlayers4.playerId,
+          attendanceStatus: sessionPlayers4.attendanceStatus,
+          creditDeductedAt: sessionPlayers4.creditDeductedAt
+        }).from(sessionPlayers4).where(eq113(sessionPlayers4.sessionId, session.id));
         const isOldSession = session.endTime < sevenDaysAgo;
         for (const sp of enrolledPlayers) {
           if (sp.attendanceStatus === "present" || sp.attendanceStatus === "absent" || sp.creditDeductedAt) {
@@ -21095,9 +21149,9 @@ async function processAutoSessionCompletion() {
             console.log(`[AutoComplete] Session ${session.id} is older than 7 days \u2014 skipping auto-attendance for player ${sp.playerId}, needs coach review`);
             continue;
           }
-          await db2.update(sessionPlayers3).set({
+          await db2.update(sessionPlayers4).set({
             attendanceStatus: "present"
-          }).where(eq109(sessionPlayers3.id, sp.id));
+          }).where(eq113(sessionPlayers4.id, sp.id));
           totalPlayersMarked++;
           const creditResult = await storage2.deductTypedCreditsForSession(
             sp.playerId,
@@ -21110,19 +21164,19 @@ async function processAutoSessionCompletion() {
             totalCreditsDeducted++;
             console.log(`[AutoComplete] Deducted credit for player ${sp.playerId} in session ${session.id}`);
           } else {
-            const { creditTransactions: creditTransactions2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+            const { creditTransactions: creditTransactions3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
             const debtId = `debt-auto-${session.id}-${sp.playerId}`;
-            const existingDebt = await db2.select().from(creditTransactions2).where(eq109(creditTransactions2.id, debtId)).limit(1);
+            const existingDebt = await db2.select().from(creditTransactions3).where(eq113(creditTransactions3.id, debtId)).limit(1);
             if (existingDebt.length === 0) {
               const creditType = normalizeSessionTypeToCreditType2(session.sessionType);
               void debtId;
               void creditType;
               console.log(`[AutoComplete] V2 academy ${session.academyId} \u2014 skipping legacy session_debt insert for player ${sp.playerId} session ${session.id}`);
-              await db2.update(sessionPlayers3).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq109(sessionPlayers3.id, sp.id));
+              await db2.update(sessionPlayers4).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq113(sessionPlayers4.id, sp.id));
             }
           }
         }
-        await db2.update(sessions3).set({ status: "completed" }).where(eq109(sessions3.id, session.id));
+        await db2.update(sessions3).set({ status: "completed" }).where(eq113(sessions3.id, session.id));
         console.log(`[AutoComplete] Completed session ${session.id} (${session.sessionType})`);
       } catch (sessionError) {
         console.error(`[AutoComplete] Error processing session ${session.id}:`, sessionError);
@@ -21555,15 +21609,15 @@ async function processCreditExpiryReminders(timezone) {
     }
     console.log(`[CreditExpiry] Found ${expiringPackages.rows.length} packages expiring within 7 days`);
     let notificationsSent = 0;
-    for (const pkg3 of expiringPackages.rows) {
-      const reminderKey = `${pkg3.id}-${todayStr}`;
+    for (const pkg2 of expiringPackages.rows) {
+      const reminderKey = `${pkg2.id}-${todayStr}`;
       if (creditExpiryRemindedToday.has(reminderKey)) continue;
-      const playerId = pkg3.player_id;
+      const playerId = pkg2.player_id;
       if (!playerId) continue;
-      const expiryDate = new Date(pkg3.expiry_date);
+      const expiryDate = new Date(pkg2.expiry_date);
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - localNow.getTime()) / (24 * 60 * 60 * 1e3));
-      const creditType = pkg3.credit_type || "group";
-      const remaining = pkg3.remaining_credits;
+      const creditType = pkg2.credit_type || "group";
+      const remaining = pkg2.remaining_credits;
       const formattedDate = expiryDate.toLocaleDateString("en-GB", {
         day: "numeric",
         month: "short",
@@ -22127,15 +22181,15 @@ async function processGlowPlansForTimezone(timezone) {
     const { generateWeeklyTrainingPlan: generateWeeklyTrainingPlan2 } = await Promise.resolve().then(() => (init_ai_progress_engine(), ai_progress_engine_exports));
     const { db: localDb } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { playerAiTrainingPlans: playerAiTrainingPlans2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq109, and: and91 } = await import("drizzle-orm");
+    const { eq: eq113, and: and95 } = await import("drizzle-orm");
     let generated = 0;
     let skipped = 0;
     for (const row of playerRows.rows) {
       const playerId = row.player_id;
       try {
-        const existing = await localDb.select({ id: playerAiTrainingPlans2.id }).from(playerAiTrainingPlans2).where(and91(
-          eq109(playerAiTrainingPlans2.playerId, playerId),
-          eq109(playerAiTrainingPlans2.weekStartDate, weekStartDate)
+        const existing = await localDb.select({ id: playerAiTrainingPlans2.id }).from(playerAiTrainingPlans2).where(and95(
+          eq113(playerAiTrainingPlans2.playerId, playerId),
+          eq113(playerAiTrainingPlans2.weekStartDate, weekStartDate)
         )).limit(1);
         if (existing.length > 0) {
           skipped++;
@@ -22602,7 +22656,7 @@ async function readLotsAsPackages(playerId, opts) {
     const total = Number(l.qtyTotal);
     const remaining = Number(l.qtyRemaining);
     const expiryDate = l.expiresAt ? new Date(l.expiresAt).toISOString().split("T")[0] : null;
-    const pkg3 = {
+    const pkg2 = {
       id: l.id,
       academyId: l.academyId,
       playerId: l.playerId,
@@ -22623,7 +22677,7 @@ async function readLotsAsPackages(playerId, opts) {
       createdAt: l.createdAt,
       calculatedRemaining: remaining
     };
-    return pkg3;
+    return pkg2;
   });
 }
 async function readPlayerBalanceByType(playerId) {
@@ -23384,10 +23438,10 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
           creditType: requiredCreditType
         };
       }
-      const pkg3 = packageResult.rows[0];
-      const balanceBefore = Number(pkg3.remaining_credits);
+      const pkg2 = packageResult.rows[0];
+      const balanceBefore = Number(pkg2.remaining_credits);
       const balanceAfter = balanceBefore - creditCost;
-      const creditType = pkg3.credit_type || requiredCreditType;
+      const creditType = pkg2.credit_type || requiredCreditType;
       const existingConsume = await tx.execute(sql7`
         SELECT id, COALESCE(metadata->>'cancelled', 'false') AS cancelled
         FROM credit_transactions
@@ -23397,21 +23451,21 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
       if (existingConsume.rows.length > 0) {
         const exC = existingConsume.rows[0];
         if (exC.cancelled === "true") {
-          console.log(`[EnsureCredit] Reviving cancelled consume ${exC.id} for session_player ${sessionPlayerId} (package ${pkg3.id})`);
+          console.log(`[EnsureCredit] Reviving cancelled consume ${exC.id} for session_player ${sessionPlayerId} (package ${pkg2.id})`);
           await tx.execute(sql7`
             UPDATE credit_transactions
             SET amount = ${-creditCost},
                 balance_before = ${balanceBefore},
                 balance_after = ${balanceAfter},
                 credit_type = ${creditType},
-                package_id = ${pkg3.id},
+                package_id = ${pkg2.id},
                 session_player_id = ${sessionPlayerId},
                 metadata = COALESCE(metadata, '{}'::jsonb)
                            - 'cancelled' - 'cancellation_reason' - 'cancelled_at'
                            || ${JSON.stringify({
             seriesId,
             sessionType,
-            packageId: pkg3.id,
+            packageId: pkg2.id,
             description: `Credit consumed for ${sessionType} session`,
             revivedAt: (/* @__PURE__ */ new Date()).toISOString(),
             revivedBy: "task-636-repair"
@@ -23422,7 +23476,7 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
             UPDATE packages
             SET remaining_credits = GREATEST(0, ${balanceAfter}::numeric),
                 status = CASE WHEN ${balanceAfter} <= 0 THEN 'depleted' ELSE status END
-            WHERE id = ${pkg3.id}
+            WHERE id = ${pkg2.id}
           `);
           await tx.execute(sql7`
             UPDATE session_players
@@ -23434,7 +23488,7 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
             success: true,
             action: "consumed",
             transactionId: exC.id,
-            packageId: pkg3.id,
+            packageId: pkg2.id,
             creditType,
             _depleted: balanceAfter <= 0
           };
@@ -23450,12 +23504,12 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
             type, credit_type, amount, reason, event_key, balance_before, balance_after, metadata
           )
           VALUES (
-            ${consumeTxId}, ${playerId}, ${academyId}, ${sessionId}, ${sessionPlayerId}, ${pkg3.id},
+            ${consumeTxId}, ${playerId}, ${academyId}, ${sessionId}, ${sessionPlayerId}, ${pkg2.id},
             'debit', ${creditType}, ${-creditCost}, 'session_consumed', ${consumeEventKey}, ${balanceBefore}, ${balanceAfter},
             ${JSON.stringify({
           seriesId,
           sessionType,
-          packageId: pkg3.id,
+          packageId: pkg2.id,
           description: `Credit consumed for ${sessionType} session`
         })}::jsonb
           )
@@ -23471,7 +23525,7 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
         UPDATE packages 
         SET remaining_credits = GREATEST(0, ${balanceAfter}::numeric),
             status = CASE WHEN ${balanceAfter} <= 0 THEN 'depleted' ELSE status END
-        WHERE id = ${pkg3.id}
+        WHERE id = ${pkg2.id}
       `);
       await tx.execute(sql7`
         UPDATE session_players 
@@ -23479,12 +23533,12 @@ async function ensureCreditProcessed(sessionPlayerId, opts) {
             credit_transaction_id = ${consumeTxId}
         WHERE id = ${sessionPlayerId}
       `);
-      console.log(`[EnsureCredit] Consumed ${creditCost} ${creditType} credit(s) from package ${pkg3.id} for session_player ${sessionPlayerId}`);
+      console.log(`[EnsureCredit] Consumed ${creditCost} ${creditType} credit(s) from package ${pkg2.id} for session_player ${sessionPlayerId}`);
       return {
         success: true,
         action: "consumed",
         transactionId: consumeTxId,
-        packageId: pkg3.id,
+        packageId: pkg2.id,
         creditType,
         _depleted: balanceAfter <= 0
       };
@@ -23738,9 +23792,9 @@ async function auditAllPlayerCredits() {
     playerId: packages.playerId,
     status: packages.status
   }).from(packages).where(inArray3(packages.playerId, playerIds));
-  const existingPackageIds = new Set(allPackagesList.map((pkg3) => pkg3.id));
+  const existingPackageIds = new Set(allPackagesList.map((pkg2) => pkg2.id));
   const _activePackageIds = new Set(
-    allPackagesList.filter((pkg3) => pkg3.status === "active").map((pkg3) => pkg3.id)
+    allPackagesList.filter((pkg2) => pkg2.status === "active").map((pkg2) => pkg2.id)
   );
   const allPositiveTransactions = await db.select({
     id: creditTransactions.id,
@@ -23790,13 +23844,13 @@ async function repairGroupSessionTypes() {
     const s = row;
     try {
       await db.update(sessions).set({ sessionType: "group" }).where(eq7(sessions.id, s.id));
-      const sessionPlayers3 = await db.execute(sql7`
+      const sessionPlayers4 = await db.execute(sql7`
         SELECT sp.id, sp.player_id, sp.attendance_status, ct.id as tx_id, ct.credit_type, ct.package_id
         FROM session_players sp
         LEFT JOIN credit_transactions ct ON ct.session_player_id = sp.id AND ct.type = 'debit'
         WHERE sp.session_id = ${s.id}
       `);
-      for (const sp of sessionPlayers3.rows) {
+      for (const sp of sessionPlayers4.rows) {
         const spData = sp;
         if (spData.tx_id && spData.credit_type !== "group") {
           await db.execute(sql7`
@@ -23805,10 +23859,10 @@ async function repairGroupSessionTypes() {
             WHERE id = ${spData.tx_id}
           `);
           if (spData.package_id) {
-            const pkg3 = await db.execute(sql7`
+            const pkg2 = await db.execute(sql7`
               SELECT credit_type FROM player_credit_packages WHERE id = ${spData.package_id}
             `);
-            if (pkg3.rows.length > 0 && pkg3.rows[0].credit_type !== "group") {
+            if (pkg2.rows.length > 0 && pkg2.rows[0].credit_type !== "group") {
               await db.execute(sql7`
                 UPDATE player_credit_packages 
                 SET remaining_credits = remaining_credits + 1
@@ -25210,9 +25264,26 @@ var init_storage = __esm({
         const result = await db.select().from(locations).where(eq7(locations.id, id));
         return result[0];
       },
-      async getAllLocations(academyId) {
+      async getAllLocations(academyId, opts) {
+        const includeInactive = opts?.includeInactive === true;
+        const requireActiveCourts = opts?.requireActiveCourts === true;
         if (academyId) {
-          return db.select().from(locations).where(eq7(locations.academyId, academyId));
+          const conditions = [eq7(locations.academyId, academyId)];
+          if (!includeInactive) conditions.push(eq7(locations.isActive, true));
+          if (requireActiveCourts) {
+            conditions.push(
+              sql7`EXISTS (
+            SELECT 1 FROM ${courts}
+            WHERE ${courts.locationId} = ${locations.id}
+              AND ${courts.academyId} = ${academyId}
+              AND ${courts.isActive} = true
+          )`
+            );
+          }
+          return db.select().from(locations).where(and6(...conditions));
+        }
+        if (!includeInactive) {
+          return db.select().from(locations).where(eq7(locations.isActive, true));
         }
         return db.select().from(locations);
       },
@@ -25324,6 +25395,18 @@ var init_storage = __esm({
         const result = await db.update(courts).set({ isActive: false, bookingEnabled: false }).where(and6(...conditions)).returning();
         return result[0];
       },
+      async deactivateLocationIfEmpty(locationId, academyId) {
+        const [row] = await db.select({ cnt: sql7`count(*)::int` }).from(courts).where(and6(
+          eq7(courts.locationId, locationId),
+          eq7(courts.academyId, academyId),
+          eq7(courts.isActive, true)
+        ));
+        const activeCourts = Number(row?.cnt ?? 0);
+        if (activeCourts > 0) return false;
+        await db.update(locations).set({ isActive: false }).where(and6(eq7(locations.id, locationId), eq7(locations.academyId, academyId)));
+        console.log(`[deactivateLocationIfEmpty] Location ${locationId} deactivated \u2014 no active courts remain`);
+        return true;
+      },
       async getCourtDependents(courtId) {
         const tables = [
           { key: "sessions", table: sessions, col: sessions.courtId },
@@ -25407,9 +25490,9 @@ var init_storage = __esm({
           }).from(packages).where(and6(...packageConditions))
         ]);
         const totalsByPlayer = /* @__PURE__ */ new Map();
-        for (const pkg3 of activePackages) {
-          if (!pkg3.playerId) continue;
-          totalsByPlayer.set(pkg3.playerId, (totalsByPlayer.get(pkg3.playerId) || 0) + (Number(pkg3.totalCredits) || 0));
+        for (const pkg2 of activePackages) {
+          if (!pkg2.playerId) continue;
+          totalsByPlayer.set(pkg2.playerId, (totalsByPlayer.get(pkg2.playerId) || 0) + (Number(pkg2.totalCredits) || 0));
         }
         return playerList.map((player) => {
           const balance = balances[player.id] || { group: 0, semi_private: 0, private: 0, totalDebt: 0, groupDebt: 0, semiPrivateDebt: 0, privateDebt: 0, hasDebt: false, uncoveredGroup: 0, uncoveredSemiPrivate: 0, uncoveredPrivate: 0, netGroup: 0, netSemiPrivate: 0, netPrivate: 0 };
@@ -25537,7 +25620,7 @@ var init_storage = __esm({
           await db.delete(playerCreditBalance).where(eq7(playerCreditBalance.playerId, id));
           await db.delete(playerMoneyWallet).where(eq7(playerMoneyWallet.playerId, id));
           await runGuardedPlayerDeletes(
-            (sql64, params) => pool.query(sql64, params),
+            (sql65, params) => pool.query(sql65, params),
             id
           );
           await Promise.all([
@@ -25646,7 +25729,11 @@ var init_storage = __esm({
             // Player pillar progress
             db.delete(playerPillarProgress).where(eq7(playerPillarProgress.playerId, id)),
             // In-session feedback
-            db.delete(inSessionFeedback).where(eq7(inSessionFeedback.playerId, id))
+            db.delete(inSessionFeedback).where(eq7(inSessionFeedback.playerId, id)),
+            // yearly_recaps references feed_items via feed_item_id FK — delete before feed_items
+            db.delete(yearlyRecaps).where(eq7(yearlyRecaps.playerId, id)),
+            // Community feed posts authored by this player
+            db.delete(feedItems).where(eq7(feedItems.authorPlayerId, id))
           ]);
           await db.delete(dailyQuestSlots).where(eq7(dailyQuestSlots.playerId, id));
           await db.delete(playerQuests).where(eq7(playerQuests.playerId, id));
@@ -25850,11 +25937,11 @@ var init_storage = __esm({
           group: "group"
         };
         const requiredCreditType = sessionToCreditType[sessionType] || sessionType;
-        const matchingPackages = activePackages.filter((pkg3) => {
-          const pkgCreditType = pkg3.creditType || "group";
+        const matchingPackages = activePackages.filter((pkg2) => {
+          const pkgCreditType = pkg2.creditType || "group";
           return pkgCreditType === requiredCreditType;
         });
-        const availableCredits = matchingPackages.reduce((sum3, pkg3) => sum3 + Number(pkg3.remainingCredits), 0);
+        const availableCredits = matchingPackages.reduce((sum3, pkg2) => sum3 + Number(pkg2.remainingCredits), 0);
         return {
           hasCredits: availableCredits > 0,
           availableCredits,
@@ -25912,13 +25999,13 @@ var init_storage = __esm({
           expiresAt,
           actorRole: "system"
         });
-        const pkg3 = await this.getPackage(pkgId);
-        if (!pkg3) {
+        const pkg2 = await this.getPackage(pkgId);
+        if (!pkg2) {
           throw new Error(
             `[createPackage] V2 lot was not created for sourcePackageId=${pkgId}`
           );
         }
-        return pkg3;
+        return pkg2;
       },
       // Task #682 — V1 packages table retired. Lot fields are immutable from the
       // admin UI; the only field admins ever updated was status="cancelled" which
@@ -25938,12 +26025,12 @@ var init_storage = __esm({
         return { converted: 0 };
       },
       async deletePackage(id, academyId, force = false) {
-        const pkg3 = await this.getPackage(id, academyId);
-        if (!pkg3) {
+        const pkg2 = await this.getPackage(id, academyId);
+        if (!pkg2) {
           return { success: false, error: "Package not found" };
         }
-        const totalCredits = Number(pkg3.totalCredits);
-        const remainingCredits = Number(pkg3.remainingCredits);
+        const totalCredits = Number(pkg2.totalCredits);
+        const remainingCredits = Number(pkg2.remainingCredits);
         const creditsUsed = totalCredits - remainingCredits;
         if (remainingCredits > 0 && !force) {
           return {
@@ -25969,21 +26056,22 @@ var init_storage = __esm({
         const { manualAdjustment: manualAdjustment2 } = await Promise.resolve().then(() => (init_credit_engine(), credit_engine_exports));
         if (remainingCredits > 0) {
           await manualAdjustment2({
-            playerId: pkg3.playerId,
-            academyId: pkg3.academyId,
-            type: pkg3.creditType ?? "group",
+            playerId: pkg2.playerId,
+            academyId: pkg2.academyId,
+            type: pkg2.creditType ?? "group",
             delta: -remainingCredits,
             reason: `package_deleted:${id}`,
             actorId: "system",
             actorRole: "system",
-            eventKey: `package_delete:${id}`
+            eventKey: `package_delete:${id}`,
+            allowOverdraw: true
           });
         }
         if (totalDebtSettled > 0) {
           await manualAdjustment2({
-            playerId: pkg3.playerId,
-            academyId: pkg3.academyId,
-            type: pkg3.creditType ?? "group",
+            playerId: pkg2.playerId,
+            academyId: pkg2.academyId,
+            type: pkg2.creditType ?? "group",
             delta: -totalDebtSettled,
             reason: `package_deleted_debt_reversal:${id}`,
             actorId: "system",
@@ -26001,13 +26089,13 @@ var init_storage = __esm({
         return { success: true, creditsUsed, debtReversed: totalDebtSettled };
       },
       async usePackageCredit(packageId, academyId, creditCost = 1) {
-        const pkg3 = await this.getPackage(packageId, academyId);
-        if (!pkg3 || Number(pkg3.remainingCredits) < creditCost) return void 0;
+        const pkg2 = await this.getPackage(packageId, academyId);
+        if (!pkg2 || Number(pkg2.remainingCredits) < creditCost) return void 0;
         const { manualAdjustment: manualAdjustment2 } = await Promise.resolve().then(() => (init_credit_engine(), credit_engine_exports));
         await manualAdjustment2({
-          playerId: pkg3.playerId,
-          academyId: pkg3.academyId,
-          type: pkg3.creditType ?? "group",
+          playerId: pkg2.playerId,
+          academyId: pkg2.academyId,
+          type: pkg2.creditType ?? "group",
           delta: -creditCost,
           reason: `manual_use_package:${packageId}`,
           actorId: "system",
@@ -26091,9 +26179,9 @@ var init_storage = __esm({
         const sessionDuration = sessionResult[0]?.duration || 60;
         const creditCost = sessionDuration / 60;
         const activePackages = await this.getActivePlayerPackages(playerId, academyId);
-        const matchingPackages = activePackages.filter((pkg3) => {
-          const pkgCreditType = pkg3.creditType || "group";
-          return pkgCreditType === requiredCreditType && Number(pkg3.remainingCredits) >= creditCost;
+        const matchingPackages = activePackages.filter((pkg2) => {
+          const pkgCreditType = pkg2.creditType || "group";
+          return pkgCreditType === requiredCreditType && Number(pkg2.remainingCredits) >= creditCost;
         });
         if (matchingPackages.length === 0) {
           return {
@@ -26219,9 +26307,7 @@ var init_storage = __esm({
               if (!spRow?.sp_id) {
                 return { success: false, reason: "session_player_not_found" };
               }
-              const startMs = spRow.start_time ? new Date(spRow.start_time).getTime() : 0;
-              const hoursUntilStart = startMs > 0 ? (startMs - Date.now()) / (1e3 * 60 * 60) : 0;
-              const policy = hoursUntilStart >= 24 ? "early" : "late";
+              const policy = "force";
               const { refundCredit: refundCredit2 } = await Promise.resolve().then(() => (init_credit_engine(), credit_engine_exports));
               const v2Result = await refundCredit2({
                 sessionPlayerId: spRow.sp_id,
@@ -26283,10 +26369,10 @@ var init_storage = __esm({
                     debtRemoved: true
                   };
                 }
-                const pkg4 = await this.getPackage(meta.settledByPackage);
-                if (pkg4) {
+                const pkg3 = await this.getPackage(meta.settledByPackage);
+                if (pkg3) {
                   const debtRefundAmount = Math.abs(Number(debtTransaction.amount)) || 1;
-                  await db.update(packages).set({ remainingCredits: String(Number(pkg4.remainingCredits) + debtRefundAmount) }).where(eq7(packages.id, pkg4.id));
+                  await db.update(packages).set({ remainingCredits: String(Number(pkg3.remainingCredits) + debtRefundAmount) }).where(eq7(packages.id, pkg3.id));
                   if (meta.settledByTransactionId) {
                     const existingMeta = await db.select({ metadata: creditTransactions.metadata }).from(creditTransactions).where(eq7(creditTransactions.id, meta.settledByTransactionId));
                     if (existingMeta.length > 0) {
@@ -26338,18 +26424,18 @@ var init_storage = __esm({
             ));
             return { success: true, creditType: originalDebit.creditType || "group", alreadyRefunded: true };
           }
-          const pkg3 = await this.getPackage(originalDebit.packageId, academyId);
-          if (!pkg3) {
+          const pkg2 = await this.getPackage(originalDebit.packageId, academyId);
+          if (!pkg2) {
             return { success: false, reason: "package_not_found" };
           }
           const refundAmount = Math.abs(Number(originalDebit.amount)) || 1;
-          const balanceBefore = Number(pkg3.remainingCredits);
+          const balanceBefore = Number(pkg2.remainingCredits);
           const balanceAfter = balanceBefore + refundAmount;
-          await db.update(packages).set({ remainingCredits: String(balanceAfter) }).where(eq7(packages.id, pkg3.id));
+          await db.update(packages).set({ remainingCredits: String(balanceAfter) }).where(eq7(packages.id, pkg2.id));
           await this.createCreditTransaction({
             playerId,
-            academyId: academyId || pkg3.academyId,
-            packageId: pkg3.id,
+            academyId: academyId || pkg2.academyId,
+            packageId: pkg2.id,
             type: "credit",
             creditType: originalDebit.creditType || "group",
             amount: String(refundAmount),
@@ -26491,7 +26577,77 @@ var init_storage = __esm({
       },
       async createSession(data) {
         const result = await db.insert(sessions).values(data).returning();
-        return result[0];
+        const session = result[0];
+        if (session.courtId && session.startTime && session.endTime) {
+          try {
+            const startTs = new Date(session.startTime);
+            const endTs = new Date(session.endTime);
+            const datePart = startTs.toISOString().slice(0, 10);
+            const startHHMM = startTs.toISOString().slice(11, 16);
+            const endHHMM = endTs.toISOString().slice(11, 16);
+            const toMin = (t) => {
+              const [h, m] = t.split(":").map(Number);
+              return h * 60 + m;
+            };
+            const sessionStart = toMin(startHHMM);
+            const sessionEnd = toMin(endHHMM);
+            const existingBookings = await db.select({
+              id: courtBookings.id,
+              playerId: courtBookings.playerId,
+              startTime: courtBookings.startTime,
+              endTime: courtBookings.endTime
+            }).from(courtBookings).where(
+              and6(
+                eq7(courtBookings.courtId, session.courtId),
+                eq7(courtBookings.date, datePart),
+                or(
+                  eq7(courtBookings.status, "confirmed"),
+                  eq7(courtBookings.status, "pending")
+                )
+              )
+            );
+            const overlapping = existingBookings.filter((b) => {
+              const bStart = toMin(b.startTime);
+              const bEnd = toMin(b.endTime);
+              return sessionStart < bEnd && sessionEnd > bStart;
+            });
+            if (overlapping.length > 0) {
+              const overlappingIds = overlapping.map((b) => b.id);
+              await db.update(courtBookings).set({
+                status: "cancelled",
+                cancelledAt: /* @__PURE__ */ new Date(),
+                cancelReason: "Court reserved for scheduled coaching session"
+              }).where(inArray3(courtBookings.id, overlappingIds));
+              const affectedPlayerIds = overlapping.map((b) => b.playerId).filter(Boolean);
+              if (affectedPlayerIds.length > 0) {
+                Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports)).then(({ getPlayerPushTokens: getPlayerPushTokens3, sendPushNotification: sendPushNotification2 }) => {
+                  for (const playerId of affectedPlayerIds) {
+                    getPlayerPushTokens3(playerId).then((tokens) => {
+                      if (tokens.length > 0) {
+                        sendPushNotification2(
+                          tokens,
+                          "Court Booking Cancelled",
+                          `Your court booking on ${datePart} has been cancelled \u2014 the court has been reserved for a coaching session.`,
+                          { type: "court_booking_cancelled" },
+                          playerId
+                        ).catch(() => {
+                        });
+                      }
+                    }).catch(() => {
+                    });
+                  }
+                }).catch(() => {
+                });
+              }
+              console.info(
+                `[createSession] Auto-cancelled ${overlapping.length} court booking(s) on court ${session.courtId} (${datePart} ${startHHMM}\u2013${endHHMM}) for new session ${session.id}`
+              );
+            }
+          } catch (conflictErr) {
+            console.warn("[createSession] Court booking conflict-guard error (non-fatal):", conflictErr);
+          }
+        }
+        return session;
       },
       async updateSession(id, data) {
         const cleanData = {};
@@ -29887,11 +30043,11 @@ var init_storage = __esm({
       },
       async generateInvoiceNumber(academyId) {
         const year = (/* @__PURE__ */ new Date()).getFullYear();
-        const count19 = await db.select().from(invoices).where(and6(
+        const count20 = await db.select().from(invoices).where(and6(
           eq7(invoices.academyId, academyId),
           gte6(invoices.createdAt, /* @__PURE__ */ new Date(`${year}-01-01`))
         ));
-        return `INV-${year}-${String(count19.length + 1).padStart(4, "0")}`;
+        return `INV-${year}-${String(count20.length + 1).padStart(4, "0")}`;
       },
       async getAdminRevenueByMonth(academyId, year, month) {
         try {
@@ -29910,14 +30066,6 @@ var init_storage = __esm({
           const bankPayments = confirmedPayments.filter((p) => p.paymentMethod === "bank_transfer");
           const cashTotal = cashPayments.reduce((sum3, p) => sum3 + Number(p.amount || 0), 0);
           const bankTotal = bankPayments.reduce((sum3, p) => sum3 + Number(p.amount || 0), 0);
-          const paymentIds = confirmedPayments.map((p) => p.id);
-          let refundsTotal = 0;
-          if (paymentIds.length > 0) {
-            const allRefunds = await db.select().from(refunds).where(
-              inArray3(refunds.paymentId, paymentIds)
-            );
-            refundsTotal = allRefunds.filter((r) => r.status === "succeeded").reduce((sum3, r) => sum3 + Number(r.amount || 0), 0);
-          }
           const monthSessions = await db.select().from(sessions).where(and6(
             eq7(sessions.academyId, academyId),
             gte6(sessions.startTime, startDate),
@@ -30267,6 +30415,8 @@ var init_storage = __esm({
         if (academyId) {
           conditions.push(eq7(sessions.academyId, academyId));
         }
+        const now = /* @__PURE__ */ new Date();
+        conditions.push(lte3(sessions.startTime, now));
         const allSessions = await db.select().from(sessions).where(and6(...conditions));
         const monthlyData = /* @__PURE__ */ new Map();
         for (const session of allSessions) {
@@ -30600,10 +30750,11 @@ var init_storage = __esm({
             AND start_time::timestamptz < ${sessionEndIso}::timestamptz
         `;
         const sessionResult = await db.execute(sessionQuery);
+        const normalizeDbTimestamp = (ts) => new Date(ts.replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00"));
         const existingSessions = sessionResult.rows.map((row) => ({
           ...row,
-          startTime: new Date(row.startTime),
-          endTime: new Date(row.endTime)
+          startTime: normalizeDbTimestamp(row.startTime),
+          endTime: normalizeDbTimestamp(row.endTime)
         }));
         const pendingQuery = params.coachId ? sql7`
           SELECT
@@ -30638,8 +30789,8 @@ var init_storage = __esm({
         const pendingResult = await db.execute(pendingQuery);
         const pendingRequests = pendingResult.rows.map((row) => ({
           ...row,
-          requestedStart: new Date(row.requestedStart),
-          requestedEnd: new Date(row.requestedEnd)
+          requestedStart: normalizeDbTimestamp(row.requestedStart),
+          requestedEnd: normalizeDbTimestamp(row.requestedEnd)
         }));
         const travelTimesData = await db.select().from(locationTravelTimes).where(eq7(locationTravelTimes.academyId, params.academyId));
         const academyCourts = await db.select({ id: courts.id, locationId: courts.locationId }).from(courts).where(eq7(courts.academyId, params.academyId));
@@ -30648,15 +30799,17 @@ var init_storage = __esm({
         );
         const travelTimeIndex = /* @__PURE__ */ new Map();
         for (const tt of travelTimesData) {
-          if (!tt.coachId) continue;
-          const keyAB = `${tt.coachId}:${tt.fromLocationId}:${tt.toLocationId}`;
-          const keyBA = `${tt.coachId}:${tt.toLocationId}:${tt.fromLocationId}`;
+          const cid = tt.coachId ?? "_global";
+          const keyAB = `${cid}:${tt.fromLocationId}:${tt.toLocationId}`;
+          const keyBA = `${cid}:${tt.toLocationId}:${tt.fromLocationId}`;
           travelTimeIndex.set(keyAB, tt.travelTimeMinutes);
           travelTimeIndex.set(keyBA, tt.travelTimeMinutes);
         }
         function getTravelMinutes(coachId, fromLocId, toLocId) {
           if (fromLocId === toLocId) return 0;
-          return travelTimeIndex.get(`${coachId}:${fromLocId}:${toLocId}`) ?? 0;
+          const coachSpecific = travelTimeIndex.get(`${coachId}:${fromLocId}:${toLocId}`);
+          if (coachSpecific !== void 0) return coachSpecific;
+          return travelTimeIndex.get(`_global:${fromLocId}:${toLocId}`) ?? 0;
         }
         const startDateStr = `${params.startDate.getUTCFullYear()}-${String(params.startDate.getUTCMonth() + 1).padStart(2, "0")}-${String(params.startDate.getUTCDate()).padStart(2, "0")}`;
         const endDateStr = `${params.endDate.getUTCFullYear()}-${String(params.endDate.getUTCMonth() + 1).padStart(2, "0")}-${String(params.endDate.getUTCDate()).padStart(2, "0")}`;
@@ -30682,9 +30835,45 @@ var init_storage = __esm({
     `);
         const activeReservations = activeReservationsResult.rows.map((row) => ({
           coachId: row.coachId,
-          startTime: new Date(row.startTime),
-          endTime: new Date(row.endTime)
+          startTime: normalizeDbTimestamp(row.startTime),
+          endTime: normalizeDbTimestamp(row.endTime)
         }));
+        const timeBlocksResult = await db.execute(sql7`
+      SELECT coach_id AS "coachId",
+             date::text AS "date",
+             start_utc_minutes AS "startUtcMinutes",
+             end_utc_minutes AS "endUtcMinutes"
+      FROM coach_time_blocks
+      WHERE date >= ${startDateStr}::date
+        AND date <= ${endDateStr}::date
+        AND status != 'cancelled'
+    `);
+        const timeBlocksByCoachDate = /* @__PURE__ */ new Map();
+        for (const block of timeBlocksResult.rows) {
+          const key = `${block.coachId}:${block.date}`;
+          if (!timeBlocksByCoachDate.has(key)) timeBlocksByCoachDate.set(key, []);
+          timeBlocksByCoachDate.get(key).push({ startUtcMinutes: Number(block.startUtcMinutes), endUtcMinutes: Number(block.endUtcMinutes) });
+        }
+        const exceptionRows = bookableCoachIds.size > 0 ? await db.select({
+          coachId: availabilityExceptions.coachId,
+          startDate: availabilityExceptions.startDate,
+          endDate: availabilityExceptions.endDate
+        }).from(availabilityExceptions).where(
+          and6(
+            inArray3(availabilityExceptions.coachId, [...bookableCoachIds]),
+            lte3(availabilityExceptions.startDate, endDateStr),
+            gte6(availabilityExceptions.endDate, startDateStr)
+          )
+        ) : [];
+        const exceptionsByCoach = /* @__PURE__ */ new Map();
+        for (const exc of exceptionRows) {
+          const cid = exc.coachId;
+          if (!exceptionsByCoach.has(cid)) exceptionsByCoach.set(cid, []);
+          exceptionsByCoach.get(cid).push({
+            startDate: String(exc.startDate).slice(0, 10),
+            endDate: String(exc.endDate).slice(0, 10)
+          });
+        }
         const availableSlots = [];
         const startMidnightUtc = Date.UTC(
           params.startDate.getUTCFullYear(),
@@ -30759,16 +30948,50 @@ var init_storage = __esm({
                 }
                 return false;
               });
-              const hasCourtBlock = availability.courtId ? courtBlocks.some(
-                (block) => block.courtId === availability.courtId && block.date === dateStr && block.startTime < slotEndTime && block.endTime > slotStartTime
-              ) : false;
-              const hasCourtSessionConflict = availability.courtId ? sessionCourtConflicts.some(
-                (session) => session.courtId === availability.courtId && session.startTime && session.endTime && slotStart < session.endTime && slotEnd > session.startTime
-              ) : false;
+              const hasCourtBlock = (() => {
+                if (availability.courtId) {
+                  return courtBlocks.some(
+                    (block) => block.courtId === availability.courtId && block.date === dateStr && block.startTime < slotEndTime && block.endTime > slotStartTime
+                  );
+                }
+                if (slotLocationId) {
+                  return courtBlocks.some(
+                    (block) => block.date === dateStr && block.startTime < slotEndTime && block.endTime > slotStartTime && (courtLocationMap.get(block.courtId) ?? null) === slotLocationId
+                  );
+                }
+                return false;
+              })();
+              const hasCourtSessionConflict = (() => {
+                if (availability.courtId) {
+                  return sessionCourtConflicts.some(
+                    (session) => session.courtId === availability.courtId && session.startTime && session.endTime && slotStart < session.endTime && slotEnd > session.startTime
+                  );
+                }
+                if (slotLocationId) {
+                  return sessionCourtConflicts.some((session) => {
+                    if (!session.courtId || !session.startTime || !session.endTime) return false;
+                    const sessionLocId = courtLocationMap.get(session.courtId) ?? null;
+                    return sessionLocId === slotLocationId && slotStart < session.endTime && slotEnd > session.startTime;
+                  });
+                }
+                return false;
+              })();
+              const hasExceptionBlock = (() => {
+                const coachExceptions = exceptionsByCoach.get(availability.coachId) ?? [];
+                return coachExceptions.some((exc) => dateStr >= exc.startDate && dateStr <= exc.endDate);
+              })();
               const hasReservationConflict = activeReservations.some(
                 (res) => res.coachId === availability.coachId && slotStart < res.endTime && slotEnd > res.startTime
               );
-              if (!hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict && !hasReservationConflict) {
+              const slotStartUtcMins = slotStart.getUTCHours() * 60 + slotStart.getUTCMinutes();
+              const slotEndUtcMins = slotEnd.getUTCHours() * 60 + slotEnd.getUTCMinutes();
+              const tbKey = `${availability.coachId}:${dateStr}`;
+              const tbBlocks = timeBlocksByCoachDate.get(tbKey) ?? [];
+              const hasTimeBlockConflict = tbBlocks.some(
+                (block) => slotStartUtcMins < block.endUtcMinutes && slotEndUtcMins > block.startUtcMinutes
+              );
+              const durationMatches = slotDuration === params.duration;
+              if (durationMatches && !hasExceptionBlock && !hasConflict && !hasPendingConflict && !hasCourtBlock && !hasCourtSessionConflict && !hasReservationConflict && !hasTimeBlockConflict) {
                 availableSlots.push({
                   coachId: availability.coachId,
                   locationId: availability.locationId,
@@ -30782,7 +31005,7 @@ var init_storage = __esm({
           }
           currentDayUtcMs += 24 * 60 * 60 * 1e3;
         }
-        return availableSlots;
+        return { slots: availableSlots, academyTimezone };
       },
       // ==================== PARENT PORTAL ====================
       // Get children linked to a parent user
@@ -31097,10 +31320,10 @@ var init_storage = __esm({
           count: sql7`COUNT(*)`
         }).from(sessionRatings).where(eq7(sessionRatings.coachId, coachId));
         const avg = result[0]?.avg ? parseFloat(result[0].avg) : null;
-        const count19 = result[0]?.count ?? 0;
+        const count20 = result[0]?.count ?? 0;
         await db.update(coaches).set({
           averageRating: avg !== null ? avg.toFixed(2) : null,
-          totalRatings: count19
+          totalRatings: count20
         }).where(eq7(coaches.id, coachId));
       },
       // Update academy aggregate rating from session ratings
@@ -31110,10 +31333,10 @@ var init_storage = __esm({
           count: sql7`COUNT(*)`
         }).from(sessionRatings).where(eq7(sessionRatings.academyId, academyId));
         const avg = result[0]?.avg ? parseFloat(result[0].avg) : null;
-        const count19 = result[0]?.count ?? 0;
+        const count20 = result[0]?.count ?? 0;
         await db.update(academies).set({
           averageRating: avg !== null ? avg.toFixed(2) : null,
-          totalRatings: count19
+          totalRatings: count20
         }).where(eq7(academies.id, academyId));
       },
       // Get visible reviews for a coach (public display)
@@ -32350,13 +32573,13 @@ var init_storage = __esm({
         let sessionPlayersFixed = 0;
         try {
           const playerPackages = await db.select().from(packages).where(eq7(packages.playerId, playerId));
-          for (const pkg3 of playerPackages) {
+          for (const pkg2 of playerPackages) {
             const debits = await db.select({
               amount: creditTransactions.amount,
               reason: creditTransactions.reason,
               metadata: creditTransactions.metadata
             }).from(creditTransactions).where(and6(
-              eq7(creditTransactions.packageId, pkg3.id),
+              eq7(creditTransactions.packageId, pkg2.id),
               eq7(creditTransactions.playerId, playerId)
             ));
             let totalDebited = 0;
@@ -32367,13 +32590,13 @@ var init_storage = __esm({
                 totalDebited += Math.abs(Number(d.amount));
               }
             }
-            const correctRemaining = Number(pkg3.totalCredits) - totalDebited;
-            if (correctRemaining < Number(pkg3.remainingCredits)) {
-              details.push(`Package ${pkg3.id}: ${pkg3.remainingCredits} -> ${correctRemaining} (debited ${totalDebited} of ${pkg3.totalCredits})`);
+            const correctRemaining = Number(pkg2.totalCredits) - totalDebited;
+            if (correctRemaining < Number(pkg2.remainingCredits)) {
+              details.push(`Package ${pkg2.id}: ${pkg2.remainingCredits} -> ${correctRemaining} (debited ${totalDebited} of ${pkg2.totalCredits})`);
               await db.update(packages).set({
                 remainingCredits: String(correctRemaining),
                 status: correctRemaining <= 0 ? "depleted" : "active"
-              }).where(eq7(packages.id, pkg3.id));
+              }).where(eq7(packages.id, pkg2.id));
               packagesRepaired++;
             }
           }
@@ -32431,9 +32654,9 @@ var init_storage = __esm({
           const balanceByType = await storage.getPlayerCreditBalanceByType(playerId);
           const updatedPackages = await db.select().from(packages).where(eq7(packages.playerId, playerId));
           const remainingByType = { group: 0, semi_private: 0, private: 0 };
-          for (const pkg3 of updatedPackages) {
-            const ct = pkg3.creditType || "group";
-            remainingByType[ct] = (remainingByType[ct] || 0) + Number(pkg3.remainingCredits);
+          for (const pkg2 of updatedPackages) {
+            const ct = pkg2.creditType || "group";
+            remainingByType[ct] = (remainingByType[ct] || 0) + Number(pkg2.remainingCredits);
           }
           for (const creditType of ["group", "semi_private", "private"]) {
             const txBalance = Math.max(0, balanceByType[creditType]);
@@ -32442,16 +32665,16 @@ var init_storage = __esm({
               const excess = pkgRemaining - txBalance;
               const activeOfType = updatedPackages.filter((p) => (p.creditType || "group") === creditType && Number(p.remainingCredits) > 0).sort((a, b) => Number(a.remainingCredits) - Number(b.remainingCredits));
               let toReduce = excess;
-              for (const pkg3 of activeOfType) {
+              for (const pkg2 of activeOfType) {
                 if (toReduce <= 0) break;
-                const currentRemaining = Number(pkg3.remainingCredits);
+                const currentRemaining = Number(pkg2.remainingCredits);
                 const reduction = Math.min(toReduce, currentRemaining);
                 const newRemaining = currentRemaining - reduction;
                 await db.update(packages).set({
                   remainingCredits: String(newRemaining),
                   status: newRemaining <= 0 ? "depleted" : "active"
-                }).where(eq7(packages.id, pkg3.id));
-                details.push(`Package ${pkg3.id} (${creditType}): reconciled ${currentRemaining} -> ${newRemaining} (unlinked debts: ${reduction})`);
+                }).where(eq7(packages.id, pkg2.id));
+                details.push(`Package ${pkg2.id} (${creditType}): reconciled ${currentRemaining} -> ${newRemaining} (unlinked debts: ${reduction})`);
                 packagesRepaired++;
                 toReduce -= reduction;
               }
@@ -32461,14 +32684,14 @@ var init_storage = __esm({
             eq7(packages.playerId, playerId),
             ne2(packages.status, "active")
           ));
-          for (const pkg3 of nonActivePlayerPackages) {
+          for (const pkg2 of nonActivePlayerPackages) {
             try {
-              const { converted } = await storage.convertPackageConsumptionToDebt(pkg3.id, playerId);
+              const { converted } = await storage.convertPackageConsumptionToDebt(pkg2.id, playerId);
               if (converted > 0) {
-                details.push(`Package ${pkg3.id} (${pkg3.creditType}): backfilled ${converted} depleted session(s) as debt`);
+                details.push(`Package ${pkg2.id} (${pkg2.creditType}): backfilled ${converted} depleted session(s) as debt`);
               }
             } catch (err) {
-              details.push(`Package ${pkg3.id}: backfill failed \u2014 ${err}`);
+              details.push(`Package ${pkg2.id}: backfill failed \u2014 ${err}`);
             }
           }
           console.log(`[RepairCredits] Player ${playerId}: ${packagesRepaired} packages, ${debtsMarkedSettled} debts, ${sessionPlayersFixed} session_players`);
@@ -36000,6 +36223,7 @@ __export(upload_middleware_exports, {
   courtScreenshotUpload: () => courtScreenshotUpload,
   paymentProofUpload: () => paymentProofUpload,
   profilePhotoUpload: () => profilePhotoUpload,
+  seriesPhotoUpload: () => seriesPhotoUpload,
   socialPostUpload: () => socialPostUpload,
   techniqueAnalysisUpload: () => techniqueAnalysisUpload,
   videoFeedbackUpload: () => videoFeedbackUpload,
@@ -36060,7 +36284,7 @@ function wrapUploadHandler(multerMiddleware, options) {
     });
   };
 }
-var UPLOADS_DIR, COURT_PHOTOS_DIR, PROFILE_PHOTOS_DIR, SOCIAL_POSTS_DIR, VIDEO_FEEDBACK_DIR, TECHNIQUE_VIDEO_DIR, COURT_SCREENSHOTS_DIR, UnsupportedMediaTypeError, IMAGE_TYPES, ACADEMY_LOGO_TYPES, SOCIAL_POST_TYPES, VIDEO_FEEDBACK_TYPES, imageFilter, courtPhotoUpload, profilePhotoUpload, paymentProofUpload, academyLogoUpload, SAFE_VIDEO_EXTENSIONS, videoFeedbackUpload, techniqueAnalysisUpload, socialPostUpload, courtScreenshotUpload;
+var UPLOADS_DIR, COURT_PHOTOS_DIR, PROFILE_PHOTOS_DIR, SOCIAL_POSTS_DIR, VIDEO_FEEDBACK_DIR, TECHNIQUE_VIDEO_DIR, COURT_SCREENSHOTS_DIR, SERIES_PHOTOS_DIR, UnsupportedMediaTypeError, IMAGE_TYPES, ACADEMY_LOGO_TYPES, SOCIAL_POST_TYPES, VIDEO_FEEDBACK_TYPES, imageFilter, courtPhotoUpload, profilePhotoUpload, paymentProofUpload, academyLogoUpload, SAFE_VIDEO_EXTENSIONS, videoFeedbackUpload, techniqueAnalysisUpload, socialPostUpload, seriesPhotoUpload, courtScreenshotUpload;
 var init_upload_middleware = __esm({
   "server/upload-middleware.ts"() {
     "use strict";
@@ -36071,6 +36295,7 @@ var init_upload_middleware = __esm({
     VIDEO_FEEDBACK_DIR = path.join(UPLOADS_DIR, "video-feedback");
     TECHNIQUE_VIDEO_DIR = path.join(UPLOADS_DIR, "technique-videos");
     COURT_SCREENSHOTS_DIR = path.join(UPLOADS_DIR, "court-screenshots");
+    SERIES_PHOTOS_DIR = path.join(UPLOADS_DIR, "series-photos");
     if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
     if (!fs.existsSync(COURT_PHOTOS_DIR)) fs.mkdirSync(COURT_PHOTOS_DIR, { recursive: true });
     if (!fs.existsSync(PROFILE_PHOTOS_DIR)) fs.mkdirSync(PROFILE_PHOTOS_DIR, { recursive: true });
@@ -36078,6 +36303,7 @@ var init_upload_middleware = __esm({
     if (!fs.existsSync(VIDEO_FEEDBACK_DIR)) fs.mkdirSync(VIDEO_FEEDBACK_DIR, { recursive: true });
     if (!fs.existsSync(TECHNIQUE_VIDEO_DIR)) fs.mkdirSync(TECHNIQUE_VIDEO_DIR, { recursive: true });
     if (!fs.existsSync(COURT_SCREENSHOTS_DIR)) fs.mkdirSync(COURT_SCREENSHOTS_DIR, { recursive: true });
+    if (!fs.existsSync(SERIES_PHOTOS_DIR)) fs.mkdirSync(SERIES_PHOTOS_DIR, { recursive: true });
     UnsupportedMediaTypeError = class extends Error {
       mimetype;
       allowed;
@@ -36182,6 +36408,17 @@ var init_upload_middleware = __esm({
       }),
       limits: { fileSize: 50 * 1024 * 1024 },
       fileFilter: makeMimeFilter(SOCIAL_POST_TYPES)
+    });
+    seriesPhotoUpload = multer({
+      storage: multer.diskStorage({
+        destination: (_req, _file, cb) => cb(null, SERIES_PHOTOS_DIR),
+        filename: (_req, file, cb) => {
+          const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          cb(null, `series-${uniqueSuffix}${path.extname(file.originalname) || ".jpg"}`);
+        }
+      }),
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: imageFilter
     });
     courtScreenshotUpload = multer({
       storage: multer.diskStorage({
@@ -37160,13 +37397,13 @@ async function awardSpecificCard(ownerId, cardRefId, cardType = "player") {
 }
 async function awardReferralCard(attendingPlayerId) {
   try {
-    const { outsideInvites: outsideInvites2, sessionPlayers: sessionPlayers3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const attendanceCount = await db.select({ id: sessionPlayers3.id }).from(sessionPlayers3).where(
+    const { outsideInvites: outsideInvites2, sessionPlayers: sessionPlayers4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const attendanceCount = await db.select({ id: sessionPlayers4.id }).from(sessionPlayers4).where(
       and11(
-        eq13(sessionPlayers3.playerId, attendingPlayerId),
+        eq13(sessionPlayers4.playerId, attendingPlayerId),
         or4(
-          eq13(sessionPlayers3.attendanceStatus, "present"),
-          eq13(sessionPlayers3.attendanceStatus, "late")
+          eq13(sessionPlayers4.attendanceStatus, "present"),
+          eq13(sessionPlayers4.attendanceStatus, "late")
         )
       )
     ).limit(2);
@@ -49662,7 +49899,7 @@ function getDefaultTemplates() {
   return DEFAULT_TEMPLATES;
 }
 async function seedDefaultTemplates() {
-  let count19 = 0;
+  let count20 = 0;
   for (const [key, messages2] of Object.entries(DEFAULT_TEMPLATES)) {
     const existing = await db.select().from(roleMessageTemplates).where(and17(
       eq19(roleMessageTemplates.templateKey, key),
@@ -49680,10 +49917,10 @@ async function seedDefaultTemplates() {
         category: getCategoryForKey(key),
         isActive: true
       });
-      count19++;
+      count20++;
     }
   }
-  return count19;
+  return count20;
 }
 function extractPlaceholders(text2) {
   const matches2 = text2.match(/\{(\w+)\}/g) || [];
@@ -51574,6 +51811,95 @@ var init_supabaseStorage = __esm({
   }
 });
 
+// server/objectStorage.ts
+var objectStorage_exports = {};
+__export(objectStorage_exports, {
+  deleteFromObjectStorage: () => deleteFromObjectStorage,
+  getSignedUrl: () => getSignedUrl,
+  isObjectStorageEnabled: () => isObjectStorageEnabled,
+  objectKeyFromUrl: () => objectKeyFromUrl,
+  resolveMediaUrl: () => resolveMediaUrl,
+  uploadToObjectStorage: () => uploadToObjectStorage
+});
+import { Storage } from "@google-cloud/storage";
+function getStorage() {
+  if (!_storage) _storage = new Storage();
+  return _storage;
+}
+function isObjectStorageEnabled() {
+  return Boolean(BUCKET_ID);
+}
+async function uploadToObjectStorage(localPath, fileName, subDir, contentType) {
+  if (!BUCKET_ID) throw new Error("Object Storage not configured");
+  const objectKey = `.private/${subDir}/${fileName}`;
+  const bucket = getStorage().bucket(BUCKET_ID);
+  await bucket.upload(localPath, {
+    destination: objectKey,
+    contentType,
+    metadata: { cacheControl: "private, no-store" }
+  });
+  return objectKey;
+}
+async function getSignedUrl(objectKey, expiresMinutes = 60) {
+  if (!BUCKET_ID || !objectKey) return null;
+  try {
+    const [url] = await getStorage().bucket(BUCKET_ID).file(objectKey).getSignedUrl({
+      version: "v4",
+      action: "read",
+      expires: Date.now() + expiresMinutes * 60 * 1e3
+    });
+    return url;
+  } catch (err) {
+    console.error("[ObjectStorage] getSignedUrl failed:", err);
+    return null;
+  }
+}
+async function resolveMediaUrl(storedValue) {
+  if (!storedValue) return null;
+  if (storedValue.startsWith("/uploads/")) return storedValue;
+  if (storedValue.startsWith(".private/")) {
+    return getSignedUrl(storedValue);
+  }
+  if (storedValue.startsWith("public/") && BUCKET_ID) {
+    return `https://storage.googleapis.com/${BUCKET_ID}/${storedValue}`;
+  }
+  if (storedValue.startsWith("https://storage.googleapis.com/")) {
+    return storedValue;
+  }
+  return storedValue;
+}
+async function deleteFromObjectStorage(objectKey) {
+  if (!BUCKET_ID || !objectKey) return;
+  try {
+    await getStorage().bucket(BUCKET_ID).file(objectKey).delete();
+  } catch {
+  }
+}
+function objectKeyFromUrl(storedValue) {
+  if (!storedValue) return null;
+  if (storedValue.startsWith(".private/") || storedValue.startsWith("public/")) {
+    return storedValue;
+  }
+  if (BUCKET_ID) {
+    const prefix = `https://storage.googleapis.com/${BUCKET_ID}/`;
+    if (storedValue.startsWith(prefix)) return storedValue.slice(prefix.length);
+  }
+  return null;
+}
+var BUCKET_ID, _storage;
+var init_objectStorage = __esm({
+  "server/objectStorage.ts"() {
+    "use strict";
+    BUCKET_ID = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ?? "";
+    if (!BUCKET_ID) {
+      console.warn(
+        "[ObjectStorage] DEFAULT_OBJECT_STORAGE_BUCKET_ID not set \u2014 uploads will fall back to local paths"
+      );
+    }
+    _storage = null;
+  }
+});
+
 // server/lib/in-process-dispatch.ts
 import { EventEmitter } from "events";
 async function dispatchInProcess(parentReq, path13, opts = {}) {
@@ -51889,7 +52215,7 @@ async function fetchDashboard(playerId) {
   future.setDate(future.getDate() + 30);
   const now = /* @__PURE__ */ new Date();
   const upcomingSessions = await storage.getPlayerSessionsWithDetails(playerId, threeHoursAgo, future).catch(() => []);
-  const sortedSessions = upcomingSessions.map((s) => ({
+  const sortedSessions = upcomingSessions.filter((s) => s.status !== "cancelled").map((s) => ({
     ...s,
     isActive: s.startTime <= now && s.endTime > now,
     isUpcoming: s.startTime > now
@@ -51971,6 +52297,7 @@ async function fetchDashboard(playerId) {
       type: session.sessionType,
       courtName: sessionCourt?.name,
       coachName: sessionCoach?.name || null,
+      coachPhotoUrl: sessionCoach?.photoUrl || null,
       isLive: session.isActive,
       duration: durationMinutes,
       playerCheckedIn,
@@ -54211,7 +54538,7 @@ __export(aiProSubscription_exports, {
   hasAiProAccess: () => hasAiProAccess,
   incrementAiCallCount: () => incrementAiCallCount
 });
-import { eq as eq75, and as and64, sql as sql46 } from "drizzle-orm";
+import { eq as eq77, and as and66, sql as sql46 } from "drizzle-orm";
 function getCurrentMonth() {
   const now = /* @__PURE__ */ new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -54227,7 +54554,7 @@ async function hasAiProAccess(userId, role) {
 }
 async function getMonthlyAiCallCount(userId) {
   const month = getCurrentMonth();
-  const [row] = await db.select({ callCount: playerAiUsage.callCount }).from(playerAiUsage).where(and64(eq75(playerAiUsage.userId, userId), eq75(playerAiUsage.month, month)));
+  const [row] = await db.select({ callCount: playerAiUsage.callCount }).from(playerAiUsage).where(and66(eq77(playerAiUsage.userId, userId), eq77(playerAiUsage.month, month)));
   return row?.callCount ?? 0;
 }
 async function incrementAiCallCount(userId) {
@@ -54271,7 +54598,7 @@ __export(player_ai_coach_data_exports, {
   default: () => player_ai_coach_data_default,
   invalidatePlayerAiCoachDataCache: () => invalidatePlayerAiCoachDataCache
 });
-import { Router as Router50 } from "express";
+import { Router as Router52 } from "express";
 function cacheKey(playerId, academyId) {
   return `${playerId}|${academyId ?? "_"}`;
 }
@@ -54309,16 +54636,16 @@ function requirePlayerOrOwner6(req, res, next) {
   }
   res.status(403).json({ error: "Player account required" });
 }
-var router51, aiCoachDataCache, CACHE_TTL_MS4, player_ai_coach_data_default;
+var router53, aiCoachDataCache, CACHE_TTL_MS4, player_ai_coach_data_default;
 var init_player_ai_coach_data = __esm({
   "server/routes/player-ai-coach-data.ts"() {
     "use strict";
     init_auth();
     init_in_process_dispatch();
-    router51 = Router50();
+    router53 = Router52();
     aiCoachDataCache = /* @__PURE__ */ new Map();
     CACHE_TTL_MS4 = 3e4;
-    router51.get(
+    router53.get(
       "/api/player/me/ai-coach-data",
       authMiddlewareWithFreshData,
       requirePlayerOrOwner6,
@@ -54406,96 +54733,7 @@ var init_player_ai_coach_data = __esm({
         }
       }
     );
-    player_ai_coach_data_default = router51;
-  }
-});
-
-// server/objectStorage.ts
-var objectStorage_exports = {};
-__export(objectStorage_exports, {
-  deleteFromObjectStorage: () => deleteFromObjectStorage,
-  getSignedUrl: () => getSignedUrl,
-  isObjectStorageEnabled: () => isObjectStorageEnabled,
-  objectKeyFromUrl: () => objectKeyFromUrl,
-  resolveMediaUrl: () => resolveMediaUrl,
-  uploadToObjectStorage: () => uploadToObjectStorage
-});
-import { Storage } from "@google-cloud/storage";
-function getStorage() {
-  if (!_storage) _storage = new Storage();
-  return _storage;
-}
-function isObjectStorageEnabled() {
-  return Boolean(BUCKET_ID);
-}
-async function uploadToObjectStorage(localPath, fileName, subDir, contentType) {
-  if (!BUCKET_ID) throw new Error("Object Storage not configured");
-  const objectKey = `.private/${subDir}/${fileName}`;
-  const bucket = getStorage().bucket(BUCKET_ID);
-  await bucket.upload(localPath, {
-    destination: objectKey,
-    contentType,
-    metadata: { cacheControl: "private, no-store" }
-  });
-  return objectKey;
-}
-async function getSignedUrl(objectKey, expiresMinutes = 60) {
-  if (!BUCKET_ID || !objectKey) return null;
-  try {
-    const [url] = await getStorage().bucket(BUCKET_ID).file(objectKey).getSignedUrl({
-      version: "v4",
-      action: "read",
-      expires: Date.now() + expiresMinutes * 60 * 1e3
-    });
-    return url;
-  } catch (err) {
-    console.error("[ObjectStorage] getSignedUrl failed:", err);
-    return null;
-  }
-}
-async function resolveMediaUrl(storedValue) {
-  if (!storedValue) return null;
-  if (storedValue.startsWith("/uploads/")) return storedValue;
-  if (storedValue.startsWith(".private/")) {
-    return getSignedUrl(storedValue);
-  }
-  if (storedValue.startsWith("public/") && BUCKET_ID) {
-    return `https://storage.googleapis.com/${BUCKET_ID}/${storedValue}`;
-  }
-  if (storedValue.startsWith("https://storage.googleapis.com/")) {
-    return storedValue;
-  }
-  return storedValue;
-}
-async function deleteFromObjectStorage(objectKey) {
-  if (!BUCKET_ID || !objectKey) return;
-  try {
-    await getStorage().bucket(BUCKET_ID).file(objectKey).delete();
-  } catch {
-  }
-}
-function objectKeyFromUrl(storedValue) {
-  if (!storedValue) return null;
-  if (storedValue.startsWith(".private/") || storedValue.startsWith("public/")) {
-    return storedValue;
-  }
-  if (BUCKET_ID) {
-    const prefix = `https://storage.googleapis.com/${BUCKET_ID}/`;
-    if (storedValue.startsWith(prefix)) return storedValue.slice(prefix.length);
-  }
-  return null;
-}
-var BUCKET_ID, _storage;
-var init_objectStorage = __esm({
-  "server/objectStorage.ts"() {
-    "use strict";
-    BUCKET_ID = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ?? "";
-    if (!BUCKET_ID) {
-      console.warn(
-        "[ObjectStorage] DEFAULT_OBJECT_STORAGE_BUCKET_ID not set \u2014 uploads will fall back to local paths"
-      );
-    }
-    _storage = null;
+    player_ai_coach_data_default = router53;
   }
 });
 
@@ -54577,35 +54815,35 @@ async function replayAcademy(academyId, dryRun) {
   const skippedPkgs = /* @__PURE__ */ new Set();
   const expiryInstants = /* @__PURE__ */ new Set();
   for (const raw of packagesResult.rows) {
-    const pkg3 = raw;
-    const isPaid = pkg3.is_paid === true;
-    if (!isPaid && !pkg3.invoice_id) {
-      skippedPkgs.add(pkg3.id);
+    const pkg2 = raw;
+    const isPaid = pkg2.is_paid === true;
+    if (!isPaid && !pkg2.invoice_id) {
+      skippedPkgs.add(pkg2.id);
       continue;
     }
-    if (!isPaid && pkg3.invoice_id) {
+    if (!isPaid && pkg2.invoice_id) {
       const inv = await db.execute(sql51`
-        SELECT status FROM invoices WHERE id = ${pkg3.invoice_id} LIMIT 1
+        SELECT status FROM invoices WHERE id = ${pkg2.invoice_id} LIMIT 1
       `);
       const invStatus = inv.rows[0]?.status;
       if (invStatus !== "paid") {
-        skippedPkgs.add(pkg3.id);
+        skippedPkgs.add(pkg2.id);
         continue;
       }
     }
-    const type = normalizeCreditType(pkg3.credit_type);
-    if (type === "group" && pkg3.credit_type === "court") {
-      skippedPkgs.add(pkg3.id);
+    const type = normalizeCreditType(pkg2.credit_type);
+    if (type === "group" && pkg2.credit_type === "court") {
+      skippedPkgs.add(pkg2.id);
       continue;
     }
-    const qty = Number(pkg3.total_credits);
+    const qty = Number(pkg2.total_credits);
     if (!Number.isFinite(qty) || qty <= 0) {
-      skippedPkgs.add(pkg3.id);
+      skippedPkgs.add(pkg2.id);
       continue;
     }
-    eligiblePkgs.push(pkg3);
-    if (pkg3.expiry_date) {
-      expiryInstants.add(new Date(pkg3.expiry_date).getTime());
+    eligiblePkgs.push(pkg2);
+    if (pkg2.expiry_date) {
+      expiryInstants.add(new Date(pkg2.expiry_date).getTime());
     }
   }
   stats.packagesSkipped += skippedPkgs.size;
@@ -54616,11 +54854,11 @@ async function replayAcademy(academyId, dryRun) {
     expiry: 3
   };
   const events = [];
-  for (const pkg3 of eligiblePkgs) {
+  for (const pkg2 of eligiblePkgs) {
     events.push({
       kind: "purchase",
-      at: pkg3.purchase_date ? new Date(pkg3.purchase_date) : /* @__PURE__ */ new Date(0),
-      pkg: pkg3
+      at: pkg2.purchase_date ? new Date(pkg2.purchase_date) : /* @__PURE__ */ new Date(0),
+      pkg: pkg2
     });
   }
   for (const raw of consumesResult.rows) {
@@ -54667,25 +54905,25 @@ async function replayAcademy(academyId, dryRun) {
     try {
       switch (ev.kind) {
         case "purchase": {
-          const pkg3 = ev.pkg;
-          const type = normalizeCreditType(pkg3.credit_type);
-          const qty = Number(pkg3.total_credits);
-          const totalPrice = Number(pkg3.price ?? 0);
-          const pricePerCredit = pkg3.price_per_credit != null ? Number(pkg3.price_per_credit) : qty > 0 ? totalPrice / qty : 0;
-          const expiresAt = pkg3.expiry_date ? new Date(pkg3.expiry_date) : null;
+          const pkg2 = ev.pkg;
+          const type = normalizeCreditType(pkg2.credit_type);
+          const qty = Number(pkg2.total_credits);
+          const totalPrice = Number(pkg2.price ?? 0);
+          const pricePerCredit = pkg2.price_per_credit != null ? Number(pkg2.price_per_credit) : qty > 0 ? totalPrice / qty : 0;
+          const expiresAt = pkg2.expiry_date ? new Date(pkg2.expiry_date) : null;
           const result = await purchasePackage({
-            playerId: pkg3.player_id,
-            academyId: pkg3.academy_id,
+            playerId: pkg2.player_id,
+            academyId: pkg2.academy_id,
             type,
             qty,
             pricePerCredit,
-            currency: pkg3.currency ?? "AED",
-            invoiceId: pkg3.invoice_id,
-            sourcePackageId: pkg3.id,
+            currency: pkg2.currency ?? "AED",
+            invoiceId: pkg2.invoice_id,
+            sourcePackageId: pkg2.id,
             purchasedAt: ev.at,
             expiresAt,
             actorRole: "system",
-            eventKey: `purchase:pkg:${pkg3.id}`
+            eventKey: `purchase:pkg:${pkg2.id}`
           });
           if (result.alreadyApplied) stats.packagesSkipped++;
           else stats.packagesProcessed++;
@@ -54796,8 +55034,8 @@ var init_credit_replay = __esm({
 import OpenAI5 from "openai";
 import { execSync } from "node:child_process";
 import path9 from "node:path";
-import fs9 from "node:fs";
-import { and as and83, desc as desc54, eq as eq100 } from "drizzle-orm";
+import fs10 from "node:fs";
+import { and as and86, desc as desc54, eq as eq103 } from "drizzle-orm";
 function normalizeRole(raw) {
   const r = String(raw || "").toLowerCase();
   if (r === "parent") return "parent";
@@ -54812,7 +55050,7 @@ function normalizeLocale(raw) {
 }
 async function lookupCachedShaForVersion(version) {
   try {
-    const [hit] = await db.select({ commitSha: releaseNotesCache.commitSha }).from(releaseNotesCache).where(eq100(releaseNotesCache.version, version)).orderBy(desc54(releaseNotesCache.generatedAt)).limit(1);
+    const [hit] = await db.select({ commitSha: releaseNotesCache.commitSha }).from(releaseNotesCache).where(eq103(releaseNotesCache.version, version)).orderBy(desc54(releaseNotesCache.generatedAt)).limit(1);
     return hit?.commitSha ?? null;
   } catch {
     return null;
@@ -54947,7 +55185,7 @@ function getServerAppVersions() {
   let primary = "0.0.0";
   try {
     const appJsonPath = path9.resolve(process.cwd(), "app.json");
-    const raw = fs9.readFileSync(appJsonPath, "utf8");
+    const raw = fs10.readFileSync(appJsonPath, "utf8");
     const parsed = JSON.parse(raw);
     const top = parsed?.expo?.version;
     const ios = parsed?.expo?.ios?.version;
@@ -54974,10 +55212,10 @@ async function getReleaseNotes(opts) {
   if (!forceRegenerate) {
     try {
       const [hit] = await db.select().from(releaseNotesCache).where(
-        and83(
-          eq100(releaseNotesCache.version, version),
-          eq100(releaseNotesCache.role, role),
-          eq100(releaseNotesCache.locale, locale)
+        and86(
+          eq103(releaseNotesCache.version, version),
+          eq103(releaseNotesCache.role, role),
+          eq103(releaseNotesCache.locale, locale)
         )
       ).limit(1);
       if (hit) {
@@ -55012,10 +55250,10 @@ async function getReleaseNotes(opts) {
   try {
     if (forceRegenerate) {
       await db.delete(releaseNotesCache).where(
-        and83(
-          eq100(releaseNotesCache.version, version),
-          eq100(releaseNotesCache.role, role),
-          eq100(releaseNotesCache.locale, locale)
+        and86(
+          eq103(releaseNotesCache.version, version),
+          eq103(releaseNotesCache.role, role),
+          eq103(releaseNotesCache.locale, locale)
         )
       );
     }
@@ -55189,7 +55427,7 @@ __export(webhookHandlers_exports, {
   WebhookHandlers: () => WebhookHandlers,
   parseDropInLessonMetadata: () => parseDropInLessonMetadata
 });
-import { eq as eq107, and as and89, ne as ne16, sql as sql61 } from "drizzle-orm";
+import { eq as eq110, and as and92, ne as ne16, sql as sql62 } from "drizzle-orm";
 function parseDropInLessonMetadata(raw) {
   if (!raw) return null;
   if (raw.type !== "drop_in_lesson") return null;
@@ -55230,7 +55468,7 @@ var init_webhookHandlers = __esm({
             if (metadata.type === "drop_in_session" && metadata.sessionId && metadata.playerId) {
               const { sessionId, playerId } = metadata;
               const existing = await db.query.sessionPlayers.findFirst({
-                where: (sp, { and: and91, eq: eq109 }) => and91(eq109(sp.sessionId, sessionId), eq109(sp.playerId, playerId))
+                where: (sp, { and: and95, eq: eq113 }) => and95(eq113(sp.sessionId, sessionId), eq113(sp.playerId, playerId))
               });
               if (!existing) {
                 await db.insert(sessionPlayers).values({
@@ -55295,11 +55533,11 @@ var init_webhookHandlers = __esm({
         let conflictDetected = false;
         try {
           await db.transaction(async (tx) => {
-            await tx.execute(sql61`SELECT pg_advisory_xact_lock(hashtextextended(${`drop_in_lesson:${coachId}`}, 0))`);
+            await tx.execute(sql62`SELECT pg_advisory_xact_lock(hashtextextended(${`drop_in_lesson:${coachId}`}, 0))`);
             const alreadyProcessed = await tx.select({ id: coachNotifications.id }).from(coachNotifications).where(
-              and89(
-                eq107(coachNotifications.coachId, coachId),
-                sql61`${coachNotifications.metadata}->>'stripeCheckoutSessionId' = ${stripeCheckoutId}`
+              and92(
+                eq110(coachNotifications.coachId, coachId),
+                sql62`${coachNotifications.metadata}->>'stripeCheckoutSessionId' = ${stripeCheckoutId}`
               )
             ).limit(1);
             if (alreadyProcessed.length > 0) {
@@ -55307,11 +55545,11 @@ var init_webhookHandlers = __esm({
               return;
             }
             const overlap = await tx.select({ id: sessions.id }).from(sessions).where(
-              and89(
-                eq107(sessions.coachId, coachId),
+              and92(
+                eq110(sessions.coachId, coachId),
                 ne16(sessions.status, "cancelled"),
-                sql61`${sessions.startTime} < ${endTime.toISOString()}::timestamp`,
-                sql61`${sessions.endTime} > ${startTime.toISOString()}::timestamp`
+                sql62`${sessions.startTime} < ${endTime.toISOString()}::timestamp`,
+                sql62`${sessions.endTime} > ${startTime.toISOString()}::timestamp`
               )
             ).limit(1);
             if (overlap.length > 0) {
@@ -55325,12 +55563,12 @@ var init_webhookHandlers = __esm({
             let assignCourtId = courtId || null;
             if (assignCourtId) {
               const courtConflict = await tx.select({ id: courtAvailability.id }).from(courtAvailability).where(
-                and89(
-                  eq107(courtAvailability.courtId, assignCourtId),
-                  eq107(courtAvailability.date, dateStr),
-                  sql61`${courtAvailability.startTime} < ${endTimeStr}`,
-                  sql61`${courtAvailability.endTime} > ${startTimeStr}`,
-                  sql61`${courtAvailability.status} IN ('blocked', 'booked')`
+                and92(
+                  eq110(courtAvailability.courtId, assignCourtId),
+                  eq110(courtAvailability.date, dateStr),
+                  sql62`${courtAvailability.startTime} < ${endTimeStr}`,
+                  sql62`${courtAvailability.endTime} > ${startTimeStr}`,
+                  sql62`${courtAvailability.status} IN ('blocked', 'booked')`
                 )
               ).limit(1);
               if (courtConflict.length > 0) {
@@ -55338,7 +55576,7 @@ var init_webhookHandlers = __esm({
                 assignCourtId = null;
               }
             }
-            const [coach] = await tx.select().from(coaches).where(eq107(coaches.id, coachId)).limit(1);
+            const [coach] = await tx.select().from(coaches).where(eq110(coaches.id, coachId)).limit(1);
             const sessionTitle = coach ? isInternal ? `Lesson with ${coach.name}` : `Drop-in with ${coach.name}` : isInternal ? "Lesson" : "Drop-in Lesson";
             const inserted = await tx.insert(sessions).values({
               academyId,
@@ -55486,7 +55724,7 @@ var init_webhookHandlers = __esm({
           const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
           const brand = paymentMethod.card?.brand ?? null;
           const last4 = paymentMethod.card?.last4 ?? null;
-          const [existing] = await db.select({ id: familyGroups.id, prevPm: familyGroups.stripePaymentMethodId }).from(familyGroups).where(eq107(familyGroups.id, familyGroupId)).limit(1);
+          const [existing] = await db.select({ id: familyGroups.id, prevPm: familyGroups.stripePaymentMethodId }).from(familyGroups).where(eq110(familyGroups.id, familyGroupId)).limit(1);
           if (existing?.prevPm && existing.prevPm !== paymentMethodId) {
             try {
               await stripe.paymentMethods.detach(existing.prevPm);
@@ -55498,7 +55736,7 @@ var init_webhookHandlers = __esm({
             stripePaymentMethodId: paymentMethodId,
             paymentMethodBrand: brand,
             paymentMethodLast4: last4
-          }).where(eq107(familyGroups.id, familyGroupId));
+          }).where(eq110(familyGroups.id, familyGroupId));
           console.log(`[FamilyWalletSetup] family ${familyGroupId} paymentMethod=${paymentMethodId}`);
         } catch (err) {
           console.error("[FamilyWalletSetup] failed:", err);
@@ -55513,10 +55751,10 @@ var coach_report_exports = {};
 __export(coach_report_exports, {
   default: () => coach_report_default
 });
-import { Router as Router81 } from "express";
-import fs11 from "fs";
+import { Router as Router84 } from "express";
+import fs12 from "fs";
 import path11 from "path";
-import pkg2 from "pg";
+import { eq as eq111, gte as gte52, and as and93, count as count19 } from "drizzle-orm";
 function getPublicToken() {
   return process.env.DEAN_REPORT_PUBLIC_TOKEN ?? "";
 }
@@ -55524,51 +55762,45 @@ function getManageToken() {
   return process.env.DEAN_REPORT_MANAGE_TOKEN ?? "";
 }
 function loadState() {
-  if (!fs11.existsSync(CONFIG_PATH)) {
-    return { excludedSessionIds: [], startDate: "2026-05-11", ratePerSession: 200, currency: "AED" };
+  if (!fs12.existsSync(CONFIG_PATH)) {
+    return { excludedSessionIds: [], paidSessionIds: [], startDate: "2026-05-11", ratePerSession: 200, currency: "AED" };
   }
-  const raw = fs11.readFileSync(CONFIG_PATH, "utf-8");
-  return JSON.parse(raw);
+  const raw = fs12.readFileSync(CONFIG_PATH, "utf-8");
+  const parsed = JSON.parse(raw);
+  return {
+    excludedSessionIds: parsed.excludedSessionIds ?? [],
+    paidSessionIds: parsed.paidSessionIds ?? [],
+    startDate: parsed.startDate ?? "2026-05-11",
+    ratePerSession: parsed.ratePerSession ?? 200,
+    currency: parsed.currency ?? "AED"
+  };
 }
 function saveState(state) {
   const dir = path11.dirname(CONFIG_PATH);
-  if (!fs11.existsSync(dir)) fs11.mkdirSync(dir, { recursive: true });
-  fs11.writeFileSync(CONFIG_PATH, JSON.stringify(state, null, 2), "utf-8");
+  if (!fs12.existsSync(dir)) fs12.mkdirSync(dir, { recursive: true });
+  fs12.writeFileSync(CONFIG_PATH, JSON.stringify(state, null, 2), "utf-8");
 }
 async function fetchSessions(startDate) {
-  const client = new Client({
-    connectionString: process.env.SUPABASE_DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 5e3
-  });
-  try {
-    await client.connect();
-    await client.query("SET statement_timeout = 6000");
-    const result = await client.query(
-      `SELECT
-         s.id,
-         s.start_time,
-         s.end_time,
-         s.session_type,
-         s.ball_level,
-         s.status,
-         cs.title AS series_title,
-         COUNT(sp.player_id) AS player_count
-       FROM sessions s
-       LEFT JOIN coaching_series cs ON cs.id::text = s.series_id
-       LEFT JOIN session_players sp ON sp.session_id = s.id
-       WHERE s.coach_id = $1
-         AND s.start_time >= $2
-         AND s.status = 'completed'
-       GROUP BY s.id, cs.title
-       ORDER BY s.start_time ASC`,
-      [DEAN_COACH_ID, startDate]
-    );
-    return result.rows;
-  } finally {
-    client.end().catch(() => {
-    });
-  }
+  const rows = await db.select({
+    id: sessions.id,
+    start_time: sessions.startTime,
+    end_time: sessions.endTime,
+    session_type: sessions.sessionType,
+    ball_level: sessions.ballLevel,
+    status: sessions.status,
+    series_title: coachingSeries.title,
+    player_count: count19(sessionPlayers.playerId)
+  }).from(sessions).leftJoin(coachingSeries, eq111(coachingSeries.id, sessions.seriesId)).leftJoin(sessionPlayers, eq111(sessionPlayers.sessionId, sessions.id)).where(
+    and93(
+      eq111(sessions.coachId, DEAN_COACH_ID),
+      gte52(sessions.startTime, new Date(startDate)),
+      eq111(sessions.status, "completed")
+    )
+  ).groupBy(sessions.id, coachingSeries.title).orderBy(sessions.startTime);
+  return rows.map((r) => ({
+    ...r,
+    player_count: String(r.player_count)
+  }));
 }
 function typeLabel(t) {
   if (t === "private") return "Private";
@@ -55595,12 +55827,6 @@ function levelDot(level) {
     <span style="width:10px;height:10px;border-radius:50%;background:${col2};display:inline-block;flex-shrink:0;"></span>
     <span style="color:${col2};font-weight:600;font-size:12px;">${label}</span>
   </span>`;
-}
-function statusBadge(s) {
-  if (!s || s === "scheduled") return `<span style="color:#94A3B8;font-size:12px;font-weight:500;">Scheduled</span>`;
-  if (s === "completed") return `<span style="color:#22C55E;font-size:12px;font-weight:600;">Completed</span>`;
-  if (s === "cancelled") return `<span style="color:#EF4444;font-size:12px;font-weight:600;">Cancelled</span>`;
-  return `<span style="color:#94A3B8;font-size:12px;">${s}</span>`;
 }
 function toLocalDate(d) {
   return new Date(new Date(d).getTime() + DUBAI_OFFSET_MS);
@@ -55639,117 +55865,309 @@ function monthKey(d) {
 }
 function buildHTML(sessions3, state, isManage) {
   const excluded = new Set(state.excludedSessionIds);
+  const paid = new Set(state.paidSessionIds);
   const rate = state.ratePerSession;
   const currency = state.currency;
-  const visible = sessions3.filter(
-    (s) => isManage ? true : !excluded.has(s.id)
+  const openstaandSessions = sessions3.filter(
+    (s) => !paid.has(s.id) && !excluded.has(s.id) && s.status !== "cancelled"
   );
-  const isCancelled = (s) => s.status === "cancelled";
-  const countsForPayment = (s) => !isCancelled(s) && !excluded.has(s.id);
-  const grandTotal = sessions3.filter(countsForPayment).length * rate;
-  const weeks = /* @__PURE__ */ new Map();
-  for (const s of visible) {
-    const wk = weekKey(s.start_time);
-    const dk = isoDate(s.start_time);
-    if (!weeks.has(wk)) weeks.set(wk, /* @__PURE__ */ new Map());
-    const dayMap = weeks.get(wk);
-    if (!dayMap.has(dk)) dayMap.set(dk, []);
-    dayMap.get(dk).push(s);
-  }
-  function weekEarned(wk) {
-    return sessions3.filter((s) => weekKey(s.start_time) === wk && countsForPayment(s)).length * rate;
-  }
-  function monthEarned(mk) {
-    return sessions3.filter((s) => monthKey(s.start_time) === mk && countsForPayment(s)).length * rate;
-  }
-  let body = "";
-  let lastMonth = "";
-  for (const [wk, dayMap] of weeks) {
-    const firstDay = dayMap.values().next().value[0].start_time;
-    const mk = monthKey(firstDay);
-    if (mk !== lastMonth) {
-      const me = monthEarned(mk);
-      body += `
-      <div class="month-header">
-        <span>${mk}</span>
-        <span class="month-total">${currency} ${me.toLocaleString()}</span>
-      </div>`;
-      lastMonth = mk;
+  const betaaldSessions = sessions3.filter((s) => paid.has(s.id));
+  const manageOpenstaand = sessions3.filter((s) => !paid.has(s.id));
+  const openstaandTotal = openstaandSessions.length * rate;
+  const betaaldTotal = betaaldSessions.length * rate;
+  function buildOpenstaandBody(tabSessions) {
+    const weeks = /* @__PURE__ */ new Map();
+    for (const s of tabSessions) {
+      const wk = weekKey(s.start_time);
+      const dk = isoDate(s.start_time);
+      if (!weeks.has(wk)) weeks.set(wk, /* @__PURE__ */ new Map());
+      const dayMap = weeks.get(wk);
+      if (!dayMap.has(dk)) dayMap.set(dk, []);
+      dayMap.get(dk).push(s);
     }
-    const we = weekEarned(wk);
-    body += `
-    <div class="week-block">
-      <div class="week-header">
-        <span class="week-label">Week of ${wk}</span>
-        <span class="week-earned">${currency} ${we.toLocaleString()}</span>
-      </div>`;
-    for (const [_dk, daySessions] of dayMap) {
-      const firstS = daySessions[0];
-      body += `<div class="day-group">
-        <div class="day-label">${friendlyDate(firstS.start_time)}</div>
-        <div class="sessions-list">`;
-      for (const s of daySessions) {
-        const isExcluded = excluded.has(s.id);
-        const isCanceled = isCancelled(s);
-        const rowClass = isExcluded ? "session-row excluded" : isCanceled ? "session-row cancelled" : "session-row";
-        const seriesName = s.series_title ?? typeLabel(s.session_type);
-        let excludeBtn = "";
-        if (isManage) {
-          excludeBtn = `
-            <button
-              class="toggle-btn ${isExcluded ? "btn-show" : "btn-hide"}"
-              onclick="toggleSession('${s.id}', this)"
-            >${isExcluded ? "Show" : "Hide"}</button>`;
-        }
-        const earnedCell = !isManage ? "" : `<span class="cell-earned">${isExcluded || isCanceled ? "\u2014" : `${currency} ${rate}`}</span>`;
-        body += `
-          <div class="${rowClass}" data-id="${s.id}">
-            <span class="cell-time">${formatTimeRange(s.start_time, s.end_time)}</span>
-            <span class="cell-badge" style="${typeBadgeStyle(s.session_type)}">${typeLabel(s.session_type)}</span>
-            <span class="cell-level">${levelDot(s.ball_level)}</span>
-            <span class="cell-series">${seriesName}</span>
-            <span class="cell-status">${statusBadge(s.status)}</span>
-            ${earnedCell}
-            ${excludeBtn}
-          </div>`;
+    if (weeks.size === 0) {
+      return `<p class="empty-msg">No outstanding sessions.</p>`;
+    }
+    let body = "";
+    let lastMonth = "";
+    for (const [wk, dayMap] of weeks) {
+      const firstDay = dayMap.values().next().value[0].start_time;
+      const mk = monthKey(firstDay);
+      if (mk !== lastMonth) {
+        body += `<div class="month-header">
+          <span>${mk}</span>
+        </div>`;
+        lastMonth = mk;
       }
-      body += `</div></div>`;
+      body += `<div class="week-block">
+        <div class="week-header">
+          <span class="week-label">Week of ${wk}</span>
+        </div>`;
+      for (const [_dk, daySessions] of dayMap) {
+        const firstS = daySessions[0];
+        body += `<div class="day-group">
+          <div class="day-label">${friendlyDate(firstS.start_time)}</div>
+          <div class="sessions-list">`;
+        for (const s of daySessions) {
+          const isExcluded = excluded.has(s.id);
+          const isCanceled = s.status === "cancelled";
+          const rowClass = isExcluded ? "session-row excluded" : isCanceled ? "session-row cancelled" : "session-row";
+          const seriesName = s.series_title ?? typeLabel(s.session_type);
+          const amountStr = !isExcluded && !isCanceled ? `${currency} ${rate}` : "\u2014";
+          let buttons = "";
+          if (isManage) {
+            buttons = `
+              <button
+                class="toggle-btn ${isExcluded ? "btn-show" : "btn-hide"}"
+                onclick="toggleSession('${s.id}', this)"
+              >${isExcluded ? "Show" : "Hide"}</button>
+              <button
+                class="toggle-btn btn-pay"
+                onclick="togglePay('${s.id}', this)"
+                data-friendly="${friendlyDate(s.start_time)}"
+                data-time="${formatTimeRange(s.start_time, s.end_time)}"
+                data-type-label="${typeLabel(s.session_type)}"
+                data-type-style="${typeBadgeStyle(s.session_type)}"
+                data-level-html="${levelDot(s.ball_level).replace(/"/g, "&quot;")}"
+                data-amount="${amountStr}"
+              >Mark Paid</button>`;
+          }
+          const earnedCell = isManage ? `<span class="cell-earned">${amountStr}</span>` : `<span class="cell-earned">${amountStr}</span>`;
+          body += `
+            <div class="${rowClass}" data-id="${s.id}">
+              <span class="cell-time">${formatTimeRange(s.start_time, s.end_time)}</span>
+              <span class="cell-badge" style="${typeBadgeStyle(s.session_type)}">${typeLabel(s.session_type)}</span>
+              <span class="cell-level">${levelDot(s.ball_level)}</span>
+              <span class="cell-series">${seriesName}</span>
+              ${earnedCell}
+              ${buttons}
+            </div>`;
+        }
+        body += `</div></div>`;
+      }
+      body += `</div>`;
+    }
+    return body;
+  }
+  function buildBetaaldBody(tabSessions) {
+    if (tabSessions.length === 0) {
+      return `<p class="empty-msg">No paid sessions yet.</p>`;
+    }
+    const sorted = [...tabSessions].sort(
+      (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+    );
+    let body = `<div id="betaald-list" class="betaald-list">`;
+    for (const s of sorted) {
+      let buttons = "";
+      if (isManage) {
+        buttons = `<button
+          class="toggle-btn btn-unpay"
+          onclick="togglePay('${s.id}', this)"
+        >Mark Unpaid</button>`;
+      }
+      body += `
+        <div class="session-row paid-row" data-id="${s.id}">
+          <span class="cell-date">${friendlyDate(s.start_time)}</span>
+          <span class="cell-time">${formatTimeRange(s.start_time, s.end_time)}</span>
+          <span class="cell-badge" style="${typeBadgeStyle(s.session_type)}">${typeLabel(s.session_type)}</span>
+          <span class="cell-earned">${currency} ${rate}</span>
+          <span class="paid-badge">Paid</span>
+          ${buttons}
+        </div>`;
     }
     body += `</div>`;
+    return body;
   }
-  const totalSessions = sessions3.filter(countsForPayment).length;
+  const openstaandBody = buildOpenstaandBody(isManage ? manageOpenstaand : openstaandSessions);
+  const betaaldBody = buildBetaaldBody(betaaldSessions);
   const manageNote = isManage ? `<div class="manage-banner">
-        <span>Admin View \u2014 Toggle sessions to show/hide from Dean's report</span>
+        <span>Admin View \u2014 Toggle sessions to show/hide \xB7 Mark sessions as paid/unpaid</span>
        </div>` : "";
   const toggleScript = isManage ? `
   <script>
+    var _token = new URLSearchParams(window.location.search).get('manage');
+    var _base = '/api/coach-report/dean/' + window.location.pathname.split('/').filter(Boolean).at(-1);
+
+    function getManageUrl(action) {
+      return _base + '/' + action + '?manage=' + encodeURIComponent(_token);
+    }
+
+    function showError(msg) {
+      var banner = document.getElementById('manage-error-banner');
+      if (!banner) return;
+      banner.textContent = msg || 'Something went wrong \u2014 please try again.';
+      banner.style.display = 'block';
+      clearTimeout(banner._hideTimer);
+      banner._hideTimer = setTimeout(function() { banner.style.display = 'none'; }, 6000);
+    }
+
     async function toggleSession(id, btn) {
       btn.disabled = true;
-      const url = window.location.pathname.replace(//$/, '') + '/exclude';
-      const token = new URLSearchParams(window.location.search).get('manage');
-      const res = await fetch(url + '?manage=' + token, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: id })
-      });
-      if (res.ok) {
-        const row = btn.closest('.session-row');
-        if (row.classList.contains('excluded')) {
-          row.classList.remove('excluded');
-          btn.textContent = 'Hide';
-          btn.className = 'toggle-btn btn-hide';
+      try {
+        const res = await fetch(getManageUrl('exclude'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: id })
+        });
+        if (res.ok) {
+          const row = btn.closest('.session-row');
+          if (row.classList.contains('excluded')) {
+            row.classList.remove('excluded');
+            btn.textContent = 'Hide';
+            btn.className = 'toggle-btn btn-hide';
+          } else {
+            row.classList.add('excluded');
+            btn.textContent = 'Show';
+            btn.className = 'toggle-btn btn-show';
+          }
         } else {
-          row.classList.add('excluded');
-          btn.textContent = 'Show';
-          btn.className = 'toggle-btn btn-show';
+          const err = await res.json().catch(() => ({}));
+          showError('Error toggling session: ' + (err.error || res.status));
         }
-        btn.disabled = false;
-      } else {
-        alert('Error toggling session');
-        btn.disabled = false;
+      } catch (err) {
+        showError('Network error \u2014 please check your connection.');
+      }
+      btn.disabled = false;
+    }
+
+    async function togglePay(id, btn) {
+      btn.disabled = true;
+      try {
+        const res = await fetch(getManageUrl('pay'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: id })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          showError('Error toggling payment: ' + (err.error || res.status));
+          btn.disabled = false;
+          return;
+        }
+        const data = await res.json();
+        const nowPaid = data.paid;
+
+        if (nowPaid) {
+          // Move from Openstaand to Betaald
+          const row = btn.closest('.session-row');
+          const friendlyDateStr = btn.dataset.friendly || '';
+          const timeStr = btn.dataset.time || '';
+          const typeLabel = btn.dataset.typeLabel || '';
+          const typeStyle = btn.dataset.typeStyle || '';
+          const currency = '${currency}';
+          const rate = ${rate};
+
+          // Remove from Openstaand
+          const dayList = row.parentElement;
+          row.remove();
+          cleanupEmptyGroups(dayList);
+          updateOpenstaandCount(-1);
+
+          // Add to Betaald list
+          const betaaldList = document.getElementById('betaald-list') || createBetaaldList();
+          const newRow = document.createElement('div');
+          newRow.className = 'session-row paid-row';
+          newRow.dataset.id = id;
+          newRow.innerHTML =
+            '<span class="cell-date">' + friendlyDateStr + '</span>' +
+            '<span class="cell-time">' + timeStr + '</span>' +
+            '<span class="cell-badge" style="' + typeStyle + '">' + typeLabel + '</span>' +
+            '<span class="cell-earned">' + currency + ' ' + rate + '</span>' +
+            '<span class="paid-badge">Paid</span>' +
+            '<button class="toggle-btn btn-unpay" onclick="togglePay(\\'' + id + '\\', this)">Mark Unpaid</button>';
+          betaaldList.insertBefore(newRow, betaaldList.firstChild);
+          updateBetaaldCount(1);
+
+          // Hide the empty message if present
+          const emptyMsg = document.querySelector('#tab-betaald .empty-msg');
+          if (emptyMsg) emptyMsg.style.display = 'none';
+        } else {
+          // Move from Betaald to Openstaand \u2014 just reload for simplicity
+          window.location.reload();
+          return;
+        }
+      } catch (err) {
+        showError('Network error \u2014 please check your connection.');
+      }
+      btn.disabled = false;
+    }
+
+    function cleanupEmptyGroups(sessionsList) {
+      if (!sessionsList) return;
+      const dayGroup = sessionsList.parentElement;
+      if (dayGroup && sessionsList.children.length === 0) {
+        const weekBlock = dayGroup.parentElement;
+        dayGroup.remove();
+        if (weekBlock) {
+          const dayGroups = weekBlock.querySelectorAll('.day-group');
+          if (dayGroups.length === 0) {
+            const monthHeader = weekBlock.previousElementSibling;
+            weekBlock.remove();
+            if (monthHeader && monthHeader.classList.contains('month-header')) {
+              const next = monthHeader.nextElementSibling;
+              if (!next || !next.classList.contains('week-block')) {
+                monthHeader.remove();
+              }
+            }
+          }
+        }
+      }
+      const tabContent = document.getElementById('tab-openstaand');
+      const remaining = tabContent ? tabContent.querySelectorAll('.session-row') : [];
+      if (remaining.length === 0 && tabContent) {
+        const existing = tabContent.querySelector('.empty-msg');
+        if (!existing) {
+          tabContent.innerHTML = '<p class="empty-msg">No outstanding sessions.</p>';
+        }
       }
     }
-  </script>` : "";
+
+    function createBetaaldList() {
+      const tab = document.getElementById('tab-betaald');
+      const list = document.createElement('div');
+      list.id = 'betaald-list';
+      list.className = 'betaald-list';
+      tab.appendChild(list);
+      return list;
+    }
+
+    function updateOpenstaandCount(delta) {
+      const el = document.getElementById('openstaand-count');
+      const amtEl = document.getElementById('openstaand-amount');
+      if (el) {
+        const cur = parseInt(el.textContent, 10) || 0;
+        const next = Math.max(0, cur + delta);
+        el.textContent = next;
+        if (amtEl) amtEl.textContent = '${currency} ' + (next * ${rate}).toLocaleString();
+      }
+    }
+
+    function updateBetaaldCount(delta) {
+      const el = document.getElementById('betaald-count');
+      const amtEl = document.getElementById('betaald-amount');
+      if (el) {
+        const cur = parseInt(el.textContent, 10) || 0;
+        const next = Math.max(0, cur + delta);
+        el.textContent = next;
+        if (amtEl) amtEl.textContent = '${currency} ' + (next * ${rate}).toLocaleString();
+      }
+    }
+
+    function switchTab(tab) {
+      document.getElementById('tab-openstaand').style.display = tab === 'openstaand' ? 'block' : 'none';
+      document.getElementById('tab-betaald').style.display = tab === 'betaald' ? 'block' : 'none';
+      document.getElementById('tab-btn-openstaand').classList.toggle('tab-active', tab === 'openstaand');
+      document.getElementById('tab-btn-betaald').classList.toggle('tab-active', tab === 'betaald');
+    }
+  </script>` : `
+  <script>
+    function switchTab(tab) {
+      document.getElementById('tab-openstaand').style.display = tab === 'openstaand' ? 'block' : 'none';
+      document.getElementById('tab-betaald').style.display = tab === 'betaald' ? 'block' : 'none';
+      document.getElementById('tab-btn-openstaand').classList.toggle('tab-active', tab === 'openstaand');
+      document.getElementById('tab-btn-betaald').classList.toggle('tab-active', tab === 'betaald');
+    }
+  </script>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -55771,6 +56189,8 @@ function buildHTML(sessions3, state, isManage) {
       --muted:    #8A95A3;
       --border:   rgba(255,255,255,0.07);
       --radius:   12px;
+      --orange:   #F97316;
+      --green:    #22C55E;
     }
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
@@ -55801,12 +56221,27 @@ function buildHTML(sessions3, state, isManage) {
     }
     .coach-name { font-weight: 700; font-size: 17px; }
     .coach-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .grand-total {
+
+    /* Summary totals strip */
+    .summary-totals {
+      display: flex; gap: 12px; align-items: center;
+    }
+    .summary-total-item {
       text-align: right;
     }
-    .grand-total-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
-    .grand-total-value { font-size: 22px; font-weight: 800; color: var(--accent); }
-    .grand-total-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .summary-total-label {
+      font-size: 10px; color: var(--muted); text-transform: uppercase;
+      letter-spacing: .6px; font-weight: 600;
+    }
+    .summary-total-amount {
+      font-size: 20px; font-weight: 800;
+    }
+    .summary-total-count {
+      font-size: 11px; color: var(--muted); margin-top: 1px;
+    }
+    .color-orange { color: var(--orange); }
+    .color-green  { color: var(--green); }
+    .summary-divider { width: 1px; height: 40px; background: var(--border); }
 
     .manage-banner {
       background: linear-gradient(90deg, #7C3AED22, #2563EB22);
@@ -55818,19 +56253,42 @@ function buildHTML(sessions3, state, isManage) {
       text-align: center;
     }
 
-    .content { max-width: 860px; margin: 0 auto; padding: 28px 16px 0; }
+    /* Tabs */
+    .tabs-bar {
+      max-width: 860px; margin: 24px auto 0; padding: 0 16px;
+      display: flex; gap: 4px;
+      border-bottom: 2px solid var(--border);
+    }
+    .tab-btn {
+      background: none; border: none; cursor: pointer;
+      font-family: inherit; font-size: 14px; font-weight: 700;
+      color: var(--muted); padding: 10px 20px 12px;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color .15s, border-color .15s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.tab-active { color: var(--text); border-bottom-color: var(--accent); }
+    .tab-count {
+      font-size: 11px; font-weight: 800;
+      padding: 2px 7px; border-radius: 20px;
+      background: var(--bg3);
+    }
+    .tab-btn.tab-active .tab-count { background: var(--accent); color: #0C1118; }
+
+    .content { max-width: 860px; margin: 0 auto; padding: 24px 16px 0; }
 
     .month-header {
       display: flex; align-items: center; justify-content: space-between;
-      margin: 32px 0 8px;
+      margin: 24px 0 8px;
       padding-bottom: 8px;
       border-bottom: 2px solid var(--border);
     }
     .month-header span:first-child { font-size: 20px; font-weight: 800; color: var(--text); }
-    .month-total { font-size: 16px; font-weight: 700; color: var(--accent); }
 
     .week-block {
-      margin-bottom: 24px;
+      margin-bottom: 20px;
       background: var(--bg2);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -55843,7 +56301,6 @@ function buildHTML(sessions3, state, isManage) {
       border-bottom: 1px solid var(--border);
     }
     .week-label  { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-    .week-earned { font-size: 13px; font-weight: 700; color: var(--accent); }
 
     .day-group { border-bottom: 1px solid var(--border); }
     .day-group:last-child { border-bottom: none; }
@@ -55869,11 +56326,22 @@ function buildHTML(sessions3, state, isManage) {
     }
     .session-row.cancelled { opacity: .5; }
 
+    /* Betaald tab flat list */
+    .betaald-list { display: flex; flex-direction: column; gap: 6px; }
+    .paid-row { background: #0d1f14; border: 1px solid #22C55E22; }
+    .paid-row:hover { background: #122a1a; }
+    .paid-badge {
+      font-size: 11px; font-weight: 800;
+      padding: 3px 10px; border-radius: 20px;
+      background: #22C55E1a; color: #22C55E;
+      border: 1px solid #22C55E33;
+    }
+
+    .cell-date   { font-size: 12px; font-weight: 600; color: var(--muted); min-width: 160px; }
     .cell-time   { font-size: 13px; font-weight: 700; min-width: 110px; color: var(--text); }
     .cell-badge  { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; min-width: 84px; text-align: center; letter-spacing: .3px; }
     .cell-level  { min-width: 80px; }
     .cell-series { font-size: 12px; color: var(--muted); flex: 1; min-width: 100px; }
-    .cell-status { min-width: 80px; text-align: right; }
     .cell-earned { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 72px; text-align: right; }
 
     .toggle-btn {
@@ -55882,25 +56350,18 @@ function buildHTML(sessions3, state, isManage) {
       transition: opacity .15s;
     }
     .toggle-btn:disabled { opacity: .4; cursor: not-allowed; }
-    .btn-hide { background: #EF44441a; color: #EF4444; border: 1px solid #EF444433; }
-    .btn-show { background: #22C55E1a; color: #22C55E; border: 1px solid #22C55E33; }
-    .btn-hide:hover:not(:disabled) { background: #EF444430; }
-    .btn-show:hover:not(:disabled) { background: #22C55E30; }
+    .btn-hide   { background: #EF44441a; color: #EF4444; border: 1px solid #EF444433; }
+    .btn-show   { background: #22C55E1a; color: #22C55E; border: 1px solid #22C55E33; }
+    .btn-pay    { background: #22C55E1a; color: #22C55E; border: 1px solid #22C55E33; }
+    .btn-unpay  { background: #F973161a; color: #F97316; border: 1px solid #F9731633; }
+    .btn-hide:hover:not(:disabled)  { background: #EF444430; }
+    .btn-show:hover:not(:disabled)  { background: #22C55E30; }
+    .btn-pay:hover:not(:disabled)   { background: #22C55E30; }
+    .btn-unpay:hover:not(:disabled) { background: #F9731630; }
 
-    .summary-strip {
-      max-width: 860px; margin: 28px auto 0; padding: 0 16px;
+    .empty-msg {
+      color: var(--muted); text-align: center; padding: 40px 0; font-size: 14px;
     }
-    .summary-card {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 24px;
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 16px;
-    }
-    .summary-item { text-align: center; }
-    .summary-value { font-size: 28px; font-weight: 800; color: var(--accent); }
-    .summary-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-top: 2px; }
 
     .footer {
       text-align: center; color: var(--muted); font-size: 11px;
@@ -55911,7 +56372,10 @@ function buildHTML(sessions3, state, isManage) {
       .session-row { gap: 7px; }
       .cell-time   { min-width: 90px; }
       .cell-series { display: none; }
+      .cell-date   { min-width: 0; font-size: 11px; }
       .top-bar { padding: 16px; }
+      .summary-totals { gap: 8px; }
+      .summary-total-amount { font-size: 16px; }
     }
   </style>
 </head>
@@ -55925,38 +56389,41 @@ function buildHTML(sessions3, state, isManage) {
       <div class="coach-sub">Sessions from 11 May 2026 \xB7 ${currency} ${rate} / session</div>
     </div>
   </div>
-  <div class="grand-total">
-    <div class="grand-total-label">Total Earned</div>
-    <div class="grand-total-value">${currency} ${grandTotal.toLocaleString()}</div>
-    <div class="grand-total-sub">${totalSessions} sessions counted</div>
+  <div class="summary-totals">
+    <div class="summary-total-item">
+      <div class="summary-total-label">Openstaand</div>
+      <div class="summary-total-amount color-orange" id="openstaand-amount">${currency} ${openstaandTotal.toLocaleString()}</div>
+      <div class="summary-total-count"><span id="openstaand-count">${openstaandSessions.length}</span> sessions</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-total-item">
+      <div class="summary-total-label">Betaald</div>
+      <div class="summary-total-amount color-green" id="betaald-amount">${currency} ${betaaldTotal.toLocaleString()}</div>
+      <div class="summary-total-count"><span id="betaald-count">${betaaldSessions.length}</span> sessions</div>
+    </div>
   </div>
 </div>
 
 ${manageNote}
+${isManage ? `<div id="manage-error-banner" style="display:none;background:#7f1d1d;color:#fca5a5;border:1px solid #ef444466;border-radius:10px;padding:12px 16px;margin:0 16px 8px;font-size:13px;font-weight:500;"></div>` : ""}
 
-<div class="content">
-  ${body || '<p style="color:var(--muted);text-align:center;padding:40px 0;">No sessions found.</p>'}
+<div class="tabs-bar">
+  <button class="tab-btn tab-active" id="tab-btn-openstaand" onclick="switchTab('openstaand')">
+    Openstaand
+    <span class="tab-count">${isManage ? manageOpenstaand.length : openstaandSessions.length}</span>
+  </button>
+  <button class="tab-btn" id="tab-btn-betaald" onclick="switchTab('betaald')">
+    Betaald
+    <span class="tab-count">${betaaldSessions.length}</span>
+  </button>
 </div>
 
-<div class="summary-strip">
-  <div class="summary-card">
-    <div class="summary-item">
-      <div class="summary-value">${totalSessions}</div>
-      <div class="summary-label">Sessions Counted</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value">${sessions3.filter((s) => s.status === "completed" && !excluded.has(s.id)).length}</div>
-      <div class="summary-label">Completed</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value">${sessions3.filter((s) => s.status === "cancelled").length}</div>
-      <div class="summary-label">Cancelled</div>
-    </div>
-    <div class="summary-item">
-      <div class="summary-value" style="color:var(--accent)">${currency} ${grandTotal.toLocaleString()}</div>
-      <div class="summary-label">Total ${currency}</div>
-    </div>
-  </div>
+<div id="tab-openstaand" class="content">
+  ${openstaandBody}
+</div>
+
+<div id="tab-betaald" class="content" style="display:none;">
+  ${betaaldBody}
 </div>
 
 <div class="footer">
@@ -55968,18 +56435,19 @@ ${toggleScript}
 </body>
 </html>`;
 }
-var Client, router82, CONFIG_PATH, DEAN_COACH_ID, DUBAI_OFFSET_MS, DAY_NAMES2, MONTH_NAMES, coach_report_default;
+var router85, CONFIG_PATH, DEAN_COACH_ID, DUBAI_OFFSET_MS, DAY_NAMES2, MONTH_NAMES, coach_report_default;
 var init_coach_report = __esm({
   "server/routes/coach-report.ts"() {
     "use strict";
-    ({ Client } = pkg2);
-    router82 = Router81();
+    init_db();
+    init_schema();
+    router85 = Router84();
     CONFIG_PATH = path11.join(process.cwd(), "server/data/coach-report-dean.json");
     DEAN_COACH_ID = "76f7d0e7-1363-404f-93d0-7edcce95a28d";
     DUBAI_OFFSET_MS = 4 * 60 * 60 * 1e3;
     DAY_NAMES2 = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    router82.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], async (req, res) => {
+    router85.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], async (req, res) => {
       console.log("[CoachReport] GET", req.path, "env-token-set:", !!process.env.DEAN_REPORT_PUBLIC_TOKEN);
       try {
         const { token } = req.params;
@@ -56011,7 +56479,7 @@ var init_coach_report = __esm({
         }
       }
     });
-    router82.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:token/exclude"], async (req, res) => {
+    router85.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:token/exclude"], async (req, res) => {
       try {
         const { token } = req.params;
         const manageParam = req.query["manage"];
@@ -56039,7 +56507,35 @@ var init_coach_report = __esm({
         return res.status(500).json({ error: "Internal error" });
       }
     });
-    coach_report_default = router82;
+    router85.post(["/coach-overview/dean/:token/pay", "/api/coach-report/dean/:token/pay"], async (req, res) => {
+      try {
+        const { token } = req.params;
+        const manageParam = req.query["manage"];
+        const manageToken = getManageToken().trim();
+        const decodedManage = manageParam ? decodeURIComponent(manageParam).trim() : void 0;
+        if (token !== getPublicToken().trim() || !manageToken || decodedManage !== manageToken) {
+          return res.status(403).json({ error: "Forbidden" });
+        }
+        const { sessionId } = req.body;
+        if (!sessionId || typeof sessionId !== "string") {
+          return res.status(400).json({ error: "Missing sessionId" });
+        }
+        const state = loadState();
+        const paidSet = new Set(state.paidSessionIds);
+        if (paidSet.has(sessionId)) {
+          paidSet.delete(sessionId);
+        } else {
+          paidSet.add(sessionId);
+        }
+        state.paidSessionIds = Array.from(paidSet);
+        saveState(state);
+        return res.json({ ok: true, paid: state.paidSessionIds.includes(sessionId) });
+      } catch (err) {
+        console.error("[CoachReport] Pay toggle error:", err);
+        return res.status(500).json({ error: "Internal error" });
+      }
+    });
+    coach_report_default = router85;
   }
 });
 
@@ -56122,11 +56618,11 @@ var rebalance_semi_private_exports = {};
 __export(rebalance_semi_private_exports, {
   repairUnrebalancedSemiPrivateCharges: () => repairUnrebalancedSemiPrivateCharges
 });
-import { sql as sql62 } from "drizzle-orm";
+import { sql as sql63 } from "drizzle-orm";
 async function repairUnrebalancedSemiPrivateCharges() {
   const tag = "[SemiPrivateRebalanceRepair]";
   try {
-    const pendingResult = await db.execute(sql62`
+    const pendingResult = await db.execute(sql63`
       SELECT DISTINCT
         s.id         AS session_id,
         s.academy_id AS academy_id,
@@ -56219,7 +56715,7 @@ var backfill_coach_players_exports = {};
 __export(backfill_coach_players_exports, {
   backfillCoachPlayers: () => backfillCoachPlayers
 });
-import { eq as eq108, isNull as isNull21, and as and90, inArray as inArray54 } from "drizzle-orm";
+import { eq as eq112, isNull as isNull21, and as and94, inArray as inArray56 } from "drizzle-orm";
 async function backfillCoachPlayers(timeoutMs = 3e4) {
   const label = "[BackfillCoachPlayers]";
   const started2 = Date.now();
@@ -56248,10 +56744,10 @@ async function runBackfill(label) {
     coachId: users.coachId,
     academyId: users.academyId
   }).from(users).where(
-    and90(
-      inArray54(users.role, ["coach", "assistant", "head_coach", "intern"]),
+    and94(
+      inArray56(users.role, ["coach", "assistant", "head_coach", "intern"]),
       isNull21(users.playerId),
-      eq108(users.deleted, false)
+      eq112(users.deleted, false)
     )
   );
   if (unlinkedCoachUsers.length === 0) {
@@ -56272,7 +56768,7 @@ async function runBackfill(label) {
         skipped++;
         continue;
       }
-      const coachRows = await db.select({ name: coaches.name, phone: coaches.phone }).from(coaches).where(eq108(coaches.id, coachUser.coachId)).limit(1);
+      const coachRows = await db.select({ name: coaches.name, phone: coaches.phone }).from(coaches).where(eq112(coaches.id, coachUser.coachId)).limit(1);
       if (coachRows.length === 0) {
         console.warn(
           `${label} Coach record not found for coachId=${coachUser.coachId} (userId=${coachUser.userId}) \u2014 skipping`
@@ -56302,7 +56798,7 @@ async function runBackfill(label) {
         if (!playerId) {
           throw new Error("Player insert returned no id");
         }
-        await tx.update(users).set({ playerId }).where(eq108(users.id, coachUser.userId));
+        await tx.update(users).set({ playerId }).where(eq112(users.id, coachUser.userId));
         return playerId;
       });
       console.log(
@@ -56334,7 +56830,7 @@ var glow_progress_connectivity_exports = {};
 __export(glow_progress_connectivity_exports, {
   runGlowProgressConnectivity: () => runGlowProgressConnectivity
 });
-import { sql as sql63 } from "drizzle-orm";
+import { sql as sql64 } from "drizzle-orm";
 function extractBlueSkills() {
   const seen = /* @__PURE__ */ new Set();
   const result = [];
@@ -56382,7 +56878,7 @@ function buildGlowLevelSkillMappings() {
 async function runGlowProgressConnectivity() {
   log("Starting...");
   try {
-    const caseResult = await db.execute(sql63`
+    const caseResult = await db.execute(sql64`
       UPDATE players SET ball_level = 'orange' WHERE ball_level = 'Orange'
     `);
     const caseFixes = caseResult.rowCount ?? 0;
@@ -56395,7 +56891,7 @@ async function runGlowProgressConnectivity() {
     let blueInserted = 0;
     let blueSkipped = 0;
     for (const skill of blueSkills) {
-      const r = await db.execute(sql63`
+      const r = await db.execute(sql64`
         INSERT INTO glow_skills (id, pillar, name, stage, description)
         VALUES (${skill.id}, ${skill.pillar}, ${skill.name}, ${skill.stage}, ${skill.description})
         ON CONFLICT (id) DO NOTHING
@@ -56408,7 +56904,7 @@ async function runGlowProgressConnectivity() {
     let glowInserted = 0;
     let glowSkipped = 0;
     for (const skill of glowSkillsList) {
-      const r = await db.execute(sql63`
+      const r = await db.execute(sql64`
         INSERT INTO glow_skills (id, pillar, name, stage, description)
         VALUES (${skill.id}, ${skill.pillar}, ${skill.name}, ${skill.stage}, ${skill.description})
         ON CONFLICT (id) DO NOTHING
@@ -56421,7 +56917,7 @@ async function runGlowProgressConnectivity() {
     let blueLSInserted = 0;
     let blueLSSkipped = 0;
     for (const m of blueMappings) {
-      const r = await db.execute(sql63`
+      const r = await db.execute(sql64`
         INSERT INTO level_skills (level_id, skill_id, target_score, weight, is_required)
         VALUES (${m.levelId}, ${m.skillId}, ${m.targetScore}, ${m.weight}, ${m.isRequired})
         ON CONFLICT (level_id, skill_id) DO NOTHING
@@ -56434,7 +56930,7 @@ async function runGlowProgressConnectivity() {
     let glowLSInserted = 0;
     let glowLSSkipped = 0;
     for (const m of glowMappings) {
-      const r = await db.execute(sql63`
+      const r = await db.execute(sql64`
         INSERT INTO level_skills (level_id, skill_id, target_score, weight, is_required)
         VALUES (${m.levelId}, ${m.skillId}, ${m.targetScore}, ${m.weight}, ${m.isRequired})
         ON CONFLICT (level_id, skill_id) DO NOTHING
@@ -56443,7 +56939,7 @@ async function runGlowProgressConnectivity() {
       else glowLSSkipped++;
     }
     log(`GlowLevelSkills: inserted ${glowLSInserted}, already present ${glowLSSkipped} (total ${glowMappings.length})`);
-    const dedupResult = await db.execute(sql63`
+    const dedupResult = await db.execute(sql64`
       DELETE FROM player_ball_levels
       WHERE assigned_by = 'system_backfill'
         AND id IN (
@@ -56460,7 +56956,7 @@ async function runGlowProgressConnectivity() {
     if (dedupCount > 0) {
       log(`PlayerBallLevels dedup: removed ${dedupCount} system_backfill duplicate row(s)`);
     }
-    const allPlayers = await db.select({ id: players.id, ballLevel: players.ballLevel }).from(players).where(sql63`ball_level IS NOT NULL AND ball_level != ''`);
+    const allPlayers = await db.select({ id: players.id, ballLevel: players.ballLevel }).from(players).where(sql64`ball_level IS NOT NULL AND ball_level != ''`);
     let pblInserted = 0;
     let pblSkipped = 0;
     let pblMissing = 0;
@@ -56472,7 +56968,7 @@ async function runGlowProgressConnectivity() {
         pblSkipped++;
         continue;
       }
-      const r = await db.execute(sql63`
+      const r = await db.execute(sql64`
         INSERT INTO player_ball_levels (player_id, level_id, status, assigned_by)
         SELECT ${player.id}, ${levelId}, 'active', 'system_backfill'
         WHERE NOT EXISTS (
@@ -56485,7 +56981,7 @@ async function runGlowProgressConnectivity() {
       if ((r.rowCount ?? 0) > 0) pblInserted++;
       else pblSkipped++;
     }
-    const missingRows = await db.execute(sql63`
+    const missingRows = await db.execute(sql64`
       SELECT p.id, p.ball_level
       FROM players p
       WHERE p.ball_level IS NOT NULL AND p.ball_level != ''
@@ -56499,13 +56995,13 @@ async function runGlowProgressConnectivity() {
       console.warn(`[GlowProgressConnectivity] WARN: ${pblMissing} player(s) still lack an active player_ball_levels entry after backfill`);
     }
     log(`PlayerBallLevels: inserted ${pblInserted}, already present ${pblSkipped}, missing ${pblMissing} (total ${allPlayers.length} players)`);
-    const blueSkillCountRows = await db.select({ n: sql63`count(*)` }).from(glowSkills).where(sql63`stage = 'BLUE'`);
-    const glowSkillCountRows = await db.select({ n: sql63`count(*)` }).from(glowSkills).where(sql63`stage = 'GLOW'`);
-    const blueLSCountRows = await db.select({ n: sql63`count(*)` }).from(levelSkills).where(sql63`level_id IN ('BLUE_1','BLUE_2','BLUE_3')`);
-    const glowLSCountRows = await db.select({ n: sql63`count(*)` }).from(levelSkills).where(sql63`level_id LIKE 'GLOW_%'`);
-    const pblCountRows = await db.select({ n: sql63`count(*)` }).from(playerBallLevels);
-    const blueLevelBreakdown = await db.select({ levelId: levelSkills.levelId, n: sql63`count(*)` }).from(levelSkills).where(sql63`level_id IN ('BLUE_1','BLUE_2','BLUE_3')`).groupBy(levelSkills.levelId);
-    const glowLevelBreakdown = await db.select({ levelId: levelSkills.levelId, n: sql63`count(*)` }).from(levelSkills).where(sql63`level_id LIKE 'GLOW_%'`).groupBy(levelSkills.levelId);
+    const blueSkillCountRows = await db.select({ n: sql64`count(*)` }).from(glowSkills).where(sql64`stage = 'BLUE'`);
+    const glowSkillCountRows = await db.select({ n: sql64`count(*)` }).from(glowSkills).where(sql64`stage = 'GLOW'`);
+    const blueLSCountRows = await db.select({ n: sql64`count(*)` }).from(levelSkills).where(sql64`level_id IN ('BLUE_1','BLUE_2','BLUE_3')`);
+    const glowLSCountRows = await db.select({ n: sql64`count(*)` }).from(levelSkills).where(sql64`level_id LIKE 'GLOW_%'`);
+    const pblCountRows = await db.select({ n: sql64`count(*)` }).from(playerBallLevels);
+    const blueLevelBreakdown = await db.select({ levelId: levelSkills.levelId, n: sql64`count(*)` }).from(levelSkills).where(sql64`level_id IN ('BLUE_1','BLUE_2','BLUE_3')`).groupBy(levelSkills.levelId);
+    const glowLevelBreakdown = await db.select({ levelId: levelSkills.levelId, n: sql64`count(*)` }).from(levelSkills).where(sql64`level_id LIKE 'GLOW_%'`).groupBy(levelSkills.levelId);
     const blueBreakdownStr = blueLevelBreakdown.sort((a, b) => a.levelId.localeCompare(b.levelId)).map((r) => `${r.levelId}=${r.n}`).join(", ");
     const glowBreakdownStr = glowLevelBreakdown.sort((a, b) => a.levelId.localeCompare(b.levelId)).map((r) => `${r.levelId}=${r.n}`).join(", ");
     log(
@@ -56573,11 +57069,11 @@ import { createServer } from "node:http";
 import rateLimit5 from "express-rate-limit";
 import multer5 from "multer";
 import path10 from "path";
-import fs10 from "fs";
-import { eq as eq101, sql as sql58, and as and84, gte as gte46, inArray as inArray49, lte as lte24 } from "drizzle-orm";
+import fs11 from "fs";
+import { eq as eq104, sql as sql58, and as and87, gte as gte47, inArray as inArray51, lte as lte25 } from "drizzle-orm";
 init_shop_routes();
 import { fromZodError as fromZodError15 } from "zod-validation-error";
-import { z as z20 } from "zod";
+import { z as z23 } from "zod";
 
 // server/marketplace-routes.ts
 init_db();
@@ -59080,8 +59576,8 @@ router6.post("/api/glow/messages/render-all", authMiddlewareWithFreshData, async
 router6.post("/api/glow/messages/seed", async (_req, res) => {
   try {
     const { seedDefaultTemplates: seedDefaultTemplates2 } = await Promise.resolve().then(() => (init_role_language_engine(), role_language_engine_exports));
-    const count19 = await seedDefaultTemplates2();
-    res.json({ success: true, templatesSeeded: count19 });
+    const count20 = await seedDefaultTemplates2();
+    res.json({ success: true, templatesSeeded: count20 });
   } catch (error) {
     console.error("Error seeding message templates:", error);
     res.status(500).json({ error: "Failed to seed templates" });
@@ -59422,10 +59918,10 @@ router6.get("/api/coach/sessions/pending-feedback", authMiddlewareWithFreshData,
   try {
     const userRole = req.user.role;
     const academyId = req.user.academyId;
-    const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-    const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+    const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+    const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
     let coachId = req.user.coachId;
-    if (supervisorCoachId && isOwnerRole) {
+    if (supervisorCoachId && isOwnerRole2) {
       const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and18(eq20(coaches.id, supervisorCoachId), eq20(coaches.academyId, academyId))).limit(1);
       if (targetCoach.length === 0) {
         return res.status(403).json({ error: "Coach not found in your academy" });
@@ -63110,8 +63606,8 @@ async function calculateSquadPower(playerId, starterCardIds, benchCardIds, coach
   const starterPlayerIds = starters.map((m) => m.playerId).filter(Boolean);
   if (starterPlayerIds.length >= 2) {
     try {
-      const { sessionPlayers: sessionPlayers3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const sessionRows = await db.select({ sessionId: sessionPlayers3.sessionId, spPlayerId: sessionPlayers3.playerId }).from(sessionPlayers3).where(inArray13(sessionPlayers3.playerId, starterPlayerIds));
+      const { sessionPlayers: sessionPlayers4 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const sessionRows = await db.select({ sessionId: sessionPlayers4.sessionId, spPlayerId: sessionPlayers4.playerId }).from(sessionPlayers4).where(inArray13(sessionPlayers4.playerId, starterPlayerIds));
       const sessionMap = /* @__PURE__ */ new Map();
       for (const row of sessionRows) {
         if (!row.sessionId || !row.spPlayerId) continue;
@@ -64287,6 +64783,57 @@ var MMR_CONFIG = {
 };
 
 // server/services/glow-rank-engine-adult.ts
+function calculateScoreRatio(scoreJson) {
+  if (!scoreJson || scoreJson.length === 0) return 0.5;
+  let playerGames = 0;
+  let totalGames = 0;
+  for (const set of scoreJson) {
+    playerGames += set.p;
+    totalGames += set.p + set.o;
+  }
+  if (totalGames === 0) return 0.5;
+  return playerGames / totalGames;
+}
+function parseSetScoreToRatio(setScore) {
+  const sets = setScore.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+  if (sets.length === 0) return null;
+  let playerGames = 0;
+  let opponentGames = 0;
+  for (const set of sets) {
+    const parts = set.split("-").map((n) => parseInt(n, 10));
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return null;
+    playerGames += parts[0];
+    opponentGames += parts[1];
+  }
+  const total = playerGames + opponentGames;
+  if (total === 0) return null;
+  return playerGames / total;
+}
+function generateMatchExplanation(delta, scoreRatio, didWin, opponentMmrDiff, scoreJson) {
+  const opponentDesc = opponentMmrDiff > 200 ? "veel sterkere tegenstander" : opponentMmrDiff > 60 ? "sterkere tegenstander" : opponentMmrDiff > -60 ? "gelijkwaardige tegenstander" : opponentMmrDiff > -200 ? "zwakkere tegenstander" : "veel zwakkere tegenstander";
+  const scoreStr = scoreJson ? scoreJson.map((s) => `${s.p}-${s.o}`).join(", ") : "";
+  let matchDesc;
+  if (didWin) {
+    if (scoreRatio !== null && scoreRatio >= 0.68) {
+      matchDesc = "Dominante overwinning";
+    } else if (scoreRatio !== null && scoreRatio >= 0.57) {
+      matchDesc = "Comfortabele overwinning";
+    } else {
+      matchDesc = "Nipte overwinning";
+    }
+  } else {
+    if (scoreRatio !== null && scoreRatio >= 0.45) {
+      matchDesc = "Sterke strijd ondanks verlies";
+    } else if (scoreRatio !== null && scoreRatio >= 0.33) {
+      matchDesc = "Gevecht tot het einde";
+    } else {
+      matchDesc = "Zware verlies";
+    }
+  }
+  const sign = delta >= 0 ? "+" : "";
+  const scoreClause = scoreStr ? ` (${scoreStr})` : "";
+  return `${sign}${delta} rating \u2014 ${matchDesc}${scoreClause} vs ${opponentDesc}`;
+}
 function calculateExpectedScore(playerMmr, opponentMmr) {
   return 1 / (1 + Math.pow(10, (opponentMmr - playerMmr) / 400));
 }
@@ -64323,38 +64870,17 @@ function shouldReduceWin(playerRank, opponentRank) {
   return opponentRank - playerRank > 2;
 }
 function mmrToRank(mmr) {
-  const threshold = MMR_CONFIG.rankThresholds.find(
-    (t) => mmr >= t.minMmr && mmr <= t.maxMmr
-  );
+  const threshold = MMR_CONFIG.rankThresholds.find((t) => mmr >= t.minMmr && mmr <= t.maxMmr);
   return threshold?.rank || 9;
-}
-function getSkillGatesForRank(rank) {
-  const rankData = ADULT_GLOW_RANKS.find((r) => r.rank === rank);
-  if (!rankData) return [];
-  return rankData.skillGates.map((g) => g.id);
 }
 function canPromote(player, targetRank) {
   if (player.currentRank <= targetRank) {
     return { canPromote: false, blockedBy: [] };
   }
-  const requiredGates = getSkillGatesForRank(targetRank);
-  const missingGates = requiredGates.filter((g) => !player.skillGatesUnlocked.includes(g));
-  if (missingGates.length > 0) {
-    return { canPromote: false, blockedBy: missingGates };
-  }
-  const rankData = ADULT_GLOW_RANKS.find((r) => r.rank === targetRank);
-  if (rankData?.matchRequirements?.minMatches8Weeks) {
-    if (player.matchesLast8Weeks < rankData.matchRequirements.minMatches8Weeks) {
-      return {
-        canPromote: false,
-        blockedBy: [`MIN_MATCHES_${rankData.matchRequirements.minMatches8Weeks}`]
-      };
-    }
-  }
-  if (targetRank <= 6 && player.rageQuitCount > 0) {
-    return { canPromote: false, blockedBy: ["NO_RAGE_QUITS"] };
-  }
   return { canPromote: true, blockedBy: [] };
+}
+function getSkillGateAchievements(skillGatesUnlocked) {
+  return [...skillGatesUnlocked];
 }
 function updateGlowRankAfterMatch(player, match) {
   const warnings = [];
@@ -64367,23 +64893,35 @@ function updateGlowRankAfterMatch(player, match) {
       promoted: false,
       demoted: false,
       blockedByGates: [],
-      warnings
+      warnings,
+      explanation: "Match telt niet mee \u2014 te vaak dezelfde tegenstander deze week",
+      scoreRatioUsed: null,
+      achievementBadges: getSkillGateAchievements(player.skillGatesUnlocked)
     };
   }
   const expected = calculateExpectedScore(player.currentMmr, match.opponentMmr);
-  const outcome = match.didWin ? 1 : 0;
-  let marginFactor = calculateMarginFactor(match.gamesDiff);
+  let scoreRatio = null;
+  let marginFactor = 1;
+  if (match.scoreJson && match.scoreJson.length > 0) {
+    scoreRatio = calculateScoreRatio(match.scoreJson);
+  } else if (match.setScore) {
+    scoreRatio = parseSetScoreToRatio(match.setScore);
+  }
+  if (scoreRatio === null) {
+    scoreRatio = match.didWin ? 1 : 0;
+    marginFactor = calculateMarginFactor(match.gamesDiff);
+  }
+  let effectiveScoreRatio = scoreRatio;
   const trustFactor = getTrustFactor(match.verification);
   const kFactor = calculateKFactor(player.matchesLast8Weeks, player.totalMatches);
   if (match.didWin && shouldReduceWin(player.currentRank, match.opponentRank)) {
-    marginFactor *= MMR_CONFIG.lowerRankReduction;
+    effectiveScoreRatio = 0.5 + (effectiveScoreRatio - 0.5) * MMR_CONFIG.lowerRankReduction;
     warnings.push("Win impact reduced: opponent significantly lower rank");
   }
-  const delta = Math.round(kFactor * (outcome - expected) * marginFactor * trustFactor);
+  const delta = Math.round(kFactor * (effectiveScoreRatio - expected) * marginFactor * trustFactor);
   const newMmr = Math.max(0, Math.min(3e3, player.currentMmr + delta));
   const targetRank = mmrToRank(newMmr);
   let newRank = player.currentRank;
-  let blockedByGates = [];
   let promoted = false;
   let demoted = false;
   if (targetRank < player.currentRank) {
@@ -64391,22 +64929,30 @@ function updateGlowRankAfterMatch(player, match) {
     if (promotionCheck.canPromote) {
       newRank = targetRank;
       promoted = true;
-    } else {
-      blockedByGates = promotionCheck.blockedBy;
-      warnings.push(`Promotion to Glow ${targetRank} blocked by gates`);
     }
   } else if (targetRank > player.currentRank) {
     newRank = targetRank;
     demoted = true;
   }
+  const opponentMmrDiff = match.opponentMmr - player.currentMmr;
+  const explanation = generateMatchExplanation(
+    delta,
+    scoreRatio,
+    match.didWin,
+    opponentMmrDiff,
+    match.scoreJson
+  );
   return {
     newMmr,
     mmrDelta: delta,
     newRank,
     promoted,
     demoted,
-    blockedByGates,
-    warnings
+    blockedByGates: [],
+    warnings,
+    explanation,
+    scoreRatioUsed: scoreRatio,
+    achievementBadges: getSkillGateAchievements(player.skillGatesUnlocked)
   };
 }
 function getUnlockedSkillGates(playerSkillScores2) {
@@ -64522,22 +65068,30 @@ function getRatingTrend(ratingHistory) {
   };
 }
 function calculateTeamRating(player1Mmr, player2Mmr) {
-  const theta = 0.5;
-  return theta * player1Mmr + theta * player2Mmr;
+  return 0.5 * player1Mmr + 0.5 * player2Mmr;
 }
 function calculateDoublesExpectedScore(teamAMmr, teamBMmr) {
   const q = 2.012;
   return 1 / (1 + Math.pow(10, (teamBMmr - teamAMmr) / (400 * q)));
 }
-function updateDoublesRatings(player1Mmr, player2Mmr, opponent1Mmr, opponent2Mmr, didWin, verification) {
+function updateDoublesRatings(player1Mmr, player2Mmr, opponent1Mmr, opponent2Mmr, didWin, verification, scoreJson) {
   const teamAMmr = calculateTeamRating(player1Mmr, player2Mmr);
   const teamBMmr = calculateTeamRating(opponent1Mmr, opponent2Mmr);
   const expected = calculateDoublesExpectedScore(teamAMmr, teamBMmr);
-  const outcome = didWin ? 1 : 0;
   const trustFactor = getTrustFactor(verification);
   const kFactor = MMR_CONFIG.baseK * 0.85;
-  const delta = Math.round(kFactor * (outcome - expected) * trustFactor);
-  return { player1Delta: delta, player2Delta: delta };
+  let scoreRatio;
+  let marginFactor = 1;
+  if (scoreJson && scoreJson.length > 0) {
+    scoreRatio = calculateScoreRatio(scoreJson);
+  } else {
+    scoreRatio = didWin ? 1 : 0;
+    marginFactor = 1;
+  }
+  const delta = Math.round(kFactor * (scoreRatio - expected) * marginFactor * trustFactor);
+  const opponentMmrDiff = teamBMmr - teamAMmr;
+  const explanation = generateMatchExplanation(delta, scoreRatio, didWin, opponentMmrDiff, scoreJson);
+  return { player1Delta: delta, player2Delta: delta, explanation };
 }
 function getPlayerRatingStatus(mmr, rank, matchesPlayed, ratingHistory) {
   const dssRating = formatDssRating(mmrToDssRating(mmr));
@@ -65369,6 +65923,7 @@ router15.post("/match", async (req, res) => {
       didWin,
       gamesDiff,
       setScore,
+      scoreJson,
       matchType = "friendly",
       verification = "self_reported"
     } = req.body;
@@ -65376,6 +65931,22 @@ router15.post("/match", async (req, res) => {
       return res.status(400).json({
         error: "Missing required fields: playerId, opponentId, didWin"
       });
+    }
+    const parsedScoreJsonRaw = Array.isArray(scoreJson) && scoreJson.length > 0 ? scoreJson : void 0;
+    if (!parsedScoreJsonRaw) {
+      return res.status(400).json({
+        error: "scoreJson is required: provide per-set game counts, e.g. [{p:6,o:4},{p:6,o:3}]"
+      });
+    }
+    const setsWonByPlayer = parsedScoreJsonRaw.filter((s) => s.p > s.o).length;
+    const setsWonByOpponent = parsedScoreJsonRaw.filter((s) => s.o > s.p).length;
+    if (setsWonByPlayer !== setsWonByOpponent) {
+      const scoreSaysWin = setsWonByPlayer > setsWonByOpponent;
+      if (scoreSaysWin !== didWin) {
+        return res.status(400).json({
+          error: "Score/result mismatch: set scores do not match the declared win/loss outcome"
+        });
+      }
     }
     const access = await verifyPlayerAccess(req, res, playerId);
     if (!access) return;
@@ -65408,9 +65979,9 @@ router15.post("/match", async (req, res) => {
         opponentCounts[match.opponentId] = (opponentCounts[match.opponentId] || 0) + 1;
       }
     }
-    const recentOpponents = Object.entries(opponentCounts).map(([id, count19]) => ({
+    const recentOpponents = Object.entries(opponentCounts).map(([id, count20]) => ({
       opponentId: id,
-      matchCount: count19,
+      matchCount: count20,
       lastMatchDate: recentMatchHistory.find((m) => m.opponentId === id)?.matchDate || /* @__PURE__ */ new Date()
     }));
     const playerSkillAssessments = await db.select({
@@ -65431,7 +66002,8 @@ router15.post("/match", async (req, res) => {
       opponentRank: opponent[0].glowRank || 9,
       didWin,
       gamesDiff: gamesDiff || 0,
-      setScore,
+      setScore: setScore ?? parsedScoreJsonRaw.map((s) => `${s.p}-${s.o}`).join(", "),
+      scoreJson: parsedScoreJsonRaw,
       matchType,
       verification,
       matchDate: /* @__PURE__ */ new Date()
@@ -65462,12 +66034,13 @@ router15.post("/match", async (req, res) => {
       noShowCount: player[0].noShowCount || 0
     };
     const result = updateGlowRankAfterMatch(playerStats, matchResult);
+    const persistedSetScore = setScore ?? parsedScoreJsonRaw.map((s) => `${s.p}-${s.o}`).join(", ");
     await db.insert(adultGlowMatches).values({
       playerId,
       opponentId,
       didWin,
       gamesDiff: gamesDiff || 0,
-      setScore,
+      setScore: persistedSetScore,
       matchType,
       verification,
       playerMmrBefore: playerStats.currentMmr,
@@ -65565,7 +66138,10 @@ router15.post("/match", async (req, res) => {
       promoted: result.promoted,
       demoted: result.demoted,
       blockedByGates: result.blockedByGates,
-      warnings: result.warnings
+      warnings: result.warnings,
+      explanation: result.explanation,
+      scoreRatioUsed: result.scoreRatioUsed,
+      achievementBadges: result.achievementBadges
     });
   } catch (error) {
     console.error("Error recording match:", error);
@@ -65878,6 +66454,7 @@ router15.get("/player/:playerId/full-profile", async (req, res) => {
         unlocked: skillGatesUnlocked,
         required: fullRankData?.skillGates || []
       },
+      achievementBadges: skillGatesUnlocked,
       recentMatches: recentMatches.map((m) => ({
         id: m.id,
         opponentName: opponentMap.get(m.opponentId) || "Unknown",
@@ -65931,7 +66508,10 @@ router15.get("/player/:playerId/dss-rating", async (req, res) => {
     const ratingHistory = await db.select({
       mmr: adultGlowMatches.playerMmrBefore,
       delta: adultGlowMatches.mmrDelta,
-      date: adultGlowMatches.matchDate
+      date: adultGlowMatches.matchDate,
+      didWin: adultGlowMatches.didWin,
+      setScore: adultGlowMatches.setScore,
+      opponentMmrBefore: adultGlowMatches.opponentMmrBefore
     }).from(adultGlowMatches).where(eq35(adultGlowMatches.playerId, playerId)).orderBy(desc20(adultGlowMatches.matchDate)).limit(20);
     const historyForTrend = [];
     let currentMmr = mmr;
@@ -65979,7 +66559,22 @@ router15.get("/player/:playerId/dss-rating", async (req, res) => {
         mmr: h.mmr,
         dssRating: formatDssRating(mmrToDssRating(h.mmr)),
         date: h.date
-      }))
+      })),
+      // Last match explanation (UTR-style post-match context)
+      ...ratingHistory[0] ? (() => {
+        const last = ratingHistory[0];
+        const delta = last.delta ?? 0;
+        const opponentMmrDiff = (last.opponentMmrBefore ?? mmr) - (last.mmr ?? mmr);
+        const parsedScore = last.setScore ? last.setScore.split(",").map((s) => s.trim()).map((s) => {
+          const [p, o] = s.split("-").map(Number);
+          return !isNaN(p) && !isNaN(o) ? { p, o } : null;
+        }).filter(Boolean) : void 0;
+        const scoreRatio = parsedScore && parsedScore.length > 0 ? parsedScore.reduce((acc, s) => acc + s.p, 0) / (parsedScore.reduce((acc, s) => acc + s.p + s.o, 0) || 1) : last.didWin ? 1 : 0;
+        return {
+          lastMatchExplanation: generateMatchExplanation(delta, scoreRatio, last.didWin, opponentMmrDiff, parsedScore),
+          lastMatchDelta: delta
+        };
+      })() : {}
     });
   } catch (error) {
     console.error("Error fetching DSS rating:", error);
@@ -66057,15 +66652,31 @@ router15.post("/doubles-match", async (req, res) => {
       team2Player1Id,
       team2Player2Id,
       team1Won,
-      gamesDiff: _gamesDiff,
-      setScore: _setScore,
-      matchType: _matchType = "friendly",
+      setScore,
+      scoreJson,
+      matchType = "friendly",
       verification = "self_reported"
     } = req.body;
     if (!team1Player1Id || !team1Player2Id || !team2Player1Id || !team2Player2Id || team1Won === void 0) {
       return res.status(400).json({
         error: "Missing required fields: all 4 player IDs and team1Won required"
       });
+    }
+    const parsedScoreJsonRaw = Array.isArray(scoreJson) && scoreJson.length > 0 ? scoreJson : void 0;
+    if (!parsedScoreJsonRaw) {
+      return res.status(400).json({
+        error: "scoreJson is required: provide per-set game counts, e.g. [{p:6,o:4},{p:6,o:3}]"
+      });
+    }
+    const setsWonByTeam1 = parsedScoreJsonRaw.filter((s) => s.p > s.o).length;
+    const setsWonByTeam2 = parsedScoreJsonRaw.filter((s) => s.o > s.p).length;
+    if (setsWonByTeam1 !== setsWonByTeam2) {
+      const scoreSaysTeam1Win = setsWonByTeam1 > setsWonByTeam2;
+      if (scoreSaysTeam1Win !== team1Won) {
+        return res.status(400).json({
+          error: "Score/result mismatch: set scores do not match the declared team1Won outcome"
+        });
+      }
     }
     const user = req.user;
     const callerIds = [team1Player1Id, team1Player2Id, team2Player1Id, team2Player2Id];
@@ -66106,46 +66717,69 @@ router15.post("/doubles-match", async (req, res) => {
       t2p1.glowMmr || 1e3,
       t2p2.glowMmr || 1e3,
       team1Won,
-      verification
+      verification,
+      parsedScoreJsonRaw
     );
+    const mirroredScoreJson = parsedScoreJsonRaw.map((s) => ({ p: s.o, o: s.p }));
     const team2Updates = updateDoublesRatings(
       t2p1.glowMmr || 1e3,
       t2p2.glowMmr || 1e3,
       t1p1.glowMmr || 1e3,
       t1p2.glowMmr || 1e3,
       !team1Won,
-      verification
+      verification,
+      mirroredScoreJson
     );
+    const matchDate = /* @__PURE__ */ new Date();
+    const setScoreStr = setScore ?? parsedScoreJsonRaw.map((s) => `${s.p}-${s.o}`).join(", ");
     const updates = [
-      { id: team1Player1Id, delta: team1Updates.player1Delta, won: team1Won },
-      { id: team1Player2Id, delta: team1Updates.player2Delta, won: team1Won },
-      { id: team2Player1Id, delta: team2Updates.player1Delta, won: !team1Won },
-      { id: team2Player2Id, delta: team2Updates.player2Delta, won: !team1Won }
+      { id: team1Player1Id, delta: team1Updates.player1Delta, won: team1Won, oppId: team2Player1Id },
+      { id: team1Player2Id, delta: team1Updates.player2Delta, won: team1Won, oppId: team2Player2Id },
+      { id: team2Player1Id, delta: team2Updates.player1Delta, won: !team1Won, oppId: team1Player1Id },
+      { id: team2Player2Id, delta: team2Updates.player2Delta, won: !team1Won, oppId: team1Player2Id }
     ];
     for (const update of updates) {
-      const player = getPlayer(update.id);
-      if (player) {
-        const newMmr = Math.max(0, Math.min(3e3, (player.glowMmr || 1e3) + update.delta));
+      const playerRow = getPlayer(update.id);
+      const oppRow = getPlayer(update.oppId);
+      if (playerRow) {
+        const mmrBefore = playerRow.glowMmr || 1e3;
+        const newMmr = Math.max(0, Math.min(3e3, mmrBefore + update.delta));
         const newRank = mmrToRank(newMmr);
         await db.update(players).set({
           glowMmr: newMmr,
           glowRank: newRank,
-          totalMatchesPlayed: (player.totalMatchesPlayed || 0) + 1
+          totalMatchesPlayed: (playerRow.totalMatchesPlayed || 0) + 1
         }).where(eq35(players.id, update.id));
+        await db.insert(adultGlowMatches).values({
+          playerId: update.id,
+          opponentId: update.oppId,
+          didWin: update.won,
+          gamesDiff: 0,
+          setScore: setScoreStr,
+          matchType: "doubles",
+          verification,
+          playerMmrBefore: mmrBefore,
+          opponentMmrBefore: oppRow?.glowMmr || 1e3,
+          mmrDelta: update.delta,
+          matchDate
+        });
       }
     }
     res.json({
       success: true,
       matchType: "doubles",
+      explanation: team1Won ? team1Updates.explanation : team2Updates.explanation,
       team1: {
         players: [team1Player1Id, team1Player2Id],
         won: team1Won,
-        mmrDeltas: [team1Updates.player1Delta, team1Updates.player2Delta]
+        mmrDeltas: [team1Updates.player1Delta, team1Updates.player2Delta],
+        explanation: team1Updates.explanation
       },
       team2: {
         players: [team2Player1Id, team2Player2Id],
         won: !team1Won,
-        mmrDeltas: [team2Updates.player1Delta, team2Updates.player2Delta]
+        mmrDeltas: [team2Updates.player1Delta, team2Updates.player2Delta],
+        explanation: team2Updates.explanation
       }
     });
   } catch (error) {
@@ -74897,6 +75531,28 @@ function getWarningMessage(code) {
   };
   return messages2[code] || "Unknown configuration error";
 }
+async function getEffectiveContracts(coachId) {
+  const contracts = await storage.getCoachContractsByCoach(coachId);
+  if (contracts.length > 0) {
+    return contracts;
+  }
+  const coachRows = await db.select({ id: coaches.id, academyId: coaches.academyId, hourlyRate: coaches.hourlyRate }).from(coaches).where(eq46(coaches.id, coachId)).limit(1);
+  const coachRecord = coachRows[0];
+  if (!coachRecord || coachRecord.hourlyRate == null) {
+    return [];
+  }
+  return [{
+    id: "profile-rate",
+    coachId,
+    academyId: coachRecord.academyId,
+    payType: "hourly",
+    hourlyRate: String(coachRecord.hourlyRate),
+    sessionRate: null,
+    percentageRate: null,
+    currency: "AED",
+    status: "active"
+  }];
+}
 async function calculateSessionEarning(session, coachId, contracts, cachedData) {
   const sessionId = session.id;
   const academyId = session.academyId;
@@ -74934,9 +75590,9 @@ async function calculateSessionEarning(session, coachId, contracts, cachedData) 
       }
     } else {
       if (sessionId) {
-        const sessionPlayers3 = await storage.getSessionPlayers(sessionId);
-        if (sessionPlayers3.length > 0) {
-          playerCount = sessionPlayers3.length;
+        const sessionPlayers4 = await storage.getSessionPlayers(sessionId);
+        if (sessionPlayers4.length > 0) {
+          playerCount = sessionPlayers4.length;
         }
       }
       if (playerCount === 1 && session.seriesId) {
@@ -75005,7 +75661,18 @@ async function calculateSessionEarning(session, coachId, contracts, cachedData) 
 }
 router26.get("/api/coach/earnings/summary", authMiddlewareWithFreshData, async (req, res) => {
   try {
-    const coachId = req.user.coachId;
+    const userRole = req.user?.role;
+    const academyId = req.user?.academyId;
+    const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+    const supervisorCoachIdParam = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
+    let coachId = req.user.coachId;
+    if (supervisorCoachIdParam && isOwnerRole2) {
+      const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and39(eq46(coaches.id, supervisorCoachIdParam), eq46(coaches.academyId, academyId))).limit(1);
+      if (targetCoach.length === 0) {
+        return res.status(403).json({ error: "Coach not found in your academy" });
+      }
+      coachId = supervisorCoachIdParam;
+    }
     if (!coachId) {
       return res.status(400).json({ error: "Coach ID required" });
     }
@@ -75023,7 +75690,7 @@ router26.get("/api/coach/earnings/summary", authMiddlewareWithFreshData, async (
     const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
-    const contracts = await storage.getCoachContractsByCoach(coachId);
+    const contracts = await getEffectiveContracts(coachId);
     const primaryContract = contracts[0];
     const completedSessions = await storage.getCoachCompletedSessionsForMonth(coachId, currentMonth, currentYear);
     const upcomingSessions = await storage.getCoachUpcomingSessionsForMonth(coachId, currentMonth, currentYear);
@@ -75037,14 +75704,14 @@ router26.get("/api/coach/earnings/summary", authMiddlewareWithFreshData, async (
     ]);
     const sessionPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of sessionPlayersData) {
-      const count19 = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count19 + 1);
+      const count20 = sessionPlayersMap.get(sp.sessionId) || 0;
+      sessionPlayersMap.set(sp.sessionId, count20 + 1);
     }
     const seriesPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of seriesPlayersData) {
       if (sp.status === "active") {
-        const count19 = seriesPlayersMap.get(sp.seriesId) || 0;
-        seriesPlayersMap.set(sp.seriesId, count19 + 1);
+        const count20 = seriesPlayersMap.get(sp.seriesId) || 0;
+        seriesPlayersMap.set(sp.seriesId, count20 + 1);
       }
     }
     const normalizeSessionTypeLocal = (type) => {
@@ -75080,8 +75747,8 @@ router26.get("/api/coach/earnings/summary", authMiddlewareWithFreshData, async (
         if (!pricingMap.has(key)) pricingMap.set(key, row);
       }
     }
-    const getAcademyPricingCached = async (academyId, sessionType) => {
-      return pricingMap.get(`${academyId}_${sessionType}`) || null;
+    const getAcademyPricingCached = async (academyId2, sessionType) => {
+      return pricingMap.get(`${academyId2}_${sessionType}`) || null;
     };
     console.log("[Earnings PERF] Batch fetch done:", Date.now() - _perfStart, "ms, sessions:", allSessionIds.length, "series:", allSeriesIds.length, "pricing:", pricingMap.size);
     const realizedByCurrency = {};
@@ -75196,7 +75863,7 @@ router26.get("/api/coach/earnings/breakdown", authMiddlewareWithFreshData, async
     }
     const month = parseInt(req.query.month) || (/* @__PURE__ */ new Date()).getMonth() + 1;
     const year = parseInt(req.query.year) || (/* @__PURE__ */ new Date()).getFullYear();
-    const contracts = await storage.getCoachContractsByCoach(coachId);
+    const contracts = await getEffectiveContracts(coachId);
     const primaryContract = contracts[0];
     const currency = primaryContract?.currency || "AED";
     const completedSessions = await storage.getCoachCompletedSessionsForMonth(coachId, month, year);
@@ -75208,14 +75875,14 @@ router26.get("/api/coach/earnings/breakdown", authMiddlewareWithFreshData, async
     ]);
     const sessionPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of sessionPlayersData) {
-      const count19 = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count19 + 1);
+      const count20 = sessionPlayersMap.get(sp.sessionId) || 0;
+      sessionPlayersMap.set(sp.sessionId, count20 + 1);
     }
     const seriesPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of seriesPlayersData) {
       if (sp.status === "active") {
-        const count19 = seriesPlayersMap.get(sp.seriesId) || 0;
-        seriesPlayersMap.set(sp.seriesId, count19 + 1);
+        const count20 = seriesPlayersMap.get(sp.seriesId) || 0;
+        seriesPlayersMap.set(sp.seriesId, count20 + 1);
       }
     }
     const normalizeSessionTypeLocal = (type) => {
@@ -75326,7 +75993,7 @@ router26.get("/api/coach/earnings/history", authMiddlewareWithFreshData, async (
     if (!coachId) {
       return res.status(400).json({ error: "Coach ID required" });
     }
-    const contracts = await storage.getCoachContractsByCoach(coachId);
+    const contracts = await getEffectiveContracts(coachId);
     const primaryContract = contracts[0];
     const currency = primaryContract?.currency || "AED";
     const now = /* @__PURE__ */ new Date();
@@ -75346,14 +76013,14 @@ router26.get("/api/coach/earnings/history", authMiddlewareWithFreshData, async (
     ]);
     const sessionPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of sessionPlayersData) {
-      const count19 = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count19 + 1);
+      const count20 = sessionPlayersMap.get(sp.sessionId) || 0;
+      sessionPlayersMap.set(sp.sessionId, count20 + 1);
     }
     const seriesPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of seriesPlayersData) {
       if (sp.status === "active") {
-        const count19 = seriesPlayersMap.get(sp.seriesId) || 0;
-        seriesPlayersMap.set(sp.seriesId, count19 + 1);
+        const count20 = seriesPlayersMap.get(sp.seriesId) || 0;
+        seriesPlayersMap.set(sp.seriesId, count20 + 1);
       }
     }
     const pricingCache = /* @__PURE__ */ new Map();
@@ -75420,7 +76087,7 @@ router26.get("/api/coach/earnings/analytics", authMiddlewareWithFreshData, async
     const now = /* @__PURE__ */ new Date();
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
-    const contracts = await storage.getCoachContractsByCoach(coachId);
+    const contracts = await getEffectiveContracts(coachId);
     const primaryContract = contracts[0];
     const currency = primaryContract?.currency || "AED";
     const completedSessions = await storage.getCoachCompletedSessionsForMonth(coachId, currentMonth, currentYear);
@@ -75450,14 +76117,14 @@ router26.get("/api/coach/earnings/analytics", authMiddlewareWithFreshData, async
     ]);
     const sessionPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of sessionPlayersData) {
-      const count19 = sessionPlayersMap.get(sp.sessionId) || 0;
-      sessionPlayersMap.set(sp.sessionId, count19 + 1);
+      const count20 = sessionPlayersMap.get(sp.sessionId) || 0;
+      sessionPlayersMap.set(sp.sessionId, count20 + 1);
     }
     const seriesPlayersMap = /* @__PURE__ */ new Map();
     for (const sp of seriesPlayersData) {
       if (sp.status === "active") {
-        const count19 = seriesPlayersMap.get(sp.seriesId) || 0;
-        seriesPlayersMap.set(sp.seriesId, count19 + 1);
+        const count20 = seriesPlayersMap.get(sp.seriesId) || 0;
+        seriesPlayersMap.set(sp.seriesId, count20 + 1);
       }
     }
     const pricingCache = /* @__PURE__ */ new Map();
@@ -76123,6 +76790,42 @@ function generateInvoiceHtml(data) {
       font-size: 13px;
     }
     
+    .bank-section {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 40px;
+    }
+    
+    .bank-section h4 {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #16A34A;
+      margin-bottom: 14px;
+    }
+    
+    .bank-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    
+    .bank-label {
+      color: #6B7280;
+      min-width: 140px;
+      flex-shrink: 0;
+    }
+    
+    .bank-value {
+      color: #111827;
+      font-weight: 500;
+      word-break: break-all;
+    }
+    
     .footer {
       text-align: center;
       padding-top: 32px;
@@ -76237,6 +76940,17 @@ function generateInvoiceHtml(data) {
         </div>
       </div>
     </div>
+    
+    ${data.bankName || data.bankIban || data.bankAccountNumber || data.bankAccountHolder ? `
+    <div class="bank-section">
+      <h4>Payment Details</h4>
+      ${data.bankAccountHolder ? `<div class="bank-row"><span class="bank-label">Account Holder</span><span class="bank-value">${data.bankAccountHolder}</span></div>` : ""}
+      ${data.bankName ? `<div class="bank-row"><span class="bank-label">Bank Name</span><span class="bank-value">${data.bankName}</span></div>` : ""}
+      ${data.bankIban ? `<div class="bank-row"><span class="bank-label">IBAN</span><span class="bank-value">${data.bankIban}</span></div>` : ""}
+      ${data.bankAccountNumber ? `<div class="bank-row"><span class="bank-label">Account Number</span><span class="bank-value">${data.bankAccountNumber}</span></div>` : ""}
+      ${data.bankSwiftCode ? `<div class="bank-row"><span class="bank-label">SWIFT / BIC</span><span class="bank-value">${data.bankSwiftCode}</span></div>` : ""}
+    </div>
+    ` : ""}
     
     ${data.notes ? `
     <div class="notes-section">
@@ -76679,10 +77393,10 @@ router28.get(
     try {
       const userRole = req.user?.role;
       const academyId = req.user?.academyId;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user?.coachId;
-      if (supervisorCoachId && isOwnerRole) {
+      if (supervisorCoachId && isOwnerRole2) {
         const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and42(eq49(coaches.id, supervisorCoachId), eq49(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
@@ -76939,7 +77653,9 @@ async function fetchPendingBookingRequests(coachId, academyId) {
         playerLevel: player?.ballLevel || null,
         playerSkillLevel: player?.skillLevel || null,
         lessonsWithCoach: pastSessionCounts[req.playerId] ?? 0,
-        playerXp: xpMap.get(req.playerId) ?? 0
+        playerXp: xpMap.get(req.playerId) ?? 0,
+        batchId: req.batchId || null,
+        playerConfirmed: req.playerConfirmed ?? null
       };
     });
   } catch (err) {
@@ -77312,10 +78028,10 @@ import * as pathLib from "path";
 async function getEffectivePlayerCount(sessionId) {
   const [enrolledRows, offeredRows] = await Promise.all([
     db.query.sessionPlayers.findMany({
-      where: (sp, { eq: eq109 }) => eq109(sp.sessionId, sessionId)
+      where: (sp, { eq: eq113 }) => eq113(sp.sessionId, sessionId)
     }),
     db.query.sessionWaitlist.findMany({
-      where: (w, { and: and91, eq: eq109 }) => and91(eq109(w.sessionId, sessionId), eq109(w.status, "offered"))
+      where: (w, { and: and95, eq: eq113 }) => and95(eq113(w.sessionId, sessionId), eq113(w.status, "offered"))
     })
   ]);
   return enrolledRows.length + offeredRows.length;
@@ -77364,7 +78080,10 @@ var bookingRequestSchema = z4.object({
   // Task #1093 — How the player intends to pay if/when the coach approves
   // the request. Card payments don't go through this endpoint (they
   // materialise via Stripe webhook).
-  paymentIntent: z4.enum(["credits", "pay_later"]).optional().nullable()
+  paymentIntent: z4.enum(["credits", "pay_later"]).optional().nullable(),
+  // Task #2000 — Recurring bookings: create N weekly copies of the same request.
+  // Only honoured for private/semi_private session types.
+  repeatWeeks: z4.number().int().min(1).max(52).optional().nullable()
 });
 var bookingDeclineSchema = z4.object({
   reason: z4.string().max(500).optional().nullable(),
@@ -77441,7 +78160,7 @@ router29.get(
         "academyId:",
         scopedAcademyId
       );
-      const slots = await storage.getAvailableSlots({
+      const availabilityResult = await storage.getAvailableSlots({
         academyId: scopedAcademyId,
         coachId,
         locationId,
@@ -77451,6 +78170,8 @@ router29.get(
         duration: parseInt(duration) || 60,
         requestingPlayerId: playerId
       });
+      const slots = availabilityResult.slots;
+      const academyTimezone = availabilityResult.academyTimezone;
       const slotCoachIds = [
         ...new Set(
           slots.map((s) => s.coachId).filter(Boolean)
@@ -77495,7 +78216,7 @@ router29.get(
         };
       });
       console.log("[Availability] Returning", enrichedSlots.length, "slots");
-      res.json(enrichedSlots);
+      res.json({ slots: enrichedSlots, academyTimezone: academyTimezone ?? "Asia/Dubai" });
     } catch (error) {
       console.error("Player availability error:", error);
       res.status(500).json({ error: "Failed to fetch availability" });
@@ -77529,13 +78250,14 @@ router29.get(
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       const rangeStart = /* @__PURE__ */ new Date(`${todayStr}T00:00:00.000Z`);
       const rangeEnd = /* @__PURE__ */ new Date(`${todayStr}T23:59:59.999Z`);
-      const slots = await storage.getAvailableSlots({
+      const todayAvailResult = await storage.getAvailableSlots({
         academyId,
         startDate: rangeStart,
         endDate: rangeEnd,
         duration: 60,
         requestingPlayerId: playerId
       });
+      const slots = todayAvailResult.slots;
       const slotCoachIds = [...new Set(slots.map((s) => s.coachId).filter(Boolean))];
       const slotCourtIds = [...new Set(slots.map((s) => s.courtId).filter(Boolean))];
       const slotLocationIds = [...new Set(slots.map((s) => s.locationId).filter(Boolean))];
@@ -77880,7 +78602,8 @@ router29.post(
         courtBookingStatus,
         courtBookingNote,
         courtBookingUrl,
-        paymentIntent
+        paymentIntent,
+        repeatWeeks
       } = parsedBooking.data;
       let bookingAcademyId = player.academyId;
       if (coachId) {
@@ -77900,13 +78623,13 @@ router29.post(
             return res.status(403).json({ error: "Session not accessible" });
           }
         }
-        const sessionPlayers3 = await storage.getSessionPlayers(sessionId);
+        const sessionPlayers4 = await storage.getSessionPlayers(sessionId);
         const maxPlayers = session.maxPlayers || 6;
         const effectiveCount = await getEffectivePlayerCount(sessionId);
         if (effectiveCount >= maxPlayers) {
           return res.status(400).json({ error: "Session is full" });
         }
-        if (sessionPlayers3.some((sp) => sp.id === playerId)) {
+        if (sessionPlayers4.some((sp) => sp.id === playerId)) {
           return res.status(400).json({ error: "Already enrolled in this session" });
         }
       }
@@ -78057,7 +78780,24 @@ router29.post(
           );
         }
       }
-      if (coachId) {
+      const effectiveRepeat = !isJoinRequest && (sessionType === "private" || sessionType === "semi_private") ? Math.min(Math.max(repeatWeeks ?? 1, 1), 52) : 1;
+      let batchId = null;
+      if (effectiveRepeat > 1) {
+        try {
+          const [batchRow] = await db.insert(bookingRequestBatches).values({
+            coachId: coachId || null,
+            playerId,
+            academyId: bookingAcademyId
+          }).returning();
+          batchId = batchRow.id;
+          await db.update(bookingRequests).set({ batchId }).where(eq51(bookingRequests.id, request.id));
+          request = { ...request, batchId };
+        } catch (batchErr) {
+          console.error("[Booking] Failed to create batch record:", batchErr);
+          batchId = crypto.randomUUID();
+        }
+      }
+      if (coachId && effectiveRepeat <= 1) {
         const sessionTypeLabel = sessionType === "private" ? "Private Lesson" : sessionType === "semi_private" ? "Semi-Private Lesson" : sessionType === "group" ? "Group Session" : "Open Play";
         const requestedDate = new Date(requestedStart).toLocaleDateString(
           "en-GB",
@@ -78095,11 +78835,7 @@ router29.post(
           console.log(
             `[Booking] coach ${coachId} push notify for request ${request.id}: ${coachTokens.length} active token(s) (isJoinRequest=${!!isJoinRequest})`
           );
-          if (coachTokens.length === 0) {
-            console.warn(
-              `[Booking] coach ${coachId} has 0 active push tokens \u2014 request ${request.id} will only show in-app`
-            );
-          } else {
+          if (coachTokens.length > 0) {
             const tickets = await sendPushNotification(
               coachTokens,
               notifTitle,
@@ -78129,7 +78865,95 @@ router29.post(
           );
         }
       }
-      res.status(201).json(request);
+      if (effectiveRepeat > 1) {
+        const WEEK_MS2 = 7 * 24 * 60 * 60 * 1e3;
+        const startBase = new Date(requestedStart).getTime();
+        const endBase = new Date(requestedEnd).getTime();
+        let windowMins = 120;
+        if (coachId) {
+          try {
+            const [cs] = await db.select({ bookingResponseWindowMinutes: coachSettings.bookingResponseWindowMinutes }).from(coachSettings).where(eq51(coachSettings.coachId, coachId)).limit(1);
+            windowMins = cs?.bookingResponseWindowMinutes ?? 120;
+          } catch {
+          }
+        }
+        const allWeekStarts = [new Date(requestedStart)];
+        for (let w = 1; w < effectiveRepeat; w++) {
+          try {
+            const wStart = new Date(startBase + w * WEEK_MS2);
+            const wEnd = new Date(endBase + w * WEEK_MS2);
+            allWeekStarts.push(wStart);
+            await db.insert(bookingRequests).values({
+              academyId: bookingAcademyId,
+              playerId,
+              coachId: coachId || null,
+              locationId: locationId || null,
+              courtId: courtId || null,
+              requestedStart: wStart,
+              requestedEnd: wEnd,
+              duration,
+              sessionType,
+              playerNote: playerNote || null,
+              status: "pending",
+              expiresAt: new Date(Date.now() + windowMins * 60 * 1e3),
+              courtBookingStatus: courtBookingStatus || null,
+              courtBookingNote: courtBookingNote || null,
+              courtBookingUrl: courtBookingUrl || null,
+              paymentIntent: paymentIntent || null,
+              batchId
+            }).returning();
+          } catch (weekErr) {
+            console.error(`[Booking] Failed to create week-${w} repeat booking:`, weekErr);
+          }
+        }
+        if (coachId) {
+          try {
+            const firstStart = allWeekStarts[0];
+            const lastStart = allWeekStarts[allWeekStarts.length - 1];
+            const dateOpts = { day: "numeric", month: "short" };
+            const rangeLabel = `${firstStart.toLocaleDateString("en-GB", dateOpts)} \u2013 ${lastStart.toLocaleDateString("en-GB", dateOpts)}`;
+            const batchTitle = "New Multi-Week Request";
+            const batchBody = `${player.name} requests ${effectiveRepeat} weekly ${duration}-min lessons (${rangeLabel})`;
+            await db.insert(coachNotifications).values({
+              coachId,
+              type: "booking_request",
+              title: batchTitle,
+              message: batchBody,
+              priority: "high",
+              actionUrl: `/coach/booking-requests`,
+              metadata: { batchId, playerId, weekCount: effectiveRepeat, isJoinRequest: false }
+            });
+            const coachTokens = await getCoachPushTokens(coachId);
+            if (coachTokens.length > 0) {
+              await sendPushNotification(
+                coachTokens,
+                batchTitle,
+                batchBody,
+                { type: "batch_booking_request", batchId, playerId },
+                void 0
+              );
+            }
+          } catch (batchNotifErr) {
+            console.error("[Booking] Failed to send batch coach notification:", batchNotifErr);
+          }
+        }
+        try {
+          const playerTokens = await getPlayerPushTokens(playerId);
+          if (playerTokens.length > 0) {
+            const firstDate = allWeekStarts[0].toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+            await sendPushNotification(
+              playerTokens,
+              `${effectiveRepeat} lessons requested`,
+              `Starting ${firstDate} \u2014 tap to confirm which weeks work for you.`,
+              { type: "batch_booking_created", batchId },
+              playerId
+            );
+          }
+        } catch (playerNotifErr) {
+          console.error("[Booking] Failed to send batch player push:", playerNotifErr);
+        }
+      }
+      res.status(201).json({ ...request, repeatWeeks: effectiveRepeat, batchId });
     } catch (error) {
       console.error("Create booking request error:", error);
       res.status(500).json({ error: "Failed to create booking request" });
@@ -78245,6 +79069,79 @@ router29.post(
     } catch (error) {
       console.error("Cancel booking request error:", error);
       res.status(500).json({ error: "Failed to cancel booking request" });
+    }
+  }
+);
+router29.get(
+  "/api/player/booking-batches/:batchId",
+  authMiddlewareWithFreshData,
+  async (req, res) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player access required" });
+      const { batchId } = req.params;
+      const rows = await db.select({
+        id: bookingRequests.id,
+        requestedStart: bookingRequests.requestedStart,
+        requestedEnd: bookingRequests.requestedEnd,
+        duration: bookingRequests.duration,
+        sessionType: bookingRequests.sessionType,
+        status: bookingRequests.status,
+        playerNote: bookingRequests.playerNote,
+        playerConfirmed: bookingRequests.playerConfirmed,
+        batchId: bookingRequests.batchId,
+        coachId: bookingRequests.coachId,
+        locationId: bookingRequests.locationId,
+        expiresAt: bookingRequests.expiresAt,
+        createdAt: bookingRequests.createdAt
+      }).from(bookingRequests).where(
+        and44(
+          eq51(bookingRequests.batchId, batchId),
+          eq51(bookingRequests.playerId, playerId)
+        )
+      ).orderBy(asc10(bookingRequests.requestedStart));
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "Batch not found or does not belong to you" });
+      }
+      const coachId = rows[0].coachId;
+      let coachName = null;
+      let coachPhotoUrl = null;
+      if (coachId) {
+        const [coachRow] = await db.select({ name: coaches.name, photoUrl: coaches.photoUrl }).from(coaches).where(eq51(coaches.id, coachId)).limit(1);
+        coachName = coachRow?.name || null;
+        coachPhotoUrl = coachRow?.photoUrl || null;
+      }
+      return res.json({
+        batchId,
+        coachName,
+        coachPhotoUrl,
+        requests: rows
+      });
+    } catch (error) {
+      console.error("[Booking] GET batch error:", error);
+      return res.status(500).json({ error: "Failed to fetch batch" });
+    }
+  }
+);
+router29.patch(
+  "/api/player/booking-requests/:id/player-confirm",
+  authMiddlewareWithFreshData,
+  async (req, res) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) return res.status(403).json({ error: "Player access required" });
+      const { id } = req.params;
+      const { confirmed } = req.body;
+      if (typeof confirmed !== "boolean") {
+        return res.status(400).json({ error: "confirmed must be a boolean" });
+      }
+      const [existing] = await db.select({ id: bookingRequests.id, playerId: bookingRequests.playerId }).from(bookingRequests).where(and44(eq51(bookingRequests.id, id), eq51(bookingRequests.playerId, playerId))).limit(1);
+      if (!existing) return res.status(404).json({ error: "Booking request not found" });
+      await db.update(bookingRequests).set({ playerConfirmed: confirmed }).where(eq51(bookingRequests.id, id));
+      return res.json({ success: true, id, playerConfirmed: confirmed });
+    } catch (error) {
+      console.error("[Booking] PATCH player-confirm error:", error);
+      return res.status(500).json({ error: "Failed to update availability" });
     }
   }
 );
@@ -78437,12 +79334,12 @@ router29.get(
       const futureDate = /* @__PURE__ */ new Date();
       futureDate.setDate(futureDate.getDate() + 14);
       const ownAcademySessions = await db.query.sessions.findMany({
-        where: (s, { and: and91, or: _or, eq: eq109, gte: gte51, lte: lte28, inArray: inArray55 }) => and91(
-          academyId ? eq109(s.academyId, academyId) : eq109(s.academyId, null),
-          inArray55(s.sessionType, ["group", "semi_private"]),
-          eq109(s.status, "scheduled"),
-          gte51(s.startTime, now),
-          lte28(s.startTime, futureDate)
+        where: (s, { and: and95, or: _or, eq: eq113, gte: gte53, lte: lte29, inArray: inArray57 }) => and95(
+          academyId ? eq113(s.academyId, academyId) : eq113(s.academyId, null),
+          inArray57(s.sessionType, ["group", "semi_private"]),
+          eq113(s.status, "scheduled"),
+          gte53(s.startTime, now),
+          lte29(s.startTime, futureDate)
         ),
         orderBy: (s, { asc: asc23 }) => [asc23(s.startTime)]
       });
@@ -78520,6 +79417,7 @@ router29.get(
       const seriesLevelMap = /* @__PURE__ */ new Map();
       const seriesDropInMap = /* @__PURE__ */ new Map();
       const seriesLocationMap = /* @__PURE__ */ new Map();
+      const seriesImageMap = /* @__PURE__ */ new Map();
       if (seriesIds.length > 0) {
         try {
           const seriesRows = await db.select().from(coachingSeries).where(inArray21(coachingSeries.id, seriesIds));
@@ -78532,6 +79430,21 @@ router29.get(
             });
             if (series.locationId)
               seriesLocationMap.set(series.id, series.locationId);
+            seriesImageMap.set(series.id, series.imageUrl ?? null);
+          }
+          try {
+            const { resolveMediaUrl: resolveMediaUrl2 } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
+            for (const [sid, raw] of seriesImageMap.entries()) {
+              if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+                seriesImageMap.set(sid, await resolveMediaUrl2(raw) ?? null);
+              }
+            }
+          } catch (_resolveErr) {
+            for (const [sid, raw] of seriesImageMap.entries()) {
+              if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+                seriesImageMap.set(sid, null);
+              }
+            }
           }
         } catch (_e) {
         }
@@ -78659,8 +79572,8 @@ router29.get(
       const waitlistBySessionId = /* @__PURE__ */ new Map();
       if (filteredSessionIds.length > 0) {
         const rows = await db.query.sessionWaitlist.findMany({
-          where: (w, { and: and91, inArray: inArray55, inArray: ia }) => and91(
-            inArray55(w.sessionId, filteredSessionIds),
+          where: (w, { and: and95, inArray: inArray57, inArray: ia }) => and95(
+            inArray57(w.sessionId, filteredSessionIds),
             ia(w.status, ["waiting", "offered"])
           ),
           orderBy: (w, { asc: asc23 }) => asc23(w.createdAt)
@@ -78727,6 +79640,7 @@ router29.get(
         const seriesDropIn = session.seriesId ? seriesDropInMap.get(session.seriesId) : null;
         const isPublicSeries = seriesDropIn?.isPublic ?? false;
         const publicDropInPrice = isPublicSeries ? seriesDropIn?.publicDropInPrice ?? (session.academyPrice ? parseFloat(session.academyPrice.toString()) : null) ?? (session.price ? parseFloat(session.price.toString()) : null) : null;
+        const seriesImageUrl = session.seriesId ? seriesImageMap.get(session.seriesId) ?? null : null;
         return {
           id: session.id,
           title: session.title || `${session.sessionType === "group" ? "Group" : "Semi"} Training`,
@@ -78772,7 +79686,8 @@ router29.get(
           offeredAt,
           claimWindowMinutes,
           sessionAcademyId: session.academyId || null,
-          sessionAcademyName: session.academyId ? academyNameCache.get(session.academyId) || null : null
+          sessionAcademyName: session.academyId ? academyNameCache.get(session.academyId) || null : null,
+          seriesImageUrl
         };
       });
       res.json(enrichedSessions);
@@ -78800,7 +79715,7 @@ router29.get(
         return res.status(403).json({ error: "Player access required" });
       }
       const currentPlayer = await db.query.players.findFirst({
-        where: (p, { eq: eq109 }) => eq109(p.id, playerId)
+        where: (p, { eq: eq113 }) => eq113(p.id, playerId)
       });
       const academyId = currentPlayer?.academyId;
       console.log(
@@ -79023,11 +79938,11 @@ router29.get(
           sportProfiles,
           ...rest
         }) => {
-          const fs13 = friendStatusByPlayerId.get(rest.id);
+          const fs14 = friendStatusByPlayerId.get(rest.id);
           return {
             ...rest,
-            friendStatus: fs13?.status ?? "none",
-            friendConnectionId: fs13?.connectionId ?? null
+            friendStatus: fs14?.status ?? "none",
+            friendConnectionId: fs14?.connectionId ?? null
           };
         }
       );
@@ -79076,7 +79991,7 @@ router29.post(
         (session.academyId || player.academyId) ?? void 0
       );
       const remainingCredits = activePackages.reduce(
-        (sum3, pkg3) => sum3 + Number(pkg3.remainingCredits),
+        (sum3, pkg2) => sum3 + Number(pkg2.remainingCredits),
         0
       );
       const matchingPackage = activePackages.find(
@@ -79111,7 +80026,7 @@ router29.post(
         return res.status(404).json({ error: "Session not found" });
       }
       const existingPlayer = await db.query.sessionPlayers.findFirst({
-        where: (sp, { and: and91, eq: eq109 }) => and91(eq109(sp.sessionId, sessionId), eq109(sp.playerId, playerId))
+        where: (sp, { and: and95, eq: eq113 }) => and95(eq113(sp.sessionId, sessionId), eq113(sp.playerId, playerId))
       });
       if (existingPlayer) {
         return res.status(400).json({ error: "Already joined this session" });
@@ -79376,7 +80291,7 @@ router29.post(
         59,
         999
       ));
-      const offeredSlots = await storage.getAvailableSlots({
+      const offeredSlotsResult = await storage.getAvailableSlots({
         academyId: coach.academyId,
         coachId,
         locationId: locationId || void 0,
@@ -79386,6 +80301,7 @@ router29.post(
         duration,
         requestingPlayerId: playerId
       });
+      const offeredSlots = offeredSlotsResult.slots;
       const matchesOfferedSlot = offeredSlots.some((slot) => {
         const slotStart = new Date(slot.startTime).getTime();
         const slotEnd = new Date(slot.endTime).getTime();
@@ -79698,10 +80614,10 @@ router29.post(
         });
       }
       const existingWaitlist = await db.query.sessionWaitlist.findFirst({
-        where: (w, { and: and91, eq: eq109, inArray: inArray55 }) => and91(
-          eq109(w.sessionId, sessionId),
-          eq109(w.playerId, playerId),
-          inArray55(w.status, ["waiting", "offered"])
+        where: (w, { and: and95, eq: eq113, inArray: inArray57 }) => and95(
+          eq113(w.sessionId, sessionId),
+          eq113(w.playerId, playerId),
+          inArray57(w.status, ["waiting", "offered"])
         )
       });
       if (existingWaitlist) {
@@ -79709,7 +80625,7 @@ router29.post(
         return res.status(400).json({ error: msg });
       }
       const waitingCount = await db.query.sessionWaitlist.findMany({
-        where: (w, { and: and91, eq: eq109 }) => and91(eq109(w.sessionId, sessionId), eq109(w.status, "waiting"))
+        where: (w, { and: and95, eq: eq113 }) => and95(eq113(w.sessionId, sessionId), eq113(w.status, "waiting"))
       });
       const position = waitingCount.length + 1;
       await db.insert(sessionWaitlist).values({
@@ -79741,10 +80657,10 @@ router29.delete(
         return res.status(403).json({ error: "Player access required" });
       }
       const existingEntry = await db.query.sessionWaitlist.findFirst({
-        where: (w, { and: and91, eq: eq109, inArray: inArray55 }) => and91(
-          eq109(w.sessionId, sessionId),
-          eq109(w.playerId, playerId),
-          inArray55(w.status, ["waiting", "offered"])
+        where: (w, { and: and95, eq: eq113, inArray: inArray57 }) => and95(
+          eq113(w.sessionId, sessionId),
+          eq113(w.playerId, playerId),
+          inArray57(w.status, ["waiting", "offered"])
         )
       });
       if (!existingEntry) {
@@ -79753,7 +80669,7 @@ router29.delete(
       await db.update(sessionWaitlist).set({ status: "cancelled" }).where(eq51(sessionWaitlist.id, existingEntry.id));
       if (existingEntry.status === "offered") {
         const nextWaiting = await db.query.sessionWaitlist.findFirst({
-          where: (w, { and: and91, eq: eq109 }) => and91(eq109(w.sessionId, sessionId), eq109(w.status, "waiting")),
+          where: (w, { and: and95, eq: eq113 }) => and95(eq113(w.sessionId, sessionId), eq113(w.status, "waiting")),
           orderBy: (w, { asc: asc23 }) => asc23(w.createdAt)
         });
         if (nextWaiting) {
@@ -79792,10 +80708,10 @@ router29.post(
         return res.status(403).json({ error: "Player access required" });
       }
       const offeredEntry = await db.query.sessionWaitlist.findFirst({
-        where: (w, { and: and91, eq: eq109 }) => and91(
-          eq109(w.sessionId, sessionId),
-          eq109(w.playerId, playerId),
-          eq109(w.status, "offered")
+        where: (w, { and: and95, eq: eq113 }) => and95(
+          eq113(w.sessionId, sessionId),
+          eq113(w.playerId, playerId),
+          eq113(w.status, "offered")
         )
       });
       if (!offeredEntry) {
@@ -79809,7 +80725,7 @@ router29.post(
         if (/* @__PURE__ */ new Date() > expiryTime) {
           await db.update(sessionWaitlist).set({ status: "expired" }).where(eq51(sessionWaitlist.id, offeredEntry.id));
           const nextWaiting = await db.query.sessionWaitlist.findFirst({
-            where: (w, { and: and91, eq: eq109 }) => and91(eq109(w.sessionId, sessionId), eq109(w.status, "waiting")),
+            where: (w, { and: and95, eq: eq113 }) => and95(eq113(w.sessionId, sessionId), eq113(w.status, "waiting")),
             orderBy: (w, { asc: asc23 }) => asc23(w.createdAt)
           });
           if (nextWaiting) {
@@ -79885,9 +80801,9 @@ router29.get(
         return res.status(403).json({ error: "Not authorized to view this session's waitlist" });
       }
       const waitlistEntries = await db.query.sessionWaitlist.findMany({
-        where: (w, { and: and91, eq: eq109, inArray: inArray55 }) => and91(
-          eq109(w.sessionId, sessionId),
-          inArray55(w.status, ["waiting", "offered"])
+        where: (w, { and: and95, eq: eq113, inArray: inArray57 }) => and95(
+          eq113(w.sessionId, sessionId),
+          inArray57(w.status, ["waiting", "offered"])
         ),
         orderBy: (w, { asc: asc23 }) => asc23(w.createdAt)
       });
@@ -80898,6 +81814,11 @@ router29.get(
   async (req, res) => {
     try {
       const { coachId } = req.params;
+      const callerCoachId = req.user?.coachId;
+      const callerRole = req.user?.role;
+      if (callerCoachId !== coachId && callerRole !== "admin" && callerRole !== "platform_owner" && callerRole !== "academy_owner") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
       const exceptions = await db.select().from(availabilityExceptions).where(eq51(availabilityExceptions.coachId, coachId)).orderBy(desc28(availabilityExceptions.startDate));
       res.json(exceptions);
     } catch (error) {
@@ -80912,6 +81833,11 @@ router29.post(
   async (req, res) => {
     try {
       const { coachId } = req.params;
+      const callerCoachId = req.user?.coachId;
+      const callerRole = req.user?.role;
+      if (callerCoachId !== coachId && callerRole !== "admin" && callerRole !== "platform_owner" && callerRole !== "academy_owner") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
       const { startDate, endDate, reason } = req.body;
       if (!startDate) {
         return res.status(400).json({ error: "startDate is required" });
@@ -80929,7 +81855,21 @@ router29.delete(
   authMiddlewareWithFreshData,
   async (req, res) => {
     try {
-      const { id } = req.params;
+      const { coachId, id } = req.params;
+      const callerCoachId = req.user?.coachId;
+      const callerRole = req.user?.role;
+      if (callerCoachId !== coachId && callerRole !== "admin" && callerRole !== "platform_owner" && callerRole !== "academy_owner") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      const [existing] = await db.select({ id: availabilityExceptions.id }).from(availabilityExceptions).where(
+        and44(
+          eq51(availabilityExceptions.id, id),
+          eq51(availabilityExceptions.coachId, coachId)
+        )
+      );
+      if (!existing) {
+        return res.status(404).json({ error: "Exception not found" });
+      }
       await db.delete(availabilityExceptions).where(eq51(availabilityExceptions.id, id));
       res.json({ success: true });
     } catch (error) {
@@ -81573,7 +82513,12 @@ router29.get(
         notes: invoice.notes || void 0,
         status: invoice.status,
         paidAt: invoice.paidAt?.toISOString(),
-        theme: academy?.theme ?? null
+        theme: academy?.theme ?? null,
+        bankName: settings?.bankName || void 0,
+        bankIban: settings?.bankIban || void 0,
+        bankAccountNumber: settings?.bankAccountNumber || void 0,
+        bankAccountHolder: settings?.bankAccountHolder || void 0,
+        bankSwiftCode: settings?.bankSwiftCode || void 0
       };
       const html = generateInvoiceHtml(invoiceData);
       res.setHeader("Content-Type", "text/html");
@@ -81840,7 +82785,7 @@ router29.post(
       const _dubaiNow = new Date(now.getTime() + DUBAI_OFFSET * 60 * 60 * 1e3);
       const expiresAt = new Date(now);
       expiresAt.setDate(expiresAt.getDate() + templateData.validityDays);
-      const pkg3 = await storage.createPackage({
+      const pkg2 = await storage.createPackage({
         playerId,
         academyId: player.academyId ?? "",
         name: templateData.name,
@@ -81855,7 +82800,7 @@ router29.post(
       const playerPkgDebtSettlement = await storage.settlePlayerDebts(
         playerId,
         templateData.creditType,
-        pkg3.id
+        pkg2.id
       );
       if (playerPkgDebtSettlement.settledCount > 0) {
         console.log(
@@ -81869,7 +82814,7 @@ router29.post(
       const invoiceInput = {
         playerId,
         academyId: player.academyId ?? "",
-        packageId: pkg3.id,
+        packageId: pkg2.id,
         invoiceNumber,
         type: "package_purchase",
         amount: String(totalAmount),
@@ -81882,7 +82827,7 @@ router29.post(
       const invoice = await storage.createInvoice(invoiceInput);
       res.json({
         success: true,
-        package: pkg3,
+        package: pkg2,
         invoice
       });
     } catch (error) {
@@ -81916,21 +82861,21 @@ router29.post(
       if (!academy?.useNewCreditSystem) {
         return res.status(400).json({ error: "Academy is not on V2 credit engine" });
       }
-      const pkg3 = await storage.getPackage(invoice.packageId);
-      if (!pkg3) return res.status(404).json({ error: "Package not found" });
+      const pkg2 = await storage.getPackage(invoice.packageId);
+      if (!pkg2) return res.status(404).json({ error: "Package not found" });
       const { purchasePackage: purchasePackage2, normalizeSessionTypeToCreditType: normalizeSessionTypeToCreditType3 } = await Promise.resolve().then(() => (init_credit_engine(), credit_engine_exports));
-      const type = normalizeSessionTypeToCreditType3(pkg3.creditType);
+      const type = normalizeSessionTypeToCreditType3(pkg2.creditType);
       const result = await purchasePackage2({
-        playerId: pkg3.playerId,
-        academyId: pkg3.academyId,
+        playerId: pkg2.playerId,
+        academyId: pkg2.academyId,
         type,
-        qty: Number(pkg3.totalCredits),
-        pricePerCredit: parseFloat(String(pkg3.pricePerCredit ?? "0")),
-        currency: pkg3.currency ?? "AED",
+        qty: Number(pkg2.totalCredits),
+        pricePerCredit: parseFloat(String(pkg2.pricePerCredit ?? "0")),
+        currency: pkg2.currency ?? "AED",
         invoiceId: invoice.id,
-        sourcePackageId: pkg3.id,
-        purchasedAt: pkg3.purchaseDate ?? /* @__PURE__ */ new Date(),
-        expiresAt: pkg3.expiryDate ? new Date(pkg3.expiryDate) : null,
+        sourcePackageId: pkg2.id,
+        purchasedAt: pkg2.purchaseDate ?? /* @__PURE__ */ new Date(),
+        expiresAt: pkg2.expiryDate ? new Date(pkg2.expiryDate) : null,
         actorRole: "system"
       });
       res.json({ success: true, lotId: result.lotId });
@@ -82009,7 +82954,7 @@ router29.post(
       const now = /* @__PURE__ */ new Date();
       const expiresAt = new Date(now);
       expiresAt.setDate(expiresAt.getDate() + 90);
-      const pkg3 = await storage.createPackage({
+      const pkg2 = await storage.createPackage({
         playerId,
         academyId: player.academyId ?? "",
         name: packageName,
@@ -82024,7 +82969,7 @@ router29.post(
       const settle = await storage.settlePlayerDebts(
         playerId,
         creditType,
-        pkg3.id
+        pkg2.id
       );
       if (settle?.settledCount > 0) {
         console.log(
@@ -82040,7 +82985,7 @@ router29.post(
       const invoiceInput = {
         playerId,
         academyId: player.academyId ?? "",
-        packageId: pkg3.id,
+        packageId: pkg2.id,
         invoiceNumber,
         invoiceType: "package_purchase",
         amount: String(totalAmount),
@@ -82066,7 +83011,7 @@ router29.post(
             academyId: player.academyId ?? "",
             playerId,
             invoiceId: invoice.id,
-            packageId: pkg3.id,
+            packageId: pkg2.id,
             amount: String(totalAmount),
             currency: resolvedCurrency,
             paymentMethod: normalizedPaymentMethod,
@@ -82095,12 +83040,12 @@ router29.post(
           );
           return res.status(500).json({
             error: "Package created but payment recording failed. Invoice is still pending \u2014 please mark it paid from billing.",
-            packageId: pkg3.id,
+            packageId: pkg2.id,
             invoiceId: invoice.id
           });
         }
       }
-      res.json({ success: true, package: pkg3, invoice: finalInvoice });
+      res.json({ success: true, package: pkg2, invoice: finalInvoice });
     } catch (error) {
       console.error("[CoachPurchase] error:", error);
       res.status(500).json({ error: "Failed to create purchase" });
@@ -82122,7 +83067,8 @@ router29.get(
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }
-      if (!coachId) {
+      const isSelf = req.user?.playerId === playerId;
+      if (!coachId && !isSelf) {
         const [relation] = await db.select({ parentUserId: parentPlayerRelations.parentUserId }).from(parentPlayerRelations).where(
           and44(
             eq51(parentPlayerRelations.playerId, playerId),
@@ -85514,6 +86460,318 @@ router29.post(
     }
   }
 );
+function toMinutes(t) {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+function timeRangesOverlap(startA, endA, startB, endB) {
+  return toMinutes(startA) < toMinutes(endB) && toMinutes(endA) > toMinutes(startB);
+}
+function addMinutesToTime(time, minutes) {
+  const totalMins = toMinutes(time) + minutes;
+  const h = Math.floor(totalMins / 60) % 24;
+  const m = totalMins % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+router29.get(
+  "/api/player/courts/pricing",
+  authMiddlewareWithFreshData,
+  async (req, res) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.json({ courts: [], durations: [60, 90, 120] });
+      }
+      const allCourts = await db.select().from(courts).where(and44(eq51(courts.academyId, academyId), eq51(courts.isActive, true)));
+      const bookableCourts = allCourts.filter(
+        (c) => c.bookingEnabled !== false && !c.requiresExternalBooking
+      );
+      const DURATIONS = [60, 90, 120];
+      const enriched = bookableCourts.map((court) => {
+        const pricePerHour = parseFloat(court.pricePerHour ?? "0") || 0;
+        const creditsPerHour = court.creditsPerHour ?? 0;
+        const currency = court.currency ?? "AED";
+        const pricingOptions = DURATIONS.map((mins) => {
+          const fraction = mins / 60;
+          const price = Math.round(pricePerHour * fraction * 100) / 100;
+          const credits = Math.round(creditsPerHour * fraction);
+          return { durationMinutes: mins, price, credits };
+        });
+        return {
+          id: court.id,
+          name: court.name,
+          surface: court.surface,
+          indoor: court.indoor,
+          description: court.description,
+          photoUrl: court.photoUrl,
+          locationId: court.locationId,
+          currency,
+          pricePerHour,
+          creditsPerHour,
+          maxBookingDurationHours: court.maxBookingDurationHours ?? 2,
+          minBookingDurationMinutes: court.minBookingDurationMinutes ?? 60,
+          pricingOptions,
+          xpRewardPerHour: court.xpRewardPerHour ?? 10
+        };
+      });
+      res.json({ courts: enriched, durations: DURATIONS });
+    } catch (error) {
+      console.error("[CourtRental] GET pricing error:", error);
+      res.status(500).json({ error: "Failed to fetch court pricing" });
+    }
+  }
+);
+router29.get(
+  "/api/player/courts/slots",
+  authMiddlewareWithFreshData,
+  async (req, res) => {
+    try {
+      const playerId = req.user?.playerId;
+      if (!playerId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      const { courtId, date: date2, duration } = req.query;
+      if (!date2 || typeof date2 !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date2)) {
+        return res.status(400).json({ error: "date (YYYY-MM-DD) is required" });
+      }
+      const durationMins = parseInt(typeof duration === "string" ? duration : "60", 10) || 60;
+      const specificCourtId = typeof courtId === "string" && courtId ? courtId : null;
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.json({ slots: [] });
+      }
+      const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+      const dayOfWeek = (/* @__PURE__ */ new Date(date2 + "T00:00:00")).getDay();
+      const dayKey = dayNames[dayOfWeek];
+      async function getSlotsForCourt(court) {
+        const operatingHours = court.operatingHours?.[dayKey];
+        let openTime = "06:00";
+        let closeTime = "22:00";
+        if (operatingHours) {
+          if (operatingHours.closed) return [];
+          if (operatingHours.open) openTime = operatingHours.open;
+          if (operatingHours.close) closeTime = operatingHours.close;
+        }
+        const existingBookings = await db.select({ startTime: courtBookings.startTime, endTime: courtBookings.endTime }).from(courtBookings).where(
+          and44(
+            eq51(courtBookings.courtId, court.id),
+            eq51(courtBookings.date, date2),
+            or16(eq51(courtBookings.status, "confirmed"), eq51(courtBookings.status, "pending"))
+          )
+        );
+        const sessionConflicts = await pool.query(
+          `SELECT TO_CHAR(start_time AT TIME ZONE 'UTC', 'HH24:MI') as start_hhmm,
+                  TO_CHAR(end_time AT TIME ZONE 'UTC', 'HH24:MI') as end_hhmm
+           FROM sessions
+           WHERE court_id = $1
+             AND DATE(start_time AT TIME ZONE 'UTC') = $2
+             AND status NOT IN ('cancelled')`,
+          [court.id, date2]
+        );
+        const blockedRanges = [
+          ...existingBookings,
+          ...sessionConflicts.rows.map((r) => ({ startTime: r.start_hhmm, endTime: r.end_hhmm }))
+        ];
+        const phPerHour = parseFloat(court.pricePerHour ?? "0") || 0;
+        const cpPerHour = parseFloat(String(court.creditsPerHour ?? "0")) || 0;
+        const fraction = durationMins / 60;
+        const slotPrice = Math.round(phPerHour * fraction * 100) / 100;
+        const slotCredits = Math.round(cpPerHour * fraction);
+        const result = [];
+        let cursor = openTime;
+        while (toMinutes(cursor) + durationMins <= toMinutes(closeTime)) {
+          const slotEnd = addMinutesToTime(cursor, durationMins);
+          const isBlocked = blockedRanges.some(
+            (b) => timeRangesOverlap(cursor, slotEnd, b.startTime, b.endTime)
+          );
+          result.push({
+            startTime: cursor,
+            endTime: slotEnd,
+            available: !isBlocked,
+            price: slotPrice,
+            credits: slotCredits,
+            currency: court.currency ?? "AED"
+          });
+          cursor = addMinutesToTime(cursor, 30);
+        }
+        return result;
+      }
+      if (specificCourtId) {
+        const [court] = await db.select().from(courts).where(and44(eq51(courts.id, specificCourtId), eq51(courts.academyId, academyId))).limit(1);
+        if (!court) {
+          return res.status(404).json({ error: "Court not found" });
+        }
+        const slots2 = await getSlotsForCourt(court);
+        return res.json({ slots: slots2 });
+      }
+      const allCourts = await db.select().from(courts).where(
+        and44(
+          eq51(courts.academyId, academyId),
+          eq51(courts.isActive, true),
+          eq51(courts.bookingEnabled, true),
+          eq51(courts.requiresExternalBooking, false)
+        )
+      );
+      if (allCourts.length === 0) {
+        return res.json({ slots: [] });
+      }
+      const slotMap = /* @__PURE__ */ new Map();
+      for (const court of allCourts) {
+        const courtSlots = await getSlotsForCourt(court);
+        for (const s of courtSlots) {
+          const key = s.startTime;
+          const existing = slotMap.get(key);
+          if (!existing) {
+            slotMap.set(key, {
+              startTime: s.startTime,
+              endTime: s.endTime,
+              available: s.available,
+              minPrice: s.price,
+              minCredits: s.credits,
+              currency: s.currency
+            });
+          } else {
+            if (s.available) existing.available = true;
+            if (s.price < existing.minPrice) {
+              existing.minPrice = s.price;
+              existing.currency = s.currency;
+            }
+            if (s.credits < existing.minCredits) existing.minCredits = s.credits;
+          }
+        }
+      }
+      const slots = Array.from(slotMap.values()).map((s) => ({
+        startTime: s.startTime,
+        endTime: s.endTime,
+        available: s.available,
+        price: s.minPrice,
+        credits: s.minCredits,
+        currency: s.currency
+      })).sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime));
+      res.json({ slots });
+    } catch (error) {
+      console.error("[CourtRental] GET slots error:", error);
+      res.status(500).json({ error: "Failed to fetch court slots" });
+    }
+  }
+);
+var courtRentalSchema = z4.object({
+  courtId: z4.string().min(1),
+  date: z4.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z4.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z4.string().regex(/^\d{2}:\d{2}$/),
+  durationMinutes: z4.number().int().positive(),
+  paymentMethod: z4.enum(["credits", "pay_later"]).default("pay_later"),
+  notes: z4.string().max(500).optional().nullable()
+});
+router29.post(
+  "/api/player/court-rental",
+  authMiddlewareWithFreshData,
+  async (req, res) => {
+    try {
+      const userId = req.user?.userId;
+      const playerId = req.user?.playerId;
+      if (!playerId || !userId) {
+        return res.status(403).json({ error: "Player access required" });
+      }
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+      const parsed = courtRentalSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+      }
+      const { courtId, date: date2, startTime, endTime, durationMinutes, paymentMethod, notes } = parsed.data;
+      const [court] = await db.select().from(courts).where(and44(eq51(courts.id, courtId), eq51(courts.academyId, academyId))).limit(1);
+      if (!court) {
+        return res.status(404).json({ error: "Court not found in your academy" });
+      }
+      if (court.bookingEnabled === false) {
+        return res.status(403).json({ error: "This court is not available for booking" });
+      }
+      if (court.requiresExternalBooking) {
+        return res.status(403).json({ error: "This court requires external booking" });
+      }
+      const existingBookings = await db.select({ id: courtBookings.id, startTime: courtBookings.startTime, endTime: courtBookings.endTime }).from(courtBookings).where(
+        and44(
+          eq51(courtBookings.courtId, courtId),
+          eq51(courtBookings.date, date2),
+          or16(eq51(courtBookings.status, "confirmed"), eq51(courtBookings.status, "pending"))
+        )
+      );
+      const hasConflict = existingBookings.some(
+        (b) => timeRangesOverlap(startTime, endTime, b.startTime, b.endTime)
+      );
+      if (hasConflict) {
+        return res.status(409).json({
+          error: "This time slot is already booked. Please choose a different time."
+        });
+      }
+      const sessionConflict = await pool.query(
+        `SELECT 1 FROM sessions
+         WHERE court_id = $1
+           AND DATE(start_time AT TIME ZONE 'UTC') = $2
+           AND status NOT IN ('cancelled')
+           AND TO_CHAR(start_time AT TIME ZONE 'UTC', 'HH24:MI') < $4
+           AND TO_CHAR(end_time AT TIME ZONE 'UTC', 'HH24:MI') > $3
+         LIMIT 1`,
+        [courtId, date2, startTime, endTime]
+      );
+      if ((sessionConflict.rows?.length ?? 0) > 0) {
+        return res.status(409).json({
+          error: "This time slot conflicts with a scheduled coaching session."
+        });
+      }
+      const pricePerHour = parseFloat(court.pricePerHour ?? "0") || 0;
+      const creditsPerHour = court.creditsPerHour ?? 0;
+      const fraction = durationMinutes / 60;
+      const price = Math.round(pricePerHour * fraction * 100) / 100;
+      const creditsUsed = paymentMethod === "credits" ? Math.round(creditsPerHour * fraction) : 0;
+      const currency = court.currency ?? "AED";
+      const paymentStatus = price === 0 ? "free" : paymentMethod === "credits" ? "credits" : "pending";
+      const [newBooking] = await db.insert(courtBookings).values({
+        courtId,
+        userId,
+        playerId,
+        academyId,
+        date: date2,
+        startTime,
+        endTime,
+        durationMinutes,
+        bookingType: "public",
+        status: "confirmed",
+        notes: notes ?? null,
+        price: price.toFixed(2),
+        currency,
+        paymentStatus,
+        creditsUsed
+      }).returning();
+      const xpReward = Math.round((court.xpRewardPerHour ?? 10) * fraction);
+      if (xpReward > 0) {
+        try {
+          await db.insert(xpTransactions).values({
+            playerId,
+            xpAmount: xpReward,
+            source: "court_rental",
+            description: `Court rental on ${date2}: ${court.name}`,
+            metadata: { bookingId: newBooking.id, courtId, date: date2 }
+          });
+        } catch (xpErr) {
+          console.warn("[CourtRental] XP award failed (non-fatal):", xpErr);
+        }
+      }
+      res.status(201).json({ success: true, booking: newBooking, xpAwarded: xpReward });
+    } catch (error) {
+      console.error("[CourtRental] POST error:", error);
+      res.status(500).json({ error: "Failed to create court booking" });
+    }
+  }
+);
 var player_booking_default = router29;
 
 // server/routes/player-social.ts
@@ -87709,7 +88967,7 @@ router31.get("/api/admin/dashboard/operations", authMiddlewareWithFreshData, req
     const nextSessionIn = nextSession ? Math.max(0, Math.floor((new Date(nextSession.startTime).getTime() - now.getTime()) / 6e4)) : 0;
     const sessionQueue = todaySessions.slice(0, 10).map((s) => {
       const coach = coaches4.find((c) => c.id === s.coachId);
-      const sessionPlayers3 = players2.filter((p) => p.coachId === s.coachId);
+      const sessionPlayers4 = players2.filter((p) => p.coachId === s.coachId);
       const sessionTime = new Date(s.startTime);
       let status = "upcoming";
       if (s.status === "completed") status = "completed";
@@ -87720,7 +88978,7 @@ router31.get("/api/admin/dashboard/operations", authMiddlewareWithFreshData, req
         title: s.title || "Training Session",
         time: sessionTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }),
         coachName: coach?.name || "Unassigned",
-        playerCount: sessionPlayers3.length,
+        playerCount: sessionPlayers4.length,
         status
       };
     });
@@ -89192,8 +90450,8 @@ async function ensureCountryLadder(sport, countryCode, opts = {}) {
   const [existing] = await db.select().from(ladders).where(and48(eq55(ladders.scope, "country"), eq55(ladders.countryCode, cc), eq55(ladders.sport, sport))).limit(1);
   if (existing) return existing;
   if (!opts.force) {
-    const count19 = await countActiveCountryPlayers(cc, sport);
-    if (count19 < COUNTRY_LADDER_MIN_PLAYERS) return null;
+    const count20 = await countActiveCountryPlayers(cc, sport);
+    if (count20 < COUNTRY_LADDER_MIN_PLAYERS) return null;
   }
   const name = `${countryDisplayName(cc)} ${sportLabel(sport)} Ladder`;
   try {
@@ -89229,13 +90487,13 @@ async function getPlayerCountryLadderRank(playerId, sport) {
   if (!ladder) return null;
   const [entry] = await db.select({ position: ladderPlayers.position }).from(ladderPlayers).where(and48(eq55(ladderPlayers.ladderId, ladder.id), eq55(ladderPlayers.playerId, playerId))).limit(1);
   if (!entry) return null;
-  const [{ count: count19 } = { count: 0 }] = await db.select({ count: sql34`count(*)::int` }).from(ladderPlayers).where(eq55(ladderPlayers.ladderId, ladder.id));
+  const [{ count: count20 } = { count: 0 }] = await db.select({ count: sql34`count(*)::int` }).from(ladderPlayers).where(eq55(ladderPlayers.ladderId, ladder.id));
   return {
     ladderId: ladder.id,
     countryCode: cc,
     sport,
     position: entry.position,
-    playerCount: Number(count19) || 0
+    playerCount: Number(count20) || 0
   };
 }
 router32.get("/api/player/ladders/country-rank", authMiddlewareWithFreshData, async (req, res) => {
@@ -91806,20 +93064,6 @@ Players: ${data.playerNames.join(", ")}` : data.description;
     return { success: false, error: error.message };
   }
 }
-async function deleteCalendarEvent(eventId) {
-  try {
-    const calendar = await getCalendarClient();
-    await calendar.events.delete({
-      calendarId: "primary",
-      eventId
-    });
-    console.log(`[GoogleCalendar] Deleted event ${eventId}`);
-    return { success: true };
-  } catch (error) {
-    console.error("[GoogleCalendar] Failed to delete event:", error.message);
-    return { success: false, error: error.message };
-  }
-}
 async function checkConnection() {
   try {
     const calendar = await getCalendarClient();
@@ -93651,11 +94895,11 @@ router35.post(
           }
         }
       }
-      for (const fs13 of flexibleSessions) {
-        const start = new Date(fs13.startTime);
-        const end = new Date(fs13.endTime);
-        const dateStr = fs13.date;
-        const startTimeStr = fs13.time;
+      for (const fs14 of flexibleSessions) {
+        const start = new Date(fs14.startTime);
+        const end = new Date(fs14.endTime);
+        const dateStr = fs14.date;
+        const startTimeStr = fs14.time;
         const endTimeStr = end.toISOString().split("T")[1].slice(0, 5);
         const coachConflict = await storage.checkCoachConflict(
           coachId,
@@ -93822,8 +95066,8 @@ router35.patch(
         });
       }
       if (session.googleCalendarEventId) {
-        const sessionPlayers3 = await storage.getSessionPlayersWithPlayerInfo(id);
-        const playerNames = sessionPlayers3.map((sp) => sp.player?.name).filter(Boolean);
+        const sessionPlayers4 = await storage.getSessionPlayersWithPlayerInfo(id);
+        const playerNames = sessionPlayers4.map((sp) => sp.player?.name).filter(Boolean);
         const updatedCourtId = updates.courtId || session.courtId;
         const updatedLocationId = updates.locationId || session.locationId;
         const court = updatedCourtId ? await storage.getCourt(updatedCourtId, academyId) : null;
@@ -93859,148 +95103,6 @@ Skill Level: ${updates.skillLevel || session.skillLevel || "Not specified"}`,
     } catch (error) {
       console.error("Error updating session:", error);
       res.status(500).json({ error: "Failed to update session" });
-    }
-  }
-);
-router35.post(
-  "/api/coach/sessions/:id/cancel",
-  authMiddlewareWithFreshData,
-  requireAcademy,
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const coachId = req.user.coachId;
-      const { reason } = req.body;
-      const academyId = req.user.academyId;
-      const session = await storage.getSession(id, academyId);
-      if (!session) {
-        return res.status(404).json({ error: "Session not found" });
-      }
-      if (session.coachId !== coachId) {
-        return res.status(403).json({ error: "Not authorized" });
-      }
-      const spRecordsForRefund = await db.select({
-        id: sessionPlayers.id,
-        playerId: sessionPlayers.playerId,
-        creditDeductedAt: sessionPlayers.creditDeductedAt
-      }).from(sessionPlayers).where(eq58(sessionPlayers.sessionId, id));
-      let refundedCount = 0;
-      const refundFailures = [];
-      for (const sp of spRecordsForRefund) {
-        if (!sp.creditDeductedAt) continue;
-        try {
-          const refundResult = await storage.refundCreditsForSession(
-            sp.playerId,
-            id,
-            academyId ?? void 0
-          );
-          if (refundResult.success) {
-            refundedCount++;
-            console.log(
-              `[DeleteSession] Refunded credit for player ${sp.playerId} via refundCreditsForSession`
-            );
-          } else {
-            const reason2 = refundResult.reason ?? "unknown";
-            console.warn(
-              `[DeleteSession] refundCreditsForSession returned no-op for ${sp.playerId}: ${reason2}`
-            );
-            refundFailures.push({ playerId: sp.playerId, reason: reason2 });
-          }
-        } catch (err) {
-          const reason2 = err instanceof Error ? err.message : "refund_threw";
-          console.error(
-            `[DeleteSession] refundCreditsForSession threw for ${sp.playerId}:`,
-            err
-          );
-          refundFailures.push({ playerId: sp.playerId, reason: reason2 });
-        }
-      }
-      if (refundedCount > 0) {
-        console.log(
-          `[DeleteSession] Refunded ${refundedCount} credit(s) for session ${id}`
-        );
-      }
-      if (refundFailures.length > 0) {
-        console.warn(
-          `[DeleteSession] ${refundFailures.length} refund failure(s) for session ${id} \u2014 manual reconciliation may be required:`,
-          refundFailures
-        );
-      }
-      const playersInSession = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(eq58(sessionPlayers.sessionId, id));
-      const coachData = coachId ? await storage.getCoach(coachId) : null;
-      const coachName = coachData?.name || "Your coach";
-      for (const p of playersInSession) {
-        if (p.playerId) {
-          sendSessionCancelledNotification(
-            p.playerId,
-            session.sessionType,
-            session.startTime,
-            reason || `Cancelled by ${coachName}`,
-            academyId
-          ).catch(
-            (err) => console.error(
-              "[PushNotification] Failed to send cancellation notification:",
-              err
-            )
-          );
-        }
-      }
-      await db.transaction(async (tx) => {
-        await tx.update(creditTransactions).set({ sessionId: null }).where(eq58(creditTransactions.sessionId, id));
-        await tx.update(xpTransactions).set({ sessionId: null }).where(eq58(xpTransactions.sessionId, id));
-        await tx.update(coachXpTransactions).set({ sessionId: null }).where(eq58(coachXpTransactions.sessionId, id));
-        await tx.update(playerPillarProgress).set({ lastSessionId: null }).where(eq58(playerPillarProgress.lastSessionId, id));
-        const sessionPlayerRecords = await tx.select({ id: sessionPlayers.id }).from(sessionPlayers).where(eq58(sessionPlayers.sessionId, id));
-        if (sessionPlayerRecords.length > 0) {
-          const spIds = sessionPlayerRecords.map((sp) => sp.id);
-          await tx.update(creditTransactions).set({ sessionPlayerId: null }).where(inArray26(creditTransactions.sessionPlayerId, spIds));
-        }
-        await tx.delete(inSessionFeedback).where(eq58(inSessionFeedback.sessionId, id));
-        await tx.delete(sessionPlayers).where(eq58(sessionPlayers.sessionId, id));
-        await tx.delete(sessionSkillObservations).where(eq58(sessionSkillObservations.sessionId, id));
-        await tx.delete(sessionSkillFeedback).where(eq58(sessionSkillFeedback.sessionId, id));
-        await tx.delete(sessionPlans).where(eq58(sessionPlans.sessionId, id));
-        await tx.delete(playerSessionCancellations).where(eq58(playerSessionCancellations.sessionId, id));
-        await tx.delete(sessionWaitlist).where(eq58(sessionWaitlist.sessionId, id));
-        await tx.update(bookingRequests).set({ sessionId: null }).where(eq58(bookingRequests.sessionId, id));
-        await tx.delete(sessions).where(eq58(sessions.id, id));
-      });
-      await storage.deleteCoachTimeBlockBySession(id);
-      if (session.googleCalendarEventId) {
-        deleteCalendarEvent(session.googleCalendarEventId).catch(
-          (err) => console.error("[GoogleCalendar] Delete sync error:", err)
-        );
-      }
-      await storage.createAuditLog({
-        entityType: "session",
-        entityId: id,
-        action: "delete",
-        performedBy: coachId
-      });
-      if (academyId) {
-        broadcastSessionUpdate(academyId, {
-          sessionId: id,
-          type: "cancelled"
-        });
-      }
-      if (coachId) {
-        apiCache.invalidate(`series:${coachId}`);
-        apiCache.invalidate(`earnings:${coachId}`);
-        apiCache.invalidate(`calendar:${coachId}`);
-        apiCache.invalidate(`stats:${coachId}`);
-      }
-      if (academyId) {
-        apiCache.invalidate(`players:${academyId}`);
-      }
-      res.json({
-        success: true,
-        deleted: true,
-        creditsRefunded: refundedCount,
-        refundFailures: refundFailures.length > 0 ? refundFailures : void 0
-      });
-    } catch (error) {
-      console.error("Error deleting session:", error);
-      res.status(500).json({ error: "Failed to delete session" });
     }
   }
 );
@@ -95027,8 +96129,8 @@ router35.post(
         coachNotes
       });
       try {
-        const sessionPlayers3 = await storage.getSessionPlayersWithPlayerInfo(id);
-        for (const sp of sessionPlayers3) {
+        const sessionPlayers4 = await storage.getSessionPlayersWithPlayerInfo(id);
+        for (const sp of sessionPlayers4) {
           if (!sp.attendanceStatus || sp.attendanceStatus === "pending") {
             await storage.updateAttendance(id, sp.playerId, "present");
           }
@@ -97128,11 +98230,11 @@ router37.get(
       const playerProgress2 = await Promise.all(
         seriesPlayers3.map(async (sp) => {
           const player = await storage.getPlayer(sp.playerId);
-          const xpTransactions4 = await storage.getPlayerXpTransactions(
+          const xpTransactions5 = await storage.getPlayerXpTransactions(
             sp.playerId,
             30
           );
-          const recentXP = xpTransactions4.reduce(
+          const recentXP = xpTransactions5.reduce(
             (sum3, t) => sum3 + (t.amount || 0),
             0
           );
@@ -97201,8 +98303,8 @@ router37.get(
       if (!session || session.academyId !== academyId) {
         return res.status(404).json({ error: "Session not found" });
       }
-      const sessionPlayers3 = await storage.getSessionPlayersWithPlayerInfo(id);
-      const attendance = sessionPlayers3.map((sp) => ({
+      const sessionPlayers4 = await storage.getSessionPlayersWithPlayerInfo(id);
+      const attendance = sessionPlayers4.map((sp) => ({
         playerId: sp.playerId,
         playerName: sp.player?.name || "Unknown",
         status: sp.attendanceStatus,
@@ -97259,6 +98361,29 @@ router37.post(
             console.log(
               `[AdminAttendance] Cancelled ${cancelResult.amount} credits of debt for player ${record.playerId} due to ${record.status} status`
             );
+          }
+          if (updated) {
+            try {
+              const { refundCredit: refundCredit2 } = await Promise.resolve().then(() => (init_credit_engine(), credit_engine_exports));
+              const v2Refund = await refundCredit2({
+                sessionPlayerId: updated.id,
+                policy: "force",
+                actorRole: "system",
+                reason: cancelReason,
+                ledgerReason: "holiday_charge_reversal",
+                eventKey: `refund:${cancelReason}:${updated.id}`
+              });
+              if (v2Refund.refunded) {
+                console.log(
+                  `[AdminAttendance] V2 refunded ${v2Refund.amount} ${v2Refund.type} for player ${record.playerId}`
+                );
+              }
+            } catch (refundErr) {
+              console.error(
+                `[AdminAttendance] V2 holiday refund failed for player ${record.playerId}:`,
+                refundErr
+              );
+            }
           }
         }
         const isChargeable = record.status === "present" || record.status === "late" || record.status === "absent" && isGroupSession;
@@ -97715,11 +98840,11 @@ router37.post(
           }
         }
       }
-      for (const fs13 of flexibleSessions) {
-        const start = new Date(fs13.startTime);
-        const end = new Date(fs13.endTime);
-        const dateStr = fs13.date;
-        const startTimeStr = fs13.time;
+      for (const fs14 of flexibleSessions) {
+        const start = new Date(fs14.startTime);
+        const end = new Date(fs14.endTime);
+        const dateStr = fs14.date;
+        const startTimeStr = fs14.time;
         const endTimeStr = end.toISOString().split("T")[1].slice(0, 5);
         const coachConflict = await storage.checkCoachConflict(
           coachId,
@@ -98191,7 +99316,7 @@ router37.get(
       thirtyDaysAgo.setDate(now.getDate() - 30);
       const sessionsThisMonth = sessions3.filter((s) => {
         const sessionDate = new Date(s.startTime);
-        return sessionDate >= thirtyDaysAgo;
+        return sessionDate >= thirtyDaysAgo && sessionDate <= now;
       });
       const completedSessions = sessionsThisMonth.filter(
         (s) => s.status === "completed"
@@ -98202,17 +99327,28 @@ router37.get(
         now
       );
       const feedbackCompletionRate = completedSessions.length > 0 ? Math.round(feedbackCount / completedSessions.length * 100) : 0;
-      const hourlyRate = Number(coach.hourlyRate || 100);
+      const paymentRule = await storage.getCoachPaymentRule(coachId);
+      const paymentType = paymentRule?.paymentType || "hourly";
+      const commissionPct = paymentRule ? Number(paymentRule.commissionPercentage || 0) : 0;
+      const hourlyRate = paymentRule?.paymentType === "hourly" && paymentRule.hourlyRate ? Number(paymentRule.hourlyRate) : Number(coach.hourlyRate || 100);
       const totalHours = sessionsThisMonth.reduce((sum3, s) => {
         const start = new Date(s.startTime);
         const end = new Date(s.endTime);
         return sum3 + (end.getTime() - start.getTime()) / (1e3 * 60 * 60);
       }, 0);
-      const monthlyHours = await storage.getCoachMonthlyHoursSummary(
-        coachId,
-        academyId ?? void 0
-      );
-      const payoutRecords = await storage.getCoachPayouts(coachId, 12);
+      let amountOwed;
+      if (paymentType === "commission" && commissionPct > 0) {
+        const totalRevenue = sessionsThisMonth.reduce((sum3, s) => {
+          return sum3 + Number(s.sessionPrice || 0);
+        }, 0);
+        amountOwed = Math.round(totalRevenue * commissionPct / 100);
+      } else {
+        amountOwed = Math.round(totalHours * hourlyRate);
+      }
+      const [monthlyHours, payoutRecords] = await Promise.all([
+        storage.getCoachMonthlyHoursSummary(coachId, academyId ?? void 0),
+        storage.getCoachPayouts(coachId, 12)
+      ]);
       const monthlyPaymentHistory = monthlyHours.map((mh) => {
         const payoutRecord = payoutRecords.find(
           (p) => p.month === mh.month && p.year === mh.year
@@ -98258,8 +99394,10 @@ router37.get(
         },
         finance: {
           hourlyRate,
+          paymentType,
+          commissionPercentage: commissionPct || null,
           totalHours: Math.round(totalHours * 10) / 10,
-          amountOwed: Math.round(totalHours * hourlyRate),
+          amountOwed,
           amountPaid,
           monthlyHistory: monthlyPaymentHistory
         }
@@ -98298,15 +99436,16 @@ router37.post(
         parseInt(year)
       );
       if (!payout) {
-        const monthlyHours = await storage.getCoachMonthlyHoursSummary(
-          coachId,
-          academyId ?? void 0
-        );
+        const [monthlyHours, paymentRule] = await Promise.all([
+          storage.getCoachMonthlyHoursSummary(coachId, academyId ?? void 0),
+          storage.getCoachPaymentRule(coachId)
+        ]);
         const monthData = monthlyHours.find(
           (m) => m.month === parseInt(month) && m.year === parseInt(year)
         );
         const hoursWorked = monthData?.hoursWorked || 0;
-        const hourlyRate = Number(coach.hourlyRate || 100);
+        const hourlyRate = paymentRule?.paymentType === "hourly" && paymentRule.hourlyRate ? Number(paymentRule.hourlyRate) : Number(coach.hourlyRate || 100);
+        const grossAmount = Math.round(hoursWorked * hourlyRate);
         payout = await storage.createCoachPayout({
           academyId: academyId ?? "",
           coachId,
@@ -98314,7 +99453,7 @@ router37.post(
           year: parseInt(year),
           hoursWorked: String(hoursWorked),
           hourlyRate: String(hourlyRate),
-          grossAmount: String(Math.round(hoursWorked * hourlyRate)),
+          grossAmount: String(grossAmount),
           status: "pending",
           notes
         });
@@ -98351,15 +99490,16 @@ router37.post(
         parseInt(year)
       );
       if (!payout) {
-        const monthlyHours = await storage.getCoachMonthlyHoursSummary(
-          coachId,
-          academyId ?? void 0
-        );
+        const [monthlyHours, paymentRule] = await Promise.all([
+          storage.getCoachMonthlyHoursSummary(coachId, academyId ?? void 0),
+          storage.getCoachPaymentRule(coachId)
+        ]);
         const monthData = monthlyHours.find(
           (m) => m.month === parseInt(month) && m.year === parseInt(year)
         );
         const hoursWorked = monthData?.hoursWorked || 0;
-        const hourlyRate = Number(coach.hourlyRate || 100);
+        const hourlyRate = paymentRule?.paymentType === "hourly" && paymentRule.hourlyRate ? Number(paymentRule.hourlyRate) : Number(coach.hourlyRate || 100);
+        const grossAmount = Math.round(hoursWorked * hourlyRate);
         payout = await storage.createCoachPayout({
           academyId: academyId ?? "",
           coachId,
@@ -98367,7 +99507,7 @@ router37.post(
           year: parseInt(year),
           hoursWorked: String(hoursWorked),
           hourlyRate: String(hourlyRate),
-          grossAmount: String(Math.round(hoursWorked * hourlyRate)),
+          grossAmount: String(grossAmount),
           status: "pending",
           notes
         });
@@ -99648,6 +100788,7 @@ router37.get(
           type: session.sessionType,
           courtName: court?.name,
           coachName: sessionCoach?.name || null,
+          coachPhotoUrl: sessionCoach?.photoUrl || null,
           isLive: session.isActive,
           duration: durationMinutes,
           playerCheckedIn,
@@ -99815,15 +100956,15 @@ router37.get(
           }
           const startTime = new Date(session.startTime);
           const endTime = new Date(session.endTime);
-          const sessionPlayers3 = await storage.getSessionPlayers(session.id);
-          const currentPlayers = sessionPlayers3.length;
+          const sessionPlayers4 = await storage.getSessionPlayers(session.id);
+          const currentPlayers = sessionPlayers4.length;
           const maxPlayers = session.maxPlayers || 8;
           const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
-          const isEnrolled = sessionPlayers3.some(
+          const isEnrolled = sessionPlayers4.some(
             (sp) => sp.playerId === playerId
           );
           const participants = await Promise.all(
-            sessionPlayers3.slice(0, 10).map(async (sp) => {
+            sessionPlayers4.slice(0, 10).map(async (sp) => {
               const p = await storage.getPlayer(sp.playerId);
               return p ? {
                 id: p.id,
@@ -99907,8 +101048,8 @@ router37.get(
           }
           const startTime = new Date(session.startTime);
           const endTime = new Date(session.endTime);
-          const sessionPlayers3 = await storage.getSessionPlayers(session.id);
-          const currentPlayers = sessionPlayers3.length;
+          const sessionPlayers4 = await storage.getSessionPlayers(session.id);
+          const currentPlayers = sessionPlayers4.length;
           const maxPlayers = session.maxPlayers ?? 8;
           const spotsLeft = Math.max(0, maxPlayers - currentPlayers);
           return {
@@ -99963,12 +101104,12 @@ router37.post(
       if (new Date(session.startTime) <= /* @__PURE__ */ new Date()) {
         return res.status(400).json({ error: "Cannot enroll in past sessions" });
       }
-      const sessionPlayers3 = await storage.getSessionPlayers(sessionId);
-      if (sessionPlayers3.some((sp) => sp.playerId === playerId)) {
+      const sessionPlayers4 = await storage.getSessionPlayers(sessionId);
+      if (sessionPlayers4.some((sp) => sp.playerId === playerId)) {
         return res.status(400).json({ error: "Already enrolled in this session" });
       }
       const maxPlayers = session.maxPlayers || 6;
-      if (sessionPlayers3.length >= maxPlayers) {
+      if (sessionPlayers4.length >= maxPlayers) {
         return res.status(400).json({ error: "Session is full" });
       }
       const credits = await storage.getPlayerCreditBalanceByType(playerId);
@@ -100216,6 +101357,9 @@ router37.get(
         const seriesLevelMap = /* @__PURE__ */ new Map();
         const seriesPriceMap = /* @__PURE__ */ new Map();
         const seriesSportMap = /* @__PURE__ */ new Map();
+        const seriesImageMap = /* @__PURE__ */ new Map();
+        const seriesInclusionsMap = /* @__PURE__ */ new Map();
+        const seriesOriginalPriceMap = /* @__PURE__ */ new Map();
         const seriesIds = [
           ...new Set(
             academySessions.map((s) => s.seriesId).filter(Boolean)
@@ -100242,6 +101386,27 @@ router37.get(
                   series.id,
                   series.sport.toLowerCase()
                 );
+              }
+              seriesImageMap.set(series.id, series.imageUrl ?? null);
+              if (Array.isArray(series?.inclusions) && series.inclusions.length > 0) {
+                seriesInclusionsMap.set(series.id, series.inclusions);
+              }
+              if (series?.originalPrice != null) {
+                seriesOriginalPriceMap.set(series.id, Number(series.originalPrice));
+              }
+            }
+            try {
+              const { resolveMediaUrl: resolveMediaUrl2 } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
+              for (const [sid, raw] of seriesImageMap.entries()) {
+                if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+                  seriesImageMap.set(sid, await resolveMediaUrl2(raw) ?? null);
+                }
+              }
+            } catch (_resolveErr) {
+              for (const [sid, raw] of seriesImageMap.entries()) {
+                if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+                  seriesImageMap.set(sid, null);
+                }
               }
             }
           } catch (_e) {
@@ -100426,6 +101591,10 @@ router37.get(
           const rawSessionSportVal = session.sport;
           const rawSeriesSportVal = session.seriesId ? seriesSportMap.get(session.seriesId) : void 0;
           const sessionSport = rawSessionSportVal ?? rawSeriesSportVal;
+          const seriesIdForSession = session.seriesId;
+          const sessionSeriesImageUrl = seriesIdForSession ? seriesImageMap.get(seriesIdForSession) ?? null : null;
+          const sessionInclusions = seriesIdForSession ? seriesInclusionsMap.get(seriesIdForSession) : void 0;
+          const sessionOriginalPrice = seriesIdForSession ? seriesOriginalPriceMap.get(seriesIdForSession) : void 0;
           openSessions.push({
             id: session.id,
             type: session.sessionType || "group",
@@ -100441,7 +101610,10 @@ router37.get(
             locationLng: locationLng ?? null,
             price: sessionPrice,
             sport: sessionSport,
-            distanceKm: sessionDistanceKm
+            distanceKm: sessionDistanceKm,
+            seriesImageUrl: sessionSeriesImageUrl,
+            inclusions: sessionInclusions,
+            originalPrice: sessionOriginalPrice
           });
         }
       }
@@ -100570,7 +101742,8 @@ router37.get(
           privateLessons,
           courtsAvailable
         },
-        groupLevelFallback
+        groupLevelFallback,
+        playerBallLevel
       });
     } catch (error) {
       console.error("Error fetching player social data:", error);
@@ -104833,6 +106006,21 @@ router40.get(
         }));
       } catch (_e) {
       }
+      const startDateStr2 = `${startDate.getUTCFullYear()}-${(startDate.getUTCMonth() + 1).toString().padStart(2, "0")}-${startDate.getUTCDate().toString().padStart(2, "0")}`;
+      const endDateStr2 = `${endDate.getUTCFullYear()}-${(endDate.getUTCMonth() + 1).toString().padStart(2, "0")}-${endDate.getUTCDate().toString().padStart(2, "0")}`;
+      const calendarExceptions = await db.select({
+        id: availabilityExceptions.id,
+        coachId: availabilityExceptions.coachId,
+        startDate: availabilityExceptions.startDate,
+        endDate: availabilityExceptions.endDate,
+        reason: availabilityExceptions.reason
+      }).from(availabilityExceptions).where(
+        and56(
+          eq63(availabilityExceptions.coachId, coachId),
+          lte16(availabilityExceptions.startDate, endDateStr2),
+          gte31(availabilityExceptions.endDate, startDateStr2)
+        )
+      );
       res.json({
         ownSessions: sessionsWithPlayers,
         blockedSessions: [
@@ -104842,6 +106030,13 @@ router40.get(
         externalBlocks,
         coachBlocks: coachPersonalBlocks,
         slotReservations: slotReservationsForResponse,
+        availabilityExceptions: calendarExceptions.map((e) => ({
+          id: e.id,
+          coachId: e.coachId,
+          startDate: String(e.startDate).slice(0, 10),
+          endDate: String(e.endDate).slice(0, 10),
+          reason: e.reason
+        })),
         courts: courts2,
         locations: locations2,
         dateRange: { start: startDate, end: endDate }
@@ -104860,10 +106055,10 @@ router40.get(
     try {
       const userRole = req.user.role;
       const academyId = req.user.academyId;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user.coachId;
-      if (supervisorCoachId && isOwnerRole) {
+      if (supervisorCoachId && isOwnerRole2) {
         const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and56(eq63(coaches.id, supervisorCoachId), eq63(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
@@ -105526,8 +106721,8 @@ router40.post(
       const academyId = req.user.academyId;
       const supervisorCoachId = req.body?.supervisorCoachId;
       if (supervisorCoachId) {
-        const callerRole = req.user.role;
-        if (!["academy_owner", "owner", "platform_owner"].includes(callerRole ?? "")) {
+        const callerRole2 = req.user.role;
+        if (!["academy_owner", "owner", "platform_owner", "admin"].includes(callerRole2 ?? "")) {
           return res.status(403).json({ error: "Only academy owners may act for another coach" });
         }
         const targetCoach = await storage.getCoach(supervisorCoachId);
@@ -105544,7 +106739,9 @@ router40.post(
       if (!valid || !session) {
         return res.status(404).json({ error: "Session not found" });
       }
-      if (session.status === "cancelled" || session.status === "completed") {
+      const callerRole = req.user.role;
+      const isOwnerOrAdmin = ["academy_owner", "owner", "platform_owner", "admin"].includes(callerRole ?? "");
+      if (session.status === "cancelled" || session.status === "completed" && !isOwnerOrAdmin) {
         return res.status(400).json({ error: `Session is already ${session.status}` });
       }
       const dateParam = req.query.date;
@@ -105678,8 +106875,8 @@ router40.post(
       await storage.updateSession(id, updates);
       await storage.deleteCoachTimeBlockBySession(id);
       if (shouldCharge && chargeAmount > 0) {
-        const sessionPlayers3 = await storage.getSessionPlayers(id);
-        for (const sp of sessionPlayers3) {
+        const sessionPlayers4 = await storage.getSessionPlayers(id);
+        for (const sp of sessionPlayers4) {
           if (sp.playerId) {
             const player = await storage.getPlayer(sp.playerId);
             if (player) {
@@ -109231,15 +110428,35 @@ router46.get(
       } else {
         allSessions = [];
       }
-      const sessionsWithPlayers = await Promise.all(
-        allSessions.map(async (session) => {
-          const players2 = await storage.getSessionPlayers(session.id);
-          return {
-            ...session,
-            players: players2.map((p) => ({ id: p.id, name: p.name }))
-          };
-        })
-      );
+      const sessionIds = allSessions.map((s) => s.id);
+      const allSessionPlayerRows = sessionIds.length > 0 ? await storage.getSessionPlayersBatch(sessionIds) : [];
+      const playerIds = [
+        ...new Set(
+          allSessionPlayerRows.map((sp) => sp.playerId).filter((id) => !!id)
+        )
+      ];
+      const playerNameMap = /* @__PURE__ */ new Map();
+      if (playerIds.length > 0) {
+        const playerRows = await db.select({ id: players.id, name: players.name }).from(players).where(inArray37(players.id, playerIds));
+        for (const p of playerRows) {
+          playerNameMap.set(p.id, p.name ?? "");
+        }
+      }
+      const playersBySession = /* @__PURE__ */ new Map();
+      for (const sp of allSessionPlayerRows) {
+        if (!sp.sessionId || !sp.playerId) continue;
+        if (!playersBySession.has(sp.sessionId)) {
+          playersBySession.set(sp.sessionId, []);
+        }
+        playersBySession.get(sp.sessionId).push({
+          id: sp.playerId,
+          name: playerNameMap.get(sp.playerId) ?? ""
+        });
+      }
+      const sessionsWithPlayers = allSessions.map((session) => ({
+        ...session,
+        players: playersBySession.get(session.id) ?? []
+      }));
       res.json(sessionsWithPlayers);
     } catch (error) {
       console.error("Error fetching sessions:", error);
@@ -109337,7 +110554,8 @@ router46.get(
     try {
       const academyId = req.user.academyId;
       const allLocations = await storage.getAllLocations(
-        academyId ?? void 0
+        academyId ?? void 0,
+        { requireActiveCourts: true }
       );
       res.json(allLocations);
     } catch (error) {
@@ -109548,11 +110766,16 @@ router46.delete(
       if (!valid) {
         return res.status(404).json({ error: "Court not found" });
       }
+      const courtRecord = await storage.getCourt(id, academyId ?? void 0);
+      const courtLocationId = courtRecord?.locationId ?? null;
       const dependents = await storage.getCourtDependents(id);
       if (dependents.total > 0) {
         const updated = await storage.softDeleteCourt(id, academyId ?? void 0);
         if (!updated) {
           return res.status(404).json({ error: "Court not found" });
+        }
+        if (courtLocationId && academyId) {
+          await storage.deactivateLocationIfEmpty(courtLocationId, academyId);
         }
         return res.json({
           success: true,
@@ -109564,6 +110787,9 @@ router46.delete(
       }
       try {
         await storage.deleteCourt(id, academyId ?? void 0);
+        if (courtLocationId && academyId) {
+          await storage.deactivateLocationIfEmpty(courtLocationId, academyId);
+        }
       } catch (err) {
         const e = err;
         const msg = String(e?.message ?? "");
@@ -109579,6 +110805,9 @@ router46.delete(
               dependents: recheck.counts,
               totalReferences: recheck.total
             });
+          }
+          if (courtLocationId && academyId) {
+            await storage.deactivateLocationIfEmpty(courtLocationId, academyId);
           }
           return res.json({
             success: true,
@@ -109701,8 +110930,8 @@ router46.get(
       }
       const effectiveAcademyId = academyId || void 0;
       const supervisorCoachId = req.query.supervisorCoachId;
-      const isOwnerRole = role === "academy_owner" || role === "owner";
-      if (supervisorCoachId && isOwnerRole && effectiveAcademyId) {
+      const isOwnerRole2 = role === "academy_owner" || role === "owner";
+      if (supervisorCoachId && isOwnerRole2 && effectiveAcademyId) {
         const [targetCoach] = await db.select({ id: coaches.id }).from(coaches).where(and61(eq70(coaches.id, supervisorCoachId), eq70(coaches.academyId, effectiveAcademyId))).limit(1);
         if (!targetCoach) {
           return res.status(403).json({ error: "Coach not found in your academy" });
@@ -110371,8 +111600,8 @@ router46.post(
         const existingTables = new Set(
           existingTablesRes.rows.map((r) => r.table_name)
         );
-        const ifTable = async (name, sql64, params) => {
-          if (existingTables.has(name)) await client.query(sql64, params);
+        const ifTable = async (name, sql65, params) => {
+          if (existingTables.has(name)) await client.query(sql65, params);
         };
         await client.query(
           `DELETE FROM session_players sp_target
@@ -111805,6 +113034,334 @@ router46.get(
     }
   }
 );
+router46.get(
+  "/api/admin/coaches/available-at",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      const { sessionId } = req.query;
+      if (!sessionId) {
+        return res.status(400).json({ error: "sessionId query param required" });
+      }
+      const session = await storage.getSession(sessionId, academyId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      const sessionStart = new Date(session.startTime);
+      const sessionEnd = new Date(session.endTime);
+      const allCoaches = await storage.getAllCoaches(academyId);
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+      const todayStr = sessionStart.toDateString();
+      const coachesWithLoad = allCoaches.map((coach) => {
+        const coachSessions = allSessions.filter(
+          (s) => s.coachId === coach.id && s.status !== "cancelled"
+        );
+        const todaySessions = coachSessions.filter(
+          (s) => new Date(s.startTime).toDateString() === todayStr
+        );
+        const hasConflict = coachSessions.some((s) => {
+          if (s.id === session.id) return false;
+          const sStart = new Date(s.startTime);
+          const sEnd = new Date(s.endTime);
+          return sStart < sessionEnd && sEnd > sessionStart;
+        });
+        return {
+          id: coach.id,
+          name: coach.name,
+          specialty: coach.specialty,
+          role: coach.role,
+          sessionsToday: todaySessions.length,
+          isFreeAtTime: !hasConflict,
+          isCurrentCoach: coach.id === session.coachId
+        };
+      });
+      const sessionTypeWords = (session.sessionType || "").toLowerCase().split(/[\s_-]+/).filter(Boolean);
+      const sessionCourt = session.courtId;
+      coachesWithLoad.sort((a, b) => {
+        if (a.isFreeAtTime !== b.isFreeAtTime) return a.isFreeAtTime ? -1 : 1;
+        const aSpec = (a.specialty || "").toLowerCase();
+        const bSpec = (b.specialty || "").toLowerCase();
+        const aSpecMatch = sessionTypeWords.some((kw) => aSpec.includes(kw)) ? 0 : 1;
+        const bSpecMatch = sessionTypeWords.some((kw) => bSpec.includes(kw)) ? 0 : 1;
+        if (aSpecMatch !== bSpecMatch) return aSpecMatch - bSpecMatch;
+        const aCourtCount = sessionCourt ? allSessions.filter((s) => s.coachId === a.id && s.courtId === sessionCourt).length : 0;
+        const bCourtCount = sessionCourt ? allSessions.filter((s) => s.coachId === b.id && s.courtId === sessionCourt).length : 0;
+        if (aCourtCount !== bCourtCount) return bCourtCount - aCourtCount;
+        return a.sessionsToday - b.sessionsToday;
+      });
+      res.json({
+        session: {
+          id: session.id,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          sessionType: session.sessionType,
+          coachId: session.coachId
+        },
+        coaches: coachesWithLoad
+      });
+    } catch (error) {
+      console.error("Error fetching available coaches:", error);
+      res.status(500).json({ error: "Failed to fetch available coaches" });
+    }
+  }
+);
+router46.get(
+  "/api/admin/coaches/:id/sessions-today",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      const { id: coachId } = req.params;
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+      const today = (/* @__PURE__ */ new Date()).toDateString();
+      const todaySessions = allSessions.filter(
+        (s) => s.coachId === coachId && new Date(s.startTime).toDateString() === today && s.status !== "cancelled"
+      );
+      res.json(todaySessions);
+    } catch (error) {
+      console.error("Error fetching coach sessions today:", error);
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  }
+);
+router46.patch(
+  "/api/admin/sessions/:id/reassign-coach",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      const { id: sessionId } = req.params;
+      const { newCoachId, dryRun } = req.body;
+      if (!newCoachId) {
+        return res.status(400).json({ error: "newCoachId is required" });
+      }
+      const session = await storage.getSession(sessionId, academyId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      const oldCoachId = session.coachId;
+      const allCoaches = await storage.getAllCoaches(academyId);
+      if (!allCoaches.some((c) => c.id === newCoachId)) {
+        return res.status(403).json({ error: "Coach does not belong to this academy" });
+      }
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+      const sessionStart = new Date(session.startTime);
+      const sessionEnd = new Date(session.endTime);
+      const conflict = allSessions.find(
+        (s) => s.coachId === newCoachId && s.id !== sessionId && s.status !== "cancelled" && new Date(s.startTime) < sessionEnd && new Date(s.endTime) > sessionStart
+      );
+      if (conflict) {
+        return res.status(409).json({
+          error: "This coach is already scheduled at this time. Please choose a different coach.",
+          conflict: true
+        });
+      }
+      if (dryRun) {
+        return res.json({ ok: true, dryRun: true });
+      }
+      const updated = await storage.updateSession(sessionId, { coachId: newCoachId });
+      if (!updated) {
+        return res.status(500).json({ error: "Failed to update session" });
+      }
+      (async () => {
+        try {
+          const { sendPushNotification: sendPushNotification2, getCoachPushTokens: getCoachPushTokens2, getPlayerPushTokens: getPlayerPushTokens3 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
+          const sessionTime = new Date(session.startTime).toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          });
+          const allCoaches2 = await storage.getAllCoaches(academyId);
+          const newCoach = allCoaches2.find((c) => c.id === newCoachId);
+          const newCoachName = newCoach?.name || "a new coach";
+          if (oldCoachId && oldCoachId !== newCoachId) {
+            const oldTokens = await getCoachPushTokens2(oldCoachId);
+            if (oldTokens.length > 0) {
+              await sendPushNotification2(
+                oldTokens,
+                "Session Reassigned",
+                `Your ${session.sessionType || "session"} at ${sessionTime} has been reassigned to ${newCoachName}.`,
+                { type: "session_reassigned", sessionId }
+              );
+            }
+          }
+          const newTokens = await getCoachPushTokens2(newCoachId);
+          if (newTokens.length > 0) {
+            await sendPushNotification2(
+              newTokens,
+              "New Session Assigned",
+              `You have a new ${session.sessionType || "session"} at ${sessionTime}.`,
+              { type: "session_assigned", sessionId }
+            );
+          }
+          const players2 = await storage.getSessionPlayers(sessionId);
+          for (const player of players2) {
+            if (!player.id) continue;
+            const playerTokens = await getPlayerPushTokens3(player.id);
+            if (playerTokens.length > 0) {
+              await sendPushNotification2(
+                playerTokens,
+                "Coach Change",
+                `Your session at ${sessionTime} has a new coach: ${newCoachName}.`,
+                { type: "session_coach_changed", sessionId }
+              );
+            }
+          }
+        } catch (notifErr) {
+          console.error("[ReassignCoach] Push notification error:", notifErr);
+        }
+      })();
+      res.json({ success: true, session: updated });
+    } catch (error) {
+      console.error("Error reassigning coach:", error);
+      res.status(500).json({ error: "Failed to reassign coach" });
+    }
+  }
+);
+router46.post(
+  "/api/admin/coaches/:id/mark-absent",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      const { id: coachId } = req.params;
+      const allSessions = await storage.getSessionsByAcademy(academyId);
+      const today = (/* @__PURE__ */ new Date()).toDateString();
+      const todaySessions = allSessions.filter(
+        (s) => s.coachId === coachId && new Date(s.startTime).toDateString() === today && s.status !== "cancelled"
+      );
+      let flagged = 0;
+      for (const s of todaySessions) {
+        await storage.updateSession(s.id, { status: "needs_reassignment" });
+        flagged++;
+      }
+      res.json({ flagged, date: (/* @__PURE__ */ new Date()).toISOString().split("T")[0] });
+    } catch (error) {
+      console.error("Error marking coach absent:", error);
+      res.status(500).json({ error: "Failed to mark coach absent" });
+    }
+  }
+);
+router46.get(
+  "/api/admin/blocked-slots",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      const { date: date2 } = req.query;
+      const where = date2 ? and61(eq70(coachBlockedSlots.academyId, academyId), eq70(coachBlockedSlots.date, date2)) : eq70(coachBlockedSlots.academyId, academyId);
+      const slots = await db.select().from(coachBlockedSlots).where(where);
+      res.json(slots);
+    } catch (error) {
+      console.error("Error fetching blocked slots:", error);
+      res.status(500).json({ error: "Failed to fetch blocked slots" });
+    }
+  }
+);
+router46.post(
+  "/api/admin/blocked-slots",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      const { slots } = req.body;
+      if (!Array.isArray(slots) || slots.length === 0) {
+        return res.status(400).json({ error: "slots array required" });
+      }
+      const rows = slots.filter((s) => s.date && s.hour !== void 0).map((s) => ({
+        id: `blk_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        academyId,
+        date: s.date,
+        hour: s.hour,
+        coachId: s.coachId ?? null,
+        courtId: s.courtId ?? null
+      }));
+      if (rows.length === 0) return res.status(400).json({ error: "No valid slots provided" });
+      const created = await db.insert(coachBlockedSlots).values(rows).returning();
+      res.json({ created });
+    } catch (error) {
+      console.error("Error blocking slots:", error);
+      res.status(500).json({ error: "Failed to block slots" });
+    }
+  }
+);
+router46.delete(
+  "/api/admin/blocked-slots/:id",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      const { id } = req.params;
+      await db.delete(coachBlockedSlots).where(
+        and61(eq70(coachBlockedSlots.id, id), eq70(coachBlockedSlots.academyId, academyId))
+      );
+      res.json({ removed: true });
+    } catch (error) {
+      console.error("Error deleting blocked slot:", error);
+      res.status(500).json({ error: "Failed to delete blocked slot" });
+    }
+  }
+);
+router46.patch(
+  "/api/admin/sessions/batch-move",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  requireRole("academy_owner", "platform_owner", "admin"),
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      const { sessionIds, targetDate } = req.body;
+      if (!Array.isArray(sessionIds) || sessionIds.length === 0 || !targetDate) {
+        return res.status(400).json({ error: "sessionIds and targetDate are required" });
+      }
+      const [tYear, tMonth, tDay] = targetDate.split("-").map(Number);
+      const moved = [];
+      const failed = [];
+      for (const id of sessionIds) {
+        try {
+          const session = await storage.getSession(id, academyId);
+          if (!session) {
+            failed.push(id);
+            continue;
+          }
+          const origStart = new Date(session.startTime);
+          const origEnd = new Date(session.endTime);
+          const durationMs = origEnd.getTime() - origStart.getTime();
+          const newStart = new Date(origStart);
+          newStart.setFullYear(tYear, tMonth - 1, tDay);
+          const newEnd = new Date(newStart.getTime() + durationMs);
+          const updated = await storage.updateSession(id, {
+            startTime: newStart,
+            endTime: newEnd
+          });
+          if (updated) moved.push(updated);
+          else failed.push(id);
+        } catch {
+          failed.push(id);
+        }
+      }
+      res.json({ moved: moved.length, failed });
+    } catch (error) {
+      console.error("Error batch-moving sessions:", error);
+      res.status(500).json({ error: "Failed to move sessions" });
+    }
+  }
+);
 var admin_setup_default = router46;
 
 // server/routes.ts
@@ -111823,7 +113380,7 @@ function requireOwnerOrAdmin(req, res, next) {
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  if (user.role === "academy_owner" || user.role === "admin") {
+  if (user.role === "academy_owner" || user.role === "admin" || user.role === "platform_owner") {
     next();
     return;
   }
@@ -111835,7 +113392,7 @@ router47.get(
   requireOwnerOrAdmin,
   async (req, res) => {
     try {
-      const academyId = req.user.academyId;
+      const academyId = req.user.academyId ?? req.user.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "No academy found for this user" });
       }
@@ -111911,7 +113468,7 @@ router47.get(
   requireOwnerOrAdmin,
   async (req, res) => {
     try {
-      const academyId = req.user.academyId;
+      const academyId = req.user.academyId ?? req.user.currentAcademyId;
       if (!academyId) {
         return res.status(400).json({ error: "No academy found for this user" });
       }
@@ -111984,15 +113541,642 @@ router47.get(
 );
 var admin_chat_default = router47;
 
+// server/routes/admin-court-bookings.ts
+init_db();
+init_auth();
+init_schema();
+init_pushNotifications();
+import { Router as Router47 } from "express";
+import { eq as eq72, and as and63, gte as gte35, lte as lte19, inArray as inArray39, or as or23 } from "drizzle-orm";
+import { z as z12 } from "zod";
+var router48 = Router47();
+function requireOwnerOrAdmin2(req, res, next) {
+  const user = req.user;
+  if (!user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  if (user.role === "academy_owner" || user.role === "admin" || user.role === "platform_owner") {
+    next();
+    return;
+  }
+  res.status(403).json({ error: "Academy owner or admin access required" });
+}
+var blockSlotSchema = z12.object({
+  courtId: z12.string().min(1),
+  date: z12.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z12.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z12.string().regex(/^\d{2}:\d{2}$/),
+  reason: z12.enum(["maintenance", "event", "private", "other"]).default("other"),
+  note: z12.string().max(500).optional().nullable()
+});
+var bookForPlayerSchema = z12.object({
+  courtId: z12.string().min(1),
+  playerId: z12.string().min(1),
+  date: z12.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z12.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z12.string().regex(/^\d{2}:\d{2}$/),
+  durationMinutes: z12.number().int().positive(),
+  notes: z12.string().max(500).optional().nullable()
+});
+function timesOverlap(startA, endA, startB, endB) {
+  const toMin = (t) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+  return toMin(startA) < toMin(endB) && toMin(endA) > toMin(startB);
+}
+router48.get(
+  "/api/admin/court-bookings",
+  authMiddlewareWithFreshData,
+  requireOwnerOrAdmin2,
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+      const { date: date2, endDate } = req.query;
+      if (!date2 || typeof date2 !== "string") {
+        return res.status(400).json({ error: "date (YYYY-MM-DD) is required" });
+      }
+      const rangeEnd = typeof endDate === "string" ? endDate : date2;
+      const academyCourts = await db.select().from(courts).where(eq72(courts.academyId, academyId));
+      const courtIds = academyCourts.map((c) => c.id);
+      if (courtIds.length === 0) {
+        return res.json({ courts: [], bookings: [], blocks: [], sessions: [] });
+      }
+      const bookings = await db.select({
+        id: courtBookings.id,
+        courtId: courtBookings.courtId,
+        userId: courtBookings.userId,
+        playerId: courtBookings.playerId,
+        date: courtBookings.date,
+        startTime: courtBookings.startTime,
+        endTime: courtBookings.endTime,
+        durationMinutes: courtBookings.durationMinutes,
+        bookingType: courtBookings.bookingType,
+        status: courtBookings.status,
+        notes: courtBookings.notes,
+        price: courtBookings.price,
+        createdAt: courtBookings.createdAt
+      }).from(courtBookings).where(
+        and63(
+          inArray39(courtBookings.courtId, courtIds),
+          gte35(courtBookings.date, date2),
+          lte19(courtBookings.date, rangeEnd),
+          or23(
+            eq72(courtBookings.status, "confirmed"),
+            eq72(courtBookings.status, "pending")
+          )
+        )
+      );
+      const playerIds = bookings.map((b) => b.playerId).filter(Boolean);
+      const playerRows = playerIds.length > 0 ? await db.select({ id: players.id, name: players.name }).from(players).where(inArray39(players.id, playerIds)) : [];
+      const playerMap = new Map(playerRows.map((p) => [p.id, p.name]));
+      const sessionRows = await pool.query(
+        `SELECT s.id, s.court_id, s.start_time, s.end_time, s.title, s.status
+         FROM sessions s
+         WHERE s.court_id = ANY($1::text[])
+           AND DATE(s.start_time) >= $2
+           AND DATE(s.start_time) <= $3
+           AND s.status NOT IN ('cancelled')`,
+        [courtIds, date2, rangeEnd]
+      );
+      const enrichedBookings = bookings.map((b) => ({
+        ...b,
+        playerName: b.playerId ? playerMap.get(b.playerId) ?? "Unknown Player" : null,
+        displayType: b.bookingType === "blocked" ? "blocked" : b.bookingType === "training" || b.bookingType === "academy" ? "coaching" : "player",
+        colorCode: b.bookingType === "blocked" ? "#FF4136" : b.bookingType === "training" || b.bookingType === "academy" ? "#0074D9" : "#2ECC40"
+      }));
+      const enrichedSessions = sessionRows.rows.map((s) => ({
+        id: s.id,
+        courtId: s.court_id,
+        startTime: s.start_time,
+        endTime: s.end_time,
+        title: s.title,
+        status: s.status,
+        displayType: "coaching",
+        colorCode: "#0074D9"
+      }));
+      res.json({
+        courts: academyCourts,
+        bookings: enrichedBookings,
+        sessions: enrichedSessions
+      });
+    } catch (error) {
+      console.error("[AdminCourtBookings] GET error:", error);
+      res.status(500).json({ error: "Failed to fetch court bookings" });
+    }
+  }
+);
+router48.post(
+  "/api/admin/court-bookings",
+  authMiddlewareWithFreshData,
+  requireOwnerOrAdmin2,
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+      const parsed = bookForPlayerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+      }
+      const { courtId, playerId, date: date2, startTime, endTime, durationMinutes, notes } = parsed.data;
+      const court = await db.select().from(courts).where(and63(eq72(courts.id, courtId), eq72(courts.academyId, academyId))).limit(1);
+      if (court.length === 0) {
+        return res.status(404).json({ error: "Court not found in your academy" });
+      }
+      const player = await db.select({ id: players.id, name: players.name, academyId: players.academyId }).from(players).where(and63(eq72(players.id, playerId), eq72(players.academyId, academyId))).limit(1);
+      if (player.length === 0) {
+        return res.status(404).json({ error: "Player not found in your academy" });
+      }
+      const existingBookings = await db.select({
+        id: courtBookings.id,
+        startTime: courtBookings.startTime,
+        endTime: courtBookings.endTime
+      }).from(courtBookings).where(
+        and63(
+          eq72(courtBookings.courtId, courtId),
+          eq72(courtBookings.date, date2),
+          or23(
+            eq72(courtBookings.status, "confirmed"),
+            eq72(courtBookings.status, "pending")
+          )
+        )
+      );
+      const hasConflict = existingBookings.some(
+        (b) => timesOverlap(startTime, endTime, b.startTime, b.endTime)
+      );
+      if (hasConflict) {
+        return res.status(409).json({
+          error: "This time slot conflicts with an existing booking. Please choose a different time."
+        });
+      }
+      const sessionConflict = await pool.query(
+        `SELECT 1 FROM sessions s
+         WHERE s.court_id = $1
+           AND DATE(s.start_time) = $2
+           AND s.status NOT IN ('cancelled')
+           AND TO_CHAR(s.start_time, 'HH24:MI') < $4
+           AND TO_CHAR(s.end_time, 'HH24:MI') > $3
+         LIMIT 1`,
+        [courtId, date2, startTime, endTime]
+      );
+      if ((sessionConflict.rows?.length ?? 0) > 0) {
+        return res.status(409).json({
+          error: "This time slot conflicts with a scheduled coaching session."
+        });
+      }
+      const adminUserId = req.user.userId;
+      const playerUser = await db.select({ id: users.id }).from(users).where(eq72(users.playerId, playerId)).limit(1);
+      const bookingUserId = playerUser[0]?.id ?? adminUserId;
+      const [newBooking] = await db.insert(courtBookings).values({
+        courtId,
+        userId: bookingUserId,
+        playerId,
+        academyId,
+        date: date2,
+        startTime,
+        endTime,
+        durationMinutes,
+        bookingType: "public",
+        status: "confirmed",
+        notes: notes ?? null,
+        price: "0",
+        currency: "AED",
+        paymentStatus: "free"
+      }).returning();
+      try {
+        const tokens = await getPlayerPushTokens(playerId);
+        if (tokens.length > 0) {
+          await sendPushNotification(
+            tokens,
+            "Court Booked",
+            `A court has been booked for you on ${date2} at ${startTime}.`,
+            { type: "court_booking", bookingId: newBooking.id },
+            playerId
+          );
+        }
+      } catch (notifErr) {
+        console.warn("[AdminCourtBookings] Failed to notify player:", notifErr);
+      }
+      res.status(201).json({ success: true, booking: newBooking });
+    } catch (error) {
+      console.error("[AdminCourtBookings] POST error:", error);
+      res.status(500).json({ error: "Failed to create booking" });
+    }
+  }
+);
+router48.post(
+  "/api/admin/court-bookings/block",
+  authMiddlewareWithFreshData,
+  requireOwnerOrAdmin2,
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+      const parsed = blockSlotSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+      }
+      const { courtId, date: date2, startTime, endTime, reason, note } = parsed.data;
+      const court = await db.select().from(courts).where(and63(eq72(courts.id, courtId), eq72(courts.academyId, academyId))).limit(1);
+      if (court.length === 0) {
+        return res.status(404).json({ error: "Court not found in your academy" });
+      }
+      const adminUserId = req.user.userId;
+      const conflictingBookings = await db.select({
+        id: courtBookings.id,
+        playerId: courtBookings.playerId,
+        startTime: courtBookings.startTime,
+        endTime: courtBookings.endTime
+      }).from(courtBookings).where(
+        and63(
+          eq72(courtBookings.courtId, courtId),
+          eq72(courtBookings.date, date2),
+          or23(
+            eq72(courtBookings.status, "confirmed"),
+            eq72(courtBookings.status, "pending")
+          )
+        )
+      );
+      const overlappingBookings = conflictingBookings.filter(
+        (b) => timesOverlap(startTime, endTime, b.startTime, b.endTime)
+      );
+      for (const overlap of overlappingBookings) {
+        await db.update(courtBookings).set({
+          status: "cancelled",
+          cancelledAt: /* @__PURE__ */ new Date(),
+          cancelReason: `Admin blocked slot (${reason})`,
+          cancelledBy: adminUserId
+        }).where(eq72(courtBookings.id, overlap.id));
+        if (overlap.playerId) {
+          try {
+            const tokens = await getPlayerPushTokens(overlap.playerId);
+            if (tokens.length > 0) {
+              await sendPushNotification(
+                tokens,
+                "Booking Cancelled",
+                `Your court booking on ${date2} at ${overlap.startTime} has been cancelled \u2014 the slot has been blocked by the academy (${reason}).`,
+                { type: "court_booking_cancelled", bookingId: overlap.id },
+                overlap.playerId
+              );
+            }
+          } catch (notifErr) {
+            console.warn("[AdminCourtBookings] Failed to notify player of block cancellation:", notifErr);
+          }
+        }
+      }
+      const [startH, startM] = startTime.split(":").map(Number);
+      const [endH, endM] = endTime.split(":").map(Number);
+      const durationMinutes = endH * 60 + endM - (startH * 60 + startM);
+      const reasonLabel = reason === "maintenance" ? "Blocked \u2014 Maintenance" : reason === "event" ? "Blocked \u2014 Event" : reason === "private" ? "Blocked \u2014 Private" : "Blocked";
+      const [block] = await db.insert(courtBookings).values({
+        courtId,
+        userId: adminUserId,
+        playerId: null,
+        academyId,
+        date: date2,
+        startTime,
+        endTime,
+        durationMinutes: durationMinutes > 0 ? durationMinutes : 60,
+        bookingType: "blocked",
+        status: "confirmed",
+        notes: note ? `${reasonLabel}: ${note}` : reasonLabel,
+        price: "0",
+        currency: "AED",
+        paymentStatus: "free"
+      }).returning();
+      res.status(201).json({
+        success: true,
+        block,
+        cancelledCount: overlappingBookings.length
+      });
+    } catch (error) {
+      console.error("[AdminCourtBookings] BLOCK error:", error);
+      res.status(500).json({ error: "Failed to block slot" });
+    }
+  }
+);
+router48.delete(
+  "/api/admin/court-bookings/:id",
+  authMiddlewareWithFreshData,
+  requireOwnerOrAdmin2,
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+      const { id } = req.params;
+      const [existing] = await db.select().from(courtBookings).where(and63(eq72(courtBookings.id, id), eq72(courtBookings.academyId, academyId)));
+      if (!existing) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+      await db.update(courtBookings).set({
+        status: "cancelled",
+        cancelledAt: /* @__PURE__ */ new Date(),
+        cancelReason: "Cancelled by admin",
+        cancelledBy: req.user.userId
+      }).where(eq72(courtBookings.id, id));
+      if (existing.playerId && existing.bookingType !== "blocked") {
+        try {
+          const tokens = await getPlayerPushTokens(existing.playerId);
+          if (tokens.length > 0) {
+            await sendPushNotification(
+              tokens,
+              "Booking Cancelled",
+              `Your court booking on ${existing.date} at ${existing.startTime} has been cancelled by the academy.`,
+              { type: "court_booking_cancelled", bookingId: id },
+              existing.playerId
+            );
+          }
+        } catch (notifErr) {
+          console.warn("[AdminCourtBookings] Failed to notify player of cancellation:", notifErr);
+        }
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[AdminCourtBookings] DELETE error:", error);
+      res.status(500).json({ error: "Failed to cancel booking" });
+    }
+  }
+);
+var admin_court_bookings_default = router48;
+
+// server/routes/admin-broadcast.ts
+init_db();
+init_db();
+init_auth();
+init_schema();
+init_pushNotifications();
+init_websocket();
+import { Router as Router48 } from "express";
+import { eq as eq73, and as and64, inArray as inArray40 } from "drizzle-orm";
+import { z as z13 } from "zod";
+var router49 = Router48();
+function requireOwnerOrAdmin3(req, res, next) {
+  const user = req.user;
+  if (!user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  if (user.role === "academy_owner" || user.role === "admin" || user.role === "platform_owner") {
+    next();
+    return;
+  }
+  res.status(403).json({ error: "Academy owner or admin access required" });
+}
+var broadcastSchema = z13.object({
+  message: z13.string().min(1).max(500),
+  title: z13.string().min(1).max(100).optional().default("Academy Announcement"),
+  audience: z13.enum(["all_players", "all_coaches", "series", "all"]),
+  seriesId: z13.string().optional().nullable()
+});
+var _broadcastLog = [];
+router49.get(
+  "/api/admin/broadcast/history",
+  authMiddlewareWithFreshData,
+  requireOwnerOrAdmin3,
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+      try {
+        const rows = await pool.query(
+          `SELECT id, academy_id, message, title, audience, series_id, recipient_count, tokens_sent, sent_at, sent_by
+           FROM admin_broadcasts
+           WHERE academy_id = $1
+           ORDER BY sent_at DESC
+           LIMIT 50`,
+          [academyId]
+        );
+        return res.json({ broadcasts: rows.rows });
+      } catch {
+        const filtered = _broadcastLog.filter((b) => b.academyId === academyId);
+        return res.json({ broadcasts: filtered });
+      }
+    } catch (error) {
+      console.error("[AdminBroadcast] GET history error:", error);
+      res.status(500).json({ error: "Failed to fetch broadcast history" });
+    }
+  }
+);
+router49.get(
+  "/api/admin/broadcast/recipient-count",
+  authMiddlewareWithFreshData,
+  requireOwnerOrAdmin3,
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+      const audience = req.query.audience;
+      const seriesId = req.query.seriesId;
+      let count20 = 0;
+      if (audience === "all_players" || audience === "all") {
+        const playerRows = await db.select({ id: players.id }).from(players).where(eq73(players.academyId, academyId));
+        count20 += playerRows.length;
+      }
+      if (audience === "all_coaches" || audience === "all") {
+        const coachRows = await db.select({ id: coaches.id }).from(coaches).where(eq73(coaches.academyId, academyId));
+        count20 += coachRows.length;
+      }
+      if (audience === "series" && seriesId) {
+        const series = await db.select({ id: coachingSeries.id }).from(coachingSeries).where(and64(eq73(coachingSeries.id, seriesId), eq73(coachingSeries.academyId, academyId))).limit(1);
+        if (series.length > 0) {
+          const seriesPlayerRows = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(eq73(seriesPlayers.seriesId, seriesId));
+          count20 = seriesPlayerRows.length;
+        }
+      }
+      res.json({ count: count20 });
+    } catch (error) {
+      console.error("[AdminBroadcast] recipient-count error:", error);
+      res.status(500).json({ error: "Failed to count recipients" });
+    }
+  }
+);
+router49.post(
+  "/api/admin/broadcast",
+  authMiddlewareWithFreshData,
+  requireOwnerOrAdmin3,
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      if (!academyId) {
+        return res.status(403).json({ error: "Academy context required" });
+      }
+      const parsed = broadcastSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" });
+      }
+      const { message, title, audience, seriesId } = parsed.data;
+      if (audience === "series" && seriesId) {
+        const series = await db.select({ id: coachingSeries.id }).from(coachingSeries).where(and64(eq73(coachingSeries.id, seriesId), eq73(coachingSeries.academyId, academyId))).limit(1);
+        if (series.length === 0) {
+          return res.status(404).json({ error: "Series not found in your academy" });
+        }
+      }
+      const targetPlayerIds = [];
+      const targetCoachIds = [];
+      if (audience === "all_players" || audience === "all") {
+        const playerRows = await db.select({ id: players.id }).from(players).where(eq73(players.academyId, academyId));
+        targetPlayerIds.push(...playerRows.map((p) => p.id));
+      }
+      if (audience === "all_coaches" || audience === "all") {
+        const coachRows = await db.select({ id: coaches.id }).from(coaches).where(eq73(coaches.academyId, academyId));
+        targetCoachIds.push(...coachRows.map((c) => c.id));
+      }
+      if (audience === "series" && seriesId) {
+        const seriesPlayerRows = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(eq73(seriesPlayers.seriesId, seriesId));
+        targetPlayerIds.push(...seriesPlayerRows.map((sp) => sp.playerId).filter(Boolean));
+      }
+      const allTokens = [];
+      let recipientCount = 0;
+      if (targetPlayerIds.length > 0) {
+        recipientCount += targetPlayerIds.length;
+        const playerUserRows = await db.select({ userId: users.id }).from(users).where(inArray40(users.playerId, targetPlayerIds));
+        const playerUserIds = playerUserRows.map((u) => u.userId);
+        if (playerUserIds.length > 0) {
+          const tokenRows = await db.select({ token: pushDeviceTokens.token }).from(pushDeviceTokens).where(
+            and64(
+              inArray40(pushDeviceTokens.userId, playerUserIds),
+              eq73(pushDeviceTokens.isActive, true)
+            )
+          );
+          allTokens.push(...tokenRows.map((t) => t.token));
+        }
+      }
+      if (targetCoachIds.length > 0) {
+        recipientCount += targetCoachIds.length;
+        const coachUserRows = await db.select({ userId: users.id }).from(users).where(inArray40(users.coachId, targetCoachIds));
+        const coachUserIds = coachUserRows.map((u) => u.userId);
+        if (coachUserIds.length > 0) {
+          const tokenRows = await db.select({ token: pushDeviceTokens.token }).from(pushDeviceTokens).where(
+            and64(
+              inArray40(pushDeviceTokens.userId, coachUserIds),
+              eq73(pushDeviceTokens.isActive, true)
+            )
+          );
+          allTokens.push(...tokenRows.map((t) => t.token));
+        }
+      }
+      const uniqueTokens = [...new Set(allTokens)];
+      const BATCH_SIZE = 100;
+      let sentCount = 0;
+      for (let i = 0; i < uniqueTokens.length; i += BATCH_SIZE) {
+        const batch = uniqueTokens.slice(i, i + BATCH_SIZE);
+        try {
+          await sendPushNotification(
+            batch,
+            title,
+            message,
+            { type: "admin_broadcast", academyId },
+            void 0
+          );
+          sentCount += batch.length;
+        } catch (batchErr) {
+          console.warn(`[AdminBroadcast] Batch ${i / BATCH_SIZE + 1} error:`, batchErr);
+        }
+      }
+      const broadcastId = `bc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      const sentAt = (/* @__PURE__ */ new Date()).toISOString();
+      const sentBy = req.user.userId;
+      try {
+        await pool.query(
+          `INSERT INTO admin_broadcasts (id, academy_id, message, title, audience, series_id, recipient_count, tokens_sent, sent_at, sent_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [broadcastId, academyId, message, title, audience, seriesId ?? null, recipientCount, sentCount, sentAt, sentBy]
+        );
+      } catch {
+        _broadcastLog.unshift({
+          id: broadcastId,
+          academyId,
+          message,
+          title,
+          audience,
+          seriesId,
+          recipientCount,
+          tokensSent: sentCount,
+          sentAt,
+          sentBy
+        });
+        if (_broadcastLog.length > 100) _broadcastLog.splice(100);
+      }
+      try {
+        let announcementConv = await db.select({ id: conversations.id }).from(conversations).where(
+          and64(
+            eq73(conversations.academyId, academyId),
+            eq73(conversations.type, "academy_announcement")
+          )
+        ).limit(1);
+        if (announcementConv.length === 0) {
+          const [newConv] = await db.insert(conversations).values({
+            type: "academy_announcement",
+            title: "Academy Announcements",
+            academyId
+          }).returning({ id: conversations.id });
+          announcementConv = [newConv];
+        }
+        const conversationId = announcementConv[0].id;
+        const audienceLabel = audience === "all_players" ? "all players" : audience === "all_coaches" ? "all coaches" : audience === "series" ? "a coaching group" : "all members";
+        const systemBody = `[${title}] ${message}
+
+\u2014 Sent to ${audienceLabel} (${recipientCount} recipient${recipientCount !== 1 ? "s" : ""})`;
+        const [systemMsg] = await db.insert(messages).values({
+          conversationId,
+          academyId,
+          senderType: "system",
+          body: systemBody,
+          messageType: "system"
+        }).returning();
+        await db.update(conversations).set({
+          lastMessageAt: /* @__PURE__ */ new Date(),
+          lastMessagePreview: message.slice(0, 120)
+        }).where(eq73(conversations.id, conversationId));
+        broadcastNewMessage(academyId, {
+          conversationId,
+          message: {
+            id: systemMsg.id,
+            content: systemBody,
+            senderType: "system",
+            createdAt: systemMsg.createdAt?.toISOString() ?? (/* @__PURE__ */ new Date()).toISOString()
+          }
+        });
+      } catch (chatErr) {
+        console.warn("[AdminBroadcast] Failed to write system chat message (non-fatal):", chatErr);
+      }
+      res.json({
+        success: true,
+        recipientCount,
+        tokensSent: sentCount,
+        broadcastId
+      });
+    } catch (error) {
+      console.error("[AdminBroadcast] POST error:", error);
+      res.status(500).json({ error: "Failed to send broadcast" });
+    }
+  }
+);
+var admin_broadcast_default = router49;
+
 // server/routes/player-credits.ts
 init_db();
 init_storage();
 init_auth();
-import { Router as Router47 } from "express";
-import { eq as eq72, desc as desc42, and as and63 } from "drizzle-orm";
+import { Router as Router49 } from "express";
+import { eq as eq74, desc as desc42, and as and65 } from "drizzle-orm";
 init_schema();
-var router48 = Router47();
-router48.get(
+var router50 = Router49();
+router50.get(
   "/api/players/:playerId/packages",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -112018,7 +114202,7 @@ router48.get(
     }
   }
 );
-router48.get(
+router50.get(
   "/api/players/:playerId/packages/active",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -112044,7 +114228,7 @@ router48.get(
     }
   }
 );
-router48.get(
+router50.get(
   "/api/players/:playerId/credit-balance",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -112064,7 +114248,7 @@ router48.get(
     }
   }
 );
-router48.get(
+router50.get(
   "/api/players/:playerId/pillar-progress",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -112080,9 +114264,9 @@ router48.get(
         pillarSelfRatings: playerMonthlyAssessments.pillarSelfRatings,
         aiSummary: playerMonthlyAssessments.aiSummary
       }).from(playerMonthlyAssessments).where(
-        and63(
-          eq72(playerMonthlyAssessments.playerId, playerId),
-          eq72(playerMonthlyAssessments.status, "completed")
+        and65(
+          eq74(playerMonthlyAssessments.playerId, playerId),
+          eq74(playerMonthlyAssessments.status, "completed")
         )
       ).orderBy(desc42(playerMonthlyAssessments.completedAt)).limit(1);
       const latestAssessment = latestAssessmentRows[0] ?? null;
@@ -112098,7 +114282,7 @@ router48.get(
     }
   }
 );
-router48.post(
+router50.post(
   "/api/packages",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112174,7 +114358,7 @@ router48.post(
         ],
         notes: `Credit package purchase - ${creditType.replace("_", " ")} lessons`
       });
-      const pkg3 = await storage.createPackage({
+      const pkg2 = await storage.createPackage({
         academyId,
         playerId,
         creditType,
@@ -112189,11 +114373,11 @@ router48.post(
         name: `${totalCredits} ${creditType.replace("_", " ")} credits`,
         isPaid: false
       });
-      await storage.updateInvoice(invoice.id, { packageId: pkg3.id });
+      await storage.updateInvoice(invoice.id, { packageId: pkg2.id });
       await storage.createCreditTransaction({
         playerId,
         academyId,
-        packageId: pkg3.id,
+        packageId: pkg2.id,
         type: "credit",
         creditType,
         amount: totalCredits,
@@ -112210,7 +114394,7 @@ router48.post(
           await storage.createPayment({
             academyId,
             playerId,
-            packageId: pkg3.id,
+            packageId: pkg2.id,
             invoiceId: invoice.id,
             source: "coach_package_purchase",
             recordedByUserId: req.user.userId,
@@ -112235,7 +114419,7 @@ router48.post(
       const debtSettlement = await storage.settlePlayerDebts(
         playerId,
         creditType,
-        pkg3.id
+        pkg2.id
       );
       if (debtSettlement.settledCount > 0) {
         if (debtSettlement.totalDeducted > totalCredits) {
@@ -112244,7 +114428,7 @@ router48.post(
           );
         } else {
           console.log(
-            `[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted}/${totalCredits} credits from package ${pkg3.id}`
+            `[Package] Settled ${debtSettlement.settledCount} debt(s) for player ${playerId}, deducted ${debtSettlement.totalDeducted}/${totalCredits} credits from package ${pkg2.id}`
           );
         }
       } else {
@@ -112253,20 +114437,20 @@ router48.post(
       if (coachId) {
         await storage.createAuditLog({
           entityType: "package",
-          entityId: pkg3.id,
+          entityId: pkg2.id,
           action: "create",
           performedBy: coachId,
           metadata: JSON.stringify({ creditType, totalCredits, totalPrice, invoiceId: invoice.id })
         });
       }
-      res.status(201).json({ ...pkg3, invoice });
+      res.status(201).json({ ...pkg2, invoice });
     } catch (error) {
       console.error("Error creating package:", error);
       res.status(500).json({ error: "Failed to create package" });
     }
   }
 );
-router48.patch(
+router50.patch(
   "/api/packages/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112284,27 +114468,27 @@ router48.patch(
       }
       const prev = await storage.getPackage(id, academyId ?? void 0);
       const wasPaid = prev?.isPaid === true;
-      const pkg3 = await storage.updatePackage(
+      const pkg2 = await storage.updatePackage(
         id,
         req.body,
         academyId ?? void 0
       );
-      if (!pkg3) {
+      if (!pkg2) {
         return res.status(404).json({ error: "Package not found" });
       }
-      const isTransitioningToPaid = !wasPaid && req.body && req.body.isPaid === true && pkg3.isPaid === true;
-      if (isTransitioningToPaid && pkg3.playerId && pkg3.academyId) {
+      const isTransitioningToPaid = !wasPaid && req.body && req.body.isPaid === true && pkg2.isPaid === true;
+      if (isTransitioningToPaid && pkg2.playerId && pkg2.academyId) {
         const allowedMethods = ["cash", "bank_transfer", "card"];
         const methodRaw = req.body.paymentMethod || "cash";
         const paymentMethod = allowedMethods.includes(methodRaw) ? methodRaw : "cash";
-        const amount = String(pkg3.price ?? "0");
-        const academySettings2 = await storage.getAcademySettings(pkg3.academyId);
-        const currency = pkg3.currency || academySettings2?.currency || "AED";
+        const amount = String(pkg2.price ?? "0");
+        const academySettings2 = await storage.getAcademySettings(pkg2.academyId);
+        const currency = pkg2.currency || academySettings2?.currency || "AED";
         try {
           await storage.createPayment({
-            academyId: pkg3.academyId,
-            playerId: pkg3.playerId,
-            packageId: pkg3.id,
+            academyId: pkg2.academyId,
+            playerId: pkg2.playerId,
+            packageId: pkg2.id,
             source: "coach_mark_paid",
             recordedByUserId: req.user.userId,
             amount,
@@ -112327,14 +114511,14 @@ router48.patch(
           }
         }
       }
-      res.json(pkg3);
+      res.json(pkg2);
     } catch (error) {
       console.error("Error updating package:", error);
       res.status(500).json({ error: "Failed to update package" });
     }
   }
 );
-router48.delete(
+router50.delete(
   "/api/packages/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112377,7 +114561,7 @@ router48.delete(
     }
   }
 );
-router48.post(
+router50.post(
   "/api/packages/:id/use",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112393,8 +114577,8 @@ router48.post(
       if (!valid) {
         return res.status(404).json({ error: "Package not found" });
       }
-      const pkg3 = await storage.usePackageCredit(id, academyId ?? void 0);
-      if (!pkg3) {
+      const pkg2 = await storage.usePackageCredit(id, academyId ?? void 0);
+      if (!pkg2) {
         return res.status(400).json({ error: "No credits remaining or package not found" });
       }
       const coachId = req.user.coachId;
@@ -112404,14 +114588,14 @@ router48.post(
         action: "use_credit",
         performedBy: coachId
       });
-      res.json(pkg3);
+      res.json(pkg2);
     } catch (error) {
       console.error("Error using package credit:", error);
       res.status(500).json({ error: "Failed to use package credit" });
     }
   }
 );
-router48.get(
+router50.get(
   "/api/coach/sessions/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112435,7 +114619,7 @@ router48.get(
     }
   }
 );
-router48.patch(
+router50.patch(
   "/api/sessions/:sessionId",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112542,7 +114726,7 @@ router48.patch(
     }
   }
 );
-router48.get(
+router50.get(
   "/api/players/:id/notes",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112562,7 +114746,7 @@ router48.get(
     }
   }
 );
-router48.post(
+router50.post(
   "/api/players/:id/notes",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112601,7 +114785,7 @@ router48.post(
     }
   }
 );
-router48.delete(
+router50.delete(
   "/api/players/:playerId/notes/:noteId",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112625,7 +114809,7 @@ router48.delete(
     }
   }
 );
-router48.patch(
+router50.patch(
   "/api/players/:playerId/notes/:noteId/pin",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -112650,7 +114834,7 @@ router48.patch(
     }
   }
 );
-var player_credits_default = router48;
+var player_credits_default = router50;
 
 // server/routes/credits-v2.ts
 init_db();
@@ -112661,9 +114845,9 @@ init_credit_feature_flag();
 init_credit_reconcile();
 init_pushNotifications();
 init_storage();
-import { Router as Router48 } from "express";
-import { eq as eq73, sql as sql45 } from "drizzle-orm";
-var router49 = Router48();
+import { Router as Router50 } from "express";
+import { eq as eq75, sql as sql45 } from "drizzle-orm";
+var router51 = Router50();
 async function resolvePlayerAcademy(playerId) {
   const r = await db.execute(sql45`
     SELECT academy_id FROM players WHERE id = ${playerId} LIMIT 1
@@ -112696,7 +114880,7 @@ async function canActorAccessPlayer(req, playerId) {
   }
   return { ok: false, academyId };
 }
-router49.get(
+router51.get(
   "/api/v2/credits/feature-flag/:academyId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -112710,7 +114894,7 @@ router49.get(
     }
   }
 );
-router49.get(
+router51.get(
   "/api/v2/credits/balance/:playerId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -112736,7 +114920,7 @@ router49.get(
     }
   }
 );
-router49.get(
+router51.get(
   "/api/v2/credits/lots/:playerId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -112786,7 +114970,7 @@ router49.get(
     }
   }
 );
-router49.get(
+router51.get(
   "/api/v2/credits/ledger/:playerId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -112813,7 +114997,7 @@ router49.get(
     }
   }
 );
-router49.get(
+router51.get(
   "/api/v2/credits/wallet/:playerId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -112872,7 +115056,7 @@ router49.get(
     }
   }
 );
-router49.get(
+router51.get(
   "/api/admin/credits/reconcile",
   authMiddlewareWithFreshData,
   requireRole("academy_owner", "admin", "platform_owner"),
@@ -112901,7 +115085,7 @@ router49.get(
   }
 );
 var ALLOWED_TYPES = ["group", "semi_private", "private"];
-router49.post(
+router51.post(
   "/api/v2/credits/manual-adjustment",
   authMiddlewareWithFreshData,
   requireRole("academy_owner", "coach", "admin", "platform_owner"),
@@ -112941,7 +115125,7 @@ router49.post(
         if (typeof reversalOf !== "string" || !reversalOf.trim()) {
           return res.status(400).json({ error: "reversalOf must be a ledger entry id" });
         }
-        const [orig] = await db.select().from(creditLedgerV2).where(eq73(creditLedgerV2.id, reversalOf)).limit(1);
+        const [orig] = await db.select().from(creditLedgerV2).where(eq75(creditLedgerV2.id, reversalOf)).limit(1);
         if (!orig) {
           return res.status(404).json({ error: "Original ledger entry not found" });
         }
@@ -113078,7 +115262,7 @@ router49.post(
     }
   }
 );
-router49.post(
+router51.post(
   "/api/v2/credits/refund",
   authMiddlewareWithFreshData,
   requireRole("academy_owner", "coach", "admin", "platform_owner"),
@@ -113128,7 +115312,7 @@ router49.post(
     }
   }
 );
-router49.post(
+router51.post(
   "/api/v2/credits/makeup",
   authMiddlewareWithFreshData,
   requireRole("academy_owner", "coach", "admin", "platform_owner"),
@@ -113172,7 +115356,7 @@ router49.post(
     }
   }
 );
-router49.get(
+router51.get(
   "/api/v2/credits/health/:academyId",
   authMiddlewareWithFreshData,
   requireRole("academy_owner", "admin", "platform_owner"),
@@ -113247,7 +115431,7 @@ router49.get(
     }
   }
 );
-router49.post(
+router51.post(
   "/api/v2/credits/wallets-batch",
   authMiddlewareWithFreshData,
   requireRole("academy_owner", "coach", "admin", "platform_owner"),
@@ -113312,15 +115496,15 @@ router49.post(
     }
   }
 );
-var credits_v2_default = router49;
+var credits_v2_default = router51;
 
 // server/routes/player-progress.ts
 init_db();
 init_storage();
 init_auth();
-import { Router as Router51 } from "express";
-import { eq as eq76, sql as sql47, desc as desc44, and as and65, asc as asc18, inArray as inArray39, count as count14, ilike as ilike5 } from "drizzle-orm";
-import { z as z13 } from "zod";
+import { Router as Router53 } from "express";
+import { eq as eq78, sql as sql47, desc as desc44, and as and67, asc as asc18, inArray as inArray41, count as count14, ilike as ilike5 } from "drizzle-orm";
+import { z as z15 } from "zod";
 import { fromZodError as fromZodError10 } from "zod-validation-error";
 init_timezone();
 init_schema();
@@ -113331,14 +115515,14 @@ init_websocket();
 init_auth();
 init_db();
 init_schema();
-import { Router as Router49 } from "express";
-import { z as z12 } from "zod";
-import { eq as eq74, desc as desc43 } from "drizzle-orm";
-var router50 = Router49();
-var healthSnapshotSchema = z12.object({
-  sleep_quality: z12.enum(["good", "fair", "poor"]).nullable().optional(),
-  recovery_status: z12.string().max(40).nullable().optional(),
-  steps_today: z12.number().int().min(0).max(2e5).nullable().optional()
+import { Router as Router51 } from "express";
+import { z as z14 } from "zod";
+import { eq as eq76, desc as desc43 } from "drizzle-orm";
+var router52 = Router51();
+var healthSnapshotSchema = z14.object({
+  sleep_quality: z14.enum(["good", "fair", "poor"]).nullable().optional(),
+  recovery_status: z14.string().max(40).nullable().optional(),
+  steps_today: z14.number().int().min(0).max(2e5).nullable().optional()
 });
 function requirePlayer(req, res) {
   const playerId = req.user?.playerId;
@@ -113348,7 +115532,7 @@ function requirePlayer(req, res) {
   }
   return playerId;
 }
-router50.post(
+router52.post(
   "/api/player/me/health-snapshot",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -113372,14 +115556,14 @@ router50.post(
     }
   }
 );
-router50.get(
+router52.get(
   "/api/player/me/health-snapshot",
   authMiddlewareWithFreshData,
   async (req, res) => {
     const playerId = requirePlayer(req, res);
     if (!playerId) return;
     try {
-      const rows = await db.select().from(playerHealthSnapshots).where(eq74(playerHealthSnapshots.playerId, playerId)).orderBy(desc43(playerHealthSnapshots.recordedAt)).limit(1);
+      const rows = await db.select().from(playerHealthSnapshots).where(eq76(playerHealthSnapshots.playerId, playerId)).orderBy(desc43(playerHealthSnapshots.recordedAt)).limit(1);
       if (rows.length === 0) {
         return res.json({ snapshot: null });
       }
@@ -113401,7 +115585,7 @@ router50.get(
 );
 async function getPlayerHealthSnapshot(playerId) {
   try {
-    const rows = await db.select().from(playerHealthSnapshots).where(eq74(playerHealthSnapshots.playerId, playerId)).orderBy(desc43(playerHealthSnapshots.recordedAt)).limit(1);
+    const rows = await db.select().from(playerHealthSnapshots).where(eq76(playerHealthSnapshots.playerId, playerId)).orderBy(desc43(playerHealthSnapshots.recordedAt)).limit(1);
     if (rows.length === 0) return null;
     const row = rows[0];
     return {
@@ -113416,11 +115600,11 @@ async function getPlayerHealthSnapshot(playerId) {
     return null;
   }
 }
-var player_health_default = router50;
+var player_health_default = router52;
 
 // server/routes/player-progress.ts
-var router52 = Router51();
-router52.get(
+var router54 = Router53();
+router54.get(
   "/api/players/:id/progress",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -113443,7 +115627,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/players/:id/progress/summary",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -113466,7 +115650,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/players/:id/progress-report",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -113596,7 +115780,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/players/:id/attendance-report",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -113623,7 +115807,7 @@ router52.get(
         lateMinutes: sessionPlayers.lateMinutes,
         creditDeductedAt: sessionPlayers.creditDeductedAt,
         creditTransactionId: sessionPlayers.creditTransactionId
-      }).from(sessionPlayers).where(eq76(sessionPlayers.playerId, id));
+      }).from(sessionPlayers).where(eq78(sessionPlayers.playerId, id));
       const sessionIds = playerRecords.map((r) => r.sessionId).filter((id2) => Boolean(id2));
       let sessionMap = {};
       if (sessionIds.length > 0) {
@@ -113634,7 +115818,7 @@ router52.get(
           sessionType: sessions.sessionType,
           status: sessions.status,
           seriesId: sessions.seriesId
-        }).from(sessions).where(inArray39(sessions.id, sessionIds.filter(Boolean)));
+        }).from(sessions).where(inArray41(sessions.id, sessionIds.filter(Boolean)));
         sessionMap = sessionDetails.reduce(
           (acc, s) => {
             acc[s.id] = {
@@ -113662,7 +115846,7 @@ router52.get(
           dayOfWeek: coachingSeries.dayOfWeek,
           startTime: coachingSeries.startTime,
           sessionType: coachingSeries.sessionType
-        }).from(coachingSeries).where(inArray39(coachingSeries.id, uniqueSeriesIds));
+        }).from(coachingSeries).where(inArray41(coachingSeries.id, uniqueSeriesIds));
         seriesMap = seriesDetails.reduce(
           (acc, s) => {
             acc[s.id] = {
@@ -113797,7 +115981,7 @@ router52.get(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/players/:id/progress",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -113830,7 +116014,7 @@ router52.post(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/coach/players/progress",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -113870,7 +116054,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/coach/players/:playerId/attendance-summary",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -113893,16 +116077,16 @@ router52.get(
         sessionStatus: sessions.status,
         startTime: sessions.startTime,
         sessionType: sessions.sessionType
-      }).from(sessionPlayers).innerJoin(sessions, eq76(sessionPlayers.sessionId, sessions.id)).where(eq76(sessionPlayers.playerId, playerId));
+      }).from(sessionPlayers).innerJoin(sessions, eq78(sessionPlayers.sessionId, sessions.id)).where(eq78(sessionPlayers.playerId, playerId));
       const playerSeriesData = await db.select({
         seriesId: seriesPlayers.seriesId,
         joinedAt: seriesPlayers.joinedAt,
         createdAt: seriesPlayers.createdAt,
         leftAt: seriesPlayers.leftAt
       }).from(seriesPlayers).where(
-        and65(
-          eq76(seriesPlayers.playerId, playerId),
-          inArray39(seriesPlayers.status, ["active", "paused", "left"])
+        and67(
+          eq78(seriesPlayers.playerId, playerId),
+          inArray41(seriesPlayers.status, ["active", "paused", "left"])
         )
       );
       const seriesIdList = playerSeriesData.map((s) => s.seriesId).filter(Boolean);
@@ -113924,9 +116108,9 @@ router52.get(
           startTime: sessions.startTime,
           sessionType: sessions.sessionType
         }).from(sessions).where(
-          and65(
-            inArray39(sessions.seriesId, seriesIdList),
-            eq76(sessions.status, "completed")
+          and67(
+            inArray41(sessions.seriesId, seriesIdList),
+            eq78(sessions.status, "completed")
           )
         );
         orphanedCompletedSessions = seriesSessions.filter((s) => {
@@ -114020,7 +116204,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/coach/players/:playerId/feedback-history",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114047,10 +116231,10 @@ router52.get(
         sessionId: inSessionFeedback.sessionId,
         sessionDate: sessions.startTime,
         sessionTitle: sessions.title
-      }).from(inSessionFeedback).leftJoin(sessions, eq76(inSessionFeedback.sessionId, sessions.id)).where(
-        and65(
-          eq76(inSessionFeedback.playerId, playerId),
-          eq76(inSessionFeedback.coachId, coachUserId)
+      }).from(inSessionFeedback).leftJoin(sessions, eq78(inSessionFeedback.sessionId, sessions.id)).where(
+        and67(
+          eq78(inSessionFeedback.playerId, playerId),
+          eq78(inSessionFeedback.coachId, coachUserId)
         )
       ).orderBy(desc44(inSessionFeedback.createdAt)).limit(100);
       res.json({ feedback });
@@ -114060,7 +116244,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/coach/players/:playerId/quests",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114086,10 +116270,10 @@ router52.get(
         xpReward: playerQuests.xpReward,
         expiresAt: playerQuests.expiresAt,
         personalisedBy: playerQuests.personalisedBy
-      }).from(playerQuests).innerJoin(questTemplates, eq76(playerQuests.questTemplateId, questTemplates.id)).where(
-        and65(
-          eq76(playerQuests.playerId, playerId),
-          inArray39(playerQuests.status, ["active", "completed"])
+      }).from(playerQuests).innerJoin(questTemplates, eq78(playerQuests.questTemplateId, questTemplates.id)).where(
+        and67(
+          eq78(playerQuests.playerId, playerId),
+          inArray41(playerQuests.status, ["active", "completed"])
         )
       ).orderBy(asc18(questTemplates.order));
       res.json({ quests: activeQuests });
@@ -114099,7 +116283,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/coach/players/:playerId/attendance-history",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114257,7 +116441,7 @@ router52.get(
           dayOfWeek: coachingSeries.dayOfWeek,
           startTime: coachingSeries.startTime,
           sessionType: coachingSeries.sessionType
-        }).from(coachingSeries).where(inArray39(coachingSeries.id, uniqueSeriesIds));
+        }).from(coachingSeries).where(inArray41(coachingSeries.id, uniqueSeriesIds));
         seriesMap = seriesDetails.reduce((acc, s) => {
           acc[s.id] = { title: s.title || "", dayOfWeek: s.dayOfWeek, startTime: s.startTime, sessionType: s.sessionType };
           return acc;
@@ -114337,7 +116521,7 @@ router52.get(
         return {
           seriesId: row.series_id,
           dayOfWeek: seriesInfo?.dayOfWeek ?? 0,
-          dayName: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][seriesInfo?.dayOfWeek ?? 0],
+          dayName: seriesInfo?.dayOfWeek === -1 ? "Extra" : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][seriesInfo?.dayOfWeek ?? 0] ?? "",
           startTime: seriesInfo?.startTime || "",
           title: seriesInfo?.title || "",
           totalSessions: total_s,
@@ -114359,7 +116543,7 @@ router52.get(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/coach/players/:playerId/repair-credits",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114397,7 +116581,7 @@ router52.post(
     }
   }
 );
-router52.patch(
+router54.patch(
   "/api/coach/players/:playerId/sessions/:sessionId/attendance",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114420,9 +116604,9 @@ router52.patch(
         return res.status(404).json({ error: "Player not found" });
       }
       const [spRecord] = await db.select().from(sessionPlayers).where(
-        and65(
-          eq76(sessionPlayers.playerId, playerId),
-          eq76(sessionPlayers.sessionId, sessionId)
+        and67(
+          eq78(sessionPlayers.playerId, playerId),
+          eq78(sessionPlayers.sessionId, sessionId)
         )
       ).limit(1);
       if (!spRecord) {
@@ -114431,26 +116615,38 @@ router52.patch(
       const oldStatus = spRecord.attendanceStatus;
       const [sessionInfo] = await db.select({
         sessionType: sessions.sessionType
-      }).from(sessions).where(eq76(sessions.id, sessionId)).limit(1);
+      }).from(sessions).where(eq78(sessions.id, sessionId)).limit(1);
       if (!sessionInfo) {
         return res.status(404).json({ error: "Session not found" });
       }
       const creditType = sessionInfo.sessionType.includes("semi") ? "semi_private" : sessionInfo.sessionType.includes("group") ? "group" : "private";
       const wasCharged = oldStatus === "present" || oldStatus === "late";
       const willBeCharged = newStatus === "present" || newStatus === "late";
+      let hasV2Consume = false;
+      if (!wasCharged) {
+        const v2Rows = await db.execute(sql47`
+            SELECT id FROM credit_ledger_v2
+            WHERE session_player_id = ${spRecord.id}
+              AND reason = 'consume'
+              AND delta < 0
+            LIMIT 1
+          `);
+        hasV2Consume = v2Rows.rows.length > 0;
+      }
+      const effectivelyWasCharged = wasCharged || hasV2Consume;
       let creditAdjustment = 0;
       let adjustmentReason = "";
-      if (wasCharged && !willBeCharged) {
+      if (effectivelyWasCharged && !willBeCharged) {
         creditAdjustment = 1;
         adjustmentReason = "attendance_correction_refund";
-      } else if (!wasCharged && willBeCharged) {
+      } else if (!effectivelyWasCharged && willBeCharged) {
         creditAdjustment = -1;
         adjustmentReason = "attendance_correction_deduct";
       }
       await db.update(sessionPlayers).set({
         attendanceStatus: newStatus,
         creditDeductedAt: willBeCharged ? spRecord.creditDeductedAt || /* @__PURE__ */ new Date() : null
-      }).where(eq76(sessionPlayers.id, spRecord.id));
+      }).where(eq78(sessionPlayers.id, spRecord.id));
       if (creditAdjustment !== 0) {
         const { consumeCredit: consumeCredit2, refundCredit: refundCredit2 } = await Promise.resolve().then(() => (init_credit_engine(), credit_engine_exports));
         const actorId = req.user.coachId || req.user.userId || null;
@@ -114470,7 +116666,7 @@ router52.patch(
               eventKey: `refund:attendance-correction:${spRecord.id}:${Date.now()}`
             });
             if (v2Refund.refunded) {
-              await db.update(sessionPlayers).set({ creditDeductedAt: null, creditTransactionId: null }).where(eq76(sessionPlayers.id, spRecord.id));
+              await db.update(sessionPlayers).set({ creditDeductedAt: null, creditTransactionId: null }).where(eq78(sessionPlayers.id, spRecord.id));
               console.log(
                 `[AttendanceCorrection][V2] Refunded ${v2Refund.amount} ${v2Refund.type ?? creditType} credit(s) to player ${playerId} (newBalance: ${v2Refund.newBalance})`
               );
@@ -114488,7 +116684,7 @@ router52.patch(
             eventKey: `consume:attendance-correction:${spRecord.id}:${Date.now()}`
           });
           if (v2Consume.charged) {
-            await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq76(sessionPlayers.id, spRecord.id));
+            await db.update(sessionPlayers).set({ creditDeductedAt: /* @__PURE__ */ new Date() }).where(eq78(sessionPlayers.id, spRecord.id));
             console.log(
               `[AttendanceCorrection][V2] Deducted ${v2Consume.amount} ${v2Consume.type ?? creditType} credit(s) from player ${playerId} (newBalance: ${v2Consume.newBalance})`
             );
@@ -114517,7 +116713,7 @@ router52.patch(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/coach/recurring-series",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114539,7 +116735,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/coach/recurring-series/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114565,7 +116761,7 @@ router52.get(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/coach/recurring-series",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114762,7 +116958,7 @@ router52.post(
     }
   }
 );
-router52.patch(
+router54.patch(
   "/api/coach/recurring-series/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114795,7 +116991,7 @@ router52.patch(
     }
   }
 );
-router52.delete(
+router54.delete(
   "/api/coach/recurring-series/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114832,7 +117028,7 @@ router52.delete(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/coach/sessions/:id/skip",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114863,7 +117059,7 @@ router52.post(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/coach/sessions/:id/unskip",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114887,7 +117083,7 @@ router52.post(
     }
   }
 );
-router52.patch(
+router54.patch(
   "/api/coach/sessions/:id/edit-single",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114914,7 +117110,7 @@ router52.patch(
     }
   }
 );
-router52.patch(
+router54.patch(
   "/api/coach/sessions/:id/edit-series",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -114970,7 +117166,7 @@ router52.patch(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/coach/player-holidays/check",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -115002,7 +117198,7 @@ router52.post(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/coach/recurring-series/preview",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -115093,7 +117289,7 @@ router52.post(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/coach/templates",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -115111,7 +117307,7 @@ router52.get(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/coach/templates",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -115149,7 +117345,7 @@ router52.post(
     }
   }
 );
-router52.delete(
+router54.delete(
   "/api/coach/templates/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -115198,7 +117394,7 @@ async function fetchPillarHistory(playerId) {
     return [];
   }
 }
-router52.get(
+router54.get(
   "/api/player/me/ai-insights",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -115207,8 +117403,8 @@ router52.get(
       if (!playerId) {
         return res.status(403).json({ error: "Not a player account" });
       }
-      const [latestNarrative] = await db.select().from(playerAiInsights).where(eq76(playerAiInsights.playerId, playerId)).orderBy(desc44(playerAiInsights.generatedAt)).limit(1);
-      const recentDigests = await db.select().from(sessionAiSummaries).where(eq76(sessionAiSummaries.playerId, playerId)).orderBy(desc44(sessionAiSummaries.generatedAt)).limit(5);
+      const [latestNarrative] = await db.select().from(playerAiInsights).where(eq78(playerAiInsights.playerId, playerId)).orderBy(desc44(playerAiInsights.generatedAt)).limit(1);
+      const recentDigests = await db.select().from(sessionAiSummaries).where(eq78(sessionAiSummaries.playerId, playerId)).orderBy(desc44(sessionAiSummaries.generatedAt)).limit(5);
       const pillarHistory = await fetchPillarHistory(playerId);
       res.json({
         playerId,
@@ -115222,7 +117418,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/players/:id/ai-insights",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -115242,8 +117438,8 @@ router52.get(
           return res.status(404).json({ error: "Player not found" });
         }
       }
-      const [latestNarrative] = await db.select().from(playerAiInsights).where(eq76(playerAiInsights.playerId, id)).orderBy(desc44(playerAiInsights.generatedAt)).limit(1);
-      const recentDigests = await db.select().from(sessionAiSummaries).where(eq76(sessionAiSummaries.playerId, id)).orderBy(desc44(sessionAiSummaries.generatedAt)).limit(5);
+      const [latestNarrative] = await db.select().from(playerAiInsights).where(eq78(playerAiInsights.playerId, id)).orderBy(desc44(playerAiInsights.generatedAt)).limit(1);
+      const recentDigests = await db.select().from(sessionAiSummaries).where(eq78(sessionAiSummaries.playerId, id)).orderBy(desc44(sessionAiSummaries.generatedAt)).limit(5);
       const pillarHistory = await fetchPillarHistory(id);
       res.json({
         playerId: id,
@@ -115257,7 +117453,7 @@ router52.get(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/players/:id/ai-insights/generate",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -115321,7 +117517,7 @@ async function assertCoachSessionPlayerAccess(req, res, sessionId, playerId) {
   }
   return { coachId, userId };
 }
-router52.get(
+router54.get(
   "/api/sessions/:sessionId/players/:playerId/ai-chat/context",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -115339,7 +117535,7 @@ router52.get(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/sessions/:sessionId/players/:playerId/ai-chat",
   authMiddlewareWithFreshData,
   aiQuotaMiddleware,
@@ -115353,10 +117549,10 @@ router52.post(
         (m) => m.role === "user" || m.role === "assistant"
       );
       const historyRows = await db.select({ role: aiCoachConversations.role, content: aiCoachConversations.content }).from(aiCoachConversations).where(
-        and65(
-          eq76(aiCoachConversations.coachId, auth.coachId),
-          eq76(aiCoachConversations.playerId, playerId),
-          eq76(aiCoachConversations.contextType, "coach_session")
+        and67(
+          eq78(aiCoachConversations.coachId, auth.coachId),
+          eq78(aiCoachConversations.playerId, playerId),
+          eq78(aiCoachConversations.contextType, "coach_session")
         )
       ).orderBy(desc44(aiCoachConversations.createdAt)).limit(10);
       const history = historyRows.reverse();
@@ -115437,7 +117633,7 @@ ${historyBlock}`;
     }
   }
 );
-router52.post(
+router54.post(
   "/api/sessions/:sessionId/players/:playerId/ai-chat/commit",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -115462,10 +117658,10 @@ router52.post(
         } catch (insertErr) {
           if (insertErr?.code === "23505") {
             await db.update(inSessionFeedback).set({ message: structured.sessionNote }).where(
-              and65(
-                eq76(inSessionFeedback.sessionId, sessionId),
-                eq76(inSessionFeedback.playerId, playerId),
-                eq76(inSessionFeedback.feedbackType, "ai_session_note")
+              and67(
+                eq78(inSessionFeedback.sessionId, sessionId),
+                eq78(inSessionFeedback.playerId, playerId),
+                eq78(inSessionFeedback.feedbackType, "ai_session_note")
               )
             );
           } else {
@@ -115512,7 +117708,7 @@ router52.post(
         for (const sr of structured.skillRatings) {
           let resolvedSkillId = null;
           if (sr.skillId) {
-            const [validated] = await db.select({ id: glowSkills.id }).from(glowSkills).where(eq76(glowSkills.id, sr.skillId)).limit(1);
+            const [validated] = await db.select({ id: glowSkills.id }).from(glowSkills).where(eq78(glowSkills.id, sr.skillId)).limit(1);
             resolvedSkillId = validated?.id ?? null;
           } else if (sr.skillName) {
             const [byName] = await db.select({ id: glowSkills.id }).from(glowSkills).where(ilike5(glowSkills.name, sr.skillName)).limit(1);
@@ -115520,7 +117716,7 @@ router52.post(
           }
           if (!resolvedSkillId) continue;
           const newScore = Math.min(2, Math.max(0, sr.score));
-          const [existing] = await db.select({ id: playerSkillScores.id, movingAverage: playerSkillScores.movingAverage, score: playerSkillScores.score, observationCount: playerSkillScores.observationCount }).from(playerSkillScores).where(and65(eq76(playerSkillScores.playerId, playerId), eq76(playerSkillScores.skillId, resolvedSkillId))).orderBy(desc44(playerSkillScores.createdAt)).limit(1);
+          const [existing] = await db.select({ id: playerSkillScores.id, movingAverage: playerSkillScores.movingAverage, score: playerSkillScores.score, observationCount: playerSkillScores.observationCount }).from(playerSkillScores).where(and67(eq78(playerSkillScores.playerId, playerId), eq78(playerSkillScores.skillId, resolvedSkillId))).orderBy(desc44(playerSkillScores.createdAt)).limit(1);
           if (existing) {
             const oldAvg = Number(existing.movingAverage ?? existing.score ?? newScore);
             const newAvg = alpha * newScore + (1 - alpha) * oldAvg;
@@ -115531,7 +117727,7 @@ router52.post(
               observationCount: (existing.observationCount ?? 1) + 1,
               sessionId,
               coachId
-            }).where(eq76(playerSkillScores.id, existing.id));
+            }).where(eq78(playerSkillScores.id, existing.id));
             if (wasFirstMastery) {
               await awardXP2(playerId, "skill_validation", "skill", resolvedSkillId);
             }
@@ -115592,14 +117788,14 @@ router52.post(
           const raw = structured[key];
           if (raw === void 0 || raw === null) continue;
           const aiScore = clamp2(raw);
-          const [existing] = await db.select({ id: deepAssessmentPillarSummaries.id, averageScore: deepAssessmentPillarSummaries.averageScore }).from(deepAssessmentPillarSummaries).where(and65(
-            eq76(deepAssessmentPillarSummaries.playerId, playerId),
-            eq76(deepAssessmentPillarSummaries.pillar, pillar)
+          const [existing] = await db.select({ id: deepAssessmentPillarSummaries.id, averageScore: deepAssessmentPillarSummaries.averageScore }).from(deepAssessmentPillarSummaries).where(and67(
+            eq78(deepAssessmentPillarSummaries.playerId, playerId),
+            eq78(deepAssessmentPillarSummaries.pillar, pillar)
           )).limit(1);
           if (existing) {
             const oldAvg = Number(existing.averageScore ?? aiScore);
             const newAvg = (alpha * aiScore + (1 - alpha) * oldAvg).toFixed(2);
-            await db.update(deepAssessmentPillarSummaries).set({ averageScore: newAvg, lastAssessedAt: now, updatedAt: now }).where(eq76(deepAssessmentPillarSummaries.id, existing.id));
+            await db.update(deepAssessmentPillarSummaries).set({ averageScore: newAvg, lastAssessedAt: now, updatedAt: now }).where(eq78(deepAssessmentPillarSummaries.id, existing.id));
           } else {
             await db.insert(deepAssessmentPillarSummaries).values({
               playerId,
@@ -115628,7 +117824,7 @@ router52.post(
           const { calculateGlowRank: calculateGlowRank2 } = await Promise.resolve().then(() => (init_glow_rank_engine(), glow_rank_engine_exports));
           const rank = await calculateGlowRank2(playerId);
           if (rank && rank.glowScore !== void 0) {
-            await db.update(players).set({ glowScore: rank.glowScore }).where(eq76(players.id, playerId));
+            await db.update(players).set({ glowScore: rank.glowScore }).where(eq78(players.id, playerId));
           }
         } catch (glowErr) {
           console.error("[AIChat] Glow Score persistence failed (non-critical):", glowErr);
@@ -115637,9 +117833,9 @@ router52.post(
       let levelReadiness = null;
       if (structured.levelUpFlag) {
         try {
-          const [playerRow] = await db.select({ ballLevel: players.ballLevel }).from(players).where(eq76(players.id, playerId)).limit(1);
+          const [playerRow] = await db.select({ ballLevel: players.ballLevel }).from(players).where(eq78(players.id, playerId)).limit(1);
           if (playerRow?.ballLevel) {
-            const [levelRow] = await db.select({ promotionToLevelId: ballLevels.promotionToLevelId }).from(ballLevels).where(eq76(ballLevels.id, playerRow.ballLevel)).limit(1);
+            const [levelRow] = await db.select({ promotionToLevelId: ballLevels.promotionToLevelId }).from(ballLevels).where(eq78(ballLevels.id, playerRow.ballLevel)).limit(1);
             const targetLevel = levelRow?.promotionToLevelId ?? playerRow.ballLevel;
             levelReadiness = await storage.calculatePlayerLevelReadiness(playerId, targetLevel);
           }
@@ -115663,7 +117859,7 @@ router52.post(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/player/me/ai-coach/context",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -115676,9 +117872,9 @@ router52.get(
       const ctx = await buildPlayerSelfAIContext2(playerId);
       if (!ctx) return res.status(404).json({ error: "Player not found" });
       const historyCount = await db.select({ count: count14() }).from(aiCoachConversations).where(
-        and65(
-          eq76(aiCoachConversations.playerId, playerId),
-          eq76(aiCoachConversations.contextType, "player_self")
+        and67(
+          eq78(aiCoachConversations.playerId, playerId),
+          eq78(aiCoachConversations.contextType, "player_self")
         )
       );
       const hasHistory = (historyCount[0]?.count ?? 0) > 0;
@@ -115689,7 +117885,7 @@ router52.get(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/player/me/ai-coach/chat",
   authMiddlewareWithFreshData,
   aiQuotaMiddleware,
@@ -115734,9 +117930,9 @@ router52.post(
         (m) => m.role === "user" || m.role === "assistant"
       );
       const historyRows = await db.select({ role: aiCoachConversations.role, content: aiCoachConversations.content }).from(aiCoachConversations).where(
-        and65(
-          eq76(aiCoachConversations.playerId, playerId),
-          eq76(aiCoachConversations.contextType, "player_self")
+        and67(
+          eq78(aiCoachConversations.playerId, playerId),
+          eq78(aiCoachConversations.contextType, "player_self")
         )
       ).orderBy(desc44(aiCoachConversations.createdAt)).limit(10);
       const history = historyRows.reverse();
@@ -115813,7 +118009,7 @@ ${historyBlock}`;
     }
   }
 );
-router52.post(
+router54.post(
   "/api/sessions/:sessionId/ai-plan",
   authMiddlewareWithFreshData,
   aiQuotaMiddleware,
@@ -115832,7 +118028,7 @@ router52.post(
       if (!sessionValid) {
         return res.status(404).json({ error: "Session not found" });
       }
-      const [sessionRow] = await db.select({ sessionType: sessions.sessionType, duration: sessions.duration }).from(sessions).where(eq76(sessions.id, sessionId));
+      const [sessionRow] = await db.select({ sessionType: sessions.sessionType, duration: sessions.duration }).from(sessions).where(eq78(sessions.id, sessionId));
       if (!sessionRow || !["group", "semi_private"].includes(sessionRow.sessionType)) {
         return res.status(422).json({ error: "AI session planning is only available for group and semi-private sessions" });
       }
@@ -115865,9 +118061,9 @@ router52.post(
           ...plan.drills.map((d, i) => `${i + 1}. ${d.title} \u2014 ${d.description}`),
           ...plan.flags.length > 0 ? [``, `Notes:`, ...plan.flags.map((f) => `\u2022 ${f}`)] : []
         ].join("\n");
-        const [existingPlan] = await db.select({ id: sessionPlans.id }).from(sessionPlans).where(eq76(sessionPlans.sessionId, sessionId));
+        const [existingPlan] = await db.select({ id: sessionPlans.id }).from(sessionPlans).where(eq78(sessionPlans.sessionId, sessionId));
         if (existingPlan) {
-          await db.update(sessionPlans).set({ coachNotes: planText, updatedAt: /* @__PURE__ */ new Date() }).where(eq76(sessionPlans.id, existingPlan.id));
+          await db.update(sessionPlans).set({ coachNotes: planText, updatedAt: /* @__PURE__ */ new Date() }).where(eq78(sessionPlans.id, existingPlan.id));
         } else {
           const blocks = plan.drills.map((d, i) => ({
             id: `AI_BLOCK_${i + 1}`,
@@ -115898,7 +118094,7 @@ router52.post(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/players/:id/parent-report/preview",
   authMiddlewareWithFreshData,
   requireRole("coach", "academy_owner", "assistant", "platform_owner"),
@@ -115932,7 +118128,7 @@ router52.post(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/players/:id/parent-report/send",
   authMiddlewareWithFreshData,
   requireRole("coach", "academy_owner", "assistant", "platform_owner"),
@@ -116004,7 +118200,7 @@ router52.post(
     }
   }
 );
-router52.patch(
+router54.patch(
   "/api/players/:id/parent-reporting",
   authMiddlewareWithFreshData,
   requireRole("coach", "academy_owner", "assistant", "platform_owner"),
@@ -116023,7 +118219,7 @@ router52.patch(
       if (Object.keys(updates).length === 0) {
         return res.status(400).json({ error: "Nothing to update" });
       }
-      await db.update(players).set(updates).where(eq76(players.id, id));
+      await db.update(players).set(updates).where(eq78(players.id, id));
       const updated = await storage.getPlayer(id);
       res.json({
         parentReporting: updated?.parentReporting ?? false,
@@ -116036,10 +118232,10 @@ router52.patch(
   }
 );
 async function verifyMatchOwnership(matchId, playerId) {
-  const [match] = await db.select({ id: matches.id }).from(matches).where(and65(eq76(matches.id, matchId), eq76(matches.playerId, playerId))).limit(1);
+  const [match] = await db.select({ id: matches.id }).from(matches).where(and67(eq78(matches.id, matchId), eq78(matches.playerId, playerId))).limit(1);
   return !!match;
 }
-router52.get(
+router54.get(
   "/api/player/me/matches/:matchId/reflection",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116048,9 +118244,9 @@ router52.get(
       const playerId = req.user.playerId;
       if (!playerId) return res.status(403).json({ error: "Player only" });
       const [reflection] = await db.select().from(matchReflections).where(
-        and65(
-          eq76(matchReflections.matchId, matchId),
-          eq76(matchReflections.playerId, playerId)
+        and67(
+          eq78(matchReflections.matchId, matchId),
+          eq78(matchReflections.playerId, playerId)
         )
       ).limit(1);
       res.json(reflection || null);
@@ -116060,22 +118256,22 @@ router52.get(
     }
   }
 );
-var preReflectionSchema = z13.object({
-  preMatchMood: z13.string().max(50).nullable().optional(),
-  preMatchConfidence: z13.number().int().min(1).max(10).nullable().optional(),
-  preMatchGoal: z13.string().max(80).nullable().optional()
+var preReflectionSchema = z15.object({
+  preMatchMood: z15.string().max(50).nullable().optional(),
+  preMatchConfidence: z15.number().int().min(1).max(10).nullable().optional(),
+  preMatchGoal: z15.string().max(80).nullable().optional()
 });
-var postReflectionSchema = z13.object({
-  whatWorked: z13.array(z13.string().max(100)).max(20).optional(),
-  whatDidntWork: z13.array(z13.string().max(100)).max(20).optional(),
-  biggestChallenge: z13.string().max(100).nullable().optional(),
-  postMatchEnergy: z13.string().max(50).nullable().optional(),
-  postMatchMood: z13.string().max(50).nullable().optional(),
-  postMatchConfidence: z13.number().int().min(1).max(10).nullable().optional(),
-  keyTakeaway: z13.string().max(100).nullable().optional()
+var postReflectionSchema = z15.object({
+  whatWorked: z15.array(z15.string().max(100)).max(20).optional(),
+  whatDidntWork: z15.array(z15.string().max(100)).max(20).optional(),
+  biggestChallenge: z15.string().max(100).nullable().optional(),
+  postMatchEnergy: z15.string().max(50).nullable().optional(),
+  postMatchMood: z15.string().max(50).nullable().optional(),
+  postMatchConfidence: z15.number().int().min(1).max(10).nullable().optional(),
+  keyTakeaway: z15.string().max(100).nullable().optional()
 });
 var combinedReflectionSchema = preReflectionSchema.merge(postReflectionSchema);
-router52.post(
+router54.post(
   "/api/player/me/matches/:matchId/pre-reflection",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116088,14 +118284,14 @@ router52.post(
       const parsed = preReflectionSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: fromZodError10(parsed.error).message });
       const { preMatchMood, preMatchConfidence, preMatchGoal } = parsed.data;
-      const [existing] = await db.select({ id: matchReflections.id, preMatchMood: matchReflections.preMatchMood, preMatchConfidence: matchReflections.preMatchConfidence, preMatchGoal: matchReflections.preMatchGoal }).from(matchReflections).where(and65(eq76(matchReflections.matchId, matchId), eq76(matchReflections.playerId, playerId))).limit(1);
+      const [existing] = await db.select({ id: matchReflections.id, preMatchMood: matchReflections.preMatchMood, preMatchConfidence: matchReflections.preMatchConfidence, preMatchGoal: matchReflections.preMatchGoal }).from(matchReflections).where(and67(eq78(matchReflections.matchId, matchId), eq78(matchReflections.playerId, playerId))).limit(1);
       let reflection;
       if (existing) {
         [reflection] = await db.update(matchReflections).set({
           preMatchMood: preMatchMood ?? existing.preMatchMood,
           preMatchConfidence: preMatchConfidence ?? existing.preMatchConfidence,
           preMatchGoal: preMatchGoal !== void 0 ? preMatchGoal?.slice(0, 80) || null : existing.preMatchGoal
-        }).where(and65(eq76(matchReflections.matchId, matchId), eq76(matchReflections.playerId, playerId))).returning();
+        }).where(and67(eq78(matchReflections.matchId, matchId), eq78(matchReflections.playerId, playerId))).returning();
       } else {
         [reflection] = await db.insert(matchReflections).values({
           matchId,
@@ -116112,7 +118308,7 @@ router52.post(
     }
   }
 );
-router52.put(
+router54.put(
   "/api/player/me/matches/:matchId/post-reflection",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116125,7 +118321,7 @@ router52.put(
       const parsedPost = postReflectionSchema.safeParse(req.body);
       if (!parsedPost.success) return res.status(400).json({ error: fromZodError10(parsedPost.error).message });
       const { whatWorked, whatDidntWork, biggestChallenge, postMatchEnergy, postMatchMood, postMatchConfidence, keyTakeaway } = parsedPost.data;
-      const [existing] = await db.select({ id: matchReflections.id }).from(matchReflections).where(and65(eq76(matchReflections.matchId, matchId), eq76(matchReflections.playerId, playerId))).limit(1);
+      const [existing] = await db.select({ id: matchReflections.id }).from(matchReflections).where(and67(eq78(matchReflections.matchId, matchId), eq78(matchReflections.playerId, playerId))).limit(1);
       let reflection;
       if (existing) {
         const updates = {};
@@ -116136,7 +118332,7 @@ router52.put(
         if (postMatchMood !== void 0) updates.postMatchMood = postMatchMood;
         if (postMatchConfidence !== void 0) updates.postMatchConfidence = postMatchConfidence;
         if (keyTakeaway !== void 0) updates.keyTakeaway = keyTakeaway?.slice(0, 100);
-        [reflection] = await db.update(matchReflections).set(updates).where(and65(eq76(matchReflections.matchId, matchId), eq76(matchReflections.playerId, playerId))).returning();
+        [reflection] = await db.update(matchReflections).set(updates).where(and67(eq78(matchReflections.matchId, matchId), eq78(matchReflections.playerId, playerId))).returning();
       } else {
         [reflection] = await db.insert(matchReflections).values({
           matchId,
@@ -116162,7 +118358,7 @@ router52.put(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/player/me/matches/:matchId/reflection",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116186,7 +118382,7 @@ router52.post(
         postMatchConfidence,
         keyTakeaway
       } = parsedCombined.data;
-      const [existing] = await db.select({ id: matchReflections.id }).from(matchReflections).where(and65(eq76(matchReflections.matchId, matchId), eq76(matchReflections.playerId, playerId))).limit(1);
+      const [existing] = await db.select({ id: matchReflections.id }).from(matchReflections).where(and67(eq78(matchReflections.matchId, matchId), eq78(matchReflections.playerId, playerId))).limit(1);
       let reflection;
       if (existing) {
         const updates = {};
@@ -116200,7 +118396,7 @@ router52.post(
         if (postMatchMood !== void 0) updates.postMatchMood = postMatchMood;
         if (postMatchConfidence !== void 0) updates.postMatchConfidence = postMatchConfidence;
         if (keyTakeaway !== void 0) updates.keyTakeaway = keyTakeaway?.slice(0, 100);
-        [reflection] = await db.update(matchReflections).set(updates).where(and65(eq76(matchReflections.matchId, matchId), eq76(matchReflections.playerId, playerId))).returning();
+        [reflection] = await db.update(matchReflections).set(updates).where(and67(eq78(matchReflections.matchId, matchId), eq78(matchReflections.playerId, playerId))).returning();
       } else {
         [reflection] = await db.insert(matchReflections).values({
           matchId,
@@ -116229,12 +118425,12 @@ router52.post(
     }
   }
 );
-var sessionReflectionSchema = z13.object({
-  energyLevel: z13.number().int().min(1).max(5).nullable().optional(),
-  overallFeeling: z13.number().int().min(1).max(5).nullable().optional(),
-  hardestPart: z13.string().max(200).nullable().optional(),
-  keyLearning: z13.string().max(200).nullable().optional(),
-  nextFocus: z13.string().max(200).nullable().optional()
+var sessionReflectionSchema = z15.object({
+  energyLevel: z15.number().int().min(1).max(5).nullable().optional(),
+  overallFeeling: z15.number().int().min(1).max(5).nullable().optional(),
+  hardestPart: z15.string().max(200).nullable().optional(),
+  keyLearning: z15.string().max(200).nullable().optional(),
+  nextFocus: z15.string().max(200).nullable().optional()
 });
 async function saveSessionReflection(playerId, academyId, sessionId, body, res) {
   const parsed = sessionReflectionSchema.safeParse(body);
@@ -116242,7 +118438,7 @@ async function saveSessionReflection(playerId, academyId, sessionId, body, res) 
     return res.status(400).json({ error: fromZodError10(parsed.error).message });
   }
   const { energyLevel, hardestPart, keyLearning, nextFocus, overallFeeling } = parsed.data;
-  const sessionPlayerRecord = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(and65(eq76(sessionPlayers.sessionId, sessionId), eq76(sessionPlayers.playerId, playerId))).limit(1);
+  const sessionPlayerRecord = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(and67(eq78(sessionPlayers.sessionId, sessionId), eq78(sessionPlayers.playerId, playerId))).limit(1);
   if (sessionPlayerRecord.length === 0) {
     return res.status(403).json({ error: "Player is not part of this session" });
   }
@@ -116253,9 +118449,9 @@ async function saveSessionReflection(playerId, academyId, sessionId, body, res) 
   if (keyLearning) parts.push(`Key learning: ${keyLearning}`);
   if (nextFocus) parts.push(`Next focus: ${nextFocus}`);
   const aiSummary = parts.join(". ");
-  const [existing] = await db.select({ id: playerSessionReflections.id }).from(playerSessionReflections).where(and65(eq76(playerSessionReflections.sessionId, sessionId), eq76(playerSessionReflections.playerId, playerId))).limit(1);
+  const [existing] = await db.select({ id: playerSessionReflections.id }).from(playerSessionReflections).where(and67(eq78(playerSessionReflections.sessionId, sessionId), eq78(playerSessionReflections.playerId, playerId))).limit(1);
   const isFirstReflection = !existing;
-  await db.delete(playerSessionReflections).where(and65(eq76(playerSessionReflections.sessionId, sessionId), eq76(playerSessionReflections.playerId, playerId)));
+  await db.delete(playerSessionReflections).where(and67(eq78(playerSessionReflections.sessionId, sessionId), eq78(playerSessionReflections.playerId, playerId)));
   const [reflection] = await db.insert(playerSessionReflections).values({
     playerId,
     sessionId,
@@ -116276,7 +118472,7 @@ async function saveSessionReflection(playerId, academyId, sessionId, body, res) 
   }
   return res.status(isFirstReflection ? 201 : 200).json(reflection);
 }
-router52.get(
+router54.get(
   "/api/player/sessions/:sessionId/reflection",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116284,7 +118480,7 @@ router52.get(
       const { sessionId } = req.params;
       const playerId = req.user.playerId;
       if (!playerId) return res.status(403).json({ error: "Player only" });
-      const [reflection] = await db.select().from(playerSessionReflections).where(and65(eq76(playerSessionReflections.sessionId, sessionId), eq76(playerSessionReflections.playerId, playerId))).limit(1);
+      const [reflection] = await db.select().from(playerSessionReflections).where(and67(eq78(playerSessionReflections.sessionId, sessionId), eq78(playerSessionReflections.playerId, playerId))).limit(1);
       res.json(reflection || null);
     } catch (error) {
       console.error("[SessionReflection] GET error:", error);
@@ -116292,7 +118488,7 @@ router52.get(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/player/sessions/:sessionId/reflection",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116306,7 +118502,7 @@ router52.post(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/player/me/session-reflection/:sessionId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116314,14 +118510,14 @@ router52.get(
       const { sessionId } = req.params;
       const playerId = req.user.playerId;
       if (!playerId) return res.status(403).json({ error: "Player only" });
-      const [reflection] = await db.select().from(playerSessionReflections).where(and65(eq76(playerSessionReflections.sessionId, sessionId), eq76(playerSessionReflections.playerId, playerId))).limit(1);
+      const [reflection] = await db.select().from(playerSessionReflections).where(and67(eq78(playerSessionReflections.sessionId, sessionId), eq78(playerSessionReflections.playerId, playerId))).limit(1);
       res.json(reflection || null);
     } catch (_error) {
       res.status(500).json({ error: "Failed to fetch reflection" });
     }
   }
 );
-router52.post(
+router54.post(
   "/api/player/me/session-reflection/:sessionId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116334,7 +118530,7 @@ router52.post(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/player/me/session-reflection",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116356,7 +118552,7 @@ function getCurrentMonthYear2() {
   const now = /* @__PURE__ */ new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
-router52.get(
+router54.get(
   "/api/player/me/monthly-assessment/current",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116365,9 +118561,9 @@ router52.get(
       if (!playerId) return res.status(403).json({ error: "Player only" });
       const monthYear = getCurrentMonthYear2();
       const [assessment] = await db.select().from(playerMonthlyAssessments).where(
-        and65(
-          eq76(playerMonthlyAssessments.playerId, playerId),
-          eq76(playerMonthlyAssessments.monthYear, monthYear)
+        and67(
+          eq78(playerMonthlyAssessments.playerId, playerId),
+          eq78(playerMonthlyAssessments.monthYear, monthYear)
         )
       ).limit(1);
       return res.json({
@@ -116381,7 +118577,7 @@ router52.get(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/player/me/monthly-assessment",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116400,9 +118596,9 @@ router52.post(
       const monthYear = getCurrentMonthYear2();
       const academyId = req.user.academyId ?? null;
       const [existing] = await db.select().from(playerMonthlyAssessments).where(
-        and65(
-          eq76(playerMonthlyAssessments.playerId, playerId),
-          eq76(playerMonthlyAssessments.monthYear, monthYear)
+        and67(
+          eq78(playerMonthlyAssessments.playerId, playerId),
+          eq78(playerMonthlyAssessments.monthYear, monthYear)
         )
       ).limit(1);
       const updates = {};
@@ -116473,7 +118669,7 @@ Write a 2\u20133 sentence neutral summary that captures the player's self-percep
       }
       let assessment;
       if (existing) {
-        [assessment] = await db.update(playerMonthlyAssessments).set(updates).where(eq76(playerMonthlyAssessments.id, existing.id)).returning();
+        [assessment] = await db.update(playerMonthlyAssessments).set(updates).where(eq78(playerMonthlyAssessments.id, existing.id)).returning();
       } else {
         [assessment] = await db.insert(playerMonthlyAssessments).values({
           playerId,
@@ -116497,7 +118693,7 @@ Write a 2\u20133 sentence neutral summary that captures the player's self-percep
     }
   }
 );
-router52.get(
+router54.get(
   "/api/players/:playerId/weekly-digest",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116516,15 +118712,15 @@ router52.get(
         if (!academyId) {
           return res.status(403).json({ error: "Academy scope required" });
         }
-        const [player] = await db.select({ id: players.id, academyId: players.academyId }).from(players).where(eq76(players.id, playerId)).limit(1);
+        const [player] = await db.select({ id: players.id, academyId: players.academyId }).from(players).where(eq78(players.id, playerId)).limit(1);
         if (!player || player.academyId !== academyId) {
           return res.status(404).json({ error: "Player not found" });
         }
       }
       const [digest] = await db.select().from(playerNotifications).where(
-        and65(
-          eq76(playerNotifications.playerId, playerId),
-          eq76(playerNotifications.type, "ai_weekly_digest")
+        and67(
+          eq78(playerNotifications.playerId, playerId),
+          eq78(playerNotifications.type, "ai_weekly_digest")
         )
       ).orderBy(desc44(playerNotifications.createdAt)).limit(1);
       if (!digest) return res.json(null);
@@ -116535,14 +118731,14 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/player/me/monthly-assessment/history",
   authMiddlewareWithFreshData,
   async (req, res) => {
     try {
       const playerId = req.user.playerId;
       if (!playerId) return res.status(403).json({ error: "Player only" });
-      const history = await db.select().from(playerMonthlyAssessments).where(eq76(playerMonthlyAssessments.playerId, playerId)).orderBy(desc44(playerMonthlyAssessments.createdAt)).limit(6);
+      const history = await db.select().from(playerMonthlyAssessments).where(eq78(playerMonthlyAssessments.playerId, playerId)).orderBy(desc44(playerMonthlyAssessments.createdAt)).limit(6);
       return res.json(history);
     } catch (error) {
       console.error("[MonthlyAssessment] GET history error:", error);
@@ -116550,7 +118746,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/player/me/weekly-plan",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -116563,12 +118759,12 @@ router52.get(
       const monday = new Date(now);
       monday.setDate(now.getDate() + mondayOffset);
       const weekStartDate = monday.toISOString().split("T")[0];
-      const [plan] = await db.select().from(playerAiTrainingPlans).where(and65(
-        eq76(playerAiTrainingPlans.playerId, playerId),
-        eq76(playerAiTrainingPlans.weekStartDate, weekStartDate)
+      const [plan] = await db.select().from(playerAiTrainingPlans).where(and67(
+        eq78(playerAiTrainingPlans.playerId, playerId),
+        eq78(playerAiTrainingPlans.weekStartDate, weekStartDate)
       )).limit(1);
       if (!plan) {
-        const [latestPlan] = await db.select().from(playerAiTrainingPlans).where(eq76(playerAiTrainingPlans.playerId, playerId)).orderBy(desc44(playerAiTrainingPlans.weekStartDate)).limit(1);
+        const [latestPlan] = await db.select().from(playerAiTrainingPlans).where(eq78(playerAiTrainingPlans.playerId, playerId)).orderBy(desc44(playerAiTrainingPlans.weekStartDate)).limit(1);
         return res.json(latestPlan || null);
       }
       return res.json(plan);
@@ -116578,7 +118774,7 @@ router52.get(
     }
   }
 );
-router52.get(
+router54.get(
   "/api/coach/players/weekly-plans",
   authMiddlewareWithFreshData,
   requireRole("coach", "assistant", "academy_owner", "platform_owner"),
@@ -116604,9 +118800,9 @@ router52.get(
         coachNotes: playerAiTrainingPlans.coachNotes,
         generatedAt: playerAiTrainingPlans.generatedAt,
         approvedAt: playerAiTrainingPlans.approvedAt
-      }).from(playerAiTrainingPlans).innerJoin(players, eq76(players.id, playerAiTrainingPlans.playerId)).where(and65(
-        eq76(playerAiTrainingPlans.coachId, coachId),
-        eq76(playerAiTrainingPlans.weekStartDate, weekStartDate)
+      }).from(playerAiTrainingPlans).innerJoin(players, eq78(players.id, playerAiTrainingPlans.playerId)).where(and67(
+        eq78(playerAiTrainingPlans.coachId, coachId),
+        eq78(playerAiTrainingPlans.weekStartDate, weekStartDate)
       )).orderBy(desc44(playerAiTrainingPlans.generatedAt));
       return res.json(plans);
     } catch (error) {
@@ -116615,7 +118811,7 @@ router52.get(
     }
   }
 );
-router52.patch(
+router54.patch(
   "/api/coach/players/:id/weekly-plan",
   authMiddlewareWithFreshData,
   requireRole("coach", "assistant", "academy_owner", "platform_owner"),
@@ -116625,7 +118821,7 @@ router52.patch(
       if (!coachId) return res.status(403).json({ error: "Coach only" });
       const planId = req.params.id;
       const { status, coachNotes, planJson } = req.body;
-      const [existing] = await db.select({ id: playerAiTrainingPlans.id, coachId: playerAiTrainingPlans.coachId }).from(playerAiTrainingPlans).where(eq76(playerAiTrainingPlans.id, planId)).limit(1);
+      const [existing] = await db.select({ id: playerAiTrainingPlans.id, coachId: playerAiTrainingPlans.coachId }).from(playerAiTrainingPlans).where(eq78(playerAiTrainingPlans.id, planId)).limit(1);
       if (!existing) return res.status(404).json({ error: "Plan not found" });
       if (existing.coachId !== coachId) return res.status(403).json({ error: "Not your plan" });
       const updateData = {};
@@ -116633,8 +118829,8 @@ router52.patch(
       if (coachNotes !== void 0) updateData.coachNotes = coachNotes;
       if (planJson !== void 0) updateData.planJson = planJson;
       if (status === "active") updateData.approvedAt = /* @__PURE__ */ new Date();
-      await db.update(playerAiTrainingPlans).set(updateData).where(eq76(playerAiTrainingPlans.id, planId));
-      const [updated] = await db.select().from(playerAiTrainingPlans).where(eq76(playerAiTrainingPlans.id, planId)).limit(1);
+      await db.update(playerAiTrainingPlans).set(updateData).where(eq78(playerAiTrainingPlans.id, planId));
+      const [updated] = await db.select().from(playerAiTrainingPlans).where(eq78(playerAiTrainingPlans.id, planId)).limit(1);
       return res.json(updated);
     } catch (error) {
       console.error("[GlowPlans] PATCH coach weekly-plan error:", error);
@@ -116642,7 +118838,7 @@ router52.patch(
     }
   }
 );
-router52.post(
+router54.post(
   "/api/coach/players/:playerId/weekly-plan/generate",
   authMiddlewareWithFreshData,
   requireRole("coach", "assistant", "academy_owner", "platform_owner"),
@@ -116657,9 +118853,9 @@ router52.post(
       const monday = new Date(now);
       monday.setDate(now.getDate() + mondayOffset);
       const weekStartDate = monday.toISOString().split("T")[0];
-      const [existing] = await db.select({ id: playerAiTrainingPlans.id }).from(playerAiTrainingPlans).where(and65(
-        eq76(playerAiTrainingPlans.playerId, playerId),
-        eq76(playerAiTrainingPlans.weekStartDate, weekStartDate)
+      const [existing] = await db.select({ id: playerAiTrainingPlans.id }).from(playerAiTrainingPlans).where(and67(
+        eq78(playerAiTrainingPlans.playerId, playerId),
+        eq78(playerAiTrainingPlans.weekStartDate, weekStartDate)
       )).limit(1);
       if (existing) {
         return res.status(409).json({ error: "Plan already exists for this week", planId: existing.id });
@@ -116669,7 +118865,7 @@ router52.post(
       if (!plan) {
         return res.status(500).json({ error: "Failed to generate plan \u2014 not enough player data" });
       }
-      const [playerRow] = await db.select({ academyId: players.academyId }).from(players).where(eq76(players.id, playerId)).limit(1);
+      const [playerRow] = await db.select({ academyId: players.academyId }).from(players).where(eq78(players.id, playerId)).limit(1);
       const [inserted] = await db.insert(playerAiTrainingPlans).values({
         playerId,
         coachId,
@@ -116685,17 +118881,17 @@ router52.post(
     }
   }
 );
-var player_progress_default = router52;
+var player_progress_default = router54;
 
 // server/routes/attendance-workbook.ts
 init_auth();
-import { Router as Router52 } from "express";
+import { Router as Router54 } from "express";
 
 // server/services/attendanceWorkbook.ts
 init_db();
 init_schema();
 import ExcelJS from "exceljs";
-import { and as and66, eq as eq77, gte as gte35, lte as lte19, inArray as inArray40, asc as asc19 } from "drizzle-orm";
+import { and as and68, eq as eq79, gte as gte36, lte as lte20, inArray as inArray42, asc as asc19 } from "drizzle-orm";
 var STATUS_FILL = {
   P: "FF10B981",
   // green - present
@@ -116808,11 +119004,11 @@ function applyStatusFill(cell, status) {
 async function buildAttendanceWorkbook(filters) {
   const { academyId, from, to, ballLevel, seriesId } = filters;
   const sessionConds = [
-    eq77(sessions.academyId, academyId),
-    gte35(sessions.startTime, from),
-    lte19(sessions.startTime, to)
+    eq79(sessions.academyId, academyId),
+    gte36(sessions.startTime, from),
+    lte20(sessions.startTime, to)
   ];
-  if (seriesId) sessionConds.push(eq77(sessions.seriesId, seriesId));
+  if (seriesId) sessionConds.push(eq79(sessions.seriesId, seriesId));
   const sessionRows = await db.select({
     sessionId: sessions.id,
     startTime: sessions.startTime,
@@ -116823,7 +119019,7 @@ async function buildAttendanceWorkbook(filters) {
     coachName: coaches.name,
     courtName: courts.name,
     locationName: locations.name
-  }).from(sessions).leftJoin(coaches, eq77(coaches.id, sessions.coachId)).leftJoin(courts, eq77(courts.id, sessions.courtId)).leftJoin(locations, eq77(locations.id, sessions.locationId)).where(and66(...sessionConds)).orderBy(asc19(sessions.startTime));
+  }).from(sessions).leftJoin(coaches, eq79(coaches.id, sessions.coachId)).leftJoin(courts, eq79(courts.id, sessions.courtId)).leftJoin(locations, eq79(locations.id, sessions.locationId)).where(and68(...sessionConds)).orderBy(asc19(sessions.startTime));
   const sessionIds = sessionRows.map((s) => s.sessionId);
   const attendanceRows = sessionIds.length === 0 ? [] : await db.select({
     sessionId: sessionPlayers.sessionId,
@@ -116831,7 +119027,7 @@ async function buildAttendanceWorkbook(filters) {
     attendanceStatus: sessionPlayers.attendanceStatus,
     lateMinutes: sessionPlayers.lateMinutes,
     absenceReason: sessionPlayers.absenceReason
-  }).from(sessionPlayers).where(inArray40(sessionPlayers.sessionId, sessionIds));
+  }).from(sessionPlayers).where(inArray42(sessionPlayers.sessionId, sessionIds));
   const cancellationRows = sessionIds.length === 0 ? [] : await db.select({
     sessionId: playerSessionCancellations.sessionId,
     playerId: playerSessionCancellations.playerId,
@@ -116841,9 +119037,9 @@ async function buildAttendanceWorkbook(filters) {
     billingStatus: playerSessionCancellations.billingStatus,
     isLateCancel: playerSessionCancellations.isLateCancel
   }).from(playerSessionCancellations).where(
-    and66(
-      eq77(playerSessionCancellations.academyId, academyId),
-      inArray40(playerSessionCancellations.sessionId, sessionIds)
+    and68(
+      eq79(playerSessionCancellations.academyId, academyId),
+      inArray42(playerSessionCancellations.sessionId, sessionIds)
     )
   );
   const cancellationMap = /* @__PURE__ */ new Map();
@@ -116857,7 +119053,7 @@ async function buildAttendanceWorkbook(filters) {
     if (row.playerId) playerIdSet.add(row.playerId);
   }
   if (seriesId) {
-    const memberRows = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(eq77(seriesPlayers.seriesId, seriesId));
+    const memberRows = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(eq79(seriesPlayers.seriesId, seriesId));
     for (const r of memberRows) {
       if (r.playerId) playerIdSet.add(r.playerId);
     }
@@ -116865,15 +119061,15 @@ async function buildAttendanceWorkbook(filters) {
   let playerRows = [];
   if (playerIdSet.size > 0) {
     const playerConds = [
-      eq77(players.academyId, academyId),
-      inArray40(players.id, Array.from(playerIdSet))
+      eq79(players.academyId, academyId),
+      inArray42(players.id, Array.from(playerIdSet))
     ];
-    if (ballLevel) playerConds.push(eq77(players.ballLevel, ballLevel));
+    if (ballLevel) playerConds.push(eq79(players.ballLevel, ballLevel));
     playerRows = await db.select({
       id: players.id,
       name: players.name,
       ballLevel: players.ballLevel
-    }).from(players).where(and66(...playerConds)).orderBy(asc19(players.name));
+    }).from(players).where(and68(...playerConds)).orderBy(asc19(players.name));
   }
   const allowedPlayerIds = new Set(playerRows.map((p) => p.id));
   const filteredAttendance = attendanceRows.filter(
@@ -116890,7 +119086,7 @@ async function buildAttendanceWorkbook(filters) {
       dayOfWeek: coachingSeries.dayOfWeek,
       startTime: coachingSeries.startTime,
       sessionType: coachingSeries.sessionType
-    }).from(coachingSeries).where(inArray40(coachingSeries.id, seriesIds));
+    }).from(coachingSeries).where(inArray42(coachingSeries.id, seriesIds));
   }
   const seriesMap = /* @__PURE__ */ new Map();
   for (const s of seriesRows) seriesMap.set(s.id, s);
@@ -117041,7 +119237,7 @@ async function buildAttendanceWorkbook(filters) {
     for (const a of filteredAttendance) {
       if (seriesSessionIds.has(a.sessionId)) seriesPlayerIds.add(a.playerId);
     }
-    const memberRows = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(eq77(seriesPlayers.seriesId, series.id));
+    const memberRows = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(eq79(seriesPlayers.seriesId, series.id));
     for (const m of memberRows) {
       if (m.playerId && allowedPlayerIds.has(m.playerId)) {
         seriesPlayerIds.add(m.playerId);
@@ -117142,8 +119338,8 @@ async function buildAttendanceWorkbook(filters) {
 // server/routes/attendance-workbook.ts
 init_db();
 init_schema();
-import { eq as eq78, asc as asc20 } from "drizzle-orm";
-var router53 = Router52();
+import { eq as eq80, asc as asc20 } from "drizzle-orm";
+var router55 = Router54();
 var XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 function parseDateOrNull(s) {
   if (typeof s !== "string" || !s.trim()) return null;
@@ -117157,7 +119353,7 @@ function formatYmd2(d) {
   const day = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
-router53.get(
+router55.get(
   "/api/admin/reports/attendance-workbook/series",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -117171,7 +119367,7 @@ router53.get(
         status: coachingSeries.status,
         ballLevel: coachingSeries.ballLevel,
         sessionType: coachingSeries.sessionType
-      }).from(coachingSeries).where(eq78(coachingSeries.academyId, academyId)).orderBy(asc20(coachingSeries.title));
+      }).from(coachingSeries).where(eq80(coachingSeries.academyId, academyId)).orderBy(asc20(coachingSeries.title));
       res.setHeader("Cache-Control", "no-store");
       return res.json({ series: rows });
     } catch (err) {
@@ -117180,7 +119376,7 @@ router53.get(
     }
   }
 );
-router53.get(
+router55.get(
   "/api/admin/reports/attendance-workbook.xlsx",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -117252,25 +119448,55 @@ router53.get(
     }
   }
 );
-var attendance_workbook_default = router53;
+var attendance_workbook_default = router55;
 
 // server/routes/coaching-series.ts
 init_db();
 init_storage();
 init_auth();
 import crypto9 from "crypto";
-import { Router as Router53 } from "express";
-import { eq as eq79, sql as sql48, desc as desc45, and as and67, gt as gt7, gte as gte36, asc as asc21, inArray as inArray41, notInArray as notInArray4, isNull as isNull16, isNotNull as isNotNull16, or as or23, lte as lte20 } from "drizzle-orm";
+import { Router as Router55 } from "express";
+import { eq as eq81, sql as sql48, desc as desc45, and as and69, gt as gt8, gte as gte37, asc as asc21, inArray as inArray43, notInArray as notInArray4, isNull as isNull16, isNotNull as isNotNull16, or as or24, lte as lte21 } from "drizzle-orm";
 init_timezone();
 init_cache();
 init_schema();
-var router54 = Router53();
+init_objectStorage();
+init_upload_middleware();
+import fs7 from "fs";
+var router56 = Router55();
+async function checkSeriesAuthority(existing, coachId, academyId, isOwnerRole2) {
+  if (isOwnerRole2) {
+    if (existing.academyId !== null && existing.academyId !== academyId) {
+      return "Not authorized \u2014 series belongs to a different academy";
+    }
+    if (existing.academyId === null) {
+      const seriesCoach = existing.coachId ? await storage.getCoach(existing.coachId) : null;
+      if (!seriesCoach || seriesCoach.academyId !== academyId) {
+        return "Not authorized \u2014 series coach is not in your academy";
+      }
+    }
+    return null;
+  }
+  if (existing.coachId !== coachId) {
+    return "Not authorized \u2014 you do not own this series";
+  }
+  if (existing.academyId !== null && existing.academyId !== academyId) {
+    return "Not authorized \u2014 series belongs to a different academy";
+  }
+  if (existing.academyId === null && coachId) {
+    const callerCoach = await storage.getCoach(coachId);
+    if (!callerCoach || callerCoach.academyId !== academyId) {
+      return "Not authorized \u2014 your coach account is not in the expected academy";
+    }
+  }
+  return null;
+}
 function toDubaiTime(utcDate) {
   const dubaiOffset = 4 * 60;
   const utcTime = utcDate.getTime();
   return new Date(utcTime + dubaiOffset * 60 * 1e3);
 }
-router54.get(
+router56.get(
   "/api/coach/series",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -117278,11 +119504,11 @@ router54.get(
     try {
       const userRole = req.user.role;
       const academyId = req.user.academyId;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user.coachId;
-      if (supervisorCoachId && isOwnerRole) {
-        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and67(eq79(coaches.id, supervisorCoachId), eq79(coaches.academyId, academyId))).limit(1);
+      if (supervisorCoachId && isOwnerRole2) {
+        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and69(eq81(coaches.id, supervisorCoachId), eq81(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
         }
@@ -117329,10 +119555,10 @@ router54.get(
           playerName: players.name,
           hostBallLevel: players.ballLevel,
           playerBallLevel: players.ballLevel
-        }).from(seriesPlayers).leftJoin(players, eq79(seriesPlayers.playerId, players.id)).where(
-          and67(
-            inArray41(seriesPlayers.seriesId, seriesIds),
-            eq79(seriesPlayers.status, "active")
+        }).from(seriesPlayers).leftJoin(players, eq81(seriesPlayers.playerId, players.id)).where(
+          and69(
+            inArray43(seriesPlayers.seriesId, seriesIds),
+            eq81(seriesPlayers.status, "active")
           )
         ) : Promise.resolve([]),
         // Batch fetch paused player counts for all series
@@ -117340,9 +119566,9 @@ router54.get(
           seriesId: seriesPlayers.seriesId,
           count: sql48`count(*)::int`
         }).from(seriesPlayers).where(
-          and67(
-            inArray41(seriesPlayers.seriesId, seriesIds),
-            eq79(seriesPlayers.status, "paused")
+          and69(
+            inArray43(seriesPlayers.seriesId, seriesIds),
+            eq81(seriesPlayers.status, "paused")
           )
         ).groupBy(seriesPlayers.seriesId) : Promise.resolve([]),
         // Batch fetch all completed sessions for all series
@@ -117350,9 +119576,9 @@ router54.get(
           seriesId: sessions.seriesId,
           id: sessions.id
         }).from(sessions).where(
-          and67(
-            inArray41(sessions.seriesId, seriesIds),
-            eq79(sessions.status, "completed")
+          and69(
+            inArray43(sessions.seriesId, seriesIds),
+            eq81(sessions.status, "completed")
           )
         ) : Promise.resolve([]),
         // Batch fetch next scheduled session for each series (use subquery approach)
@@ -117360,17 +119586,17 @@ router54.get(
           seriesId: sessions.seriesId,
           startTime: sql48`MIN(${sessions.startTime})`
         }).from(sessions).where(
-          and67(
-            inArray41(sessions.seriesId, seriesIds),
-            eq79(sessions.status, "scheduled"),
-            gte36(sessions.startTime, /* @__PURE__ */ new Date())
+          and69(
+            inArray43(sessions.seriesId, seriesIds),
+            eq81(sessions.status, "scheduled"),
+            gte37(sessions.startTime, /* @__PURE__ */ new Date())
           )
         ).groupBy(sessions.seriesId) : Promise.resolve([])
       ]);
       const allCompletedSessionIds = allCompletedSessions.map((s) => s.id);
       const feedbackCounts = allCompletedSessionIds.length > 0 ? await db.select({
         sessionId: sessionFeedback.sessionId
-      }).from(sessionFeedback).where(inArray41(sessionFeedback.sessionId, allCompletedSessionIds)) : [];
+      }).from(sessionFeedback).where(inArray43(sessionFeedback.sessionId, allCompletedSessionIds)) : [];
       const pausedCountMap = /* @__PURE__ */ new Map();
       for (const p of allPausedPlayers) {
         if (p.seriesId) pausedCountMap.set(p.seriesId, p.count);
@@ -117441,11 +119667,11 @@ router54.get(
       });
       const ownSeriesIds = series.map((s) => s.id);
       const orphanSessions = await db.select().from(sessions).where(
-        and67(
-          eq79(sessions.coachId, coachId),
-          or23(
+        and69(
+          eq81(sessions.coachId, coachId),
+          or24(
             // Sessions with a seriesId not in this coach's series
-            ownSeriesIds.length > 0 ? and67(
+            ownSeriesIds.length > 0 ? and69(
               isNotNull16(sessions.seriesId),
               notInArray4(sessions.seriesId, ownSeriesIds)
             ) : isNotNull16(sessions.seriesId),
@@ -117481,7 +119707,7 @@ router54.get(
           const nextSession = sessionsGroup.find(
             (s) => s.status === "scheduled" && new Date(s.startTime) > now
           );
-          const sessionPlayersList = await db.select().from(sessionPlayers).where(eq79(sessionPlayers.sessionId, firstSession.id));
+          const sessionPlayersList = await db.select().from(sessionPlayers).where(eq81(sessionPlayers.sessionId, firstSession.id));
           const playerDetails = (await Promise.all(
             sessionPlayersList.slice(0, 4).map(async (sp) => {
               const player = await storage.getPlayer(sp.playerId);
@@ -117528,6 +119754,16 @@ router54.get(
         }
       }
       const allSeries = [...enrichedSeries, ...virtualFlexibleSeries];
+      try {
+        const { resolveMediaUrl: _resolveImg } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
+        for (const s of allSeries) {
+          const raw = s.imageUrl;
+          if (raw?.startsWith(".private/") || raw?.startsWith("public/")) {
+            s.imageUrl = await _resolveImg(raw) ?? null;
+          }
+        }
+      } catch {
+      }
       apiCache.set(cacheKey7, allSeries, CACHE_TTL.COACH_SERIES);
       console.log(
         "[Series PERF] Cache SET for coach:",
@@ -117543,7 +119779,7 @@ router54.get(
     }
   }
 );
-router54.get(
+router56.get(
   "/api/coach/series/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -117552,11 +119788,11 @@ router54.get(
       const { id } = req.params;
       const academyId = req.user.academyId;
       const userRole = req.user.role;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user.coachId;
-      if (supervisorCoachId && isOwnerRole) {
-        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and67(eq79(coaches.id, supervisorCoachId), eq79(coaches.academyId, academyId))).limit(1);
+      if (supervisorCoachId && isOwnerRole2) {
+        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and69(eq81(coaches.id, supervisorCoachId), eq81(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
         }
@@ -117613,7 +119849,7 @@ router54.get(
           };
         })
       );
-      const seriesSessions = await db.select().from(sessions).where(and67(eq79(sessions.seriesId, id), eq79(sessions.coachId, coachId))).orderBy(asc21(sessions.startTime));
+      const seriesSessions = await db.select().from(sessions).where(and69(eq81(sessions.seriesId, id), eq81(sessions.coachId, coachId))).orderBy(asc21(sessions.startTime));
       if (seriesSessions.length > 0 && playerIds.length > 0) {
         const activePlayerIds = seriesPlayersList.filter((sp) => sp.status === "active").map((sp) => sp.playerId);
         if (activePlayerIds.length > 0) {
@@ -117622,7 +119858,7 @@ router54.get(
             const existingEnrollments = await db.select({
               sessionId: sessionPlayers.sessionId,
               playerId: sessionPlayers.playerId
-            }).from(sessionPlayers).where(inArray41(sessionPlayers.sessionId, sessionIds));
+            }).from(sessionPlayers).where(inArray43(sessionPlayers.sessionId, sessionIds));
             const enrolledSet = new Set(
               existingEnrollments.map((e) => `${e.sessionId}:${e.playerId}`)
             );
@@ -117630,7 +119866,7 @@ router54.get(
               playerId: playerHolidays.playerId,
               startDate: playerHolidays.startDate,
               endDate: playerHolidays.endDate
-            }).from(playerHolidays).where(inArray41(playerHolidays.playerId, activePlayerIds));
+            }).from(playerHolidays).where(inArray43(playerHolidays.playerId, activePlayerIds));
             const holidaysByPlayer = /* @__PURE__ */ new Map();
             for (const h of healPlayerHolidays) {
               if (!h.playerId) continue;
@@ -117721,7 +119957,7 @@ router54.get(
         const spData = await db.select({
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus
-        }).from(sessionPlayers).where(inArray41(sessionPlayers.sessionId, completedSessionIds));
+        }).from(sessionPlayers).where(inArray43(sessionPlayers.sessionId, completedSessionIds));
         const sessionsWithPlayers = new Set(spData.map((r) => r.sessionId));
         const sessionsWithNullAttendance = new Set(
           spData.filter(
@@ -117734,8 +119970,18 @@ router54.get(
           }
         }
       }
+      let resolvedSeriesImageUrl = series.imageUrl ?? null;
+      try {
+        if (resolvedSeriesImageUrl?.startsWith(".private/") || resolvedSeriesImageUrl?.startsWith("public/")) {
+          const { resolveMediaUrl: _resolveImg } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
+          resolvedSeriesImageUrl = await _resolveImg(resolvedSeriesImageUrl) ?? null;
+        }
+      } catch {
+        resolvedSeriesImageUrl = null;
+      }
       res.json({
         ...series,
+        imageUrl: resolvedSeriesImageUrl,
         locationName,
         locationAddress,
         locationLat,
@@ -117763,7 +120009,7 @@ router54.get(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -118314,7 +120560,7 @@ router54.post(
     }
   }
 );
-router54.patch(
+router56.patch(
   "/api/coach/series/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -118362,7 +120608,10 @@ router54.patch(
         "publicDropInPrice",
         // Court booking confirmation flow (Task #1712)
         "courtLocation",
-        "courtReminderGroupIds"
+        "courtReminderGroupIds",
+        // Camp inclusions & discount price (Task #2035)
+        "inclusions",
+        "originalPrice"
       ];
       if (req.body.dayOfWeek !== void 0) {
         const dow = Number(req.body.dayOfWeek);
@@ -118405,14 +120654,37 @@ router54.patch(
             updates["publicDropInPrice"] = String(price);
             continue;
           }
+          if (field === "originalPrice" && req.body[field] !== null && req.body[field] !== void 0) {
+            const raw = String(req.body[field]).trim();
+            const price = Number(raw);
+            if (!/^\d+(\.\d+)?$/.test(raw) || isNaN(price) || price < 0) {
+              return res.status(400).json({
+                error: "originalPrice must be a non-negative number or null"
+              });
+            }
+            updates["originalPrice"] = String(price);
+            continue;
+          }
+          if (field === "inclusions") {
+            const val = req.body[field];
+            if (val !== null && val !== void 0) {
+              if (!Array.isArray(val) || val.some((v) => typeof v !== "string")) {
+                return res.status(400).json({ error: "inclusions must be an array of strings or null" });
+              }
+              updates["inclusions"] = val.slice(0, 8).map((s) => s.trim()).filter((s) => s.length > 0);
+            } else {
+              updates["inclusions"] = null;
+            }
+            continue;
+          }
           updates[field] = field === "title" ? sanitizeTemplateName(req.body[field]) : req.body[field];
         }
       }
       if (updates.sessionType && existing.sessionType === "group" && updates.sessionType !== "group") {
         const activeCountResult = await db.select({ count: sql48`count(*)::int` }).from(seriesPlayers).where(
-          and67(
-            eq79(seriesPlayers.seriesId, id),
-            eq79(seriesPlayers.status, "active")
+          and69(
+            eq81(seriesPlayers.seriesId, id),
+            eq81(seriesPlayers.status, "active")
           )
         );
         const activeCount = activeCountResult[0]?.count ?? 0;
@@ -118430,9 +120702,9 @@ router54.patch(
       }
       const updated = await storage.updateCoachingSeries(id, updates);
       if (updates.courtId) {
-        const seriesSessions = await db.select({ id: sessions.id }).from(sessions).where(eq79(sessions.seriesId, id));
+        const seriesSessions = await db.select({ id: sessions.id }).from(sessions).where(eq81(sessions.seriesId, id));
         if (seriesSessions.length > 0) {
-          await db.update(sessions).set({ courtId: updates.courtId }).where(eq79(sessions.seriesId, id));
+          await db.update(sessions).set({ courtId: updates.courtId }).where(eq81(sessions.seriesId, id));
           console.log(
             `[SeriesUpdate] Updated court for ${seriesSessions.length} sessions in series ${id}`
           );
@@ -118440,10 +120712,10 @@ router54.patch(
       }
       if (updates.sessionType) {
         await db.update(sessions).set({ sessionType: updates.sessionType }).where(
-          and67(
-            or23(eq79(sessions.seriesId, id), eq79(sessions.recurringGroupId, id)),
-            eq79(sessions.status, "scheduled"),
-            gt7(sessions.startTime, /* @__PURE__ */ new Date())
+          and69(
+            or24(eq81(sessions.seriesId, id), eq81(sessions.recurringGroupId, id)),
+            eq81(sessions.status, "scheduled"),
+            gt8(sessions.startTime, /* @__PURE__ */ new Date())
           )
         );
         console.log(
@@ -118479,10 +120751,10 @@ router54.patch(
         const seriesAnchorYmd = typeof existing.seriesStartDate === "string" ? existing.seriesStartDate : new Date(existing.seriesStartDate).toISOString().slice(0, 10);
         const now = /* @__PURE__ */ new Date();
         const futureSessions = await db.select().from(sessions).where(
-          and67(
-            or23(eq79(sessions.seriesId, id), eq79(sessions.recurringGroupId, id)),
-            eq79(sessions.status, "scheduled"),
-            gt7(sessions.startTime, now)
+          and69(
+            or24(eq81(sessions.seriesId, id), eq81(sessions.recurringGroupId, id)),
+            eq81(sessions.status, "scheduled"),
+            gt8(sessions.startTime, now)
           )
         );
         let updatedCount = 0;
@@ -118580,7 +120852,7 @@ router54.patch(
             startTime: newStart,
             endTime: newEnd,
             duration: newDuration
-          }).where(eq79(sessions.id, sess.id));
+          }).where(eq81(sessions.id, sess.id));
           const newLocal = utcToLocalTime(newStart, academyTimezone);
           const newLocalEnd = utcToLocalTime(newEnd, academyTimezone);
           await db.update(coachTimeBlocks).set({
@@ -118588,14 +120860,14 @@ router54.patch(
             startTime: newLocal.time,
             endTime: newLocalEnd.time,
             updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq79(coachTimeBlocks.sourceSessionId, sess.id));
+          }).where(eq81(coachTimeBlocks.sourceSessionId, sess.id));
           updatedCount++;
         }
         let notified = 0;
         const activeMembers = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(
-          and67(
-            eq79(seriesPlayers.seriesId, id),
-            eq79(seriesPlayers.status, "active")
+          and69(
+            eq81(seriesPlayers.seriesId, id),
+            eq81(seriesPlayers.status, "active")
           )
         );
         if (activeMembers.length > 0) {
@@ -118645,19 +120917,37 @@ router54.patch(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/:id/pause",
   authMiddlewareWithFreshData,
   requireAcademy,
   async (req, res) => {
     try {
       const { id } = req.params;
-      const coachId = req.user.coachId;
+      let coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId;
+      if (supervisorCoachId) {
+        if (!isOwnerRole2) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
-      if (existing.coachId !== coachId) {
+      if (isOwnerRole2) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to pause this series" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to pause this series" });
       }
       const paused = await storage.pauseCoachingSeries(id);
@@ -118668,19 +120958,37 @@ router54.post(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/:id/resume",
   authMiddlewareWithFreshData,
   requireAcademy,
   async (req, res) => {
     try {
       const { id } = req.params;
-      const coachId = req.user.coachId;
+      let coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId;
+      if (supervisorCoachId) {
+        if (!isOwnerRole2) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
-      if (existing.coachId !== coachId) {
+      if (isOwnerRole2) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to resume this series" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to resume this series" });
       }
       const resumed = await storage.resumeCoachingSeries(id);
@@ -118691,25 +120999,42 @@ router54.post(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/:id/end",
   authMiddlewareWithFreshData,
   requireAcademy,
   async (req, res) => {
     try {
       const { id } = req.params;
-      const coachId = req.user.coachId;
+      let coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId;
+      if (supervisorCoachId) {
+        if (!isOwnerRole2) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
-      if (existing.coachId !== coachId) {
+      console.log(`[SeriesAuth] /end id=${id} coachId=${coachId} existingCoachId=${existing.coachId} academyId=${academyId} existingAcademyId=${existing.academyId} isOwnerRole=${isOwnerRole2}`);
+      const endAuthError = await checkSeriesAuthority(existing, coachId, academyId, isOwnerRole2);
+      if (endAuthError) {
         return res.status(403).json({ error: "Not authorized to end this series" });
       }
       const ended = await storage.endCoachingSeries(id);
-      apiCache.invalidate(`series:${coachId}`);
-      apiCache.invalidate(`earnings:${coachId}`);
-      apiCache.invalidate(`calendar:${coachId}`);
+      const effectiveCoachId = coachId || existing.coachId;
+      apiCache.invalidate(`series:${effectiveCoachId}`);
+      apiCache.invalidate(`earnings:${effectiveCoachId}`);
+      apiCache.invalidate(`calendar:${effectiveCoachId}`);
       res.json(ended);
     } catch (error) {
       console.error("Error ending coaching series:", error);
@@ -118717,26 +121042,43 @@ router54.post(
     }
   }
 );
-router54.delete(
+router56.delete(
   "/api/coach/series/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
   async (req, res) => {
     try {
       const { id } = req.params;
-      const coachId = req.user.coachId;
+      let coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId;
+      if (supervisorCoachId) {
+        if (!isOwnerRole2) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
-      if (existing.coachId !== coachId) {
+      console.log(`[SeriesAuth] DELETE id=${id} coachId=${coachId} existingCoachId=${existing.coachId} academyId=${academyId} existingAcademyId=${existing.academyId} isOwnerRole=${isOwnerRole2}`);
+      const deleteAuthError = await checkSeriesAuthority(existing, coachId, academyId, isOwnerRole2);
+      if (deleteAuthError) {
         return res.status(403).json({ error: "Not authorized to delete this series" });
       }
       await storage.deleteCoachingSeries(id);
-      apiCache.invalidate(`series:${coachId}`);
-      apiCache.invalidate(`earnings:${coachId}`);
-      apiCache.invalidate(`calendar:${coachId}`);
-      console.log("[Series DELETE] Cache invalidated for coach:", coachId);
+      const effectiveCoachId = coachId || existing.coachId;
+      apiCache.invalidate(`series:${effectiveCoachId}`);
+      apiCache.invalidate(`earnings:${effectiveCoachId}`);
+      apiCache.invalidate(`calendar:${effectiveCoachId}`);
+      console.log("[Series DELETE] Cache invalidated for coach:", effectiveCoachId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting coaching series:", error);
@@ -118870,7 +121212,7 @@ async function processExtendSeriesBackground(seriesId, weeks, coachId, academyId
     console.error("[ExtendBG] Background extend failed:", error);
   }
 }
-router54.post(
+router56.post(
   "/api/coach/series/:id/extend",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -118878,8 +121220,21 @@ router54.post(
     try {
       const { id } = req.params;
       const { weeks } = req.body;
-      const coachId = req.user.coachId;
+      let coachId = req.user.coachId;
       const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId;
+      if (supervisorCoachId) {
+        if (!isOwnerRole2) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
       if (!weeks || weeks < 1 || weeks > 52) {
         return res.status(400).json({ error: "Weeks must be between 1 and 52" });
       }
@@ -118887,17 +121242,19 @@ router54.post(
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
-      if (existing.coachId !== coachId) {
+      console.log(`[SeriesAuth] /extend id=${id} coachId=${coachId} existingCoachId=${existing.coachId} academyId=${academyId} existingAcademyId=${existing.academyId} isOwnerRole=${isOwnerRole2}`);
+      const extendAuthError = await checkSeriesAuthority(existing, coachId, academyId, isOwnerRole2);
+      if (extendAuthError) {
         return res.status(403).json({ error: "Not authorized to extend this series" });
       }
-      const allSessions = await db.select().from(sessions).where(eq79(sessions.seriesId, id)).orderBy(desc45(sessions.startTime)).limit(1);
+      const allSessions = await db.select().from(sessions).where(eq81(sessions.seriesId, id)).orderBy(desc45(sessions.startTime)).limit(1);
       if (allSessions.length === 0) {
         return res.status(400).json({ error: "No sessions found in series" });
       }
       const lastSession = allSessions[0];
       const maxWeekResult = await db.select({
         maxWeek: sql48`COALESCE(MAX(${sessions.weekNumber}), 0)`
-      }).from(sessions).where(eq79(sessions.seriesId, id));
+      }).from(sessions).where(eq81(sessions.seriesId, id));
       const maxWeekNumber = maxWeekResult[0]?.maxWeek || 0;
       const seriesMembers = await storage.getSeriesPlayers(id);
       const activeMembers = seriesMembers.filter((m) => m.status === "active");
@@ -118927,7 +121284,7 @@ router54.post(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/:id/extra-lesson",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -118935,8 +121292,21 @@ router54.post(
     try {
       const { id } = req.params;
       const { startTime, duration, courtId } = req.body;
-      const coachId = req.user.coachId;
+      let coachId = req.user.coachId;
       const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const supervisorCoachId = req.body?.supervisorCoachId;
+      if (supervisorCoachId) {
+        if (!isOwnerRole2) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
       if (!coachId || !academyId) {
         return res.status(400).json({ error: "Coach and academy required" });
       }
@@ -118944,7 +121314,11 @@ router54.post(
       if (!series) {
         return res.status(404).json({ error: "Series not found" });
       }
-      if (series.coachId !== coachId) {
+      if (isOwnerRole2) {
+        if (series.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to modify this series" });
+        }
+      } else if (series.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to modify this series" });
       }
       if (series.status === "ended" || series.status === "deleted" || series.status === "completed") {
@@ -119010,7 +121384,7 @@ router54.post(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/sync-all",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119181,7 +121555,7 @@ router54.post(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/:id/players",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119201,6 +121575,9 @@ router54.post(
       } = req.body;
       const coachId = req.user.coachId;
       const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const canManageSeries = isOwnerRole2;
       const effectiveJoinDate = joinDate || joinedAt;
       let assignedPackageId = packageId || null;
       if (packageTemplateId && !assignedPackageId) {
@@ -119216,7 +121593,7 @@ router54.post(
               expiryDate.setDate(
                 expiryDate.getDate() + (template.validityDays || 90)
               );
-              const pkg3 = await storage.createPackage({
+              const pkg2 = await storage.createPackage({
                 academyId,
                 playerId,
                 templateId: packageTemplateId,
@@ -119228,15 +121605,15 @@ router54.post(
                 expiryDate: expiryDate.toISOString().split("T")[0],
                 status: "active"
               });
-              assignedPackageId = pkg3.id;
+              assignedPackageId = pkg2.id;
               console.log(
-                `[AddPlayer] Assigned package ${pkg3.id} (${template.name}) to player ${playerId}`
+                `[AddPlayer] Assigned package ${pkg2.id} (${template.name}) to player ${playerId}`
               );
               const addPlayerCreditType = template.sessionType || "group";
               const addPlayerDebtSettlement = await storage.settlePlayerDebts(
                 playerId,
                 addPlayerCreditType,
-                pkg3.id
+                pkg2.id
               );
               if (addPlayerDebtSettlement.settledCount > 0) {
                 console.log(
@@ -119267,7 +121644,7 @@ router54.post(
           const currency = pricingItem?.currency || "AED";
           const expiryDate = /* @__PURE__ */ new Date();
           expiryDate.setMonth(expiryDate.getMonth() + 12);
-          const pkg3 = await storage.createPackage({
+          const pkg2 = await storage.createPackage({
             academyId,
             playerId,
             creditType: sessionType,
@@ -119279,14 +121656,14 @@ router54.post(
             expiryDate: expiryDate.toISOString().split("T")[0],
             status: "active"
           });
-          assignedPackageId = pkg3.id;
+          assignedPackageId = pkg2.id;
           console.log(
-            `[AddPlayer] Created credit package ${pkg3.id} (${credits} ${creditType} credits) for player ${playerId}`
+            `[AddPlayer] Created credit package ${pkg2.id} (${credits} ${creditType} credits) for player ${playerId}`
           );
           const creditPkgDebtSettlement = await storage.settlePlayerDebts(
             playerId,
             sessionType,
-            pkg3.id
+            pkg2.id
           );
           if (creditPkgDebtSettlement.settledCount > 0) {
             console.log(
@@ -119307,7 +121684,11 @@ router54.post(
       if (!existing) {
         return res.status(404).json({ error: "Class not found" });
       }
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to add players to this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to add players to this class" });
       }
       const currentPlayers = await storage.getSeriesPlayers(id);
@@ -119367,7 +121748,7 @@ router54.post(
               }
             }
           }
-          const allSeriesSessions = await db.select().from(sessions).where(eq79(sessions.seriesId, id));
+          const allSeriesSessions = await db.select().from(sessions).where(eq81(sessions.seriesId, id));
           const dateParam = req.query.date;
           const now = dateParam ? new Date(dateParam) : /* @__PURE__ */ new Date();
           const DUBAI_OFFSET = 4;
@@ -119462,7 +121843,7 @@ router54.post(
           }
         }
       }
-      const newPlayerSeriesSessions = await db.select().from(sessions).where(eq79(sessions.seriesId, id));
+      const newPlayerSeriesSessions = await db.select().from(sessions).where(eq81(sessions.seriesId, id));
       const nowTime = /* @__PURE__ */ new Date();
       const newGuestUntilDate = guestUntil ? /* @__PURE__ */ new Date(guestUntil + "T23:59:59Z") : null;
       const newPlayerFutureSessions = newPlayerSeriesSessions.filter((s) => {
@@ -119524,7 +121905,7 @@ router54.post(
     }
   }
 );
-router54.delete(
+router56.delete(
   "/api/coach/series/:id/players/:playerId",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119532,11 +121913,21 @@ router54.delete(
     try {
       const { id, playerId } = req.params;
       const coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const canManageSeries = isOwnerRole2;
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Series not found" });
       }
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({
+            error: "Not authorized to remove players from this series"
+          });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({
           error: "Not authorized to remove players from this series"
         });
@@ -119585,7 +121976,7 @@ router54.delete(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/:id/players/:playerId/leave",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119594,11 +121985,19 @@ router54.post(
       const { id, playerId } = req.params;
       const { leftAt } = req.body;
       const coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const canManageSeries = isOwnerRole2;
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Class not found" });
       }
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to manage this class" });
       }
       const leftAtDate = leftAt ? new Date(leftAt) : void 0;
@@ -119653,7 +122052,7 @@ router54.post(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/:id/players/:playerId/pause",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119662,6 +122061,10 @@ router54.post(
       const { id, playerId } = req.params;
       const { pauseFrom, pauseUntil, reason } = req.body;
       const coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const canManageSeries = isOwnerRole2;
       if (!pauseFrom || !pauseUntil) {
         return res.status(400).json({ error: "pauseFrom and pauseUntil dates are required" });
       }
@@ -119669,7 +122072,11 @@ router54.post(
       if (!existing) {
         return res.status(404).json({ error: "Class not found" });
       }
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to manage this class" });
       }
       const updated = await storage.pauseSeriesPlayer(
@@ -119684,19 +122091,19 @@ router54.post(
       }
       try {
         const affectedSessions = await db.select({ id: sessions.id }).from(sessions).where(
-          and67(
-            eq79(sessions.seriesId, id),
-            eq79(sessions.status, "scheduled"),
-            gte36(sql48`${sessions.startTime}::date`, sql48`${pauseFrom}::date`),
-            lte20(sql48`${sessions.startTime}::date`, sql48`${pauseUntil}::date`)
+          and69(
+            eq81(sessions.seriesId, id),
+            eq81(sessions.status, "scheduled"),
+            gte37(sql48`${sessions.startTime}::date`, sql48`${pauseFrom}::date`),
+            lte21(sql48`${sessions.startTime}::date`, sql48`${pauseUntil}::date`)
           )
         );
         if (affectedSessions.length > 0) {
           const sessionIds = affectedSessions.map((s) => s.id);
           await db.delete(sessionPlayers).where(
-            and67(
-              eq79(sessionPlayers.playerId, playerId),
-              inArray41(sessionPlayers.sessionId, sessionIds)
+            and69(
+              eq81(sessionPlayers.playerId, playerId),
+              inArray43(sessionPlayers.sessionId, sessionIds)
             )
           );
           console.log(
@@ -119717,7 +122124,7 @@ router54.post(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/:id/players/:playerId/unpause",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119725,11 +122132,19 @@ router54.post(
     try {
       const { id, playerId } = req.params;
       const coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const canManageSeries = isOwnerRole2;
       const existing = await storage.getCoachingSeriesById(id);
       if (!existing) {
         return res.status(404).json({ error: "Class not found" });
       }
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to manage this class" });
       }
       const updated = await storage.unpauseSeriesPlayer(id, playerId);
@@ -119737,7 +122152,7 @@ router54.post(
         return res.status(404).json({ error: "Player not found in this class" });
       }
       try {
-        const allSeriesSessions = await db.select().from(sessions).where(eq79(sessions.seriesId, id));
+        const allSeriesSessions = await db.select().from(sessions).where(eq81(sessions.seriesId, id));
         const now = /* @__PURE__ */ new Date();
         const futureSessions = allSeriesSessions.filter(
           (s) => new Date(s.startTime) > now
@@ -119779,7 +122194,7 @@ router54.post(
     }
   }
 );
-router54.get(
+router56.get(
   "/api/coach/series/:id/merge-suggestions",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119788,11 +122203,11 @@ router54.get(
       const { id } = req.params;
       const academyId = req.user.academyId;
       const userRole = req.user.role;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user.coachId;
-      if (supervisorCoachId && isOwnerRole) {
-        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and67(eq79(coaches.id, supervisorCoachId), eq79(coaches.academyId, academyId))).limit(1);
+      if (supervisorCoachId && isOwnerRole2) {
+        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and69(eq81(coaches.id, supervisorCoachId), eq81(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
         }
@@ -119818,9 +122233,9 @@ router54.get(
         return res.json({ suggestions: [], openSlots: 0 });
       }
       const allCoachSeries = await db.select().from(coachingSeries).where(
-        and67(
-          eq79(coachingSeries.coachId, coachId),
-          eq79(coachingSeries.status, "active"),
+        and69(
+          eq81(coachingSeries.coachId, coachId),
+          eq81(coachingSeries.status, "active"),
           sql48`${coachingSeries.id} != ${id}`
         )
       );
@@ -119858,7 +122273,7 @@ router54.get(
     }
   }
 );
-router54.patch(
+router56.patch(
   "/api/coach/series/:id/players/:playerId/join-date",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119867,6 +122282,10 @@ router54.patch(
       const { id, playerId } = req.params;
       const { joinDate } = req.body;
       const coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const canManageSeries = isOwnerRole2;
       if (!joinDate) {
         return res.status(400).json({ error: "joinDate is required" });
       }
@@ -119874,13 +122293,17 @@ router54.patch(
       if (!existing) {
         return res.status(404).json({ error: "Class not found" });
       }
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to manage this class" });
       }
       const updated = await db.update(seriesPlayers).set({ joinedAt: new Date(joinDate) }).where(
-        and67(
-          eq79(seriesPlayers.seriesId, id),
-          eq79(seriesPlayers.playerId, playerId)
+        and69(
+          eq81(seriesPlayers.seriesId, id),
+          eq81(seriesPlayers.playerId, playerId)
         )
       ).returning();
       if (!updated.length) {
@@ -119893,7 +122316,7 @@ router54.patch(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/:id/players/:playerId/link-package",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119902,6 +122325,10 @@ router54.post(
       const { id, playerId } = req.params;
       const { packageId } = req.body;
       const coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const callerRole = req.user.role;
+      const isOwnerRole2 = callerRole === "academy_owner" || callerRole === "owner" || callerRole === "platform_owner" || callerRole === "admin";
+      const canManageSeries = isOwnerRole2;
       if (!packageId) {
         return res.status(400).json({ error: "packageId is required" });
       }
@@ -119909,7 +122336,11 @@ router54.post(
       if (!existing) {
         return res.status(404).json({ error: "Class not found" });
       }
-      if (existing.coachId !== coachId) {
+      if (canManageSeries) {
+        if (existing.academyId !== academyId) {
+          return res.status(403).json({ error: "Not authorized to manage this class" });
+        }
+      } else if (existing.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to manage this class" });
       }
       const updated = await storage.linkPackageToMembership(
@@ -119927,7 +122358,7 @@ router54.post(
     }
   }
 );
-router54.get(
+router56.get(
   "/api/coach/series/:id/active-players",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119937,11 +122368,11 @@ router54.get(
       const { date: date2 } = req.query;
       const userRole = req.user.role;
       const academyId = req.user.academyId;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user.coachId;
-      if (supervisorCoachId && isOwnerRole) {
-        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and67(eq79(coaches.id, supervisorCoachId), eq79(coaches.academyId, academyId))).limit(1);
+      if (supervisorCoachId && isOwnerRole2) {
+        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and69(eq81(coaches.id, supervisorCoachId), eq81(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
         }
@@ -119972,7 +122403,7 @@ router54.get(
     }
   }
 );
-router54.get(
+router56.get(
   "/api/coach/series/:id/feedback",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -119981,11 +122412,11 @@ router54.get(
       const { id } = req.params;
       const academyId = req.user.academyId;
       const userRole = req.user.role;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user.coachId;
-      if (supervisorCoachId && isOwnerRole) {
-        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and67(eq79(coaches.id, supervisorCoachId), eq79(coaches.academyId, academyId))).limit(1);
+      if (supervisorCoachId && isOwnerRole2) {
+        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and69(eq81(coaches.id, supervisorCoachId), eq81(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
         }
@@ -119998,7 +122429,7 @@ router54.get(
       if (series.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to view this series" });
       }
-      const seriesSessions = await db.select().from(sessions).where(eq79(sessions.seriesId, id));
+      const seriesSessions = await db.select().from(sessions).where(eq81(sessions.seriesId, id));
       const sessionIds = seriesSessions.map((s) => s.id);
       if (sessionIds.length === 0) {
         return res.json({
@@ -120006,8 +122437,8 @@ router54.get(
           summary: { total: 0, withFeedback: 0, intensity: {} }
         });
       }
-      const feedbackList = await db.select().from(sessionFeedback).where(inArray41(sessionFeedback.sessionId, sessionIds));
-      const playerFeedbackList = await db.select().from(inSessionFeedback).where(inArray41(inSessionFeedback.sessionId, sessionIds));
+      const feedbackList = await db.select().from(sessionFeedback).where(inArray43(sessionFeedback.sessionId, sessionIds));
+      const playerFeedbackList = await db.select().from(inSessionFeedback).where(inArray43(inSessionFeedback.sessionId, sessionIds));
       const intensityCounts = {};
       feedbackList.forEach((f) => {
         if (f.intensity) {
@@ -120032,7 +122463,7 @@ router54.get(
     }
   }
 );
-router54.get(
+router56.get(
   "/api/coach/series/:id/progress",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120041,11 +122472,11 @@ router54.get(
       const { id } = req.params;
       const academyId = req.user.academyId;
       const userRole = req.user.role;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user.coachId;
-      if (supervisorCoachId && isOwnerRole) {
-        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and67(eq79(coaches.id, supervisorCoachId), eq79(coaches.academyId, academyId))).limit(1);
+      if (supervisorCoachId && isOwnerRole2) {
+        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and69(eq81(coaches.id, supervisorCoachId), eq81(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
         }
@@ -120058,7 +122489,7 @@ router54.get(
       if (series.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to view this series" });
       }
-      const seriesSessions = await db.select().from(sessions).where(eq79(sessions.seriesId, id));
+      const seriesSessions = await db.select().from(sessions).where(eq81(sessions.seriesId, id));
       const sessionIds = seriesSessions.map((s) => s.id);
       const seriesPlayersData = await storage.getSeriesPlayers(id);
       const playerIds = seriesPlayersData.map((sp) => sp.playerId);
@@ -120066,9 +122497,9 @@ router54.get(
         return res.json({ players: [], totalXp: 0 });
       }
       const xpData = await db.select().from(xpTransactions).where(
-        and67(
-          inArray41(xpTransactions.playerId, playerIds),
-          inArray41(xpTransactions.sessionId, sessionIds)
+        and69(
+          inArray43(xpTransactions.playerId, playerIds),
+          inArray43(xpTransactions.sessionId, sessionIds)
         )
       );
       const playerXpMap = {};
@@ -120082,11 +122513,11 @@ router54.get(
           playerId: sessionPlayers.playerId,
           sessionCount: sql48`count(*)::int`
         }).from(sessionPlayers).where(
-          and67(
-            inArray41(sessionPlayers.playerId, playerIds),
-            inArray41(sessionPlayers.sessionId, completedSessionIds),
-            or23(
-              inArray41(sessionPlayers.attendanceStatus, [
+          and69(
+            inArray43(sessionPlayers.playerId, playerIds),
+            inArray43(sessionPlayers.sessionId, completedSessionIds),
+            or24(
+              inArray43(sessionPlayers.attendanceStatus, [
                 "present",
                 "late",
                 "absent"
@@ -120127,7 +122558,7 @@ router54.get(
     }
   }
 );
-router54.get(
+router56.get(
   "/api/coach/series/:id/timeline",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120136,11 +122567,11 @@ router54.get(
       const { id } = req.params;
       const userRole = req.user.role;
       const academyId = req.user.academyId;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user.coachId;
-      if (supervisorCoachId && isOwnerRole) {
-        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and67(eq79(coaches.id, supervisorCoachId), eq79(coaches.academyId, academyId))).limit(1);
+      if (supervisorCoachId && isOwnerRole2) {
+        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and69(eq81(coaches.id, supervisorCoachId), eq81(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
         }
@@ -120156,11 +122587,11 @@ router54.get(
       if (series.coachId !== coachId) {
         return res.status(403).json({ error: "Not authorized to view this series" });
       }
-      const seriesSessions = await db.select().from(sessions).where(and67(eq79(sessions.seriesId, id), eq79(sessions.coachId, coachId))).orderBy(asc21(sessions.weekNumber), asc21(sessions.startTime));
+      const seriesSessions = await db.select().from(sessions).where(and69(eq81(sessions.seriesId, id), eq81(sessions.coachId, coachId))).orderBy(asc21(sessions.weekNumber), asc21(sessions.startTime));
       const sessionIds = seriesSessions.map((s) => s.id);
       let feedbackMap = {};
       if (sessionIds.length > 0) {
-        const feedback = await db.select({ sessionId: sessionFeedback.sessionId }).from(sessionFeedback).where(inArray41(sessionFeedback.sessionId, sessionIds));
+        const feedback = await db.select({ sessionId: sessionFeedback.sessionId }).from(sessionFeedback).where(inArray43(sessionFeedback.sessionId, sessionIds));
         feedback.forEach((f) => {
           if (f.sessionId) feedbackMap[f.sessionId] = true;
         });
@@ -120204,7 +122635,7 @@ router54.get(
     }
   }
 );
-router54.post(
+router56.post(
   "/api/coach/series/migrate",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120218,9 +122649,9 @@ router54.post(
       const recurringGroups = await db.select({
         recurringGroupId: sessions.recurringGroupId
       }).from(sessions).where(
-        and67(
-          eq79(sessions.coachId, coachId),
-          eq79(sessions.isRecurring, true),
+        and69(
+          eq81(sessions.coachId, coachId),
+          eq81(sessions.isRecurring, true),
           isNotNull16(sessions.recurringGroupId),
           isNull16(sessions.seriesId)
         )
@@ -120235,7 +122666,7 @@ router54.post(
       const migratedSeries = [];
       for (const group of recurringGroups) {
         if (!group.recurringGroupId) continue;
-        const groupSessions = await db.select().from(sessions).where(eq79(sessions.recurringGroupId, group.recurringGroupId)).orderBy(asc21(sessions.startTime));
+        const groupSessions = await db.select().from(sessions).where(eq81(sessions.recurringGroupId, group.recurringGroupId)).orderBy(asc21(sessions.startTime));
         if (groupSessions.length === 0) continue;
         const firstSession = groupSessions[0];
         const lastSession = groupSessions[groupSessions.length - 1];
@@ -120289,10 +122720,10 @@ router54.post(
           await db.update(sessions).set({
             seriesId: newSeries.id,
             weekNumber
-          }).where(eq79(sessions.id, session.id));
+          }).where(eq81(sessions.id, session.id));
         }
         const allSessionIds = groupSessions.map((s) => s.id);
-        const allSessionPlayers = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(inArray41(sessionPlayers.sessionId, allSessionIds));
+        const allSessionPlayers = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(inArray43(sessionPlayers.sessionId, allSessionIds));
         const uniquePlayerIds = [
           ...new Set(
             allSessionPlayers.map((sp) => sp.playerId).filter(Boolean)
@@ -120325,7 +122756,7 @@ router54.post(
     }
   }
 );
-router54.get(
+router56.get(
   "/api/coach/series/:id/court-booking-confirmations",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120334,11 +122765,11 @@ router54.get(
       const { id } = req.params;
       const userRole = req.user.role;
       const academyId = req.user.academyId;
-      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
-      const supervisorCoachId = isOwnerRole ? req.query.supervisorCoachId : void 0;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const supervisorCoachId = isOwnerRole2 ? req.query.supervisorCoachId : void 0;
       let coachId = req.user.coachId;
-      if (supervisorCoachId && isOwnerRole) {
-        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and67(eq79(coaches.id, supervisorCoachId), eq79(coaches.academyId, academyId))).limit(1);
+      if (supervisorCoachId && isOwnerRole2) {
+        const targetCoach = await db.select({ id: coaches.id, academyId: coaches.academyId }).from(coaches).where(and69(eq81(coaches.id, supervisorCoachId), eq81(coaches.academyId, academyId))).limit(1);
         if (targetCoach.length === 0) {
           return res.status(403).json({ error: "Coach not found in your academy" });
         }
@@ -120353,18 +122784,18 @@ router54.get(
         id: sessions.id,
         startTime: sessions.startTime
       }).from(sessions).where(
-        and67(
-          eq79(sessions.seriesId, id),
-          eq79(sessions.status, "scheduled"),
-          gte36(sessions.startTime, /* @__PURE__ */ new Date())
+        and69(
+          eq81(sessions.seriesId, id),
+          eq81(sessions.status, "scheduled"),
+          gte37(sessions.startTime, /* @__PURE__ */ new Date())
         )
       ).orderBy(asc21(sessions.startTime)).limit(20);
       const enrolled = await db.select({
         playerId: seriesPlayers.playerId,
         playerName: players.name
-      }).from(seriesPlayers).innerJoin(players, eq79(players.id, seriesPlayers.playerId)).where(and67(eq79(seriesPlayers.seriesId, id), eq79(seriesPlayers.status, "active")));
+      }).from(seriesPlayers).innerJoin(players, eq81(players.id, seriesPlayers.playerId)).where(and69(eq81(seriesPlayers.seriesId, id), eq81(seriesPlayers.status, "active")));
       const totalEnrolled = enrolled.length;
-      const { getSignedUrl: getSignedUrl2 } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
+      const { getSignedUrl: getSignedUrl3 } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
       const result = await Promise.all(
         upcomingSessions.map(async (session) => {
           const confRecords = await db.select({
@@ -120377,13 +122808,13 @@ router54.get(
             confirmedAt: courtBookingConfirmations.confirmedAt,
             rejectionNote: courtBookingConfirmations.rejectionNote,
             createdAt: courtBookingConfirmations.createdAt
-          }).from(courtBookingConfirmations).where(eq79(courtBookingConfirmations.sessionId, session.id));
+          }).from(courtBookingConfirmations).where(eq81(courtBookingConfirmations.sessionId, session.id));
           const confMap = new Map(confRecords.map((c) => [c.playerId, c]));
           await Promise.all(
             confRecords.map(async (c) => {
               if (c.screenshotKey && !c.screenshotUrl) {
                 try {
-                  c.screenshotUrl = await getSignedUrl2(c.screenshotKey);
+                  c.screenshotUrl = await getSignedUrl3(c.screenshotKey);
                 } catch {
                 }
               }
@@ -120437,7 +122868,7 @@ router54.get(
     }
   }
 );
-router54.patch(
+router56.patch(
   "/api/coach/court-booking-confirmations/:confirmationId",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120453,7 +122884,7 @@ router54.patch(
         sessionId: courtBookingConfirmations.sessionId,
         playerId: courtBookingConfirmations.playerId,
         seriesId: courtBookingConfirmations.seriesId
-      }).from(courtBookingConfirmations).where(eq79(courtBookingConfirmations.id, confirmationId)).limit(1);
+      }).from(courtBookingConfirmations).where(eq81(courtBookingConfirmations.id, confirmationId)).limit(1);
       if (!existing) return res.status(404).json({ error: "Confirmation not found" });
       let ownerVerified = false;
       if (existing.seriesId) {
@@ -120467,7 +122898,7 @@ router54.patch(
         if (!existing.sessionId) {
           return res.status(403).json({ error: "Not authorized" });
         }
-        const [sess] = await db.select({ coachId: sessions.coachId, seriesId: sessions.seriesId }).from(sessions).where(eq79(sessions.id, existing.sessionId)).limit(1);
+        const [sess] = await db.select({ coachId: sessions.coachId, seriesId: sessions.seriesId }).from(sessions).where(eq81(sessions.id, existing.sessionId)).limit(1);
         if (!sess) return res.status(403).json({ error: "Not authorized" });
         if (sess.seriesId) {
           const series = await storage.getCoachingSeriesById(sess.seriesId);
@@ -120484,7 +122915,7 @@ router54.patch(
         confirmedAt: action === "approve" ? now : null,
         rejectionNote: action === "reject" ? rejectionNote ?? null : null,
         updatedAt: now
-      }).where(eq79(courtBookingConfirmations.id, confirmationId));
+      }).where(eq81(courtBookingConfirmations.id, confirmationId));
       try {
         const { getPlayerPushTokens: getPlayerPushTokens3, sendPushNotification: sendPushNotification2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
         const tokens = await getPlayerPushTokens3(existing.playerId);
@@ -120505,15 +122936,120 @@ router54.patch(
     }
   }
 );
-var coaching_series_default = router54;
+router56.post(
+  "/api/coach/series/:id/photo",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  wrapUploadHandler(seriesPhotoUpload.single("photo"), {
+    context: "SeriesPhoto",
+    maxBytes: 10 * 1024 * 1024
+  }),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const userRole = req.user.role;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      if (!req.file) {
+        return res.status(400).json({ error: "No photo uploaded", code: "NO_FILE" });
+      }
+      const existing = await db.select({ coachId: coachingSeries.coachId, academyId: coachingSeries.academyId, imageUrl: coachingSeries.imageUrl }).from(coachingSeries).where(eq81(coachingSeries.id, id)).limit(1);
+      if (!existing.length) {
+        fs7.unlinkSync(req.file.path);
+        return res.status(404).json({ error: "Series not found" });
+      }
+      const authError = await checkSeriesAuthority(existing[0], coachId, academyId, isOwnerRole2);
+      if (authError) {
+        fs7.unlinkSync(req.file.path);
+        return res.status(403).json({ error: authError });
+      }
+      if (existing[0].imageUrl) {
+        const oldKey = objectKeyFromUrl(existing[0].imageUrl);
+        if (oldKey) {
+          await deleteFromObjectStorage(oldKey).catch(() => {
+          });
+        }
+      }
+      let imageUrl;
+      const localPath = req.file.path;
+      const fileName = req.file.filename;
+      try {
+        const contentType = req.file.mimetype || "image/jpeg";
+        imageUrl = await uploadToObjectStorage(localPath, fileName, "series-photos", contentType);
+        try {
+          fs7.unlinkSync(localPath);
+        } catch {
+        }
+      } catch (_uploadErr) {
+        imageUrl = `/uploads/series-photos/${fileName}`;
+      }
+      await db.update(coachingSeries).set({ imageUrl }).where(eq81(coachingSeries.id, id));
+      if (coachId) {
+        apiCache.invalidate(CACHE_KEYS.COACH_SERIES(coachId, "all"));
+        apiCache.invalidate(CACHE_KEYS.COACH_SERIES(coachId, "active"));
+      }
+      const { resolveMediaUrl: resolveMediaUrl2 } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
+      const resolvedUrl = await resolveMediaUrl2(imageUrl);
+      return res.json({ success: true, imageUrl, resolvedUrl });
+    } catch (err) {
+      console.error("[SeriesPhoto] Upload error:", err);
+      return res.status(500).json({ error: "Failed to upload photo" });
+    }
+  }
+);
+router56.delete(
+  "/api/coach/series/:id/photo",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const coachId = req.user.coachId;
+      const academyId = req.user.academyId;
+      const userRole = req.user.role;
+      const isOwnerRole2 = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+      const existing = await db.select({ coachId: coachingSeries.coachId, academyId: coachingSeries.academyId, imageUrl: coachingSeries.imageUrl }).from(coachingSeries).where(eq81(coachingSeries.id, id)).limit(1);
+      if (!existing.length) {
+        return res.status(404).json({ error: "Series not found" });
+      }
+      const authError = await checkSeriesAuthority(existing[0], coachId, academyId, isOwnerRole2);
+      if (authError) {
+        return res.status(403).json({ error: authError });
+      }
+      if (existing[0].imageUrl) {
+        const objKey = objectKeyFromUrl(existing[0].imageUrl);
+        if (objKey) {
+          await deleteFromObjectStorage(objKey).catch(() => {
+          });
+        } else if (existing[0].imageUrl.startsWith("/uploads/")) {
+          try {
+            fs7.unlinkSync(`${process.cwd()}${existing[0].imageUrl}`);
+          } catch {
+          }
+        }
+      }
+      await db.update(coachingSeries).set({ imageUrl: null }).where(eq81(coachingSeries.id, id));
+      if (coachId) {
+        apiCache.invalidate(CACHE_KEYS.COACH_SERIES(coachId, "all"));
+        apiCache.invalidate(CACHE_KEYS.COACH_SERIES(coachId, "active"));
+      }
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[SeriesPhoto] Delete error:", err);
+      return res.status(500).json({ error: "Failed to delete photo" });
+    }
+  }
+);
+var coaching_series_default = router56;
 
 // server/routes/coach-management.ts
 init_db();
 init_storage();
 init_auth();
-import { Router as Router54 } from "express";
-import { eq as eq80, sql as sql49, and as and68, inArray as inArray42, lte as lte21, gte as gte37, ne as ne13, count as count15 } from "drizzle-orm";
-import { z as z14 } from "zod";
+import { Router as Router56 } from "express";
+import { eq as eq82, sql as sql49, and as and70, inArray as inArray44, lte as lte22, gte as gte38, ne as ne13, count as count15 } from "drizzle-orm";
+import { z as z16 } from "zod";
 import { fromZodError as fromZodError11 } from "zod-validation-error";
 init_pillarProgress();
 init_cache();
@@ -120521,7 +123057,7 @@ init_schema();
 init_websocket();
 init_pushNotifications();
 init_upload_middleware();
-var router55 = Router54();
+var router57 = Router56();
 var _coachXpCache = /* @__PURE__ */ new Map();
 function parsePagination2(query) {
   const limit = Math.min(parseInt(query.limit) || 50, 100);
@@ -120529,7 +123065,7 @@ function parsePagination2(query) {
   const offset = query.offset ? parseInt(query.offset) : (page - 1) * limit;
   return { limit, offset };
 }
-router55.get(
+router57.get(
   "/api/coach/notifications",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120567,7 +123103,7 @@ router55.get(
     }
   }
 );
-router55.patch(
+router57.patch(
   "/api/coach/notifications/:id/read",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120591,7 +123127,7 @@ router55.patch(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/coach/notifications/mark-all-read",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120609,7 +123145,7 @@ router55.post(
     }
   }
 );
-router55.delete(
+router57.delete(
   "/api/coach/notifications",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120627,7 +123163,7 @@ router55.delete(
     }
   }
 );
-router55.delete(
+router57.delete(
   "/api/coach/notifications/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120651,7 +123187,7 @@ router55.delete(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coach/auto-renew-alerts",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120669,7 +123205,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coach/calendar/status",
   authMiddlewareWithFreshData,
   async (_req, res) => {
@@ -120688,7 +123224,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coach/profile/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120707,7 +123243,7 @@ router55.get(
     }
   }
 );
-router55.patch(
+router57.patch(
   "/api/coach/profile/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120757,7 +123293,7 @@ router55.patch(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/coach/profile/photo",
   authMiddlewareWithFreshData,
   wrapUploadHandler(profilePhotoUpload.single("photo"), {
@@ -120794,7 +123330,7 @@ router55.post(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coach/:id/xp",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120841,7 +123377,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coach/:id/observation-patterns",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120876,7 +123412,7 @@ router55.get(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/coach/:id/xp",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120929,7 +123465,7 @@ router55.post(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coach/:id/stats",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120983,7 +123519,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/progress/domains",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -120999,7 +123535,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/players/:id/skill-state",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121040,7 +123576,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/players/:id/observation-trends",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121066,7 +123602,7 @@ router55.get(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/coach/sessions/:sessionId/observations",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121282,7 +123818,7 @@ router55.post(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coach/sessions/:sessionId/observations",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121297,7 +123833,7 @@ router55.get(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/players/:id/assessments",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121337,7 +123873,7 @@ router55.post(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/players/:id/assessments",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121352,7 +123888,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/progress/levels",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121367,7 +123903,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/players/:id/level-readiness/:level",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121385,7 +123921,7 @@ router55.get(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/players/:id/level-change",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121468,7 +124004,7 @@ router55.post(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/players/:id/level-history",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121496,7 +124032,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/players/:id/xp",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121524,7 +124060,7 @@ router55.get(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/players/:id/progress-freeze",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121556,7 +124092,7 @@ router55.post(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coaches/:id/court-preferences",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121579,7 +124115,7 @@ router55.get(
     }
   }
 );
-router55.put(
+router57.put(
   "/api/coaches/:id/court-preferences",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121609,7 +124145,7 @@ router55.put(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coaches/:id/conversations",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121645,14 +124181,14 @@ router55.get(
           conversationIds,
           coachId
         ) : Promise.resolve([]),
-        playerIds.length > 0 ? db.select({ id: players.id, name: players.name }).from(players).where(inArray42(players.id, playerIds)) : Promise.resolve([]),
+        playerIds.length > 0 ? db.select({ id: players.id, name: players.name }).from(players).where(inArray44(players.id, playerIds)) : Promise.resolve([]),
         seriesIds.length > 0 ? db.select({
           id: coachingSeries.id,
           title: coachingSeries.title,
           dayOfWeek: coachingSeries.dayOfWeek,
           startTime: coachingSeries.startTime,
           sessionType: coachingSeries.sessionType
-        }).from(coachingSeries).where(inArray42(coachingSeries.id, seriesIds)) : Promise.resolve([])
+        }).from(coachingSeries).where(inArray44(coachingSeries.id, seriesIds)) : Promise.resolve([])
       ]);
       const participantsByConv = /* @__PURE__ */ new Map();
       for (const p of allParticipants) {
@@ -121711,7 +124247,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/players/:id/conversations",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121744,7 +124280,7 @@ router55.get(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/conversations/coach-player",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121772,7 +124308,7 @@ router55.post(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/conversations",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121812,7 +124348,7 @@ router55.post(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/squads",
   authMiddlewareWithFreshData,
   async (_req, res) => {
@@ -121832,7 +124368,7 @@ router55.get(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/conversations/:id/messages",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -121877,7 +124413,7 @@ router55.get(
             handle: messageMentions.handle,
             playerId: messageMentions.playerId,
             coachId: messageMentions.coachId
-          }).from(messageMentions).where(inArray42(messageMentions.messageId, messageIds));
+          }).from(messageMentions).where(inArray44(messageMentions.messageId, messageIds));
           for (const r of rows) {
             const list = mentionRowsByMessage.get(r.messageId) ?? [];
             list.push({
@@ -122021,7 +124557,7 @@ function getSampleMessages(conversationId, req) {
   }
   return [];
 }
-router55.post(
+router57.post(
   "/api/conversations/:id/messages",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122213,7 +124749,7 @@ router55.post(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/conversations/:id/read",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122233,7 +124769,7 @@ router55.post(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/messages/:id/reactions",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122267,7 +124803,7 @@ router55.post(
     }
   }
 );
-router55.delete(
+router57.delete(
   "/api/messages/:id/reactions",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122295,30 +124831,30 @@ router55.delete(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/coaches/:id/unread-count",
   authMiddlewareWithFreshData,
   requireAcademy,
   async (req, res) => {
     try {
       const { id } = req.params;
-      const count19 = await storage.getUnreadCountForCoach(id);
-      res.json({ unreadCount: count19 });
+      const count20 = await storage.getUnreadCountForCoach(id);
+      res.json({ unreadCount: count20 });
     } catch (error) {
       console.error("Error fetching unread count:", error);
       res.status(500).json({ error: "Failed to fetch unread count" });
     }
   }
 );
-router55.get(
+router57.get(
   "/api/players/:id/unread-count",
   authMiddlewareWithFreshData,
   requireAcademy,
   async (req, res) => {
     try {
       const { id } = req.params;
-      const count19 = await storage.getUnreadCountForPlayer(id);
-      res.json({ unreadCount: count19 });
+      const count20 = await storage.getUnreadCountForPlayer(id);
+      res.json({ unreadCount: count20 });
     } catch (error) {
       console.error("Error fetching unread count:", error);
       res.status(500).json({ error: "Failed to fetch unread count" });
@@ -122327,7 +124863,7 @@ router55.get(
 );
 var SERIES_REMINDER_WINDOW_MS = 60 * 60 * 1e3;
 var SERIES_REMINDER_MAX = 3;
-router55.post(
+router57.post(
   "/api/coach/series/:seriesId/reminder",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122338,9 +124874,9 @@ router55.post(
         return res.status(403).json({ error: "Coach profile required" });
       }
       const { seriesId } = req.params;
-      const bodySchema = z14.object({
-        message: z14.string().trim().min(1).max(280),
-        lessonSessionId: z14.string().optional().nullable()
+      const bodySchema = z16.object({
+        message: z16.string().trim().min(1).max(280),
+        lessonSessionId: z16.string().optional().nullable()
       });
       const parsed = bodySchema.safeParse(req.body);
       if (!parsed.success) {
@@ -122355,7 +124891,7 @@ router55.post(
         coachId: coachingSeries.coachId,
         academyId: coachingSeries.academyId,
         title: coachingSeries.title
-      }).from(coachingSeries).where(eq80(coachingSeries.id, seriesId)).limit(1);
+      }).from(coachingSeries).where(eq82(coachingSeries.id, seriesId)).limit(1);
       if (!series) {
         return res.status(404).json({ error: "Series not found" });
       }
@@ -122399,7 +124935,7 @@ router55.post(
       }
       const releaseReservation = async () => {
         try {
-          await db.delete(seriesReminderLog).where(eq80(seriesReminderLog.id, reservationId));
+          await db.delete(seriesReminderLog).where(eq82(seriesReminderLog.id, reservationId));
         } catch (releaseErr) {
           console.error(
             "[series-reminder] failed to release throttle reservation",
@@ -122408,12 +124944,12 @@ router55.post(
         }
       };
       try {
-        const [coach] = await db.select({ name: coaches.name }).from(coaches).where(eq80(coaches.id, coachId)).limit(1);
+        const [coach] = await db.select({ name: coaches.name }).from(coaches).where(eq82(coaches.id, coachId)).limit(1);
         const coachName = coach?.name || "your coach";
         const activeMembers = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(
-          and68(
-            eq80(seriesPlayers.seriesId, seriesId),
-            eq80(seriesPlayers.status, "active")
+          and70(
+            eq82(seriesPlayers.seriesId, seriesId),
+            eq82(seriesPlayers.status, "active")
           )
         );
         const screen = lessonSessionId ? "TrainingDetail" : "SeriesDetail";
@@ -122452,17 +124988,17 @@ router55.post(
         );
         try {
           const convConditions = [
-            eq80(conversations.title, seriesId),
-            inArray42(conversations.type, [
+            eq82(conversations.title, seriesId),
+            inArray44(conversations.type, [
               "series_group",
               "squad",
               "lesson_group"
             ])
           ];
           if (series.academyId) {
-            convConditions.push(eq80(conversations.academyId, series.academyId));
+            convConditions.push(eq82(conversations.academyId, series.academyId));
           }
-          const [conv] = await db.select().from(conversations).where(and68(...convConditions)).limit(1);
+          const [conv] = await db.select().from(conversations).where(and70(...convConditions)).limit(1);
           if (conv) {
             await db.insert(messages).values({
               conversationId: conv.id,
@@ -122477,7 +125013,7 @@ router55.post(
             await db.update(conversations).set({
               lastMessageAt: /* @__PURE__ */ new Date(),
               lastMessagePreview: message.substring(0, 100)
-            }).where(eq80(conversations.id, conv.id));
+            }).where(eq82(conversations.id, conv.id));
           }
         } catch (err) {
           console.error(
@@ -122487,7 +125023,7 @@ router55.post(
         }
         try {
           await db.delete(seriesReminderLog).where(
-            lte21(
+            lte22(
               seriesReminderLog.sentAt,
               new Date(Date.now() - SERIES_REMINDER_WINDOW_MS * 2)
             )
@@ -122509,7 +125045,7 @@ router55.post(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/coach/practice-matches",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122540,7 +125076,7 @@ router55.post(
       const noteClean = typeof note === "string" && note.trim().length > 0 ? sanitizeMessage(note.trim()).slice(0, 280) : null;
       let coachName = null;
       try {
-        const [coachRow] = await db.select({ name: coaches.name }).from(coaches).where(eq80(coaches.id, coachId)).limit(1);
+        const [coachRow] = await db.select({ name: coaches.name }).from(coaches).where(eq82(coaches.id, coachId)).limit(1);
         coachName = coachRow?.name ?? null;
       } catch {
       }
@@ -122607,7 +125143,7 @@ router55.post(
     }
   }
 );
-router55.get(
+router57.get(
   "/api/admin/coaches/:coachId/upcoming-sessions",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122616,7 +125152,7 @@ router55.get(
       const academyId = req.user.academyId;
       const { coachId } = req.params;
       const coach = await db.query.coaches.findFirst({
-        where: and68(eq80(coaches.id, coachId), eq80(coaches.academyId, academyId))
+        where: and70(eq82(coaches.id, coachId), eq82(coaches.academyId, academyId))
       });
       if (!coach) {
         return res.status(404).json({ error: "Coach not found in this academy" });
@@ -122631,11 +125167,11 @@ router55.get(
         status: sessions.status,
         seriesId: sessions.seriesId,
         playerCount: count15(sessionPlayers.id)
-      }).from(sessions).leftJoin(sessionPlayers, eq80(sessionPlayers.sessionId, sessions.id)).where(
-        and68(
-          eq80(sessions.coachId, coachId),
-          eq80(sessions.academyId, academyId),
-          gte37(sessions.startTime, /* @__PURE__ */ new Date()),
+      }).from(sessions).leftJoin(sessionPlayers, eq82(sessionPlayers.sessionId, sessions.id)).where(
+        and70(
+          eq82(sessions.coachId, coachId),
+          eq82(sessions.academyId, academyId),
+          gte38(sessions.startTime, /* @__PURE__ */ new Date()),
           ne13(sessions.status, "cancelled")
         )
       ).groupBy(sessions.id).orderBy(sessions.startTime);
@@ -122646,16 +125182,16 @@ router55.get(
     }
   }
 );
-router55.post(
+router57.post(
   "/api/admin/sessions/transfer",
   authMiddlewareWithFreshData,
   requireAcademy,
   async (req, res) => {
     try {
       const academyId = req.user.academyId;
-      const schema = z14.object({
-        sessionIds: z14.array(z14.string()).min(1, "Select at least one session"),
-        toCoachId: z14.string()
+      const schema = z16.object({
+        sessionIds: z16.array(z16.string()).min(1, "Select at least one session"),
+        toCoachId: z16.string()
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) {
@@ -122663,16 +125199,16 @@ router55.post(
       }
       const { sessionIds, toCoachId } = parsed.data;
       const targetCoach = await db.query.coaches.findFirst({
-        where: and68(eq80(coaches.id, toCoachId), eq80(coaches.academyId, academyId))
+        where: and70(eq82(coaches.id, toCoachId), eq82(coaches.academyId, academyId))
       });
       if (!targetCoach) {
         return res.status(404).json({ error: "Target coach not found in this academy" });
       }
       const result = await db.update(sessions).set({ coachId: toCoachId }).where(
-        and68(
-          inArray42(sessions.id, sessionIds),
-          eq80(sessions.academyId, academyId),
-          gte37(sessions.startTime, /* @__PURE__ */ new Date()),
+        and70(
+          inArray44(sessions.id, sessionIds),
+          eq82(sessions.academyId, academyId),
+          gte38(sessions.startTime, /* @__PURE__ */ new Date()),
           ne13(sessions.status, "cancelled")
         )
       );
@@ -122684,18 +125220,18 @@ router55.post(
     }
   }
 );
-var coach_management_default = router55;
+var coach_management_default = router57;
 
 // server/routes/coach-analytics.ts
 init_db();
 init_storage();
 init_auth();
 init_schema();
-import { Router as Router55 } from "express";
-import { eq as eq81, desc as desc46, and as and69, gte as gte38 } from "drizzle-orm";
-var router56 = Router55();
+import { Router as Router57 } from "express";
+import { eq as eq83, desc as desc46, and as and71, gte as gte39 } from "drizzle-orm";
+var router58 = Router57();
 var _burnoutCache = /* @__PURE__ */ new Map();
-router56.get(
+router58.get(
   "/api/insights/attendance",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122711,7 +125247,7 @@ router56.get(
     }
   }
 );
-router56.get(
+router58.get(
   "/api/insights/xp-velocity",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122727,7 +125263,7 @@ router56.get(
     }
   }
 );
-router56.get(
+router58.get(
   "/api/insights/coach-load",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122743,7 +125279,7 @@ router56.get(
     }
   }
 );
-router56.get(
+router58.get(
   "/api/players/:id/observation-trends",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122765,7 +125301,7 @@ router56.get(
     }
   }
 );
-router56.get(
+router58.get(
   "/api/players/:id/domain-xp",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122786,7 +125322,7 @@ router56.get(
     }
   }
 );
-router56.get(
+router58.get(
   "/api/coaches/:id/load-forecast",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122855,7 +125391,7 @@ router56.get(
     }
   }
 );
-router56.get(
+router58.get(
   "/api/coaches/:id/burnout-risk",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122976,7 +125512,7 @@ router56.get(
     }
   }
 );
-router56.get(
+router58.get(
   "/api/coaches/:id/wellness",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -122992,9 +125528,9 @@ router56.get(
       const startDate = /* @__PURE__ */ new Date();
       startDate.setDate(startDate.getDate() - days);
       const logs = await db.select().from(coachWellnessLogs).where(
-        and69(
-          eq81(coachWellnessLogs.coachId, id),
-          gte38(
+        and71(
+          eq83(coachWellnessLogs.coachId, id),
+          gte39(
             coachWellnessLogs.date,
             startDate.toISOString().split("T")[0]
           )
@@ -123021,7 +125557,7 @@ router56.get(
     }
   }
 );
-router56.get(
+router58.get(
   "/api/coaches/:id/wellness/:date",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123033,9 +125569,9 @@ router56.get(
         return res.status(403).json({ error: "Access denied" });
       }
       const [log3] = await db.select().from(coachWellnessLogs).where(
-        and69(
-          eq81(coachWellnessLogs.coachId, id),
-          eq81(coachWellnessLogs.date, date2)
+        and71(
+          eq83(coachWellnessLogs.coachId, id),
+          eq83(coachWellnessLogs.date, date2)
         )
       ).limit(1);
       res.json({ log: log3 || null });
@@ -123045,7 +125581,7 @@ router56.get(
     }
   }
 );
-router56.post(
+router58.post(
   "/api/coaches/:id/wellness",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123075,9 +125611,9 @@ router56.post(
         return res.status(400).json({ error: "Date is required" });
       }
       const [existing] = await db.select().from(coachWellnessLogs).where(
-        and69(
-          eq81(coachWellnessLogs.coachId, id),
-          eq81(coachWellnessLogs.date, date2)
+        and71(
+          eq83(coachWellnessLogs.coachId, id),
+          eq83(coachWellnessLogs.date, date2)
         )
       ).limit(1);
       if (existing) {
@@ -123094,7 +125630,7 @@ router56.post(
           painNotes,
           notes,
           updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq81(coachWellnessLogs.id, existing.id)).returning();
+        }).where(eq83(coachWellnessLogs.id, existing.id)).returning();
         res.json({ log: updated, updated: true });
       } else {
         const [created] = await db.insert(coachWellnessLogs).values({
@@ -123121,7 +125657,7 @@ router56.post(
     }
   }
 );
-router56.get(
+router58.get(
   "/api/coaches/:id/calendar-heatmap",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123185,7 +125721,7 @@ router56.get(
 );
 var rosterInsightsCache = /* @__PURE__ */ new Map();
 var ROSTER_INSIGHTS_TTL_MS = 24 * 60 * 60 * 1e3;
-router56.get(
+router58.get(
   "/api/coach/roster-insights",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123230,7 +125766,7 @@ router56.get(
     }
   }
 );
-var coach_analytics_default = router56;
+var coach_analytics_default = router58;
 
 // server/routes/academy-settings.ts
 init_db();
@@ -123238,9 +125774,9 @@ init_storage();
 init_auth();
 init_schema();
 import crypto10 from "crypto";
-import { Router as Router56 } from "express";
-import { eq as eq82, and as and70 } from "drizzle-orm";
-var router57 = Router56();
+import { Router as Router58 } from "express";
+import { eq as eq84, and as and72 } from "drizzle-orm";
+var router59 = Router58();
 function generateShortInviteCode2() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -123250,7 +125786,7 @@ function generateShortInviteCode2() {
   }
   return code;
 }
-router57.get(
+router59.get(
   "/api/academy/venue-profile",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123270,7 +125806,7 @@ router57.get(
     }
   }
 );
-router57.put(
+router59.put(
   "/api/academy/venue-profile",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123282,7 +125818,7 @@ router57.put(
       await db.update(academies).set({
         ...facilities !== void 0 && { facilities },
         ...openingHours !== void 0 && { openingHours }
-      }).where(eq82(academies.id, academyId));
+      }).where(eq84(academies.id, academyId));
       res.json({ ok: true });
     } catch (error) {
       console.error("Put academy venue-profile error:", error);
@@ -123290,7 +125826,7 @@ router57.put(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/academy/theme",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123309,7 +125845,7 @@ router57.get(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/academy/logo",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -123337,7 +125873,7 @@ router57.post(
     }
   }
 );
-router57.delete(
+router59.delete(
   "/api/academy/logo",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -123354,7 +125890,7 @@ router57.delete(
     }
   }
 );
-router57.patch(
+router59.patch(
   "/api/academy/theme",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -123381,7 +125917,7 @@ router57.patch(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/academy/info",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123405,7 +125941,7 @@ router57.get(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/academy/settings",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123443,7 +125979,7 @@ router57.get(
     }
   }
 );
-router57.patch(
+router59.patch(
   "/api/academy/settings",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123503,7 +126039,7 @@ router57.patch(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/academy/invites",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123518,7 +126054,7 @@ router57.get(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/academy/invites",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123548,7 +126084,7 @@ router57.post(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/academy/invites/:code/accept",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123614,7 +126150,7 @@ router57.post(
     }
   }
 );
-router57.delete(
+router59.delete(
   "/api/academy/invites/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123634,7 +126170,7 @@ router57.delete(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/academy/members",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123663,7 +126199,7 @@ router57.get(
     }
   }
 );
-router57.patch(
+router59.patch(
   "/api/academy/members/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -123688,7 +126224,7 @@ router57.patch(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/coach/academies",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123719,7 +126255,7 @@ router57.get(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/coach/switch-academy",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123745,7 +126281,7 @@ router57.post(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/push/register",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123775,7 +126311,7 @@ router57.post(
     }
   }
 );
-router57.delete(
+router59.delete(
   "/api/push/unregister",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123791,7 +126327,7 @@ router57.delete(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/push/preferences",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123817,7 +126353,7 @@ router57.get(
     }
   }
 );
-router57.patch(
+router59.patch(
   "/api/push/preferences",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123837,7 +126373,7 @@ router57.patch(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/push/test",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123867,7 +126403,7 @@ router57.post(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/push/test-direct",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123911,16 +126447,16 @@ router57.post(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/push/test-all-tokens",
   authMiddlewareWithFreshData,
   async (req, res) => {
     try {
       const userId = req.user.userId;
       const allTokens = await db.select().from(pushDeviceTokens).where(
-        and70(
-          eq82(pushDeviceTokens.userId, userId),
-          eq82(pushDeviceTokens.isActive, true)
+        and72(
+          eq84(pushDeviceTokens.userId, userId),
+          eq84(pushDeviceTokens.isActive, true)
         )
       );
       if (allTokens.length === 0) {
@@ -123963,7 +126499,7 @@ router57.post(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/push/debug",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -123971,7 +126507,7 @@ router57.get(
       const userId = req.user.userId;
       const coachId = req.user.coachId;
       const playerId = req.user.playerId;
-      const allTokens = await db.select().from(pushDeviceTokens).where(eq82(pushDeviceTokens.userId, userId));
+      const allTokens = await db.select().from(pushDeviceTokens).where(eq84(pushDeviceTokens.userId, userId));
       const activeTokens = allTokens.filter((t) => t.isActive);
       const tokenSummary = activeTokens.map((t) => ({
         id: t.id,
@@ -124013,7 +126549,7 @@ router57.get(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/push/test-all-types",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -124168,7 +126704,7 @@ router57.post(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/platform/test/academy-signup",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -124213,7 +126749,7 @@ router57.post(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/player/test/feedback",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -124254,7 +126790,7 @@ router57.post(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/coach/test/booking-request",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -124299,7 +126835,7 @@ router57.post(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/admin/test/coach-invite",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -124344,7 +126880,7 @@ router57.post(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/billing/account",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124362,7 +126898,7 @@ router57.get(
     }
   }
 );
-router57.patch(
+router59.patch(
   "/api/billing/account",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124377,7 +126913,7 @@ router57.patch(
     }
   }
 );
-router57.get("/api/billing/plans", async (_req, res) => {
+router59.get("/api/billing/plans", async (_req, res) => {
   try {
     const plans = await storage.getSubscriptionPlans();
     res.json(plans);
@@ -124386,7 +126922,7 @@ router57.get("/api/billing/plans", async (_req, res) => {
     res.status(500).json({ error: "Failed to fetch plans" });
   }
 });
-router57.get(
+router59.get(
   "/api/billing/subscription",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124401,7 +126937,7 @@ router57.get(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/billing/credit-packages",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124440,7 +126976,7 @@ router57.get(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/billing/package-templates",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124460,7 +126996,7 @@ router57.get(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/billing/package-templates",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124515,7 +127051,7 @@ router57.post(
     }
   }
 );
-router57.patch(
+router59.patch(
   "/api/billing/package-templates/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124538,7 +127074,7 @@ router57.patch(
     }
   }
 );
-router57.delete(
+router59.delete(
   "/api/billing/package-templates/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124557,7 +127093,7 @@ router57.delete(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/billing/assign-package",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124580,7 +127116,7 @@ router57.post(
       expiryDate.setDate(
         expiryDate.getDate() + (template.validityDays || 90)
       );
-      const pkg3 = await storage.createPackage({
+      const pkg2 = await storage.createPackage({
         academyId,
         playerId,
         templateId,
@@ -124596,7 +127132,7 @@ router57.post(
       const pkgDebtSettlement = await storage.settlePlayerDebts(
         playerId,
         pkgCreditType,
-        pkg3.id
+        pkg2.id
       );
       if (pkgDebtSettlement.settledCount > 0) {
         console.log(
@@ -124610,7 +127146,7 @@ router57.post(
       const invoice = await storage.createInvoice({
         academyId,
         playerId,
-        packageId: pkg3.id,
+        packageId: pkg2.id,
         invoiceNumber,
         invoiceType: "package",
         amount: customPrice ? String(customPrice) : template.price,
@@ -124627,14 +127163,14 @@ router57.post(
         notes,
         status: "pending"
       });
-      res.status(201).json({ package: pkg3, invoice });
+      res.status(201).json({ package: pkg2, invoice });
     } catch (error) {
       console.error("Error assigning package:", error);
       res.status(500).json({ error: "Failed to assign package" });
     }
   }
 );
-router57.get(
+router59.get(
   "/api/billing/invoices",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124649,7 +127185,7 @@ router57.get(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/billing/invoices",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124681,8 +127217,8 @@ router57.post(
         }
       }
       if (packageId) {
-        const pkg3 = await storage.getPackage(packageId);
-        if (!pkg3 || pkg3.academyId !== academyId) {
+        const pkg2 = await storage.getPackage(packageId);
+        if (!pkg2 || pkg2.academyId !== academyId) {
           return res.status(400).json({ error: "Package not found in this academy" });
         }
       }
@@ -124714,7 +127250,7 @@ router57.post(
     }
   }
 );
-router57.patch(
+router59.patch(
   "/api/billing/invoices/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner", "coach"),
@@ -124739,7 +127275,7 @@ router57.patch(
     }
   }
 );
-router57.delete(
+router59.delete(
   "/api/billing/invoices/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner", "coach"),
@@ -124763,7 +127299,7 @@ router57.delete(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/billing/invoices/:id/html",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124814,7 +127350,12 @@ router57.get(
         notes: invoice.notes || void 0,
         status: invoice.status,
         paidAt: invoice.paidAt?.toISOString(),
-        theme: academy?.theme ?? null
+        theme: academy?.theme ?? null,
+        bankName: settings?.bankName || void 0,
+        bankIban: settings?.bankIban || void 0,
+        bankAccountNumber: settings?.bankAccountNumber || void 0,
+        bankAccountHolder: settings?.bankAccountHolder || void 0,
+        bankSwiftCode: settings?.bankSwiftCode || void 0
       };
       const html = generateInvoiceHtml(invoiceData);
       res.setHeader("Content-Type", "text/html");
@@ -124825,7 +127366,130 @@ router57.get(
     }
   }
 );
-router57.post(
+router59.post(
+  "/api/billing/invoices/:id/send-reminder",
+  authMiddlewareWithFreshData,
+  requireRole("admin", "academy_owner", "platform_owner", "coach"),
+  requireAcademy,
+  async (req, res) => {
+    try {
+      const academyId = req.user.academyId;
+      const { id } = req.params;
+      const invoice = await storage.getInvoice(id);
+      if (!invoice || invoice.academyId !== academyId) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+      const allowedStatuses = ["pending", "overdue"];
+      const invoiceStatus = String(invoice.status || "").toLowerCase();
+      const dueDatePast = invoice.dueDate && new Date(invoice.dueDate) < /* @__PURE__ */ new Date();
+      const isEffectivelyOverdue = invoiceStatus === "pending" && dueDatePast;
+      if (invoiceStatus === "paid" || !allowedStatuses.includes(invoiceStatus) && !isEffectivelyOverdue) {
+        return res.status(400).json({
+          error: "Reminders can only be sent for pending or overdue invoices."
+        });
+      }
+      if (invoice.reminderSentAt) {
+        const hoursSince = (Date.now() - new Date(invoice.reminderSentAt).getTime()) / (1e3 * 60 * 60);
+        if (hoursSince < 24) {
+          return res.status(429).json({
+            error: `Reminder already sent. You can send another in ${Math.ceil(24 - hoursSince)} hour(s).`
+          });
+        }
+      }
+      const billToEmail = invoice.billToEmail;
+      if (!billToEmail) {
+        return res.status(400).json({ error: "Invoice has no recipient email. Edit the invoice to add a billing email first." });
+      }
+      const academy = await storage.getAcademy(academyId);
+      const academySettings2 = await storage.getAcademySettings(academyId);
+      const dueDate = invoice.dueDate ? new Date(invoice.dueDate) : null;
+      const now = /* @__PURE__ */ new Date();
+      const daysOverdue = dueDate ? Math.max(0, Math.floor((now.getTime() - dueDate.getTime()) / (1e3 * 60 * 60 * 24))) : 0;
+      const currency = invoice.currency || "AED";
+      const amount = parseFloat(invoice.amount || "0");
+      const lateFeeAmount = academySettings2?.defaultLateFeeAmount ? parseFloat(String(academySettings2.defaultLateFeeAmount)) : null;
+      const lateFeeType = academySettings2?.defaultLateFeeType === "percent" ? "percent" : "flat";
+      const lateFeeValue = lateFeeAmount !== null ? lateFeeType === "percent" ? amount * lateFeeAmount / 100 : lateFeeAmount : null;
+      const warningDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1e3);
+      const warningDateStr = warningDate.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+      const { sendEmail: sendEmail2 } = await Promise.resolve().then(() => (init_emailService(), emailService_exports));
+      const recipientName = invoice.billToName || "Valued Client";
+      const academyName = academy?.name || "The Academy";
+      const lateFeeHtml = lateFeeValue !== null ? `<div style="margin:24px 0;padding:18px 20px;background:#FEF2F2;border-left:4px solid #EF4444;border-radius:8px;">
+                <p style="margin:0;font-size:15px;font-weight:700;color:#DC2626;">Late Fee Notice</p>
+                <p style="margin:8px 0 0;font-size:14px;color:#7F1D1D;">
+                  A late fee of <strong>${currency} ${lateFeeValue.toFixed(2)}</strong> will be added to this invoice 
+                  if payment is not received by <strong>${warningDateStr}</strong>.
+                </p>
+              </div>` : "";
+      const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#1F2937;background:#F9FAFB;margin:0;padding:0;}
+  .container{max-width:560px;margin:40px auto;background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);}
+  .header{background:#111827;padding:28px 32px;}
+  .header h1{margin:0;font-size:22px;color:#FFFFFF;font-weight:700;}
+  .header p{margin:4px 0 0;color:#9CA3AF;font-size:13px;}
+  .body{padding:32px;}
+  .invoice-card{background:#F9FAFB;border-radius:10px;padding:20px;margin:20px 0;border:1px solid #E5E7EB;}
+  .invoice-card .label{font-size:11px;color:#9CA3AF;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+  .invoice-card .value{font-size:17px;font-weight:700;color:#111827;}
+  .overdue-badge{display:inline-block;padding:4px 12px;border-radius:20px;background:#FEE2E2;color:#DC2626;font-size:12px;font-weight:700;margin-top:8px;}
+  .footer{background:#F9FAFB;padding:20px 32px;border-top:1px solid #E5E7EB;text-align:center;}
+  .footer p{color:#9CA3AF;font-size:12px;margin:0;}
+</style></head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>${academyName}</h1>
+      <p>Invoice Payment Reminder</p>
+    </div>
+    <div class="body">
+      <p>Dear ${recipientName},</p>
+      <p>This is a friendly reminder that the following invoice is outstanding and awaiting payment:</p>
+      <div class="invoice-card">
+        <div class="label">Invoice Number</div>
+        <div class="value">${invoice.invoiceNumber}</div>
+        <div class="label" style="margin-top:14px;">Amount Due</div>
+        <div class="value" style="color:#DC2626;">${currency} ${amount.toFixed(2)}</div>
+        ${dueDate ? `<div class="label" style="margin-top:14px;">Due Date</div><div class="value">${dueDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>` : ""}
+        ${daysOverdue > 0 ? `<span class="overdue-badge">${daysOverdue} day${daysOverdue !== 1 ? "s" : ""} overdue</span>` : ""}
+      </div>
+      ${lateFeeHtml}
+      <p>Please arrange payment at your earliest convenience. If you have already paid, please disregard this notice.</p>
+      <p>For any questions, please contact us directly.</p>
+      <p style="margin-top:24px;">Kind regards,<br><strong>${academyName}</strong></p>
+    </div>
+    <div class="footer">
+      <p>Powered by Glow Up Sports</p>
+    </div>
+  </div>
+</body>
+</html>`;
+      const emailResult = await sendEmail2({
+        to: billToEmail,
+        subject: `Payment Reminder: Invoice ${invoice.invoiceNumber} \u2014 ${currency} ${amount.toFixed(2)}`,
+        html,
+        text: `Payment reminder for invoice ${invoice.invoiceNumber}. Amount due: ${currency} ${amount.toFixed(2)}. ${daysOverdue > 0 ? `This invoice is ${daysOverdue} day(s) overdue.` : ""}${lateFeeValue !== null ? ` A late fee of ${currency} ${lateFeeValue.toFixed(2)} will be added if not paid by ${warningDateStr}.` : ""}`
+      });
+      if (!emailResult.success) {
+        return res.status(500).json({ error: emailResult.error || "Failed to send reminder email" });
+      }
+      const updated = await storage.updateInvoice(id, {
+        reminderSentAt: /* @__PURE__ */ new Date()
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error sending invoice reminder:", error);
+      res.status(500).json({ error: "Failed to send reminder" });
+    }
+  }
+);
+router59.post(
   "/api/billing/payments",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124863,7 +127527,7 @@ router57.post(
     }
   }
 );
-router57.get(
+router59.get(
   "/api/billing/payments",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124878,7 +127542,7 @@ router57.get(
     }
   }
 );
-router57.post(
+router59.post(
   "/api/billing/refunds",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -124917,29 +127581,29 @@ router57.post(
     }
   }
 );
-var academy_settings_default = router57;
+var academy_settings_default = router59;
 
 // server/routes/academy-pricing.ts
 init_db();
 init_storage();
 init_schema();
 init_auth();
-import { Router as Router57 } from "express";
-import { z as z15 } from "zod";
-import { sql as sql50, and as and71, eq as eq83, gte as gte39, isNull as isNull17, lte as lte22, or as or24 } from "drizzle-orm";
-var router58 = Router57();
+import { Router as Router59 } from "express";
+import { z as z17 } from "zod";
+import { sql as sql50, and as and73, eq as eq85, gte as gte40, isNull as isNull17, lte as lte23, or as or25 } from "drizzle-orm";
+var router60 = Router59();
 var SESSION_TYPES = ["private", "semi_private", "group", "physical", "activity"];
-var dateString = z15.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD");
-var createPricingSchema = z15.object({
-  sessionType: z15.enum(SESSION_TYPES),
-  pricePerSession: z15.union([z15.string(), z15.number()]).transform((v) => String(v)),
-  currency: z15.string().min(3).max(8).optional(),
-  isPerPerson: z15.boolean().optional(),
-  duration: z15.number().int().positive().nullable().optional(),
-  pricePerHour: z15.union([z15.string(), z15.number()]).transform((v) => String(v)).nullable().optional(),
+var dateString = z17.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD");
+var createPricingSchema = z17.object({
+  sessionType: z17.enum(SESSION_TYPES),
+  pricePerSession: z17.union([z17.string(), z17.number()]).transform((v) => String(v)),
+  currency: z17.string().min(3).max(8).optional(),
+  isPerPerson: z17.boolean().optional(),
+  duration: z17.number().int().positive().nullable().optional(),
+  pricePerHour: z17.union([z17.string(), z17.number()]).transform((v) => String(v)).nullable().optional(),
   effectiveFrom: dateString.optional(),
   effectiveUntil: dateString.nullable().optional(),
-  notes: z15.string().max(1e3).nullable().optional()
+  notes: z17.string().max(1e3).nullable().optional()
 });
 var updatePricingSchema = createPricingSchema.partial();
 function ensureAcademyAccess(req, res, pathAcademyId) {
@@ -124963,7 +127627,7 @@ function validatePriceAndDates(input) {
   }
   return null;
 }
-router58.get(
+router60.get(
   "/api/academies/:academyId/pricing",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -124993,14 +127657,14 @@ async function createPricingAtomic(academyId, sessionType, effectiveFrom, today,
     );
     if (effectiveFrom <= today) {
       const existing = await tx.select().from(academyPricing).where(
-        and71(
-          eq83(academyPricing.academyId, academyId),
-          eq83(academyPricing.sessionType, sessionType),
-          eq83(academyPricing.isActive, true),
-          lte22(academyPricing.effectiveFrom, today),
-          or24(
+        and73(
+          eq85(academyPricing.academyId, academyId),
+          eq85(academyPricing.sessionType, sessionType),
+          eq85(academyPricing.isActive, true),
+          lte23(academyPricing.effectiveFrom, today),
+          or25(
             isNull17(academyPricing.effectiveUntil),
-            gte39(academyPricing.effectiveUntil, today)
+            gte40(academyPricing.effectiveUntil, today)
           )
         )
       ).limit(1);
@@ -125013,7 +127677,7 @@ async function createPricingAtomic(academyId, sessionType, effectiveFrom, today,
     return insert();
   });
 }
-router58.post(
+router60.post(
   "/api/academies/:academyId/pricing",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -125066,7 +127730,7 @@ router58.post(
     }
   }
 );
-router58.patch(
+router60.patch(
   "/api/academies/:academyId/pricing/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -125127,7 +127791,7 @@ router58.patch(
     }
   }
 );
-router58.delete(
+router60.delete(
   "/api/academies/:academyId/pricing/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -125152,7 +127816,130 @@ router58.delete(
     }
   }
 );
-var academy_pricing_default = router58;
+var academy_pricing_default = router60;
+
+// server/routes/coach-tier-pricing.ts
+init_db();
+init_schema();
+init_auth();
+import { Router as Router60 } from "express";
+import { z as z18 } from "zod";
+import { eq as eq86, and as and74 } from "drizzle-orm";
+var router61 = Router60();
+var COACH_ROLES = ["head_coach", "coach", "assistant", "intern"];
+var tierPricingSchema = z18.object({
+  tiers: z18.array(z18.object({
+    role: z18.enum(COACH_ROLES),
+    price60min: z18.union([z18.string(), z18.number()]).transform((v) => v === "" || v === null || v === void 0 ? null : String(v)).nullable().optional(),
+    price90min: z18.union([z18.string(), z18.number()]).transform((v) => v === "" || v === null || v === void 0 ? null : String(v)).nullable().optional(),
+    price120min: z18.union([z18.string(), z18.number()]).transform((v) => v === "" || v === null || v === void 0 ? null : String(v)).nullable().optional(),
+    currency: z18.string().min(3).max(8).optional()
+  }))
+});
+function isOwnerRole(role) {
+  return role === "academy_owner" || role === "platform_owner" || role === "owner";
+}
+router61.get(
+  "/api/owner/tier-pricing",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  async (req, res) => {
+    const role = req.user.role;
+    if (!isOwnerRole(role)) {
+      return res.status(403).json({ error: "Academy owner access required" });
+    }
+    const academyId = req.user.academyId;
+    if (!academyId) return res.status(400).json({ error: "No academy context" });
+    const rows = await db.select().from(coachTierPricing).where(eq86(coachTierPricing.academyId, academyId));
+    return res.json({ tiers: rows });
+  }
+);
+router61.put(
+  "/api/owner/tier-pricing",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  async (req, res) => {
+    const role = req.user.role;
+    if (!isOwnerRole(role)) {
+      return res.status(403).json({ error: "Academy owner access required" });
+    }
+    const academyId = req.user.academyId;
+    if (!academyId) return res.status(400).json({ error: "No academy context" });
+    const parsed = tierPricingSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid data", details: parsed.error.flatten() });
+    }
+    const { tiers } = parsed.data;
+    for (const tier of tiers) {
+      const existing = await db.select({ id: coachTierPricing.id }).from(coachTierPricing).where(
+        and74(
+          eq86(coachTierPricing.academyId, academyId),
+          eq86(coachTierPricing.role, tier.role)
+        )
+      ).limit(1);
+      if (existing.length > 0) {
+        await db.update(coachTierPricing).set({
+          price60min: tier.price60min ?? null,
+          price90min: tier.price90min ?? null,
+          price120min: tier.price120min ?? null,
+          currency: tier.currency || "AED",
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(
+          and74(
+            eq86(coachTierPricing.academyId, academyId),
+            eq86(coachTierPricing.role, tier.role)
+          )
+        );
+      } else {
+        await db.insert(coachTierPricing).values({
+          academyId,
+          role: tier.role,
+          price60min: tier.price60min ?? null,
+          price90min: tier.price90min ?? null,
+          price120min: tier.price120min ?? null,
+          currency: tier.currency || "AED"
+        });
+      }
+    }
+    const updated = await db.select().from(coachTierPricing).where(eq86(coachTierPricing.academyId, academyId));
+    return res.json({ tiers: updated });
+  }
+);
+router61.get(
+  "/api/coach/me/tier-pricing",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  async (req, res) => {
+    const coachId = req.user.coachId;
+    const academyId = req.user.academyId;
+    if (!coachId) return res.status(400).json({ error: "Coach access required" });
+    const coachRows = await db.select({ role: coaches.role }).from(coaches).where(eq86(coaches.id, coachId)).limit(1);
+    const coachRole = coachRows[0]?.role || "coach";
+    let pricingRow = null;
+    if (academyId) {
+      const rows = await db.select().from(coachTierPricing).where(
+        and74(
+          eq86(coachTierPricing.academyId, academyId),
+          eq86(coachTierPricing.role, coachRole)
+        )
+      ).limit(1);
+      pricingRow = rows[0] ?? null;
+    }
+    return res.json({ role: coachRole, pricing: pricingRow });
+  }
+);
+router61.get(
+  "/api/player/academy-tier-pricing",
+  authMiddlewareWithFreshData,
+  requireAcademy,
+  async (req, res) => {
+    const academyId = req.user.academyId;
+    if (!academyId) return res.status(400).json({ error: "No academy context" });
+    const rows = await db.select().from(coachTierPricing).where(eq86(coachTierPricing.academyId, academyId));
+    return res.json({ tiers: rows });
+  }
+);
+var coach_tier_pricing_default = router61;
 
 // server/routes/platform-owner.ts
 init_db();
@@ -125160,9 +127947,9 @@ init_storage();
 init_auth();
 init_schema();
 import crypto11 from "crypto";
-import { Router as Router58 } from "express";
-import { eq as eq84, sql as sql52, desc as desc47, and as and72, gte as gte40, inArray as inArray43, isNull as isNull18, isNotNull as isNotNull17, or as or25, ilike as ilike6 } from "drizzle-orm";
-import { z as z16 } from "zod";
+import { Router as Router61 } from "express";
+import { eq as eq87, sql as sql52, desc as desc47, and as and75, gte as gte41, inArray as inArray45, isNull as isNull18, isNotNull as isNotNull17, or as or26, ilike as ilike6 } from "drizzle-orm";
+import { z as z19 } from "zod";
 import { fromZodError as fromZodError12 } from "zod-validation-error";
 
 // shared/countries.ts
@@ -125227,13 +128014,13 @@ function getCurrencyForCountry(countryCode) {
 }
 
 // server/routes/platform-owner.ts
-var router59 = Router58();
+var router62 = Router61();
 function toDubaiTime2(utcDate) {
   const dubaiOffset = 4 * 60;
   const utcTime = utcDate.getTime();
   return new Date(utcTime + dubaiOffset * 60 * 1e3);
 }
-router59.get(
+router62.get(
   "/api/owner/profile",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -125251,7 +128038,7 @@ router59.get(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/owner/profile",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -125299,7 +128086,7 @@ router59.post(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/owner/onboarding/complete",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -125411,7 +128198,7 @@ router59.post(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/owner/activate-roles",
   authMiddlewareWithFreshData,
   requireRole("academy_owner", "platform_owner"),
@@ -125467,7 +128254,7 @@ router59.post(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/pending-owner-profiles",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -125490,7 +128277,7 @@ router59.get(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/platform/review-owner-profile/:academyId",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -125523,7 +128310,7 @@ router59.post(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/player/academy-owner",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -125559,7 +128346,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/player/academy-owner/:academyId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -125583,7 +128370,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/owner/dashboard/business",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -125722,7 +128509,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/dashboard/enhanced",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -125843,9 +128630,9 @@ router59.get(
           const now2 = /* @__PURE__ */ new Date();
           const startOfMonth = new Date(now2.getFullYear(), now2.getMonth(), 1);
           const [publicSeriesResult, dropInResult] = await Promise.all([
-            db.select({ count: sql52`count(*)::int` }).from(coachingSeries).where(eq84(coachingSeries.isPublic, true)),
+            db.select({ count: sql52`count(*)::int` }).from(coachingSeries).where(eq87(coachingSeries.isPublic, true)),
             db.select({ count: sql52`count(*)::int` }).from(sessionPlayers).where(
-              and72(eq84(sessionPlayers.joinType, "drop_in"), gte40(sessionPlayers.creditDeductedAt, startOfMonth))
+              and75(eq87(sessionPlayers.joinType, "drop_in"), gte41(sessionPlayers.creditDeductedAt, startOfMonth))
             )
           ]);
           const [topAcademiesResult, dropInRevenueResult] = await Promise.all([
@@ -125853,18 +128640,18 @@ router59.get(
               academyId: coachingSeries.academyId,
               academyName: academiesTable.name,
               dropInCount: sql52`count(${sessionPlayers.id})::int`
-            }).from(sessionPlayers).innerJoin(sessions, eq84(sessionPlayers.sessionId, sessions.id)).innerJoin(coachingSeries, eq84(sessions.seriesId, coachingSeries.id)).innerJoin(academiesTable, eq84(coachingSeries.academyId, academiesTable.id)).where(
-              and72(
-                eq84(sessionPlayers.joinType, "drop_in"),
-                gte40(sessionPlayers.creditDeductedAt, startOfMonth)
+            }).from(sessionPlayers).innerJoin(sessions, eq87(sessionPlayers.sessionId, sessions.id)).innerJoin(coachingSeries, eq87(sessions.seriesId, coachingSeries.id)).innerJoin(academiesTable, eq87(coachingSeries.academyId, academiesTable.id)).where(
+              and75(
+                eq87(sessionPlayers.joinType, "drop_in"),
+                gte41(sessionPlayers.creditDeductedAt, startOfMonth)
               )
             ).groupBy(coachingSeries.academyId, academiesTable.name).orderBy(desc47(sql52`count(${sessionPlayers.id})`)).limit(5),
             db.select({
               revenue: sql52`coalesce(sum(${coachingSeries.price}::numeric), 0)::float`
-            }).from(sessionPlayers).innerJoin(sessions, eq84(sessionPlayers.sessionId, sessions.id)).innerJoin(coachingSeries, eq84(sessions.seriesId, coachingSeries.id)).where(
-              and72(
-                eq84(sessionPlayers.joinType, "drop_in"),
-                gte40(sessionPlayers.creditDeductedAt, startOfMonth)
+            }).from(sessionPlayers).innerJoin(sessions, eq87(sessionPlayers.sessionId, sessions.id)).innerJoin(coachingSeries, eq87(sessions.seriesId, coachingSeries.id)).where(
+              and75(
+                eq87(sessionPlayers.joinType, "drop_in"),
+                gte41(sessionPlayers.creditDeductedAt, startOfMonth)
               )
             )
           ]);
@@ -125916,7 +128703,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/owner/dashboard/enhanced",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -126157,7 +128944,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/owner/academy-stats",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -126237,7 +129024,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/stats",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126273,9 +129060,9 @@ router59.get(
         academyId: users.academyId,
         lastLogin: sql52`MAX(${users.lastLoginAt})`
       }).from(users).where(
-        and72(
+        and75(
           isNotNull17(users.academyId),
-          inArray43(users.role, ["platform_owner", "academy_owner", "coach", "assistant"])
+          inArray45(users.role, ["platform_owner", "academy_owner", "coach", "assistant"])
         )
       ).groupBy(users.academyId);
       const lastLoginMap = new Map(
@@ -126322,12 +129109,12 @@ router59.get(
         try {
           const now2 = /* @__PURE__ */ new Date();
           const startOfMonth = new Date(now2.getFullYear(), now2.getMonth(), 1);
-          const publicSeriesResult = await db.select({ count: sql52`count(*)::int` }).from(coachingSeries).where(eq84(coachingSeries.isPublic, true));
+          const publicSeriesResult = await db.select({ count: sql52`count(*)::int` }).from(coachingSeries).where(eq87(coachingSeries.isPublic, true));
           const publicSeriesCount = publicSeriesResult[0]?.count || 0;
           const dropInResult = await db.select({ count: sql52`count(*)::int` }).from(sessionPlayers).where(
-            and72(
-              eq84(sessionPlayers.joinType, "drop_in"),
-              gte40(sessionPlayers.creditDeductedAt, startOfMonth)
+            and75(
+              eq87(sessionPlayers.joinType, "drop_in"),
+              gte41(sessionPlayers.creditDeductedAt, startOfMonth)
             )
           );
           const dropInBookingsThisMonth = dropInResult[0]?.count || 0;
@@ -126337,18 +129124,18 @@ router59.get(
               academyId: coachingSeries.academyId,
               academyName: academiesTable2.name,
               dropInCount: sql52`count(${sessionPlayers.id})::int`
-            }).from(sessionPlayers).innerJoin(sessions, eq84(sessionPlayers.sessionId, sessions.id)).innerJoin(coachingSeries, eq84(sessions.seriesId, coachingSeries.id)).innerJoin(academiesTable2, eq84(coachingSeries.academyId, academiesTable2.id)).where(
-              and72(
-                eq84(sessionPlayers.joinType, "drop_in"),
-                gte40(sessionPlayers.creditDeductedAt, startOfMonth)
+            }).from(sessionPlayers).innerJoin(sessions, eq87(sessionPlayers.sessionId, sessions.id)).innerJoin(coachingSeries, eq87(sessions.seriesId, coachingSeries.id)).innerJoin(academiesTable2, eq87(coachingSeries.academyId, academiesTable2.id)).where(
+              and75(
+                eq87(sessionPlayers.joinType, "drop_in"),
+                gte41(sessionPlayers.creditDeductedAt, startOfMonth)
               )
             ).groupBy(coachingSeries.academyId, academiesTable2.name).orderBy(desc47(sql52`count(${sessionPlayers.id})`)).limit(5),
             db.select({
               revenue: sql52`coalesce(sum(${coachingSeries.price}::numeric), 0)::float`
-            }).from(sessionPlayers).innerJoin(sessions, eq84(sessionPlayers.sessionId, sessions.id)).innerJoin(coachingSeries, eq84(sessions.seriesId, coachingSeries.id)).where(
-              and72(
-                eq84(sessionPlayers.joinType, "drop_in"),
-                gte40(sessionPlayers.creditDeductedAt, startOfMonth)
+            }).from(sessionPlayers).innerJoin(sessions, eq87(sessionPlayers.sessionId, sessions.id)).innerJoin(coachingSeries, eq87(sessions.seriesId, coachingSeries.id)).where(
+              and75(
+                eq87(sessionPlayers.joinType, "drop_in"),
+                gte41(sessionPlayers.creditDeductedAt, startOfMonth)
               )
             )
           ]);
@@ -126431,7 +129218,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/financials",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126531,7 +129318,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/academies",
   authMiddlewareWithFreshData,
   requireRole("platform_owner", "admin"),
@@ -126547,7 +129334,7 @@ router59.get(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/platform/academies",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126598,7 +129385,7 @@ router59.post(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/player-health",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126744,7 +129531,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/coach-health",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126835,7 +129622,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/public/platform/welcome-video",
   async (_req, res) => {
     try {
@@ -126851,7 +129638,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/config",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126865,7 +129652,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/config/:key",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126883,7 +129670,7 @@ router59.get(
     }
   }
 );
-router59.put(
+router62.put(
   "/api/platform/config/:key",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126918,7 +129705,7 @@ router59.put(
     }
   }
 );
-router59.delete(
+router62.delete(
   "/api/platform/config/:key",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126948,7 +129735,7 @@ router59.delete(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/platform/maintenance",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -126987,7 +129774,7 @@ router59.post(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/xp-config",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -127001,7 +129788,7 @@ router59.get(
     }
   }
 );
-router59.put(
+router62.put(
   "/api/platform/xp-config",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -127034,7 +129821,7 @@ router59.put(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/financials",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -127101,7 +129888,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/admin/players/search",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -127111,12 +129898,12 @@ router59.get(
       if (!query || query.length < 2) {
         return res.status(400).json({ error: "Search query must be at least 2 characters" });
       }
-      const searchConditions = or25(
+      const searchConditions = or26(
         ilike6(players.name, `%${query}%`),
         ilike6(players.displayName, `%${query}%`),
         ilike6(players.email, `%${query}%`)
       );
-      const academyCondition = req.user.role === "platform_owner" ? searchConditions : and72(searchConditions, eq84(players.academyId, req.user.academyId));
+      const academyCondition = req.user.role === "platform_owner" ? searchConditions : and75(searchConditions, eq87(players.academyId, req.user.academyId));
       const searchResults = await db.select({
         id: players.id,
         name: players.name,
@@ -127137,7 +129924,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/admin/players/academy-status",
   authMiddlewareWithFreshData,
   requireRole("admin", "platform_owner"),
@@ -127174,7 +129961,7 @@ router59.get(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/admin/players/assign-academy",
   authMiddlewareWithFreshData,
   requireRole("admin", "platform_owner"),
@@ -127204,7 +129991,7 @@ router59.post(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/admin/players/:id/credit-audit",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -127216,13 +130003,13 @@ router59.get(
       if (!player) {
         return res.status(404).json({ error: "Player not found" });
       }
-      const ledgerRows = await db.select().from(creditLedgerV2).where(eq84(creditLedgerV2.playerId, playerId)).orderBy(creditLedgerV2.occurredAt);
-      const lotRows = await db.select().from(creditLots).where(eq84(creditLots.playerId, playerId));
+      const ledgerRows = await db.select().from(creditLedgerV2).where(eq87(creditLedgerV2.playerId, playerId)).orderBy(creditLedgerV2.occurredAt);
+      const lotRows = await db.select().from(creditLots).where(eq87(creditLots.playerId, playerId));
       const allSessionPlayers = await db.select({
         id: sessionPlayers.id,
         sessionId: sessionPlayers.sessionId,
         attendanceStatus: sessionPlayers.attendanceStatus
-      }).from(sessionPlayers).where(eq84(sessionPlayers.playerId, playerId));
+      }).from(sessionPlayers).where(eq87(sessionPlayers.playerId, playerId));
       const sessionIds = [...new Set(
         allSessionPlayers.map((sp) => sp.sessionId).filter((id) => id !== null)
       )];
@@ -127237,7 +130024,7 @@ router59.get(
           date: sessions.startTime,
           duration: sessions.duration,
           status: sessions.status
-        }).from(sessions).where(inArray43(sessions.id, sessionIds.filter((id) => id !== null)));
+        }).from(sessions).where(inArray45(sessions.id, sessionIds.filter((id) => id !== null)));
         for (const s of sessRows) {
           sessionDetails[s.id] = s;
         }
@@ -127301,7 +130088,7 @@ router59.get(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/admin/players/:id/repair-credits",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -127331,7 +130118,7 @@ router59.post(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/admin/repair-all-credits",
   adminRepairLimiter,
   authMiddlewareWithFreshData,
@@ -127356,7 +130143,7 @@ router59.post(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/admin/full-credit-rebuild",
   adminRepairLimiter,
   authMiddlewareWithFreshData,
@@ -127397,7 +130184,7 @@ router59.post(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/admin/players/:id/set-level",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -127405,7 +130192,7 @@ router59.post(
     try {
       const { id } = req.params;
       const academyId = req.user?.academyId;
-      const setLevelSchema = z16.object({ level: z16.number().int().positive().optional(), xp: z16.number().int().nonnegative().optional() });
+      const setLevelSchema = z19.object({ level: z19.number().int().positive().optional(), xp: z19.number().int().nonnegative().optional() });
       const parsedLevel = setLevelSchema.safeParse(req.body);
       if (!parsedLevel.success) return res.status(400).json({ error: fromZodError12(parsedLevel.error).message });
       const { level, xp } = parsedLevel.data;
@@ -127437,7 +130224,7 @@ function calculateXpForLevel(level) {
   }
   return totalXp;
 }
-router59.post(
+router62.post(
   "/api/admin/players/:id/reset-onboarding",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -127452,7 +130239,7 @@ router59.post(
       const [updated] = await db.update(players).set({
         onboardingCompleted: false,
         profilePhotoUrl: null
-      }).where(eq84(players.id, playerId)).returning({
+      }).where(eq87(players.id, playerId)).returning({
         id: players.id,
         name: players.name,
         onboardingCompleted: players.onboardingCompleted
@@ -127467,7 +130254,7 @@ router59.post(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/admin/roles",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -127582,7 +130369,7 @@ router59.get(
     }
   }
 );
-router59.put(
+router62.put(
   "/api/admin/roles",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -127606,7 +130393,7 @@ router59.put(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/analytics/event",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -127643,7 +130430,7 @@ router59.post(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/analytics/feature-usage",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -127683,7 +130470,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/analytics/feature-drilldown",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -127725,7 +130512,7 @@ router59.get(
     }
   }
 );
-router59.get(
+router62.get(
   "/api/platform/analytics/player-activity",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -127812,15 +130599,15 @@ router59.get(
   }
 );
 async function hardDeletePlayer(playerId) {
-  const [existing] = await db.select({ id: players.id }).from(players).where(eq84(players.id, playerId));
+  const [existing] = await db.select({ id: players.id }).from(players).where(eq87(players.id, playerId));
   if (!existing) return { deleted: false };
-  const linkedUsers = await db.select({ id: users.id, role: users.role, coachId: users.coachId, academyId: users.academyId }).from(users).where(eq84(users.playerId, playerId));
-  await db.delete(spotlightNominations).where(or25(
-    eq84(spotlightNominations.nominatorPlayerId, playerId),
-    eq84(spotlightNominations.nominatedPlayerId, playerId)
+  const linkedUsers = await db.select({ id: users.id, role: users.role, coachId: users.coachId, academyId: users.academyId }).from(users).where(eq87(users.playerId, playerId));
+  await db.delete(spotlightNominations).where(or26(
+    eq87(spotlightNominations.nominatorPlayerId, playerId),
+    eq87(spotlightNominations.nominatedPlayerId, playerId)
   ));
-  await db.delete(spotlightWeeklyWinners).where(eq84(spotlightWeeklyWinners.playerId, playerId));
-  await db.delete(spotlightMonthlyWinners).where(eq84(spotlightMonthlyWinners.playerId, playerId));
+  await db.delete(spotlightWeeklyWinners).where(eq87(spotlightWeeklyWinners.playerId, playerId));
+  await db.delete(spotlightMonthlyWinners).where(eq87(spotlightMonthlyWinners.playerId, playerId));
   const deleted = await storage.deletePlayer(playerId, null);
   if (!deleted) return { deleted: false };
   let userCleanupError;
@@ -127828,7 +130615,7 @@ async function hardDeletePlayer(playerId) {
     const isPlayerOnlyAccount = !u.coachId && !u.academyId && (u.role === "player" || !u.role);
     if (!isPlayerOnlyAccount) continue;
     try {
-      await db.delete(users).where(eq84(users.id, u.id));
+      await db.delete(users).where(eq87(users.id, u.id));
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       userCleanupError = userCleanupError ? `${userCleanupError}; ${u.id}: ${msg}` : `${u.id}: ${msg}`;
@@ -127840,7 +130627,7 @@ async function hardDeletePlayer(playerId) {
   }
   return { deleted: true, userCleanupError };
 }
-router59.delete(
+router62.delete(
   "/api/platform/players/:id",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -127856,7 +130643,7 @@ router59.delete(
         email: players.email,
         academyId: players.academyId,
         status: players.status
-      }).from(players).where(eq84(players.id, id));
+      }).from(players).where(eq87(players.id, id));
       if (!snapshot) {
         return res.status(404).json({ error: "Player not found" });
       }
@@ -127887,14 +130674,14 @@ router59.delete(
     }
   }
 );
-router59.post(
+router62.post(
   "/api/platform/players/cleanup-deleted",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
   async (req, res) => {
     try {
-      const ghosts = await db.select({ id: players.id }).from(players).where(and72(
-        eq84(players.name, "Deleted User"),
+      const ghosts = await db.select({ id: players.id }).from(players).where(and75(
+        eq87(players.name, "Deleted User"),
         isNull18(players.email),
         isNull18(players.academyId)
       ));
@@ -127944,7 +130731,7 @@ router59.post(
   }
 );
 var switchInFlight = /* @__PURE__ */ new Set();
-router59.post(
+router62.post(
   "/api/platform/credit-system/:academyId/switch-to-v2",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -128018,20 +130805,20 @@ router59.post(
     }
   }
 );
-var platform_owner_default = router59;
+var platform_owner_default = router62;
 
 // server/routes/feature-interest.ts
 init_db();
 init_schema();
 init_auth();
 init_storage();
-import { Router as Router59 } from "express";
+import { Router as Router62 } from "express";
 import { sql as sql53 } from "drizzle-orm";
-var router60 = Router59();
+var router63 = Router62();
 var ALLOWED_FEATURE_KEYS = /* @__PURE__ */ new Set([
   "online_card_payments"
 ]);
-router60.post(
+router63.post(
   "/api/players/me/feature-interest",
   authMiddlewareWithFreshData,
   requireRole("player"),
@@ -128056,7 +130843,7 @@ router60.post(
     }
   }
 );
-router60.get(
+router63.get(
   "/api/players/me/feature-interest",
   authMiddlewareWithFreshData,
   requireRole("player"),
@@ -128082,7 +130869,7 @@ router60.get(
     }
   }
 );
-router60.get(
+router63.get(
   "/api/platform/feature-interest",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -128153,7 +130940,7 @@ router60.get(
     }
   }
 );
-router60.get(
+router63.get(
   "/api/platform/feature-interest/counts",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -128175,24 +130962,24 @@ router60.get(
     }
   }
 );
-var feature_interest_default = router60;
+var feature_interest_default = router63;
 
 // server/routes/player-sessions.ts
 import crypto12 from "crypto";
 import rateLimit4 from "express-rate-limit";
-import { Router as Router60 } from "express";
+import { Router as Router63 } from "express";
 init_db();
 init_storage();
 init_auth();
 init_schema();
 init_pushNotifications();
-import { eq as eq85, sql as sql54, desc as desc48, and as and73, ne as ne14, gt as gt8, gte as gte41, asc as asc22, inArray as inArray44, isNotNull as isNotNull18, or as or26, count as count16, lte as lte23 } from "drizzle-orm";
+import { eq as eq88, sql as sql54, desc as desc48, and as and76, ne as ne14, gt as gt9, gte as gte42, asc as asc22, inArray as inArray46, isNotNull as isNotNull18, or as or27, count as count16, lte as lte24 } from "drizzle-orm";
 import { fromZodError as fromZodError13 } from "zod-validation-error";
 init_upload_middleware();
 init_supabaseStorage();
 import path7 from "path";
-import fs7 from "fs";
-var router61 = Router60();
+import fs8 from "fs";
+var router64 = Router63();
 function requirePlayerOrOwner7(req, res, next) {
   if (!req.user) {
     res.status(401).json({ error: "Authentication required" });
@@ -128212,7 +130999,7 @@ function requirePlayerOrOwner7(req, res, next) {
   }
   res.status(403).json({ error: "Player account required" });
 }
-router61.post(
+router64.post(
   "/api/player/me/sessions/:sessionId/cancel",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -128388,7 +131175,7 @@ router61.post(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/me/sessions/:sessionId/mark-unavailable",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -128492,7 +131279,7 @@ router61.post(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/me/sessions/:sessionId/late",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -128581,7 +131368,7 @@ router61.post(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/me/sessions/:sessionId/check-in",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -128649,7 +131436,7 @@ router61.post(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/me/sessions/:sessionId/report-issue",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -128779,7 +131566,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/vacation",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -128841,11 +131628,11 @@ async function notifyCoachOfVacationChange(playerId, holiday, action) {
       startTime: sessions.startTime,
       sessionType: sessions.sessionType,
       title: sessions.title
-    }).from(sessions).innerJoin(sessionPlayers, eq85(sessionPlayers.sessionId, sessions.id)).where(
-      and73(
-        eq85(sessionPlayers.playerId, playerId),
-        gte41(sessions.startTime, start),
-        lte23(sessions.startTime, endInclusive),
+    }).from(sessions).innerJoin(sessionPlayers, eq88(sessionPlayers.sessionId, sessions.id)).where(
+      and76(
+        eq88(sessionPlayers.playerId, playerId),
+        gte42(sessions.startTime, start),
+        lte24(sessions.startTime, endInclusive),
         ne14(sessions.status, "cancelled")
       )
     ).orderBy(asc22(sessions.startTime));
@@ -128909,7 +131696,7 @@ async function notifyCoachOfVacationChange(playerId, holiday, action) {
     console.error("[VacationNotify] Unexpected error:", err);
   }
 }
-router61.post(
+router64.post(
   "/api/player/me/vacation",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -128963,7 +131750,7 @@ router61.post(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/player/me/vacation/:id",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -129033,7 +131820,7 @@ router61.patch(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/player/me/vacation/:id",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -129049,7 +131836,7 @@ router61.delete(
       if (!holiday) {
         return res.status(404).json({ error: "Vacation not found" });
       }
-      await db.delete(playerHolidays).where(eq85(playerHolidays.id, id));
+      await db.delete(playerHolidays).where(eq88(playerHolidays.id, id));
       notifyCoachOfVacationChange(
         playerId,
         {
@@ -129071,7 +131858,7 @@ router61.delete(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/progress",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -129215,7 +132002,7 @@ router61.get(
       const compositeLevel = `${normalizedBallLevel.toUpperCase()}_${normalizedSkillLevel}`;
       let ballLevelDisplayName = null;
       try {
-        const ballLevelRow = await db.select({ displayNamePlayer: ballLevels.displayNamePlayer }).from(ballLevels).where(eq85(ballLevels.id, compositeLevel)).limit(1);
+        const ballLevelRow = await db.select({ displayNamePlayer: ballLevels.displayNamePlayer }).from(ballLevels).where(eq88(ballLevels.id, compositeLevel)).limit(1);
         ballLevelDisplayName = ballLevelRow[0]?.displayNamePlayer ?? null;
       } catch (_e) {
       }
@@ -129281,7 +132068,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/pillar-progress",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -129304,7 +132091,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/attendance",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -129323,7 +132110,7 @@ router61.get(
         status: seriesPlayers.status,
         joinedAt: seriesPlayers.joinedAt,
         leftAt: seriesPlayers.leftAt
-      }).from(seriesPlayers).where(eq85(seriesPlayers.playerId, playerId));
+      }).from(seriesPlayers).where(eq88(seriesPlayers.playerId, playerId));
       if (playerSeriesRecords.length === 0) {
         return res.json({
           classes: [],
@@ -129332,9 +132119,9 @@ router61.get(
       }
       const seriesIds = playerSeriesRecords.map((r) => r.seriesId);
       const seriesDetails = await db.select().from(coachingSeries).where(
-        and73(
-          inArray44(coachingSeries.id, seriesIds),
-          attendanceSport ? eq85(coachingSeries.sport, attendanceSport) : void 0
+        and76(
+          inArray46(coachingSeries.id, seriesIds),
+          attendanceSport ? eq88(coachingSeries.sport, attendanceSport) : void 0
         )
       );
       const detailIds = seriesDetails.map((s) => s.id);
@@ -129342,7 +132129,7 @@ router61.get(
         id: sessions.id,
         startTime: sessions.startTime,
         seriesId: sessions.seriesId
-      }).from(sessions).where(inArray44(sessions.seriesId, detailIds)) : [];
+      }).from(sessions).where(inArray46(sessions.seriesId, detailIds)) : [];
       const sessionsBySeriesId = /* @__PURE__ */ new Map();
       for (const s of allSeriesSessions) {
         if (!s.seriesId) continue;
@@ -129358,9 +132145,9 @@ router61.get(
         sessionId: sessionPlayers.sessionId,
         status: sessionPlayers.attendanceStatus
       }).from(sessionPlayers).where(
-        and73(
-          inArray44(sessionPlayers.sessionId, allRelevantSessionIds),
-          eq85(sessionPlayers.playerId, playerId)
+        and76(
+          inArray46(sessionPlayers.sessionId, allRelevantSessionIds),
+          eq88(sessionPlayers.playerId, playerId)
         )
       ) : [];
       const statusBySessionId = /* @__PURE__ */ new Map();
@@ -129429,7 +132216,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/journey",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -129494,7 +132281,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/profile",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -129593,8 +132380,8 @@ router61.get(
             reasonCounts.set(reasonKey, (reasonCounts.get(reasonKey) || 0) + 1);
           }
         }
-        for (const [reason, count19] of Array.from(reasonCounts.entries())) {
-          unchargedReasons.push({ reason, count: count19 });
+        for (const [reason, count20] of Array.from(reasonCounts.entries())) {
+          unchargedReasons.push({ reason, count: count20 });
         }
       } catch (e) {
         console.error("[Profile] charge-rule split failed:", e);
@@ -129725,7 +132512,7 @@ router61.get(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/player/me/profile",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -129873,7 +132660,7 @@ router61.patch(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/player/me/info",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -129892,7 +132679,7 @@ router61.patch(
       }
       const updateData = { ...parseResult.data };
       if (updateData.nickname) {
-        const existingNickname = await db.select({ id: players.id }).from(players).where(and73(
+        const existingNickname = await db.select({ id: players.id }).from(players).where(and76(
           sql54`lower(${players.nickname}) = lower(${updateData.nickname})`,
           ne14(players.id, playerId)
         )).limit(1);
@@ -129927,7 +132714,7 @@ router61.patch(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/me/photo",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130016,7 +132803,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/achievements",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130154,7 +132941,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/peers",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130208,7 +132995,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/groups",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130220,7 +133007,7 @@ router61.get(
       if (!player || !player.academyId) {
         return res.status(404).json({ error: "Player not found" });
       }
-      const memberRows = await db.select().from(groupMembers).where(eq85(groupMembers.userId, req.user.userId));
+      const memberRows = await db.select().from(groupMembers).where(eq88(groupMembers.userId, req.user.userId));
       const myGroupIds = memberRows.map((m) => m.groupId);
       const groupsSport = typeof req.query.sport === "string" ? req.query.sport : null;
       const academyGroupRows = await db.select({
@@ -130229,7 +133016,7 @@ router61.get(
         seriesDayOfWeek: coachingSeries.dayOfWeek,
         seriesStartTime: coachingSeries.startTime,
         seriesSessionType: coachingSeries.sessionType
-      }).from(communityGroups).leftJoin(coachingSeries, eq85(coachingSeries.id, communityGroups.seriesId)).where(eq85(communityGroups.academyId, player.academyId));
+      }).from(communityGroups).leftJoin(coachingSeries, eq88(coachingSeries.id, communityGroups.seriesId)).where(eq88(communityGroups.academyId, player.academyId));
       const filteredGroupRows = groupsSport ? academyGroupRows.filter(
         (row) => row.seriesSport === null || row.seriesSport === void 0 || row.seriesSport === groupsSport
       ) : academyGroupRows;
@@ -130237,7 +133024,7 @@ router61.get(
       const liveCounts = groupIdsForCount.length > 0 ? await db.select({
         groupId: groupMembers.groupId,
         count: sql54`count(*)`
-      }).from(groupMembers).where(inArray44(groupMembers.groupId, groupIdsForCount)).groupBy(groupMembers.groupId) : [];
+      }).from(groupMembers).where(inArray46(groupMembers.groupId, groupIdsForCount)).groupBy(groupMembers.groupId) : [];
       const countByGroup = new Map(
         liveCounts.map((c) => [c.groupId, Number(c.count) || 0])
       );
@@ -130245,9 +133032,9 @@ router61.get(
         groupId: conversations.title,
         lastMessageAt: conversations.lastMessageAt
       }).from(conversations).where(
-        and73(
-          eq85(conversations.type, "group"),
-          inArray44(conversations.title, groupIdsForCount)
+        and76(
+          eq88(conversations.type, "group"),
+          inArray46(conversations.title, groupIdsForCount)
         )
       ) : [];
       const lastMessageByGroup = new Map(
@@ -130274,7 +133061,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/groups/:groupId",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130288,7 +133075,7 @@ router61.get(
       if (!player || !player.academyId) {
         return res.status(403).json({ error: "Player must be in an academy" });
       }
-      const [group] = await db.select().from(communityGroups).where(eq85(communityGroups.id, groupId));
+      const [group] = await db.select().from(communityGroups).where(eq88(communityGroups.id, groupId));
       if (!group) {
         return res.status(404).json({ error: "Group not found" });
       }
@@ -130296,9 +133083,9 @@ router61.get(
         return res.status(404).json({ error: "Group not found" });
       }
       const [membership] = await db.select().from(groupMembers).where(
-        and73(
-          eq85(groupMembers.groupId, groupId),
-          eq85(groupMembers.userId, userId)
+        and76(
+          eq88(groupMembers.groupId, groupId),
+          eq88(groupMembers.userId, userId)
         )
       );
       if (group.isPrivate && !membership) {
@@ -130309,7 +133096,7 @@ router61.get(
         user: users,
         playerPhoto: players.profilePhotoUrl,
         playerName: players.name
-      }).from(groupMembers).leftJoin(users, eq85(groupMembers.userId, users.id)).leftJoin(players, eq85(players.id, users.playerId)).where(eq85(groupMembers.groupId, groupId));
+      }).from(groupMembers).leftJoin(users, eq88(groupMembers.userId, users.id)).leftJoin(players, eq88(players.id, users.playerId)).where(eq88(groupMembers.groupId, groupId));
       const members = membersData.map((m) => ({
         id: m.member.id,
         userId: m.member.userId,
@@ -130332,7 +133119,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/groups/:groupId/feed",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130342,27 +133129,27 @@ router61.get(
       const { groupId } = req.params;
       const userId = req.user.userId;
       const [membership] = await db.select().from(groupMembers).where(
-        and73(
-          eq85(groupMembers.groupId, groupId),
-          eq85(groupMembers.userId, userId)
+        and76(
+          eq88(groupMembers.groupId, groupId),
+          eq88(groupMembers.userId, userId)
         )
       );
       if (!membership) {
         return res.status(403).json({ error: "Not a member of this group" });
       }
-      const groupPosts = await db.select().from(posts).where(eq85(posts.groupId, groupId)).orderBy(desc48(posts.createdAt)).limit(50);
+      const groupPosts = await db.select().from(posts).where(eq88(posts.groupId, groupId)).orderBy(desc48(posts.createdAt)).limit(50);
       const postsWithAuthor = await Promise.all(
         groupPosts.map(async (post) => {
-          const [author] = await db.select().from(users).where(eq85(users.id, post.authorId));
+          const [author] = await db.select().from(users).where(eq88(users.id, post.authorId));
           let authorName = author?.email?.split("@")[0] || "Unknown";
           if (author?.playerId) {
-            const [player] = await db.select({ name: players.name }).from(players).where(eq85(players.id, author.playerId));
+            const [player] = await db.select({ name: players.name }).from(players).where(eq88(players.id, author.playerId));
             if (player?.name) authorName = player.name;
           }
           const [myReaction] = await db.select({ reactionType: postReactions.reactionType }).from(postReactions).where(
-            and73(
-              eq85(postReactions.postId, post.id),
-              eq85(postReactions.userId, userId)
+            and76(
+              eq88(postReactions.postId, post.id),
+              eq88(postReactions.userId, userId)
             )
           );
           return {
@@ -130379,7 +133166,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/groups/:groupId/join",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130393,7 +133180,7 @@ router61.post(
       if (!player || !player.academyId) {
         return res.status(403).json({ error: "Player must be in an academy" });
       }
-      const [group] = await db.select().from(communityGroups).where(eq85(communityGroups.id, groupId));
+      const [group] = await db.select().from(communityGroups).where(eq88(communityGroups.id, groupId));
       if (!group) {
         return res.status(404).json({ error: "Group not found" });
       }
@@ -130406,9 +133193,9 @@ router61.post(
         });
       }
       const [existing] = await db.select().from(groupMembers).where(
-        and73(
-          eq85(groupMembers.groupId, groupId),
-          eq85(groupMembers.userId, userId)
+        and76(
+          eq88(groupMembers.groupId, groupId),
+          eq88(groupMembers.userId, userId)
         )
       );
       if (existing) {
@@ -130419,7 +133206,7 @@ router61.post(
         userId,
         role: "member"
       });
-      await db.update(communityGroups).set({ memberCount: sql54`${communityGroups.memberCount} + 1` }).where(eq85(communityGroups.id, groupId));
+      await db.update(communityGroups).set({ memberCount: sql54`${communityGroups.memberCount} + 1` }).where(eq88(communityGroups.id, groupId));
       res.json({ success: true, message: "Joined group" });
     } catch (error) {
       console.error("Error joining group:", error);
@@ -130427,7 +133214,7 @@ router61.post(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/groups/:groupId/leave",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130437,9 +133224,9 @@ router61.post(
       const { groupId } = req.params;
       const userId = req.user.userId;
       const [membership] = await db.select().from(groupMembers).where(
-        and73(
-          eq85(groupMembers.groupId, groupId),
-          eq85(groupMembers.userId, userId)
+        and76(
+          eq88(groupMembers.groupId, groupId),
+          eq88(groupMembers.userId, userId)
         )
       );
       if (!membership) {
@@ -130449,12 +133236,12 @@ router61.post(
         return res.status(400).json({ error: "Admins must transfer ownership before leaving" });
       }
       await db.delete(groupMembers).where(
-        and73(
-          eq85(groupMembers.groupId, groupId),
-          eq85(groupMembers.userId, userId)
+        and76(
+          eq88(groupMembers.groupId, groupId),
+          eq88(groupMembers.userId, userId)
         )
       );
-      await db.update(communityGroups).set({ memberCount: sql54`${communityGroups.memberCount} - 1` }).where(eq85(communityGroups.id, groupId));
+      await db.update(communityGroups).set({ memberCount: sql54`${communityGroups.memberCount} - 1` }).where(eq88(communityGroups.id, groupId));
       res.json({ success: true, message: "Left group" });
     } catch (error) {
       console.error("Error leaving group:", error);
@@ -130462,7 +133249,7 @@ router61.post(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/player/groups/:groupId",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130472,9 +133259,9 @@ router61.delete(
       const { groupId } = req.params;
       const userId = req.user.userId;
       const [membership] = await db.select().from(groupMembers).where(
-        and73(
-          eq85(groupMembers.groupId, groupId),
-          eq85(groupMembers.userId, userId)
+        and76(
+          eq88(groupMembers.groupId, groupId),
+          eq88(groupMembers.userId, userId)
         )
       );
       if (!membership) {
@@ -130483,37 +133270,37 @@ router61.delete(
       if (membership.role !== "admin") {
         return res.status(403).json({ error: "Only group admins can delete the group" });
       }
-      const [group] = await db.select().from(communityGroups).where(eq85(communityGroups.id, groupId));
+      const [group] = await db.select().from(communityGroups).where(eq88(communityGroups.id, groupId));
       if (!group) {
         return res.status(404).json({ error: "Group not found" });
       }
       await db.transaction(async (tx) => {
-        await tx.delete(posts).where(eq85(posts.groupId, groupId));
-        const eventRows = await tx.select({ id: groupEvents.id }).from(groupEvents).where(eq85(groupEvents.groupId, groupId));
+        await tx.delete(posts).where(eq88(posts.groupId, groupId));
+        const eventRows = await tx.select({ id: groupEvents.id }).from(groupEvents).where(eq88(groupEvents.groupId, groupId));
         const eventIds = eventRows.map((e) => e.id);
         if (eventIds.length > 0) {
-          await tx.delete(groupEventRsvps).where(inArray44(groupEventRsvps.eventId, eventIds));
-          await tx.delete(groupEvents).where(inArray44(groupEvents.id, eventIds));
+          await tx.delete(groupEventRsvps).where(inArray46(groupEventRsvps.eventId, eventIds));
+          await tx.delete(groupEvents).where(inArray46(groupEvents.id, eventIds));
         }
         const convRows = await tx.select({ id: conversations.id }).from(conversations).where(
-          and73(
-            eq85(conversations.type, "group"),
-            eq85(conversations.title, groupId)
+          and76(
+            eq88(conversations.type, "group"),
+            eq88(conversations.title, groupId)
           )
         );
         const convIds = convRows.map((c) => c.id);
         if (convIds.length > 0) {
-          const msgRows = await tx.select({ id: messages.id }).from(messages).where(inArray44(messages.conversationId, convIds));
+          const msgRows = await tx.select({ id: messages.id }).from(messages).where(inArray46(messages.conversationId, convIds));
           const msgIds = msgRows.map((m) => m.id);
           if (msgIds.length > 0) {
-            await tx.delete(messageReactions).where(inArray44(messageReactions.messageId, msgIds));
-            await tx.delete(messages).where(inArray44(messages.id, msgIds));
+            await tx.delete(messageReactions).where(inArray46(messageReactions.messageId, msgIds));
+            await tx.delete(messages).where(inArray46(messages.id, msgIds));
           }
-          await tx.delete(conversationParticipants).where(inArray44(conversationParticipants.conversationId, convIds));
-          await tx.delete(conversations).where(inArray44(conversations.id, convIds));
+          await tx.delete(conversationParticipants).where(inArray46(conversationParticipants.conversationId, convIds));
+          await tx.delete(conversations).where(inArray46(conversations.id, convIds));
         }
-        await tx.delete(groupMembers).where(eq85(groupMembers.groupId, groupId));
-        await tx.delete(communityGroups).where(eq85(communityGroups.id, groupId));
+        await tx.delete(groupMembers).where(eq88(groupMembers.groupId, groupId));
+        await tx.delete(communityGroups).where(eq88(communityGroups.id, groupId));
       });
       res.json({ success: true, message: "Group deleted" });
     } catch (error) {
@@ -130522,7 +133309,7 @@ router61.delete(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/groups/:groupId/member-suggestions",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130532,11 +133319,11 @@ router61.get(
       const { groupId } = req.params;
       const userId = req.user.userId;
       const callerPlayerId = req.user.playerId ?? null;
-      const [membership] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, userId)));
+      const [membership] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, userId)));
       if (!membership || membership.role !== "admin") {
         return res.status(403).json({ error: "Only group admins can view member suggestions" });
       }
-      const [group] = await db.select({ academyId: communityGroups.academyId }).from(communityGroups).where(eq85(communityGroups.id, groupId));
+      const [group] = await db.select({ academyId: communityGroups.academyId }).from(communityGroups).where(eq88(communityGroups.id, groupId));
       if (!group) {
         return res.status(404).json({ error: "Group not found" });
       }
@@ -130544,7 +133331,7 @@ router61.get(
       if (!academyId) {
         return res.status(400).json({ error: "Group has no academy" });
       }
-      const currentMembers = await db.select({ userId: groupMembers.userId }).from(groupMembers).where(eq85(groupMembers.groupId, groupId));
+      const currentMembers = await db.select({ userId: groupMembers.userId }).from(groupMembers).where(eq88(groupMembers.groupId, groupId));
       const memberUserIds = new Set(currentMembers.map((m) => m.userId));
       let friendUsers = [];
       if (callerPlayerId) {
@@ -130552,11 +133339,11 @@ router61.get(
           player1Id: playerConnections.player1Id,
           player2Id: playerConnections.player2Id
         }).from(playerConnections).where(
-          and73(
-            eq85(playerConnections.status, "accepted"),
-            or26(
-              eq85(playerConnections.player1Id, callerPlayerId),
-              eq85(playerConnections.player2Id, callerPlayerId)
+          and76(
+            eq88(playerConnections.status, "accepted"),
+            or27(
+              eq88(playerConnections.player1Id, callerPlayerId),
+              eq88(playerConnections.player2Id, callerPlayerId)
             )
           )
         );
@@ -130568,29 +133355,29 @@ router61.get(
             userId: users.id,
             name: players.name,
             avatarUrl: players.profilePhotoUrl
-          }).from(players).innerJoin(users, eq85(users.playerId, players.id)).where(inArray44(players.id, friendPlayerIds));
+          }).from(players).innerJoin(users, eq88(users.playerId, players.id)).where(inArray46(players.id, friendPlayerIds));
         }
       }
       const academyPlayers = await db.select({
         userId: users.id,
         name: players.name,
         avatarUrl: players.profilePhotoUrl
-      }).from(players).innerJoin(users, eq85(users.playerId, players.id)).where(
-        and73(
-          eq85(players.academyId, academyId),
+      }).from(players).innerJoin(users, eq88(users.playerId, players.id)).where(
+        and76(
+          eq88(players.academyId, academyId),
           callerPlayerId ? ne14(players.id, callerPlayerId) : sql54`true`
         )
       ).limit(80);
       const parentRows = await db.select({
         parentUserId: parentPlayerRelations.parentUserId,
         childName: players.name
-      }).from(parentPlayerRelations).innerJoin(players, eq85(players.id, parentPlayerRelations.playerId)).where(eq85(players.academyId, academyId));
+      }).from(parentPlayerRelations).innerJoin(players, eq88(players.id, parentPlayerRelations.playerId)).where(eq88(players.academyId, academyId));
       const parentUserIds = Array.from(
         new Set(parentRows.map((r) => r.parentUserId).filter((id) => id !== userId))
       );
       const parents = [];
       if (parentUserIds.length > 0) {
-        const parentUsers = await db.select({ id: users.id, username: users.username, email: users.email }).from(users).where(inArray44(users.id, parentUserIds));
+        const parentUsers = await db.select({ id: users.id, username: users.username, email: users.email }).from(users).where(inArray46(users.id, parentUserIds));
         const childMap = /* @__PURE__ */ new Map();
         for (const r of parentRows) {
           if (!childMap.has(r.parentUserId)) childMap.set(r.parentUserId, r.childName);
@@ -130617,7 +133404,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/groups/:groupId/members",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130630,28 +133417,28 @@ router61.post(
       if (!targetUserId) {
         return res.status(400).json({ error: "userId is required" });
       }
-      const [membership] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, userId)));
+      const [membership] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, userId)));
       if (!membership || membership.role !== "admin") {
         return res.status(403).json({ error: "Only group admins can add members" });
       }
-      const [group] = await db.select().from(communityGroups).where(eq85(communityGroups.id, groupId));
+      const [group] = await db.select().from(communityGroups).where(eq88(communityGroups.id, groupId));
       if (!group) {
         return res.status(404).json({ error: "Group not found" });
       }
-      const [targetUser] = await db.select({ id: users.id, academyId: users.academyId, playerId: users.playerId }).from(users).where(eq85(users.id, targetUserId));
+      const [targetUser] = await db.select({ id: users.id, academyId: users.academyId, playerId: users.playerId }).from(users).where(eq88(users.id, targetUserId));
       if (!targetUser) {
         return res.status(404).json({ error: "User not found" });
       }
       let inAcademy = targetUser.academyId === group.academyId;
       if (!inAcademy && targetUser.playerId) {
-        const [pp] = await db.select({ academyId: players.academyId }).from(players).where(eq85(players.id, targetUser.playerId));
+        const [pp] = await db.select({ academyId: players.academyId }).from(players).where(eq88(players.id, targetUser.playerId));
         inAcademy = pp?.academyId === group.academyId;
       }
       if (!inAcademy && group.academyId) {
-        const [parentLink] = await db.select({ playerId: parentPlayerRelations.playerId }).from(parentPlayerRelations).innerJoin(players, eq85(players.id, parentPlayerRelations.playerId)).where(
-          and73(
-            eq85(parentPlayerRelations.parentUserId, targetUserId),
-            eq85(players.academyId, group.academyId)
+        const [parentLink] = await db.select({ playerId: parentPlayerRelations.playerId }).from(parentPlayerRelations).innerJoin(players, eq88(players.id, parentPlayerRelations.playerId)).where(
+          and76(
+            eq88(parentPlayerRelations.parentUserId, targetUserId),
+            eq88(players.academyId, group.academyId)
           )
         ).limit(1);
         inAcademy = !!parentLink;
@@ -130659,7 +133446,7 @@ router61.post(
       if (!inAcademy) {
         return res.status(400).json({ error: "User is not in the same academy as this group" });
       }
-      const [existing] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, targetUserId)));
+      const [existing] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, targetUserId)));
       if (existing) {
         return res.status(409).json({ error: "User is already a member" });
       }
@@ -130669,7 +133456,7 @@ router61.post(
         role: "member",
         addedManually: true
       });
-      await db.update(communityGroups).set({ memberCount: sql54`${communityGroups.memberCount} + 1` }).where(eq85(communityGroups.id, groupId));
+      await db.update(communityGroups).set({ memberCount: sql54`${communityGroups.memberCount} + 1` }).where(eq88(communityGroups.id, groupId));
       res.json({ success: true });
     } catch (error) {
       console.error("Error adding group member:", error);
@@ -130677,7 +133464,7 @@ router61.post(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/player/groups/:groupId/members/:userId",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130692,18 +133479,18 @@ router61.delete(
         });
       }
       const [callerMembership] = await db.select().from(groupMembers).where(
-        and73(
-          eq85(groupMembers.groupId, groupId),
-          eq85(groupMembers.userId, callerUserId)
+        and76(
+          eq88(groupMembers.groupId, groupId),
+          eq88(groupMembers.userId, callerUserId)
         )
       );
       if (!callerMembership || callerMembership.role !== "admin") {
         return res.status(403).json({ error: "Only group admins can remove members" });
       }
       const [target] = await db.select().from(groupMembers).where(
-        and73(
-          eq85(groupMembers.groupId, groupId),
-          eq85(groupMembers.userId, targetUserId)
+        and76(
+          eq88(groupMembers.groupId, groupId),
+          eq88(groupMembers.userId, targetUserId)
         )
       );
       if (!target) {
@@ -130718,12 +133505,12 @@ router61.delete(
         });
       }
       await db.delete(groupMembers).where(
-        and73(
-          eq85(groupMembers.groupId, groupId),
-          eq85(groupMembers.userId, targetUserId)
+        and76(
+          eq88(groupMembers.groupId, groupId),
+          eq88(groupMembers.userId, targetUserId)
         )
       );
-      await db.update(communityGroups).set({ memberCount: sql54`GREATEST(${communityGroups.memberCount} - 1, 0)` }).where(eq85(communityGroups.id, groupId));
+      await db.update(communityGroups).set({ memberCount: sql54`GREATEST(${communityGroups.memberCount} - 1, 0)` }).where(eq88(communityGroups.id, groupId));
       res.json({ success: true });
     } catch (error) {
       console.error("Error removing group member:", error);
@@ -130731,7 +133518,7 @@ router61.delete(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/groups",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130774,7 +133561,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/groups/:groupId/events",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130783,23 +133570,23 @@ router61.get(
     try {
       const { groupId } = req.params;
       const userId = req.user.userId;
-      const [membership] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, userId)));
+      const [membership] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, userId)));
       if (!membership) {
         return res.status(403).json({ error: "Not a member of this group" });
       }
-      const events = await db.select().from(groupEvents).where(eq85(groupEvents.groupId, groupId)).orderBy(asc22(groupEvents.eventDate));
+      const events = await db.select().from(groupEvents).where(eq88(groupEvents.groupId, groupId)).orderBy(asc22(groupEvents.eventDate));
       const enriched = await Promise.all(events.map(async (event) => {
         const rsvps = await db.select({
           userId: groupEventRsvps.userId,
           status: groupEventRsvps.status
-        }).from(groupEventRsvps).where(eq85(groupEventRsvps.eventId, event.id));
+        }).from(groupEventRsvps).where(eq88(groupEventRsvps.eventId, event.id));
         const goingCount = rsvps.filter((r) => r.status === "going").length;
         const maybeCount = rsvps.filter((r) => r.status === "maybe").length;
         const notGoingCount = rsvps.filter((r) => r.status === "not_going").length;
         const myRsvp = rsvps.find((r) => r.userId === userId);
         const goingUserIds = rsvps.filter((r) => r.status === "going").slice(0, 5).map((r) => r.userId);
         const goingAvatars = await Promise.all(goingUserIds.map(async (uid) => {
-          const [userData] = await db.select({ name: players.name, photo: players.profilePhotoUrl }).from(users).leftJoin(players, eq85(users.playerId, players.id)).where(eq85(users.id, uid));
+          const [userData] = await db.select({ name: players.name, photo: players.profilePhotoUrl }).from(users).leftJoin(players, eq88(users.playerId, players.id)).where(eq88(users.id, uid));
           return { name: userData?.name || "?", avatarUrl: userData?.photo || null };
         }));
         return {
@@ -130818,7 +133605,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/groups/:groupId/events",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130828,7 +133615,7 @@ router61.post(
       const { groupId } = req.params;
       const userId = req.user.userId;
       const playerId = req.user.playerId;
-      const [membership] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, userId)));
+      const [membership] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, userId)));
       if (!membership) {
         return res.status(403).json({ error: "Not a member of this group" });
       }
@@ -130847,13 +133634,13 @@ router61.post(
       }
       let matchChallengeId = null;
       if (eventType === "match" && opponentUserId) {
-        const [opponentMembership] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, opponentUserId)));
+        const [opponentMembership] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, opponentUserId)));
         if (!opponentMembership) {
           return res.status(400).json({ error: "Opponent must be a member of this group" });
         }
         try {
           const player = await storage.getPlayer(playerId);
-          const [opponentUser] = await db.select({ playerId: users.playerId }).from(users).where(eq85(users.id, opponentUserId));
+          const [opponentUser] = await db.select({ playerId: users.playerId }).from(users).where(eq88(users.id, opponentUserId));
           if (opponentUser?.playerId && player) {
             const insertResult = await db.execute(
               sql54`INSERT INTO match_challenges (id, challenger_id, opponent_id, academy_id, match_type, match_format, match_date, match_time, status, created_at, updated_at)
@@ -130888,10 +133675,10 @@ router61.post(
         status: "going"
       }).onConflictDoNothing();
       try {
-        const allMembers = await db.select().from(groupMembers).where(eq85(groupMembers.groupId, groupId));
+        const allMembers = await db.select().from(groupMembers).where(eq88(groupMembers.groupId, groupId));
         const otherMemberUserIds = allMembers.filter((m) => m.userId !== userId).map((m) => m.userId);
         for (const memberUserId of otherMemberUserIds) {
-          const [memberUser] = await db.select().from(users).where(eq85(users.id, memberUserId));
+          const [memberUser] = await db.select().from(users).where(eq88(users.id, memberUserId));
           if (memberUser?.playerId) {
             await db.insert(playerNotifications).values({
               playerId: memberUser.playerId,
@@ -130918,7 +133705,7 @@ router61.post(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/groups/:groupId/events/:eventId/rsvp",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130932,11 +133719,11 @@ router61.post(
       if (!["going", "maybe", "not_going"].includes(status)) {
         return res.status(400).json({ error: "status must be going, maybe, or not_going" });
       }
-      const [membership] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, userId)));
+      const [membership] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, userId)));
       if (!membership) {
         return res.status(403).json({ error: "Not a member of this group" });
       }
-      const [event] = await db.select().from(groupEvents).where(and73(eq85(groupEvents.id, eventId), eq85(groupEvents.groupId, groupId)));
+      const [event] = await db.select().from(groupEvents).where(and76(eq88(groupEvents.id, eventId), eq88(groupEvents.groupId, groupId)));
       if (!event) {
         return res.status(404).json({ error: "Event not found in this group" });
       }
@@ -130950,9 +133737,9 @@ router61.post(
       }).returning();
       try {
         if (event.creatorId !== userId) {
-          const [creatorUser] = await db.select().from(users).where(eq85(users.id, event.creatorId));
+          const [creatorUser] = await db.select().from(users).where(eq88(users.id, event.creatorId));
           if (creatorUser?.playerId) {
-            const [player] = await db.select({ name: players.name }).from(players).where(eq85(players.id, playerId));
+            const [player] = await db.select({ name: players.name }).from(players).where(eq88(players.id, playerId));
             const playerName = player?.name || "Someone";
             const notifTitle = status === "going" ? "Someone is coming!" : status === "maybe" ? "Maybe attending" : "RSVP update";
             const notifBody = status === "going" ? `${playerName} is going to your event: ${event.title}` : status === "maybe" ? `${playerName} might attend your event: ${event.title}` : `${playerName} can't make it to your event: ${event.title}`;
@@ -130981,7 +133768,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/groups/:groupId/events/:eventId/attendees",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -130990,11 +133777,11 @@ router61.get(
     try {
       const { groupId, eventId } = req.params;
       const userId = req.user.userId;
-      const [membership] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, userId)));
+      const [membership] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, userId)));
       if (!membership) {
         return res.status(403).json({ error: "Not a member of this group" });
       }
-      const [event] = await db.select().from(groupEvents).where(and73(eq85(groupEvents.id, eventId), eq85(groupEvents.groupId, groupId)));
+      const [event] = await db.select().from(groupEvents).where(and76(eq88(groupEvents.id, eventId), eq88(groupEvents.groupId, groupId)));
       if (!event) {
         return res.status(404).json({ error: "Event not found" });
       }
@@ -131003,7 +133790,7 @@ router61.get(
         status: groupEventRsvps.status,
         name: players.name,
         photo: players.profilePhotoUrl
-      }).from(groupEventRsvps).leftJoin(users, eq85(groupEventRsvps.userId, users.id)).leftJoin(players, eq85(users.playerId, players.id)).where(eq85(groupEventRsvps.eventId, eventId));
+      }).from(groupEventRsvps).leftJoin(users, eq88(groupEventRsvps.userId, users.id)).leftJoin(players, eq88(users.playerId, players.id)).where(eq88(groupEventRsvps.eventId, eventId));
       const enriched = rsvpsWithUsers.map((r) => ({
         userId: r.userId,
         status: r.status,
@@ -131021,7 +133808,7 @@ router61.get(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/player/groups/:groupId/events/:eventId",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131030,9 +133817,9 @@ router61.patch(
     try {
       const { groupId, eventId } = req.params;
       const userId = req.user.userId;
-      const [event] = await db.select().from(groupEvents).where(and73(eq85(groupEvents.id, eventId), eq85(groupEvents.groupId, groupId)));
+      const [event] = await db.select().from(groupEvents).where(and76(eq88(groupEvents.id, eventId), eq88(groupEvents.groupId, groupId)));
       if (!event) return res.status(404).json({ error: "Event not found in this group" });
-      const [membership] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, userId)));
+      const [membership] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, userId)));
       if (!membership || event.creatorId !== userId && membership.role !== "admin") {
         return res.status(403).json({ error: "Not authorized to edit this event" });
       }
@@ -131052,7 +133839,7 @@ router61.patch(
       if (maxPlayers !== void 0) updates.maxPlayers = maxPlayers || null;
       if (wager !== void 0) updates.wager = wager != null ? String(Number(wager)) : null;
       if (wagerCurrency !== void 0) updates.wagerCurrency = wagerCurrency || "AED";
-      const [updated] = await db.update(groupEvents).set(updates).where(eq85(groupEvents.id, eventId)).returning();
+      const [updated] = await db.update(groupEvents).set(updates).where(eq88(groupEvents.id, eventId)).returning();
       res.json(updated);
     } catch (error) {
       console.error("Error updating group event:", error);
@@ -131060,7 +133847,7 @@ router61.patch(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/player/groups/:groupId/events/:eventId",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131069,14 +133856,14 @@ router61.delete(
     try {
       const { groupId, eventId } = req.params;
       const userId = req.user.userId;
-      const [event] = await db.select().from(groupEvents).where(and73(eq85(groupEvents.id, eventId), eq85(groupEvents.groupId, groupId)));
+      const [event] = await db.select().from(groupEvents).where(and76(eq88(groupEvents.id, eventId), eq88(groupEvents.groupId, groupId)));
       if (!event) return res.status(404).json({ error: "Event not found in this group" });
-      const [membership] = await db.select().from(groupMembers).where(and73(eq85(groupMembers.groupId, groupId), eq85(groupMembers.userId, userId)));
+      const [membership] = await db.select().from(groupMembers).where(and76(eq88(groupMembers.groupId, groupId), eq88(groupMembers.userId, userId)));
       if (!membership || event.creatorId !== userId && membership.role !== "admin") {
         return res.status(403).json({ error: "Not authorized to delete this event" });
       }
-      await db.delete(groupEventRsvps).where(eq85(groupEventRsvps.eventId, eventId));
-      await db.delete(groupEvents).where(eq85(groupEvents.id, eventId));
+      await db.delete(groupEventRsvps).where(eq88(groupEventRsvps.eventId, eventId));
+      await db.delete(groupEvents).where(eq88(groupEvents.id, eventId));
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting group event:", error);
@@ -131084,7 +133871,7 @@ router61.delete(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/courts",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131103,7 +133890,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/me/onboarding",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -131248,7 +134035,7 @@ router61.post(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/coach/me/onboarding",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -131266,7 +134053,8 @@ router61.post(
         name,
         phone,
         specialty,
-        bio
+        bio,
+        languages
       } = req.body;
       const updatedCoach = await storage.updateCoach(coachId, {
         onboardingCompleted: true,
@@ -131281,7 +134069,8 @@ router61.post(
         ...name ? { name } : {},
         ...phone ? { phone } : {},
         ...specialty ? { specialty } : {},
-        ...bio ? { bio } : {}
+        ...bio ? { bio } : {},
+        ...languages?.length ? { languages } : {}
       });
       res.json({ success: true, coach: updatedCoach });
     } catch (error) {
@@ -131290,7 +134079,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/coach/me/profile",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -131310,7 +134099,7 @@ router61.get(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/coach/me/public-profile",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -131349,7 +134138,7 @@ router61.patch(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/platform/pending-bios",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -131386,7 +134175,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/platform/review-bio/:coachId",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -131410,7 +134199,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/recognition",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131549,7 +134338,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/training-history",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131586,7 +134375,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/training/:sessionId",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131621,9 +134410,9 @@ router61.get(
           status: bookingRequests.courtBookingStatus,
           note: bookingRequests.courtBookingNote,
           url: bookingRequests.courtBookingUrl
-        }).from(bookingRequests).where(and73(
-          eq85(bookingRequests.sessionId, sessionId),
-          eq85(bookingRequests.playerId, playerId),
+        }).from(bookingRequests).where(and76(
+          eq88(bookingRequests.sessionId, sessionId),
+          eq88(bookingRequests.playerId, playerId),
           isNotNull18(bookingRequests.courtBookingStatus)
         )).orderBy(desc48(bookingRequests.createdAt)).limit(1);
         if (br) {
@@ -131653,7 +134442,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/sessions/:sessionId/reminders",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131668,25 +134457,25 @@ router61.get(
         id: sessions.id,
         seriesId: sessions.seriesId,
         academyId: sessions.academyId
-      }).from(sessions).where(eq85(sessions.id, sessionId)).limit(1);
+      }).from(sessions).where(eq88(sessions.id, sessionId)).limit(1);
       if (!session || !session.seriesId) {
         return res.json({ reminders: [], conversationId: null, seriesId: null });
       }
-      const [enrolment] = await db.select({ id: seriesPlayers.id }).from(seriesPlayers).where(and73(
-        eq85(seriesPlayers.seriesId, session.seriesId),
-        eq85(seriesPlayers.playerId, playerId)
+      const [enrolment] = await db.select({ id: seriesPlayers.id }).from(seriesPlayers).where(and76(
+        eq88(seriesPlayers.seriesId, session.seriesId),
+        eq88(seriesPlayers.playerId, playerId)
       )).limit(1);
       if (!enrolment) {
         return res.json({ reminders: [], conversationId: null, seriesId: session.seriesId });
       }
       const convConditions = [
-        eq85(conversations.title, session.seriesId),
-        inArray44(conversations.type, ["series_group", "squad", "lesson_group"])
+        eq88(conversations.title, session.seriesId),
+        inArray46(conversations.type, ["series_group", "squad", "lesson_group"])
       ];
       if (session.academyId) {
-        convConditions.push(eq85(conversations.academyId, session.academyId));
+        convConditions.push(eq88(conversations.academyId, session.academyId));
       }
-      const [conv] = await db.select({ id: conversations.id }).from(conversations).where(and73(...convConditions)).limit(1);
+      const [conv] = await db.select({ id: conversations.id }).from(conversations).where(and76(...convConditions)).limit(1);
       if (!conv) {
         return res.json({ reminders: [], conversationId: null, seriesId: session.seriesId });
       }
@@ -131697,10 +134486,10 @@ router61.get(
         coachId: messages.senderCoachId,
         coachName: coaches.name,
         coachPhotoUrl: coaches.photoUrl
-      }).from(messages).leftJoin(coaches, eq85(coaches.id, messages.senderCoachId)).where(and73(
-        eq85(messages.conversationId, conv.id),
-        eq85(messages.senderType, "coach"),
-        eq85(messages.messageType, "reminder")
+      }).from(messages).leftJoin(coaches, eq88(coaches.id, messages.senderCoachId)).where(and76(
+        eq88(messages.conversationId, conv.id),
+        eq88(messages.senderType, "coach"),
+        eq88(messages.messageType, "reminder")
       )).orderBy(desc48(messages.createdAt)).limit(5);
       res.json({
         conversationId: conv.id,
@@ -131719,7 +134508,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/skills/:domain",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131779,7 +134568,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/peers/:peerId/journey",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131832,7 +134621,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/challenges",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -131853,7 +134642,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/operations",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -131900,7 +134689,7 @@ router61.get(
       }
       const coachNamesById = {};
       if (coachIdSet.size > 0) {
-        const coachRows = await db.select({ id: coaches.id, name: coaches.name }).from(coaches).where(inArray44(coaches.id, [...coachIdSet]));
+        const coachRows = await db.select({ id: coaches.id, name: coaches.name }).from(coaches).where(inArray46(coaches.id, [...coachIdSet]));
         for (const c of coachRows) coachNamesById[c.id] = c.name;
       }
       const coachLabel = (s) => s.coachId ? coachNamesById[s.coachId] || "Unknown coach" : "Unassigned";
@@ -131975,7 +134764,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/finance",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132050,7 +134839,99 @@ router61.get(
       const monthChange = collectedLastMonth > 0 ? Math.round(
         (collectedThisMonth - collectedLastMonth) / collectedLastMonth * 100
       ) : 0;
-      const recentPayments = allPayments.slice(0, 10);
+      const ytdStart = new Date(now.getFullYear(), 0, 1);
+      const ytdTotal = allPayments.filter(
+        (p) => p.status === "confirmed" && p.paymentDate && new Date(p.paymentDate) >= ytdStart
+      ).reduce((sum3, p) => sum3 + Number(p.amount || 0), 0);
+      const sixMonthHistory = [];
+      for (let i = 5; i >= 0; i--) {
+        const mStart = new Date(
+          now.getFullYear(),
+          now.getMonth() - i,
+          1
+        );
+        const mEnd = new Date(
+          now.getFullYear(),
+          now.getMonth() - i + 1,
+          0,
+          23,
+          59,
+          59
+        );
+        const mCollected = allPayments.filter(
+          (p) => p.status === "confirmed" && p.paymentDate && new Date(p.paymentDate) >= mStart && new Date(p.paymentDate) <= mEnd
+        ).reduce((sum3, p) => sum3 + Number(p.amount || 0), 0);
+        const mPending = allPayments.filter(
+          (p) => p.status === "pending" && p.paymentDate && new Date(p.paymentDate) >= mStart && new Date(p.paymentDate) <= mEnd
+        ).reduce((sum3, p) => sum3 + Number(p.amount || 0), 0);
+        sixMonthHistory.push({
+          month: mStart.toLocaleDateString("en-US", { month: "short" }),
+          collected: mCollected,
+          pending: mPending
+        });
+      }
+      const age30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1e3);
+      const age60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1e3);
+      const debtAcc = {
+        b30: { amount: 0, players: /* @__PURE__ */ new Set() },
+        b60: { amount: 0, players: /* @__PURE__ */ new Set() },
+        b60plus: { amount: 0, players: /* @__PURE__ */ new Set() }
+      };
+      for (const p of pendingPayments) {
+        const refDate = p.createdAt ? new Date(p.createdAt) : p.paymentDate ? new Date(p.paymentDate) : null;
+        if (!refDate) continue;
+        const amt = Number(p.amount || 0);
+        const pid = p.playerId || p.payerName || "unknown";
+        if (refDate >= age30) {
+          debtAcc.b30.amount += amt;
+          debtAcc.b30.players.add(pid);
+        } else if (refDate >= age60) {
+          debtAcc.b60.amount += amt;
+          debtAcc.b60.players.add(pid);
+        } else {
+          debtAcc.b60plus.amount += amt;
+          debtAcc.b60plus.players.add(pid);
+        }
+      }
+      const debtAgeing = {
+        bucket30: {
+          amount: debtAcc.b30.amount,
+          playerCount: debtAcc.b30.players.size
+        },
+        bucket60: {
+          amount: debtAcc.b60.amount,
+          playerCount: debtAcc.b60.players.size
+        },
+        bucket60plus: {
+          amount: debtAcc.b60plus.amount,
+          playerCount: debtAcc.b60plus.players.size
+        }
+      };
+      const coachContracts2 = await storage.getCoachContracts(academyId);
+      const activeContracts = coachContracts2.filter(
+        (c) => c.status === "active"
+      );
+      const uniqueCoachIds = new Set(
+        activeContracts.map((c) => c.coachId)
+      );
+      let coachPayablesTotal = 0;
+      for (const contract of activeContracts) {
+        if (contract.payType === "per_session" && contract.sessionRate) {
+          coachPayablesTotal += Number(contract.sessionRate) * 4;
+        } else if (contract.payType === "percentage" && contract.percentageRate) {
+          coachPayablesTotal += collectedThisMonth * (Number(contract.percentageRate) / 100);
+        } else if (contract.payType === "hourly" && contract.hourlyRate) {
+          coachPayablesTotal += Number(contract.hourlyRate) * 8;
+        }
+      }
+      const coachPayables = {
+        totalOwed: Math.round(coachPayablesTotal),
+        coachCount: uniqueCoachIds.size
+      };
+      const refundsTotal = allPayments.filter(
+        (p) => p.status === "rejected" && p.paymentDate && new Date(p.paymentDate) >= thisMonthStart
+      ).reduce((sum3, p) => sum3 + Number(p.amount || 0), 0);
+      const recentPayments = allPayments.slice(0, 20);
       const paymentsWithPlayers = await Promise.all(
         recentPayments.map(async (payment) => {
           const player = payment.playerId ? await storage.getPlayerById(payment.playerId) : null;
@@ -132069,6 +134950,11 @@ router61.get(
       const currency = settings?.currency || "AED";
       res.json({
         currency,
+        ytdTotal,
+        sixMonthHistory,
+        debtAgeing,
+        coachPayables,
+        refundsTotal,
         // Section 1: Collected Revenue (confirmed payments only)
         collected: {
           thisWeek: collectedThisWeek,
@@ -132133,7 +135019,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/public-listings",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132147,7 +135033,7 @@ router61.get(
       const now = /* @__PURE__ */ new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const allSeries = await db.select().from(coachingSeries).where(
-        scope === "all" ? and73(eq85(coachingSeries.isPublic, true), ne14(coachingSeries.status, "ended")) : and73(eq85(coachingSeries.academyId, academyId), ne14(coachingSeries.status, "ended"))
+        scope === "all" ? and76(eq88(coachingSeries.isPublic, true), ne14(coachingSeries.status, "ended")) : and76(eq88(coachingSeries.academyId, academyId), ne14(coachingSeries.status, "ended"))
       ).orderBy(asc22(coachingSeries.dayOfWeek), asc22(coachingSeries.startTime));
       const seriesIds = allSeries.map((s) => s.id);
       const [playerCounts, dropInThisMonth] = await Promise.all([
@@ -132155,19 +135041,19 @@ router61.get(
           seriesId: seriesPlayers.seriesId,
           count: sql54`count(*)::int`
         }).from(seriesPlayers).where(
-          and73(
-            inArray44(seriesPlayers.seriesId, seriesIds),
-            eq85(seriesPlayers.status, "active")
+          and76(
+            inArray46(seriesPlayers.seriesId, seriesIds),
+            eq88(seriesPlayers.status, "active")
           )
         ).groupBy(seriesPlayers.seriesId) : Promise.resolve([]),
         seriesIds.length > 0 ? db.select({
           seriesId: sessions.seriesId,
           count: sql54`count(${sessionPlayers.id})::int`
-        }).from(sessionPlayers).innerJoin(sessions, eq85(sessionPlayers.sessionId, sessions.id)).where(
-          and73(
-            inArray44(sessions.seriesId, seriesIds),
-            eq85(sessionPlayers.joinType, "drop_in"),
-            gte41(sessionPlayers.creditDeductedAt, startOfMonth)
+        }).from(sessionPlayers).innerJoin(sessions, eq88(sessionPlayers.sessionId, sessions.id)).where(
+          and76(
+            inArray46(sessions.seriesId, seriesIds),
+            eq88(sessionPlayers.joinType, "drop_in"),
+            gte42(sessionPlayers.creditDeductedAt, startOfMonth)
           )
         ).groupBy(sessions.seriesId) : Promise.resolve([])
       ]);
@@ -132178,8 +135064,8 @@ router61.get(
       const totalPublic = allSeries.filter((s) => s.isPublic).length;
       const totalDropInThisMonth = Array.from(dropInMap.values()).reduce((a, b) => a + b, 0);
       const totalDropInRevenue = allSeries.filter((s) => s.isPublic).reduce((sum3, s) => {
-        const count19 = dropInMap.get(s.id) || 0;
-        return sum3 + count19 * Number(s.price || 0);
+        const count20 = dropInMap.get(s.id) || 0;
+        return sum3 + count20 * Number(s.price || 0);
       }, 0);
       const listings = allSeries.map((s) => ({
         id: s.id,
@@ -132211,7 +135097,7 @@ router61.get(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/owner/series/:id/visibility",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132226,11 +135112,11 @@ router61.patch(
       if (typeof isPublic !== "boolean") {
         return res.status(400).json({ error: "isPublic must be a boolean" });
       }
-      const existing = await db.select().from(coachingSeries).where(and73(eq85(coachingSeries.id, id), eq85(coachingSeries.academyId, academyId))).limit(1);
+      const existing = await db.select().from(coachingSeries).where(and76(eq88(coachingSeries.id, id), eq88(coachingSeries.academyId, academyId))).limit(1);
       if (!existing[0]) {
         return res.status(404).json({ error: "Series not found or not in your academy" });
       }
-      const updated = await db.update(coachingSeries).set({ isPublic }).where(eq85(coachingSeries.id, id)).returning();
+      const updated = await db.update(coachingSeries).set({ isPublic }).where(eq88(coachingSeries.id, id)).returning();
       res.json(updated[0]);
     } catch (error) {
       console.error("Owner series visibility toggle error:", error);
@@ -132238,7 +135124,7 @@ router61.patch(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/academy-settings",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132266,7 +135152,7 @@ router61.get(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/owner/academy-settings",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132299,7 +135185,7 @@ router61.patch(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/export/players",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132322,7 +135208,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/export/sessions",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132345,7 +135231,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/academy",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132366,7 +135252,7 @@ router61.get(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/owner/academy",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132432,7 +135318,7 @@ router61.patch(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/settings",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132463,7 +135349,7 @@ router61.get(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/owner/settings",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132486,7 +135372,7 @@ router61.patch(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/people",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132565,7 +135451,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/coaches/:id/sessions",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132587,7 +135473,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/owner/coaches/:id/reassign-sessions",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132606,15 +135492,15 @@ router61.post(
       if (!targetCoach) {
         return res.status(404).json({ error: "Target coach not found in this academy" });
       }
-      const count19 = await storage.reassignCoachSessions(
+      const count20 = await storage.reassignCoachSessions(
         fromCoachId,
         toCoachId,
         academyId
       );
       res.json({
         success: true,
-        reassignedCount: count19,
-        message: `${count19} sessions reassigned`
+        reassignedCount: count20,
+        message: `${count20} sessions reassigned`
       });
     } catch (error) {
       console.error("Reassign sessions error:", error);
@@ -132622,7 +135508,7 @@ router61.post(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/owner/coaches/:id",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132654,7 +135540,7 @@ router61.delete(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/owner/coaches/:id/permanent",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132691,7 +135577,7 @@ router61.delete(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/owner/players/:id",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132732,7 +135618,7 @@ router61.delete(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/coaches/:id",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132775,7 +135661,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/players/:id",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132814,7 +135700,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/admins",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132832,7 +135718,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/owner/admins",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132858,7 +135744,7 @@ router61.post(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/owner/admins/:coachId",
   authMiddlewareWithFreshData,
   requireRole("owner", "academy_owner", "platform_owner"),
@@ -132882,7 +135768,7 @@ router61.delete(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/admin/coaches/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -132914,7 +135800,7 @@ router61.delete(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/admin/players/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -132955,7 +135841,7 @@ router61.delete(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/admin/payments",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -132998,7 +135884,99 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.get(
+  "/api/admin/payments/overdue",
+  authMiddlewareWithFreshData,
+  requireRole("admin", "academy_owner", "platform_owner"),
+  async (req, res) => {
+    try {
+      const academyId = req.user?.academyId || req.user?.currentAcademyId;
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy ID required" });
+      }
+      const balancesResult = await db.execute(sql54`
+          SELECT
+            pcb.player_id,
+            pcb.type,
+            pcb.credits,
+            p.name AS player_name,
+            p.profile_photo_url AS player_photo
+          FROM player_credit_balance pcb
+          JOIN players p ON p.id = pcb.player_id
+          WHERE pcb.academy_id = ${academyId}
+            AND pcb.credits < 0
+          ORDER BY pcb.player_id, pcb.type
+        `);
+      if (balancesResult.rows.length === 0) {
+        return res.json({ players: [], totalAed: 0, playerCount: 0 });
+      }
+      const playerIds = [...new Set(balancesResult.rows.map((r) => r.player_id))];
+      const lotsResult = await db.execute(sql54`
+          SELECT DISTINCT ON (player_id, type)
+            player_id,
+            type,
+            price_per_credit,
+            currency,
+            purchased_at
+          FROM credit_lots
+          WHERE player_id IN (${sql54.join(playerIds.map((id) => sql54`${id}`), sql54`, `)})
+            AND academy_id = ${academyId}
+          ORDER BY player_id, type, purchased_at DESC
+        `);
+      const priceMap = {};
+      const currencyMap = {};
+      for (const row of lotsResult.rows) {
+        if (!priceMap[row.player_id]) priceMap[row.player_id] = {};
+        if (!currencyMap[row.player_id]) currencyMap[row.player_id] = {};
+        priceMap[row.player_id][row.type] = Number(row.price_per_credit);
+        currencyMap[row.player_id][row.type] = row.currency || "AED";
+      }
+      const academyFallbackResult = await db.execute(sql54`
+          SELECT DISTINCT ON (type) type, price_per_credit, currency
+          FROM (
+            SELECT type, price_per_credit, currency, COUNT(*) AS cnt
+            FROM credit_lots
+            WHERE academy_id = ${academyId}
+            GROUP BY type, price_per_credit, currency
+          ) sub
+          ORDER BY type, cnt DESC
+        `);
+      const academyFallbackPrices = {};
+      const academyFallbackCurrency = {};
+      for (const row of academyFallbackResult.rows) {
+        academyFallbackPrices[row.type] = Number(row.price_per_credit);
+        academyFallbackCurrency[row.type] = row.currency || "AED";
+      }
+      const playerMap = {};
+      for (const row of balancesResult.rows) {
+        const pid = row.player_id;
+        const creditType = row.type;
+        const credits = Number(row.credits);
+        const pricePerCredit = priceMap[pid]?.[creditType] ?? academyFallbackPrices[creditType] ?? 0;
+        const currency = currencyMap[pid]?.[creditType] ?? academyFallbackCurrency[creditType] ?? "AED";
+        const estimatedAed = Math.abs(credits) * pricePerCredit;
+        if (!playerMap[pid]) {
+          playerMap[pid] = {
+            playerId: pid,
+            playerName: row.player_name,
+            playerPhoto: row.player_photo,
+            balances: [],
+            totalAed: 0
+          };
+        }
+        playerMap[pid].balances.push({ type: creditType, credits, pricePerCredit, currency, estimatedAed });
+        playerMap[pid].totalAed += estimatedAed;
+      }
+      const players2 = Object.values(playerMap).sort((a, b) => b.totalAed - a.totalAed);
+      const totalAed = players2.reduce((sum3, p) => sum3 + p.totalAed, 0);
+      res.json({ players: players2, totalAed, playerCount: players2.length });
+    } catch (error) {
+      console.error("Admin overdue payments error:", error);
+      res.status(500).json({ error: "Failed to fetch overdue balances" });
+    }
+  }
+);
+router64.post(
   "/api/admin/payments",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133053,7 +136031,7 @@ router61.post(
     }
   }
 );
-router61.put(
+router64.put(
   "/api/admin/payments/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133108,7 +136086,7 @@ router61.put(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/admin/payments/:id/confirm",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133207,7 +136185,7 @@ router61.post(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/admin/payments/:id/reject",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133315,7 +136293,7 @@ router61.post(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/admin/payments/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133348,7 +136326,7 @@ router61.delete(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/coach/payments",
   authMiddlewareWithFreshData,
   requireRole("coach", "admin", "academy_owner", "platform_owner"),
@@ -133401,7 +136379,7 @@ router61.post(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/coach/payments/:id",
   authMiddlewareWithFreshData,
   requireRole("coach", "admin", "academy_owner", "platform_owner"),
@@ -133462,7 +136440,7 @@ router61.patch(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/coach/payments/:id/void",
   authMiddlewareWithFreshData,
   requireRole("coach", "admin", "academy_owner", "platform_owner"),
@@ -133511,7 +136489,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/admin/courts",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner", "coach"),
@@ -133537,7 +136515,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/admin/courts",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner", "coach"),
@@ -133589,7 +136567,7 @@ router61.post(
     }
   }
 );
-router61.put(
+router64.put(
   "/api/admin/courts/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner", "coach"),
@@ -133635,7 +136613,7 @@ router61.put(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/admin/courts/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner", "coach"),
@@ -133678,7 +136656,7 @@ router61.delete(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/upload/court-photo",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner", "coach"),
@@ -133699,7 +136677,7 @@ router61.post(
       const court = await storage.getCourt(courtId, academyId || void 0);
       if (!court) {
         try {
-          fs7.unlinkSync(req.file.path);
+          fs8.unlinkSync(req.file.path);
         } catch (e) {
           console.warn("Could not clean up orphaned upload:", e);
         }
@@ -133716,9 +136694,9 @@ router61.post(
           process.cwd(),
           court.photoUrl.replace(/^\//, "")
         );
-        if (fs7.existsSync(oldPhotoPath)) {
+        if (fs8.existsSync(oldPhotoPath)) {
           try {
-            fs7.unlinkSync(oldPhotoPath);
+            fs8.unlinkSync(oldPhotoPath);
           } catch (e) {
             console.warn("Could not delete old photo:", e);
           }
@@ -133743,7 +136721,7 @@ router61.post(
       console.error("[CourtPhoto] Upload error:", error);
       if (req.file) {
         try {
-          fs7.unlinkSync(req.file.path);
+          fs8.unlinkSync(req.file.path);
         } catch (e) {
           console.warn("Could not clean up file:", e);
         }
@@ -133758,7 +136736,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/admin/locations",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133768,21 +136746,25 @@ router61.get(
       if (!academyId) {
         return res.status(400).json({ error: "Academy ID required" });
       }
-      const locations2 = await storage.getAllLocations(academyId);
+      const locations2 = await storage.getAllLocations(academyId, { includeInactive: true });
       const courts2 = await storage.getAllCourts(academyId);
       const allSessions = await storage.getSessionsByAcademy(academyId);
+      const now = /* @__PURE__ */ new Date();
       const locationsWithCounts = locations2.map((loc) => {
         const courtsAtLocation = courts2.filter((c) => c.locationId === loc.id);
         const courtIds = courtsAtLocation.map((c) => c.id);
-        const sessionCount = allSessions.filter((s) => {
+        const sessionsAtLocation = allSessions.filter((s) => {
           if (s.courtId && courtIds.includes(s.courtId)) return true;
           if (s.locationId === loc.id) return true;
           return false;
-        }).length;
+        });
+        const sessionCount = sessionsAtLocation.length;
+        const upcomingSessionCount = sessionsAtLocation.filter((s) => new Date(s.startTime) > now).length;
         return {
           ...loc,
           courtCount: courtsAtLocation.length,
-          sessionCount
+          sessionCount,
+          upcomingSessionCount
         };
       });
       res.json(locationsWithCounts);
@@ -133792,7 +136774,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/admin/locations",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133847,7 +136829,7 @@ router61.post(
     }
   }
 );
-router61.put(
+router64.put(
   "/api/admin/locations/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133908,7 +136890,7 @@ router61.put(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/admin/locations/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133950,7 +136932,7 @@ router61.delete(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/admin/player-subscriptions",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -133977,7 +136959,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/admin/player-subscriptions",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134031,7 +137013,7 @@ router61.post(
     }
   }
 );
-router61.put(
+router64.put(
   "/api/admin/player-subscriptions/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134083,7 +137065,7 @@ router61.put(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/admin/player-subscriptions/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134113,7 +137095,7 @@ router61.delete(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/admin/audit-logs",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134140,7 +137122,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/public-profile/:playerId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -134287,7 +137269,7 @@ router61.get(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/player/me/open-to-play",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -134309,7 +137291,7 @@ router61.patch(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/owner/academy/pricing",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -134327,7 +137309,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/admin/pricing",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134345,7 +137327,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/admin/pricing",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134386,7 +137368,7 @@ router61.post(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/admin/pricing/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134438,7 +137420,7 @@ router61.patch(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/admin/pricing/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134457,7 +137439,7 @@ router61.delete(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/admin/coach-contracts",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134475,7 +137457,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/admin/coach-contracts",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134522,7 +137504,7 @@ router61.post(
     }
   }
 );
-router61.patch(
+router64.patch(
   "/api/admin/coach-contracts/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134572,7 +137554,7 @@ router61.patch(
     }
   }
 );
-router61.delete(
+router64.delete(
   "/api/admin/coach-contracts/:id",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner"),
@@ -134591,7 +137573,7 @@ router61.delete(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/admin/calculate-pricing",
   authMiddlewareWithFreshData,
   requireRole("admin", "academy_owner", "platform_owner", "coach"),
@@ -134620,7 +137602,7 @@ router61.post(
     }
   }
 );
-router61.post("/api/support/contact", async (req, res) => {
+router64.post("/api/support/contact", async (req, res) => {
   try {
     const { name, email, subject, message } = req.body;
     if (!name || !email || !message) {
@@ -134659,10 +137641,10 @@ router61.post("/api/support/contact", async (req, res) => {
     res.json({ success: true, message: "Your message has been received" });
   }
 });
-router61.get("/public/attendance/:token/:playerSlug", async (req, res) => {
+router64.get("/public/attendance/:token/:playerSlug", async (req, res) => {
   return handlePublicAttendance(req, res);
 });
-router61.get("/public/attendance/:token", async (req, res) => {
+router64.get("/public/attendance/:token", async (req, res) => {
   return handlePublicAttendance(req, res);
 });
 async function handlePublicAttendance(req, res) {
@@ -134671,7 +137653,7 @@ async function handlePublicAttendance(req, res) {
     if (!token || token.length < 8) {
       return res.status(404).send("<h1>Report not found</h1>");
     }
-    const [player] = await db.select().from(players).where(eq85(players.attendanceShareToken, token)).limit(1);
+    const [player] = await db.select().from(players).where(eq88(players.attendanceShareToken, token)).limit(1);
     if (!player) {
       return res.status(404).send("<h1>Report not found</h1>");
     }
@@ -134684,11 +137666,11 @@ async function handlePublicAttendance(req, res) {
       lateMinutes: sessionPlayers.lateMinutes,
       creditDeductedAt: sessionPlayers.creditDeductedAt,
       creditTransactionId: sessionPlayers.creditTransactionId
-    }).from(sessionPlayers).where(eq85(sessionPlayers.playerId, player.id));
+    }).from(sessionPlayers).where(eq88(sessionPlayers.playerId, player.id));
     const sessionIds = playerRecords.map((r) => r.sessionId).filter((id) => id !== null);
     let sessionMap = {};
     if (sessionIds.length > 0) {
-      const sessionDetails = await db.select({ id: sessions.id, startTime: sessions.startTime, endTime: sessions.endTime, sessionType: sessions.sessionType, status: sessions.status, seriesId: sessions.seriesId }).from(sessions).where(inArray44(sessions.id, sessionIds.filter((id) => id !== null)));
+      const sessionDetails = await db.select({ id: sessions.id, startTime: sessions.startTime, endTime: sessions.endTime, sessionType: sessions.sessionType, status: sessions.status, seriesId: sessions.seriesId }).from(sessions).where(inArray46(sessions.id, sessionIds.filter((id) => id !== null)));
       sessionMap = sessionDetails.reduce((acc, s) => {
         acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status ?? "", seriesId: s.seriesId };
         return acc;
@@ -134697,7 +137679,7 @@ async function handlePublicAttendance(req, res) {
     const uniqueSeriesIds = [...new Set(Object.values(sessionMap).map((s) => s.seriesId).filter(Boolean))];
     let seriesMap = {};
     if (uniqueSeriesIds.length > 0) {
-      const seriesDetails = await db.select({ id: coachingSeries.id, title: coachingSeries.title, dayOfWeek: coachingSeries.dayOfWeek, startTime: coachingSeries.startTime, sessionType: coachingSeries.sessionType }).from(coachingSeries).where(inArray44(coachingSeries.id, uniqueSeriesIds));
+      const seriesDetails = await db.select({ id: coachingSeries.id, title: coachingSeries.title, dayOfWeek: coachingSeries.dayOfWeek, startTime: coachingSeries.startTime, sessionType: coachingSeries.sessionType }).from(coachingSeries).where(inArray46(coachingSeries.id, uniqueSeriesIds));
       seriesMap = seriesDetails.reduce((acc, s) => {
         acc[s.id] = { title: s.title || "", dayOfWeek: s.dayOfWeek, startTime: s.startTime, sessionType: s.sessionType };
         return acc;
@@ -134781,7 +137763,7 @@ async function handlePublicAttendance(req, res) {
     res.status(500).send("<h1>Failed to generate report</h1>");
   }
 }
-router61.post(
+router64.post(
   "/api/players/:id/attendance-share-token",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -134805,7 +137787,7 @@ router61.post(
       let token = player.attendanceShareToken;
       if (!token || token.length > 15) {
         token = crypto12.randomBytes(8).toString("base64url");
-        await db.update(players).set({ attendanceShareToken: token }).where(eq85(players.id, id));
+        await db.update(players).set({ attendanceShareToken: token }).where(eq88(players.id, id));
       }
       const baseUrl = process.env.EXPO_PUBLIC_DOMAIN ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : `${req.protocol}://${req.get("host")}`;
       const playerSlug = player.name.toUpperCase().replace(/\s+/g, "-").replace(/[^A-Z0-9-]/g, "");
@@ -134825,7 +137807,7 @@ var betaFeedbackRateLimiter = rateLimit4({
   standardHeaders: true,
   legacyHeaders: false
 });
-router61.post(
+router64.post(
   "/api/beta-feedback",
   betaFeedbackRateLimiter,
   async (req, res) => {
@@ -134854,7 +137836,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/beta-feedback",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -134872,7 +137854,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/calendar-token",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -134901,7 +137883,7 @@ function formatIcsDate(date2) {
 function escapeIcs(str) {
   return (str || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
-router61.get(
+router64.get(
   "/api/player/calendar/:playerId/sessions.ics",
   async (req, res) => {
     try {
@@ -134921,17 +137903,17 @@ router61.get(
         // referenced via courtId and resolved separately by the caller.
         courtId: sessions.courtId,
         coachId: sessions.coachId
-      }).from(sessionPlayers).innerJoin(sessions, eq85(sessions.id, sessionPlayers.sessionId)).where(
-        and73(
-          eq85(sessionPlayers.playerId, playerId),
-          gt8(sessions.startTime, now),
+      }).from(sessionPlayers).innerJoin(sessions, eq88(sessions.id, sessionPlayers.sessionId)).where(
+        and76(
+          eq88(sessionPlayers.playerId, playerId),
+          gt9(sessions.startTime, now),
           ne14(sessions.status, "cancelled")
         )
       ).orderBy(asc22(sessions.startTime));
       const coachIds = [...new Set(rows.map((r) => r.coachId).filter(Boolean))];
       const coachMap = /* @__PURE__ */ new Map();
       if (coachIds.length > 0) {
-        const coachRows = await db.select({ id: coaches.id, name: coaches.name }).from(coaches).where(inArray44(coaches.id, coachIds));
+        const coachRows = await db.select({ id: coaches.id, name: coaches.name }).from(coaches).where(inArray46(coaches.id, coachIds));
         for (const c of coachRows) {
           if (c.name) coachMap.set(c.id, c.name);
         }
@@ -134944,7 +137926,7 @@ router61.get(
           courtName: courts.name,
           locationName: locations.name,
           locationAddress: locations.address
-        }).from(courts).leftJoin(locations, eq85(locations.id, courts.locationId)).where(inArray44(courts.id, courtIds));
+        }).from(courts).leftJoin(locations, eq88(locations.id, courts.locationId)).where(inArray46(courts.id, courtIds));
         for (const c of courtRows) {
           const parts = [];
           if (c.courtName) parts.push(c.courtName);
@@ -134989,7 +137971,7 @@ router61.get(
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/sessions/:sessionId/checkin",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -135042,7 +138024,7 @@ router61.post(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/training-load",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -135123,7 +138105,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/session-history",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -135198,7 +138180,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/me/checkin-insight",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -135275,19 +138257,19 @@ async function computeWeeklyDigest(playerId, isFreePlayer) {
   const weekRangeLabel = `${lastWeekStart.toLocaleDateString(void 0, { month: "short", day: "numeric" })} \u2013 ${lastWeekEnd.toLocaleDateString(void 0, { month: "short", day: "numeric" })}`;
   const [xpRows, lastWeekSessions, streakRow, questRows] = await Promise.all([
     db.select({ total: sql54`COALESCE(SUM(${xpTransactions.xpAmount}), 0)` }).from(xpTransactions).where(
-      and73(
-        eq85(xpTransactions.playerId, playerId),
-        gte41(xpTransactions.createdAt, lastWeekStart),
-        lte23(xpTransactions.createdAt, lastWeekEnd)
+      and76(
+        eq88(xpTransactions.playerId, playerId),
+        gte42(xpTransactions.createdAt, lastWeekStart),
+        lte24(xpTransactions.createdAt, lastWeekEnd)
       )
     ).catch(() => [{ total: 0 }]),
     storage.getPlayerSessionsWithDetails(playerId, lastWeekStart, lastWeekEnd).catch(() => []),
-    db.select().from(playerStreaks).where(eq85(playerStreaks.playerId, playerId)).limit(1).catch(() => []),
+    db.select().from(playerStreaks).where(eq88(playerStreaks.playerId, playerId)).limit(1).catch(() => []),
     db.select({ status: playerQuests.status, completedAt: playerQuests.completedAt }).from(playerQuests).where(
-      and73(
-        eq85(playerQuests.playerId, playerId),
-        gte41(playerQuests.assignedAt, lastWeekStart),
-        lte23(playerQuests.assignedAt, lastWeekEnd)
+      and76(
+        eq88(playerQuests.playerId, playerId),
+        gte42(playerQuests.assignedAt, lastWeekStart),
+        lte24(playerQuests.assignedAt, lastWeekEnd)
       )
     ).catch(() => [])
   ]);
@@ -135343,9 +138325,9 @@ async function weeklyDigestHandler(req, res) {
     return res.status(500).json({ error: "Failed to fetch weekly digest" });
   }
 }
-router61.get("/api/player/me/weekly-digest", authMiddlewareWithFreshData, requirePlayerOrOwner7, weeklyDigestHandler);
-router61.get("/api/player/me/weekly-digest-story", authMiddlewareWithFreshData, requirePlayerOrOwner7, weeklyDigestHandler);
-router61.get(
+router64.get("/api/player/me/weekly-digest", authMiddlewareWithFreshData, requirePlayerOrOwner7, weeklyDigestHandler);
+router64.get("/api/player/me/weekly-digest-story", authMiddlewareWithFreshData, requirePlayerOrOwner7, weeklyDigestHandler);
+router64.get(
   "/api/player/me/session/:sessionId/court-booking",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -135361,14 +138343,14 @@ router61.get(
         courtLocation: coachingSeries.courtLocation,
         locationName: locations.name,
         coachName: coaches.name
-      }).from(sessions).leftJoin(coachingSeries, eq85(coachingSeries.id, sessions.seriesId)).leftJoin(locations, eq85(locations.id, sessions.locationId)).leftJoin(coaches, eq85(coaches.id, sessions.coachId)).where(eq85(sessions.id, sessionId)).limit(1);
+      }).from(sessions).leftJoin(coachingSeries, eq88(coachingSeries.id, sessions.seriesId)).leftJoin(locations, eq88(locations.id, sessions.locationId)).leftJoin(coaches, eq88(coaches.id, sessions.coachId)).where(eq88(sessions.id, sessionId)).limit(1);
       if (!session) return res.status(404).json({ error: "Session not found" });
       if (session.seriesId) {
         const [enrollment] = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(
-          and73(
-            eq85(seriesPlayers.seriesId, session.seriesId),
-            eq85(seriesPlayers.playerId, playerId),
-            eq85(seriesPlayers.status, "active")
+          and76(
+            eq88(seriesPlayers.seriesId, session.seriesId),
+            eq88(seriesPlayers.playerId, playerId),
+            eq88(seriesPlayers.status, "active")
           )
         ).limit(1);
         if (!enrollment) return res.status(403).json({ error: "Not enrolled in this class" });
@@ -135398,7 +138380,7 @@ router61.get(
     }
   }
 );
-router61.get(
+router64.get(
   "/api/player/sessions/:sessionId/court-booking-confirmation",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
@@ -135407,35 +138389,46 @@ router61.get(
       const { sessionId } = req.params;
       const playerId = req.user.playerId;
       if (!playerId) return res.status(403).json({ error: "Player account required" });
-      const { courtBookingConfirmations: courtBookingConfirmations2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { getSignedUrl: getSignedUrl2 } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
+      const { courtBookingConfirmations: courtBookingConfirmations2, players: players2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { getSignedUrl: getSignedUrl3 } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
       const [conf] = await db.select().from(courtBookingConfirmations2).where(
-        and73(
-          eq85(courtBookingConfirmations2.sessionId, sessionId),
-          eq85(courtBookingConfirmations2.playerId, playerId)
+        and76(
+          eq88(courtBookingConfirmations2.sessionId, sessionId),
+          eq88(courtBookingConfirmations2.playerId, playerId)
         )
       ).limit(1);
-      if (!conf) return res.json(null);
+      const otherUploads = await db.select({
+        playerName: players2.name
+      }).from(courtBookingConfirmations2).innerJoin(players2, eq88(courtBookingConfirmations2.playerId, players2.id)).where(
+        and76(
+          eq88(courtBookingConfirmations2.sessionId, sessionId),
+          ne14(courtBookingConfirmations2.playerId, playerId),
+          inArray46(courtBookingConfirmations2.status, ["pending", "confirmed"])
+        )
+      ).limit(1);
+      const anyPlayerUploaded = otherUploads.length > 0;
+      const uploadedByName = otherUploads[0]?.playerName ?? void 0;
+      if (!conf) return res.json({ anyPlayerUploaded, uploadedByName: uploadedByName ?? null });
       let screenshotUrl = conf.screenshotUrl ?? null;
       if (conf.screenshotKey && !screenshotUrl) {
-        screenshotUrl = await getSignedUrl2(conf.screenshotKey);
+        screenshotUrl = await getSignedUrl3(conf.screenshotKey);
       }
-      return res.json({ ...conf, screenshotUrl });
+      return res.json({ ...conf, screenshotUrl, anyPlayerUploaded, uploadedByName: uploadedByName ?? null });
     } catch (err) {
       console.error("[court-booking] GET confirmation failed:", err);
       return res.status(500).json({ error: "Failed to fetch confirmation" });
     }
   }
 );
-router61.post(
+router64.post(
   "/api/player/sessions/:sessionId/court-booking-confirmation",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner7,
   async (req, res, next) => {
-    const { courtScreenshotUpload: courtScreenshotUpload2, wrapUploadHandler: wrapUploadHandler2 } = await Promise.resolve().then(() => (init_upload_middleware(), upload_middleware_exports));
+    const { courtScreenshotUpload: courtScreenshotUpload3, wrapUploadHandler: wrapUploadHandler2 } = await Promise.resolve().then(() => (init_upload_middleware(), upload_middleware_exports));
     const { uploadToObjectStorage: uploadToObjectStorage2 } = await Promise.resolve().then(() => (init_objectStorage(), objectStorage_exports));
     const { courtBookingConfirmations: courtBookingConfirmations2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    wrapUploadHandler2(courtScreenshotUpload2.single("screenshot"), {
+    wrapUploadHandler2(courtScreenshotUpload3.single("screenshot"), {
       context: "CourtScreenshot",
       maxBytes: 8 * 1024 * 1024
     })(req, res, async (err) => {
@@ -135448,22 +138441,22 @@ router61.post(
         const [session] = await db.select({
           seriesId: sessions.seriesId,
           academyId: sessions.academyId
-        }).from(sessions).where(eq85(sessions.id, sessionId)).limit(1);
+        }).from(sessions).where(eq88(sessions.id, sessionId)).limit(1);
         if (!session) return res.status(404).json({ error: "Session not found" });
         if (session.seriesId) {
           const [enrollment] = await db.select({ playerId: seriesPlayers.playerId }).from(seriesPlayers).where(
-            and73(
-              eq85(seriesPlayers.seriesId, session.seriesId),
-              eq85(seriesPlayers.playerId, playerId),
-              eq85(seriesPlayers.status, "active")
+            and76(
+              eq88(seriesPlayers.seriesId, session.seriesId),
+              eq88(seriesPlayers.playerId, playerId),
+              eq88(seriesPlayers.status, "active")
             )
           ).limit(1);
           if (!enrollment) return res.status(403).json({ error: "Not enrolled in this class" });
         } else {
           const [sessionPlayer] = await db.select({ id: sessionPlayers.id }).from(sessionPlayers).where(
-            and73(
-              eq85(sessionPlayers.sessionId, sessionId),
-              eq85(sessionPlayers.playerId, playerId)
+            and76(
+              eq88(sessionPlayers.sessionId, sessionId),
+              eq88(sessionPlayers.playerId, playerId)
             )
           ).limit(1);
           if (!sessionPlayer) return res.status(403).json({ error: "Not enrolled in this session" });
@@ -135475,13 +138468,13 @@ router61.post(
           "court-screenshots",
           req.file.mimetype || "image/jpeg"
         );
-        fs7.unlink(req.file.path, () => {
+        fs8.unlink(req.file.path, () => {
         });
         const now = /* @__PURE__ */ new Date();
         const existing = await db.select({ id: courtBookingConfirmations2.id }).from(courtBookingConfirmations2).where(
-          and73(
-            eq85(courtBookingConfirmations2.sessionId, sessionId),
-            eq85(courtBookingConfirmations2.playerId, playerId)
+          and76(
+            eq88(courtBookingConfirmations2.sessionId, sessionId),
+            eq88(courtBookingConfirmations2.playerId, playerId)
           )
         ).limit(1);
         if (existing.length > 0) {
@@ -135493,9 +138486,9 @@ router61.post(
             confirmedAt: null,
             updatedAt: now
           }).where(
-            and73(
-              eq85(courtBookingConfirmations2.sessionId, sessionId),
-              eq85(courtBookingConfirmations2.playerId, playerId)
+            and76(
+              eq88(courtBookingConfirmations2.sessionId, sessionId),
+              eq88(courtBookingConfirmations2.playerId, playerId)
             )
           );
         } else {
@@ -135509,8 +138502,8 @@ router61.post(
           });
         }
         try {
-          const [sessionCoach] = await db.select({ coachId: sessions.coachId }).from(sessions).where(eq85(sessions.id, sessionId)).limit(1);
-          const [playerRecord] = await db.select({ name: players.name }).from(players).where(eq85(players.id, playerId)).limit(1);
+          const [sessionCoach] = await db.select({ coachId: sessions.coachId }).from(sessions).where(eq88(sessions.id, sessionId)).limit(1);
+          const [playerRecord] = await db.select({ name: players.name }).from(players).where(eq88(players.id, playerId)).limit(1);
           if (sessionCoach?.coachId) {
             const { sendCoachNotification: sendCoachNotification2 } = await Promise.resolve().then(() => (init_pushNotifications(), pushNotifications_exports));
             await sendCoachNotification2(
@@ -135536,7 +138529,7 @@ router61.post(
     });
   }
 );
-var player_sessions_default = router61;
+var player_sessions_default = router64;
 
 // server/routes/corporate-accounts.ts
 init_db();
@@ -135544,13 +138537,13 @@ init_storage();
 init_auth();
 init_schema();
 init_emailService();
-import { Router as Router61 } from "express";
-import { eq as eq86 } from "drizzle-orm";
-import { z as z17 } from "zod";
+import { Router as Router64 } from "express";
+import { eq as eq89 } from "drizzle-orm";
+import { z as z20 } from "zod";
 import { fromZodError as fromZodError14 } from "zod-validation-error";
 import crypto13 from "crypto";
-var router62 = Router61();
-router62.get(
+var router65 = Router64();
+router65.get(
   "/api/corporate-accounts",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135566,7 +138559,7 @@ router62.get(
     }
   }
 );
-router62.post(
+router65.post(
   "/api/corporate-accounts",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135606,7 +138599,7 @@ router62.post(
     }
   }
 );
-router62.get(
+router65.get(
   "/api/corporate-accounts/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135638,7 +138631,7 @@ router62.get(
     }
   }
 );
-router62.patch(
+router65.patch(
   "/api/corporate-accounts/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135651,12 +138644,12 @@ router62.patch(
       if (!account || account.academyId !== academyId) {
         return res.status(404).json({ error: "Corporate account not found" });
       }
-      const updateSchema = z17.object({
-        companyName: z17.string().min(2).optional(),
-        contactName: z17.string().min(2).optional(),
-        contactEmail: z17.string().email().optional(),
-        isActive: z17.boolean().optional(),
-        notes: z17.string().optional()
+      const updateSchema = z20.object({
+        companyName: z20.string().min(2).optional(),
+        contactName: z20.string().min(2).optional(),
+        contactEmail: z20.string().email().optional(),
+        isActive: z20.boolean().optional(),
+        notes: z20.string().optional()
       });
       const parsed = updateSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -135670,7 +138663,7 @@ router62.patch(
     }
   }
 );
-router62.post(
+router65.post(
   "/api/corporate-accounts/:id/top-up",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135702,7 +138695,7 @@ router62.post(
     }
   }
 );
-router62.post(
+router65.post(
   "/api/corporate-accounts/:id/invite",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135716,8 +138709,8 @@ router62.post(
       if (!account || account.academyId !== academyId) {
         return res.status(404).json({ error: "Corporate account not found" });
       }
-      const inviteSchema = z17.object({
-        email: z17.string().email("Valid email is required")
+      const inviteSchema = z20.object({
+        email: z20.string().email("Valid email is required")
       });
       const parsed = inviteSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -135729,7 +138722,7 @@ router62.post(
         return res.status(409).json({ error: "This email has already been invited" });
       }
       const inviteToken = crypto13.randomBytes(16).toString("hex");
-      const existingPlayer = await db.select().from(players).where(eq86(players.email, email.toLowerCase())).limit(1);
+      const existingPlayer = await db.select().from(players).where(eq89(players.email, email.toLowerCase())).limit(1);
       const playerId = existingPlayer.length > 0 ? existingPlayer[0].id : void 0;
       const member = await corporateStorage.createCorporateMember({
         corporateAccountId: id,
@@ -135749,7 +138742,7 @@ router62.post(
         res.status(201).json({ member, message: "Player automatically added as corporate member" });
         return;
       }
-      const academy = await db.select({ name: academies.name }).from(academies).where(eq86(academies.id, academyId)).limit(1);
+      const academy = await db.select({ name: academies.name }).from(academies).where(eq89(academies.id, academyId)).limit(1);
       const academyName = academy[0]?.name ?? "your academy";
       try {
         await sendCorporateEmployeeInviteEmail({
@@ -135769,7 +138762,7 @@ router62.post(
     }
   }
 );
-router62.get(
+router65.get(
   "/api/corporate-accounts/:id/report",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135791,7 +138784,7 @@ router62.get(
     }
   }
 );
-router62.get(
+router65.get(
   "/api/corporate-accounts/:id/export-csv",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135840,7 +138833,7 @@ ${csvTransactions}`;
     }
   }
 );
-router62.post(
+router65.post(
   "/api/corporate-accounts/:id/send-report",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135855,7 +138848,7 @@ router62.post(
       }
       const members = await corporateStorage.getCorporateMembers(id);
       const report = await corporateStorage.getCorporateUsageReport(id);
-      const academy = await db.select({ name: academies.name }).from(academies).where(eq86(academies.id, academyId)).limit(1);
+      const academy = await db.select({ name: academies.name }).from(academies).where(eq89(academies.id, academyId)).limit(1);
       const academyName = academy[0]?.name ?? "the academy";
       const enrichedUsage = await Promise.all(
         report.memberUsage.map(async (u) => {
@@ -135885,7 +138878,7 @@ router62.post(
     }
   }
 );
-router62.delete(
+router65.delete(
   "/api/corporate-accounts/:id",
   authMiddlewareWithFreshData,
   requireAcademy,
@@ -135906,7 +138899,7 @@ router62.delete(
     }
   }
 );
-router62.post(
+router65.post(
   "/api/corporate/accept-invite",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -135916,8 +138909,8 @@ router62.post(
       if (!playerId) {
         return res.status(400).json({ error: "You must have a player profile to accept a corporate invite" });
       }
-      const schema = z17.object({
-        token: z17.string().min(1, "Invite token is required")
+      const schema = z20.object({
+        token: z20.string().min(1, "Invite token is required")
       });
       const parsed = schema.safeParse(req.body);
       if (!parsed.success) {
@@ -135947,7 +138940,7 @@ router62.post(
     }
   }
 );
-router62.get(
+router65.get(
   "/api/corporate/my-account",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -135978,18 +138971,18 @@ router62.get(
     }
   }
 );
-router62.get(
+router65.get(
   "/api/corporate/company-dashboard",
   authMiddlewareWithFreshData,
   async (req, res) => {
     try {
       const userId = req.user.userId;
-      const userRow = await db.select({ email: users.email }).from(users).where(eq86(users.id, userId)).limit(1);
+      const userRow = await db.select({ email: users.email }).from(users).where(eq89(users.id, userId)).limit(1);
       if (!userRow[0]?.email) {
         return res.status(403).json({ error: "Could not verify user email" });
       }
       const userEmail = userRow[0].email.toLowerCase();
-      const allAccounts = await db.select().from(corporateAccounts).where(eq86(corporateAccounts.contactEmail, userEmail));
+      const allAccounts = await db.select().from(corporateAccounts).where(eq89(corporateAccounts.contactEmail, userEmail));
       if (allAccounts.length === 0) {
         return res.json({ accounts: [] });
       }
@@ -136023,14 +139016,14 @@ router62.get(
     }
   }
 );
-router62.post(
+router65.post(
   "/api/corporate/company-dashboard/:accountId/invite",
   authMiddlewareWithFreshData,
   async (req, res) => {
     try {
       const userId = req.user.userId;
       const { accountId } = req.params;
-      const userRow = await db.select({ email: users.email }).from(users).where(eq86(users.id, userId)).limit(1);
+      const userRow = await db.select({ email: users.email }).from(users).where(eq89(users.id, userId)).limit(1);
       if (!userRow[0]?.email) {
         return res.status(403).json({ error: "Could not verify user email" });
       }
@@ -136039,8 +139032,8 @@ router62.post(
       if (!account || account.contactEmail !== userEmail) {
         return res.status(403).json({ error: "Access denied" });
       }
-      const inviteSchema = z17.object({
-        email: z17.string().email("Valid email is required")
+      const inviteSchema = z20.object({
+        email: z20.string().email("Valid email is required")
       });
       const parsed = inviteSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -136052,7 +139045,7 @@ router62.post(
         return res.status(409).json({ error: "This email has already been invited" });
       }
       const inviteToken = crypto13.randomBytes(16).toString("hex");
-      const existingPlayer = await db.select().from(players).where(eq86(players.email, email.toLowerCase())).limit(1);
+      const existingPlayer = await db.select().from(players).where(eq89(players.email, email.toLowerCase())).limit(1);
       const playerId = existingPlayer.length > 0 ? existingPlayer[0].id : void 0;
       const member = await corporateStorage.createCorporateMember({
         corporateAccountId: accountId,
@@ -136072,7 +139065,7 @@ router62.post(
         res.status(201).json({ member, message: "Player automatically added as corporate member" });
         return;
       }
-      const academy = await db.select({ name: academies.name }).from(academies).where(eq86(academies.id, account.academyId)).limit(1);
+      const academy = await db.select({ name: academies.name }).from(academies).where(eq89(academies.id, account.academyId)).limit(1);
       const academyName = academy[0]?.name ?? "the academy";
       try {
         await sendCorporateEmployeeInviteEmail({
@@ -136092,28 +139085,28 @@ router62.post(
     }
   }
 );
-var corporate_accounts_default = router62;
+var corporate_accounts_default = router65;
 
 // server/routes/play-partner.ts
 init_db();
 init_schema();
 init_pushNotifications();
-import { Router as Router62 } from "express";
-import { eq as eq87, and as and74, or as or27, lt as lt10 } from "drizzle-orm";
-var router63 = Router62();
+import { Router as Router65 } from "express";
+import { eq as eq90, and as and77, or as or28, lt as lt11 } from "drizzle-orm";
+var router66 = Router65();
 async function expireOldRequests() {
   try {
     await db.update(playRequests).set({ status: "expired" }).where(
-      and74(
-        lt10(playRequests.expiresAt, /* @__PURE__ */ new Date()),
-        or27(eq87(playRequests.status, "open"), eq87(playRequests.status, "full"))
+      and77(
+        lt11(playRequests.expiresAt, /* @__PURE__ */ new Date()),
+        or28(eq90(playRequests.status, "open"), eq90(playRequests.status, "full"))
       )
     );
   } catch (err) {
     console.error("[play-partner] Error expiring requests:", err);
   }
 }
-router63.get("/requests", async (req, res) => {
+router66.get("/requests", async (req, res) => {
   try {
     const playerId = req.query.playerId;
     const sport = req.query.sport;
@@ -136202,7 +139195,7 @@ router63.get("/requests", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-router63.post("/requests", async (req, res) => {
+router66.post("/requests", async (req, res) => {
   try {
     const playerId = req.query.playerId;
     if (!playerId) return res.status(400).json({ error: "playerId is required" });
@@ -136233,12 +139226,12 @@ router63.post("/requests", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-router63.post("/requests/:requestId/join", async (req, res) => {
+router66.post("/requests/:requestId/join", async (req, res) => {
   try {
     const playerId = req.query.playerId;
     if (!playerId) return res.status(400).json({ error: "playerId is required" });
     const { requestId } = req.params;
-    const [request] = await db.select().from(playRequests).where(eq87(playRequests.id, requestId));
+    const [request] = await db.select().from(playRequests).where(eq90(playRequests.id, requestId));
     if (!request) return res.status(404).json({ error: "Request not found" });
     if (request.status === "cancelled" || request.status === "expired") {
       return res.status(400).json({ error: "This game request is no longer available" });
@@ -136246,9 +139239,9 @@ router63.post("/requests/:requestId/join", async (req, res) => {
     if (request.creatorId === playerId) {
       return res.status(400).json({ error: "You created this request" });
     }
-    const existing = await db.select().from(playRequestParticipants).where(and74(
-      eq87(playRequestParticipants.requestId, requestId),
-      eq87(playRequestParticipants.playerId, playerId)
+    const existing = await db.select().from(playRequestParticipants).where(and77(
+      eq90(playRequestParticipants.requestId, requestId),
+      eq90(playRequestParticipants.playerId, playerId)
     ));
     if (existing.length > 0 && existing[0].status === "joined") {
       return res.status(400).json({ error: "You have already joined this game" });
@@ -136262,7 +139255,7 @@ router63.post("/requests/:requestId/join", async (req, res) => {
       return res.status(400).json({ error: "This game is already full" });
     }
     if (existing.length > 0) {
-      await db.update(playRequestParticipants).set({ status: "joined", joinedAt: /* @__PURE__ */ new Date() }).where(eq87(playRequestParticipants.id, existing[0].id));
+      await db.update(playRequestParticipants).set({ status: "joined", joinedAt: /* @__PURE__ */ new Date() }).where(eq90(playRequestParticipants.id, existing[0].id));
     } else {
       await db.insert(playRequestParticipants).values({
         requestId,
@@ -136272,8 +139265,8 @@ router63.post("/requests/:requestId/join", async (req, res) => {
     }
     const newFilled = currentJoined + 1;
     const isFull = newFilled >= request.spotsTotal;
-    await db.update(playRequests).set({ spotsFilled: newFilled, status: isFull ? "full" : "open" }).where(eq87(playRequests.id, requestId));
-    const [joiner] = await db.select().from(players).where(eq87(players.id, playerId));
+    await db.update(playRequests).set({ spotsFilled: newFilled, status: isFull ? "full" : "open" }).where(eq90(playRequests.id, requestId));
+    const [joiner] = await db.select().from(players).where(eq90(players.id, playerId));
     const joinerName = joiner?.name || "Someone";
     try {
       const creatorTokens = await getPlayerPushTokens(request.creatorId);
@@ -136337,49 +139330,49 @@ router63.post("/requests/:requestId/join", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-router63.post("/requests/:requestId/leave", async (req, res) => {
+router66.post("/requests/:requestId/leave", async (req, res) => {
   try {
     const playerId = req.query.playerId;
     if (!playerId) return res.status(400).json({ error: "playerId is required" });
     const { requestId } = req.params;
-    const [request] = await db.select().from(playRequests).where(eq87(playRequests.id, requestId));
+    const [request] = await db.select().from(playRequests).where(eq90(playRequests.id, requestId));
     if (!request) return res.status(404).json({ error: "Request not found" });
     if (request.creatorId === playerId) {
-      await db.update(playRequests).set({ status: "cancelled" }).where(eq87(playRequests.id, requestId));
+      await db.update(playRequests).set({ status: "cancelled" }).where(eq90(playRequests.id, requestId));
       return res.json({ success: true, cancelled: true });
     }
-    await db.update(playRequestParticipants).set({ status: "left" }).where(and74(
-      eq87(playRequestParticipants.requestId, requestId),
-      eq87(playRequestParticipants.playerId, playerId)
+    await db.update(playRequestParticipants).set({ status: "left" }).where(and77(
+      eq90(playRequestParticipants.requestId, requestId),
+      eq90(playRequestParticipants.playerId, playerId)
     ));
     const joinedCount = await pool.query(
       `SELECT COUNT(*)::int as cnt FROM play_request_participants WHERE request_id = $1 AND status = 'joined'`,
       [requestId]
     );
     const currentJoined = joinedCount.rows[0].cnt;
-    await db.update(playRequests).set({ spotsFilled: currentJoined, status: "open" }).where(eq87(playRequests.id, requestId));
+    await db.update(playRequests).set({ spotsFilled: currentJoined, status: "open" }).where(eq90(playRequests.id, requestId));
     res.json({ success: true });
   } catch (err) {
     console.error("[play-partner] POST leave error:", err);
     res.status(500).json({ error: err.message });
   }
 });
-router63.delete("/requests/:requestId", async (req, res) => {
+router66.delete("/requests/:requestId", async (req, res) => {
   try {
     const playerId = req.query.playerId;
     if (!playerId) return res.status(400).json({ error: "playerId is required" });
     const { requestId } = req.params;
-    const [request] = await db.select().from(playRequests).where(eq87(playRequests.id, requestId));
+    const [request] = await db.select().from(playRequests).where(eq90(playRequests.id, requestId));
     if (!request) return res.status(404).json({ error: "Request not found" });
     if (request.creatorId !== playerId) return res.status(403).json({ error: "Not authorized" });
-    await db.update(playRequests).set({ status: "cancelled" }).where(eq87(playRequests.id, requestId));
+    await db.update(playRequests).set({ status: "cancelled" }).where(eq90(playRequests.id, requestId));
     res.json({ success: true });
   } catch (err) {
     console.error("[play-partner] DELETE request error:", err);
     res.status(500).json({ error: err.message });
   }
 });
-router63.get("/my-games", async (req, res) => {
+router66.get("/my-games", async (req, res) => {
   try {
     const playerId = req.query.playerId;
     if (!playerId) return res.status(400).json({ error: "playerId is required" });
@@ -136448,16 +139441,16 @@ router63.get("/my-games", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-var play_partner_default = router63;
+var play_partner_default = router66;
 
 // server/routes/live-scoring.ts
 init_db();
 init_schema();
 init_auth();
-import { Router as Router63 } from "express";
-import { eq as eq88, and as and75, or as or28, desc as desc49, inArray as inArray45, sql as sql55 } from "drizzle-orm";
-var router64 = Router63();
-router64.use(authMiddlewareWithFreshData);
+import { Router as Router66 } from "express";
+import { eq as eq91, and as and78, or as or29, desc as desc49, inArray as inArray47, sql as sql55 } from "drizzle-orm";
+var router67 = Router66();
+router67.use(authMiddlewareWithFreshData);
 function getInitialScore() {
   return {
     sets: [{ creator: 0, opponent: 0 }],
@@ -136653,14 +139646,14 @@ async function finalizeMatch(matchId, match, newScore, winnerId) {
     gamesDiff,
     completedAt: /* @__PURE__ */ new Date(),
     lastUpdatedAt: /* @__PURE__ */ new Date()
-  }).where(eq88(liveMatches.id, matchId));
+  }).where(eq91(liveMatches.id, matchId));
   let rankResult = null;
   if (winnerId && opponentId) {
     try {
       const creatorDidWin = winnerId === match.creatorId;
       const [creatorPlayer, opponentPlayer] = await Promise.all([
-        db.select().from(players).where(eq88(players.id, match.creatorId)).limit(1),
-        db.select().from(players).where(eq88(players.id, opponentId)).limit(1)
+        db.select().from(players).where(eq91(players.id, match.creatorId)).limit(1),
+        db.select().from(players).where(eq91(players.id, opponentId)).limit(1)
       ]);
       if (creatorPlayer[0] && opponentPlayer[0]) {
         const creatorMmr = creatorPlayer[0].glowMmr || 1e3;
@@ -136708,15 +139701,15 @@ async function finalizeMatch(matchId, match, newScore, winnerId) {
           glowMmr: rankResult.newMmr,
           glowRank: rankResult.newRank,
           totalMatchesPlayed: (creatorPlayer[0].totalMatchesPlayed || 0) + 1
-        }).where(eq88(players.id, match.creatorId));
-        await db.update(players).set({ totalMatchesPlayed: (opponentPlayer[0].totalMatchesPlayed || 0) + 1 }).where(eq88(players.id, opponentId));
+        }).where(eq91(players.id, match.creatorId));
+        await db.update(players).set({ totalMatchesPlayed: (opponentPlayer[0].totalMatchesPlayed || 0) + 1 }).where(eq91(players.id, opponentId));
         await db.update(liveMatches).set({
           mmrDeltaCreator: rankResult.mmrDelta,
           previousMmrCreator: creatorMmr,
           newMmrCreator: rankResult.newMmr,
           previousRankCreator: creatorRank,
           newRankCreator: rankResult.newRank
-        }).where(eq88(liveMatches.id, matchId));
+        }).where(eq91(liveMatches.id, matchId));
       }
     } catch (rankErr) {
       console.error("[LiveScoring] Error updating Glow Rank:", rankErr);
@@ -136737,15 +139730,15 @@ async function finalizeMatch(matchId, match, newScore, winnerId) {
       console.error("[LiveScoring] Error resolving match predictions:", predErr);
     }
   }
-  const [updatedMatch] = await db.select().from(liveMatches).where(eq88(liveMatches.id, matchId)).limit(1);
+  const [updatedMatch] = await db.select().from(liveMatches).where(eq91(liveMatches.id, matchId)).limit(1);
   return { rankResult, updatedMatch };
 }
 async function coachCanViewPlayers(coachId, playerIds) {
   try {
     const directRows = await db.select({ id: players.id }).from(players).where(
-      and75(
-        inArray45(players.id, playerIds),
-        eq88(players.coachId, coachId)
+      and78(
+        inArray47(players.id, playerIds),
+        eq91(players.coachId, coachId)
       )
     ).limit(1);
     return directRows.length > 0;
@@ -136763,18 +139756,18 @@ async function isAuthorizedToViewMatch(match, user) {
   if (user.playerId) {
     try {
       const connections = await db.select({ id: playerConnections.id }).from(playerConnections).where(
-        and75(
-          or28(
-            and75(
-              eq88(playerConnections.player1Id, user.playerId),
-              inArray45(playerConnections.player2Id, allParticipants)
+        and78(
+          or29(
+            and78(
+              eq91(playerConnections.player1Id, user.playerId),
+              inArray47(playerConnections.player2Id, allParticipants)
             ),
-            and75(
-              inArray45(playerConnections.player1Id, allParticipants),
-              eq88(playerConnections.player2Id, user.playerId)
+            and78(
+              inArray47(playerConnections.player1Id, allParticipants),
+              eq91(playerConnections.player2Id, user.playerId)
             )
           ),
-          eq88(playerConnections.status, "connected")
+          eq91(playerConnections.status, "connected")
         )
       ).limit(1);
       if (connections.length > 0) return true;
@@ -136792,18 +139785,18 @@ async function isAuthorizedToViewHistory(targetPlayerId, user) {
   if (user.playerId) {
     try {
       const connections = await db.select({ id: playerConnections.id }).from(playerConnections).where(
-        and75(
-          or28(
-            and75(
-              eq88(playerConnections.player1Id, user.playerId),
-              eq88(playerConnections.player2Id, targetPlayerId)
+        and78(
+          or29(
+            and78(
+              eq91(playerConnections.player1Id, user.playerId),
+              eq91(playerConnections.player2Id, targetPlayerId)
             ),
-            and75(
-              eq88(playerConnections.player1Id, targetPlayerId),
-              eq88(playerConnections.player2Id, user.playerId)
+            and78(
+              eq91(playerConnections.player1Id, targetPlayerId),
+              eq91(playerConnections.player2Id, user.playerId)
             )
           ),
-          eq88(playerConnections.status, "connected")
+          eq91(playerConnections.status, "connected")
         )
       ).limit(1);
       if (connections.length > 0) return true;
@@ -136812,7 +139805,7 @@ async function isAuthorizedToViewHistory(targetPlayerId, user) {
   }
   return false;
 }
-router64.post("/matches", async (req, res) => {
+router67.post("/matches", async (req, res) => {
   try {
     const user = req.user;
     const playerId = user.playerId;
@@ -136848,11 +139841,11 @@ router64.post("/matches", async (req, res) => {
     res.status(500).json({ error: "Failed to create live match" });
   }
 });
-router64.get("/matches/:matchId", async (req, res) => {
+router67.get("/matches/:matchId", async (req, res) => {
   try {
     const user = req.user;
     const { matchId } = req.params;
-    const [match] = await db.select().from(liveMatches).where(eq88(liveMatches.id, matchId)).limit(1);
+    const [match] = await db.select().from(liveMatches).where(eq91(liveMatches.id, matchId)).limit(1);
     if (!match) {
       return res.status(404).json({ error: "Match not found" });
     }
@@ -136864,7 +139857,7 @@ router64.get("/matches/:matchId", async (req, res) => {
       return res.status(403).json({ error: "You are not authorized to view this match" });
     }
     const allPlayerIds = [match.creatorId, ...match.opponentIds];
-    const participantRows = await db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl }).from(players).where(inArray45(players.id, allPlayerIds));
+    const participantRows = await db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl }).from(players).where(inArray47(players.id, allPlayerIds));
     const participantMap = Object.fromEntries(participantRows.map((p) => [p.id, p]));
     const score = match.currentScore;
     const sport = match.sport || "tennis";
@@ -136886,7 +139879,7 @@ router64.get("/matches/:matchId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch match" });
   }
 });
-router64.post("/matches/:matchId/point", async (req, res) => {
+router67.post("/matches/:matchId/point", async (req, res) => {
   try {
     const user = req.user;
     const playerId = user.playerId;
@@ -136895,7 +139888,7 @@ router64.post("/matches/:matchId/point", async (req, res) => {
     if (!winner || !["creator", "opponent"].includes(winner)) {
       return res.status(400).json({ error: "winner must be 'creator' or 'opponent'" });
     }
-    const [match] = await db.select().from(liveMatches).where(eq88(liveMatches.id, matchId)).limit(1);
+    const [match] = await db.select().from(liveMatches).where(eq91(liveMatches.id, matchId)).limit(1);
     if (!match) return res.status(404).json({ error: "Match not found" });
     if (match.status !== "live") {
       return res.status(400).json({ error: "Match is not live" });
@@ -136925,7 +139918,7 @@ router64.post("/matches/:matchId/point", async (req, res) => {
     await db.update(liveMatches).set({
       currentScore: newScore,
       lastUpdatedAt: /* @__PURE__ */ new Date()
-    }).where(eq88(liveMatches.id, matchId));
+    }).where(eq91(liveMatches.id, matchId));
     res.json({
       match: { ...match, currentScore: newScore },
       matchComplete: false,
@@ -136943,12 +139936,12 @@ router64.post("/matches/:matchId/point", async (req, res) => {
     res.status(500).json({ error: "Failed to record point" });
   }
 });
-router64.post("/matches/:matchId/undo", async (req, res) => {
+router67.post("/matches/:matchId/undo", async (req, res) => {
   try {
     const user = req.user;
     const playerId = user.playerId;
     const { matchId } = req.params;
-    const [match] = await db.select().from(liveMatches).where(eq88(liveMatches.id, matchId)).limit(1);
+    const [match] = await db.select().from(liveMatches).where(eq91(liveMatches.id, matchId)).limit(1);
     if (!match) return res.status(404).json({ error: "Match not found" });
     if (match.status !== "live") {
       return res.status(400).json({ error: "Match is not live" });
@@ -136964,7 +139957,7 @@ router64.post("/matches/:matchId/undo", async (req, res) => {
     history.pop();
     const sport = match.sport || "tennis";
     const { score: replayedScore } = replayPointHistory(history, sport, match.matchFormat, match.scoringMode);
-    await db.update(liveMatches).set({ currentScore: replayedScore, lastUpdatedAt: /* @__PURE__ */ new Date() }).where(eq88(liveMatches.id, matchId));
+    await db.update(liveMatches).set({ currentScore: replayedScore, lastUpdatedAt: /* @__PURE__ */ new Date() }).where(eq91(liveMatches.id, matchId));
     res.json({
       success: true,
       match: { ...match, currentScore: replayedScore },
@@ -136982,13 +139975,13 @@ router64.post("/matches/:matchId/undo", async (req, res) => {
     res.status(500).json({ error: "Failed to undo point" });
   }
 });
-router64.post("/matches/:matchId/complete", async (req, res) => {
+router67.post("/matches/:matchId/complete", async (req, res) => {
   try {
     const user = req.user;
     const playerId = user.playerId;
     const { matchId } = req.params;
     const { winnerId } = req.body;
-    const [match] = await db.select().from(liveMatches).where(eq88(liveMatches.id, matchId)).limit(1);
+    const [match] = await db.select().from(liveMatches).where(eq91(liveMatches.id, matchId)).limit(1);
     if (!match) return res.status(404).json({ error: "Match not found" });
     if (match.status !== "live") {
       return res.status(400).json({ error: "Match is not live" });
@@ -137009,35 +140002,35 @@ router64.post("/matches/:matchId/complete", async (req, res) => {
     res.status(500).json({ error: "Failed to complete match" });
   }
 });
-router64.post("/matches/:matchId/abandon", async (req, res) => {
+router67.post("/matches/:matchId/abandon", async (req, res) => {
   try {
     const user = req.user;
     const playerId = user.playerId;
     const { matchId } = req.params;
-    const [match] = await db.select().from(liveMatches).where(eq88(liveMatches.id, matchId)).limit(1);
+    const [match] = await db.select().from(liveMatches).where(eq91(liveMatches.id, matchId)).limit(1);
     if (!match) return res.status(404).json({ error: "Match not found" });
     if (match.creatorId !== playerId) {
       return res.status(403).json({ error: "Only the match creator can abandon" });
     }
-    await db.update(liveMatches).set({ status: "abandoned", completedAt: /* @__PURE__ */ new Date(), lastUpdatedAt: /* @__PURE__ */ new Date() }).where(eq88(liveMatches.id, matchId));
+    await db.update(liveMatches).set({ status: "abandoned", completedAt: /* @__PURE__ */ new Date(), lastUpdatedAt: /* @__PURE__ */ new Date() }).where(eq91(liveMatches.id, matchId));
     res.json({ success: true });
   } catch (error) {
     console.error("Error abandoning match:", error);
     res.status(500).json({ error: "Failed to abandon match" });
   }
 });
-router64.get("/player/me/active", async (req, res) => {
+router67.get("/player/me/active", async (req, res) => {
   try {
     const user = req.user;
     const playerId = user.playerId;
     if (!playerId) return res.json({ matches: [] });
     const matches2 = await db.select().from(liveMatches).where(
-      and75(
-        or28(
-          eq88(liveMatches.creatorId, playerId),
+      and78(
+        or29(
+          eq91(liveMatches.creatorId, playerId),
           sql55`${liveMatches.opponentIds}::jsonb @> ${JSON.stringify([playerId])}::jsonb`
         ),
-        eq88(liveMatches.status, "live")
+        eq91(liveMatches.status, "live")
       )
     ).orderBy(desc49(liveMatches.startedAt)).limit(1);
     res.json({ matches: matches2 });
@@ -137046,7 +140039,7 @@ router64.get("/player/me/active", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch active matches" });
   }
 });
-router64.get("/player/:playerId/active", async (req, res) => {
+router67.get("/player/:playerId/active", async (req, res) => {
   try {
     const user = req.user;
     const { playerId } = req.params;
@@ -137058,12 +140051,12 @@ router64.get("/player/:playerId/active", async (req, res) => {
       return res.json({ matches: [] });
     }
     const matches2 = await db.select().from(liveMatches).where(
-      and75(
-        or28(
-          eq88(liveMatches.creatorId, playerId),
+      and78(
+        or29(
+          eq91(liveMatches.creatorId, playerId),
           sql55`${liveMatches.opponentIds}::jsonb @> ${JSON.stringify([playerId])}::jsonb`
         ),
-        eq88(liveMatches.status, "live")
+        eq91(liveMatches.status, "live")
       )
     ).orderBy(desc49(liveMatches.startedAt)).limit(1);
     res.json({ matches: matches2 });
@@ -137072,7 +140065,7 @@ router64.get("/player/:playerId/active", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch active match" });
   }
 });
-router64.get("/player/:playerId/history", async (req, res) => {
+router67.get("/player/:playerId/history", async (req, res) => {
   try {
     const user = req.user;
     const { playerId } = req.params;
@@ -137086,12 +140079,12 @@ router64.get("/player/:playerId/history", async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const offset = parseInt(req.query.offset) || 0;
     const matches2 = await db.select().from(liveMatches).where(
-      and75(
-        or28(
-          eq88(liveMatches.creatorId, playerId),
+      and78(
+        or29(
+          eq91(liveMatches.creatorId, playerId),
           sql55`${liveMatches.opponentIds}::jsonb @> ${JSON.stringify([playerId])}::jsonb`
         ),
-        eq88(liveMatches.status, "completed")
+        eq91(liveMatches.status, "completed")
       )
     ).orderBy(desc49(liveMatches.completedAt)).limit(limit).offset(offset);
     const allIds = /* @__PURE__ */ new Set();
@@ -137099,7 +140092,7 @@ router64.get("/player/:playerId/history", async (req, res) => {
       allIds.add(m.creatorId);
       m.opponentIds.forEach((id) => allIds.add(id));
     });
-    const playerRows = await db.select({ id: players.id, name: players.name }).from(players).where(inArray45(players.id, [...allIds]));
+    const playerRows = await db.select({ id: players.id, name: players.name }).from(players).where(inArray47(players.id, [...allIds]));
     const playerMap = Object.fromEntries(playerRows.map((p) => [p.id, p]));
     const enriched = matches2.map((m) => ({
       ...m,
@@ -137114,17 +140107,17 @@ router64.get("/player/:playerId/history", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch match history" });
   }
 });
-var live_scoring_default = router64;
+var live_scoring_default = router67;
 
 // server/routes/ai-usage-admin.ts
 init_db();
 init_schema();
 init_auth();
 init_aiBudgetService();
-import { Router as Router64 } from "express";
-import { and as and76, gte as gte42, count as count17, sum as sum2, desc as desc50, eq as eq89, isNotNull as isNotNull19 } from "drizzle-orm";
-import { z as z18 } from "zod";
-var router65 = Router64();
+import { Router as Router67 } from "express";
+import { and as and79, gte as gte43, count as count17, sum as sum2, desc as desc50, eq as eq92, isNotNull as isNotNull19 } from "drizzle-orm";
+import { z as z21 } from "zod";
+var router68 = Router67();
 var GPT4O_MINI_COST_PER_1K_TOKENS = 15e-5;
 function getStartOfMonth2() {
   const d = /* @__PURE__ */ new Date();
@@ -137137,7 +140130,7 @@ function getStartOfToday() {
   d.setUTCHours(0, 0, 0, 0);
   return d;
 }
-router65.get(
+router68.get(
   "/api/admin/ai-usage",
   authMiddlewareWithFreshData,
   requireRole("coach", "academy_owner", "assistant", "platform_owner"),
@@ -137145,8 +140138,8 @@ router65.get(
     try {
       const startOfToday = getStartOfToday();
       const startOfMonth = getStartOfMonth2();
-      const todayFilter = gte42(aiUsageLogs.createdAt, startOfToday);
-      const monthFilter = gte42(aiUsageLogs.createdAt, startOfMonth);
+      const todayFilter = gte43(aiUsageLogs.createdAt, startOfToday);
+      const monthFilter = gte43(aiUsageLogs.createdAt, startOfMonth);
       const todayTotalResult = await db.select({ total: count17() }).from(aiUsageLogs).where(todayFilter);
       const monthTotalResult = await db.select({
         total: count17(),
@@ -137160,13 +140153,13 @@ router65.get(
         userId: aiUsageLogs.userId,
         callCount: count17(),
         totalTokens: sum2(aiUsageLogs.totalTokens)
-      }).from(aiUsageLogs).where(and76(monthFilter, isNotNull19(aiUsageLogs.userId))).groupBy(aiUsageLogs.userId).orderBy(desc50(count17())).limit(10);
+      }).from(aiUsageLogs).where(and79(monthFilter, isNotNull19(aiUsageLogs.userId))).groupBy(aiUsageLogs.userId).orderBy(desc50(count17())).limit(10);
       const topUsersWithNames = await Promise.all(
         topUsersResult.map(async (row) => {
           let name = "Unknown";
           let role = "player";
           if (row.userId) {
-            const [u] = await db.select({ role: users.role, username: users.username }).from(users).where(eq89(users.id, row.userId)).limit(1);
+            const [u] = await db.select({ role: users.role, username: users.username }).from(users).where(eq92(users.id, row.userId)).limit(1);
             if (u) {
               name = u.username;
               role = u.role;
@@ -137191,9 +140184,9 @@ router65.get(
         tokens: sum2(aiUsageLogs.totalTokens)
       }).from(aiUsageLogs).where(monthFilter).groupBy(aiUsageLogs.featureType).orderBy(desc50(count17()));
       const notificationCallsToday = await db.select({ total: count17() }).from(aiUsageLogs).where(
-        and76(
+        and79(
           todayFilter,
-          eq89(aiUsageLogs.featureType, "notification")
+          eq92(aiUsageLogs.featureType, "notification")
         )
       );
       res.json({
@@ -137216,26 +140209,26 @@ router65.get(
     }
   }
 );
-router65.get(
+router68.get(
   "/api/admin/ai-usage/academies",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
   async (_req, res) => {
     try {
       const startOfMonth = getStartOfMonth2();
-      const monthFilter = gte42(aiUsageLogs.createdAt, startOfMonth);
+      const monthFilter = gte43(aiUsageLogs.createdAt, startOfMonth);
       const allAcademies = await db.select({ id: academies.id, name: academies.name, monthlyTokenBudget: academies.monthlyTokenBudget }).from(academies).orderBy(academies.name);
       const monthUsageByAcademy = await db.select({
         academyId: aiUsageLogs.academyId,
         totalCalls: count17(),
         totalTokens: sum2(aiUsageLogs.totalTokens)
-      }).from(aiUsageLogs).where(and76(monthFilter, isNotNull19(aiUsageLogs.academyId))).groupBy(aiUsageLogs.academyId);
+      }).from(aiUsageLogs).where(and79(monthFilter, isNotNull19(aiUsageLogs.academyId))).groupBy(aiUsageLogs.academyId);
       const featuresByAcademy = await db.select({
         academyId: aiUsageLogs.academyId,
         featureType: aiUsageLogs.featureType,
         callCount: count17(),
         tokens: sum2(aiUsageLogs.totalTokens)
-      }).from(aiUsageLogs).where(and76(monthFilter, isNotNull19(aiUsageLogs.academyId))).groupBy(aiUsageLogs.academyId, aiUsageLogs.featureType).orderBy(aiUsageLogs.academyId, desc50(count17()));
+      }).from(aiUsageLogs).where(and79(monthFilter, isNotNull19(aiUsageLogs.academyId))).groupBy(aiUsageLogs.academyId, aiUsageLogs.featureType).orderBy(aiUsageLogs.academyId, desc50(count17()));
       const usageMap = new Map(monthUsageByAcademy.map((r) => [r.academyId, r]));
       const featuresMap = /* @__PURE__ */ new Map();
       for (const r of featuresByAcademy) {
@@ -137276,10 +140269,10 @@ router65.get(
     }
   }
 );
-var setBudgetSchema = z18.object({
-  monthlyTokenBudget: z18.number().int().positive().nullable()
+var setBudgetSchema = z21.object({
+  monthlyTokenBudget: z21.number().int().positive().nullable()
 });
-router65.put(
+router68.put(
   "/api/admin/ai-budget/:academyId",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -137291,7 +140284,7 @@ router65.put(
         return res.status(400).json({ error: "Invalid budget value" });
       }
       const { monthlyTokenBudget } = parsed.data;
-      const [updated] = await db.update(academies).set({ monthlyTokenBudget }).where(eq89(academies.id, academyId)).returning({ id: academies.id, name: academies.name, monthlyTokenBudget: academies.monthlyTokenBudget });
+      const [updated] = await db.update(academies).set({ monthlyTokenBudget }).where(eq92(academies.id, academyId)).returning({ id: academies.id, name: academies.name, monthlyTokenBudget: academies.monthlyTokenBudget });
       if (!updated) {
         return res.status(404).json({ error: "Academy not found" });
       }
@@ -137303,14 +140296,14 @@ router65.put(
     }
   }
 );
-var ai_usage_admin_default = router65;
+var ai_usage_admin_default = router68;
 
 // server/routes/subscriptions.ts
 init_db();
 init_auth();
-import { Router as Router65 } from "express";
-import { z as z19 } from "zod";
-var router66 = Router65();
+import { Router as Router68 } from "express";
+import { z as z22 } from "zod";
+var router69 = Router68();
 async function getAcademySubscription(academyId) {
   const result = await pool.query(
     `SELECT
@@ -137366,7 +140359,7 @@ async function getAcademyUsage(academyId) {
     locations: parseInt(locations2.rows[0].count, 10)
   };
 }
-router66.get(
+router69.get(
   "/api/academy/subscription",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -137453,8 +140446,8 @@ router66.get(
     }
   }
 );
-var checkoutSchema = z19.object({ planId: z19.string() });
-router66.post(
+var checkoutSchema = z22.object({ planId: z22.string() });
+router69.post(
   "/api/academy/subscription/checkout",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -137514,7 +140507,7 @@ router66.post(
     }
   }
 );
-router66.post(
+router69.post(
   "/api/academy/subscription/portal",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -137553,7 +140546,7 @@ router66.post(
     }
   }
 );
-router66.get(
+router69.get(
   "/api/platform/subscription-plans",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -137591,21 +140584,21 @@ router66.get(
     }
   }
 );
-var updatePlanSchema = z19.object({
-  name: z19.string().min(1).max(100).optional(),
-  description: z19.string().max(500).optional(),
-  monthlyPrice: z19.number().min(0).optional(),
-  currency: z19.string().length(3).optional(),
-  maxCoaches: z19.number().int().min(-1).optional(),
-  maxPlayers: z19.number().int().min(-1).optional(),
-  maxLocations: z19.number().int().min(-1).optional(),
-  features: z19.record(z19.boolean()).optional(),
-  isActive: z19.boolean().optional(),
-  sortOrder: z19.number().int().min(0).optional(),
-  stripePriceId: z19.string().optional().nullable(),
-  stripeProductId: z19.string().optional().nullable()
+var updatePlanSchema = z22.object({
+  name: z22.string().min(1).max(100).optional(),
+  description: z22.string().max(500).optional(),
+  monthlyPrice: z22.number().min(0).optional(),
+  currency: z22.string().length(3).optional(),
+  maxCoaches: z22.number().int().min(-1).optional(),
+  maxPlayers: z22.number().int().min(-1).optional(),
+  maxLocations: z22.number().int().min(-1).optional(),
+  features: z22.record(z22.boolean()).optional(),
+  isActive: z22.boolean().optional(),
+  sortOrder: z22.number().int().min(0).optional(),
+  stripePriceId: z22.string().optional().nullable(),
+  stripeProductId: z22.string().optional().nullable()
 });
-router66.put(
+router69.put(
   "/api/platform/subscription-plans/:id",
   authMiddlewareWithFreshData,
   requireRole("platform_owner"),
@@ -137703,7 +140696,7 @@ router66.put(
     }
   }
 );
-router66.post(
+router69.post(
   "/api/stripe/subscription-webhook",
   async (req, res) => {
     try {
@@ -137772,15 +140765,15 @@ router66.post(
     }
   }
 );
-var subscriptions_default = router66;
+var subscriptions_default = router69;
 
 // server/routes/ai-pro.ts
 init_db();
 init_auth();
 init_aiProSubscription();
-import { Router as Router66 } from "express";
+import { Router as Router69 } from "express";
 import { sql as sql56 } from "drizzle-orm";
-var router67 = Router66();
+var router70 = Router69();
 var TIER_CACHE_TTL_MS2 = 60 * 1e3;
 var tierCache2 = /* @__PURE__ */ new Map();
 async function getCachedPlayerTier(userId) {
@@ -137793,7 +140786,7 @@ async function getCachedPlayerTier(userId) {
   tierCache2.set(userId, { tier, expiresAt: Date.now() + TIER_CACHE_TTL_MS2 });
   return tier;
 }
-router67.get(
+router70.get(
   "/api/ai-pro/status",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -137816,7 +140809,7 @@ router67.get(
     }
   }
 );
-router67.get(
+router70.get(
   "/api/ai-pro/player-tiers",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -137849,16 +140842,16 @@ router67.get(
     }
   }
 );
-var ai_pro_default = router67;
+var ai_pro_default = router70;
 
 // server/routes/drills.ts
 init_db();
 init_schema();
 init_auth();
-import { Router as Router67 } from "express";
-import { eq as eq90, and as and77, desc as desc51, isNull as isNull19, inArray as inArray46, gte as gte43 } from "drizzle-orm";
-var router68 = Router67();
-router68.get("/api/drills", authMiddlewareWithFreshData, requireAcademy, async (req, res) => {
+import { Router as Router70 } from "express";
+import { eq as eq93, and as and80, desc as desc51, isNull as isNull19, inArray as inArray48, gte as gte44 } from "drizzle-orm";
+var router71 = Router70();
+router71.get("/api/drills", authMiddlewareWithFreshData, requireAcademy, async (req, res) => {
   try {
     const skillArea = req.query.skill_area || req.query.skillArea;
     const category = req.query.category;
@@ -137885,10 +140878,10 @@ router68.get("/api/drills", authMiddlewareWithFreshData, requireAcademy, async (
     res.status(500).json({ error: "Failed to fetch drills" });
   }
 });
-router68.get("/api/drills/:id", authMiddlewareWithFreshData, requireAcademy, async (req, res) => {
+router71.get("/api/drills/:id", authMiddlewareWithFreshData, requireAcademy, async (req, res) => {
   try {
     const { id } = req.params;
-    const [drill] = await db.select().from(drills).where(eq90(drills.id, id));
+    const [drill] = await db.select().from(drills).where(eq93(drills.id, id));
     if (!drill) return res.status(404).json({ error: "Drill not found" });
     res.json(drill);
   } catch (error) {
@@ -137896,7 +140889,7 @@ router68.get("/api/drills/:id", authMiddlewareWithFreshData, requireAcademy, asy
     res.status(500).json({ error: "Failed to fetch drill" });
   }
 });
-router68.get("/api/player/me/drills", authMiddlewareWithFreshData, async (req, res) => {
+router71.get("/api/player/me/drills", authMiddlewareWithFreshData, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player access required" });
@@ -137904,9 +140897,9 @@ router68.get("/api/player/me/drills", authMiddlewareWithFreshData, async (req, r
     const search = req.query.search;
     const [allDrills, savedRows, assignedRows] = await Promise.all([
       db.select().from(drills),
-      db.select().from(playerSavedDrills).where(eq90(playerSavedDrills.playerId, playerId)),
-      db.select({ cad: coachAssignedDrills, d: drills }).from(coachAssignedDrills).innerJoin(drills, eq90(coachAssignedDrills.drillId, drills.id)).where(and77(
-        eq90(coachAssignedDrills.playerId, playerId),
+      db.select().from(playerSavedDrills).where(eq93(playerSavedDrills.playerId, playerId)),
+      db.select({ cad: coachAssignedDrills, d: drills }).from(coachAssignedDrills).innerJoin(drills, eq93(coachAssignedDrills.drillId, drills.id)).where(and80(
+        eq93(coachAssignedDrills.playerId, playerId),
         isNull19(coachAssignedDrills.dismissedAt)
       )).orderBy(desc51(coachAssignedDrills.assignedAt))
     ]);
@@ -137929,7 +140922,7 @@ router68.get("/api/player/me/drills", authMiddlewareWithFreshData, async (req, r
     }
     const assignedWithCoach = await Promise.all(
       assignedRows.map(async (row) => {
-        const [coach] = await db.select({ name: coaches.name }).from(coaches).where(eq90(coaches.id, row.cad.coachId));
+        const [coach] = await db.select({ name: coaches.name }).from(coaches).where(eq93(coaches.id, row.cad.coachId));
         return { ...row.cad, drill: { ...row.d, isSaved: savedIds.has(row.d.id) }, coachName: coach?.name ?? "Your Coach" };
       })
     );
@@ -137939,28 +140932,28 @@ router68.get("/api/player/me/drills", authMiddlewareWithFreshData, async (req, r
     res.status(500).json({ error: "Failed to fetch drills" });
   }
 });
-router68.get("/api/player/me/drills/saved", authMiddlewareWithFreshData, async (req, res) => {
+router71.get("/api/player/me/drills/saved", authMiddlewareWithFreshData, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player access required" });
-    const rows = await db.select({ saved: playerSavedDrills, d: drills }).from(playerSavedDrills).innerJoin(drills, eq90(playerSavedDrills.drillId, drills.id)).where(eq90(playerSavedDrills.playerId, playerId)).orderBy(desc51(playerSavedDrills.createdAt));
+    const rows = await db.select({ saved: playerSavedDrills, d: drills }).from(playerSavedDrills).innerJoin(drills, eq93(playerSavedDrills.drillId, drills.id)).where(eq93(playerSavedDrills.playerId, playerId)).orderBy(desc51(playerSavedDrills.createdAt));
     res.json({ saved: rows.map((r) => ({ ...r.d, isSaved: true })) });
   } catch (error) {
     console.error("[GET /api/player/me/drills/saved]", error);
     res.status(500).json({ error: "Failed to fetch saved drills" });
   }
 });
-router68.get("/api/player/me/drills/assigned", authMiddlewareWithFreshData, async (req, res) => {
+router71.get("/api/player/me/drills/assigned", authMiddlewareWithFreshData, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player access required" });
-    const rows = await db.select({ cad: coachAssignedDrills, d: drills }).from(coachAssignedDrills).innerJoin(drills, eq90(coachAssignedDrills.drillId, drills.id)).where(and77(
-      eq90(coachAssignedDrills.playerId, playerId),
+    const rows = await db.select({ cad: coachAssignedDrills, d: drills }).from(coachAssignedDrills).innerJoin(drills, eq93(coachAssignedDrills.drillId, drills.id)).where(and80(
+      eq93(coachAssignedDrills.playerId, playerId),
       isNull19(coachAssignedDrills.dismissedAt)
     )).orderBy(desc51(coachAssignedDrills.assignedAt));
     const result = await Promise.all(
       rows.map(async (row) => {
-        const [coach] = await db.select({ name: coaches.name }).from(coaches).where(eq90(coaches.id, row.cad.coachId));
+        const [coach] = await db.select({ name: coaches.name }).from(coaches).where(eq93(coaches.id, row.cad.coachId));
         return { ...row.cad, drill: row.d, coachName: coach?.name ?? "Your Coach" };
       })
     );
@@ -137970,16 +140963,16 @@ router68.get("/api/player/me/drills/assigned", authMiddlewareWithFreshData, asyn
     res.status(500).json({ error: "Failed to fetch assigned drills" });
   }
 });
-router68.post("/api/player/me/drills/:id/save", authMiddlewareWithFreshData, async (req, res) => {
+router71.post("/api/player/me/drills/:id/save", authMiddlewareWithFreshData, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player access required" });
     const drillId = req.params.id;
-    const [existing] = await db.select().from(playerSavedDrills).where(and77(eq90(playerSavedDrills.playerId, playerId), eq90(playerSavedDrills.drillId, drillId)));
+    const [existing] = await db.select().from(playerSavedDrills).where(and80(eq93(playerSavedDrills.playerId, playerId), eq93(playerSavedDrills.drillId, drillId)));
     if (existing) {
-      await db.delete(playerSavedDrills).where(and77(
-        eq90(playerSavedDrills.playerId, playerId),
-        eq90(playerSavedDrills.drillId, drillId)
+      await db.delete(playerSavedDrills).where(and80(
+        eq93(playerSavedDrills.playerId, playerId),
+        eq93(playerSavedDrills.drillId, drillId)
       ));
       return res.json({ saved: false });
     } else {
@@ -137991,7 +140984,7 @@ router68.post("/api/player/me/drills/:id/save", authMiddlewareWithFreshData, asy
     res.status(500).json({ error: "Failed to toggle save" });
   }
 });
-router68.post("/api/player/me/drills/:id/log", authMiddlewareWithFreshData, async (req, res) => {
+router71.post("/api/player/me/drills/:id/log", authMiddlewareWithFreshData, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player access required" });
@@ -138018,15 +141011,15 @@ router68.post("/api/player/me/drills/:id/log", authMiddlewareWithFreshData, asyn
     res.status(500).json({ error: "Failed to log drill" });
   }
 });
-router68.get("/api/player/me/drills/stats", authMiddlewareWithFreshData, async (req, res) => {
+router71.get("/api/player/me/drills/stats", authMiddlewareWithFreshData, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player access required" });
     const oneWeekAgo = /* @__PURE__ */ new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
     const [allLogs, weeklyLogs] = await Promise.all([
-      db.select({ id: playerDrillLogs.id, createdAt: playerDrillLogs.createdAt }).from(playerDrillLogs).where(eq90(playerDrillLogs.playerId, playerId)).orderBy(desc51(playerDrillLogs.createdAt)),
-      db.select({ id: playerDrillLogs.id }).from(playerDrillLogs).where(and77(eq90(playerDrillLogs.playerId, playerId), gte43(playerDrillLogs.createdAt, oneWeekAgo)))
+      db.select({ id: playerDrillLogs.id, createdAt: playerDrillLogs.createdAt }).from(playerDrillLogs).where(eq93(playerDrillLogs.playerId, playerId)).orderBy(desc51(playerDrillLogs.createdAt)),
+      db.select({ id: playerDrillLogs.id }).from(playerDrillLogs).where(and80(eq93(playerDrillLogs.playerId, playerId), gte44(playerDrillLogs.createdAt, oneWeekAgo)))
     ]);
     const datesWithLogs = new Set(
       allLogs.map((log3) => {
@@ -138054,12 +141047,12 @@ router68.get("/api/player/me/drills/stats", authMiddlewareWithFreshData, async (
     res.status(500).json({ error: "Failed to fetch drill stats" });
   }
 });
-router68.get("/api/player/me/drills/:id/stats", authMiddlewareWithFreshData, async (req, res) => {
+router71.get("/api/player/me/drills/:id/stats", authMiddlewareWithFreshData, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player access required" });
     const drillId = req.params.id;
-    const logs = await db.select({ durationDone: playerDrillLogs.durationDone, rating: playerDrillLogs.rating }).from(playerDrillLogs).where(and77(eq90(playerDrillLogs.playerId, playerId), eq90(playerDrillLogs.drillId, drillId)));
+    const logs = await db.select({ durationDone: playerDrillLogs.durationDone, rating: playerDrillLogs.rating }).from(playerDrillLogs).where(and80(eq93(playerDrillLogs.playerId, playerId), eq93(playerDrillLogs.drillId, drillId)));
     const totalLogs = logs.length;
     const durations = logs.map((l) => l.durationDone).filter((d) => d !== null && d !== void 0);
     const ratings = logs.map((l) => l.rating).filter((r) => r !== null && r !== void 0);
@@ -138071,19 +141064,19 @@ router68.get("/api/player/me/drills/:id/stats", authMiddlewareWithFreshData, asy
     res.status(500).json({ error: "Failed to fetch drill stats" });
   }
 });
-router68.post("/api/player/me/drills/assigned/:id/dismiss", authMiddlewareWithFreshData, async (req, res) => {
+router71.post("/api/player/me/drills/assigned/:id/dismiss", authMiddlewareWithFreshData, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player access required" });
     const assignmentId = req.params.id;
-    await db.update(coachAssignedDrills).set({ dismissedAt: /* @__PURE__ */ new Date() }).where(and77(eq90(coachAssignedDrills.id, assignmentId), eq90(coachAssignedDrills.playerId, playerId)));
+    await db.update(coachAssignedDrills).set({ dismissedAt: /* @__PURE__ */ new Date() }).where(and80(eq93(coachAssignedDrills.id, assignmentId), eq93(coachAssignedDrills.playerId, playerId)));
     res.json({ ok: true });
   } catch (error) {
     console.error("[POST dismiss assigned drill]", error);
     res.status(500).json({ error: "Failed to dismiss" });
   }
 });
-router68.get("/api/coach/drills", authMiddlewareWithFreshData, requireRole("coach", "assistant", "platform_owner"), async (req, res) => {
+router71.get("/api/coach/drills", authMiddlewareWithFreshData, requireRole("coach", "assistant", "platform_owner"), async (req, res) => {
   try {
     const search = req.query.search;
     const allDrills = await db.select().from(drills);
@@ -138101,7 +141094,7 @@ router68.get("/api/coach/drills", authMiddlewareWithFreshData, requireRole("coac
     res.status(500).json({ error: "Failed to fetch drills" });
   }
 });
-router68.post("/api/coach/players/:playerId/drills/assign", authMiddlewareWithFreshData, requireRole("coach", "assistant", "platform_owner"), async (req, res) => {
+router71.post("/api/coach/players/:playerId/drills/assign", authMiddlewareWithFreshData, requireRole("coach", "assistant", "platform_owner"), async (req, res) => {
   try {
     const coachId = req.user?.coachId;
     if (!coachId) return res.status(403).json({ error: "Coach access required" });
@@ -138115,12 +141108,12 @@ router68.post("/api/coach/players/:playerId/drills/assign", authMiddlewareWithFr
     res.status(500).json({ error: "Failed to assign drill" });
   }
 });
-router68.get("/api/coach/players/:playerId/drills/assigned", authMiddlewareWithFreshData, requireRole("coach", "assistant", "platform_owner"), async (req, res) => {
+router71.get("/api/coach/players/:playerId/drills/assigned", authMiddlewareWithFreshData, requireRole("coach", "assistant", "platform_owner"), async (req, res) => {
   try {
     const { playerId } = req.params;
-    const rows = await db.select({ cad: coachAssignedDrills, d: drills }).from(coachAssignedDrills).innerJoin(drills, eq90(coachAssignedDrills.drillId, drills.id)).where(eq90(coachAssignedDrills.playerId, playerId)).orderBy(desc51(coachAssignedDrills.assignedAt));
+    const rows = await db.select({ cad: coachAssignedDrills, d: drills }).from(coachAssignedDrills).innerJoin(drills, eq93(coachAssignedDrills.drillId, drills.id)).where(eq93(coachAssignedDrills.playerId, playerId)).orderBy(desc51(coachAssignedDrills.assignedAt));
     const drillIds = [...new Set(rows.map((r) => r.cad.drillId))];
-    const logs = drillIds.length > 0 ? await db.select().from(playerDrillLogs).where(and77(eq90(playerDrillLogs.playerId, playerId), inArray46(playerDrillLogs.drillId, drillIds))) : [];
+    const logs = drillIds.length > 0 ? await db.select().from(playerDrillLogs).where(and80(eq93(playerDrillLogs.playerId, playerId), inArray48(playerDrillLogs.drillId, drillIds))) : [];
     const logsByDrillId = {};
     for (const log3 of logs) {
       if (!logsByDrillId[log3.drillId]) logsByDrillId[log3.drillId] = [];
@@ -138152,19 +141145,19 @@ router68.get("/api/coach/players/:playerId/drills/assigned", authMiddlewareWithF
     res.status(500).json({ error: "Failed to fetch assigned drills" });
   }
 });
-router68.delete("/api/coach/drills/assigned/:id", authMiddlewareWithFreshData, requireRole("coach", "assistant", "platform_owner"), async (req, res) => {
+router71.delete("/api/coach/drills/assigned/:id", authMiddlewareWithFreshData, requireRole("coach", "assistant", "platform_owner"), async (req, res) => {
   try {
     const coachId = req.user?.coachId;
     if (!coachId) return res.status(403).json({ error: "Coach access required" });
     const { id } = req.params;
-    await db.delete(coachAssignedDrills).where(and77(eq90(coachAssignedDrills.id, id), eq90(coachAssignedDrills.coachId, coachId)));
+    await db.delete(coachAssignedDrills).where(and80(eq93(coachAssignedDrills.id, id), eq93(coachAssignedDrills.coachId, coachId)));
     res.json({ ok: true });
   } catch (error) {
     console.error("[DELETE assigned drill]", error);
     res.status(500).json({ error: "Failed to remove assignment" });
   }
 });
-var drills_default = router68;
+var drills_default = router71;
 
 // server/routes.ts
 init_player_home();
@@ -138173,9 +141166,9 @@ init_player_home();
 init_db();
 init_schema();
 init_auth();
-import { Router as Router68 } from "express";
-import { eq as eq91, and as and78, gte as gte44, desc as desc52 } from "drizzle-orm";
-var router69 = Router68();
+import { Router as Router71 } from "express";
+import { eq as eq94, and as and81, gte as gte45, desc as desc52 } from "drizzle-orm";
+var router72 = Router71();
 var PLAYSTYLE_LABELS = {
   baseline_warrior: "Baseline Warrior",
   net_ninja: "Net Ninja",
@@ -138201,7 +141194,7 @@ function rankLabel(rank) {
   if (rank <= 7) return "Developing";
   return "Beginner";
 }
-router69.get(
+router72.get(
   "/api/players/:id/scout",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -138209,26 +141202,26 @@ router69.get(
       const opponentId = req.params.id;
       const requestingPlayerId = req.user?.playerId ?? null;
       const opponent = await db.query.players.findFirst({
-        where: eq91(players.id, opponentId)
+        where: eq94(players.id, opponentId)
       });
       if (!opponent) {
         res.status(404).json({ error: "Player not found" });
         return;
       }
       const linkedUser = await db.query.users.findFirst({
-        where: eq91(users.playerId, opponentId),
+        where: eq94(users.playerId, opponentId),
         columns: { id: true }
       });
       const socialProfile = linkedUser?.id ? await db.query.userSocialProfiles.findFirst({
-        where: eq91(userSocialProfiles.userId, linkedUser.id)
+        where: eq94(userSocialProfiles.userId, linkedUser.id)
       }) : null;
       const showGlowScore = socialProfile?.showGlowScore ?? true;
       const showLevel = socialProfile?.showLevel ?? true;
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1e3);
       const recentMatches = await db.select().from(adultGlowMatches).where(
-        and78(
-          eq91(adultGlowMatches.playerId, opponentId),
-          gte44(adultGlowMatches.matchDate, thirtyDaysAgo)
+        and81(
+          eq94(adultGlowMatches.playerId, opponentId),
+          gte45(adultGlowMatches.matchDate, thirtyDaysAgo)
         )
       ).orderBy(desc52(adultGlowMatches.matchDate)).limit(30);
       const wins30 = recentMatches.filter((m) => m.didWin).length;
@@ -138238,15 +141231,15 @@ router69.get(
       if (requestingPlayerId && requestingPlayerId !== opponentId) {
         const [myRecords, theirRecords] = await Promise.all([
           db.select().from(adultGlowMatches).where(
-            and78(
-              eq91(adultGlowMatches.playerId, requestingPlayerId),
-              eq91(adultGlowMatches.opponentId, opponentId)
+            and81(
+              eq94(adultGlowMatches.playerId, requestingPlayerId),
+              eq94(adultGlowMatches.opponentId, opponentId)
             )
           ),
           db.select().from(adultGlowMatches).where(
-            and78(
-              eq91(adultGlowMatches.playerId, opponentId),
-              eq91(adultGlowMatches.opponentId, requestingPlayerId)
+            and81(
+              eq94(adultGlowMatches.playerId, opponentId),
+              eq94(adultGlowMatches.opponentId, requestingPlayerId)
             )
           )
         ]);
@@ -138286,16 +141279,16 @@ router69.get(
     }
   }
 );
-var player_scout_default = router69;
+var player_scout_default = router72;
 
 // server/routes/player-glow-assessment.ts
 init_db();
 init_schema();
 init_auth();
-import { Router as Router69 } from "express";
-import { eq as eq92, and as and79, count as count18 } from "drizzle-orm";
-var router70 = Router69();
-router70.use(authMiddlewareWithFreshData);
+import { Router as Router72 } from "express";
+import { eq as eq95, and as and82, count as count18 } from "drizzle-orm";
+var router73 = Router72();
+router73.use(authMiddlewareWithFreshData);
 var SELF_ASSESSMENT_MIN_RANK = 3;
 var GLOW_RANK_META = {
   9: { name: "Absolute Beginner", color: "#6B7280", description: "Just starting out \u2014 welcome to tennis!" },
@@ -138309,15 +141302,15 @@ var GLOW_RANK_META = {
   1: { name: "Elite Semi-Pro", color: "#FFD700", description: "Semi-professional competition." }
 };
 async function getPlayerSessionCount(playerId) {
-  const [result] = await db.select({ count: count18() }).from(sessionPlayers).innerJoin(sessions, eq92(sessions.id, sessionPlayers.sessionId)).where(
-    and79(
-      eq92(sessionPlayers.playerId, playerId),
-      eq92(sessions.status, "completed")
+  const [result] = await db.select({ count: count18() }).from(sessionPlayers).innerJoin(sessions, eq95(sessions.id, sessionPlayers.sessionId)).where(
+    and82(
+      eq95(sessionPlayers.playerId, playerId),
+      eq95(sessions.status, "completed")
     )
   );
   return result?.count ?? 0;
 }
-router70.get("/api/player/me/glow-assessment-status", async (req, res) => {
+router73.get("/api/player/me/glow-assessment-status", async (req, res) => {
   try {
     const user = req.user;
     if (!user.playerId) {
@@ -138337,7 +141330,7 @@ router70.get("/api/player/me/glow-assessment-status", async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
-router70.post("/api/player/me/glow-assessment", async (req, res) => {
+router73.post("/api/player/me/glow-assessment", async (req, res) => {
   try {
     const user = req.user;
     if (!user.playerId) {
@@ -138365,7 +141358,7 @@ router70.post("/api/player/me/glow-assessment", async (req, res) => {
     if (cappedByPolicy) {
       rank = SELF_ASSESSMENT_MIN_RANK;
     }
-    const [player] = await db.select({ id: players.id, glowRank: players.glowRank }).from(players).where(eq92(players.id, user.playerId)).limit(1);
+    const [player] = await db.select({ id: players.id, glowRank: players.glowRank }).from(players).where(eq95(players.id, user.playerId)).limit(1);
     if (!player) {
       return res.status(404).json({ error: "Player not found" });
     }
@@ -138375,7 +141368,7 @@ router70.post("/api/player/me/glow-assessment", async (req, res) => {
     if (applyRank) {
       const capped = Math.max(currentRank - 2, Math.min(currentRank + 2, appliedRank));
       appliedRank = Math.max(SELF_ASSESSMENT_MIN_RANK, Math.min(9, capped));
-      await db.update(players).set({ glowRank: appliedRank }).where(eq92(players.id, user.playerId));
+      await db.update(players).set({ glowRank: appliedRank }).where(eq95(players.id, user.playerId));
       applied = true;
     }
     const meta = GLOW_RANK_META[appliedRank] ?? GLOW_RANK_META[9];
@@ -138393,13 +141386,13 @@ router70.post("/api/player/me/glow-assessment", async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
-var player_glow_assessment_default = router70;
+var player_glow_assessment_default = router73;
 
 // server/routes/player-progress-data.ts
 init_auth();
 init_in_process_dispatch();
-import { Router as Router70 } from "express";
-var router71 = Router70();
+import { Router as Router73 } from "express";
+var router74 = Router73();
 var progressDataCache = /* @__PURE__ */ new Map();
 var CACHE_TTL_MS5 = 6e4;
 function cacheKey2(playerId, academyId, sport) {
@@ -138433,7 +141426,7 @@ function requirePlayerOrOwner8(req, res, next) {
   }
   res.status(403).json({ error: "Player account required" });
 }
-router71.get(
+router74.get(
   "/api/player/me/progress-data",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner8,
@@ -138552,16 +141545,16 @@ router71.get(
     }
   }
 );
-var player_progress_data_default = router71;
+var player_progress_data_default = router74;
 
 // server/routes/player-play-data.ts
 init_db();
 init_schema();
 init_auth();
 init_in_process_dispatch();
-import { Router as Router71 } from "express";
-import { eq as eq93, and as and80, gte as gte45, ne as ne15 } from "drizzle-orm";
-var router72 = Router71();
+import { Router as Router74 } from "express";
+import { eq as eq96, and as and83, gte as gte46, ne as ne15 } from "drizzle-orm";
+var router75 = Router74();
 var playDataCache = /* @__PURE__ */ new Map();
 var CACHE_TTL_MS6 = 3e4;
 function cacheKey3(playerId, academyId, level, scope, sport, filter, travelTime) {
@@ -138595,7 +141588,7 @@ function requirePlayerOrOwner9(req, res, next) {
   }
   res.status(403).json({ error: "Player account required" });
 }
-router72.get(
+router75.get(
   "/api/player/me/play-data",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner9,
@@ -138621,7 +141614,7 @@ router72.get(
       let resolvedLevel = rawLevel;
       let resolvedScope = rawScope;
       try {
-        const [row] = await db.select({ ballLevel: players.ballLevel, academyId: players.academyId }).from(players).where(eq93(players.id, playerId)).limit(1);
+        const [row] = await db.select({ ballLevel: players.ballLevel, academyId: players.academyId }).from(players).where(eq96(players.id, playerId)).limit(1);
         const playerBallLevel = (row?.ballLevel || "glow").toLowerCase();
         const playerAcademyId = row?.academyId || null;
         if (rawLevel === "__my_level__" || rawLevel === "my_level") {
@@ -138667,12 +141660,12 @@ router72.get(
         hostName: players.name,
         hostPhotoUrl: players.profilePhotoUrl,
         slotId: openMatchSlots.id
-      }).from(openMatchSlots).innerJoin(openMatches, eq93(openMatchSlots.matchId, openMatches.id)).innerJoin(players, eq93(openMatches.hostPlayerId, players.id)).where(
-        and80(
-          eq93(openMatchSlots.playerId, playerId),
-          eq93(openMatchSlots.status, "confirmed"),
+      }).from(openMatchSlots).innerJoin(openMatches, eq96(openMatchSlots.matchId, openMatches.id)).innerJoin(players, eq96(openMatches.hostPlayerId, players.id)).where(
+        and83(
+          eq96(openMatchSlots.playerId, playerId),
+          eq96(openMatchSlots.status, "confirmed"),
           ne15(openMatchSlots.role, "host"),
-          gte45(openMatches.preferredDate, today)
+          gte46(openMatches.preferredDate, today)
         )
       ).orderBy(openMatches.preferredDate) : Promise.resolve([]);
       const [
@@ -138734,12 +141727,12 @@ router72.get(
     }
   }
 );
-var player_play_data_default = router72;
+var player_play_data_default = router75;
 
 // server/routes/player-schedule-data.ts
 init_auth();
-import { Router as Router72 } from "express";
-var router73 = Router72();
+import { Router as Router75 } from "express";
+var router76 = Router75();
 var scheduleDataCache = /* @__PURE__ */ new Map();
 var CACHE_TTL_MS7 = 3e4;
 function cacheKey4(playerId, academyId) {
@@ -138793,7 +141786,7 @@ async function subFetch(path13, authHeader, forwardHeaders = {}) {
     return { status: "error", data: null, httpStatus: null };
   }
 }
-router73.get(
+router76.get(
   "/api/player/me/schedule-data",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner10,
@@ -138909,13 +141902,13 @@ router73.get(
     }
   }
 );
-var player_schedule_data_default = router73;
+var player_schedule_data_default = router76;
 
 // server/routes/player-profile-data.ts
 init_auth();
 init_in_process_dispatch();
-import { Router as Router73 } from "express";
-var router74 = Router73();
+import { Router as Router76 } from "express";
+var router77 = Router76();
 var profileDataCache = /* @__PURE__ */ new Map();
 var CACHE_TTL_MS8 = 6e4;
 function cacheKey5(playerId, academyId) {
@@ -138949,7 +141942,7 @@ function requirePlayerOrOwner11(req, res, next) {
   }
   res.status(403).json({ error: "Player account required" });
 }
-router74.get(
+router77.get(
   "/api/player/me/profile-data",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner11,
@@ -139058,7 +142051,7 @@ router74.get(
     }
   }
 );
-var player_profile_data_default = router74;
+var player_profile_data_default = router77;
 
 // server/routes.ts
 init_player_achievements();
@@ -139066,8 +142059,8 @@ init_player_achievements();
 // server/routes/community-data.ts
 init_auth();
 init_in_process_dispatch();
-import { Router as Router74 } from "express";
-var router75 = Router74();
+import { Router as Router77 } from "express";
+var router78 = Router77();
 var communityDataCache = /* @__PURE__ */ new Map();
 var CACHE_TTL_MS9 = 3e4;
 function cacheKey6(playerId, academyId, filter, types) {
@@ -139101,7 +142094,7 @@ function requirePlayerOrOwner12(req, res, next) {
   }
   res.status(403).json({ error: "Player account required" });
 }
-router75.get(
+router78.get(
   "/api/player/me/community-data",
   authMiddlewareWithFreshData,
   requirePlayerOrOwner12,
@@ -139201,7 +142194,7 @@ router75.get(
     }
   }
 );
-var community_data_default = router75;
+var community_data_default = router78;
 
 // server/routes.ts
 init_player_ai_coach_data();
@@ -139213,23 +142206,23 @@ init_db();
 init_schema();
 init_pushNotifications();
 init_objectStorage();
-import { Router as Router75 } from "express";
-import { eq as eq94 } from "drizzle-orm";
+import { Router as Router78 } from "express";
+import { eq as eq97 } from "drizzle-orm";
 import { execFile as execFile2 } from "child_process";
 import path8 from "path";
-import fs8 from "fs";
+import fs9 from "fs";
 import { promisify as promisify2 } from "util";
 import OpenAI3 from "openai";
 var execFileAsync2 = promisify2(execFile2);
-var router76 = Router75();
+var router79 = Router78();
 var openai3 = new OpenAI3({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
 });
 var TECHNIQUE_VIDEO_DIR2 = path8.join(process.cwd(), "uploads", "technique-videos");
 var TECHNIQUE_THUMB_DIR = path8.join(process.cwd(), "uploads", "technique-thumbs");
-if (!fs8.existsSync(TECHNIQUE_VIDEO_DIR2)) fs8.mkdirSync(TECHNIQUE_VIDEO_DIR2, { recursive: true });
-if (!fs8.existsSync(TECHNIQUE_THUMB_DIR)) fs8.mkdirSync(TECHNIQUE_THUMB_DIR, { recursive: true });
+if (!fs9.existsSync(TECHNIQUE_VIDEO_DIR2)) fs9.mkdirSync(TECHNIQUE_VIDEO_DIR2, { recursive: true });
+if (!fs9.existsSync(TECHNIQUE_THUMB_DIR)) fs9.mkdirSync(TECHNIQUE_THUMB_DIR, { recursive: true });
 async function purgeExpiredAnalyses() {
   try {
     const rows = await pool.query(
@@ -139246,7 +142239,7 @@ async function purgeExpiredAnalyses() {
         } else {
           const filePath = path8.join(process.cwd(), url.replace(/^\//, ""));
           try {
-            fs8.unlinkSync(filePath);
+            fs9.unlinkSync(filePath);
           } catch {
           }
         }
@@ -139256,7 +142249,7 @@ async function purgeExpiredAnalyses() {
         for (let i = 0; i < 20; i++) {
           const framePath = path8.join(TECHNIQUE_THUMB_DIR, `${baseName}-frame-${i}.jpg`);
           try {
-            fs8.unlinkSync(framePath);
+            fs9.unlinkSync(framePath);
           } catch {
           }
         }
@@ -139305,7 +142298,7 @@ async function extractFrames(videoPath, baseName, _durationSec) {
         framePath,
         "-y"
       ]);
-      if (fs8.existsSync(framePath)) {
+      if (fs9.existsSync(framePath)) {
         framePaths.push(framePath);
       }
     } catch {
@@ -139330,7 +142323,7 @@ async function generateThumbnail(videoPath, thumbPath) {
       thumbPath,
       "-y"
     ]);
-    return fs8.existsSync(thumbPath);
+    return fs9.existsSync(thumbPath);
   } catch {
     return false;
   }
@@ -139353,7 +142346,7 @@ async function getVideoDuration(videoPath) {
 }
 async function frameToBase64(framePath) {
   try {
-    const buf = fs8.readFileSync(framePath);
+    const buf = fs9.readFileSync(framePath);
     return buf.toString("base64");
   } catch {
     return null;
@@ -139466,14 +142459,14 @@ async function runAnalysisInBackground(analysisId, videoPath, strokeType, player
           "video/mp4"
         );
         try {
-          fs8.unlinkSync(videoPath);
+          fs9.unlinkSync(videoPath);
         } catch {
         }
       } catch (uploadErr) {
         console.error("[TechniqueAnalysis] GCS video upload failed, keeping local path:", uploadErr);
         finalVideoUrl = `/uploads/technique-videos/${path8.basename(videoPath)}`;
       }
-      if (fs8.existsSync(thumbPath)) {
+      if (fs9.existsSync(thumbPath)) {
         try {
           finalThumbnailUrl = await uploadToObjectStorage(
             thumbPath,
@@ -139482,7 +142475,7 @@ async function runAnalysisInBackground(analysisId, videoPath, strokeType, player
             "image/jpeg"
           );
           try {
-            fs8.unlinkSync(thumbPath);
+            fs9.unlinkSync(thumbPath);
           } catch {
           }
         } catch (uploadErr) {
@@ -139492,7 +142485,7 @@ async function runAnalysisInBackground(analysisId, videoPath, strokeType, player
       }
     } else {
       finalVideoUrl = `/uploads/technique-videos/${path8.basename(videoPath)}`;
-      finalThumbnailUrl = fs8.existsSync(thumbPath) ? `/uploads/technique-thumbs/${baseName}-thumb.jpg` : null;
+      finalThumbnailUrl = fs9.existsSync(thumbPath) ? `/uploads/technique-thumbs/${baseName}-thumb.jpg` : null;
     }
     await pool.query(
       `UPDATE technique_analyses
@@ -139517,7 +142510,7 @@ async function runAnalysisInBackground(analysisId, videoPath, strokeType, player
     );
     for (const fp of framePaths) {
       try {
-        fs8.unlinkSync(fp);
+        fs9.unlinkSync(fp);
       } catch {
       }
     }
@@ -139551,7 +142544,7 @@ async function runAnalysisInBackground(analysisId, videoPath, strokeType, player
     });
   }
 }
-router76.post(
+router79.post(
   "/api/player/me/technique-analyses",
   authMiddlewareWithFreshData,
   requireRole("player"),
@@ -139570,12 +142563,12 @@ router76.post(
       if (!strokeType || !STROKE_CHECKPOINTS[strokeType]) {
         return res.status(400).json({ error: "Invalid stroke_type. Must be one of: " + Object.keys(STROKE_CHECKPOINTS).join(", ") });
       }
-      const [playerRow] = await db.select({ shareAnalysesWithCoach: players.shareAnalysesWithCoach }).from(players).where(eq94(players.id, playerId));
+      const [playerRow] = await db.select({ shareAnalysesWithCoach: players.shareAnalysesWithCoach }).from(players).where(eq97(players.id, playerId));
       const shareWithCoachDefault = playerRow?.shareAnalysesWithCoach ?? true;
       const videoPath = path8.join(TECHNIQUE_VIDEO_DIR2, req.file.filename);
       const durationSec = await getVideoDuration(videoPath);
       if (durationSec > 35) {
-        fs8.unlinkSync(videoPath);
+        fs9.unlinkSync(videoPath);
         return res.status(400).json({
           error: "Video is too long. Maximum clip length is 30 seconds.",
           code: "VIDEO_TOO_LONG",
@@ -139599,7 +142592,7 @@ router76.post(
     }
   }
 );
-router76.get(
+router79.get(
   "/api/player/me/technique-analyses",
   authMiddlewareWithFreshData,
   requireRole("player"),
@@ -139648,7 +142641,7 @@ router76.get(
     }
   }
 );
-router76.get(
+router79.get(
   "/api/player/me/technique-analyses/:id",
   authMiddlewareWithFreshData,
   requireRole("player"),
@@ -139678,7 +142671,7 @@ router76.get(
     }
   }
 );
-router76.patch(
+router79.patch(
   "/api/player/me/technique-analyses/:id/share",
   authMiddlewareWithFreshData,
   requireRole("player"),
@@ -139699,7 +142692,7 @@ router76.patch(
     }
   }
 );
-router76.get(
+router79.get(
   "/api/player/me/technique-privacy",
   authMiddlewareWithFreshData,
   requireRole("player"),
@@ -139707,7 +142700,7 @@ router76.get(
     try {
       const playerId = req.user.playerId;
       if (!playerId) return res.status(403).json({ error: "Player account required" });
-      const [row] = await db.select({ shareAnalysesWithCoach: players.shareAnalysesWithCoach }).from(players).where(eq94(players.id, playerId));
+      const [row] = await db.select({ shareAnalysesWithCoach: players.shareAnalysesWithCoach }).from(players).where(eq97(players.id, playerId));
       return res.json({ shareAnalysesWithCoach: row?.shareAnalysesWithCoach ?? true });
     } catch (err) {
       console.error("[TechniqueAnalysis] Technique privacy fetch error:", err);
@@ -139715,7 +142708,7 @@ router76.get(
     }
   }
 );
-router76.get(
+router79.get(
   "/api/coach/players/:playerId/technique-analyses",
   authMiddlewareWithFreshData,
   requireRole("coach", "assistant", "academy_owner", "platform_owner"),
@@ -139723,13 +142716,13 @@ router76.get(
     try {
       const coachId = req.user.coachId;
       const { playerId } = req.params;
-      const [player] = await db.select({ coachId: players.coachId }).from(players).where(eq94(players.id, playerId));
-      const coachRecord = coachId ? (await db.select({ academyId: coaches.academyId }).from(coaches).where(eq94(coaches.id, coachId)))[0] : null;
+      const [player] = await db.select({ coachId: players.coachId }).from(players).where(eq97(players.id, playerId));
+      const coachRecord = coachId ? (await db.select({ academyId: coaches.academyId }).from(coaches).where(eq97(coaches.id, coachId)))[0] : null;
       const isAssignedCoach = player?.coachId === coachId;
       const isPlatformOwner = req.user?.role === "platform_owner";
       let isAcademyAdmin = false;
       if (req.user?.role === "academy_owner" && coachRecord?.academyId) {
-        const [playerCoachRecord] = player?.coachId ? await db.select({ academyId: coaches.academyId }).from(coaches).where(eq94(coaches.id, player.coachId)) : [];
+        const [playerCoachRecord] = player?.coachId ? await db.select({ academyId: coaches.academyId }).from(coaches).where(eq97(coaches.id, player.coachId)) : [];
         isAcademyAdmin = playerCoachRecord?.academyId === coachRecord.academyId;
       }
       if (!isAssignedCoach && !isAcademyAdmin && !isPlatformOwner) {
@@ -139757,12 +142750,12 @@ router76.get(
     }
   }
 );
-var technique_analysis_default = router76;
+var technique_analysis_default = router79;
 
 // server/routes/quiz.ts
-import { Router as Router76 } from "express";
+import { Router as Router79 } from "express";
 import OpenAI4 from "openai";
-var router77 = Router76();
+var router80 = Router79();
 var openai4 = new OpenAI4({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
@@ -139846,7 +142839,7 @@ async function generateOrGetCachedQuestions() {
     return FALLBACK_QUESTIONS;
   }
 }
-router77.get("/tennis-iq", async (_req, res) => {
+router80.get("/tennis-iq", async (_req, res) => {
   try {
     const questions = await generateOrGetCachedQuestions();
     res.json({ questions });
@@ -139854,14 +142847,14 @@ router77.get("/tennis-iq", async (_req, res) => {
     res.json({ questions: FALLBACK_QUESTIONS });
   }
 });
-var quiz_default = router77;
+var quiz_default = router80;
 
 // server/routes/arena.ts
 init_db();
 init_schema();
 init_auth();
-import { Router as Router77 } from "express";
-import { eq as eq95, sql as drizzleSql3, and as and82, desc as desc53, inArray as inArray47 } from "drizzle-orm";
+import { Router as Router80 } from "express";
+import { eq as eq98, sql as drizzleSql3, and as and85, desc as desc53, inArray as inArray49 } from "drizzle-orm";
 
 // server/middleware/arena-pass.ts
 var ARENA_PASS_ENTITLEMENT = "arena_pass";
@@ -139918,16 +142911,16 @@ async function requireAcademyPass(req, res, next) {
 // server/routes/arena.ts
 init_arena_card_service();
 ensureArenaMigrations().catch((err) => console.error("[arena] Migration failed:", err));
-var router78 = Router77();
-router78.use(authMiddlewareWithFreshData);
-router78.get("/my-card", async (req, res) => {
+var router81 = Router80();
+router81.use(authMiddlewareWithFreshData);
+router81.get("/my-card", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
-    let [card] = await db.select().from(arenaChampionCards).where(eq95(arenaChampionCards.playerId, playerId)).limit(1);
+    let [card] = await db.select().from(arenaChampionCards).where(eq98(arenaChampionCards.playerId, playerId)).limit(1);
     if (!card) {
       await syncChampionCard(playerId);
-      [card] = await db.select().from(arenaChampionCards).where(eq95(arenaChampionCards.playerId, playerId)).limit(1);
+      [card] = await db.select().from(arenaChampionCards).where(eq98(arenaChampionCards.playerId, playerId)).limit(1);
     }
     if (!card) return res.status(404).json({ error: "Card not found" });
     const [player] = await db.select({
@@ -139939,44 +142932,44 @@ router78.get("/my-card", async (req, res) => {
       glowRank: players.glowRank,
       glowMmr: players.glowMmr,
       level: players.level
-    }).from(players).where(eq95(players.id, playerId)).limit(1);
+    }).from(players).where(eq98(players.id, playerId)).limit(1);
     res.json({ card, player });
   } catch (err) {
     console.error("[arena] GET /my-card:", err);
     res.status(500).json({ error: "Failed to fetch card" });
   }
 });
-router78.post("/sync-card", async (req, res) => {
+router81.post("/sync-card", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
     await syncChampionCard(playerId);
-    const [card] = await db.select().from(arenaChampionCards).where(eq95(arenaChampionCards.playerId, playerId)).limit(1);
+    const [card] = await db.select().from(arenaChampionCards).where(eq98(arenaChampionCards.playerId, playerId)).limit(1);
     res.json({ success: true, card });
   } catch (err) {
     console.error("[arena] POST /sync-card:", err);
     res.status(500).json({ error: "Failed to sync card" });
   }
 });
-router78.get("/player-card/:playerId", async (req, res) => {
+router81.get("/player-card/:playerId", async (req, res) => {
   try {
     const { playerId } = req.params;
-    const [playerCard] = await db.select().from(arenaPlayerCards).where(eq95(arenaPlayerCards.playerId, playerId)).limit(1);
+    const [playerCard] = await db.select().from(arenaPlayerCards).where(eq98(arenaPlayerCards.playerId, playerId)).limit(1);
     if (!playerCard) return res.status(404).json({ error: "Player card not found" });
-    const [championCard] = await db.select().from(arenaChampionCards).where(eq95(arenaChampionCards.playerId, playerId)).limit(1);
+    const [championCard] = await db.select().from(arenaChampionCards).where(eq98(arenaChampionCards.playerId, playerId)).limit(1);
     res.json({ playerCard, championCard });
   } catch (err) {
     console.error("[arena] GET /player-card:", err);
     res.status(500).json({ error: "Failed to fetch player card" });
   }
 });
-router78.get("/coach-card/:coachId", async (req, res) => {
+router81.get("/coach-card/:coachId", async (req, res) => {
   try {
     const { coachId } = req.params;
-    let [card] = await db.select().from(arenaCoachCards).where(eq95(arenaCoachCards.coachId, coachId)).limit(1);
+    let [card] = await db.select().from(arenaCoachCards).where(eq98(arenaCoachCards.coachId, coachId)).limit(1);
     if (!card) {
       await generateCoachCard(coachId);
-      [card] = await db.select().from(arenaCoachCards).where(eq95(arenaCoachCards.coachId, coachId)).limit(1);
+      [card] = await db.select().from(arenaCoachCards).where(eq98(arenaCoachCards.coachId, coachId)).limit(1);
     }
     if (!card) return res.status(404).json({ error: "Coach card not found" });
     res.json({ card });
@@ -139985,16 +142978,16 @@ router78.get("/coach-card/:coachId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch coach card" });
   }
 });
-router78.get("/hub", async (req, res) => {
+router81.get("/hub", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
-    let [card] = await db.select().from(arenaChampionCards).where(eq95(arenaChampionCards.playerId, playerId)).limit(1);
+    let [card] = await db.select().from(arenaChampionCards).where(eq98(arenaChampionCards.playerId, playerId)).limit(1);
     if (!card) {
       await syncChampionCard(playerId);
-      [card] = await db.select().from(arenaChampionCards).where(eq95(arenaChampionCards.playerId, playerId)).limit(1);
+      [card] = await db.select().from(arenaChampionCards).where(eq98(arenaChampionCards.playerId, playerId)).limit(1);
     }
-    const [activeSeason] = await db.select().from(arenaSeasons).where(eq95(arenaSeasons.isActive, true)).limit(1);
+    const [activeSeason] = await db.select().from(arenaSeasons).where(eq98(arenaSeasons.isActive, true)).limit(1);
     const [player] = await db.select({
       name: players.name,
       profilePhotoUrl: players.profilePhotoUrl,
@@ -140005,10 +142998,10 @@ router78.get("/hub", async (req, res) => {
       glowMmr: players.glowMmr,
       level: players.level,
       glowCoins: players.glowCoins
-    }).from(players).where(eq95(players.id, playerId)).limit(1);
+    }).from(players).where(eq98(players.id, playerId)).limit(1);
     const loginReward = await checkAndAwardLoginReward(playerId);
     await maybeAssignWeeklyMissions(playerId);
-    const [{ count: collectedCount }] = await db.select({ count: drizzleSql3`count(*)` }).from(playerCollectedCards).where(eq95(playerCollectedCards.ownerId, playerId));
+    const [{ count: collectedCount }] = await db.select({ count: drizzleSql3`count(*)` }).from(playerCollectedCards).where(eq98(playerCollectedCards.ownerId, playerId));
     const { playerArenaMissions: playerArenaMissions2, arenaMissionTemplates: arenaMissionTemplates2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const missions = await db.select({
       id: playerArenaMissions2.id,
@@ -140020,10 +143013,10 @@ router78.get("/hub", async (req, res) => {
       expiresAt: playerArenaMissions2.expiresAt,
       name: arenaMissionTemplates2.name,
       description: arenaMissionTemplates2.description
-    }).from(playerArenaMissions2).leftJoin(arenaMissionTemplates2, eq95(playerArenaMissions2.templateId, arenaMissionTemplates2.id)).where(
-      and82(
-        eq95(playerArenaMissions2.playerId, playerId),
-        inArray47(playerArenaMissions2.status, ["active", "completed"])
+    }).from(playerArenaMissions2).leftJoin(arenaMissionTemplates2, eq98(playerArenaMissions2.templateId, arenaMissionTemplates2.id)).where(
+      and85(
+        eq98(playerArenaMissions2.playerId, playerId),
+        inArray49(playerArenaMissions2.status, ["active", "completed"])
       )
     ).limit(3);
     const shopCards = await getDailyShopCards();
@@ -140057,13 +143050,13 @@ router78.get("/hub", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch arena hub" });
   }
 });
-router78.get("/packs/available", async (req, res) => {
+router81.get("/packs/available", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
-    const packs = await db.select().from(arenaPacks).where(eq95(arenaPacks.isActive, true));
-    const [player] = await db.select({ glowCoins: players.glowCoins }).from(players).where(eq95(players.id, playerId)).limit(1);
-    const [pity] = await db.select().from(playerPackPity).where(eq95(playerPackPity.playerId, playerId)).limit(1);
+    const packs = await db.select().from(arenaPacks).where(eq98(arenaPacks.isActive, true));
+    const [player] = await db.select({ glowCoins: players.glowCoins }).from(players).where(eq98(players.id, playerId)).limit(1);
+    const [pity] = await db.select().from(playerPackPity).where(eq98(playerPackPity.playerId, playerId)).limit(1);
     res.json({
       packs,
       glowCoins: player?.glowCoins ?? 0,
@@ -140074,7 +143067,7 @@ router78.get("/packs/available", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch packs" });
   }
 });
-router78.post("/packs/open", async (req, res) => {
+router81.post("/packs/open", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140088,12 +143081,12 @@ router78.post("/packs/open", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to open pack" });
   }
 });
-router78.get("/collection", async (req, res) => {
+router81.get("/collection", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
     const { type } = req.query;
-    const collected = await db.select().from(playerCollectedCards).where(eq95(playerCollectedCards.ownerId, playerId)).orderBy(desc53(playerCollectedCards.obtainedAt));
+    const collected = await db.select().from(playerCollectedCards).where(eq98(playerCollectedCards.ownerId, playerId)).orderBy(desc53(playerCollectedCards.obtainedAt));
     const collectedResult = await Promise.all(
       collected.map(async (cc) => {
         if (cc.cardType === "player") {
@@ -140121,19 +143114,19 @@ router78.get("/collection", async (req, res) => {
             };
             return { collected: cc, card: card2, cardType: "player" };
           }
-          const [card] = await db.select().from(arenaPlayerCards).where(eq95(arenaPlayerCards.id, cc.cardRefId)).limit(1);
+          const [card] = await db.select().from(arenaPlayerCards).where(eq98(arenaPlayerCards.id, cc.cardRefId)).limit(1);
           return { collected: cc, card, cardType: "player" };
         } else if (cc.cardType === "coach") {
-          const [card] = await db.select().from(arenaCoachCards).where(eq95(arenaCoachCards.id, cc.cardRefId)).limit(1);
+          const [card] = await db.select().from(arenaCoachCards).where(eq98(arenaCoachCards.id, cc.cardRefId)).limit(1);
           return { collected: cc, card, cardType: "coach" };
         }
         return { collected: cc, card: null, cardType: cc.cardType };
       })
     );
-    const playerAbilities = await db.select().from(playerAbilityCards).where(eq95(playerAbilityCards.playerId, playerId));
+    const playerAbilities = await db.select().from(playerAbilityCards).where(eq98(playerAbilityCards.playerId, playerId));
     const abilityResult = await Promise.all(
       playerAbilities.map(async (pa) => {
-        const [card] = await db.select().from(arenaAbilityCards).where(eq95(arenaAbilityCards.id, pa.abilityCardId)).limit(1);
+        const [card] = await db.select().from(arenaAbilityCards).where(eq98(arenaAbilityCards.id, pa.abilityCardId)).limit(1);
         return {
           collected: {
             id: pa.id,
@@ -140161,24 +143154,24 @@ router78.get("/collection", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch collection" });
   }
 });
-router78.get("/gallery", async (req, res) => {
+router81.get("/gallery", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
     const { type = "player" } = req.query;
     if (type === "player") {
       const cards = await db.select().from(arenaPlayerCards).orderBy(desc53(arenaPlayerCards.arenaMmr)).limit(100);
-      const ownedRefs = await db.select({ cardRefId: playerCollectedCards.cardRefId }).from(playerCollectedCards).where(and82(eq95(playerCollectedCards.ownerId, playerId), eq95(playerCollectedCards.cardType, "player")));
+      const ownedRefs = await db.select({ cardRefId: playerCollectedCards.cardRefId }).from(playerCollectedCards).where(and85(eq98(playerCollectedCards.ownerId, playerId), eq98(playerCollectedCards.cardType, "player")));
       const ownedSet = new Set(ownedRefs.map((r) => r.cardRefId));
       res.json({ cards: cards.map((c) => ({ ...c, isOwned: ownedSet.has(c.id) })) });
     } else if (type === "coach") {
       const cards = await db.select().from(arenaCoachCards).limit(100);
-      const ownedRefs = await db.select({ cardRefId: playerCollectedCards.cardRefId }).from(playerCollectedCards).where(and82(eq95(playerCollectedCards.ownerId, playerId), eq95(playerCollectedCards.cardType, "coach")));
+      const ownedRefs = await db.select({ cardRefId: playerCollectedCards.cardRefId }).from(playerCollectedCards).where(and85(eq98(playerCollectedCards.ownerId, playerId), eq98(playerCollectedCards.cardType, "coach")));
       const ownedSet = new Set(ownedRefs.map((r) => r.cardRefId));
       res.json({ cards: cards.map((c) => ({ ...c, isOwned: ownedSet.has(c.id) })) });
     } else {
       const cards = await db.select().from(arenaAbilityCards);
-      const ownedRefs = await db.select({ abilityCardId: playerAbilityCards.abilityCardId }).from(playerAbilityCards).where(eq95(playerAbilityCards.playerId, playerId));
+      const ownedRefs = await db.select({ abilityCardId: playerAbilityCards.abilityCardId }).from(playerAbilityCards).where(eq98(playerAbilityCards.playerId, playerId));
       const ownedSet = new Set(ownedRefs.map((r) => r.abilityCardId));
       res.json({ cards: cards.map((c) => ({ ...c, isOwned: ownedSet.has(c.id) })) });
     }
@@ -140187,7 +143180,7 @@ router78.get("/gallery", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch gallery" });
   }
 });
-router78.get("/missions", async (req, res) => {
+router81.get("/missions", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140206,14 +143199,14 @@ router78.get("/missions", async (req, res) => {
       name: arenaMissionTemplates2.name,
       description: arenaMissionTemplates2.description,
       targetAction: arenaMissionTemplates2.targetAction
-    }).from(playerArenaMissions2).leftJoin(arenaMissionTemplates2, eq95(playerArenaMissions2.templateId, arenaMissionTemplates2.id)).where(eq95(playerArenaMissions2.playerId, playerId)).orderBy(desc53(playerArenaMissions2.createdAt));
+    }).from(playerArenaMissions2).leftJoin(arenaMissionTemplates2, eq98(playerArenaMissions2.templateId, arenaMissionTemplates2.id)).where(eq98(playerArenaMissions2.playerId, playerId)).orderBy(desc53(playerArenaMissions2.createdAt));
     res.json({ missions });
   } catch (err) {
     console.error("[arena] GET /missions:", err);
     res.status(500).json({ error: "Failed to fetch missions" });
   }
 });
-router78.post("/missions/:missionId/claim", async (req, res) => {
+router81.post("/missions/:missionId/claim", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140225,7 +143218,7 @@ router78.post("/missions/:missionId/claim", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to claim mission" });
   }
 });
-router78.get("/shop", async (req, res) => {
+router81.get("/shop", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140233,13 +143226,13 @@ router78.get("/shop", async (req, res) => {
     const { arenaShopDailyPurchases: arenaShopDailyPurchases2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
     const purchases = await db.select({ abilityCardId: arenaShopDailyPurchases2.abilityCardId }).from(arenaShopDailyPurchases2).where(
-      and82(
-        eq95(arenaShopDailyPurchases2.playerId, playerId),
-        eq95(arenaShopDailyPurchases2.purchaseDate, today)
+      and85(
+        eq98(arenaShopDailyPurchases2.playerId, playerId),
+        eq98(arenaShopDailyPurchases2.purchaseDate, today)
       )
     );
     const boughtSet = new Set(purchases.map((p) => p.abilityCardId));
-    const [player] = await db.select({ glowCoins: players.glowCoins }).from(players).where(eq95(players.id, playerId)).limit(1);
+    const [player] = await db.select({ glowCoins: players.glowCoins }).from(players).where(eq98(players.id, playerId)).limit(1);
     res.json({
       cards: shopCards.map((c) => ({ ...c, alreadyBought: boughtSet.has(c.id) })),
       glowCoins: player?.glowCoins ?? 0
@@ -140249,7 +143242,7 @@ router78.get("/shop", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch shop" });
   }
 });
-router78.post("/shop/buy", async (req, res) => {
+router81.post("/shop/buy", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140262,7 +143255,7 @@ router78.post("/shop/buy", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to buy card" });
   }
 });
-router78.post("/quick-draw", async (req, res) => {
+router81.post("/quick-draw", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140275,28 +143268,28 @@ router78.post("/quick-draw", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Quick draw failed" });
   }
 });
-router78.get("/badges", async (req, res) => {
+router81.get("/badges", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
     const { playerArenaBadges: playerArenaBadges2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const badges2 = await db.select().from(playerArenaBadges2).where(eq95(playerArenaBadges2.playerId, playerId)).orderBy(desc53(playerArenaBadges2.earnedAt));
+    const badges2 = await db.select().from(playerArenaBadges2).where(eq98(playerArenaBadges2.playerId, playerId)).orderBy(desc53(playerArenaBadges2.earnedAt));
     res.json({ badges: badges2 });
   } catch (err) {
     console.error("[arena] GET /badges:", err);
     res.status(500).json({ error: "Failed to fetch badges" });
   }
 });
-router78.post("/wishlist/toggle", async (req, res) => {
+router81.post("/wishlist/toggle", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
     const { cardRefId, cardType = "player" } = req.body;
     if (!cardRefId) return res.status(400).json({ error: "cardRefId required" });
     const { cardWishlists: cardWishlists2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const [existing] = await db.select().from(cardWishlists2).where(and82(eq95(cardWishlists2.playerId, playerId), eq95(cardWishlists2.cardRefId, cardRefId))).limit(1);
+    const [existing] = await db.select().from(cardWishlists2).where(and85(eq98(cardWishlists2.playerId, playerId), eq98(cardWishlists2.cardRefId, cardRefId))).limit(1);
     if (existing) {
-      await db.delete(cardWishlists2).where(and82(eq95(cardWishlists2.playerId, playerId), eq95(cardWishlists2.cardRefId, cardRefId)));
+      await db.delete(cardWishlists2).where(and85(eq98(cardWishlists2.playerId, playerId), eq98(cardWishlists2.cardRefId, cardRefId)));
       res.json({ wishlisted: false });
     } else {
       await db.insert(cardWishlists2).values({ playerId, cardRefId, cardType });
@@ -140318,9 +143311,9 @@ async function handleLoginReward(req, res) {
     res.status(500).json({ error: "Failed to process login reward" });
   }
 }
-router78.get("/login-reward", handleLoginReward);
-router78.post("/login-reward", handleLoginReward);
-router78.get("/daily-challenge", async (req, res) => {
+router81.get("/login-reward", handleLoginReward);
+router81.post("/login-reward", handleLoginReward);
+router81.get("/daily-challenge", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140331,7 +143324,7 @@ router78.get("/daily-challenge", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch daily challenge" });
   }
 });
-router78.post("/daily-challenge/claim", async (req, res) => {
+router81.post("/daily-challenge/claim", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140350,7 +143343,7 @@ router78.post("/daily-challenge/claim", async (req, res) => {
     res.status(500).json({ error: "Failed to claim daily challenge tier" });
   }
 });
-router78.post("/admin/backfill", async (req, res) => {
+router81.post("/admin/backfill", async (req, res) => {
   try {
     if (!["platform_owner", "admin"].includes(req.user?.role ?? "")) {
       return res.status(403).json({ error: "Forbidden" });
@@ -140362,7 +143355,7 @@ router78.post("/admin/backfill", async (req, res) => {
     res.status(500).json({ error: "Backfill failed" });
   }
 });
-router78.get("/squad", async (req, res) => {
+router81.get("/squad", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140373,7 +143366,7 @@ router78.get("/squad", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch squad" });
   }
 });
-router78.get("/squad/collection", async (req, res) => {
+router81.get("/squad/collection", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140385,7 +143378,7 @@ router78.get("/squad/collection", async (req, res) => {
       conqueredRibbon: playerCollectedCards.conqueredRibbon,
       isNemesis: playerCollectedCards.isNemesis,
       cardVariant: playerCollectedCards.cardVariant
-    }).from(playerCollectedCards).where(eq95(playerCollectedCards.ownerId, playerId));
+    }).from(playerCollectedCards).where(eq98(playerCollectedCards.ownerId, playerId));
     const enriched = await Promise.all(
       collected.map(async (c) => {
         if (c.cardType === "player") {
@@ -140398,7 +143391,7 @@ router78.get("/squad/collection", async (req, res) => {
             statTechnique: arenaPlayerCards.statTechnique,
             statMental: arenaPlayerCards.statMental,
             statTactics: arenaPlayerCards.statTactics
-          }).from(arenaPlayerCards).where(eq95(arenaPlayerCards.id, c.cardRefId)).limit(1);
+          }).from(arenaPlayerCards).where(eq98(arenaPlayerCards.id, c.cardRefId)).limit(1);
           return {
             id: c.id,
             cardType: c.cardType,
@@ -140422,7 +143415,7 @@ router78.get("/squad/collection", async (req, res) => {
             coachName: arenaCoachCards2.coachName,
             rarityTier: arenaCoachCards2.rarityTier,
             statCoachingPower: arenaCoachCards2.statCoachingPower
-          }).from(arenaCoachCards2).where(eq95(arenaCoachCards2.id, c.cardRefId)).limit(1);
+          }).from(arenaCoachCards2).where(eq98(arenaCoachCards2.id, c.cardRefId)).limit(1);
           return {
             id: c.id,
             cardType: c.cardType,
@@ -140444,7 +143437,7 @@ router78.get("/squad/collection", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch collection" });
   }
 });
-router78.post("/squad/preview", async (req, res) => {
+router81.post("/squad/preview", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140462,7 +143455,7 @@ router78.post("/squad/preview", async (req, res) => {
     res.status(500).json({ error: "Failed to preview squad" });
   }
 });
-router78.post("/squad/save", async (req, res) => {
+router81.post("/squad/save", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140475,7 +143468,7 @@ router78.post("/squad/save", async (req, res) => {
   }
 });
 var FREE_UNRANKED_DAILY_LIMIT = 3;
-router78.post("/battles/challenge", async (req, res) => {
+router81.post("/battles/challenge", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140493,18 +143486,18 @@ router78.post("/battles/challenge", async (req, res) => {
             AND is_ranked = false
             AND created_at >= ${startOfDay.toISOString()}
         `);
-        const count19 = Number(unrankedToday[0]?.cnt ?? 0);
-        if (count19 >= FREE_UNRANKED_DAILY_LIMIT) {
+        const count20 = Number(unrankedToday[0]?.cnt ?? 0);
+        if (count20 >= FREE_UNRANKED_DAILY_LIMIT) {
           return res.status(403).json({
             error: `Unlimited unranked battles require Arena Pass. Free limit: ${FREE_UNRANKED_DAILY_LIMIT}/day.`,
             code: "ARENA_PASS_REQUIRED",
-            usedToday: count19,
+            usedToday: count20,
             dailyLimit: FREE_UNRANKED_DAILY_LIMIT
           });
         }
       }
     }
-    const [me] = await db.select({ academyId: players.academyId }).from(players).where(eq95(players.id, playerId)).limit(1);
+    const [me] = await db.select({ academyId: players.academyId }).from(players).where(eq98(players.id, playerId)).limit(1);
     const result = await challengePlayer(playerId, opponentId, {
       wagerCoins,
       wagerCardIdInitiator,
@@ -140518,7 +143511,7 @@ router78.post("/battles/challenge", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to challenge" });
   }
 });
-router78.post("/battles/:id/accept", async (req, res) => {
+router81.post("/battles/:id/accept", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140530,7 +143523,7 @@ router78.post("/battles/:id/accept", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to accept battle" });
   }
 });
-router78.post("/battles/:id/decline", async (req, res) => {
+router81.post("/battles/:id/decline", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140541,7 +143534,7 @@ router78.post("/battles/:id/decline", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to decline battle" });
   }
 });
-router78.post("/battles/:id/turn", async (req, res) => {
+router81.post("/battles/:id/turn", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140553,7 +143546,7 @@ router78.post("/battles/:id/turn", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to play turn" });
   }
 });
-router78.get("/battles/:id/state", async (req, res) => {
+router81.get("/battles/:id/state", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140564,16 +143557,16 @@ router78.get("/battles/:id/state", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to get battle state" });
   }
 });
-router78.get("/battles", async (req, res) => {
+router81.get("/battles", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
     const { arenaBattles: arenaBattlesTable } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { or: or30 } = await import("drizzle-orm");
+    const { or: or31 } = await import("drizzle-orm");
     const battles = await db.select().from(arenaBattlesTable).where(
-      and82(
-        or30(eq95(arenaBattlesTable.initiatorId, playerId), eq95(arenaBattlesTable.opponentId, playerId)),
-        or30(eq95(arenaBattlesTable.status, "pending"), eq95(arenaBattlesTable.status, "active"))
+      and85(
+        or31(eq98(arenaBattlesTable.initiatorId, playerId), eq98(arenaBattlesTable.opponentId, playerId)),
+        or31(eq98(arenaBattlesTable.status, "pending"), eq98(arenaBattlesTable.status, "active"))
       )
     ).orderBy(desc53(arenaBattlesTable.createdAt)).limit(20);
     res.json({ battles });
@@ -140582,7 +143575,7 @@ router78.get("/battles", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch battles" });
   }
 });
-router78.get("/battle-history", async (req, res) => {
+router81.get("/battle-history", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140593,7 +143586,7 @@ router78.get("/battle-history", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch battle history" });
   }
 });
-router78.get("/season/current", async (req, res) => {
+router81.get("/season/current", async (req, res) => {
   try {
     const result = await getCurrentSeason();
     res.json(result);
@@ -140602,12 +143595,12 @@ router78.get("/season/current", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch season" });
   }
 });
-router78.get("/leaderboard", async (req, res) => {
+router81.get("/leaderboard", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
     const scope = req.query.scope ?? "global";
-    const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq95(players.id, playerId)).limit(1);
+    const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq98(players.id, playerId)).limit(1);
     const entries = await getLeaderboard(scope, player?.academyId ?? void 0, 50);
     let myEntry = entries.find((e) => e.playerId === playerId) ?? null;
     if (!myEntry) {
@@ -140647,7 +143640,7 @@ router78.get("/leaderboard", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch leaderboard" });
   }
 });
-router78.get("/bounties/most-wanted", async (req, res) => {
+router81.get("/bounties/most-wanted", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140658,7 +143651,7 @@ router78.get("/bounties/most-wanted", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch most wanted bounties" });
   }
 });
-router78.get("/bounties", async (req, res) => {
+router81.get("/bounties", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140669,7 +143662,7 @@ router78.get("/bounties", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch bounties" });
   }
 });
-router78.get("/bounties/active", async (req, res) => {
+router81.get("/bounties/active", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140680,7 +143673,7 @@ router78.get("/bounties/active", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch bounties" });
   }
 });
-router78.post("/bounties", async (req, res) => {
+router81.post("/bounties", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140693,7 +143686,7 @@ router78.post("/bounties", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to place bounty" });
   }
 });
-router78.get("/nemesis/stolen-cards", async (req, res) => {
+router81.get("/nemesis/stolen-cards", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140704,20 +143697,20 @@ router78.get("/nemesis/stolen-cards", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch stolen cards" });
   }
 });
-router78.get("/my-abilities", async (req, res) => {
+router81.get("/my-abilities", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
     const playerCards = await db.select({
       id: playerAbilityCards.abilityCardId,
       quantity: playerAbilityCards.quantity
-    }).from(playerAbilityCards).where(and82(eq95(playerAbilityCards.playerId, playerId))).limit(30);
+    }).from(playerAbilityCards).where(and85(eq98(playerAbilityCards.playerId, playerId))).limit(30);
     if (playerCards.length === 0) {
       res.json({ cards: [] });
       return;
     }
     const cardIds = playerCards.map((c) => c.id);
-    const cards = await db.select().from(arenaAbilityCards).where(inArray47(arenaAbilityCards.id, cardIds));
+    const cards = await db.select().from(arenaAbilityCards).where(inArray49(arenaAbilityCards.id, cardIds));
     const enriched = cards.map((c) => {
       const owned = playerCards.find((p) => p.id === c.id);
       return {
@@ -140737,7 +143730,7 @@ router78.get("/my-abilities", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch abilities" });
   }
 });
-router78.post("/coach/powerup/:playerId", async (req, res) => {
+router81.post("/coach/powerup/:playerId", async (req, res) => {
   try {
     const coachId = req.user?.coachId;
     if (!coachId) return res.status(403).json({ error: "Coach account required" });
@@ -140750,7 +143743,7 @@ router78.post("/coach/powerup/:playerId", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to apply powerup" });
   }
 });
-router78.post("/admin/ghost-penalties", async (req, res) => {
+router81.post("/admin/ghost-penalties", async (req, res) => {
   try {
     if (!["platform_owner", "admin"].includes(req.user?.role ?? "")) {
       return res.status(403).json({ error: "Forbidden" });
@@ -140762,7 +143755,7 @@ router78.post("/admin/ghost-penalties", async (req, res) => {
     res.status(500).json({ error: "Failed to apply ghost penalties" });
   }
 });
-router78.get("/trophy-room", async (req, res) => {
+router81.get("/trophy-room", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140832,7 +143825,7 @@ router78.get("/trophy-room", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch trophy room" });
   }
 });
-router78.post("/trophy-room/pin", async (req, res) => {
+router81.post("/trophy-room/pin", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -140848,7 +143841,7 @@ router78.post("/trophy-room/pin", async (req, res) => {
     res.status(500).json({ error: "Failed to pin trophy" });
   }
 });
-router78.post("/academy-clash/challenge", async (req, res) => {
+router81.post("/academy-clash/challenge", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     const coachId = req.user?.coachId;
@@ -140857,7 +143850,7 @@ router78.post("/academy-clash/challenge", async (req, res) => {
     if (!targetAcademyId) return res.status(400).json({ error: "targetAcademyId required" });
     let myAcademyId;
     if (playerId) {
-      const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq95(players.id, playerId)).limit(1);
+      const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq98(players.id, playerId)).limit(1);
       myAcademyId = player?.academyId;
     }
     if (!myAcademyId && coachId) {
@@ -140910,7 +143903,7 @@ router78.post("/academy-clash/challenge", async (req, res) => {
     res.status(500).json({ error: "Failed to create challenge" });
   }
 });
-router78.post("/academy-clash/:clashId/accept", async (req, res) => {
+router81.post("/academy-clash/:clashId/accept", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     const coachId = req.user?.coachId;
@@ -140967,11 +143960,11 @@ router78.post("/academy-clash/:clashId/accept", async (req, res) => {
     res.status(500).json({ error: "Failed to accept challenge" });
   }
 });
-router78.get("/academy-clash", async (req, res) => {
+router81.get("/academy-clash", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
-    const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq95(players.id, playerId)).limit(1);
+    const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq98(players.id, playerId)).limit(1);
     const myAcademyId = player?.academyId ?? null;
     const [activeResult, historyResult] = await Promise.all([
       db.execute(drizzleSql3`
@@ -141031,7 +144024,7 @@ router78.get("/academy-clash", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch academy clashes" });
   }
 });
-router78.post("/academy-clash/:clashId/contribute", async (req, res) => {
+router81.post("/academy-clash/:clashId/contribute", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -141047,7 +144040,7 @@ router78.post("/academy-clash/:clashId/contribute", async (req, res) => {
     if (String(clash.status) !== "active") {
       return res.status(409).json({ error: "Clash is not active" });
     }
-    const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq95(players.id, playerId)).limit(1);
+    const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq98(players.id, playerId)).limit(1);
     const playerAcademyId = player?.academyId;
     const isParticipant = playerAcademyId && (String(clash.academy_a_id) === String(playerAcademyId) || String(clash.academy_b_id) === String(playerAcademyId));
     if (!isParticipant) {
@@ -141100,8 +144093,8 @@ router78.post("/academy-clash/:clashId/contribute", async (req, res) => {
       return res.status(409).json({ error: "Battle has no winner recorded yet" });
     }
     const [initiatorAcademy, opponentAcademy] = await Promise.all([
-      db.select({ academyId: players.academyId }).from(players).where(eq95(players.id, String(battle.initiator_id))).limit(1),
-      db.select({ academyId: players.academyId }).from(players).where(eq95(players.id, String(battle.opponent_id))).limit(1)
+      db.select({ academyId: players.academyId }).from(players).where(eq98(players.id, String(battle.initiator_id))).limit(1),
+      db.select({ academyId: players.academyId }).from(players).where(eq98(players.id, String(battle.opponent_id))).limit(1)
     ]);
     const initiatorAcId = String(initiatorAcademy[0]?.academyId ?? "");
     const opponentAcId = String(opponentAcademy[0]?.academyId ?? "");
@@ -141109,7 +144102,7 @@ router78.post("/academy-clash/:clashId/contribute", async (req, res) => {
     if (!clashAcIds.has(initiatorAcId) || !clashAcIds.has(opponentAcId)) {
       return res.status(409).json({ error: "Battle participants do not belong to this clash's academies" });
     }
-    const [winnerPlayer] = await db.select({ academyId: players.academyId }).from(players).where(eq95(players.id, String(battle.winner_id))).limit(1);
+    const [winnerPlayer] = await db.select({ academyId: players.academyId }).from(players).where(eq98(players.id, String(battle.winner_id))).limit(1);
     const winnerAcademy = winnerPlayer?.academyId ?? null;
     await db.execute(drizzleSql3`
       WITH inserted AS (
@@ -141132,7 +144125,7 @@ router78.post("/academy-clash/:clashId/contribute", async (req, res) => {
     res.status(500).json({ error: "Failed to contribute to clash" });
   }
 });
-router78.get("/tournaments", async (req, res) => {
+router81.get("/tournaments", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -141184,7 +144177,7 @@ router78.get("/tournaments", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch tournaments" });
   }
 });
-router78.post("/tournaments/:id/register", async (req, res) => {
+router81.post("/tournaments/:id/register", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -141351,7 +144344,7 @@ router78.post("/tournaments/:id/register", async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to register" });
   }
 });
-router78.get("/players", authMiddlewareWithFreshData, async (req, res) => {
+router81.get("/players", authMiddlewareWithFreshData, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     const q = String(req.query.q ?? "").trim();
@@ -141371,7 +144364,7 @@ router78.get("/players", authMiddlewareWithFreshData, async (req, res) => {
     res.status(500).json({ error: "Failed to search players" });
   }
 });
-router78.post("/battle/:battleId/activate-shield", async (req, res) => {
+router81.post("/battle/:battleId/activate-shield", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -141412,7 +144405,7 @@ router78.post("/battle/:battleId/activate-shield", async (req, res) => {
     res.status(500).json({ error: "Failed to activate Battle Shield" });
   }
 });
-router78.get("/predictions", requireAcademyPass, async (req, res) => {
+router81.get("/predictions", requireAcademyPass, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -141443,14 +144436,14 @@ router78.get("/predictions", requireAcademyPass, async (req, res) => {
       createdAt: r.created_at,
       resolvedAt: r.resolved_at
     }));
-    const [player] = await db.select({ glowCoins: players.glowCoins }).from(players).where(eq95(players.id, playerId)).limit(1);
+    const [player] = await db.select({ glowCoins: players.glowCoins }).from(players).where(eq98(players.id, playerId)).limit(1);
     res.json({ predictions, glowCoins: player?.glowCoins ?? 0 });
   } catch (err) {
     console.error("[arena] GET /predictions:", err);
     res.status(500).json({ error: "Failed to fetch predictions" });
   }
 });
-router78.post("/predictions", requireAcademyPass, async (req, res) => {
+router81.post("/predictions", requireAcademyPass, async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -141474,7 +144467,7 @@ router78.post("/predictions", requireAcademyPass, async (req, res) => {
     if (allowedWinners.includes(playerId)) {
       return res.status(400).json({ error: "Match participants cannot predict on their own match" });
     }
-    const [predictorRow] = await db.select({ academyId: players.academyId }).from(players).where(eq95(players.id, playerId)).limit(1);
+    const [predictorRow] = await db.select({ academyId: players.academyId }).from(players).where(eq98(players.id, playerId)).limit(1);
     if (predictorRow?.academyId) {
       const initiatorId = String(match.initiator_id ?? "");
       const receiverId = String(match.receiver_id ?? "");
@@ -141532,7 +144525,7 @@ router78.post("/predictions", requireAcademyPass, async (req, res) => {
     res.status(400).json({ error: err instanceof Error ? err.message : "Failed to place prediction" });
   }
 });
-router78.post("/predictions/resolve", async (req, res) => {
+router81.post("/predictions/resolve", async (req, res) => {
   try {
     const role = req.user?.role;
     if (!["platform_owner", "admin"].includes(role ?? "")) {
@@ -141549,7 +144542,7 @@ router78.post("/predictions/resolve", async (req, res) => {
     res.status(500).json({ error: "Failed to resolve predictions" });
   }
 });
-router78.get("/status", async (req, res) => {
+router81.get("/status", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -141606,7 +144599,7 @@ router78.get("/status", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch arena status" });
   }
 });
-router78.get("/hall-of-fame", async (req, res) => {
+router81.get("/hall-of-fame", async (req, res) => {
   try {
     const hofResult = await db.execute(drizzleSql3`
       SELECT id, player_id, player_name, profile_photo_url, achievement, season, inducted_at
@@ -141630,14 +144623,14 @@ router78.get("/hall-of-fame", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch Hall of Fame" });
   }
 });
-var arena_default = router78;
+var arena_default = router81;
 
 // server/routes/arena-monetisation.ts
 init_db();
 init_schema();
 init_auth();
-import { Router as Router78 } from "express";
-import { eq as eq96, sql as drizzleSql4 } from "drizzle-orm";
+import { Router as Router81 } from "express";
+import { eq as eq99, sql as drizzleSql4 } from "drizzle-orm";
 init_arena_card_service();
 ensureArenaMigrations().catch(
   (err) => console.error("[arena-monetisation] Migration failed:", err)
@@ -141674,8 +144667,8 @@ async function verifyIAPWithRevenueCat(appUserId, productId, transactionId) {
     return false;
   }
 }
-var router79 = Router78();
-router79.use(authMiddlewareWithFreshData);
+var router82 = Router81();
+router82.use(authMiddlewareWithFreshData);
 var COIN_BUNDLE_MAP = {
   "com.glowupsports.app.coins.200": 200,
   "com.glowupsports.app.coins.550": 550,
@@ -141718,7 +144711,7 @@ var ACADEMY_REVENUE_RATE = 0.12;
 var ARENA_PASS_PRODUCT_ID = "com.glowupsports.app.arena.pass.monthly";
 async function creditAcademyRevenueCents(playerId, priceCents) {
   try {
-    const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq96(players.id, playerId)).limit(1);
+    const [player] = await db.select({ academyId: players.academyId }).from(players).where(eq99(players.id, playerId)).limit(1);
     if (!player?.academyId) return;
     const share = Math.round(priceCents * ACADEMY_REVENUE_RATE);
     if (share <= 0) return;
@@ -141788,7 +144781,7 @@ async function maybeNotify80PercentLimit(playerId, spent, limit) {
   } catch {
   }
 }
-router79.get("/products", (_req, res) => {
+router82.get("/products", (_req, res) => {
   res.json({
     coinBundles: [
       { productId: "com.glowupsports.app.coins.200", coins: 200, labelKey: "coins_200", displayName: "200 Coins", badge: null, guidePrice: "\u20AC0.99" },
@@ -141868,7 +144861,7 @@ async function handleCoinsVerify(req, res) {
         (SELECT glow_coins FROM coin_grant) AS glow_coins
     `);
     if (!grantResult?.purchase_id) {
-      const [player] = await db.select({ glowCoins: players.glowCoins }).from(players).where(eq96(players.id, playerId)).limit(1);
+      const [player] = await db.select({ glowCoins: players.glowCoins }).from(players).where(eq99(players.id, playerId)).limit(1);
       return res.json({ alreadyCredited: true, glowCoins: player?.glowCoins ?? 0, coinsAwarded: coinsToCredit });
     }
     if (limitCheck.limit !== null) {
@@ -141884,7 +144877,7 @@ async function handleCoinsVerify(req, res) {
     res.status(500).json({ error: "Failed to process coin purchase" });
   }
 }
-router79.post("/coins/verify", handleCoinsVerify);
+router82.post("/coins/verify", handleCoinsVerify);
 async function handlePackVerify(req, res) {
   try {
     const playerId = req.user?.playerId;
@@ -141938,7 +144931,7 @@ async function handlePackVerify(req, res) {
     res.status(500).json({ error: "Failed to process pack purchase" });
   }
 }
-router79.post("/pack/verify", handlePackVerify);
+router82.post("/pack/verify", handlePackVerify);
 async function handleCosmeticVerify(req, res) {
   try {
     const playerId = req.user?.playerId;
@@ -141989,8 +144982,8 @@ async function handleCosmeticVerify(req, res) {
     res.status(500).json({ error: "Failed to unlock cosmetic" });
   }
 }
-router79.post("/cosmetic/verify", handleCosmeticVerify);
-router79.post("/pack/gift", async (req, res) => {
+router82.post("/cosmetic/verify", handleCosmeticVerify);
+router82.post("/pack/gift", async (req, res) => {
   try {
     const buyerPlayerId = req.user?.playerId;
     if (!buyerPlayerId) return res.status(403).json({ error: "Player account required" });
@@ -142003,7 +144996,7 @@ router79.post("/pack/gift", async (req, res) => {
     }
     const packTier = PACK_IAP_MAP[productId];
     if (!packTier) return res.status(400).json({ error: "Unknown pack product" });
-    const [recipient] = await db.select({ id: players.id, name: players.name }).from(players).where(eq96(players.id, recipientPlayerId)).limit(1);
+    const [recipient] = await db.select({ id: players.id, name: players.name }).from(players).where(eq99(players.id, recipientPlayerId)).limit(1);
     if (!recipient) return res.status(404).json({ error: "Recipient player not found" });
     const rcValid = await verifyIAPWithRevenueCat(buyerPlayerId, productId, transactionId);
     if (!rcValid) {
@@ -142049,7 +145042,7 @@ router79.post("/pack/gift", async (req, res) => {
     res.status(500).json({ error: "Failed to process gift pack" });
   }
 });
-router79.get("/cosmetics", async (req, res) => {
+router82.get("/cosmetics", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -142072,7 +145065,7 @@ router79.get("/cosmetics", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch cosmetics" });
   }
 });
-router79.get("/arena-pass", async (req, res) => {
+router82.get("/arena-pass", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -142117,8 +145110,8 @@ async function handleArenaPassVerify(req, res) {
     res.status(500).json({ error: "Failed to verify Arena Pass" });
   }
 }
-router79.post("/arena-pass/verify", handleArenaPassVerify);
-router79.get("/spending-limit", async (req, res) => {
+router82.post("/arena-pass/verify", handleArenaPassVerify);
+router82.get("/spending-limit", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -142144,7 +145137,7 @@ router79.get("/spending-limit", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch spending limit" });
   }
 });
-router79.post("/spending-limit", async (req, res) => {
+router82.post("/spending-limit", async (req, res) => {
   try {
     const role = req.user?.role;
     const requestingUserId = req.user?.userId;
@@ -142193,7 +145186,7 @@ router79.post("/spending-limit", async (req, res) => {
     res.status(500).json({ error: "Failed to set spending limit" });
   }
 });
-router79.get("/academy-revenue", async (req, res) => {
+router82.get("/academy-revenue", async (req, res) => {
   try {
     const role = req.user?.role;
     const coachId = req.user?.coachId;
@@ -142246,7 +145239,7 @@ router79.get("/academy-revenue", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch academy revenue" });
   }
 });
-router79.post("/print-order", async (req, res) => {
+router82.post("/print-order", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -142271,7 +145264,7 @@ router79.post("/print-order", async (req, res) => {
     res.status(500).json({ error: "Failed to create print order" });
   }
 });
-router79.post("/hall-of-fame/seal", async (req, res) => {
+router82.post("/hall-of-fame/seal", async (req, res) => {
   try {
     const role = req.user?.role;
     if (!["platform_owner", "admin"].includes(role ?? "")) {
@@ -142318,7 +145311,7 @@ router79.post("/hall-of-fame/seal", async (req, res) => {
     res.status(500).json({ error: "Failed to seal Hall of Fame" });
   }
 });
-router79.get("/evolutions", async (req, res) => {
+router82.get("/evolutions", async (req, res) => {
   try {
     const playerId = req.user?.playerId;
     if (!playerId) return res.status(403).json({ error: "Player account required" });
@@ -142349,7 +145342,7 @@ router79.get("/evolutions", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch evolutions" });
   }
 });
-router79.post("/sponsor-pack", async (req, res) => {
+router82.post("/sponsor-pack", async (req, res) => {
   try {
     const role = req.user?.role;
     if (!["platform_owner", "admin"].includes(role ?? "")) {
@@ -142380,7 +145373,7 @@ router79.post("/sponsor-pack", async (req, res) => {
     res.status(500).json({ error: "Failed to create sponsor pack" });
   }
 });
-router79.post("/verify", (req, res) => {
+router82.post("/verify", (req, res) => {
   const { productId } = req.body;
   if (!productId) {
     res.status(400).json({ error: "productId required" });
@@ -142398,7 +145391,7 @@ router79.post("/verify", (req, res) => {
     res.status(400).json({ error: "Unknown productId", productId });
   }
 });
-var arena_monetisation_default = router79;
+var arena_monetisation_default = router82;
 
 // server/routes/match-results.ts
 init_db();
@@ -142406,9 +145399,9 @@ init_schema();
 init_auth();
 init_pushNotifications();
 init_arena_card_service();
-import { Router as Router79 } from "express";
-import { eq as eq97, inArray as inArray48 } from "drizzle-orm";
-var router80 = Router79();
+import { Router as Router82 } from "express";
+import { eq as eq100, inArray as inArray50 } from "drizzle-orm";
+var router83 = Router82();
 var AUTO_CONFIRM_MS = 24 * 60 * 60 * 1e3;
 function formatScoreDisplay(sets) {
   if (!sets || sets.length === 0) return "";
@@ -142458,7 +145451,7 @@ async function enrichRows(rows, viewerPlayerId) {
   }
   const profileMap = /* @__PURE__ */ new Map();
   if (playerIds.size > 0) {
-    const pRows = await db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl }).from(players).where(inArray48(players.id, [...playerIds]));
+    const pRows = await db.select({ id: players.id, name: players.name, profilePhotoUrl: players.profilePhotoUrl }).from(players).where(inArray50(players.id, [...playerIds]));
     for (const p of pRows) {
       profileMap.set(p.id, { name: p.name, photoUrl: p.profilePhotoUrl });
     }
@@ -142488,7 +145481,7 @@ async function enrichRows(rows, viewerPlayerId) {
     };
   });
 }
-router80.post(
+router83.post(
   "/api/player/me/match-results",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -142508,7 +145501,7 @@ router80.post(
       const score = Array.isArray(scoreJson) ? scoreJson : [];
       let resolvedOpponentId = opponentId ?? null;
       if (resolvedOpponentId) {
-        const [opp] = await db.select({ id: players.id }).from(players).where(eq97(players.id, resolvedOpponentId)).limit(1);
+        const [opp] = await db.select({ id: players.id }).from(players).where(eq100(players.id, resolvedOpponentId)).limit(1);
         if (!opp) resolvedOpponentId = null;
       }
       const insertResult = await pool.query(
@@ -142529,7 +145522,7 @@ router80.post(
       const row = insertResult.rows[0];
       if (resolvedOpponentId) {
         try {
-          const [loggerPlayer] = await db.select({ name: players.name }).from(players).where(eq97(players.id, playerId)).limit(1);
+          const [loggerPlayer] = await db.select({ name: players.name }).from(players).where(eq100(players.id, playerId)).limit(1);
           const tokens = await getPlayerPushTokens(resolvedOpponentId);
           if (tokens.length > 0) {
             const scoreStr = score.length > 0 ? ` (${formatScoreDisplay(score)})` : "";
@@ -142553,7 +145546,7 @@ router80.post(
     }
   }
 );
-router80.get(
+router83.get(
   "/api/player/me/match-results",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -142590,7 +145583,7 @@ router80.get(
     }
   }
 );
-router80.post(
+router83.post(
   "/api/player/match-results/:id/confirm",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -142634,7 +145627,7 @@ router80.post(
     }
   }
 );
-router80.post(
+router83.post(
   "/api/player/match-results/:id/reject",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -142665,7 +145658,7 @@ router80.post(
     }
   }
 );
-router80.get(
+router83.get(
   "/api/player/players/:playerId/match-results",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -142690,7 +145683,7 @@ router80.get(
     }
   }
 );
-router80.get(
+router83.get(
   "/api/coach/players/:playerId/match-results",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -142724,7 +145717,7 @@ router80.get(
     }
   }
 );
-router80.get(
+router83.get(
   "/api/player/search-players",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -142756,7 +145749,7 @@ router80.get(
     }
   }
 );
-var match_results_default = router80;
+var match_results_default = router83;
 
 // server/routes/promptpay.ts
 init_db();
@@ -142764,13 +145757,13 @@ init_storage();
 init_schema();
 init_auth();
 import crypto14 from "crypto";
-import { Router as Router80 } from "express";
-import { sql as sql57, eq as eq99 } from "drizzle-orm";
+import { Router as Router83 } from "express";
+import { sql as sql57, eq as eq102 } from "drizzle-orm";
 
 // server/services/opnPaymentsService.ts
 init_db();
 init_schema();
-import { eq as eq98 } from "drizzle-orm";
+import { eq as eq101 } from "drizzle-orm";
 function makeBasicAuth(secretKey) {
   return "Basic " + Buffer.from(secretKey + ":").toString("base64");
 }
@@ -142797,7 +145790,7 @@ async function getAcademyOpnKeys(academyId) {
     opnPublicKey: academySettings.opnPublicKey,
     opnSecretKey: academySettings.opnSecretKey,
     promptPayEnabled: academySettings.promptPayEnabled
-  }).from(academySettings).where(eq98(academySettings.academyId, academyId)).limit(1);
+  }).from(academySettings).where(eq101(academySettings.academyId, academyId)).limit(1);
   if (!row?.opnPublicKey || !row?.opnSecretKey || !row?.promptPayEnabled) {
     return null;
   }
@@ -142807,7 +145800,7 @@ async function getAcademyOpnKeysForVerification(academyId) {
   const [row] = await db.select({
     opnPublicKey: academySettings.opnPublicKey,
     opnSecretKey: academySettings.opnSecretKey
-  }).from(academySettings).where(eq98(academySettings.academyId, academyId)).limit(1);
+  }).from(academySettings).where(eq101(academySettings.academyId, academyId)).limit(1);
   if (!row?.opnPublicKey || !row?.opnSecretKey) {
     return null;
   }
@@ -142873,12 +145866,12 @@ function parseOpnWebhookEvent(body) {
 
 // server/routes/promptpay.ts
 init_credit_engine();
-var router81 = Router80();
+var router84 = Router83();
 async function getAcademyPromptPaySettings(academyId) {
   const [row] = await db.select({
     promptPayEnabled: academySettings.promptPayEnabled,
     opnPublicKey: academySettings.opnPublicKey
-  }).from(academySettings).where(eq99(academySettings.academyId, academyId)).limit(1);
+  }).from(academySettings).where(eq102(academySettings.academyId, academyId)).limit(1);
   return row ?? null;
 }
 function verifyOpnWebhookToken(req) {
@@ -142895,7 +145888,7 @@ function verifyOpnWebhookToken(req) {
   const expected = crypto14.createHmac("sha256", secret).update(rawBody).digest("hex");
   return crypto14.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
 }
-router81.post(
+router84.post(
   "/api/player/promptpay/create-charge",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -142985,7 +145978,7 @@ router81.post(
     }
   }
 );
-router81.get(
+router84.get(
   "/api/player/promptpay/status/:chargeId",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -143031,7 +146024,7 @@ router81.get(
     }
   }
 );
-router81.post(
+router84.post(
   "/api/coach/promptpay/create-charge",
   authMiddlewareWithFreshData,
   async (req, res) => {
@@ -143091,7 +146084,7 @@ router81.post(
     }
   }
 );
-router81.post(
+router84.post(
   "/api/webhooks/opn",
   async (req, res) => {
     try {
@@ -143185,7 +146178,7 @@ router81.post(
     }
   }
 );
-var promptpay_default = router81;
+var promptpay_default = router84;
 
 // server/routes.ts
 var _authLimiter = rateLimit5({
@@ -143202,33 +146195,33 @@ var _inviteLimiter = rateLimit5({
   standardHeaders: true,
   legacyHeaders: false
 });
-var diagnosticsReportSchema = z20.object({
-  errorId: z20.string().min(1).max(128),
-  severity: z20.enum(["error", "warning", "info", "critical"]).optional(),
-  message: z20.string().min(1).max(2e3),
-  stack: z20.string().max(1e4).optional().nullable(),
-  screen: z20.string().max(256).optional().nullable(),
-  context: z20.record(z20.unknown()).optional().nullable(),
-  userComment: z20.string().max(1e3).optional().nullable(),
-  platform: z20.string().max(32).optional().nullable(),
-  appVersion: z20.string().max(64).optional().nullable(),
-  deviceInfo: z20.union([z20.string().max(2e3), z20.record(z20.unknown())]).optional().nullable()
+var diagnosticsReportSchema = z23.object({
+  errorId: z23.string().min(1).max(128),
+  severity: z23.enum(["error", "warning", "info", "critical"]).optional(),
+  message: z23.string().min(1).max(2e3),
+  stack: z23.string().max(1e4).optional().nullable(),
+  screen: z23.string().max(256).optional().nullable(),
+  context: z23.record(z23.unknown()).optional().nullable(),
+  userComment: z23.string().max(1e3).optional().nullable(),
+  platform: z23.string().max(32).optional().nullable(),
+  appVersion: z23.string().max(64).optional().nullable(),
+  deviceInfo: z23.union([z23.string().max(2e3), z23.record(z23.unknown())]).optional().nullable()
 });
 var UPLOADS_DIR2 = path10.join(process.cwd(), "uploads");
 var COURT_PHOTOS_DIR2 = path10.join(UPLOADS_DIR2, "court-photos");
 var PROFILE_PHOTOS_DIR2 = path10.join(UPLOADS_DIR2, "profile-photos");
 var SOCIAL_POSTS_DIR2 = path10.join(UPLOADS_DIR2, "social-posts");
-if (!fs10.existsSync(UPLOADS_DIR2)) {
-  fs10.mkdirSync(UPLOADS_DIR2, { recursive: true });
+if (!fs11.existsSync(UPLOADS_DIR2)) {
+  fs11.mkdirSync(UPLOADS_DIR2, { recursive: true });
 }
-if (!fs10.existsSync(COURT_PHOTOS_DIR2)) {
-  fs10.mkdirSync(COURT_PHOTOS_DIR2, { recursive: true });
+if (!fs11.existsSync(COURT_PHOTOS_DIR2)) {
+  fs11.mkdirSync(COURT_PHOTOS_DIR2, { recursive: true });
 }
-if (!fs10.existsSync(PROFILE_PHOTOS_DIR2)) {
-  fs10.mkdirSync(PROFILE_PHOTOS_DIR2, { recursive: true });
+if (!fs11.existsSync(PROFILE_PHOTOS_DIR2)) {
+  fs11.mkdirSync(PROFILE_PHOTOS_DIR2, { recursive: true });
 }
-if (!fs10.existsSync(SOCIAL_POSTS_DIR2)) {
-  fs10.mkdirSync(SOCIAL_POSTS_DIR2, { recursive: true });
+if (!fs11.existsSync(SOCIAL_POSTS_DIR2)) {
+  fs11.mkdirSync(SOCIAL_POSTS_DIR2, { recursive: true });
 }
 var courtPhotoStorage = multer5.diskStorage({
   destination: (_req, _file, cb) => {
@@ -143350,11 +146343,11 @@ async function registerRoutes(app2) {
   setFeatureUnlockChecker({
     isFeatureUnlocked: async (playerId, featureKey) => {
       try {
-        const [player] = await db.select({ level: players.level }).from(players).where(eq101(players.id, playerId));
+        const [player] = await db.select({ level: players.level }).from(players).where(eq104(players.id, playerId));
         if (!player) return false;
         const playerLevel = player.level || 1;
         const { playerFeatureUnlocks: playerFeatureUnlocks2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const [feature] = await db.select().from(playerFeatureUnlocks2).where(eq101(playerFeatureUnlocks2.featureKey, featureKey));
+        const [feature] = await db.select().from(playerFeatureUnlocks2).where(eq104(playerFeatureUnlocks2.featureKey, featureKey));
         if (!feature) return true;
         if (!feature.isActive) return true;
         return playerLevel >= feature.requiredLevel;
@@ -143408,6 +146401,8 @@ async function registerRoutes(app2) {
   app2.use(admin_setup_default);
   app2.use(admin_credit_integrity_default);
   app2.use(admin_chat_default);
+  app2.use(admin_court_bookings_default);
+  app2.use(admin_broadcast_default);
   app2.use(player_credits_default);
   app2.use(credits_v2_default);
   app2.use(player_progress_default);
@@ -143417,6 +146412,7 @@ async function registerRoutes(app2) {
   app2.use(coach_analytics_default);
   app2.use(academy_settings_default);
   app2.use(academy_pricing_default);
+  app2.use(coach_tier_pricing_default);
   app2.use(platform_owner_default);
   app2.use(feature_interest_default);
   app2.use(player_sessions_default);
@@ -143453,7 +146449,7 @@ async function registerRoutes(app2) {
       try {
         const userId = req.user.userId;
         const key = `user_onboarding_${userId}`;
-        const existing = await db.select().from(platformConfig).where(eq101(platformConfig.key, key)).limit(1);
+        const existing = await db.select().from(platformConfig).where(eq104(platformConfig.key, key)).limit(1);
         const state = existing.length > 0 ? existing[0].value : {};
         res.json({ state });
       } catch (error) {
@@ -143468,16 +146464,16 @@ async function registerRoutes(app2) {
     async (req, res) => {
       try {
         const userId = req.user.userId;
-        const onboardingStateSchema = z20.object({ key: z20.string().min(1).max(128), value: z20.unknown() });
+        const onboardingStateSchema = z23.object({ key: z23.string().min(1).max(128), value: z23.unknown() });
         const parsedOnboarding = onboardingStateSchema.safeParse(req.body);
         if (!parsedOnboarding.success) return res.status(400).json({ error: fromZodError15(parsedOnboarding.error).message });
         const { key: bodyKey, value: bodyValue } = parsedOnboarding.data;
         const configKey = `user_onboarding_${userId}`;
-        const existing = await db.select().from(platformConfig).where(eq101(platformConfig.key, configKey)).limit(1);
+        const existing = await db.select().from(platformConfig).where(eq104(platformConfig.key, configKey)).limit(1);
         const currentState = existing.length > 0 ? existing[0].value : {};
         const updatedState = { ...currentState, [bodyKey]: bodyValue };
         if (existing.length > 0) {
-          await db.update(platformConfig).set({ value: updatedState, updatedAt: /* @__PURE__ */ new Date() }).where(eq101(platformConfig.key, configKey));
+          await db.update(platformConfig).set({ value: updatedState, updatedAt: /* @__PURE__ */ new Date() }).where(eq104(platformConfig.key, configKey));
         } else {
           await db.insert(platformConfig).values({ key: configKey, value: updatedState, updatedBy: userId });
         }
@@ -143530,26 +146526,26 @@ async function registerRoutes(app2) {
           month: "long",
           year: "numeric"
         });
-        const [player] = await db.select().from(players).where(eq101(players.id, playerId));
+        const [player] = await db.select().from(players).where(eq104(players.id, playerId));
         if (!player) {
           return res.status(404).json({ error: "Player not found" });
         }
-        const [user] = await db.select().from(users).where(eq101(users.playerId, playerId));
+        const [user] = await db.select().from(users).where(eq104(users.playerId, playerId));
         if (!user?.email) {
           return res.status(400).json({ error: "Player has no email address" });
         }
-        const [academy] = player.academyId ? await db.select().from(academies).where(eq101(academies.id, player.academyId)) : [null];
+        const [academy] = player.academyId ? await db.select().from(academies).where(eq104(academies.id, player.academyId)) : [null];
         const sessionAttendance = await db.select({
           sessionId: sessionPlayers.sessionId,
           attendanceStatus: sessionPlayers.attendanceStatus,
           sessionType: sessions.sessionType,
           coachId: sessions.coachId,
           startTime: sessions.startTime
-        }).from(sessionPlayers).innerJoin(sessions, eq101(sessionPlayers.sessionId, sessions.id)).where(
-          and84(
-            eq101(sessionPlayers.playerId, playerId),
-            gte46(sessions.startTime, startDate),
-            lte24(sessions.startTime, endDate)
+        }).from(sessionPlayers).innerJoin(sessions, eq104(sessionPlayers.sessionId, sessions.id)).where(
+          and87(
+            eq104(sessionPlayers.playerId, playerId),
+            gte47(sessions.startTime, startDate),
+            lte25(sessions.startTime, endDate)
           )
         );
         const lessonsTotal = sessionAttendance.length;
@@ -143571,24 +146567,24 @@ async function registerRoutes(app2) {
           typeCountMap[type] = (typeCountMap[type] || 0) + 1;
         });
         const lessonsByType = Object.entries(typeCountMap).map(
-          ([type, count19]) => ({
+          ([type, count20]) => ({
             type: type.charAt(0).toUpperCase() + type.slice(1).replace("_", " "),
-            count: count19
+            count: count20
           })
         );
         const coachIds = [
           ...new Set(sessionAttendance.map((s) => s.coachId).filter(Boolean))
         ];
-        const coachesData = coachIds.length > 0 ? await db.select({ id: coaches.id, displayName: coaches.name }).from(coaches).where(inArray49(coaches.id, coachIds)) : [];
+        const coachesData = coachIds.length > 0 ? await db.select({ id: coaches.id, displayName: coaches.name }).from(coaches).where(inArray51(coaches.id, coachIds)) : [];
         const coachNames = coachesData.map((c) => c.displayName || "Coach");
         const courtBookingsData = await db.select({
           id: courtBookings.id,
           durationMinutes: courtBookings.durationMinutes
         }).from(courtBookings).where(
-          and84(
-            eq101(courtBookings.playerId, playerId),
-            gte46(courtBookings.date, startDate.toISOString().split("T")[0]),
-            lte24(courtBookings.date, endDate.toISOString().split("T")[0])
+          and87(
+            eq104(courtBookings.playerId, playerId),
+            gte47(courtBookings.date, startDate.toISOString().split("T")[0]),
+            lte25(courtBookings.date, endDate.toISOString().split("T")[0])
           )
         );
         const courtsBooked = courtBookingsData.length;
@@ -143606,20 +146602,20 @@ async function registerRoutes(app2) {
           // happens below.
           result: matchLogs.result
         }).from(matchLogs).where(
-          and84(
-            eq101(matchLogs.playerId, playerId),
-            gte46(matchLogs.createdAt, startDate),
-            lte24(matchLogs.createdAt, endDate)
+          and87(
+            eq104(matchLogs.playerId, playerId),
+            gte47(matchLogs.createdAt, startDate),
+            lte25(matchLogs.createdAt, endDate)
           )
         );
         const matchesPlayed = matchesData.length;
         const matchesWon = matchesData.filter((m) => m.result === "won").length;
         const matchesLost = matchesPlayed - matchesWon;
         const xpData = await db.select({ xpAmount: xpTransactions.xpAmount }).from(xpTransactions).where(
-          and84(
-            eq101(xpTransactions.playerId, playerId),
-            gte46(xpTransactions.createdAt, startDate),
-            lte24(xpTransactions.createdAt, endDate)
+          and87(
+            eq104(xpTransactions.playerId, playerId),
+            gte47(xpTransactions.createdAt, startDate),
+            lte25(xpTransactions.createdAt, endDate)
           )
         );
         const xpEarned = xpData.reduce((sum3, x) => sum3 + (x.xpAmount || 0), 0);
@@ -143708,7 +146704,7 @@ async function registerRoutes(app2) {
             remaining: data.remaining
           })
         );
-        const [ballLevel] = await db.select({ ballLevel: playerBallLevels.levelId }).from(playerBallLevels).where(eq101(playerBallLevels.playerId, playerId)).limit(1);
+        const [ballLevel] = await db.select({ ballLevel: playerBallLevels.levelId }).from(playerBallLevels).where(eq104(playerBallLevels.playerId, playerId)).limit(1);
         const glowLevel = ballLevel?.ballLevel ? ballLevel.ballLevel.charAt(0).toUpperCase() + ballLevel.ballLevel.slice(1).toLowerCase() : void 0;
         const { sendMonthlyReportEmail: sendMonthlyReportEmail2 } = await Promise.resolve().then(() => (init_emailService(), emailService_exports));
         const result = await sendMonthlyReportEmail2({
@@ -143842,12 +146838,12 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to submit report" });
     }
   });
-  const diagnosticsUiIssueSchema = z20.object({
-    severity: z20.string().max(32).optional(),
-    message: z20.string().min(1).max(2e3),
-    screen: z20.string().max(256).optional().nullable(),
-    context: z20.record(z20.unknown()).optional().nullable(),
-    userComment: z20.string().max(1e3).optional().nullable()
+  const diagnosticsUiIssueSchema = z23.object({
+    severity: z23.string().max(32).optional(),
+    message: z23.string().min(1).max(2e3),
+    screen: z23.string().max(256).optional().nullable(),
+    context: z23.record(z23.unknown()).optional().nullable(),
+    userComment: z23.string().max(1e3).optional().nullable()
   });
   app2.post(
     "/api/diagnostics/ui-issue",
@@ -144166,7 +147162,7 @@ async function registerRoutes(app2) {
       if (!isoCode) {
         const academyId = req.user?.academyId;
         if (academyId) {
-          const [academy] = await db.select({ country: academies.country, timezone: academies.timezone }).from(academies).where(eq101(academies.id, academyId)).limit(1);
+          const [academy] = await db.select({ country: academies.country, timezone: academies.timezone }).from(academies).where(eq104(academies.id, academyId)).limit(1);
           if (academy?.country) {
             isoCode = COUNTRY_ISO[academy.country];
           }
@@ -144525,7 +147521,7 @@ async function registerRoutes(app2) {
 
 // server/index.ts
 init_pushNotifications();
-import * as fs12 from "fs";
+import * as fs13 from "fs";
 import * as http from "http";
 import * as path12 from "path";
 import { createProxyMiddleware } from "http-proxy-middleware";
@@ -144534,13 +147530,13 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 init_db();
 init_schema();
 init_pushNotifications();
-import { eq as eq102, and as and85, lt as lt11, gte as gte47, lte as lte25, isNotNull as isNotNull20, isNull as isNull20, or as or29 } from "drizzle-orm";
+import { eq as eq105, and as and88, lt as lt12, gte as gte48, lte as lte26, isNotNull as isNotNull20, isNull as isNull20, or as or30 } from "drizzle-orm";
 var EXPIRY_INTERVAL_MS = 5 * 60 * 1e3;
 async function classifyStaleGroupJoinRequest(req) {
   if (!req.sessionId) {
     return { kind: "declined", reason: "response_timeout" };
   }
-  const [session] = await db.select().from(sessions).where(eq102(sessions.id, req.sessionId)).limit(1);
+  const [session] = await db.select().from(sessions).where(eq105(sessions.id, req.sessionId)).limit(1);
   if (!session) {
     return { kind: "declined", reason: "response_timeout" };
   }
@@ -144550,14 +147546,14 @@ async function classifyStaleGroupJoinRequest(req) {
   if (session.startTime && new Date(session.startTime).getTime() <= Date.now()) {
     return { kind: "declined", reason: "response_timeout" };
   }
-  const enrolled = await db.select({ id: sessionPlayers.id, playerId: sessionPlayers.playerId }).from(sessionPlayers).where(eq102(sessionPlayers.sessionId, req.sessionId));
+  const enrolled = await db.select({ id: sessionPlayers.id, playerId: sessionPlayers.playerId }).from(sessionPlayers).where(eq105(sessionPlayers.sessionId, req.sessionId));
   if (enrolled.some((sp) => sp.playerId === req.playerId)) {
     return { kind: "auto_accepted", reason: "auto_accepted_on_timeout" };
   }
   const offered = await db.select({ id: sessionWaitlist.id }).from(sessionWaitlist).where(
-    and85(
-      eq102(sessionWaitlist.sessionId, req.sessionId),
-      eq102(sessionWaitlist.status, "offered")
+    and88(
+      eq105(sessionWaitlist.sessionId, req.sessionId),
+      eq105(sessionWaitlist.status, "offered")
     )
   );
   const maxPlayers = session.maxPlayers ?? 6;
@@ -144567,7 +147563,7 @@ async function classifyStaleGroupJoinRequest(req) {
   }
   const { minLevel, maxLevel } = session;
   if (minLevel != null || maxLevel != null) {
-    const [player] = await db.select({ level: players.level }).from(players).where(eq102(players.id, req.playerId)).limit(1);
+    const [player] = await db.select({ level: players.level }).from(players).where(eq105(players.id, req.playerId)).limit(1);
     const playerLevel = player?.level ?? 1;
     if (minLevel != null && playerLevel < minLevel) {
       return { kind: "declined", reason: "level_mismatch" };
@@ -144590,7 +147586,7 @@ async function autoAcceptGroupJoin(req, now) {
         respondedAt: now,
         responseNote: "Auto-accepted on timeout \u2014 spot was still open",
         updatedAt: now
-      }).where(eq102(bookingRequests.id, req.id));
+      }).where(eq105(bookingRequests.id, req.id));
     }
   );
   if (!result.ok) {
@@ -144653,14 +147649,14 @@ async function notifyAutoAccept(req) {
   let coachName = "your coach";
   if (req.coachId) {
     try {
-      const [c] = await db.select({ name: coaches.name }).from(coaches).where(eq102(coaches.id, req.coachId)).limit(1);
+      const [c] = await db.select({ name: coaches.name }).from(coaches).where(eq105(coaches.id, req.coachId)).limit(1);
       if (c?.name) coachName = c.name;
     } catch {
     }
   }
   let playerName = "Player";
   try {
-    const [p] = await db.select({ name: players.name }).from(players).where(eq102(players.id, req.playerId)).limit(1);
+    const [p] = await db.select({ name: players.name }).from(players).where(eq105(players.id, req.playerId)).limit(1);
     if (p?.name) playerName = p.name;
   } catch {
   }
@@ -144751,13 +147747,13 @@ async function declineExpiredRequest(req, now, reason) {
     responseNote: noteByReason[reason],
     respondedAt: now,
     updatedAt: now
-  }).where(eq102(bookingRequests.id, req.id));
+  }).where(eq105(bookingRequests.id, req.id));
   if (req.courtId) {
     try {
       await db.delete(courtAvailability).where(
-        and85(
-          eq102(courtAvailability.courtId, req.courtId),
-          eq102(courtAvailability.blockedReason, `booking_request:${req.id}`)
+        and88(
+          eq105(courtAvailability.courtId, req.courtId),
+          eq105(courtAvailability.blockedReason, `booking_request:${req.id}`)
         )
       );
     } catch {
@@ -144769,12 +147765,12 @@ async function processExpiredBookings() {
   try {
     const now = /* @__PURE__ */ new Date();
     const expired = await db.select().from(bookingRequests).where(
-      and85(
-        or29(
-          eq102(bookingRequests.status, "pending"),
-          eq102(bookingRequests.status, "awaiting_player_reply")
+      and88(
+        or30(
+          eq105(bookingRequests.status, "pending"),
+          eq105(bookingRequests.status, "awaiting_player_reply")
         ),
-        lt11(bookingRequests.expiresAt, now)
+        lt12(bookingRequests.expiresAt, now)
       )
     );
     if (expired.length > 0) {
@@ -144829,18 +147825,18 @@ async function processPreLessonReminders() {
     const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1e3);
     const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1e3);
     const upcoming = await db.select().from(bookingRequests).where(
-      and85(
-        eq102(bookingRequests.status, "approved"),
+      and88(
+        eq105(bookingRequests.status, "approved"),
         isNotNull20(bookingRequests.sessionId),
-        gte47(bookingRequests.requestedStart, windowStart),
-        lte25(bookingRequests.requestedStart, windowEnd),
+        gte48(bookingRequests.requestedStart, windowStart),
+        lte26(bookingRequests.requestedStart, windowEnd),
         isNull20(bookingRequests.preLessonReminderSentAt)
       )
     );
     for (const req of upcoming) {
       if (!req.playerId) continue;
       try {
-        await db.update(bookingRequests).set({ preLessonReminderSentAt: now }).where(eq102(bookingRequests.id, req.id));
+        await db.update(bookingRequests).set({ preLessonReminderSentAt: now }).where(eq105(bookingRequests.id, req.id));
         const sessionStart = new Date(req.requestedStart);
         const sessionDate = sessionStart.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
         const sessionTime = sessionStart.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -144892,7 +147888,7 @@ function startBookingExpiryJob() {
 // server/playerOfWeekJob.ts
 init_db();
 init_schema();
-import { and as and86, eq as eq103, gte as gte48, lt as lt12, inArray as inArray50, sql as sql59, isNotNull as isNotNull21 } from "drizzle-orm";
+import { and as and89, eq as eq106, gte as gte49, lt as lt13, inArray as inArray52, sql as sql59, isNotNull as isNotNull21 } from "drizzle-orm";
 var WEEKLY_INTERVAL_MS = 7 * 24 * 60 * 60 * 1e3;
 var MIN_MATCHES_FOR_AWARD = 3;
 async function computeTopByXP(playerIds, weekStart, weekEnd) {
@@ -144901,10 +147897,10 @@ async function computeTopByXP(playerIds, weekStart, weekEnd) {
     playerId: playerXpEvents.playerId,
     xp: sql59`COALESCE(SUM(${playerXpEvents.xpAmount}), 0)::int`.as("xp")
   }).from(playerXpEvents).where(
-    and86(
-      inArray50(playerXpEvents.playerId, playerIds),
-      gte48(playerXpEvents.createdAt, weekStart),
-      lt12(playerXpEvents.createdAt, weekEnd)
+    and89(
+      inArray52(playerXpEvents.playerId, playerIds),
+      gte49(playerXpEvents.createdAt, weekStart),
+      lt13(playerXpEvents.createdAt, weekEnd)
     )
   ).groupBy(playerXpEvents.playerId);
   const matchAgg = await aggregatePlayerMatches(playerIds, weekStart, weekEnd);
@@ -144918,14 +147914,14 @@ async function computeTopByXP(playerIds, weekStart, weekEnd) {
 }
 async function awardForAcademy(academyId, weekStartIso, weekStart, weekEnd) {
   const [existing] = await db.select({ id: playerOfWeek.id }).from(playerOfWeek).where(
-    and86(
-      eq103(playerOfWeek.scope, "academy"),
-      eq103(playerOfWeek.scopeId, academyId),
-      eq103(playerOfWeek.weekStart, weekStartIso)
+    and89(
+      eq106(playerOfWeek.scope, "academy"),
+      eq106(playerOfWeek.scopeId, academyId),
+      eq106(playerOfWeek.weekStart, weekStartIso)
     )
   ).limit(1);
   if (existing) return;
-  const playerRows = await db.select({ id: players.id }).from(players).where(eq103(players.academyId, academyId));
+  const playerRows = await db.select({ id: players.id }).from(players).where(eq106(players.academyId, academyId));
   const playerIds = playerRows.map((r) => r.id);
   if (playerIds.length === 0) return;
   const candidates = await computeTopByXP(playerIds, weekStart, weekEnd);
@@ -144940,8 +147936,8 @@ async function awardForAcademy(academyId, weekStartIso, weekStart, weekEnd) {
     matchesPlayed: winner.matches
   });
   try {
-    const [winnerInfo] = await db.select({ name: players.name }).from(players).where(eq103(players.id, winner.playerId)).limit(1);
-    const [winnerUser] = await db.select({ id: users.id }).from(users).where(eq103(users.playerId, winner.playerId)).limit(1);
+    const [winnerInfo] = await db.select({ name: players.name }).from(players).where(eq106(players.id, winner.playerId)).limit(1);
+    const [winnerUser] = await db.select({ id: users.id }).from(users).where(eq106(users.playerId, winner.playerId)).limit(1);
     if (winnerUser?.id) {
       await db.insert(posts).values({
         authorId: winnerUser.id,
@@ -144960,15 +147956,15 @@ async function awardForAcademy(academyId, weekStartIso, weekStart, weekEnd) {
 }
 async function awardForCountry(country, weekStartIso, weekStart, weekEnd) {
   const [existing] = await db.select({ id: playerOfWeek.id }).from(playerOfWeek).where(
-    and86(
-      eq103(playerOfWeek.scope, "country"),
-      eq103(playerOfWeek.scopeId, country),
-      eq103(playerOfWeek.weekStart, weekStartIso)
+    and89(
+      eq106(playerOfWeek.scope, "country"),
+      eq106(playerOfWeek.scopeId, country),
+      eq106(playerOfWeek.weekStart, weekStartIso)
     )
   ).limit(1);
   if (existing) return;
-  const academyMatchedRows = await db.selectDistinct({ id: players.id }).from(players).innerJoin(academies, eq103(academies.id, players.academyId)).where(eq103(academies.country, country));
-  const directMatchedRows = await db.selectDistinct({ id: players.id }).from(players).where(eq103(players.country, country));
+  const academyMatchedRows = await db.selectDistinct({ id: players.id }).from(players).innerJoin(academies, eq106(academies.id, players.academyId)).where(eq106(academies.country, country));
+  const directMatchedRows = await db.selectDistinct({ id: players.id }).from(players).where(eq106(players.country, country));
   const playerIdSet = /* @__PURE__ */ new Set();
   for (const r of academyMatchedRows) playerIdSet.add(r.id);
   for (const r of directMatchedRows) playerIdSet.add(r.id);
@@ -144986,8 +147982,8 @@ async function awardForCountry(country, weekStartIso, weekStart, weekEnd) {
     matchesPlayed: winner.matches
   });
   try {
-    const [winnerInfo] = await db.select({ name: players.name, academyId: players.academyId }).from(players).where(eq103(players.id, winner.playerId)).limit(1);
-    const [winnerUser] = await db.select({ id: users.id }).from(users).where(eq103(users.playerId, winner.playerId)).limit(1);
+    const [winnerInfo] = await db.select({ name: players.name, academyId: players.academyId }).from(players).where(eq106(players.id, winner.playerId)).limit(1);
+    const [winnerUser] = await db.select({ id: users.id }).from(users).where(eq106(users.playerId, winner.playerId)).limit(1);
     if (winnerUser?.id) {
       await db.insert(posts).values({
         authorId: winnerUser.id,
@@ -145064,7 +148060,7 @@ function startPlayerOfWeekJob() {
 // server/familyGraduationJob.ts
 init_db();
 init_schema();
-import { eq as eq104, inArray as inArray51, sql as sql60 } from "drizzle-orm";
+import { eq as eq107, inArray as inArray53, sql as sql60 } from "drizzle-orm";
 var _DAY_MS = 24 * 60 * 60 * 1e3;
 var TICK_INTERVAL_MS = 60 * 60 * 1e3;
 var intervalHandle = null;
@@ -145085,14 +148081,14 @@ async function existingNotification(recipientPlayerId, key) {
   return Array.isArray(rows?.rows) ? rows.rows.length > 0 : false;
 }
 async function notifyForGraduate(graduatePlayerId, dateKey, daysUntil) {
-  const [graduate] = await db.select({ id: players.id, name: players.name }).from(players).where(eq104(players.id, graduatePlayerId)).limit(1);
+  const [graduate] = await db.select({ id: players.id, name: players.name }).from(players).where(eq107(players.id, graduatePlayerId)).limit(1);
   if (!graduate) return;
-  const [grad] = await db.select({ playerId: accountGraduation.playerId }).from(accountGraduation).where(eq104(accountGraduation.playerId, graduatePlayerId)).limit(1);
+  const [grad] = await db.select({ playerId: accountGraduation.playerId }).from(accountGraduation).where(eq107(accountGraduation.playerId, graduatePlayerId)).limit(1);
   if (grad) return;
-  const groupRows = await db.select({ familyGroupId: familyMembers.familyGroupId }).from(familyMembers).where(eq104(familyMembers.playerId, graduatePlayerId));
+  const groupRows = await db.select({ familyGroupId: familyMembers.familyGroupId }).from(familyMembers).where(eq107(familyMembers.playerId, graduatePlayerId));
   if (groupRows.length === 0) return;
   const groupIds = groupRows.map((r) => r.familyGroupId);
-  const memberRows = await db.select({ playerId: familyMembers.playerId }).from(familyMembers).where(inArray51(familyMembers.familyGroupId, groupIds));
+  const memberRows = await db.select({ playerId: familyMembers.playerId }).from(familyMembers).where(inArray53(familyMembers.familyGroupId, groupIds));
   const recipientIds = Array.from(new Set(memberRows.map((m) => m.playerId)));
   const key = `${graduatePlayerId}:${dateKey}`;
   for (const recipientId of recipientIds) {
@@ -145408,7 +148404,7 @@ function startFeedPruneScheduler() {
 init_db();
 init_schema();
 init_pushNotifications();
-import { and as and87, eq as eq105, gte as gte49, inArray as inArray52, lte as lte26 } from "drizzle-orm";
+import { and as and90, eq as eq108, gte as gte50, inArray as inArray54, lte as lte27 } from "drizzle-orm";
 var PICKUP_INTERVAL_MS = 60 * 1e3;
 var PICKUP_LEAD_MIN = 10;
 var PICKUP_WINDOW_MS = 5 * 60 * 1e3;
@@ -145424,10 +148420,10 @@ async function runPickupReminders() {
       endTime: sessions.endTime,
       status: sessions.status
     }).from(sessions).where(
-      and87(
-        gte49(sessions.endTime, earliest),
-        lte26(sessions.endTime, latest),
-        eq105(sessions.reminder30mSent, false)
+      and90(
+        gte50(sessions.endTime, earliest),
+        lte27(sessions.endTime, latest),
+        eq108(sessions.reminder30mSent, false)
       )
     );
     if (candidateSessions.length === 0) return;
@@ -145438,15 +148434,15 @@ async function runPickupReminders() {
       playerId: sessionPlayers.playerId,
       playerName: players.name,
       endTime: sessions.endTime
-    }).from(sessionPlayers).innerJoin(players, eq105(sessionPlayers.playerId, players.id)).innerJoin(sessions, eq105(sessionPlayers.sessionId, sessions.id)).where(inArray52(sessionPlayers.sessionId, sessionIds));
+    }).from(sessionPlayers).innerJoin(players, eq108(sessionPlayers.playerId, players.id)).innerJoin(sessions, eq108(sessionPlayers.sessionId, sessions.id)).where(inArray54(sessionPlayers.sessionId, sessionIds));
     if (enrolments.length === 0) return;
     const enrolledPlayerIds = Array.from(new Set(enrolments.map((e) => e.playerId).filter((id) => id !== null)));
     const familyRows = await db.select({
       playerId: familyMembers.playerId,
       familyGroupId: familyMembers.familyGroupId
-    }).from(familyMembers).where(inArray52(familyMembers.playerId, enrolledPlayerIds));
+    }).from(familyMembers).where(inArray54(familyMembers.playerId, enrolledPlayerIds));
     if (familyRows.length === 0) {
-      await db.update(sessions).set({ reminder30mSent: true }).where(inArray52(sessions.id, sessionIds));
+      await db.update(sessions).set({ reminder30mSent: true }).where(inArray54(sessions.id, sessionIds));
       return;
     }
     const familyGroupByPlayer = /* @__PURE__ */ new Map();
@@ -145457,7 +148453,7 @@ async function runPickupReminders() {
     const allFamilyMemberRows = await db.select({
       familyGroupId: familyMembers.familyGroupId,
       playerId: familyMembers.playerId
-    }).from(familyMembers).where(inArray52(familyMembers.familyGroupId, allFamilyGroupIds));
+    }).from(familyMembers).where(inArray54(familyMembers.familyGroupId, allFamilyGroupIds));
     const recipientsByGroup = /* @__PURE__ */ new Map();
     for (const row of allFamilyMemberRows) {
       const list = recipientsByGroup.get(row.familyGroupId) ?? [];
@@ -145471,9 +148467,9 @@ async function runPickupReminders() {
       playerId: pushDeviceTokens.playerId,
       token: pushDeviceTokens.token
     }).from(pushDeviceTokens).where(
-      and87(
-        inArray52(pushDeviceTokens.playerId, recipientPlayerIds),
-        eq105(pushDeviceTokens.isActive, true)
+      and90(
+        inArray54(pushDeviceTokens.playerId, recipientPlayerIds),
+        eq108(pushDeviceTokens.isActive, true)
       )
     ) : [];
     const tokensByPlayer = /* @__PURE__ */ new Map();
@@ -145523,7 +148519,7 @@ async function runPickupReminders() {
     }
     const allCandidateIds = Array.from(new Set(sessionIds));
     if (allCandidateIds.length > 0) {
-      await db.update(sessions).set({ reminder30mSent: true }).where(inArray52(sessions.id, allCandidateIds));
+      await db.update(sessions).set({ reminder30mSent: true }).where(inArray54(sessions.id, allCandidateIds));
     }
   } catch (err) {
     console.error("[FamilyPickup] Job failed:", err);
@@ -145548,7 +148544,7 @@ function startFamilyPickupNotificationsJob() {
 init_db();
 init_schema();
 init_pushNotifications();
-import { eq as eq106, and as and88, gte as gte50, lte as lte27, isNotNull as isNotNull22, inArray as inArray53 } from "drizzle-orm";
+import { eq as eq109, and as and91, gte as gte51, lte as lte28, isNotNull as isNotNull22, inArray as inArray55, sql as sql61 } from "drizzle-orm";
 var TICK_INTERVAL_MS2 = 60 * 60 * 1e3;
 var intervalHandle2 = null;
 var lastRunByAcademy = /* @__PURE__ */ new Map();
@@ -145575,9 +148571,9 @@ function localDateKey(timezone) {
 }
 async function getSentReminderKeys(playerId) {
   const rows = await db.select({ data: playerNotifications.data }).from(playerNotifications).where(
-    and88(
-      eq106(playerNotifications.playerId, playerId),
-      eq106(playerNotifications.type, "court_booking_reminder")
+    and91(
+      eq109(playerNotifications.playerId, playerId),
+      eq109(playerNotifications.type, "court_booking_reminder")
     )
   );
   const keys = /* @__PURE__ */ new Set();
@@ -145589,10 +148585,10 @@ async function getSentReminderKeys(playerId) {
 }
 async function isPlayerConfirmedForSession(playerId, sessionId) {
   const [conf] = await db.select({ id: courtBookingConfirmations.id }).from(courtBookingConfirmations).where(
-    and88(
-      eq106(courtBookingConfirmations.playerId, playerId),
-      eq106(courtBookingConfirmations.sessionId, sessionId),
-      eq106(courtBookingConfirmations.status, "confirmed")
+    and91(
+      eq109(courtBookingConfirmations.playerId, playerId),
+      eq109(courtBookingConfirmations.sessionId, sessionId),
+      eq109(courtBookingConfirmations.status, "confirmed")
     )
   ).limit(1);
   return !!conf;
@@ -145609,27 +148605,27 @@ async function processSeriesReminders(series) {
     const dayEnd = new Date(targetDate);
     dayEnd.setUTCHours(23, 59, 59, 999);
     const daySessions = await db.select({ id: sessions.id, startTime: sessions.startTime }).from(sessions).where(
-      and88(
-        eq106(sessions.seriesId, series.id),
-        eq106(sessions.status, "scheduled"),
-        gte50(sessions.startTime, dayStart),
-        lte27(sessions.startTime, dayEnd)
+      and91(
+        eq109(sessions.seriesId, series.id),
+        eq109(sessions.status, "scheduled"),
+        gte51(sessions.startTime, dayStart),
+        lte28(sessions.startTime, dayEnd)
       )
     );
     for (const session of daySessions) {
-      const enrolled = await db.select({ playerId: seriesPlayers.playerId, playerName: players.name }).from(seriesPlayers).innerJoin(players, eq106(players.id, seriesPlayers.playerId)).where(
-        and88(
-          eq106(seriesPlayers.seriesId, series.id),
-          eq106(seriesPlayers.status, "active")
+      const enrolled = await db.select({ playerId: seriesPlayers.playerId, playerName: players.name }).from(seriesPlayers).innerJoin(players, eq109(players.id, seriesPlayers.playerId)).where(
+        and91(
+          eq109(seriesPlayers.seriesId, series.id),
+          eq109(seriesPlayers.status, "active")
         )
       );
       const groupFilter = series.courtReminderGroupIds;
       let targetEnrolled = enrolled;
       if (groupFilter && groupFilter.length > 0) {
         const members = await db.select({ playerId: lessonGroupMembers.playerId }).from(lessonGroupMembers).where(
-          and88(
-            inArray53(lessonGroupMembers.groupId, groupFilter),
-            eq106(lessonGroupMembers.status, "active")
+          and91(
+            inArray55(lessonGroupMembers.groupId, groupFilter),
+            eq109(lessonGroupMembers.status, "active")
           )
         );
         const allowedIds = new Set(members.map((m) => m.playerId));
@@ -145676,6 +148672,119 @@ async function processSeriesReminders(series) {
   }
   return sent;
 }
+async function processNobodyUploadedReminders() {
+  let sent = 0;
+  const now = /* @__PURE__ */ new Date();
+  const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1e3);
+  const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1e3);
+  const upcomingSessions = await db.select({
+    sessionId: sessions.id,
+    seriesId: sessions.seriesId,
+    startTime: sessions.startTime,
+    coachId: sessions.coachId,
+    courtLocation: coachingSeries.courtLocation,
+    courtReminderGroupIds: coachingSeries.courtReminderGroupIds
+  }).from(sessions).innerJoin(coachingSeries, eq109(coachingSeries.id, sessions.seriesId)).where(
+    and91(
+      eq109(sessions.status, "scheduled"),
+      isNotNull22(coachingSeries.courtLocation),
+      gte51(sessions.startTime, windowStart),
+      lte28(sessions.startTime, windowEnd)
+    )
+  );
+  for (const session of upcomingSessions) {
+    if (!session.courtLocation) continue;
+    const [uploadCount] = await db.select({ cnt: sql61`COUNT(*)::int` }).from(courtBookingConfirmations).where(
+      and91(
+        eq109(courtBookingConfirmations.sessionId, session.sessionId),
+        inArray55(courtBookingConfirmations.status, ["pending", "confirmed"])
+      )
+    );
+    if ((uploadCount?.cnt ?? 0) > 0) continue;
+    const sessionReminderKey = `court_booking_24h_noshow:${session.sessionId}`;
+    const [sentinel] = await db.select({ id: playerNotifications.id }).from(playerNotifications).where(
+      sql61`${playerNotifications.data}->>'reminderKey' = ${sessionReminderKey}
+            AND (${playerNotifications.data}->>'sentinel')::boolean = true`
+    ).limit(1);
+    if (sentinel) continue;
+    const sessionTimeLabel = session.startTime.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
+    const spRows = await db.select({ playerId: sessionPlayers.playerId }).from(sessionPlayers).where(eq109(sessionPlayers.sessionId, session.sessionId));
+    let targetPlayerIds = spRows.map((r) => r.playerId).filter((id) => id !== null);
+    const groupFilter = session.courtReminderGroupIds;
+    if (groupFilter && groupFilter.length > 0) {
+      const members = await db.select({ playerId: lessonGroupMembers.playerId }).from(lessonGroupMembers).where(
+        and91(
+          inArray55(lessonGroupMembers.groupId, groupFilter),
+          eq109(lessonGroupMembers.status, "active")
+        )
+      );
+      const allowedIds = new Set(members.map((m) => m.playerId));
+      targetPlayerIds = targetPlayerIds.filter((id) => allowedIds.has(id));
+    }
+    const playerTitle = "Court Booking \u2014 Last Chance";
+    const playerBody = `Nobody has confirmed the court at ${session.courtLocation} yet. Your session starts in ~24 h \u2014 please upload your booking screenshot now.`;
+    for (const playerId of targetPlayerIds) {
+      const reminderKey = `court_booking_24h_noshow:${session.sessionId}:${playerId}`;
+      const sentKeys = await getSentReminderKeys(playerId);
+      if (sentKeys.has(reminderKey)) {
+        sent++;
+        continue;
+      }
+      await db.insert(playerNotifications).values({
+        playerId,
+        type: "court_booking_reminder",
+        title: playerTitle,
+        body: playerBody,
+        data: {
+          type: "court_booking_reminder",
+          reminderKey,
+          sessionId: session.sessionId,
+          seriesId: session.seriesId,
+          courtLocation: session.courtLocation,
+          screen: "CourtBookingConfirmation"
+        }
+      });
+      const tokens = await getPlayerPushTokens(playerId);
+      if (tokens.length > 0) {
+        await sendPushNotification(tokens, playerTitle, playerBody, {
+          type: "court_booking_reminder",
+          screen: "CourtBookingConfirmation",
+          sessionId: session.sessionId
+        });
+      }
+      sent++;
+    }
+    if (session.coachId) {
+      const coachTitle = "No court booking uploaded";
+      const coachBody = `None of your players have uploaded a court booking for tomorrow's ${sessionTimeLabel} session at ${session.courtLocation}.`;
+      await sendCoachNotification(session.coachId, coachTitle, coachBody, {
+        type: "court_booking_reminder",
+        screen: "CourtBookingConfirmation",
+        sessionId: session.sessionId
+      });
+    }
+    await db.insert(playerNotifications).values({
+      playerId: "00000000-0000-0000-0000-000000000000",
+      type: "court_booking_reminder",
+      title: "sentinel",
+      body: "sentinel",
+      data: {
+        type: "court_booking_reminder",
+        reminderKey: sessionReminderKey,
+        sessionId: session.sessionId,
+        sentinel: true
+      }
+    });
+    console.log(
+      `[CourtBookingReminder] 24h no-upload push sent for session ${session.sessionId} \u2014 ${targetPlayerIds.length} player(s) notified`
+    );
+  }
+  return sent;
+}
 async function processCourtBookingReminders() {
   let processed = 0;
   let sent = 0;
@@ -145686,9 +148795,9 @@ async function processCourtBookingReminders() {
     title: coachingSeries.title,
     courtReminderGroupIds: coachingSeries.courtReminderGroupIds,
     academyTimezone: academies.timezone
-  }).from(coachingSeries).leftJoin(academies, eq106(academies.id, coachingSeries.academyId)).where(
-    and88(
-      eq106(coachingSeries.status, "active"),
+  }).from(coachingSeries).leftJoin(academies, eq109(academies.id, coachingSeries.academyId)).where(
+    and91(
+      eq109(coachingSeries.status, "active"),
       isNotNull22(coachingSeries.courtLocation)
     )
   );
@@ -145712,6 +148821,15 @@ async function processCourtBookingReminders() {
     console.log(
       `[CourtBookingReminder] ${academyKey} (${timezone}) \u2014 ${dateKey}: sent=${sent}`
     );
+  }
+  try {
+    const noUploadSent = await processNobodyUploadedReminders();
+    if (noUploadSent > 0) {
+      console.log(`[CourtBookingReminder] 24h no-upload pass: sent=${noUploadSent}`);
+      sent += noUploadSent;
+    }
+  } catch (err) {
+    console.error("[CourtBookingReminder] 24h no-upload pass failed:", err);
   }
   return { processed, sent };
 }
@@ -145747,6 +148865,14 @@ if (process.env.SENTRY_DSN) {
   });
   console.log("[Sentry] Server-side error tracking initialized");
 }
+process.on("uncaughtException", (err) => {
+  console.error("[UncaughtException] Server kept alive:", err);
+  if (process.env.SENTRY_DSN) Sentry3.captureException(err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[UnhandledRejection] Server kept alive:", reason);
+  if (process.env.SENTRY_DSN) Sentry3.captureException(reason);
+});
 var app = express2();
 app.set("trust proxy", 1);
 var log2 = console.log;
@@ -145877,7 +149003,7 @@ function escapeHtml6(text2) {
 function getAppName() {
   try {
     const appJsonPath = path12.resolve(process.cwd(), "app.json");
-    const appJsonContent = fs12.readFileSync(appJsonPath, "utf-8");
+    const appJsonContent = fs13.readFileSync(appJsonPath, "utf-8");
     const appJson = JSON.parse(appJsonContent);
     return appJson.expo?.name || "App Landing Page";
   } catch {
@@ -145891,13 +149017,13 @@ function serveExpoManifest(platform, res) {
     platform,
     "manifest.json"
   );
-  if (!fs12.existsSync(manifestPath)) {
+  if (!fs13.existsSync(manifestPath)) {
     return res.status(404).json({ error: `Manifest not found for platform: ${platform}` });
   }
   res.setHeader("expo-protocol-version", "1");
   res.setHeader("expo-sfv-version", "0");
   res.setHeader("content-type", "application/json");
-  const manifest = fs12.readFileSync(manifestPath, "utf-8");
+  const manifest = fs13.readFileSync(manifestPath, "utf-8");
   res.send(manifest);
 }
 function serveLandingPage({
@@ -146015,6 +149141,9 @@ function setupExpoDevProxy(app2) {
     if (req.path.startsWith("/.well-known/") || req.path.startsWith("/group/") || req.path.startsWith("/invite/") || req.path.startsWith("/spectate/") || req.path.startsWith("/coach-overview/")) {
       return next();
     }
+    if (req.path === "/robots.txt" || req.path === "/sitemap.xml") {
+      return next();
+    }
     if (templateRoutes.includes(req.path)) {
       return next();
     }
@@ -146039,7 +149168,7 @@ function configureExpoAndLanding(app2) {
     "templates",
     "landing-page.html"
   );
-  const landingPageTemplate = fs12.readFileSync(templatePath, "utf-8");
+  const landingPageTemplate = fs13.readFileSync(templatePath, "utf-8");
   const appName = getAppName();
   const privacyPolicyPath = path12.resolve(
     process.cwd(),
@@ -146047,21 +149176,21 @@ function configureExpoAndLanding(app2) {
     "templates",
     "privacy-policy.html"
   );
-  const privacyPolicyTemplate = fs12.existsSync(privacyPolicyPath) ? fs12.readFileSync(privacyPolicyPath, "utf-8") : null;
+  const privacyPolicyTemplate = fs13.existsSync(privacyPolicyPath) ? fs13.readFileSync(privacyPolicyPath, "utf-8") : null;
   const deleteAccountPath = path12.resolve(
     process.cwd(),
     "server",
     "templates",
     "delete-account.html"
   );
-  const deleteAccountTemplate = fs12.existsSync(deleteAccountPath) ? fs12.readFileSync(deleteAccountPath, "utf-8") : null;
+  const deleteAccountTemplate = fs13.existsSync(deleteAccountPath) ? fs13.readFileSync(deleteAccountPath, "utf-8") : null;
   const supportPath = path12.resolve(
     process.cwd(),
     "server",
     "templates",
     "support.html"
   );
-  const supportTemplate = fs12.existsSync(supportPath) ? fs12.readFileSync(supportPath, "utf-8") : null;
+  const supportTemplate = fs13.existsSync(supportPath) ? fs13.readFileSync(supportPath, "utf-8") : null;
   log2("Serving static Expo files with dynamic manifest routing");
   app2.get("/privacy-policy", (_req, res) => {
     if (privacyPolicyTemplate) {
@@ -146418,7 +149547,7 @@ function configureExpoAndLanding(app2) {
         return next();
       }
       const distIndexPath = path12.resolve(process.cwd(), "dist", "index.html");
-      if (fs12.existsSync(distIndexPath)) {
+      if (fs13.existsSync(distIndexPath)) {
         return res.sendFile(distIndexPath);
       }
       return serveLandingPage({
@@ -146513,6 +149642,39 @@ function configureExpoAndLanding(app2) {
   };
   app2.use("/uploads", uploadsAuthGuard, express2.static(path12.resolve(process.cwd(), "uploads")));
   app2.use("/images", express2.static(path12.resolve(process.cwd(), "server/public/images")));
+  app2.get("/robots.txt", (_req, res) => {
+    res.type("text/plain").send(
+      [
+        "User-agent: *",
+        "Allow: /$",
+        "Allow: /privacy-policy",
+        "Allow: /support",
+        "Allow: /invite/",
+        "Disallow: /api/",
+        "Disallow: /Admin/",
+        "Disallow: /coach/",
+        "Disallow: /player/",
+        "Disallow: /owner/",
+        "Disallow: /uploads/",
+        "",
+        `Sitemap: https://glow-up-sports--ltvjeugd.replit.app/sitemap.xml`
+      ].join("\n")
+    );
+  });
+  app2.get("/sitemap.xml", (_req, res) => {
+    const base = "https://glow-up-sports--ltvjeugd.replit.app";
+    const now = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    const urls = ["/", "/privacy-policy", "/support"];
+    const xml = [
+      `<?xml version="1.0" encoding="UTF-8"?>`,
+      `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
+      ...urls.map(
+        (u) => `  <url><loc>${base}${u}</loc><lastmod>${now}</lastmod><changefreq>weekly</changefreq><priority>${u === "/" ? "1.0" : "0.6"}</priority></url>`
+      ),
+      `</urlset>`
+    ].join("\n");
+    res.type("application/xml").send(xml);
+  });
   app2.use(express2.static(path12.resolve(process.cwd(), "static-build")));
   app2.use(express2.static(path12.resolve(process.cwd(), "dist")));
   log2("Expo routing: Checking expo-platform header on / and /manifest");
@@ -146534,6 +149696,9 @@ function setupErrorHandler(app2) {
 (async () => {
   setupSecurityHeaders(app);
   setupCors(app);
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok", uptime: process.uptime() });
+  });
   app.post(
     "/api/stripe/webhook",
     express2.raw({ type: "application/json" }),
@@ -146570,6 +149735,17 @@ function setupErrorHandler(app2) {
   configureExpoAndLanding(app);
   const server = await registerRoutes(app);
   setupErrorHandler(app);
+  const port = parseInt(process.env.PORT || "5000", 10);
+  server.listen(
+    {
+      port,
+      host: "0.0.0.0",
+      reusePort: true
+    },
+    () => {
+      log2(`express server serving on port ${port}`);
+    }
+  );
   (async () => {
     try {
       const { runMigrations } = await import("stripe-replit-sync");
@@ -146590,83 +149766,151 @@ function setupErrorHandler(app2) {
     } catch (err) {
       log2(`[Stripe] Init warning: ${err.message}`);
     }
-  })();
-  const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true
-    },
-    async () => {
-      log2(`express server serving on port ${port}`);
-      try {
-        const { auditPlayerForeignKeys: auditPlayerForeignKeys2 } = await Promise.resolve().then(() => (init_audit_player_fks(), audit_player_fks_exports));
-        void auditPlayerForeignKeys2();
-      } catch (err) {
-        log2(`[PlayerFKAudit] failed to schedule: ${err?.message ?? err}`);
-      }
-      try {
-        const { repairUnrebalancedSemiPrivateCharges: repairUnrebalancedSemiPrivateCharges2 } = await Promise.resolve().then(() => (init_rebalance_semi_private(), rebalance_semi_private_exports));
-        void repairUnrebalancedSemiPrivateCharges2();
-      } catch (err) {
-        log2(`[SemiPrivateRebalanceRepair] failed to schedule: ${err?.message ?? err}`);
-      }
-      try {
-        const { backfillCoachPlayers: backfillCoachPlayers2 } = await Promise.resolve().then(() => (init_backfill_coach_players(), backfill_coach_players_exports));
-        void backfillCoachPlayers2();
-      } catch (err) {
-        log2(`[BackfillCoachPlayers] failed to schedule: ${err?.message ?? err}`);
-      }
+    try {
+      const { auditPlayerForeignKeys: auditPlayerForeignKeys2 } = await Promise.resolve().then(() => (init_audit_player_fks(), audit_player_fks_exports));
+      void auditPlayerForeignKeys2();
+    } catch (err) {
+      log2(`[PlayerFKAudit] failed to schedule: ${err?.message ?? err}`);
+    }
+    try {
+      const { repairUnrebalancedSemiPrivateCharges: repairUnrebalancedSemiPrivateCharges2 } = await Promise.resolve().then(() => (init_rebalance_semi_private(), rebalance_semi_private_exports));
+      void repairUnrebalancedSemiPrivateCharges2();
+    } catch (err) {
+      log2(`[SemiPrivateRebalanceRepair] failed to schedule: ${err?.message ?? err}`);
+    }
+    try {
+      const { backfillCoachPlayers: backfillCoachPlayers2 } = await Promise.resolve().then(() => (init_backfill_coach_players(), backfill_coach_players_exports));
+      void backfillCoachPlayers2();
+    } catch (err) {
+      log2(`[BackfillCoachPlayers] failed to schedule: ${err?.message ?? err}`);
+    }
+    try {
+      const { pool: pool2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const result = await pool2.query(
+        `UPDATE coaching_series
+              SET academy_id = (
+                SELECT academy_id FROM coaches WHERE coaches.id = coaching_series.coach_id
+              )
+            WHERE academy_id IS NULL
+              AND coach_id IS NOT NULL`
+      );
+      log2(`[SeriesAcademyBackfill] Updated ${result.rowCount ?? 0} coaching_series rows with missing academy_id`);
+    } catch (err) {
+      log2(`[SeriesAcademyBackfill] Failed: ${err?.message ?? err}`);
+    }
+    try {
       startReminderScheduler();
+    } catch (e) {
+      console.error("[Scheduler] startReminderScheduler failed:", e);
+    }
+    try {
       startDailyTipScheduler();
+    } catch (e) {
+      console.error("[Scheduler] startDailyTipScheduler failed:", e);
+    }
+    try {
       startMatchPrepNotificationScheduler();
+    } catch (e) {
+      console.error("[Scheduler] startMatchPrepNotificationScheduler failed:", e);
+    }
+    try {
       startBookingExpiryJob();
+    } catch (e) {
+      console.error("[Scheduler] startBookingExpiryJob failed:", e);
+    }
+    try {
       startPlayerOfWeekJob();
+    } catch (e) {
+      console.error("[Scheduler] startPlayerOfWeekJob failed:", e);
+    }
+    try {
       startFamilyGraduationJob();
+    } catch (e) {
+      console.error("[Scheduler] startFamilyGraduationJob failed:", e);
+    }
+    try {
       startDigestJobs();
+    } catch (e) {
+      console.error("[Scheduler] startDigestJobs failed:", e);
+    }
+    try {
       startFeedPruneScheduler();
+    } catch (e) {
+      console.error("[Scheduler] startFeedPruneScheduler failed:", e);
+    }
+    try {
       startFamilyPickupNotificationsJob();
+    } catch (e) {
+      console.error("[Scheduler] startFamilyPickupNotificationsJob failed:", e);
+    }
+    try {
       startCourtBookingReminderJob();
+    } catch (e) {
+      console.error("[Scheduler] startCourtBookingReminderJob failed:", e);
+    }
+    try {
       startMonthlyReportScheduler();
+    } catch (e) {
+      console.error("[Scheduler] startMonthlyReportScheduler failed:", e);
+    }
+    try {
       startDailyScheduleNotifier();
+    } catch (e) {
+      console.error("[Scheduler] startDailyScheduleNotifier failed:", e);
+    }
+    try {
       startCreditExpiryReminderScheduler();
+    } catch (e) {
+      console.error("[Scheduler] startCreditExpiryReminderScheduler failed:", e);
+    }
+    try {
       startWeeklyAIDigestScheduler();
+    } catch (e) {
+      console.error("[Scheduler] startWeeklyAIDigestScheduler failed:", e);
+    }
+    try {
       startGlowPlansScheduler();
+    } catch (e) {
+      console.error("[Scheduler] startGlowPlansScheduler failed:", e);
+    }
+    try {
       startBirthdayNotificationScheduler();
+    } catch (e) {
+      console.error("[Scheduler] startBirthdayNotificationScheduler failed:", e);
+    }
+    try {
+      const { repairGroupSessionTypes: repairGroupSessionTypes2, repairOrphanedSessionPlayers: repairOrphanedSessionPlayers2, cleanupGhostSessions: cleanupGhostSessions2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+      log2("[RepairGroupTypes] Fixing group sessions wrongly converted...");
+      const groupResult = await repairGroupSessionTypes2();
+      log2(`[RepairGroupTypes] Complete: ${groupResult.fixed} fixed, ${groupResult.errors.length} errors`);
       try {
-        const { repairGroupSessionTypes: repairGroupSessionTypes2, repairOrphanedSessionPlayers: repairOrphanedSessionPlayers2, cleanupGhostSessions: cleanupGhostSessions2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
-        log2("[RepairGroupTypes] Fixing group sessions wrongly converted...");
-        const groupResult = await repairGroupSessionTypes2();
-        log2(`[RepairGroupTypes] Complete: ${groupResult.fixed} fixed, ${groupResult.errors.length} errors`);
-        try {
-          const ghostResult = await cleanupGhostSessions2();
-          log2(`[GhostCleanup] Cancelled ${ghostResult.cancelled} ghost sessions from ended/deleted series`);
-        } catch (err) {
-          console.error("[GhostCleanup] Failed:", err);
-        }
-        log2("[SessionMaintenance] Running session maintenance (repair missing players, auto-attendance, cleanup, null attendance)...");
-        await processSessionMaintenance();
-        log2("[OrphanedSPRepair] Checking for missing session_players in series...");
-        const orphanResult = await repairOrphanedSessionPlayers2();
-        log2(`[OrphanedSPRepair] Complete: ${orphanResult.created} created, ${orphanResult.failures.length} failures`);
-      } catch (error) {
-        console.error("[StartupRepair] Failed:", error);
-      }
-      void fixHolidayOvercharges;
-      void fixAlmaZaleskiCredits;
-      void fixRouzbehGhostCredit;
-      try {
-        const { runGlowProgressConnectivity: runGlowProgressConnectivity2 } = await Promise.resolve().then(() => (init_glow_progress_connectivity(), glow_progress_connectivity_exports));
-        await runGlowProgressConnectivity2();
+        const ghostResult = await cleanupGhostSessions2();
+        log2(`[GhostCleanup] Cancelled ${ghostResult.cancelled} ghost sessions from ended/deleted series`);
       } catch (err) {
-        console.error("[GlowProgressConnectivity] Startup migration failed:", err);
+        console.error("[GhostCleanup] Failed:", err);
       }
-      try {
-        const { db: dbInstance } = await Promise.resolve().then(() => (init_db(), db_exports));
-        const { sql: sqlTag } = await import("drizzle-orm");
-        const { sanitizeName: sanitizeName2 } = await Promise.resolve().then(() => (init_textSanitize(), textSanitize_exports));
-        const dirtyRows = await dbInstance.execute(sqlTag`
+      log2("[SessionMaintenance] Running session maintenance (repair missing players, auto-attendance, cleanup, null attendance)...");
+      await processSessionMaintenance();
+      log2("[OrphanedSPRepair] Checking for missing session_players in series...");
+      const orphanResult = await repairOrphanedSessionPlayers2();
+      log2(`[OrphanedSPRepair] Complete: ${orphanResult.created} created, ${orphanResult.failures.length} failures`);
+    } catch (error) {
+      console.error("[StartupRepair] Failed:", error);
+    }
+    void fixHolidayOvercharges;
+    void fixAlmaZaleskiCredits;
+    void fixRouzbehGhostCredit;
+    try {
+      const { runGlowProgressConnectivity: runGlowProgressConnectivity2 } = await Promise.resolve().then(() => (init_glow_progress_connectivity(), glow_progress_connectivity_exports));
+      await runGlowProgressConnectivity2();
+    } catch (err) {
+      console.error("[GlowProgressConnectivity] Startup migration failed:", err);
+    }
+    try {
+      const { db: dbInstance } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { sql: sqlTag } = await import("drizzle-orm");
+      const { sanitizeName: sanitizeName2 } = await Promise.resolve().then(() => (init_textSanitize(), textSanitize_exports));
+      const dirtyRows = await dbInstance.execute(sqlTag`
           SELECT id, name, display_name
           FROM players
           WHERE
@@ -146675,67 +149919,67 @@ function setupErrorHandler(app2) {
             OR display_name ~ E'^[\\s\\u200B-\\u200F\\u2060\\uFEFF\\u00AD\\u180E]'
             OR display_name ~ E'[\\s\\u200B-\\u200F\\u2060\\uFEFF\\u00AD\\u180E]$'
         `);
-        let nameFixed = 0;
-        let dispFixed = 0;
-        for (const row of dirtyRows.rows) {
-          const updates = {};
-          if (typeof row.name === "string") {
-            const cleaned = sanitizeName2(row.name);
-            if (cleaned && cleaned !== row.name) {
-              updates.name = cleaned;
-            }
-          }
-          if (typeof row.display_name === "string") {
-            const cleaned = sanitizeName2(row.display_name);
-            if (cleaned !== row.display_name) {
-              updates.display_name = cleaned || null;
-            }
-          }
-          if (updates.name !== void 0 && updates.display_name !== void 0) {
-            await dbInstance.execute(sqlTag`UPDATE players SET name = ${updates.name}, display_name = ${updates.display_name} WHERE id = ${row.id}`);
-            nameFixed++;
-            dispFixed++;
-          } else if (updates.name !== void 0) {
-            await dbInstance.execute(sqlTag`UPDATE players SET name = ${updates.name} WHERE id = ${row.id}`);
-            nameFixed++;
-          } else if (updates.display_name !== void 0) {
-            await dbInstance.execute(sqlTag`UPDATE players SET display_name = ${updates.display_name} WHERE id = ${row.id}`);
-            dispFixed++;
+      let nameFixed = 0;
+      let dispFixed = 0;
+      for (const row of dirtyRows.rows) {
+        const updates = {};
+        if (typeof row.name === "string") {
+          const cleaned = sanitizeName2(row.name);
+          if (cleaned && cleaned !== row.name) {
+            updates.name = cleaned;
           }
         }
-        if (nameFixed > 0 || dispFixed > 0) {
-          log2(`[InvisibleCharCleanup] name: ${nameFixed} fixed, display_name: ${dispFixed} fixed`);
+        if (typeof row.display_name === "string") {
+          const cleaned = sanitizeName2(row.display_name);
+          if (cleaned !== row.display_name) {
+            updates.display_name = cleaned || null;
+          }
         }
-      } catch (err) {
-        console.error("[InvisibleCharCleanup] Startup migration failed:", err);
+        if (updates.name !== void 0 && updates.display_name !== void 0) {
+          await dbInstance.execute(sqlTag`UPDATE players SET name = ${updates.name}, display_name = ${updates.display_name} WHERE id = ${row.id}`);
+          nameFixed++;
+          dispFixed++;
+        } else if (updates.name !== void 0) {
+          await dbInstance.execute(sqlTag`UPDATE players SET name = ${updates.name} WHERE id = ${row.id}`);
+          nameFixed++;
+        } else if (updates.display_name !== void 0) {
+          await dbInstance.execute(sqlTag`UPDATE players SET display_name = ${updates.display_name} WHERE id = ${row.id}`);
+          dispFixed++;
+        }
       }
-      try {
-        const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-        const { sql: sqlTag } = await import("drizzle-orm");
-        const privResult = await db2.execute(sqlTag`
+      if (nameFixed > 0 || dispFixed > 0) {
+        log2(`[InvisibleCharCleanup] name: ${nameFixed} fixed, display_name: ${dispFixed} fixed`);
+      }
+    } catch (err) {
+      console.error("[InvisibleCharCleanup] Startup migration failed:", err);
+    }
+    try {
+      const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { sql: sqlTag } = await import("drizzle-orm");
+      const privResult = await db2.execute(sqlTag`
           UPDATE coaching_series
           SET max_players = 1
           WHERE session_type = 'private' AND max_players != 1
         `);
-        const semiResult = await db2.execute(sqlTag`
+      const semiResult = await db2.execute(sqlTag`
           UPDATE coaching_series
           SET max_players = 2
           WHERE session_type = 'semi_private' AND max_players > 3
         `);
-        log2(`[SessionCapacityFix] private: ${privResult.rowCount ?? 0} fixed, semi_private: ${semiResult.rowCount ?? 0} fixed`);
-      } catch (err) {
-        console.error("[SessionCapacityFix] Failed:", err);
-      }
-      try {
-        const { repairMissingProviderConversations: repairMissingProviderConversations2 } = await Promise.resolve().then(() => (init_shop_routes(), shop_routes_exports));
-        await repairMissingProviderConversations2();
-      } catch (err) {
-        console.error("[ProviderChatRepair] Startup repair failed:", err);
-      }
-      try {
-        const { db: dbInstance } = await Promise.resolve().then(() => (init_db(), db_exports));
-        const { sql: sqlTag } = await import("drizzle-orm");
-        const healResult = await dbInstance.execute(sqlTag`
+      log2(`[SessionCapacityFix] private: ${privResult.rowCount ?? 0} fixed, semi_private: ${semiResult.rowCount ?? 0} fixed`);
+    } catch (err) {
+      console.error("[SessionCapacityFix] Failed:", err);
+    }
+    try {
+      const { repairMissingProviderConversations: repairMissingProviderConversations2 } = await Promise.resolve().then(() => (init_shop_routes(), shop_routes_exports));
+      await repairMissingProviderConversations2();
+    } catch (err) {
+      console.error("[ProviderChatRepair] Startup repair failed:", err);
+    }
+    try {
+      const { db: dbInstance } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { sql: sqlTag } = await import("drizzle-orm");
+      const healResult = await dbInstance.execute(sqlTag`
           UPDATE players p
           SET academy_id = pi.academy_id
           FROM player_invites pi
@@ -146744,82 +149988,82 @@ function setupErrorHandler(app2) {
             AND p.academy_id IS NULL
             AND pi.academy_id IS NOT NULL
         `);
-        const healed = healResult.rowCount ?? 0;
-        if (healed > 0) {
-          log2(`[InviteAcademyRepair] Healed ${healed} player(s) with NULL academy_id from claimed invite records`);
-        } else {
-          log2("[InviteAcademyRepair] No orphaned players found \u2014 skipping");
-        }
-      } catch (err) {
-        console.error("[InviteAcademyRepair] Failed:", err);
+      const healed = healResult.rowCount ?? 0;
+      if (healed > 0) {
+        log2(`[InviteAcademyRepair] Healed ${healed} player(s) with NULL academy_id from claimed invite records`);
+      } else {
+        log2("[InviteAcademyRepair] No orphaned players found \u2014 skipping");
       }
-      try {
-        const { db: dbInstance } = await Promise.resolve().then(() => (init_db(), db_exports));
-        const { sql: sqlTag } = await import("drizzle-orm");
-        const mapleResult = await dbInstance.execute(sqlTag`
+    } catch (err) {
+      console.error("[InviteAcademyRepair] Failed:", err);
+    }
+    try {
+      const { db: dbInstance } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { sql: sqlTag } = await import("drizzle-orm");
+      const mapleResult = await dbInstance.execute(sqlTag`
           UPDATE courts
           SET location_id = '1e178e26-2996-40e6-a186-36c58cd76efe'
           WHERE id = 'f0154208-e9c3-448d-a7cf-1a2f77e577d5'
             AND location_id != '1e178e26-2996-40e6-a186-36c58cd76efe'
         `);
-        const fixed = mapleResult.rowCount ?? 0;
-        if (fixed > 0) {
-          log2("[MapleCourtFix] Re-linked Maple court to correct location with coordinates");
-        } else {
-          log2("[MapleCourtFix] Maple court already linked correctly \u2014 no action needed");
-        }
-      } catch (err) {
-        console.error("[MapleCourtFix] Failed:", err);
+      const fixed = mapleResult.rowCount ?? 0;
+      if (fixed > 0) {
+        log2("[MapleCourtFix] Re-linked Maple court to correct location with coordinates");
+      } else {
+        log2("[MapleCourtFix] Maple court already linked correctly \u2014 no action needed");
       }
-      try {
-        let genShortCode2 = function() {
-          const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-          let code = "";
-          for (let i = 0; i < 6; i++) {
-            code += chars[cryptoMod.randomInt(0, chars.length)];
-          }
-          return code;
-        };
-        var genShortCode = genShortCode2;
-        const { db: dbInstance } = await Promise.resolve().then(() => (init_db(), db_exports));
-        const { playerInvites: playerInvites2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-        const { eq: eq109 } = await import("drizzle-orm");
-        const cryptoMod = await import("crypto");
-        const allInvites = await dbInstance.select({ inviteCode: playerInvites2.inviteCode }).from(playerInvites2);
-        const usedCodes = new Set(allInvites.map((i) => i.inviteCode));
-        const pendingInvites = await dbInstance.select().from(playerInvites2).where(eq109(playerInvites2.status, "pending"));
-        const legacyInvites = pendingInvites.filter(
-          (inv) => !/^[A-Z0-9]{6}$/.test(inv.inviteCode)
-        );
-        if (legacyInvites.length === 0) {
-          log2("[MigrateInviteCodes] No legacy invite codes found \u2014 skipping");
-        } else {
-          let migratedCount = 0;
-          let errorCount = 0;
-          for (const inv of legacyInvites) {
-            try {
-              usedCodes.delete(inv.inviteCode);
-              let newCode = genShortCode2();
-              while (usedCodes.has(newCode)) {
-                newCode = genShortCode2();
-              }
-              usedCodes.add(newCode);
-              await dbInstance.update(playerInvites2).set({ inviteCode: newCode }).where(eq109(playerInvites2.id, inv.id));
-              migratedCount++;
-            } catch (rowErr) {
-              errorCount++;
-              console.error(`[MigrateInviteCodes] Failed to migrate invite ${inv.id}:`, rowErr);
+    } catch (err) {
+      console.error("[MapleCourtFix] Failed:", err);
+    }
+    try {
+      let genShortCode2 = function() {
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        let code = "";
+        for (let i = 0; i < 6; i++) {
+          code += chars[cryptoMod.randomInt(0, chars.length)];
+        }
+        return code;
+      };
+      var genShortCode = genShortCode2;
+      const { db: dbInstance } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { playerInvites: playerInvites2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq113 } = await import("drizzle-orm");
+      const cryptoMod = await import("crypto");
+      const allInvites = await dbInstance.select({ inviteCode: playerInvites2.inviteCode }).from(playerInvites2);
+      const usedCodes = new Set(allInvites.map((i) => i.inviteCode));
+      const pendingInvites = await dbInstance.select().from(playerInvites2).where(eq113(playerInvites2.status, "pending"));
+      const legacyInvites = pendingInvites.filter(
+        (inv) => !/^[A-Z0-9]{6}$/.test(inv.inviteCode)
+      );
+      if (legacyInvites.length === 0) {
+        log2("[MigrateInviteCodes] No legacy invite codes found \u2014 skipping");
+      } else {
+        let migratedCount = 0;
+        let errorCount = 0;
+        for (const inv of legacyInvites) {
+          try {
+            usedCodes.delete(inv.inviteCode);
+            let newCode = genShortCode2();
+            while (usedCodes.has(newCode)) {
+              newCode = genShortCode2();
             }
+            usedCodes.add(newCode);
+            await dbInstance.update(playerInvites2).set({ inviteCode: newCode }).where(eq113(playerInvites2.id, inv.id));
+            migratedCount++;
+          } catch (rowErr) {
+            errorCount++;
+            console.error(`[MigrateInviteCodes] Failed to migrate invite ${inv.id}:`, rowErr);
           }
-          log2(`[MigrateInviteCodes] Migrated ${migratedCount} legacy invite codes to short format (${errorCount} errors)`);
         }
-      } catch (err) {
-        console.error("[MigrateInviteCodes] Failed:", err);
+        log2(`[MigrateInviteCodes] Migrated ${migratedCount} legacy invite codes to short format (${errorCount} errors)`);
       }
-      try {
-        const { db: dbGhost } = await Promise.resolve().then(() => (init_db(), db_exports));
-        const { sql: sqlGhost } = await import("drizzle-orm");
-        const ghostDebtResult = await dbGhost.execute(sqlGhost`
+    } catch (err) {
+      console.error("[MigrateInviteCodes] Failed:", err);
+    }
+    try {
+      const { db: dbGhost } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { sql: sqlGhost } = await import("drizzle-orm");
+      const ghostDebtResult = await dbGhost.execute(sqlGhost`
           UPDATE credit_transactions ct
           SET metadata = ct.metadata || jsonb_build_object(
             'cancelled', true,
@@ -146834,19 +150078,19 @@ function setupErrorHandler(app2) {
             AND (ct.metadata->>'cancelled')::text IS DISTINCT FROM 'true'
             AND (ct.metadata->>'settled')::text IS DISTINCT FROM 'true'
         `);
-        const fixed = ghostDebtResult.rowCount ?? 0;
-        if (fixed > 0) {
-          log2(`[CancelledSessionGhostDebtFix] Cancelled ${fixed} ghost debt transaction(s) tied to cancelled sessions`);
-        } else {
-          log2(`[CancelledSessionGhostDebtFix] No ghost debts found \u2014 skipping`);
-        }
-      } catch (err) {
-        console.error("[CancelledSessionGhostDebtFix] Failed:", err);
+      const fixed = ghostDebtResult.rowCount ?? 0;
+      if (fixed > 0) {
+        log2(`[CancelledSessionGhostDebtFix] Cancelled ${fixed} ghost debt transaction(s) tied to cancelled sessions`);
+      } else {
+        log2(`[CancelledSessionGhostDebtFix] No ghost debts found \u2014 skipping`);
       }
-      try {
-        const { db: dbCounts } = await Promise.resolve().then(() => (init_db(), db_exports));
-        const { sql: sqlCounts } = await import("drizzle-orm");
-        const result = await dbCounts.execute(sqlCounts`
+    } catch (err) {
+      console.error("[CancelledSessionGhostDebtFix] Failed:", err);
+    }
+    try {
+      const { db: dbCounts } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { sql: sqlCounts } = await import("drizzle-orm");
+      const result = await dbCounts.execute(sqlCounts`
           UPDATE community_groups cg
           SET member_count = sub.cnt
           FROM (
@@ -146862,23 +150106,23 @@ function setupErrorHandler(app2) {
           WHERE cg.id = sub.group_id
             AND COALESCE(cg.member_count, -1) <> sub.cnt
         `);
-        const fixed = result.rowCount ?? 0;
-        if (fixed > 0) {
-          log2(`[CommunityGroupMemberCountBackfill] Synced member_count on ${fixed} group(s)`);
-        } else {
-          log2(`[CommunityGroupMemberCountBackfill] All groups already in sync`);
-        }
-      } catch (err) {
-        console.error("[CommunityGroupMemberCountBackfill] Failed:", err);
+      const fixed = result.rowCount ?? 0;
+      if (fixed > 0) {
+        log2(`[CommunityGroupMemberCountBackfill] Synced member_count on ${fixed} group(s)`);
+      } else {
+        log2(`[CommunityGroupMemberCountBackfill] All groups already in sync`);
       }
-      try {
-        const { db: dbMigrate } = await Promise.resolve().then(() => (init_db(), db_exports));
-        const { sql: sqlMigrate } = await import("drizzle-orm");
-        await dbMigrate.execute(sqlMigrate`
+    } catch (err) {
+      console.error("[CommunityGroupMemberCountBackfill] Failed:", err);
+    }
+    try {
+      const { db: dbMigrate } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { sql: sqlMigrate } = await import("drizzle-orm");
+      await dbMigrate.execute(sqlMigrate`
           ALTER TABLE conversation_participants
             ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ
         `);
-        await dbMigrate.execute(sqlMigrate`
+      await dbMigrate.execute(sqlMigrate`
           ALTER TABLE open_matches
             ADD COLUMN IF NOT EXISTS match_intent TEXT DEFAULT 'friendly',
             ADD COLUMN IF NOT EXISTS preferred_date DATE,
@@ -146886,34 +150130,35 @@ function setupErrorHandler(app2) {
             ADD COLUMN IF NOT EXISTS is_adult BOOLEAN DEFAULT true,
             ADD COLUMN IF NOT EXISTS invited_player_id VARCHAR REFERENCES players(id)
         `);
-        await dbMigrate.execute(sqlMigrate`
+      await dbMigrate.execute(sqlMigrate`
           CREATE INDEX IF NOT EXISTS open_matches_preferred_date_idx
             ON open_matches (preferred_date)
         `);
-        await dbMigrate.execute(sqlMigrate`
+      await dbMigrate.execute(sqlMigrate`
           ALTER TABLE player_social_notif_prefs
             ADD COLUMN IF NOT EXISTS quiet_hours_start INTEGER,
             ADD COLUMN IF NOT EXISTS quiet_hours_end INTEGER
         `);
-        log2("[SchemaColumnMigrations] All missing columns added successfully");
-      } catch (err) {
-        console.error("[SchemaColumnMigrations] Failed:", err);
-      }
-      try {
-        const { backfillCommunityGroupsForSeries: backfillCommunityGroupsForSeries2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
-        await backfillCommunityGroupsForSeries2();
-      } catch (err) {
-        console.error("[CommunityGroupForSeriesBackfill] Failed:", err);
-      }
-      try {
-        const { backfillCommunityGroupJoinNotifications: backfillCommunityGroupJoinNotifications2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
-        await backfillCommunityGroupJoinNotifications2();
-      } catch (err) {
-        console.error(
-          "[CommunityGroupJoinNotificationBackfill] Failed:",
-          err
-        );
-      }
+      log2("[SchemaColumnMigrations] All missing columns added successfully");
+    } catch (err) {
+      console.error("[SchemaColumnMigrations] Failed:", err);
     }
-  );
+    try {
+      const { backfillCommunityGroupsForSeries: backfillCommunityGroupsForSeries2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+      await backfillCommunityGroupsForSeries2();
+    } catch (err) {
+      console.error("[CommunityGroupForSeriesBackfill] Failed:", err);
+    }
+    try {
+      const { backfillCommunityGroupJoinNotifications: backfillCommunityGroupJoinNotifications2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+      await backfillCommunityGroupJoinNotifications2();
+    } catch (err) {
+      console.error(
+        "[CommunityGroupJoinNotificationBackfill] Failed:",
+        err
+      );
+    }
+  })().catch((err) => {
+    console.error("[StartupJobs] Unexpected error in background startup:", err);
+  });
 })();
