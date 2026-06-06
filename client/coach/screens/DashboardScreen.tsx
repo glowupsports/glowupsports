@@ -83,6 +83,7 @@ interface Session {
   isRecurring?: boolean | null;
   paymentStatus?: string | null;
   status: string | null;
+  title?: string | null;
   players?: Player[];
 }
 
@@ -3254,7 +3255,7 @@ export default function DashboardScreen() {
         <View style={styles.imminentBanner}>
           <View style={styles.imminentBannerDot} />
           <Text style={styles.imminentBannerText} numberOfLines={1}>
-            Session starting soon
+            Starting soon: {imminentSession.title || "Session"}
           </Text>
           <View style={styles.imminentBannerActions}>
             <Pressable

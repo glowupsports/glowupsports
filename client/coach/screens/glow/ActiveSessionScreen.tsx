@@ -780,6 +780,12 @@ export default function ActiveSessionScreen() {
         end={{ x: 0, y: 1 }}
         style={[styles.hero, { paddingTop: headerHeight + Spacing.xs }]}
       >
+        {/* Back to Dashboard */}
+        <Pressable style={styles.backToDashRow} onPress={() => navigation.navigate("CoachHQ")} hitSlop={8}>
+          <Ionicons name="chevron-back" size={14} color={Colors.dark.tabIconDefault} />
+          <ThemedText style={styles.backToDashText}>Dashboard</ThemedText>
+        </Pressable>
+
         {/* Top row: live pill + type badge + overflow */}
         <View style={styles.heroTopRow}>
           <View style={styles.heroTopLeft}>
@@ -1693,6 +1699,16 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginTop: 2,
     fontWeight: "600",
+  },
+  backToDashRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    marginBottom: Spacing.xs,
+  },
+  backToDashText: {
+    fontSize: 12,
+    color: Colors.dark.tabIconDefault,
   },
   // Hero title
   heroTitle: {
