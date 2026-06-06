@@ -2687,7 +2687,7 @@ export default function DashboardScreen() {
     }
   }, [refetchCalendar, refetchWeeklyCalendar, queryClient]);
   
-  const allSessions = (weeklyCalendarData?.ownSessions || calendarData?.ownSessions || []) as NonNullable<typeof calendarData>["ownSessions"];
+  const allSessions = (weeklyCalendarData?.ownSessions || calendarData?.ownSessions || []) as Session[];
 
   // Pulse animation for live indicator
   const pulseScale = useSharedValue(1);
