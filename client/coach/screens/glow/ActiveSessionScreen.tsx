@@ -680,18 +680,25 @@ export default function ActiveSessionScreen() {
         : session.sessionType === "semi_private"
         ? "semi_private"
         : "group";
+
+    const intakePlayers = players.map((p) => {
+      const rec = attendanceMap.get(p.id);
+      const option = rec ? getOptionForStatus(rec.status) : undefined;
+      return {
+        id: p.id,
+        name: p.name,
+        ballLevel: p.ballLevel ?? null,
+        attendanceStatus: option?.apiStatus ?? "present",
+      };
+    });
+
     openIntake(
       {
         sessionId,
         startTime: session.startTime,
         sessionType: session.sessionType,
-        players: players.map((p) => ({
-          id: p.id,
-          name: p.name,
-          attendanceStatus: attendanceMap.get(p.id)?.status,
-          ballLevel: p.ballLevel,
-        })),
-        playerCount: players.length,
+        players: intakePlayers,
+        playerCount: intakePlayers.length,
         needsGroupDynamics: cardType !== "private",
         cardType,
       },
@@ -705,6 +712,14 @@ export default function ActiveSessionScreen() {
           navigation.navigate("CoachHQ");
         },
         onSaveOnly: () => {
+          queryClient.invalidateQueries({
+            predicate: (q) =>
+              typeof q.queryKey[0] === "string" &&
+              (q.queryKey[0] as string).startsWith("/api/coach/calendar"),
+          });
+          navigation.navigate("CoachHQ");
+        },
+        onDismiss: () => {
           queryClient.invalidateQueries({
             predicate: (q) =>
               typeof q.queryKey[0] === "string" &&

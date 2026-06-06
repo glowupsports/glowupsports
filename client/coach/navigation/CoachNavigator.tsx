@@ -149,7 +149,10 @@ function CoachIntakeOverlay() {
   return (
     <IntakeFlowModal
       visible
-      onClose={closeIntake}
+      onClose={() => {
+        closeIntake();
+        intakeCallbacks.onDismiss?.();
+      }}
       onComplete={(result) => {
         closeIntake();
         intakeCallbacks.onComplete(result);

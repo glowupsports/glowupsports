@@ -2,7 +2,7 @@ import React from "react";
 import { View, StyleSheet, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 
@@ -12,9 +12,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 export default function PostSessionEndScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
   const queryClient = useQueryClient();
-  const { sessionId: _sessionId } = route.params || {};
 
   const handleGoHome = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -43,7 +41,7 @@ export default function PostSessionEndScreen() {
       </ThemedText>
 
       <Pressable style={styles.homeButton} onPress={handleGoHome}>
-        <Ionicons name="home-outline" size={20} color={Colors.dark.text} />
+        <Ionicons name="home-outline" size={20} color={Colors.dark.buttonText} />
         <ThemedText style={styles.homeButtonText}>Back to Coach HQ</ThemedText>
       </Pressable>
     </View>
@@ -94,6 +92,6 @@ const styles = StyleSheet.create({
   homeButtonText: {
     fontSize: 16,
     fontWeight: "700",
-    color: Colors.dark.text,
+    color: Colors.dark.buttonText,
   },
 });

@@ -14,6 +14,7 @@ export interface PendingIntakeSession {
 interface IntakeCallbacks {
   onComplete: (result: IntakeResult) => void;
   onSaveOnly?: () => void;
+  onDismiss?: () => void;
 }
 
 interface IntakeModalContextValue {
