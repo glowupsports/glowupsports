@@ -2557,6 +2557,7 @@ export default function DashboardScreen() {
   const [focusCollapsed, setFocusCollapsed] = useState(false);
   const [energyCollapsed, setEnergyCollapsed] = useState(false);
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
+  const [dismissedBannerIds, setDismissedBannerIds] = useState<Set<string>>(() => new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentSecond, setCurrentSecond] = useState(() => Math.floor(Date.now() / 1000));
   const [selectedSessionForDetail, setSelectedSessionForDetail] = useState<Session | null>(null);
@@ -2638,6 +2639,7 @@ export default function DashboardScreen() {
   const { data: weeklyCalendarData, refetch: refetchWeeklyCalendar } = useQuery<WeeklyCalendarData>({
     queryKey: [weeklyCalendarPath],
     enabled: !!coach?.id && !!weeklyCalendarPath,
+    refetchInterval: 30_000,
   });
 
   // WebSocket for real-time updates (placed after weeklyCalendar query to access refetchWeeklyCalendar)
@@ -2773,6 +2775,21 @@ export default function DashboardScreen() {
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     return upcoming[0] || null;
   }, [todaysSessions]);
+
+  // Banner: session starting within 5 min, not yet in_progress/completed, not dismissed
+  const imminentSession = useMemo(() => {
+    const now = Date.now();
+    const fiveMin = 5 * 60 * 1000;
+    return (
+      todaysSessions.find((s) => {
+        if (dismissedBannerIds.has(s.id)) return false;
+        if (s.status === "completed" || s.status === "in_progress") return false;
+        const start = new Date(s.startTime).getTime();
+        return start > now && start - now <= fiveMin;
+      }) ?? null
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todaysSessions, dismissedBannerIds, currentSecond]);
 
   const _sessionForCountdown = useMemo(() => {
     const now = new Date();
@@ -3231,6 +3248,32 @@ export default function DashboardScreen() {
 
       {/* Collapsible Mode Switcher */}
       <CollapsibleModeSwitcher />
+
+      {/* Imminent session banner — session starting within 5 min */}
+      {imminentSession ? (
+        <View style={styles.imminentBanner}>
+          <View style={styles.imminentBannerDot} />
+          <Text style={styles.imminentBannerText} numberOfLines={1}>
+            Session starting soon
+          </Text>
+          <View style={styles.imminentBannerActions}>
+            <Pressable
+              style={styles.imminentOpenBtn}
+              onPress={() => (navigation as any).navigate("ActiveSession", { sessionId: imminentSession.id })}
+              hitSlop={8}
+            >
+              <Text style={styles.imminentOpenText}>Open</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setDismissedBannerIds((prev) => new Set([...prev, imminentSession.id]))}
+              hitSlop={10}
+              style={styles.imminentDismissBtn}
+            >
+              <Ionicons name="close" size={16} color={Colors.dark.tabIconDefault} />
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       <DesktopContentWrapper>
       <ScrollView
@@ -6594,6 +6637,48 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: Colors.dark.disabled,
+  },
+  // Imminent session banner
+  imminentBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.primary + "18",
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.primary + "35",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  imminentBannerDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.dark.primary,
+  },
+  imminentBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  imminentBannerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  imminentOpenBtn: {
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+  },
+  imminentOpenText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.backgroundRoot,
+  },
+  imminentDismissBtn: {
+    padding: 2,
   },
 });
 

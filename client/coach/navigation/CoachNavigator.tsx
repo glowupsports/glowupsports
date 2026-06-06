@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
-import { StyleSheet, View, Platform, Text, Pressable, useWindowDimensions, Alert } from "react-native";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { StyleSheet, View, Platform, Text, Pressable, useWindowDimensions, Alert, AppState } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useNavigation } from "@react-navigation/native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SwipeableTabBar, TabConfig } from "@/components/SwipeableTabBar";
 import { useChatState } from "@/coach/context/ChatStateContext";
@@ -56,6 +57,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAppMode } from "@/context/AppModeContext";
 import { Colors } from "@/constants/theme";
+import { apiRequest } from "@/lib/query-client";
 import { useTranslation } from "react-i18next";
 import { DesktopShell } from "@/components/DesktopShell";
 import { IntakeModalProvider, useIntakeModal } from "@/coach/context/IntakeModalContext";
@@ -201,6 +203,54 @@ function AICoachingOverlay() {
   );
 }
 
+// Fires on mount and every time the app comes to foreground.
+// Navigates to ActiveSession if a live session is found (once per session id).
+function LiveSessionAutoRedirect() {
+  const navigation = useNavigation<any>();
+  const { coach } = useCoach();
+  const redirectedRef = useRef<Set<string>>(new Set());
+
+  const checkAndRedirect = useCallback(async () => {
+    if (!coach?.id) return;
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const res = await apiRequest("GET", `/api/coach/calendar?coachId=${coach.id}&date=${today}&view=day`);
+      const raw = await res.json();
+      const sessions: Array<{ id: string; status?: string | null; startTime: string; endTime: string }> =
+        Array.isArray(raw) ? raw : (raw.sessions ?? []);
+      const now = Date.now();
+      const live = sessions.find((s) => {
+        if (redirectedRef.current.has(s.id)) return false;
+        if (s.status === "in_progress") return true;
+        if (!s.status || s.status === "scheduled") {
+          const start = new Date(s.startTime).getTime();
+          const end = new Date(s.endTime).getTime();
+          return start <= now && end >= now;
+        }
+        return false;
+      });
+      if (live) {
+        redirectedRef.current.add(live.id);
+        navigation.navigate("ActiveSession", { sessionId: live.id });
+      }
+    } catch {
+      // silently ignore network errors
+    }
+  }, [coach?.id, navigation]);
+
+  useEffect(() => {
+    checkAndRedirect();
+    const sub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        checkAndRedirect();
+      }
+    });
+    return () => sub.remove();
+  }, [checkAndRedirect]);
+
+  return null;
+}
+
 // Custom animated tab bar item
 function CoachTabs() {
   const { t } = useTranslation();
@@ -264,6 +314,7 @@ function CoachTabs() {
 
   return (
     <>
+      <LiveSessionAutoRedirect />
       {isDesktop ? (
         <DesktopShell coachName={coach?.name} academyName={academy?.name}>
           {tabBar}

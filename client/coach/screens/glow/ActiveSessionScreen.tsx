@@ -247,7 +247,12 @@ function CircularCountdown({
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
   const progress = totalDuration > 0 ? Math.max(0, Math.min(1, secondsRemaining / totalDuration)) : 0;
   const dashOffset = CIRCUMFERENCE * (1 - progress);
-  const ringColor = isOvertime ? Colors.dark.error : Colors.dark.primary;
+  // Color progression: green → amber at <10 min → red at <3 min / overtime
+  const ringColor = (isOvertime || secondsRemaining <= 3 * 60)
+    ? Colors.dark.error
+    : secondsRemaining <= 10 * 60
+    ? Colors.dark.orange
+    : Colors.dark.primary;
 
   return (
     <View style={{ alignItems: "center", justifyContent: "center" }}>
@@ -279,7 +284,7 @@ function CircularCountdown({
           style={{
             fontSize: 30,
             fontWeight: "800",
-            color: isOvertime ? Colors.dark.error : Colors.dark.primary,
+            color: ringColor,
             fontVariant: ["tabular-nums"],
           }}
         >
@@ -802,6 +807,12 @@ export default function ActiveSessionScreen() {
           </Pressable>
         </View>
 
+        {session?.title ? (
+          <ThemedText style={styles.heroTitle} numberOfLines={2}>
+            {session.title}
+          </ThemedText>
+        ) : null}
+
         {/* Time + location meta */}
         <View style={styles.heroMeta}>
           {session?.startTime && session?.endTime ? (
@@ -878,10 +889,7 @@ export default function ActiveSessionScreen() {
                 style={({ pressed }) => [
                   styles.playerCard,
                   pressed && styles.playerCardPressed,
-                  option && {
-                    borderColor: option.color + "50",
-                    borderWidth: 1.5,
-                  },
+                  option && { borderLeftColor: option.color + "90" },
                   selectedPlayerId === player.id && styles.playerCardSelected,
                 ]}
                 onPress={() => handlePlayerCardPress(player)}
@@ -891,68 +899,51 @@ export default function ActiveSessionScreen() {
                 {/* Avatar */}
                 <View style={styles.avatarWrapper}>
                   {photoUri ? (
-                    <Image
-                      source={{ uri: photoUri }}
-                      style={styles.avatar}
-                      contentFit="cover"
-                    />
+                    <Image source={{ uri: photoUri }} style={styles.avatar} contentFit="cover" />
                   ) : (
-                    <View
-                      style={[
-                        styles.avatar,
-                        styles.avatarFallback,
-                        option && { backgroundColor: option.color + "20" },
-                      ]}
-                    >
-                      <ThemedText
-                        style={[
-                          styles.avatarInitial,
-                          option && { color: option.color },
-                        ]}
-                      >
+                    <View style={[styles.avatar, styles.avatarFallback, option && { backgroundColor: option.color + "20" }]}>
+                      <ThemedText style={[styles.avatarInitial, option && { color: option.color }]}>
                         {player.name.charAt(0).toUpperCase()}
                       </ThemedText>
                     </View>
                   )}
-                  {/* Status dot */}
-                  <View
-                    style={[
-                      styles.statusDot,
-                      option
-                        ? { backgroundColor: option.color }
-                        : styles.statusDotUnset,
-                    ]}
-                  />
+                  <View style={[styles.statusDot, option ? { backgroundColor: option.color } : styles.statusDotUnset]} />
                 </View>
 
-                {/* Name */}
-                <ThemedText style={styles.playerName} numberOfLines={1}>
-                  {player.name.split(" ")[0]}
-                </ThemedText>
-
-                {/* Ball level */}
-                {player.ballLevel ? (
-                  <ThemedText style={styles.ballLevel} numberOfLines={1}>
-                    {player.ballLevel}
-                  </ThemedText>
-                ) : null}
-
-                {/* Status label */}
-                <ThemedText
-                  style={[
-                    styles.statusLabel,
-                    option ? { color: option.color } : styles.statusLabelUnset,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {option ? option.label.split(" /")[0] : "Tap to set"}
-                </ThemedText>
-
-                {player.isGuest ? (
-                  <View style={styles.guestBadge}>
-                    <ThemedText style={styles.guestBadgeText}>Guest</ThemedText>
+                {/* Player info — full name + ball level */}
+                <View style={styles.playerInfo}>
+                  <View style={styles.playerNameRow}>
+                    <ThemedText style={styles.playerName} numberOfLines={1}>
+                      {player.name}
+                    </ThemedText>
+                    {player.isGuest ? (
+                      <View style={styles.guestBadge}>
+                        <ThemedText style={styles.guestBadgeText}>Guest</ThemedText>
+                      </View>
+                    ) : null}
                   </View>
-                ) : null}
+                  {player.ballLevel ? (
+                    <ThemedText style={styles.ballLevel} numberOfLines={1}>{player.ballLevel}</ThemedText>
+                  ) : null}
+                </View>
+
+                {/* Attendance status chip */}
+                <View
+                  style={[
+                    styles.statusChip,
+                    option
+                      ? { backgroundColor: option.color + "18", borderColor: option.color + "50" }
+                      : styles.statusChipUnset,
+                  ]}
+                >
+                  {option ? <Ionicons name={option.icon} size={11} color={option.color} /> : null}
+                  <ThemedText
+                    style={[styles.statusChipText, { color: option ? option.color : Colors.dark.tabIconDefault }]}
+                    numberOfLines={1}
+                  >
+                    {option ? option.label.split(" /")[0] : "Set"}
+                  </ThemedText>
+                </View>
               </Pressable>
             );
           })
@@ -1703,27 +1694,36 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: "600",
   },
-  // Player grid
+  // Hero title
+  heroTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  // Player list
   scrollArea: {
     flex: 1,
   },
   playerGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.md,
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   playerCard: {
-    width: "47.5%",
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.dark.backgroundDefault,
     borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
-    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingRight: Spacing.md,
+    paddingLeft: Spacing.sm,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
-    gap: Spacing.xs,
-    position: "relative",
+    borderLeftWidth: 4,
+    borderLeftColor: "rgba(255,255,255,0.10)",
+    gap: Spacing.sm,
   },
   playerCardPressed: {
     opacity: 0.8,
@@ -1735,12 +1735,11 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     position: "relative",
-    marginBottom: Spacing.xs,
   },
   avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   avatarFallback: {
     backgroundColor: Colors.dark.backgroundSecondary,
@@ -1748,42 +1747,61 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarInitial: {
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: "700",
     color: Colors.dark.text,
   },
   statusDot: {
     position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    bottom: 1,
+    right: 1,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: Colors.dark.backgroundDefault,
   },
   statusDotUnset: {
     backgroundColor: Colors.dark.backgroundSecondary,
   },
+  playerInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  playerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    flexWrap: "wrap",
+  },
   playerName: {
     fontSize: 15,
     fontWeight: "600",
     color: Colors.dark.text,
-    textAlign: "center",
+    flexShrink: 1,
   },
   ballLevel: {
     fontSize: 12,
     color: Colors.dark.tabIconDefault,
-    textAlign: "center",
   },
-  statusLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    textAlign: "center",
+  statusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    minWidth: 54,
+    justifyContent: "center",
   },
-  statusLabelUnset: {
-    color: Colors.dark.tabIconDefault,
-    opacity: 0.7,
+  statusChipUnset: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  statusChipText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   guestBadge: {
     backgroundColor: Colors.dark.orange + "25",
