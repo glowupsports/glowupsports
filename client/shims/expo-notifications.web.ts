@@ -44,6 +44,8 @@ export const setNotificationChannelAsync = noopAsync;
 export const getDevicePushTokenAsync = noopAsync;
 export const getExpoPushTokenAsync = noopAsync;
 export const scheduleNotificationAsync = noopAsync;
+export const cancelScheduledNotificationAsync = noopAsync;
+export const cancelAllScheduledNotificationsAsync = noopAsync;
 export const dismissAllNotificationsAsync = noopAsync;
 export const getBadgeCountAsync = async () => 0;
 export const setBadgeCountAsync = noopAsync;

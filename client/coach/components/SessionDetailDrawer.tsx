@@ -26,9 +26,11 @@ import StrokeFeedbackModal from "./StrokeFeedbackModal";
 import QuickBaselineDrawer from "./QuickBaselineDrawer";
 import { DeepAssessmentDrawer } from "./DeepAssessmentDrawer";
 import { useAIModal } from "@/coach/context/AIModalContext";
+import { useIntakeModal } from "@/coach/context/IntakeModalContext";
 import { AISessionPlanModal } from "./AISessionPlanModal";
 import SendGroupReminderModal from "./SendGroupReminderModal";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { PostSessionChoiceSheet } from "./PostSessionChoiceSheet";
 
 const SESSION_DETAILS_INTRO_KEY = "skipSessionDetailsIntro";
 
@@ -93,6 +95,9 @@ interface SessionDetailDrawerProps {
   onAttendance: () => void;
   onFeedback?: () => void;
   initialAction?: "attendance" | "detail" | "extend" | "end" | "ai";
+  onNextSession?: () => void;
+  /** Called after "Remind me tonight" so the parent can immediately refresh its pending-review list. */
+  onDeferComplete?: () => void;
 }
 
 type StartDateOption = "today" | "previous" | "custom";
@@ -105,6 +110,8 @@ export default function SessionDetailDrawer({
   onAttendance,
   onFeedback,
   initialAction,
+  onNextSession,
+  onDeferComplete,
 }: SessionDetailDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -146,8 +153,10 @@ export default function SessionDetailDrawer({
   const [deepAssessPlayer, setDeepAssessPlayer] = useState<Player | null>(null);
   const [feedbackPickerMode, setFeedbackPickerMode] = useState<"evidence" | "baseline" | "deep" | "ai" | null>(null);
   const { openAIChat } = useAIModal();
+  const { openIntake } = useIntakeModal();
   const [showAISessionPlan, setShowAISessionPlan] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showPostSessionChoice, setShowPostSessionChoice] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showIntroCard, setShowIntroCard] = useState(true);
 
@@ -662,9 +671,9 @@ export default function SessionDetailDrawer({
           return typeof key === 'string' && key.startsWith('/api/coach/calendar');
         }
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/coach/sessions/pending-feedback"] });
       setShowEndConfirm(false);
-      onClose();
-      Alert.alert("Session Ended", "Session has been marked as completed");
+      setShowPostSessionChoice(true);
     },
     onError: (error: Error) => {
       Alert.alert("Error", error.message || "Failed to end session");
@@ -2728,6 +2737,92 @@ export default function SessionDetailDrawer({
           lessonSessionId={liveSession.id}
         />
       ) : null}
+
+      {/* Post-session choice sheet — appears after ending a session */}
+      <PostSessionChoiceSheet
+        visible={showPostSessionChoice}
+        session={
+          showPostSessionChoice && session
+            ? {
+                sessionId: session.id,
+                startTime: session.startTime,
+                sessionType: session.sessionType,
+                players: (liveSession?.players ?? session.players ?? [])
+                  .filter((p) => !(p as any).isGuest)
+                  .map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                    attendanceStatus: (p as any).attendanceStatus,
+                    ballLevel: (p as any).ballLevel ?? null,
+                  })),
+                playerCount: (liveSession?.players ?? session.players ?? []).filter(
+                  (p) => !(p as any).isGuest,
+                ).length,
+                needsGroupDynamics:
+                  session.sessionType === "group" || session.sessionType === "semi_private",
+                cardType: (session.sessionType === "private"
+                  ? "private"
+                  : session.sessionType === "semi_private"
+                  ? "semi_private"
+                  : "group") as "private" | "semi_private" | "group",
+              }
+            : null
+        }
+        onClose={() => {
+          setShowPostSessionChoice(false);
+          onClose();
+        }}
+        onFeedbackNow={() => {
+          setShowPostSessionChoice(false);
+          if (!session) {
+            onClose();
+            return;
+          }
+          const activePlayers = (liveSession?.players ?? session.players ?? [])
+            .filter((p) => !(p as any).isGuest)
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              attendanceStatus: (p as any).attendanceStatus,
+              ballLevel: (p as any).ballLevel ?? null,
+            }));
+          openIntake(
+            {
+              sessionId: session.id,
+              startTime: session.startTime,
+              sessionType: session.sessionType,
+              players: activePlayers,
+              playerCount: activePlayers.length,
+              needsGroupDynamics:
+                session.sessionType === "group" || session.sessionType === "semi_private",
+              cardType: (session.sessionType === "private"
+                ? "private"
+                : session.sessionType === "semi_private"
+                ? "semi_private"
+                : "group") as "private" | "semi_private" | "group",
+            },
+            {
+              onComplete: (_result) => {
+                openAIChat({
+                  sessionId: session.id,
+                  playerId: activePlayers[0]?.id ?? "",
+                  playerName: activePlayers[0]?.name ?? "",
+                  sessionType: session.sessionType,
+                  remainingPlayers: activePlayers.slice(1),
+                });
+              },
+            },
+          );
+          onClose();
+        }}
+        onNextSession={() => {
+          setShowPostSessionChoice(false);
+          onClose();
+          // Give the close animation 350ms to settle, then trigger next-session transition
+          if (onNextSession) setTimeout(onNextSession, 350);
+        }}
+        onDeferComplete={onDeferComplete}
+      />
     </>
   );
 }

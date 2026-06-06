@@ -19,10 +19,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LanguageHeaderButton } from "@/components/LanguageSelectorModal";
 import { useQuery, useQueryClient, QueryClient } from "@tanstack/react-query";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { CoachStackParamList } from "@/coach/navigation/CoachNavigator";
 import * as Haptics from "expo-haptics";
+import * as Notifications from "expo-notifications";
 import { useCoach } from "@/coach/context/CoachContext";
 import { useAuth } from "@/coach/context/AuthContext";
 import { Colors, Backgrounds, Spacing, BorderRadius, Typography, GlowColors } from "@/constants/theme";import { CoachStatusPanel } from "@/coach/components/CoachStatusPanel";
@@ -39,7 +40,10 @@ import AttendanceDrawer from "@/coach/components/AttendanceDrawer";
 import DaySessionsDrawer from "@/coach/components/DaySessionsDrawer";
 import { IntakeResult } from "@/coach/components/IntakeFlowModal";
 import { useIntakeModal } from "@/coach/context/IntakeModalContext";
-import { useAIModal } from "@/coach/context/AIModalContext";import { useWebSocket } from "@/lib/useWebSocket";
+import { useAIModal } from "@/coach/context/AIModalContext";
+import { getPendingReviews, removePendingReview } from "@/lib/pendingReviews";
+import type { PendingReviewEntry } from "@/lib/pendingReviews";
+import { useWebSocket } from "@/lib/useWebSocket";
 import { ActionNeededCard } from "@/components/ActionNeededCard";
 import { CoachInsightsPanel } from "@/coach/components/CoachInsightsPanel";
 import { RosterInsightsCard } from "@/coach/components/RosterInsightsCard";
@@ -2561,9 +2565,18 @@ export default function DashboardScreen() {
   // Pending feedback flow: intake → AI chat (runs from dashboard, not SessionDetailDrawer)
   const { openIntake } = useIntakeModal();
   const { openAIChat } = useAIModal();
+  const [pendingDeferredReviews, setPendingDeferredReviews] = useState<PendingReviewEntry[]>([]);
   const [_showWelcome, _setShowWelcome] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
   const [showDaySessions, setShowDaySessions] = useState(false);
+
+  // Reload deferred reviews whenever this screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      getPendingReviews().then(setPendingDeferredReviews).catch(() => {});
+    }, []),
+  );
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSecond(Math.floor(Date.now() / 1000));
@@ -3856,6 +3869,121 @@ export default function DashboardScreen() {
         {/* === LOWER CARDS (two-column grid on desktop) === */}
         <View style={isDesktop ? desktopDashStyles.cardsGrid : undefined}>
 
+        {/* === PENDING DEFERRED REVIEWS === */}
+        {pendingDeferredReviews.length > 0 && (
+          <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
+            <View style={styles.pendingReviewsCard}>
+              <View style={styles.pendingReviewsHeader}>
+                <View style={styles.pendingReviewsIconWrap}>
+                  <Ionicons name="moon" size={16} color={Colors.dark.orange} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingReviewsTitle}>Pending Reviews</Text>
+                  <Text style={styles.pendingReviewsSub}>
+                    {pendingDeferredReviews.length} session{pendingDeferredReviews.length !== 1 ? "s" : ""} waiting for AI review
+                  </Text>
+                </View>
+              </View>
+              {pendingDeferredReviews.map((entry) => {
+                const savedDate = new Date(entry.savedAt);
+                const dateLabel = savedDate.toLocaleDateString("en-US", {
+                  weekday: "short",
+                  month: "short",
+                  day: "numeric",
+                });
+                return (
+                  <Pressable
+                    key={entry.sessionId}
+                    style={styles.pendingReviewRow}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      openIntake(
+                        {
+                          sessionId: entry.sessionId,
+                          startTime: entry.startTime,
+                          sessionType: entry.sessionType,
+                          players: entry.players,
+                          playerCount: entry.playerCount,
+                          needsGroupDynamics: entry.needsGroupDynamics,
+                          cardType: entry.cardType,
+                        },
+                        {
+                          onComplete: (_result) => {
+                            removePendingReview(entry.sessionId)
+                              .then((removed) => {
+                                // Cancel the 20:00 reminder if one was scheduled, so it
+                                // doesn't fire after the review has already been completed.
+                                if (removed?.reminderNotificationId) {
+                                  Notifications.cancelScheduledNotificationAsync(
+                                    removed.reminderNotificationId,
+                                  ).catch(() => {});
+                                }
+                                return getPendingReviews().then(setPendingDeferredReviews);
+                              })
+                              .catch(() => {});
+                            if (entry.players[0]) {
+                              openAIChat({
+                                sessionId: entry.sessionId,
+                                playerId: entry.players[0].id,
+                                playerName: entry.players[0].name,
+                                sessionType: entry.sessionType,
+                                remainingPlayers: entry.players.slice(1),
+                              });
+                            }
+                          },
+                          onSaveOnly: () => {
+                            // Coach used "Skip AI" — data is saved, clear the pending entry
+                            // and cancel any outstanding 20:00 reminder.
+                            removePendingReview(entry.sessionId)
+                              .then((removed) => {
+                                if (removed?.reminderNotificationId) {
+                                  Notifications.cancelScheduledNotificationAsync(
+                                    removed.reminderNotificationId,
+                                  ).catch(() => {});
+                                }
+                                return getPendingReviews().then(setPendingDeferredReviews);
+                              })
+                              .catch(() => {});
+                          },
+                        },
+                      );
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.pendingReviewRowTitle} numberOfLines={1}>
+                        {entry.players.map((p) => p.name).join(", ") || "Session"}
+                      </Text>
+                      <Text style={styles.pendingReviewRowSub}>
+                        {entry.sessionType} · Deferred {dateLabel}
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={styles.pendingReviewDismiss}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        removePendingReview(entry.sessionId)
+                          .then((removed) => {
+                            // Cancel any outstanding 20:00 reminder for this session.
+                            if (removed?.reminderNotificationId) {
+                              Notifications.cancelScheduledNotificationAsync(
+                                removed.reminderNotificationId,
+                              ).catch(() => {});
+                            }
+                            return getPendingReviews().then(setPendingDeferredReviews);
+                          })
+                          .catch(() => {});
+                      }}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="close" size={16} color={Colors.dark.textMuted} />
+                    </Pressable>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         {/* === PENDING ATTENDANCE ALERT === */}
         <View style={isDesktop ? desktopDashStyles.gridItem : undefined}>
         {pendingAttendanceSessions.length > 0 && (
@@ -4303,6 +4431,23 @@ export default function DashboardScreen() {
             }, 300);
           }
         }}
+        onNextSession={() => {
+          // Navigate directly to the full-screen Active Session Dashboard.
+          // This matches the product requirement of a zero-friction transition to
+          // the next session without any intermediate drawer steps.
+          // nextSession.startTime > now, so it's never the session we just ended.
+          if (nextSession) {
+            navigation.navigate("ActiveSession", {
+              sessionId: nextSession.id,
+              sessionJson: JSON.stringify(nextSession),
+            });
+          }
+        }}
+        onDeferComplete={() => {
+          // "Remind me tonight" was tapped: refresh the pending-review list immediately
+          // so the deferred card appears on screen without needing a focus change.
+          getPendingReviews().then(setPendingDeferredReviews).catch(() => {});
+        }}
       />
 
       <AttendanceDrawer
@@ -4384,6 +4529,68 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  pendingReviewsCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.cardBackground,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.dark.orange + "40",
+    overflow: "hidden",
+  },
+  pendingReviewsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  pendingReviewsIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.dark.orange + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pendingReviewsTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: Colors.dark.text,
+  },
+  pendingReviewsSub: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    marginTop: 1,
+  },
+  pendingReviewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+    gap: Spacing.sm,
+  },
+  pendingReviewRowTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.text,
+  },
+  pendingReviewRowSub: {
+    fontSize: 11,
+    color: Colors.dark.textSecondary,
+    textTransform: "capitalize",
+    marginTop: 1,
+  },
+  pendingReviewDismiss: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
   locationDeniedBanner: {
     flexDirection: "row",

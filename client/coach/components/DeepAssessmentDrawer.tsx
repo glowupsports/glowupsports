@@ -22,6 +22,8 @@ interface Player {
 }
 
 interface DeepAssessmentDrawerProps {
+  /** Called after skill scores are successfully saved to the server. */
+  onSaved?: () => void;
   visible: boolean;
   player: Player | null;
   onClose: () => void;
@@ -75,7 +77,7 @@ const CONFIDENCE_OPTIONS = [
   { value: "high", label: "High", color: Colors.dark.successNeon },
 ];
 
-export function DeepAssessmentDrawer({ visible, player, onClose }: DeepAssessmentDrawerProps) {
+export function DeepAssessmentDrawer({ visible, player, onClose, onSaved }: DeepAssessmentDrawerProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [expandedPillar, setExpandedPillar] = useState<string | null>(null);
@@ -136,6 +138,7 @@ export function DeepAssessmentDrawer({ visible, player, onClose }: DeepAssessmen
     
     try {
       await saveMutation.mutateAsync(assessments);
+      onSaved?.();
     } finally {
       setSaving(false);
     }
