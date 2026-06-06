@@ -2301,17 +2301,26 @@ router.post("/api/coach/sessions/:sessionId/intake", authMiddleware, requireAcad
       trainedSkills,
       intensity,
       groupDynamics,
-      playerData, // array of { playerId, playerTags, pillarRatings, highlight }
+      lessonStructure,
+      playerData, // array of { playerId, playerTags, pillarRatings, highlight, privateNote }
       saveOnly,
     } = req.body as {
       trainedSkills: string[];
       intensity: string;
       groupDynamics?: Record<string, string>;
+      lessonStructure?: {
+        warmup?: string[];
+        kernA?: string[];
+        kernB?: string[];
+        matchPlay?: boolean | null;
+        intensity?: string;
+      };
       playerData: {
         playerId: string;
         playerTags?: string[];
         pillarRatings?: Record<string, string>;
         highlight?: string;
+        privateNote?: string;
       }[];
       saveOnly?: boolean;
     };
@@ -2363,6 +2372,7 @@ router.post("/api/coach/sessions/:sessionId/intake", authMiddleware, requireAcad
         playerTags: null,
         pillarRatings: null,
         highlight: null,
+        lessonStructure: lessonStructure || null,
       });
 
     // Store per-player intake rows
@@ -2379,6 +2389,7 @@ router.post("/api/coach/sessions/:sessionId/intake", authMiddleware, requireAcad
           playerTags: pd.playerTags || null,
           pillarRatings: pd.pillarRatings || null,
           highlight: pd.highlight || null,
+          privateNote: pd.privateNote || null,
         });
     }
 

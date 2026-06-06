@@ -8262,6 +8262,18 @@ export const sessionIntakeData = pgTable("session_intake_data", {
   }>(),
   highlight: text("highlight"), // breakthrough | steady | tough_day
 
+  // Lesson structure (session-level, stored on the playerId = null row)
+  lessonStructure: jsonb("lesson_structure").$type<{
+    warmup?: string[];
+    kernA?: string[];
+    kernB?: string[];
+    matchPlay?: boolean | null;
+    intensity?: string;
+  }>(),
+
+  // Coach's private note for a specific player (per-player row)
+  privateNote: text("private_note"),
+
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("session_intake_data_session_idx").on(table.sessionId),

@@ -613,6 +613,14 @@ export interface PlayerAIContext {
     playerPillarRating: Record<string, string> | null;
     playerTags: string[] | null;
     highlight: string | null;
+    lessonStructure: {
+      warmup?: string[];
+      kernA?: string[];
+      kernB?: string[];
+      matchPlay?: boolean | null;
+      intensity?: string;
+    } | null;
+    privateNote: string | null;
   } | null;
   // Glow Mirror — Player session self-reflections (last 5)
   recentSessionReflections: {
@@ -840,6 +848,7 @@ export async function buildPlayerAIContext(
         trainedSkills: sessionIntakeData.trainedSkills,
         intensity: sessionIntakeData.intensity,
         groupDynamics: sessionIntakeData.groupDynamics,
+        lessonStructure: sessionIntakeData.lessonStructure,
       })
         .from(sessionIntakeData)
         .where(and(eq(sessionIntakeData.sessionId, sessionId), isNull(sessionIntakeData.playerId)))
@@ -849,6 +858,7 @@ export async function buildPlayerAIContext(
         playerTags: sessionIntakeData.playerTags,
         pillarRatings: sessionIntakeData.pillarRatings,
         highlight: sessionIntakeData.highlight,
+        privateNote: sessionIntakeData.privateNote,
       })
         .from(sessionIntakeData)
         .where(and(eq(sessionIntakeData.sessionId, sessionId), eq(sessionIntakeData.playerId, playerId)))
@@ -863,6 +873,8 @@ export async function buildPlayerAIContext(
       playerPillarRating: (playerIntake[0]?.pillarRatings as Record<string, string>) || null,
       playerTags: (playerIntake[0]?.playerTags as string[]) || null,
       highlight: playerIntake[0]?.highlight || null,
+      lessonStructure: (sessionLevelIntake[0]?.lessonStructure as { warmup?: string[]; kernA?: string[]; kernB?: string[]; matchPlay?: boolean | null; intensity?: string } | null) || null,
+      privateNote: playerIntake[0]?.privateNote || null,
     } : null;
 
     return {
@@ -1087,6 +1099,18 @@ export function buildCoachingSystemPrompt(ctx: PlayerAIContext): string {
         }
         if (intakeContext.highlight) {
           lines.push(`  Session highlight: ${intakeContext.highlight.replace("_", " ")}`);
+        }
+        if (intakeContext.lessonStructure) {
+          const ls = intakeContext.lessonStructure;
+          const lsParts: string[] = [];
+          if (ls.warmup && ls.warmup.length > 0) lsParts.push(`Warm-up: ${ls.warmup.map((s) => s.replace(/_/g, " ")).join(", ")}`);
+          if (ls.kernA && ls.kernA.length > 0) lsParts.push(`Kern A (technical): ${ls.kernA.map((s) => s.replace(/_/g, " ")).join(", ")}`);
+          if (ls.kernB && ls.kernB.length > 0) lsParts.push(`Kern B (tactical): ${ls.kernB.map((s) => s.replace(/_/g, " ")).join(", ")}`);
+          if (ls.matchPlay !== null && ls.matchPlay !== undefined) lsParts.push(`Match play: ${ls.matchPlay ? "yes" : "no"}`);
+          if (lsParts.length > 0) lines.push(`  Lesson structure: ${lsParts.join(" | ")}`);
+        }
+        if (intakeContext.privateNote) {
+          lines.push(`  Coach's private note: ${intakeContext.privateNote}`);
         }
         lines.push("  (Use intake context to skip re-asking obvious questions and dive deeper into specific pillars.)");
         return lines.join("\n");

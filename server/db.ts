@@ -853,6 +853,14 @@ pool.query('SELECT 1').then(async () => {
   } catch (e: any) {
     console.log('[Database] session_intake_data migration skipped:', e.message);
   }
+  // Add lesson_structure and private_note columns to session_intake_data
+  try {
+    await pool.query(`ALTER TABLE session_intake_data ADD COLUMN IF NOT EXISTS lesson_structure JSONB`);
+    await pool.query(`ALTER TABLE session_intake_data ADD COLUMN IF NOT EXISTS private_note TEXT`);
+    console.log('[Database] session_intake_data lesson_structure/private_note columns added');
+  } catch (e: any) {
+    console.log('[Database] session_intake_data lesson_structure/private_note migration skipped:', e.message);
+  }
   // One-time cleanup: remove fake seed data from deep_assessment_pillar_summaries
   // These rows were inserted by demo-data-seed.ts with fabricated scores; the seeding
   // block has since been removed and these rows must not exist in production.
