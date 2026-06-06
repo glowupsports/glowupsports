@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -16,6 +16,17 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  interpolate,
+  Easing,
+} from "react-native-reanimated";
+import Svg, { Circle } from "react-native-svg";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
@@ -24,6 +35,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { formatTimeInTimezone } from "@/lib/dateUtils";
 import { AddPlayerToSessionModal } from "@/coach/components/calendar/AddPlayerToSessionModal";
 import InSessionFeedbackDrawer from "@/coach/components/InSessionFeedbackDrawer";
+import { useIntakeModal } from "@/coach/context/IntakeModalContext";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -190,6 +202,97 @@ function sessionTypeBadgeColor(type: string): string {
   }
 }
 
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function LivePulseDot() {
+  const scale = useSharedValue(1);
+  useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.6, { duration: 700, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 700, easing: Easing.in(Easing.ease) }),
+      ),
+      -1,
+      false
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: interpolate(scale.value, [1, 1.6], [1, 0.25]),
+  }));
+  return (
+    <View style={{ width: 10, height: 10, alignItems: "center", justifyContent: "center" }}>
+      <Animated.View
+        style={[{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22C55E" }, animStyle]}
+      />
+    </View>
+  );
+}
+
+function CircularCountdown({
+  secondsRemaining,
+  totalDuration,
+  isOvertime,
+  formatCountdown,
+}: {
+  secondsRemaining: number;
+  totalDuration: number;
+  isOvertime: boolean;
+  formatCountdown: () => string;
+}) {
+  const SIZE = 148;
+  const STROKE = 9;
+  const RADIUS = (SIZE - STROKE) / 2;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const progress = totalDuration > 0 ? Math.max(0, Math.min(1, secondsRemaining / totalDuration)) : 0;
+  const dashOffset = CIRCUMFERENCE * (1 - progress);
+  const ringColor = isOvertime ? Colors.dark.error : Colors.dark.primary;
+
+  return (
+    <View style={{ alignItems: "center", justifyContent: "center" }}>
+      <Svg width={SIZE} height={SIZE}>
+        <Circle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={RADIUS}
+          stroke="rgba(255,255,255,0.08)"
+          strokeWidth={STROKE}
+          fill="none"
+        />
+        <Circle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={RADIUS}
+          stroke={ringColor}
+          strokeWidth={STROKE}
+          fill="none"
+          strokeDasharray={`${CIRCUMFERENCE}`}
+          strokeDashoffset={dashOffset}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${SIZE / 2}, ${SIZE / 2}`}
+        />
+      </Svg>
+      <View style={{ position: "absolute", alignItems: "center" }}>
+        <ThemedText
+          style={{
+            fontSize: 30,
+            fontWeight: "800",
+            color: isOvertime ? Colors.dark.error : Colors.dark.primary,
+            fontVariant: ["tabular-nums"],
+          }}
+        >
+          {formatCountdown()}
+        </ThemedText>
+        <ThemedText style={{ fontSize: 9, color: Colors.dark.tabIconDefault, letterSpacing: 1.2, marginTop: 2 }}>
+          {isOvertime ? "OVERTIME" : "REMAINING"}
+        </ThemedText>
+      </View>
+    </View>
+  );
+}
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function ActiveSessionScreen() {
@@ -200,6 +303,7 @@ export default function ActiveSessionScreen() {
   const queryClient = useQueryClient();
   const { academy } = useCoach();
   const timezone = academy?.timezone || "Asia/Dubai";
+  const { openIntake } = useIntakeModal();
 
   const { sessionId, sessionJson } = route.params || {};
 
@@ -260,7 +364,7 @@ export default function ActiveSessionScreen() {
   const session: SessionDetail | null =
     (calendarSessions ?? []).find((s) => s.id === sessionId) ?? seedSession;
 
-  const players = session?.players || [];
+  const players = useMemo(() => session?.players || [], [session?.players]);
 
   // ── Init attendance from session data ──
   useEffect(() => {
@@ -566,8 +670,51 @@ export default function ActiveSessionScreen() {
 
   const handleEndSession = useCallback(() => {
     setShowOverflow(false);
-    navigation.navigate("PostSessionEnd", { sessionId });
-  }, [navigation, sessionId]);
+    if (!session) {
+      navigation.navigate("CoachHQ");
+      return;
+    }
+    const cardType: "private" | "semi_private" | "group" =
+      session.sessionType === "private" || session.sessionType === "private_adjusted"
+        ? "private"
+        : session.sessionType === "semi_private"
+        ? "semi_private"
+        : "group";
+    openIntake(
+      {
+        sessionId,
+        startTime: session.startTime,
+        sessionType: session.sessionType,
+        players: players.map((p) => ({
+          id: p.id,
+          name: p.name,
+          attendanceStatus: attendanceMap.get(p.id)?.status,
+          ballLevel: p.ballLevel,
+        })),
+        playerCount: players.length,
+        needsGroupDynamics: cardType !== "private",
+        cardType,
+      },
+      {
+        onComplete: () => {
+          queryClient.invalidateQueries({
+            predicate: (q) =>
+              typeof q.queryKey[0] === "string" &&
+              (q.queryKey[0] as string).startsWith("/api/coach/calendar"),
+          });
+          navigation.navigate("CoachHQ");
+        },
+        onSaveOnly: () => {
+          queryClient.invalidateQueries({
+            predicate: (q) =>
+              typeof q.queryKey[0] === "string" &&
+              (q.queryKey[0] as string).startsWith("/api/coach/calendar"),
+          });
+          navigation.navigate("CoachHQ");
+        },
+      }
+    );
+  }, [navigation, sessionId, session, players, attendanceMap, openIntake, queryClient]);
 
   // ── Format helpers ──
 
@@ -585,6 +732,13 @@ export default function ActiveSessionScreen() {
 
   const isOvertime = secondsRemaining < 0;
 
+  const totalDuration = useMemo(() => {
+    if (!session?.startTime || !session?.endTime) return 0;
+    return Math.floor(
+      (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
+    );
+  }, [session?.startTime, session?.endTime]);
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   const feedbackPlayers = players.map((p) => ({
@@ -593,96 +747,88 @@ export default function ActiveSessionScreen() {
     photoUrl: p.profilePhotoUrl,
   }));
 
+  const attendingCount = Array.from(attendanceMap.values()).filter(
+    (r) => r.status === "present" || r.status === "late"
+  ).length;
+
   return (
     <View style={styles.root}>
-      {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: headerHeight + Spacing.sm }]}>
-        <View style={styles.headerTop}>
-          <View style={styles.sessionMetaRow}>
+      {/* ── Premium Hero Header ── */}
+      <LinearGradient
+        colors={["#111827", Colors.dark.backgroundRoot]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[styles.hero, { paddingTop: headerHeight + Spacing.xs }]}
+      >
+        {/* Top row: live pill + type badge + overflow */}
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroTopLeft}>
+            <View style={styles.livePill}>
+              <LivePulseDot />
+              <ThemedText style={styles.livePillText}>LIVE</ThemedText>
+            </View>
             {session?.sessionType ? (
               <View
                 style={[
                   styles.typeBadge,
-                  { backgroundColor: sessionTypeBadgeColor(session.sessionType) + "25" },
+                  { backgroundColor: sessionTypeBadgeColor(session.sessionType) + "22" },
                 ]}
               >
                 <ThemedText
-                  style={[
-                    styles.typeBadgeText,
-                    { color: sessionTypeBadgeColor(session.sessionType) },
-                  ]}
+                  style={[styles.typeBadgeText, { color: sessionTypeBadgeColor(session.sessionType) }]}
                 >
                   {sessionTypeBadge(session.sessionType)}
                 </ThemedText>
               </View>
             ) : null}
-            {session?.startTime && session?.endTime ? (
-              <ThemedText style={styles.timeRangeText}>
-                {formatTimeInTimezone(session.startTime, timezone)} –{" "}
-                {formatTimeInTimezone(session.endTime, timezone)}
-              </ThemedText>
-            ) : null}
-            {session?.courtName || session?.locationName ? (
-              <View style={styles.locationRow}>
-                <Ionicons
-                  name="location-outline"
-                  size={13}
-                  color={Colors.dark.tabIconDefault}
-                />
-                <ThemedText style={styles.locationText} numberOfLines={1}>
-                  {session.courtName || session.locationName}
-                </ThemedText>
-              </View>
-            ) : null}
           </View>
-
-          {/* Overflow menu button */}
-          <Pressable
-            style={styles.overflowButton}
-            onPress={() => setShowOverflow(true)}
-            hitSlop={10}
-          >
-            <Ionicons
-              name="ellipsis-vertical"
-              size={20}
-              color={Colors.dark.text}
-            />
+          <Pressable style={styles.overflowButton} onPress={() => setShowOverflow(true)} hitSlop={10}>
+            <Ionicons name="ellipsis-vertical" size={20} color={Colors.dark.text} />
           </Pressable>
         </View>
 
-        {/* Countdown timer */}
-        <View style={styles.countdownRow}>
-          <View style={styles.countdownBlock}>
-            <ThemedText
-              style={[
-                styles.countdownValue,
-                isOvertime && styles.countdownOvertime,
-              ]}
-            >
-              {formatCountdown()}
-            </ThemedText>
-            <ThemedText style={styles.countdownLabel}>
-              {isOvertime ? "OVERTIME" : "REMAINING"}
-            </ThemedText>
-          </View>
-          <View style={styles.playerCountBlock}>
-            <ThemedText style={styles.playerCountValue}>
-              {players.length}
-            </ThemedText>
-            <ThemedText style={styles.playerCountLabel}>PLAYERS</ThemedText>
-          </View>
-          <View style={styles.presentCountBlock}>
-            <ThemedText style={styles.presentCountValue}>
-              {
-                Array.from(attendanceMap.values()).filter(
-                  (r) => r.status === "present" || r.status === "late"
-                ).length
-              }
-            </ThemedText>
-            <ThemedText style={styles.presentCountLabel}>ATTENDING</ThemedText>
+        {/* Time + location meta */}
+        <View style={styles.heroMeta}>
+          {session?.startTime && session?.endTime ? (
+            <View style={styles.heroMetaItem}>
+              <Ionicons name="time-outline" size={12} color={Colors.dark.tabIconDefault} />
+              <ThemedText style={styles.heroMetaText}>
+                {formatTimeInTimezone(session.startTime, timezone)} – {formatTimeInTimezone(session.endTime, timezone)}
+              </ThemedText>
+            </View>
+          ) : null}
+          {(session?.courtName || session?.locationName) ? (
+            <View style={styles.heroMetaItem}>
+              <Ionicons name="location-outline" size={12} color={Colors.dark.tabIconDefault} />
+              <ThemedText style={styles.heroMetaText} numberOfLines={1}>
+                {session.courtName || session.locationName}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Timer + stat pills */}
+        <View style={styles.timerRow}>
+          <CircularCountdown
+            secondsRemaining={secondsRemaining}
+            totalDuration={totalDuration}
+            isOvertime={isOvertime}
+            formatCountdown={formatCountdown}
+          />
+          <View style={styles.timerStats}>
+            <View style={styles.timerStatCard}>
+              <ThemedText style={styles.timerStatValue}>{players.length}</ThemedText>
+              <ThemedText style={styles.timerStatLabel}>PLAYERS</ThemedText>
+            </View>
+            <View style={[styles.timerStatCard, styles.timerStatCardGreen]}>
+              <ThemedText style={[styles.timerStatValue, styles.timerStatValueGreen]}>
+                {attendingCount}
+              </ThemedText>
+              <ThemedText style={styles.timerStatLabel}>ATTENDING</ThemedText>
+            </View>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* ── Player Grid ── */}
       <ScrollView
@@ -1432,30 +1578,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.dark.backgroundRoot,
   },
-  // Header
-  header: {
-    backgroundColor: Colors.dark.backgroundDefault,
+  // Premium Hero Header
+  hero: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.lg,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.backgroundSecondary,
+    borderBottomColor: "rgba(255,255,255,0.06)",
   },
-  headerTop: {
+  heroTopRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.xs,
   },
-  sessionMetaRow: {
+  heroTopLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
     flex: 1,
-    gap: Spacing.xs,
+  },
+  livePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#22C55E18",
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#22C55E40",
+  },
+  livePillText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#22C55E",
+    letterSpacing: 1.2,
   },
   typeBadge: {
     alignSelf: "flex-start",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
     borderRadius: BorderRadius.sm,
-    marginBottom: Spacing.xs,
   },
   typeBadgeText: {
     fontSize: 11,
@@ -1463,93 +1626,67 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
-  timeRangeText: {
-    fontSize: 14,
-    color: Colors.dark.text,
-    opacity: 0.8,
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  locationText: {
-    fontSize: 12,
-    color: Colors.dark.tabIconDefault,
-  },
   overflowButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.dark.backgroundSecondary,
+    backgroundColor: "rgba(255,255,255,0.08)",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: Spacing.sm,
   },
-  // Countdown row
-  countdownRow: {
+  heroMeta: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  countdownBlock: {
-    flex: 2,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+  heroMetaItem: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 4,
   },
-  countdownValue: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: Colors.dark.primary,
-    fontVariant: ["tabular-nums"],
-  },
-  countdownOvertime: {
-    color: Colors.dark.error,
-  },
-  countdownLabel: {
-    fontSize: 10,
+  heroMetaText: {
+    fontSize: 12,
     color: Colors.dark.tabIconDefault,
-    letterSpacing: 1,
-    marginTop: 2,
   },
-  playerCountBlock: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
+  // Timer row
+  timerRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: Spacing.lg,
   },
-  playerCountValue: {
-    fontSize: 26,
-    fontWeight: "700",
+  timerStats: {
+    flex: 1,
+    gap: Spacing.sm,
+  },
+  timerStatCard: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  timerStatCardGreen: {
+    borderColor: "#22C55E30",
+    backgroundColor: "#22C55E08",
+  },
+  timerStatValue: {
+    fontSize: 28,
+    fontWeight: "800",
     color: Colors.dark.text,
   },
-  playerCountLabel: {
-    fontSize: 10,
-    color: Colors.dark.tabIconDefault,
-    letterSpacing: 1,
-    marginTop: 2,
-  },
-  presentCountBlock: {
-    flex: 1,
-    backgroundColor: Colors.dark.backgroundSecondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  presentCountValue: {
-    fontSize: 26,
-    fontWeight: "700",
+  timerStatValueGreen: {
     color: "#22C55E",
   },
-  presentCountLabel: {
-    fontSize: 10,
+  timerStatLabel: {
+    fontSize: 9,
     color: Colors.dark.tabIconDefault,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     marginTop: 2,
+    fontWeight: "600",
   },
   // Player grid
   scrollArea: {

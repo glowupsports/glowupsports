@@ -1,11 +1,12 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { View, StyleSheet, ScrollView, RefreshControl, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
@@ -138,6 +139,27 @@ export default function CoachHQScreen() {
     setRefreshing(false);
   }, [refetch, refetchPlans]);
 
+  // Auto-redirect to live session when CoachHQ comes into focus
+  const hasAutoNavigated = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (hasAutoNavigated.current) return;
+      const liveSession = todaySessions.find((s) => s.status === "in_progress");
+      if (liveSession) {
+        hasAutoNavigated.current = true;
+        navigation.navigate("ActiveSession", {
+          sessionId: liveSession.id,
+          planId: liveSession.sessionPlanId,
+        });
+      }
+    }, [todaySessions, navigation])
+  );
+  // Reset the auto-navigate guard once all live sessions are done
+  useEffect(() => {
+    const hasLive = todaySessions.some((s) => s.status === "in_progress");
+    if (!hasLive) hasAutoNavigated.current = false;
+  }, [todaySessions]);
+
   const handleSessionPress = (session: TodaySession) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const now = new Date();
@@ -199,20 +221,35 @@ export default function CoachHQScreen() {
         />
       }
     >
-      <View style={styles.header}>
-        <ThemedText style={styles.greeting}>Good Morning, Coach</ThemedText>
-        <ThemedText style={styles.date}>{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</ThemedText>
-      </View>
-
-      <View style={styles.statsGrid}>
-        {quickStats.map((stat, index) => (
-          <Card key={index} style={styles.statCard}>
-            <Ionicons name={stat.icon} size={24} color={stat.color} />
-            <ThemedText style={[styles.statValue, { color: stat.color }]}>{stat.value}</ThemedText>
-            <ThemedText style={styles.statLabel}>{stat.label}</ThemedText>
-          </Card>
-        ))}
-      </View>
+      {/* ── Gradient Hero Banner ── */}
+      <LinearGradient
+        colors={["#1A2332", Colors.dark.backgroundRoot]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroBanner}
+      >
+        <View style={styles.heroTextBlock}>
+          <ThemedText style={styles.heroGreeting}>
+            {(() => {
+              const h = new Date().getHours();
+              if (h < 12) return "Good Morning, Coach";
+              if (h < 17) return "Good Afternoon, Coach";
+              return "Good Evening, Coach";
+            })()}
+          </ThemedText>
+          <ThemedText style={styles.heroDate}>
+            {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+          </ThemedText>
+        </View>
+        <View style={styles.heroStatRow}>
+          {quickStats.map((stat, idx) => (
+            <View key={idx} style={styles.heroStatItem}>
+              <ThemedText style={[styles.heroStatValue, { color: stat.color }]}>{stat.value}</ThemedText>
+              <ThemedText style={styles.heroStatLabel}>{stat.label}</ThemedText>
+            </View>
+          ))}
+        </View>
+      </LinearGradient>
 
       <View style={styles.sectionHeader}>
         <ThemedText style={styles.sectionTitle}>Today&apos;s Sessions</ThemedText>
@@ -262,62 +299,70 @@ export default function CoachHQScreen() {
           )}
         </Card>
       ) : (
-        filteredSessions.map((session) => (
-          <Card 
-            key={session.id} 
-            style={styles.sessionCard}
-            onPress={() => handleSessionPress(session)}
-          >
-            <View style={styles.sessionHeader}>
-              <View style={styles.sessionInfo}>
-                <View style={styles.playerRow}>
-                  <BallLevelBadge levelId={session.playerLevel} sport={session.sport} size="small" showLabel={false} />
-                  <View style={styles.playerInfo}>
-                    <ThemedText style={styles.playerName}>{session.playerName}</ThemedText>
-                    <ThemedText style={styles.sessionType}>{session.type}</ThemedText>
+        filteredSessions.map((session) => {
+          const statusColor = getStatusColor(session.status);
+          return (
+            <Card
+              key={session.id}
+              style={[styles.sessionCard, { borderLeftColor: statusColor }]}
+              onPress={() => handleSessionPress(session)}
+            >
+              <View style={styles.sessionHeader}>
+                <View style={styles.sessionInfo}>
+                  <View style={styles.playerRow}>
+                    <BallLevelBadge levelId={session.playerLevel} sport={session.sport} size="small" showLabel={false} />
+                    <View style={styles.playerInfo}>
+                      <ThemedText style={styles.playerName}>{session.playerName}</ThemedText>
+                      <ThemedText style={styles.sessionType}>{session.type}</ThemedText>
+                    </View>
                   </View>
                 </View>
-              </View>
-              <View style={styles.sessionStatus}>
-                <Ionicons name={getStatusIcon(session.status)} size={24} color={getStatusColor(session.status)} />
-              </View>
-            </View>
-
-            <View style={styles.sessionMeta}>
-              <View style={styles.timeBlock}>
-                <Ionicons name="time-outline" size={14} color={Colors.dark.text} style={{ opacity: 0.6 }} />
-                <ThemedText style={styles.timeText}>
-                  {formatTime(session.startTime)} - {formatTime(session.endTime)}
-                </ThemedText>
-              </View>
-              {(session.locationName || session.locationAddress) ? (
-                <View style={styles.timeBlock}>
-                  <Ionicons name="location-outline" size={14} color={Colors.dark.text} style={{ opacity: 0.6 }} />
-                  <ThemedText style={[styles.timeText, { opacity: 0.8 }]}>
-                    {session.locationAddress || session.locationName}
+                <View style={[styles.sessionStatusBadge, { backgroundColor: statusColor + "1A" }]}>
+                  <Ionicons name={getStatusIcon(session.status)} size={14} color={statusColor} />
+                  <ThemedText style={[styles.sessionStatusText, { color: statusColor }]}>
+                    {session.status === "in_progress" ? "Live" : session.status === "completed" ? "Done" : "Upcoming"}
                   </ThemedText>
                 </View>
-              ) : null}
-              
-              {session.status === "scheduled" ? (
-                <View style={[styles.actionButton, { backgroundColor: Colors.dark.primary + "20" }]}>
-                  <Ionicons name="flash-outline" size={14} color={Colors.dark.primary} />
-                  <ThemedText style={[styles.actionText, { color: Colors.dark.primary }]}>Generate Plan</ThemedText>
+              </View>
+
+              <View style={styles.sessionMeta}>
+                <View style={styles.timeBlock}>
+                  <Ionicons name="time-outline" size={13} color={Colors.dark.tabIconDefault} />
+                  <ThemedText style={styles.timeText}>
+                    {formatTime(session.startTime)} – {formatTime(session.endTime)}
+                  </ThemedText>
                 </View>
-              ) : session.status === "in_progress" ? (
-                <View style={[styles.actionButton, { backgroundColor: Colors.dark.orange + "20" }]}>
-                  <Ionicons name="play" size={14} color={Colors.dark.orange} />
-                  <ThemedText style={[styles.actionText, { color: Colors.dark.orange }]}>Continue</ThemedText>
-                </View>
-              ) : (
-                <View style={[styles.actionButton, { backgroundColor: Colors.dark.successNeon + "20" }]}>
-                  <Ionicons name="document-text-outline" size={14} color={Colors.dark.successNeon} />
-                  <ThemedText style={[styles.actionText, { color: Colors.dark.successNeon }]}>View Report</ThemedText>
-                </View>
-              )}
-            </View>
-          </Card>
-        ))
+                {(session.locationName || session.locationAddress) ? (
+                  <View style={styles.timeBlock}>
+                    <Ionicons name="location-outline" size={13} color={Colors.dark.tabIconDefault} />
+                    <ThemedText style={styles.timeText} numberOfLines={1}>
+                      {session.locationName || session.locationAddress}
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={styles.sessionCTA}>
+                {session.status === "in_progress" ? (
+                  <View style={[styles.ctaBadge, { backgroundColor: Colors.dark.orange + "22", borderColor: Colors.dark.orange + "60" }]}>
+                    <Ionicons name="play" size={12} color={Colors.dark.orange} />
+                    <ThemedText style={[styles.ctaText, { color: Colors.dark.orange }]}>Resume Session</ThemedText>
+                  </View>
+                ) : session.status === "scheduled" ? (
+                  <View style={[styles.ctaBadge, { backgroundColor: Colors.dark.primary + "18", borderColor: Colors.dark.primary + "50" }]}>
+                    <Ionicons name="flash-outline" size={12} color={Colors.dark.primary} />
+                    <ThemedText style={[styles.ctaText, { color: Colors.dark.primary }]}>Generate Plan</ThemedText>
+                  </View>
+                ) : (
+                  <View style={[styles.ctaBadge, { backgroundColor: Colors.dark.successNeon + "15", borderColor: Colors.dark.successNeon + "40" }]}>
+                    <Ionicons name="document-text-outline" size={12} color={Colors.dark.successNeon} />
+                    <ThemedText style={[styles.ctaText, { color: Colors.dark.successNeon }]}>View Report</ThemedText>
+                  </View>
+                )}
+              </View>
+            </Card>
+          );
+        })
       )}
 
       <RosterInsightsCard />
@@ -515,41 +560,51 @@ const styles = StyleSheet.create({
   locationFilterChipTextActive: {
     color: Colors.dark.primary,
   },
-  header: {
-    marginBottom: Spacing.xl,
-  },
-  greeting: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: Colors.dark.text,
-  },
-  date: {
-    fontSize: 14,
-    color: Colors.dark.text,
-    opacity: 0.6,
-    marginTop: Spacing.xs,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-    marginBottom: Spacing.xl,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: "45%",
-    alignItems: "center",
+  // ── Hero Banner ──
+  heroBanner: {
+    borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
+    marginBottom: Spacing.xl,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+  },
+  heroTextBlock: {
+    marginBottom: Spacing.md,
+  },
+  heroGreeting: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: Colors.dark.text,
+    letterSpacing: -0.3,
+  },
+  heroDate: {
+    fontSize: 13,
+    color: Colors.dark.tabIconDefault,
+    marginTop: 3,
+  },
+  heroStatRow: {
+    flexDirection: "row",
     gap: Spacing.xs,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "700",
+  heroStatItem: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
   },
-  statLabel: {
-    fontSize: 11,
-    color: Colors.dark.text,
-    opacity: 0.6,
+  heroStatValue: {
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  heroStatLabel: {
+    fontSize: 9,
+    color: Colors.dark.tabIconDefault,
+    letterSpacing: 0.5,
+    marginTop: 2,
     textAlign: "center",
   },
   sectionHeader: {
@@ -575,12 +630,42 @@ const styles = StyleSheet.create({
   sessionCard: {
     marginBottom: Spacing.md,
     padding: Spacing.lg,
+    borderLeftWidth: 4,
+    gap: Spacing.sm,
   },
   sessionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: Spacing.md,
+  },
+  sessionStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.full,
+  },
+  sessionStatusText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  sessionCTA: {
+    flexDirection: "row",
+  },
+  ctaBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+  },
+  ctaText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   sessionInfo: {
     flex: 1,

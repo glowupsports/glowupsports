@@ -39,7 +39,7 @@ export default function PostSessionEndScreen() {
 
       <ThemedText style={styles.title}>Session Complete</ThemedText>
       <ThemedText style={styles.subtitle}>
-        Post-session coaching flow coming soon. You can review attendance and give feedback from the session history.
+        Great work! Your session data has been saved. Review session history and player progress from the Coach HQ.
       </ThemedText>
 
       <Pressable style={styles.homeButton} onPress={handleGoHome}>
