@@ -445,15 +445,17 @@ function AssessmentOfferScreen({
   description,
   icon,
   iconColor,
-  onRun,
-  onSkip,
+  players,
+  assessedPlayerIds,
+  onRunForPlayer,
 }: {
   title: string;
   description: string;
   icon: IoniconsName;
   iconColor: string;
-  onRun: () => void;
-  onSkip: () => void;
+  players: PlayerEntry[];
+  assessedPlayerIds: Set<string>;
+  onRunForPlayer: (player: PlayerEntry) => void;
 }) {
   return (
     <View style={styles.offerContainer}>
@@ -463,20 +465,38 @@ function AssessmentOfferScreen({
       <Text style={styles.offerTitle}>{title}</Text>
       <Text style={styles.offerDescription}>{description}</Text>
 
-      <Pressable
-        style={[styles.offerRunBtn, { backgroundColor: iconColor }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          onRun();
-        }}
-      >
-        <Ionicons name={icon} size={18} color={Colors.dark.buttonText} />
-        <Text style={styles.offerRunBtnText}>Run Now</Text>
-      </Pressable>
-
-      <Pressable style={styles.offerSkipBtn} onPress={onSkip}>
-        <Text style={styles.offerSkipBtnText}>Skip for now</Text>
-      </Pressable>
+      <View style={styles.playerAssessmentList}>
+        {players.map((player) => {
+          const assessed = assessedPlayerIds.has(player.id);
+          return (
+            <Pressable
+              key={player.id}
+              style={[styles.playerAssessmentRow, assessed && styles.playerAssessmentRowDone]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onRunForPlayer(player);
+              }}
+            >
+              <View style={styles.playerAssessmentRowLeft}>
+                <View style={[styles.playerAvatar, { backgroundColor: iconColor + "30" }]}>
+                  <Text style={[styles.playerAvatarText, { color: iconColor }]}>
+                    {player.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={styles.playerAssessmentName}>{player.name}</Text>
+              </View>
+              {assessed ? (
+                <Ionicons name="checkmark-circle" size={22} color={Colors.dark.primary} />
+              ) : (
+                <View style={[styles.assessChip, { backgroundColor: iconColor }]}>
+                  <Text style={styles.assessChipText}>Assess</Text>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.dark.buttonText} />
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -555,9 +575,9 @@ export function IntakeFlowModal({
     players.map(() => ({ playerTags: [], pillarRatings: {}, privateNote: "" })),
   );
 
-  // Assessment completion tracking
-  const [quickAssessmentCompleted, setQuickAssessmentCompleted] = useState(false);
-  const [deepAssessmentCompleted, setDeepAssessmentCompleted] = useState(false);
+  // Per-player assessment tracking (which players have been assessed in this session)
+  const [quickAssessedPlayerIds, setQuickAssessedPlayerIds] = useState<Set<string>>(new Set());
+  const [deepAssessedPlayerIds, setDeepAssessedPlayerIds] = useState<Set<string>>(new Set());
 
   // Assessment drawer state
   const [assessmentPlayer, setAssessmentPlayer] = useState<PlayerEntry | null>(null);
@@ -640,8 +660,8 @@ export function IntakeFlowModal({
         highlight: playerStates[i].highlight,
         privateNote: playerStates[i].privateNote || undefined,
       })),
-      quickAssessmentCompleted,
-      deepAssessmentCompleted: deepAssessmentCompleted || undefined,
+      quickAssessmentCompleted: quickAssessedPlayerIds.size > 0,
+      deepAssessmentCompleted: deepAssessedPlayerIds.size > 0 || undefined,
     };
   };
 
@@ -859,34 +879,18 @@ export function IntakeFlowModal({
 
     // ── Quick Assessment Offer ──
     if (currentStep.type === "quick_assessment_offer") {
-      // If already completed (coach went Back then forward), show a success confirmation.
-      // Footer is shown normally (isAssessmentOfferStep excludes this completed case) so
-      // the coach can advance with Next or Start AI Chat.
-      if (quickAssessmentCompleted) {
-        return (
-          <View style={styles.offerContainer}>
-            <View style={[styles.offerIconCircle, { backgroundColor: Colors.dark.primary + "20" }]}>
-              <Ionicons name="checkmark-circle" size={40} color={Colors.dark.primary} />
-            </View>
-            <Text style={styles.offerTitle}>Quick Assessment Done</Text>
-            <Text style={styles.offerDescription}>
-              Results captured and added to the AI context. Tap Next to continue.
-            </Text>
-          </View>
-        );
-      }
       return (
         <AssessmentOfferScreen
           title="Run Quick Assessment?"
-          description="Run a quick baseline assessment to capture player level and skill snapshot. Results feed directly into the AI Coach context."
+          description="Tap a player to run a quick baseline assessment. Results feed directly into the AI Coach context. Tap Done when finished."
           icon="analytics-outline"
           iconColor={Colors.dark.primary}
-          onRun={() => {
-            const firstPlayer = players[0] ?? null;
-            setAssessmentPlayer(firstPlayer);
+          players={players}
+          assessedPlayerIds={quickAssessedPlayerIds}
+          onRunForPlayer={(player) => {
+            setAssessmentPlayer(player);
             setShowQuickAssessment(true);
           }}
-          onSkip={() => handleNext()}
         />
       );
     }
@@ -896,15 +900,15 @@ export function IntakeFlowModal({
       return (
         <AssessmentOfferScreen
           title="Run Deep Assessment?"
-          description="Complete a thorough skill-by-skill assessment across all pillars. This gives the AI Coach detailed context for targeted recommendations."
+          description="Tap a player to complete a thorough skill-by-skill assessment. This gives the AI Coach detailed context for targeted recommendations. Tap Done when finished."
           icon="clipboard-outline"
           iconColor={Colors.dark.xpCyan}
-          onRun={() => {
-            const firstPlayer = players[0] ?? null;
-            setAssessmentPlayer(firstPlayer);
+          players={players}
+          assessedPlayerIds={deepAssessedPlayerIds}
+          onRunForPlayer={(player) => {
+            setAssessmentPlayer(player);
             setShowDeepAssessment(true);
           }}
-          onSkip={() => handleNext()}
         />
       );
     }
@@ -913,11 +917,8 @@ export function IntakeFlowModal({
   };
 
   const isLastStep = stepIndex === totalSteps - 1;
-  // Hide normal footer only when the offer screen itself is visible (Run/Skip are inside the
-  // offer component). When quick assessment is already completed and the coach navigated back,
-  // show the normal footer so they can press Next/Start AI Chat.
   const isAssessmentOfferStep =
-    (currentStep?.type === "quick_assessment_offer" && !quickAssessmentCompleted) ||
+    currentStep?.type === "quick_assessment_offer" ||
     currentStep?.type === "deep_assessment_offer";
 
   if (!visible) return null;
@@ -1016,7 +1017,7 @@ export function IntakeFlowModal({
           </View>
         )}
 
-        {/* Assessment offer footer — back button only */}
+        {/* Assessment offer footer — back + done */}
         {isAssessmentOfferStep && (
           <View style={styles.footer}>
             {stepIndex > 0 ? (
@@ -1027,6 +1028,15 @@ export function IntakeFlowModal({
             ) : (
               <View style={{ flex: 1 }} />
             )}
+            <View style={styles.footerRight}>
+              <Pressable
+                style={styles.nextBtn}
+                onPress={() => handleNext(false)}
+              >
+                <Text style={styles.nextBtnText}>Done</Text>
+                <Ionicons name="checkmark" size={16} color={Colors.dark.buttonText} />
+              </Pressable>
+            </View>
           </View>
         )}
       </Animated.View>
@@ -1040,11 +1050,11 @@ export function IntakeFlowModal({
           setAssessmentPlayer(null);
         }}
         onComplete={() => {
+          if (assessmentPlayer) {
+            setQuickAssessedPlayerIds((prev) => new Set([...prev, assessmentPlayer.id]));
+          }
           setShowQuickAssessment(false);
           setAssessmentPlayer(null);
-          setQuickAssessmentCompleted(true);
-          // Auto-advance past the offer step so the coach is never stranded
-          setStepIndex((s) => Math.min(s + 1, totalSteps - 1));
         }}
       />
 
@@ -1057,11 +1067,11 @@ export function IntakeFlowModal({
           setAssessmentPlayer(null);
         }}
         onSaved={() => {
+          if (assessmentPlayer) {
+            setDeepAssessedPlayerIds((prev) => new Set([...prev, assessmentPlayer.id]));
+          }
           setShowDeepAssessment(false);
           setAssessmentPlayer(null);
-          setDeepAssessmentCompleted(true);
-          // Auto-advance past the deep-assessment step so the coach isn't stranded
-          setStepIndex((s) => Math.min(s + 1, totalSteps - 1));
         }}
       />
     </View>
@@ -1355,30 +1365,61 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingHorizontal: Spacing.lg,
   },
-  offerRunBtn: {
+  playerAssessmentList: {
+    width: "100%",
+    gap: 10,
+    marginTop: Spacing.xs,
+  },
+  playerAssessmentRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+    justifyContent: "space-between",
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.lg,
-    marginTop: Spacing.sm,
-    minWidth: 180,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+    backgroundColor: Colors.dark.backgroundSecondary,
   },
-  offerRunBtnText: {
-    fontSize: 16,
+  playerAssessmentRowDone: {
+    borderColor: Colors.dark.primary + "60",
+    backgroundColor: Colors.dark.primary + "12",
+  },
+  playerAssessmentRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+  playerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playerAvatarText: {
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  playerAssessmentName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  assessChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.full,
+  },
+  assessChipText: {
+    fontSize: 13,
     fontWeight: "700",
     color: Colors.dark.buttonText,
-  },
-  offerSkipBtn: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-  },
-  offerSkipBtnText: {
-    fontSize: 14,
-    color: Colors.dark.textMuted,
-    fontWeight: "500",
   },
   // Footer
   footer: {
