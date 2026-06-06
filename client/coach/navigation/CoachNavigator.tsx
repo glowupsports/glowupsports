@@ -468,8 +468,7 @@ function CoachStackNavigator() {
         name="ActiveSession" 
         component={ActiveSessionScreen}
         options={{
-          headerShown: true,
-          headerTitle: "Active Session",
+          headerShown: false,
         }}
       />
       <Stack.Screen

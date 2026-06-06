@@ -35,6 +35,7 @@ import { useCoach } from "@/coach/context/CoachContext";
 import { formatTimeInTimezone } from "@/lib/dateUtils";
 import { AddPlayerToSessionModal } from "@/coach/components/calendar/AddPlayerToSessionModal";
 import InSessionFeedbackDrawer from "@/coach/components/InSessionFeedbackDrawer";
+import { useIntakeModal } from "@/coach/context/IntakeModalContext";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -307,6 +308,7 @@ export default function ActiveSessionScreen() {
   const queryClient = useQueryClient();
   const { academy } = useCoach();
   const timezone = academy?.timezone || "Asia/Dubai";
+  const { openIntake } = useIntakeModal();
 
   const { sessionId, sessionJson } = route.params || {};
 
@@ -673,8 +675,58 @@ export default function ActiveSessionScreen() {
 
   const handleEndSession = useCallback(() => {
     setShowOverflow(false);
-    navigation.navigate("PostSessionEnd", { sessionId });
-  }, [navigation, sessionId]);
+    if (!session) {
+      navigation.navigate("PostSessionEnd", { sessionId });
+      return;
+    }
+    const sessionPlayers = (session.players || []).map((p) => {
+      const rec = attendanceMap.get(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        ballLevel: p.ballLevel ?? null,
+        attendanceStatus: rec ? rec.status : (p.attendanceStatus ?? undefined),
+      };
+    });
+    const sType = session.sessionType || "private";
+    const cardType: "private" | "semi_private" | "group" =
+      sType === "semi_private" ? "semi_private"
+      : sType === "private" ? "private"
+      : "group";
+    const needsGroupDynamics = sessionPlayers.length > 1;
+    openIntake(
+      {
+        sessionId,
+        startTime: session.startTime,
+        sessionType: sType,
+        players: sessionPlayers,
+        playerCount: sessionPlayers.length,
+        needsGroupDynamics,
+        cardType,
+      },
+      {
+        onComplete: () => {
+          queryClient.invalidateQueries({
+            predicate: (q) =>
+              typeof q.queryKey[0] === "string" &&
+              (q.queryKey[0] as string).startsWith("/api/coach"),
+          });
+          navigation.navigate("CoachHQ");
+        },
+        onSaveOnly: () => {
+          queryClient.invalidateQueries({
+            predicate: (q) =>
+              typeof q.queryKey[0] === "string" &&
+              (q.queryKey[0] as string).startsWith("/api/coach"),
+          });
+          navigation.navigate("CoachHQ");
+        },
+        onDismiss: () => {
+          navigation.navigate("CoachHQ");
+        },
+      },
+    );
+  }, [navigation, sessionId, session, attendanceMap, openIntake, queryClient]);
 
   // ── Format helpers ──
 
@@ -718,7 +770,7 @@ export default function ActiveSessionScreen() {
         colors={["#111827", Colors.dark.backgroundRoot]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-        style={[styles.hero, { paddingTop: headerHeight + Spacing.xs }]}
+        style={[styles.hero, { paddingTop: insets.top + Spacing.xs }]}
       >
         {/* Back to Dashboard */}
         <Pressable style={styles.backToDashRow} onPress={() => navigation.navigate("CoachHQ")} hitSlop={8}>
