@@ -1014,6 +1014,20 @@ async function run() {
     `);
     console.log("[db-migrate] coach_tier_pricing table — OK");
 
+    // ── Task #2096: coach_report_state table ──────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS coach_report_state (
+        key TEXT PRIMARY KEY,
+        paid_session_ids JSONB NOT NULL DEFAULT '[]',
+        excluded_session_ids JSONB NOT NULL DEFAULT '[]',
+        start_date TEXT,
+        rate_per_session NUMERIC,
+        currency TEXT DEFAULT 'AED',
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log("[db-migrate] coach_report_state table — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

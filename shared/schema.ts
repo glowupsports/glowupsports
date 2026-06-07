@@ -9370,3 +9370,17 @@ export function computeArenaRarity(
     order: entry.base + idx,
   };
 }
+
+// ── Coach Report State ─────────────────────────────────────────────────────────
+// Persists paid/excluded session IDs for the Dean Hamilton coach report.
+// Previously stored in a local JSON file (coach-report-dean.json) which was
+// wiped on every server restart. This table survives restarts and deployments.
+export const coachReportState = pgTable("coach_report_state", {
+  key:                text("key").primaryKey(),
+  paidSessionIds:     jsonb("paid_session_ids").notNull().default([]),
+  excludedSessionIds: jsonb("excluded_session_ids").notNull().default([]),
+  startDate:          text("start_date").notNull().default("2026-05-11"),
+  ratePerSession:     integer("rate_per_session").notNull().default(200),
+  currency:           text("currency").notNull().default("AED"),
+  updatedAt:          timestamp("updated_at").notNull().defaultNow(),
+});

@@ -13,19 +13,14 @@
 //   DEAN_REPORT_PUBLIC_TOKEN  — the token Dean uses in his URL
 //   DEAN_REPORT_MANAGE_TOKEN  — the ?manage= token for the admin toggle view
 //
-// Non-sensitive state (excluded + paid session IDs):
-//   server/data/coach-report-dean.json  — gitignored, persisted on server only
+// State (excluded + paid session IDs) persisted in Supabase: coach_report_state table.
 
 import { Router, type Request, type Response } from "express";
-import fs from "fs";
-import path from "path";
 import { db } from "../db";
-import { sessions as sessionsTable, coachingSeries, sessionPlayers } from "@shared/schema";
+import { sessions as sessionsTable, coachingSeries, sessionPlayers, coachReportState } from "@shared/schema";
 import { eq, gte, and, count } from "drizzle-orm";
 
 const router = Router();
-
-const CONFIG_PATH = path.join(process.cwd(), "server/data/coach-report-dean.json");
 
 const DEAN_COACH_ID = "76f7d0e7-1363-404f-93d0-7edcce95a28d";
 
@@ -45,25 +40,48 @@ interface ReportState {
   currency: string;
 }
 
-function loadState(): ReportState {
-  if (!fs.existsSync(CONFIG_PATH)) {
+async function loadState(): Promise<ReportState> {
+  try {
+    const rows = await db.select().from(coachReportState).where(eq(coachReportState.key, "dean")).limit(1);
+    if (rows.length === 0) {
+      return { excludedSessionIds: [], paidSessionIds: [], startDate: "2026-05-11", ratePerSession: 200, currency: "AED" };
+    }
+    const row = rows[0];
+    return {
+      excludedSessionIds: (row.excludedSessionIds as string[]) ?? [],
+      paidSessionIds: (row.paidSessionIds as string[]) ?? [],
+      startDate: row.startDate ?? "2026-05-11",
+      ratePerSession: row.ratePerSession ?? 200,
+      currency: row.currency ?? "AED",
+    };
+  } catch (err) {
+    console.error("[CoachReport] loadState DB error:", err);
     return { excludedSessionIds: [], paidSessionIds: [], startDate: "2026-05-11", ratePerSession: 200, currency: "AED" };
   }
-  const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
-  const parsed = JSON.parse(raw) as Partial<ReportState>;
-  return {
-    excludedSessionIds: parsed.excludedSessionIds ?? [],
-    paidSessionIds: parsed.paidSessionIds ?? [],
-    startDate: parsed.startDate ?? "2026-05-11",
-    ratePerSession: parsed.ratePerSession ?? 200,
-    currency: parsed.currency ?? "AED",
-  };
 }
 
-function saveState(state: ReportState): void {
-  const dir = path.dirname(CONFIG_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(state, null, 2), "utf-8");
+async function saveState(state: ReportState): Promise<void> {
+  await db.insert(coachReportState)
+    .values({
+      key: "dean",
+      paidSessionIds: state.paidSessionIds,
+      excludedSessionIds: state.excludedSessionIds,
+      startDate: state.startDate,
+      ratePerSession: state.ratePerSession,
+      currency: state.currency,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: coachReportState.key,
+      set: {
+        paidSessionIds: state.paidSessionIds,
+        excludedSessionIds: state.excludedSessionIds,
+        startDate: state.startDate,
+        ratePerSession: state.ratePerSession,
+        currency: state.currency,
+        updatedAt: new Date(),
+      },
+    });
 }
 
 interface SessionRow {
@@ -856,7 +874,7 @@ router.get(["/coach-overview/dean/:token", "/api/coach-report/dean/:token"], asy
       return res.status(404).send("Not found");
     }
 
-    const state = loadState();
+    const state = await loadState();
     const sessions = await fetchSessions(state.startDate);
     const html = buildHTML(sessions, state, isManage);
 
@@ -894,7 +912,7 @@ router.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:tok
       return res.status(400).json({ error: "Missing sessionId" });
     }
 
-    const state = loadState();
+    const state = await loadState();
     const excluded = new Set(state.excludedSessionIds);
     if (excluded.has(sessionId)) {
       excluded.delete(sessionId);
@@ -903,7 +921,7 @@ router.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:tok
     }
 
     state.excludedSessionIds = Array.from(excluded);
-    saveState(state);
+    await saveState(state);
 
     return res.json({ ok: true, excluded: state.excludedSessionIds.includes(sessionId) });
   } catch (err) {
@@ -928,7 +946,7 @@ router.post(["/coach-overview/dean/:token/pay", "/api/coach-report/dean/:token/p
       return res.status(400).json({ error: "Missing sessionId" });
     }
 
-    const state = loadState();
+    const state = await loadState();
     const paidSet = new Set(state.paidSessionIds);
     if (paidSet.has(sessionId)) {
       paidSet.delete(sessionId);
@@ -937,7 +955,7 @@ router.post(["/coach-overview/dean/:token/pay", "/api/coach-report/dean/:token/p
     }
 
     state.paidSessionIds = Array.from(paidSet);
-    saveState(state);
+    await saveState(state);
 
     return res.json({ ok: true, paid: state.paidSessionIds.includes(sessionId) });
   } catch (err) {
