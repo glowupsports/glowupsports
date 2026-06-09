@@ -4517,21 +4517,7 @@ export const storage = {
       : conflicts;
     
     if (filteredConflicts.length > 0) {
-      const validConflicts = [];
-      for (const conflict of filteredConflicts) {
-        if (conflict.seriesId) {
-          const series = await db.select({ status: coachingSeries.status }).from(coachingSeries).where(eq(coachingSeries.id, conflict.seriesId)).limit(1);
-          if (series.length > 0 && (series[0].status === "ended" || series[0].status === "completed" || series[0].status === "deleted")) {
-            continue;
-          }
-        }
-        validConflicts.push(conflict);
-      }
-      if (validConflicts.length === 0) {
-        filteredConflicts = validConflicts;
-      } else {
-        return true;
-      }
+      return true;
     }
     
     // Check travel time conflicts - sessions that need travel buffer
@@ -4627,20 +4613,7 @@ export const storage = {
       conflicts = conflicts.filter(s => s.id !== excludeSessionId);
     }
     
-    if (conflicts.length > 0) {
-      const validConflicts = [];
-      for (const conflict of conflicts) {
-        if (conflict.seriesId) {
-          const series = await db.select({ status: coachingSeries.status }).from(coachingSeries).where(eq(coachingSeries.id, conflict.seriesId)).limit(1);
-          if (series.length > 0 && (series[0].status === "ended" || series[0].status === "completed" || series[0].status === "deleted")) {
-            continue;
-          }
-        }
-        validConflicts.push(conflict);
-      }
-      return validConflicts.length > 0;
-    }
-    return false;
+    return conflicts.length > 0;
   },
 
   async checkPlayerConflict(playerId: string, startTime: Date, endTime: Date, excludeSessionId?: string, academyId?: string): Promise<boolean> {

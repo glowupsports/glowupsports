@@ -404,14 +404,19 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
         });
         if (res.ok) {
           const row = btn.closest('.session-row');
+          const earnedCell = row.querySelector('.cell-earned');
           if (row.classList.contains('excluded')) {
             row.classList.remove('excluded');
             btn.textContent = 'Hide';
             btn.className = 'toggle-btn btn-hide';
+            if (earnedCell) earnedCell.textContent = '${currency} ${rate}';
+            updateOpenstaandCount(+1);
           } else {
             row.classList.add('excluded');
             btn.textContent = 'Show';
             btn.className = 'toggle-btn btn-show';
+            if (earnedCell) earnedCell.textContent = '\u2014';
+            updateOpenstaandCount(-1);
           }
         } else {
           const err = await res.json().catch(() => ({}));
