@@ -286,6 +286,79 @@ router.patch(
   },
 );
 
+// POST /api/academies/:academyId/pricing/seed
+// Seed academy_pricing from credit_lots price history (most recent price_per_credit per type).
+// Skips types that already have an active pricing row.
+router.post(
+  "/api/academies/:academyId/pricing/seed",
+  authMiddleware,
+  requireRole("admin", "academy_owner", "platform_owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { academyId } = req.params;
+      if (!ensureAcademyAccess(req, res, academyId)) return;
+
+      // Get the most recent price_per_credit per type from credit_lots for this academy.
+      type SeedRow = { type: string; price_per_credit: string };
+      const seedRows = await db.execute(sql`
+        SELECT DISTINCT ON (type)
+          type,
+          price_per_credit
+        FROM credit_lots
+        WHERE academy_id = ${academyId}
+          AND price_per_credit::numeric > 0
+        ORDER BY type, purchased_at DESC
+      `);
+
+      if ((seedRows.rows as SeedRow[]).length === 0) {
+        return res.status(404).json({ error: "No purchase history found for this academy. Add credit lots first." });
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+      const existing = await storage.getAllAcademyPricing(academyId);
+      const activeTypes = new Set(
+        existing
+          .filter(
+            (p) =>
+              p.isActive &&
+              p.effectiveFrom <= today &&
+              (!p.effectiveUntil || p.effectiveUntil >= today),
+          )
+          .map((p) => p.sessionType),
+      );
+
+      let seeded = 0;
+      for (const row of seedRows.rows as SeedRow[]) {
+        if (activeTypes.has(row.type)) continue; // already has active pricing
+
+        await createPricingAtomic(academyId, row.type, today, today, () =>
+          storage.createAcademyPricing({
+            academyId,
+            sessionType: row.type,
+            pricePerSession: row.price_per_credit,
+            currency: "AED",
+            isPerPerson: row.type !== "private",
+            duration: null,
+            pricePerHour: null,
+            effectiveFrom: today,
+            effectiveUntil: null,
+            notes: "Auto-seeded from purchase history",
+          }),
+        );
+        seeded++;
+      }
+
+      res.json({ seeded, message: `Created ${seeded} pricing row${seeded !== 1 ? "s" : ""} from purchase history.` });
+    } catch (error: any) {
+      if (error instanceof PricingConflictError) {
+        return res.status(error.status).json({ error: error.message });
+      }
+      console.error("Seed academy pricing error:", error);
+      res.status(500).json({ error: "Failed to seed pricing" });
+    }
+  },
+);
+
 // DELETE /api/academies/:academyId/pricing/:id - soft-disable
 // Sets is_active=false and stamps effective_until = today, preserving history for snapshots.
 router.delete(

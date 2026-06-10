@@ -483,16 +483,33 @@ import { hashPassword, generateToken, generateRefreshToken } from "../auth";
           }
         }
 
+        // Per-type price from credit_lots: most recent price_per_credit per player per type.
+        // Key: `${playerId}:${type}` → price per credit in academy currency.
+        type PriceRow = { player_id: string; type: string; price_per_credit: string };
+        const priceByPlayerAndType = new Map<string, number>();
+        if (memberIds.length > 0) {
+          const priceRows = await db.execute(sql`
+            SELECT DISTINCT ON (player_id, type)
+              player_id, type, price_per_credit
+            FROM credit_lots
+            WHERE player_id IN (${sql.join(memberIds.map((id) => sql`${id}`), sql`, `)})
+              AND price_per_credit::numeric > 0
+            ORDER BY player_id, type, purchased_at DESC
+          `);
+          for (const row of priceRows.rows as PriceRow[]) {
+            priceByPlayerAndType.set(`${row.player_id}:${row.type}`, Number(row.price_per_credit));
+          }
+        }
+
         // Academy timezone + currency from academy_settings.
         let academyTimezone = "Asia/Dubai";
         let academyCurrency = "AED";
-        let defaultLessonPrice = 100;
+        const defaultLessonPrice = 100; // fallback only — real prices come from credit_lots above
         if (player.academyId) {
           const [settings] = await db
             .select({
               timezone: academySettings.timezone,
               currency: academySettings.currency,
-              defaultLessonPrice: academySettings.defaultLessonPrice,
             })
             .from(academySettings)
             .where(eq(academySettings.academyId, player.academyId))
@@ -500,7 +517,6 @@ import { hashPassword, generateToken, generateRefreshToken } from "../auth";
           if (settings) {
             academyTimezone = settings.timezone ?? "Asia/Dubai";
             academyCurrency = settings.currency ?? "AED";
-            defaultLessonPrice = Number(settings.defaultLessonPrice ?? 100);
           }
         }
 
@@ -510,7 +526,15 @@ import { hashPassword, generateToken, generateRefreshToken } from "../auth";
           const semiOwed = breakdown["semi_private"] ?? 0;
           const groupOwed = breakdown["group"] ?? 0;
           const totalOwed = privateOwed + semiOwed + groupOwed;
-          const amountOwed = Math.round(totalOwed * defaultLessonPrice);
+
+          // Use per-type price from credit_lots; fall back to defaultLessonPrice if no lot exists.
+          const privatePrice = priceByPlayerAndType.get(`${member.id}:private`) ?? defaultLessonPrice;
+          const semiPrice = priceByPlayerAndType.get(`${member.id}:semi_private`) ?? defaultLessonPrice;
+          const groupPrice = priceByPlayerAndType.get(`${member.id}:group`) ?? defaultLessonPrice;
+          const amountOwed = Math.round(
+            privateOwed * privatePrice + semiOwed * semiPrice + groupOwed * groupPrice,
+          );
+
           return {
             id: member.id,
             name: member.name,
@@ -533,8 +557,9 @@ import { hashPassword, generateToken, generateRefreshToken } from "../auth";
           };
         });
 
+        // Outstanding total = sum of AED owed across all members (from credit_lots prices).
         const outstandingTotal = memberData.reduce(
-          (sum, m) => sum + m.outstandingBalance,
+          (sum, m) => sum + m.pendingCreditsV2.amountOwed,
           0,
         );
 

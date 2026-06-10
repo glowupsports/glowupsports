@@ -380,7 +380,7 @@ function formatLockBadge(iso: string | null | undefined): string | null {
 
 function ChildCard({ member, todayInfo, onPress, onLongPress, lockedUntil, index, onGraduate, academyTimezone, academyCurrency }: ChildCardProps) {
   const lockBadge = formatLockBadge(lockedUntil);
-  const hasOutstanding = member.outstandingBalance > 0;
+  const hasOutstanding = (member.pendingCreditsV2?.total ?? 0) > 0 || member.outstandingBalance > 0;
   const lastActiveText = formatLastActive(member.lastActiveAt);
   const chips = buildChipsFor(todayInfo);
   const ringColor = ringColorFor(todayInfo);

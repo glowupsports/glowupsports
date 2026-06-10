@@ -62,6 +62,7 @@ export default function PricingScreen() {
   const [showUntilPicker, setShowUntilPicker] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+  const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
 
   const pricingPath = academyId ? `/api/academies/${academyId}/pricing` : null;
 
@@ -111,6 +112,21 @@ export default function PricingScreen() {
     },
     onError: (error: any) => {
       setListError(error?.message || t("academy.pricing.errors.disableFailed"));
+    },
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: async () => {
+      if (!pricingPath) throw new Error("No academy context");
+      return apiRequest("POST", `${pricingPath}/seed`, {});
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [pricingPath] });
+      setSeedSuccess(data?.message || "Pricing seeded from purchase history.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    onError: (error: any) => {
+      setListError(error?.message || "Failed to seed pricing from history.");
     },
   });
 
@@ -384,6 +400,28 @@ export default function PricingScreen() {
                 <Ionicons name="pricetag-outline" size={48} color={Colors.dark.textMuted} />
                 <Text style={styles.emptyTitle}>{t("academy.pricing.empty.title")}</Text>
                 <Text style={styles.emptySubtitle}>{t("academy.pricing.empty.subtitle")}</Text>
+                <Pressable
+                  style={styles.seedButton}
+                  onPress={() => {
+                    setSeedSuccess(null);
+                    setListError(null);
+                    seedMutation.mutate();
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }}
+                  disabled={seedMutation.isPending}
+                >
+                  <Ionicons name="git-branch-outline" size={18} color={Colors.dark.buttonText} />
+                  <Text style={styles.seedButtonText}>
+                    {seedMutation.isPending ? "Seeding..." : "Import prices from purchase history"}
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+
+            {seedSuccess ? (
+              <View style={styles.successBanner}>
+                <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                <Text style={styles.successText}>{seedSuccess}</Text>
               </View>
             ) : null}
           </>
@@ -786,6 +824,37 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     textAlign: "center",
     marginTop: Spacing.xs,
+  },
+  seedButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm + 2,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: BorderRadius.md,
+  },
+  seedButtonText: {
+    ...Typography.body,
+    color: Colors.dark.buttonText,
+    fontWeight: "600" as const,
+  },
+  successBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.md,
+    backgroundColor: "#4CAF5015",
+    borderWidth: 1,
+    borderColor: "#4CAF5040",
+  },
+  successText: {
+    ...Typography.small,
+    color: "#4CAF50",
+    flex: 1,
   },
   errorBanner: {
     flexDirection: "row",
