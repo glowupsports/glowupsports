@@ -36,6 +36,7 @@ import {
   openMatchSlots,
   accountPins,
   accountGraduation,
+  academySettings,
 } from "@shared/schema";
 import { eq, and, inArray, isNull, gte, lte, ne, sql } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
@@ -153,11 +154,37 @@ router.get("/api/family/me/group", authMiddleware, async (req: AuthenticatedRequ
           .where(inArray(accountGraduation.playerId, memberPlayerIds))
       : [];
     const graduationByPlayerId = new Map(graduationRows.map((g) => [g.playerId, g] as const));
+
+    // Batch next-session query: earliest upcoming session per group member.
+    const nextSessionByPlayerId = new Map<string, { date: string; type: string }>();
+    if (memberPlayerIds.length > 0) {
+      type NextSessRow = { player_id: string; start_time: string; session_type: string | null };
+      const nextSessRows = await db.execute(sql`
+        SELECT DISTINCT ON (sp.player_id)
+          sp.player_id,
+          s.start_time,
+          COALESCE(s.session_type, 'group') AS session_type
+        FROM sessions s
+        JOIN session_players sp ON sp.session_id = s.id
+        WHERE sp.player_id IN (${sql.join(memberPlayerIds.map((id) => sql`${id}`), sql`, `)})
+          AND s.start_time > NOW()
+          AND COALESCE(s.status, '') NOT IN ('cancelled', 'deleted', 'no_show')
+        ORDER BY sp.player_id, s.start_time ASC
+      `);
+      for (const row of nextSessRows.rows as NextSessRow[]) {
+        nextSessionByPlayerId.set(row.player_id, {
+          date: new Date(row.start_time).toISOString(),
+          type: row.session_type ?? "group",
+        });
+      }
+    }
+
     const membersWithGraduation = members.map((m) => {
       const player = playerById.get(m.id);
       const graduated = graduationByPlayerId.get(m.id) ?? null;
       return {
         ...m,
+        nextSession: nextSessionByPlayerId.get(m.id) ?? null,
         dateOfBirth: player?.dateOfBirth ?? null,
         daysUntilEighteen: daysUntilEighteen(player?.dateOfBirth),
         graduated: !!graduated,

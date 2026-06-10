@@ -66,23 +66,60 @@ function getBallColor(ball: string | null): string {
   }
 }
 
-function formatNextSession(session: { date: string; type: string } | null): string {
-  if (!session) return "No upcoming sessions";
-  
+/** Returns label + accent color for the next session pill, formatted in the academy timezone. */
+function formatNextSessionLabel(
+  session: { date: string; type: string } | null,
+  timezone: string = "Asia/Dubai",
+): { label: string; color: string } {
+  if (!session) return { label: "No upcoming sessions", color: Colors.dark.textMuted };
+
   const date = new Date(session.date);
   const now = new Date();
-  const diffMs = date.getTime() - now.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
-  
-  if (diffDays === 0) {
-    if (diffHours <= 0) return "Session now!";
-    return `Today ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-  } else if (diffDays === 1) {
-    return `Tomorrow ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-  } else {
-    return date.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
+  if (date <= now) return { label: "Session now!", color: "#2ECC40" };
+
+  // Determine today / tomorrow boundaries in the academy timezone using Intl.
+  const tzFormatter = (opts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone, ...opts });
+
+  const timeStr = tzFormatter({ hour: "2-digit", minute: "2-digit" }).format(date);
+
+  // Compare calendar dates in the academy timezone to avoid device-TZ skew.
+  const toTzDate = (d: Date) => tzFormatter({ year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const todayStr = toTzDate(now);
+  const tomorrowStr = toTzDate(new Date(now.getTime() + 86_400_000));
+  const sessionStr = toTzDate(date);
+
+  if (sessionStr === todayStr) return { label: `Today ${timeStr}`, color: "#2ECC40" };
+  if (sessionStr === tomorrowStr) return { label: `Tomorrow ${timeStr}`, color: "#00BCD4" };
+
+  const fullLabel = tzFormatter({ weekday: "short", day: "numeric", month: "short" }).format(date);
+  const diffDays = Math.floor((date.getTime() - now.getTime()) / 86_400_000);
+  const color = diffDays <= 7 ? Colors.dark.gold : Colors.dark.textSecondary;
+  return { label: `${fullLabel} ${timeStr}`, color };
+}
+
+/** Smart avatar URL: pass through absolute URLs (Supabase), prepend base for relative paths. */
+function buildAvatarUri(avatarUrl: string | null): string | null {
+  if (!avatarUrl) return null;
+  if (avatarUrl.startsWith("http://") || avatarUrl.startsWith("https://")) return avatarUrl;
+  return `${getStaticAssetsUrl()}${avatarUrl}`;
+}
+
+/** Human-readable pending label using V2 credit breakdown + academy currency. */
+function buildPendingLabel(member: FamilyMember, currency: string): string {
+  const v2 = member.pendingCreditsV2;
+  if (v2 && v2.total > 0) {
+    const parts: string[] = [];
+    if (v2.private > 0) parts.push(`${v2.private} private`);
+    if (v2.semi > 0) parts.push(`${v2.semi} semi`);
+    if (v2.group > 0) parts.push(`${v2.group} group`);
+    const typeStr = parts.join(" · ");
+    if (v2.amountOwed > 0) return `${typeStr} · ${currency} ${v2.amountOwed}`;
+    return typeStr;
   }
+  const count = Math.round(member.outstandingBalance);
+  if (count <= 0) return "";
+  return `${count} lesson${count !== 1 ? "s" : ""} open`;
 }
 
 function formatLastActive(lastActiveAt: string | null): string {
@@ -321,6 +358,8 @@ interface ChildCardProps {
   onLongPress?: () => void;
   lockedUntil?: string | null;
   index: number;
+  academyTimezone?: string | null;
+  academyCurrency?: string | null;
   // Family G — Task #1138 — graduation entry-point (banner + button).
   onGraduate?: (member: FamilyMember) => void;
 }
@@ -339,15 +378,19 @@ function formatLockBadge(iso: string | null | undefined): string | null {
   return `Until ${until.toLocaleDateString([], { weekday: "short" })} ${timeStr}`;
 }
 
-function ChildCard({ member, todayInfo, onPress, onLongPress, lockedUntil, index, onGraduate }: ChildCardProps) {
+function ChildCard({ member, todayInfo, onPress, onLongPress, lockedUntil, index, onGraduate, academyTimezone, academyCurrency }: ChildCardProps) {
   const lockBadge = formatLockBadge(lockedUntil);
   const hasOutstanding = member.outstandingBalance > 0;
   const lastActiveText = formatLastActive(member.lastActiveAt);
   const chips = buildChipsFor(todayInfo);
   const ringColor = ringColorFor(todayInfo);
+  const ballColor = getBallColor(member.ballLevel);
+  const { label: sessLabel, color: sessColor } = formatNextSessionLabel(member.nextSession, academyTimezone ?? "Asia/Dubai");
+  const pendingLabel = buildPendingLabel(member, academyCurrency ?? "AED");
+  const avatarUri = buildAvatarUri(member.avatarUrl);
 
   return (
-    <Animated.View entering={FadeInRight.delay(index * 100).duration(400)}>
+    <Animated.View entering={FadeInRight.delay(index * 80).duration(400)}>
       <Pressable
         style={styles.childCard}
         onPress={() => {
@@ -360,7 +403,9 @@ function ChildCard({ member, todayInfo, onPress, onLongPress, lockedUntil, index
         accessibilityLabel={`Open player profile for ${member.name}`}
       >
         <LinearGradient
-          colors={[Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
+          colors={[ballColor + "1A", Colors.dark.backgroundSecondary, Colors.dark.backgroundDefault]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.cardGradient}
         >
           {lockBadge ? (
@@ -369,30 +414,97 @@ function ChildCard({ member, todayInfo, onPress, onLongPress, lockedUntil, index
               <Text style={lockedBadgeStyles.text}>{lockBadge}</Text>
             </View>
           ) : null}
-          <View style={styles.avatarContainer}>
-            {member.avatarUrl ? (
-              <Image
-                source={{ uri: `${getStaticAssetsUrl()}${member.avatarUrl}` }}
-                style={[styles.avatar, { borderColor: ringColor }]}
-                contentFit="cover"
-              />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder, { borderColor: ringColor }]}>
-                <Ionicons name="person" size={32} color={Colors.dark.textMuted} />
+
+          {/* Horizontal main layout */}
+          <View style={styles.cardMainRow}>
+            {/* Left: avatar */}
+            <View style={styles.avatarContainer}>
+              {avatarUri ? (
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={[styles.avatar, { borderColor: ringColor }]}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder, { borderColor: ringColor }]}>
+                  <Ionicons name="person" size={36} color={Colors.dark.textMuted} />
+                </View>
+              )}
+              <View style={[styles.ballBadge, { backgroundColor: ballColor }]}>
+                <Ionicons name="tennisball" size={13} color="#fff" />
               </View>
-            )}
-            <View style={[styles.ballBadge, { backgroundColor: getBallColor(member.ballLevel) }]}>
-              <Ionicons name="tennisball" size={12} color={Colors.dark.buttonText} />
+              {lastActiveText === "Online now" ? (
+                <View style={styles.onlineIndicator} />
+              ) : null}
             </View>
-            {lastActiveText === "Online now" ? (
-              <View style={styles.onlineIndicator} />
-            ) : null}
+
+            {/* Middle: info */}
+            <View style={styles.cardInfo}>
+              <Text style={styles.childName} numberOfLines={1}>{member.name}</Text>
+
+              {/* Ball level + Level badges inline */}
+              <View style={styles.cardBadgeRow}>
+                {member.ballLevel ? (
+                  <View style={[styles.ballLevelTextBadge, { backgroundColor: ballColor + "22" }]}>
+                    <Ionicons name="tennisball" size={10} color={ballColor} />
+                    <Text style={[styles.ballLevelTextLabel, { color: ballColor }]}>
+                      {member.ballLevel.charAt(0).toUpperCase() + member.ballLevel.slice(1)} Ball
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={styles.levelBadge}>
+                  <Ionicons name="star" size={10} color={Colors.dark.gold} />
+                  <Text style={styles.levelText}>Lv {member.level}</Text>
+                </View>
+              </View>
+
+              {/* XP row */}
+              <View style={styles.xpRow}>
+                <Ionicons name="flash" size={12} color={Colors.dark.primary} />
+                <Text style={styles.xpText}>{member.xp.toLocaleString()} XP</Text>
+                {lastActiveText && lastActiveText !== "Online now" ? (
+                  <Text style={styles.lastActiveText}> · {lastActiveText}</Text>
+                ) : null}
+              </View>
+
+              {/* Session pill */}
+              <View style={[styles.sessionPill, { backgroundColor: sessColor + "20", borderColor: sessColor + "45" }]}>
+                <Ionicons name="calendar-outline" size={11} color={sessColor} />
+                <Text style={[styles.sessionPillText, { color: sessColor }]} numberOfLines={1}>
+                  {sessLabel}
+                </Text>
+              </View>
+
+              {/* Pending badge */}
+              {hasOutstanding && pendingLabel ? (
+                <View style={styles.pendingBadge}>
+                  <Ionicons name="alert-circle" size={12} color="#FF6B35" />
+                  <Text style={styles.pendingBadgeText} numberOfLines={2}>{pendingLabel}</Text>
+                </View>
+              ) : null}
+
+              {/* Activity chips */}
+              {chips.length > 0 ? (
+                <View style={styles.chipRow}>
+                  {chips.map((c) => (
+                    <View key={c.kind} style={[styles.chip, { backgroundColor: c.color + "22", borderColor: c.color + "55" }]}>
+                      <Ionicons name={c.icon} size={11} color={c.color} />
+                      <Text style={[styles.chipText, { color: c.color }]} numberOfLines={1}>{c.label}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+
+            {/* Right: dive-in arrow */}
+            <View style={styles.diveInArrow}>
+              <Ionicons name="chevron-forward" size={22} color={Colors.dark.primary} />
+            </View>
           </View>
 
-          <Text style={styles.childName} numberOfLines={1}>{member.name}</Text>
-
+          {/* Graduation banners — full-width below main row */}
           {member.graduated ? (
-            <View style={styles.graduatedBadge}>
+            <View style={[styles.graduatedBadge, { alignSelf: "flex-start", marginTop: Spacing.xs }]}>
               <Ionicons name="school" size={12} color="#00E676" />
               <Text style={styles.graduatedBadgeText}>Graduated</Text>
             </View>
@@ -401,7 +513,7 @@ function ChildCard({ member, todayInfo, onPress, onLongPress, lockedUntil, index
             member.daysUntilEighteen >= 0 &&
             onGraduate ? (
             <Pressable
-              style={styles.graduateBanner}
+              style={[styles.graduateBanner, { alignSelf: "flex-start", marginTop: Spacing.xs }]}
               onPress={(e) => {
                 e.stopPropagation?.();
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -418,70 +530,6 @@ function ChildCard({ member, todayInfo, onPress, onLongPress, lockedUntil, index
               </Text>
             </Pressable>
           ) : null}
-
-          {member.ballLevel ? (
-            <View style={[styles.ballLevelTextBadge, { backgroundColor: getBallColor(member.ballLevel) + "25" }]}>
-              <Ionicons name="tennisball" size={12} color={getBallColor(member.ballLevel)} />
-              <Text style={[styles.ballLevelTextLabel, { color: getBallColor(member.ballLevel) }]}>
-                {member.ballLevel.charAt(0).toUpperCase() + member.ballLevel.slice(1)} Ball
-              </Text>
-            </View>
-          ) : null}
-
-          <View style={styles.levelRow}>
-            <View style={styles.levelBadge}>
-              <Ionicons name="star" size={14} color={Colors.dark.gold} />
-              <Text style={styles.levelText}>Level {member.level}</Text>
-            </View>
-          </View>
-
-          <View style={styles.xpRow}>
-            <Ionicons name="flash" size={14} color={Colors.dark.primary} />
-            <Text style={styles.xpText}>{member.xp.toLocaleString()} XP</Text>
-          </View>
-
-          <View style={styles.sessionRow}>
-            <Ionicons 
-              name="calendar" 
-              size={12} 
-              color={Colors.dark.textSecondary} 
-            />
-            <Text style={styles.sessionText}>{formatNextSession(member.nextSession)}</Text>
-          </View>
-
-          {lastActiveText && lastActiveText !== "Online now" ? (
-            <Text style={styles.lastActiveText}>{lastActiveText}</Text>
-          ) : null}
-
-          {hasOutstanding ? (
-            <View style={styles.outstandingBadge}>
-              <Ionicons name="alert-circle" size={12} color={Colors.dark.gold} />
-              <Text style={styles.outstandingText}>
-                {member.outstandingBalance.toFixed(2)} open
-              </Text>
-            </View>
-          ) : null}
-
-          {chips.length > 0 ? (
-            <View style={styles.chipRow}>
-              {chips.map((c) => (
-                <View
-                  key={c.kind}
-                  style={[styles.chip, { backgroundColor: c.color + "22", borderColor: c.color + "55" }]}
-                >
-                  <Ionicons name={c.icon} size={11} color={c.color} />
-                  <Text style={[styles.chipText, { color: c.color }]} numberOfLines={1}>
-                    {c.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          <View style={styles.diveInButton}>
-            <Text style={styles.diveInText}>Dive In</Text>
-            <Ionicons name="arrow-forward" size={16} color={Colors.dark.primary} />
-          </View>
         </LinearGradient>
       </Pressable>
     </Animated.View>
@@ -489,12 +537,13 @@ function ChildCard({ member, todayInfo, onPress, onLongPress, lockedUntil, index
 }
 
 function ParentalControlsCard({ member, onToggle }: { member: FamilyMember; onToggle: (field: "chatEnabled" | "communityEnabled", value: boolean) => void }) {
+  const avatarUri = buildAvatarUri(member.avatarUrl);
   return (
     <View style={styles.controlCard}>
       <View style={styles.controlHeader}>
-        {member.avatarUrl ? (
+        {avatarUri ? (
           <Image
-            source={{ uri: `${getStaticAssetsUrl()}${member.avatarUrl}` }}
+            source={{ uri: avatarUri }}
             style={styles.controlAvatar}
             contentFit="cover"
           />
@@ -1149,7 +1198,7 @@ export default function FamilyLobbyScreen() {
 
     if (Platform.OS === "web") {
       const confirmed = window.confirm(
-        `Pay all outstanding balances totaling ${familyData.outstandingTotal.toFixed(2)}?`
+        `Pay all outstanding balances totaling ${familyData.academyCurrency ?? "AED"} ${familyData.outstandingTotal.toFixed(2)}?`
       );
       if (confirmed) {
         payAllMutation.mutate();
@@ -1157,7 +1206,7 @@ export default function FamilyLobbyScreen() {
     } else {
       Alert.alert(
         "Pay All Balances",
-        `Pay all outstanding balances totaling ${familyData.outstandingTotal.toFixed(2)}?`,
+        `Pay all outstanding balances totaling ${familyData.academyCurrency ?? "AED"} ${familyData.outstandingTotal.toFixed(2)}?`,
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -1320,12 +1369,12 @@ export default function FamilyLobbyScreen() {
                 <View style={styles.payAllLeft}>
                   <Text style={styles.payAllLabel}>Total Outstanding</Text>
                   <Text style={styles.payAllAmount}>
-                    {familyData.outstandingTotal.toFixed(2)}
+                    {familyData.academyCurrency ?? "AED"} {familyData.outstandingTotal.toFixed(2)}
                   </Text>
                   <Text style={styles.payAllBreakdown}>
-                    {familyData.members.filter(m => m.outstandingBalance > 0).map(m => 
+                    {familyData.members.filter(m => m.outstandingBalance > 0).map(m =>
                       `${m.name}: ${m.outstandingBalance.toFixed(2)}`
-                    ).join(" | ")}
+                    ).join(" · ")}
                   </Text>
                 </View>
                 <View style={styles.payAllButton}>
@@ -1411,6 +1460,8 @@ export default function FamilyLobbyScreen() {
               onPress={() => handleSelectChild(member)}
               onLongPress={() => handleMemberLongPress(member)}
               lockedUntil={locksByPlayerId.get(member.id) ?? null}
+              academyTimezone={familyData.academyTimezone}
+              academyCurrency={familyData.academyCurrency}
               index={index}
               onGraduate={(m) => setGraduationTarget(m)}
             />
@@ -2442,10 +2493,8 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   cardsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.md,
-    justifyContent: "center",
+    flexDirection: "column",
+    gap: Spacing.sm,
   },
   familyTodayWrap: {
     marginBottom: Spacing.md,
@@ -2524,8 +2573,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 4,
-    justifyContent: "center",
-    marginTop: 2,
+    marginTop: 4,
   },
   chip: {
     flexDirection: "row",
@@ -2535,7 +2583,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     paddingHorizontal: 7,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
-    maxWidth: 140,
+    maxWidth: 150,
   },
   chipText: {
     fontSize: 10,
@@ -2543,7 +2591,7 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexShrink: 1,
   },
   childCard: {
-    width: 160,
+    width: "100%",
     borderRadius: BorderRadius.lg,
     overflow: "hidden",
     borderWidth: 1,
@@ -2551,16 +2599,32 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   cardGradient: {
     padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  cardMainRow: {
+    flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.md,
+  },
+  cardInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  cardBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
   },
   avatarContainer: {
     position: "relative",
+    alignSelf: "flex-start",
+    marginTop: 2,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     borderWidth: 3,
     borderColor: Colors.dark.primary,
   },
@@ -2572,10 +2636,10 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   ballBadge: {
     position: "absolute",
     bottom: 0,
-    right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    right: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -2583,12 +2647,12 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   },
   onlineIndicator: {
     position: "absolute",
-    top: 0,
-    right: 0,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.dark.primary,
+    top: 2,
+    right: 2,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#2ECC40",
     borderWidth: 2,
     borderColor: Colors.dark.backgroundRoot,
   },
@@ -2596,38 +2660,31 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: FontSizes.lg,
     fontWeight: "700",
     color: Colors.dark.text,
-    textAlign: "center",
   },
   ballLevelTextBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: BorderRadius.full,
-    alignSelf: "center",
-    marginBottom: 2,
   },
   ballLevelTextLabel: {
-    fontSize: FontSizes.xs,
+    fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.3,
-  },
-  levelRow: {
-    flexDirection: "row",
-    alignItems: "center",
   },
   levelBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     backgroundColor: Colors.dark.gold + "20",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: BorderRadius.full,
   },
   levelText: {
-    fontSize: FontSizes.xs,
+    fontSize: 11,
     fontWeight: "600",
     color: Colors.dark.gold,
   },
@@ -2641,32 +2698,43 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "600",
     color: Colors.dark.primary,
   },
-  sessionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  sessionText: {
-    fontSize: FontSizes.xs,
-    color: Colors.dark.textSecondary,
-  },
   lastActiveText: {
     fontSize: FontSizes.xs,
     color: Colors.dark.textMuted,
   },
-  outstandingBadge: {
+  sessionPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    backgroundColor: Colors.dark.gold + "20",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    alignSelf: "flex-start",
   },
-  outstandingText: {
-    fontSize: FontSizes.xs,
+  sessionPillText: {
+    fontSize: 11,
     fontWeight: "600",
-    color: Colors.dark.gold,
+  },
+  pendingBadge: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 4,
+    backgroundColor: "#FF6B3520",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    alignSelf: "flex-start",
+  },
+  pendingBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#FF6B35",
+    flexShrink: 1,
+  },
+  diveInArrow: {
+    alignSelf: "center",
+    paddingLeft: Spacing.xs,
   },
   graduateBanner: {
     flexDirection: "row",
@@ -2699,17 +2767,6 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontSize: FontSizes.xs,
     fontWeight: "600",
     color: "#00E676",
-  },
-  diveInButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
-  },
-  diveInText: {
-    fontSize: FontSizes.sm,
-    fontWeight: "600",
-    color: Colors.dark.primary,
   },
   roleBadgeRow: {
     flexDirection: "row",

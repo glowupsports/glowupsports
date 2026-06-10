@@ -22,6 +22,14 @@ export interface FamilyMember {
     type: string;
   } | null;
   outstandingBalance: number;
+  /** V2 credit breakdown by session type, populated from /api/family/status */
+  pendingCreditsV2?: {
+    private: number;
+    semi: number;
+    group: number;
+    total: number;
+    amountOwed: number;
+  } | null;
   lastActiveAt: string | null;
   chatEnabled: boolean | null;
   communityEnabled: boolean | null;
@@ -38,6 +46,9 @@ interface FamilyData {
   members: FamilyMember[];
   outstandingTotal: number;
   isCallerParent?: boolean;
+  // Academy locale fields for timezone-aware display + currency labels.
+  academyTimezone?: string | null;
+  academyCurrency?: string | null;
   // Symmetric family-group fields, sourced from /api/family/me/group.
   familyGroupId?: string | null;
   creatorPlayerId?: string | null;
@@ -207,6 +218,7 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
         return {
           ...m,
           outstandingBalance: supplemental.outstandingBalance ?? m.outstandingBalance,
+          pendingCreditsV2: supplemental.pendingCreditsV2 ?? m.pendingCreditsV2,
           nextSession: supplemental.nextSession ?? m.nextSession,
           chatEnabled: supplemental.chatEnabled ?? m.chatEnabled,
           communityEnabled: supplemental.communityEnabled ?? m.communityEnabled,
@@ -221,6 +233,8 @@ export function FamilyProvider({ children, playerId }: FamilyProviderProps) {
         members: enrichedMembers,
         outstandingTotal: statusData?.family?.outstandingTotal ?? 0,
         isCallerParent: statusData?.family?.isCallerParent ?? false,
+        academyTimezone: (statusData as any)?.academyTimezone ?? statusData?.family?.academyTimezone ?? "Asia/Dubai",
+        academyCurrency: (statusData as any)?.academyCurrency ?? statusData?.family?.academyCurrency ?? "AED",
         familyGroupId: groupJson?.group?.id ?? null,
         creatorPlayerId: groupJson?.group?.createdByPlayerId ?? null,
         creatorName: groupJson?.group?.creatorName ?? null,

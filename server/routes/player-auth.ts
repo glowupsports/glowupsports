@@ -47,7 +47,7 @@ import {
   dailyQuestSlots as dailyQuestSlotsTable, playerConnections,
   badges as badgesTable, playerBadges as playerBadgesTable,
   titles as titlesTable, playerTitles as playerTitlesTable,
-  familyInviteCodes, familyGroups, familyMembers,
+  familyInviteCodes, familyGroups, familyMembers, academySettings, playerCreditBalance,
   sessionPlans, providerInvites, serviceProviders, platformConfig, pushDeviceTokens,
   loginSchema, registerSchema, playerRegisterSchema, coachInviteRegisterSchema,
   academyApplicationInputSchema, insertSessionSchema, insertPlayerSchema, updatePlayerSchema,
@@ -441,19 +441,97 @@ import { hashPassword, generateToken, generateRefreshToken } from "../auth";
           }
         }
 
-        const memberData = familyMembers.map((member) => ({
-          id: member.id,
-          name: member.name,
-          avatarUrl: member.profilePhotoUrl,
-          level: member.level || 1,
-          xp: member.totalXp || 0,
-          ballLevel: member.ballLevel,
-          nextSession: null,
-          outstandingBalance: outstandingByPlayerId.get(member.id) ?? 0,
-          lastActiveAt: member.lastActiveAt?.toISOString() || null,
-          chatEnabled: member.chatEnabled ?? null,
-          communityEnabled: member.communityEnabled ?? null,
-        }));
+        // Batch next-session query: earliest upcoming session per player.
+        const nextSessionByPlayerId = new Map<string, { date: string; type: string }>();
+        if (memberIds.length > 0) {
+          type NextSessRow = { player_id: string; start_time: string; session_type: string | null };
+          const nextSessRows = await db.execute(sql`
+            SELECT DISTINCT ON (sp.player_id)
+              sp.player_id,
+              s.start_time,
+              COALESCE(s.session_type, 'group') AS session_type
+            FROM sessions s
+            JOIN session_players sp ON sp.session_id = s.id
+            WHERE sp.player_id IN (${sql.join(memberIds.map((id) => sql`${id}`), sql`, `)})
+              AND s.start_time > NOW()
+              AND COALESCE(s.status, '') NOT IN ('cancelled', 'deleted', 'no_show')
+            ORDER BY sp.player_id, s.start_time ASC
+          `);
+          for (const row of nextSessRows.rows as NextSessRow[]) {
+            nextSessionByPlayerId.set(row.player_id, {
+              date: new Date(row.start_time).toISOString(),
+              type: row.session_type ?? "group",
+            });
+          }
+        }
+
+        // V2 credit breakdown per player per type (group | semi_private | private).
+        type CreditTypeRow = { player_id: string; type: string; net_neg: string | number | null };
+        const creditBreakdownByPlayerId = new Map<string, Record<string, number>>();
+        if (memberIds.length > 0) {
+          const breakdownRows = await db.execute(sql`
+            SELECT player_id, type, SUM(LEAST(credits::numeric, 0))::numeric AS net_neg
+            FROM player_credit_balance
+            WHERE player_id IN (${sql.join(memberIds.map((id) => sql`${id}`), sql`, `)})
+              AND credits::numeric < 0
+            GROUP BY player_id, type
+          `);
+          for (const row of breakdownRows.rows as CreditTypeRow[]) {
+            const existing = creditBreakdownByPlayerId.get(row.player_id) ?? {};
+            existing[row.type] = Math.abs(Number(row.net_neg ?? 0));
+            creditBreakdownByPlayerId.set(row.player_id, existing);
+          }
+        }
+
+        // Academy timezone + currency from academy_settings.
+        let academyTimezone = "Asia/Dubai";
+        let academyCurrency = "AED";
+        let defaultLessonPrice = 100;
+        if (player.academyId) {
+          const [settings] = await db
+            .select({
+              timezone: academySettings.timezone,
+              currency: academySettings.currency,
+              defaultLessonPrice: academySettings.defaultLessonPrice,
+            })
+            .from(academySettings)
+            .where(eq(academySettings.academyId, player.academyId))
+            .limit(1);
+          if (settings) {
+            academyTimezone = settings.timezone ?? "Asia/Dubai";
+            academyCurrency = settings.currency ?? "AED";
+            defaultLessonPrice = Number(settings.defaultLessonPrice ?? 100);
+          }
+        }
+
+        const memberData = familyMembers.map((member) => {
+          const breakdown = creditBreakdownByPlayerId.get(member.id) ?? {};
+          const privateOwed = breakdown["private"] ?? 0;
+          const semiOwed = breakdown["semi_private"] ?? 0;
+          const groupOwed = breakdown["group"] ?? 0;
+          const totalOwed = privateOwed + semiOwed + groupOwed;
+          const amountOwed = Math.round(totalOwed * defaultLessonPrice);
+          return {
+            id: member.id,
+            name: member.name,
+            avatarUrl: member.profilePhotoUrl,
+            level: member.level || 1,
+            xp: member.totalXp || 0,
+            ballLevel: member.ballLevel,
+            nextSession: nextSessionByPlayerId.get(member.id) ?? null,
+            outstandingBalance: outstandingByPlayerId.get(member.id) ?? 0,
+            pendingCreditsV2: {
+              private: Math.round(privateOwed),
+              semi: Math.round(semiOwed),
+              group: Math.round(groupOwed),
+              total: Math.round(totalOwed),
+              amountOwed,
+            },
+            lastActiveAt: member.lastActiveAt?.toISOString() || null,
+            chatEnabled: member.chatEnabled ?? null,
+            communityEnabled: member.communityEnabled ?? null,
+          };
+        });
 
         const outstandingTotal = memberData.reduce(
           (sum, m) => sum + m.outstandingBalance,
@@ -469,12 +547,16 @@ import { hashPassword, generateToken, generateRefreshToken } from "../auth";
         res.json({
           isFamily: true,
           isCallerParent,
+          academyTimezone,
+          academyCurrency,
           family: {
             email: familyParentEmail,
             parentEmail: familyParentEmail,
             members: memberData,
             outstandingTotal,
             isCallerParent,
+            academyTimezone,
+            academyCurrency,
           },
         });
       } catch (error) {
