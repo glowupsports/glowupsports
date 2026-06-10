@@ -51,7 +51,7 @@ async function loadState(): Promise<ReportState> {
       excludedSessionIds: (row.excludedSessionIds as string[]) ?? [],
       paidSessionIds: (row.paidSessionIds as string[]) ?? [],
       startDate: row.startDate ?? "2026-05-11",
-      ratePerSession: row.ratePerSession ?? 200,
+      ratePerSession: row.ratePerSession != null ? Number(row.ratePerSession) : 200,
       currency: row.currency ?? "AED",
     };
   } catch (err) {

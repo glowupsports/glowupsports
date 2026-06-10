@@ -401,10 +401,13 @@ export default function SeriesDetailDrawer({
         guestUntil: data.guestUntil || null,
       });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${seriesId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/billing/package-templates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/players/${variables.playerId}/attendance-history`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/players/${variables.playerId}/attendance-summary`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/players", variables.playerId, "stats"] });
       setShowAddPlayerModal(false);
       setShowPackageSelection(false);
       setShowAttendanceBackfill(false);

@@ -1573,6 +1573,7 @@ export function PlayerDetailView({
   }
   const { data: attendanceSummary } = useQuery<AttendanceSummary>({
     queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
+    staleTime: 0,
   });
 
   interface AttendanceHistoryRecord {
@@ -1587,6 +1588,7 @@ export function PlayerDetailView({
   }
   const { data: attendanceHistoryData } = useQuery<{ history: AttendanceHistoryRecord[] }>({
     queryKey: [`/api/coach/players/${player.id}/attendance-history`],
+    staleTime: 0,
     enabled: showRatePlayerSessions,
   });
 

@@ -9379,8 +9379,8 @@ export const coachReportState = pgTable("coach_report_state", {
   key:                text("key").primaryKey(),
   paidSessionIds:     jsonb("paid_session_ids").notNull().default([]),
   excludedSessionIds: jsonb("excluded_session_ids").notNull().default([]),
-  startDate:          text("start_date").notNull().default("2026-05-11"),
-  ratePerSession:     integer("rate_per_session").notNull().default(200),
-  currency:           text("currency").notNull().default("AED"),
-  updatedAt:          timestamp("updated_at").notNull().defaultNow(),
+  startDate:          text("start_date").default("2026-05-11"),
+  ratePerSession:     numeric("rate_per_session").default("200"),
+  currency:           text("currency").default("AED"),
+  updatedAt:          timestamp("updated_at").defaultNow(),
 });
