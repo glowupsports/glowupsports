@@ -67,7 +67,7 @@ async function saveState(state: ReportState): Promise<void> {
       paidSessionIds: state.paidSessionIds,
       excludedSessionIds: state.excludedSessionIds,
       startDate: state.startDate,
-      ratePerSession: state.ratePerSession,
+      ratePerSession: String(state.ratePerSession),
       currency: state.currency,
       updatedAt: new Date(),
     })
@@ -77,7 +77,7 @@ async function saveState(state: ReportState): Promise<void> {
         paidSessionIds: state.paidSessionIds,
         excludedSessionIds: state.excludedSessionIds,
         startDate: state.startDate,
-        ratePerSession: state.ratePerSession,
+        ratePerSession: String(state.ratePerSession),
         currency: state.currency,
         updatedAt: new Date(),
       },
