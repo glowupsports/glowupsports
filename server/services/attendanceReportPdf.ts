@@ -139,7 +139,7 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     : 0;
 
   const paidLessons = lessonRecords.filter(r => r.paymentStatus === 'paid');
-  const pendingLessons = lessonRecords.filter(r => r.paymentStatus !== 'paid');
+  const pendingLessons = lessonRecords.filter(r => r.paymentStatus === 'pending');
 
   const buildMonthDayGroups = (records: typeof lessonRecords): string => {
     if (records.length === 0) {
@@ -182,7 +182,7 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
             ? `<span class="payment-badge payment-noop">—</span>`
             : isPaid
               ? `<span class="payment-badge payment-paid">Paid</span>`
-              : `<span class="payment-badge payment-pending">Unpaid</span>`;
+              : `<span class="payment-badge payment-pending">Pending</span>`;
 
           html += `<div class="lesson-row${isCancelled ? ' lesson-cancelled' : ''}">
             <div class="lesson-time">${time}</div>
@@ -354,6 +354,12 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       color: #10B981;
     }
 
+    .tab-btn.active-all {
+      background: rgba(200, 255, 61, 0.12);
+      border-color: rgba(200, 255, 61, 0.4);
+      color: #C8FF3D;
+    }
+
     .tab-count {
       display: inline-flex;
       align-items: center;
@@ -376,7 +382,12 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       color: #10B981;
     }
 
-    .tab-btn:not(.active-pending):not(.active-paid) .tab-count {
+    .tab-btn.active-all .tab-count {
+      background: rgba(200, 255, 61, 0.25);
+      color: #C8FF3D;
+    }
+
+    .tab-btn:not(.active-pending):not(.active-paid):not(.active-all) .tab-count {
       background: rgba(255,255,255,0.1);
       color: rgba(255,255,255,0.4);
     }
@@ -571,6 +582,10 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     </div>
 
     <div class="tabs-bar">
+      <button class="tab-btn" id="btn-all" onclick="switchTab('all')">
+        All
+        <span class="tab-count">${lessonRecords.length}</span>
+      </button>
       <button class="tab-btn active-pending" id="btn-pending" onclick="switchTab('pending')">
         Pending
         <span class="tab-count">${pendingLessons.length}</span>
@@ -579,6 +594,10 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
         Paid
         <span class="tab-count">${paidLessons.length}</span>
       </button>
+    </div>
+
+    <div class="tab-panel" id="panel-all">
+      ${allLessonsHtml}
     </div>
 
     <div class="tab-panel active" id="panel-pending">
@@ -600,17 +619,19 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
   </div>
 
   <script>
+    var TAB_CLASSES = { all: 'active-all', pending: 'active-pending', paid: 'active-paid' };
     function switchTab(tab) {
-      var panels = ['pending', 'paid'];
-      panels.forEach(function(t) {
+      var tabs = ['all', 'pending', 'paid'];
+      tabs.forEach(function(t) {
         var panel = document.getElementById('panel-' + t);
         var btn = document.getElementById('btn-' + t);
+        if (!panel || !btn) return;
         if (t === tab) {
           panel.classList.add('active');
-          btn.classList.add(t === 'pending' ? 'active-pending' : 'active-paid');
+          btn.classList.add(TAB_CLASSES[t]);
         } else {
           panel.classList.remove('active');
-          btn.classList.remove('active-pending', 'active-paid');
+          btn.classList.remove('active-all', 'active-pending', 'active-paid');
         }
       });
     }
