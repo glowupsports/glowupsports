@@ -9,7 +9,7 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Clipboard from "expo-clipboard";
 import { Colors, Spacing } from "@/constants/theme";
-import { convertUTCTimeToLocal } from "@/lib/dateUtils";
+import { convertUTCTimeToLocal, formatTimeInTimezone } from "@/lib/dateUtils";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
 import { invalidatePlayersList } from "@/lib/credit-cache";
 import { styles } from "./playersStyles";
@@ -174,12 +174,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
 
   const formatAttendanceTime = (timeStr: string | null) => {
     if (!timeStr) return "";
-    try {
-      const d = new Date(timeStr);
-      return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: tz });
-    } catch {
-      return "";
-    }
+    return formatTimeInTimezone(timeStr, tz);
   };
 
   const formatSeriesTime = (utcTime: string) => convertUTCTimeToLocal(utcTime, tz);
