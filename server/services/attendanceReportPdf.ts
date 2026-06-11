@@ -176,11 +176,19 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
           const typeLabel = getSessionTypeLabel(r.sessionType);
           const time = formatTime(r.startTime);
           const isCancelled = r.status === 'cancelled';
+          const isPaid = r.paymentStatus === 'paid';
+          const isNoCharge = r.paymentStatus === 'no_charge' || r.paymentStatus === 'cancelled';
+          const paymentBadge = isNoCharge
+            ? `<span class="payment-badge payment-noop">—</span>`
+            : isPaid
+              ? `<span class="payment-badge payment-paid">Paid</span>`
+              : `<span class="payment-badge payment-pending">Unpaid</span>`;
 
           html += `<div class="lesson-row${isCancelled ? ' lesson-cancelled' : ''}">
             <div class="lesson-time">${time}</div>
             <div class="lesson-type"><span class="type-badge">${typeLabel}</span></div>
             <div class="lesson-status"><span class="status-badge" style="background:${statusColor}20;color:${statusColor};">${statusLabel}</span></div>
+            <div class="lesson-payment">${paymentBadge}</div>
           </div>`;
         }
 
@@ -444,6 +452,32 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     }
 
     .lesson-status { margin-left: auto; }
+
+    .lesson-payment { flex-shrink: 0; }
+
+    .payment-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .payment-paid {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10B981;
+    }
+
+    .payment-pending {
+      background: rgba(245, 158, 11, 0.12);
+      color: #F59E0B;
+    }
+
+    .payment-noop {
+      color: rgba(255, 255, 255, 0.25);
+      background: transparent;
+    }
 
     .empty-tab {
       text-align: center;
