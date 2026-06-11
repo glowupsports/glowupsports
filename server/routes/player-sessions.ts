@@ -9388,6 +9388,36 @@ router.get(
         OFFSET ${offset}
       `);
 
+      // Determine which sessions have been marked paid via credit ledger
+      const allSessionIds = (rows.rows as any[]).map((r) => r.session_id).filter(Boolean);
+      const paidSessionIdSet = new Set<string>();
+      if (allSessionIds.length > 0) {
+        try {
+          const sessionIdList = sql.join(
+            allSessionIds.map((id: string) => sql`${id}`),
+            sql`, `,
+          );
+          const paidRows = await db.execute(sql`
+            SELECT session_id FROM credit_ledger_v2
+            WHERE player_id = ${playerId}
+              AND session_id IN (${sessionIdList})
+              AND reason = 'coach_mark_paid'
+            UNION
+            SELECT session_id FROM credit_ledger_v2
+            WHERE player_id = ${playerId}
+              AND reason = 'consume'
+              AND session_id IN (${sessionIdList})
+            GROUP BY session_id
+            HAVING COALESCE(SUM(COALESCE((metadata->>'debt')::numeric, 0)), 0) = 0
+          `);
+          for (const row of paidRows.rows as { session_id: string }[]) {
+            if (row.session_id) paidSessionIdSet.add(row.session_id);
+          }
+        } catch (payErr) {
+          console.warn("[SessionHistory] Payment status query skipped:", payErr);
+        }
+      }
+
       const sessions = (rows.rows as any[]).map((r) => ({
         sessionId: r.session_id,
         sessionType: r.session_type,
@@ -9406,6 +9436,7 @@ router.get(
               createdAt: r.checkin_at,
             }
           : null,
+        paymentStatus: paidSessionIdSet.has(r.session_id) ? "paid" as const : "pending" as const,
       }));
 
       res.json({ sessions, hasMore: sessions.length === limit });

@@ -432,6 +432,7 @@ interface SessionHistoryItem {
   xpEarned: number;
   levelUp: { newLevel: number } | null;
   checkin: { energyLevel: number; mood: number; notes: string | null; createdAt: string } | null;
+  paymentStatus?: "paid" | "pending";
 }
 
 interface SessionSection {
@@ -522,6 +523,13 @@ function SessionDetailModal({ item, visible, onClose, onRate }: {
                 {item.durationMinutes ? <Text style={[sd.metaText, { marginHorizontal: 6 }]}>·</Text> : null}
                 <Ionicons name="star" size={13} color="#EAB308" />
                 <Text style={[sd.metaText, { color: "#EAB308", fontWeight: "700" }]}>+{item.xpEarned} XP</Text>
+              </>
+            ) : null}
+            {item.paymentStatus === "paid" ? (
+              <>
+                {(item.durationMinutes || item.xpEarned > 0) ? <Text style={[sd.metaText, { marginHorizontal: 6 }]}>·</Text> : null}
+                <Ionicons name="checkmark-circle" size={14} color={Colors.dark.primary} />
+                <Text style={[sd.metaText, { color: Colors.dark.primary, fontWeight: "700" }]}>Paid</Text>
               </>
             ) : null}
           </View>
@@ -678,6 +686,12 @@ function SessionHistoryCard({
             </Pressable>
           </View>
         )}
+        {item.paymentStatus === "paid" ? (
+          <View style={sh.paidRow}>
+            <Ionicons name="checkmark-circle" size={12} color={Colors.dark.primary} />
+            <Text style={sh.paidText}>Paid</Text>
+          </View>
+        ) : null}
         {item.checkin?.notes ? (
           <Text style={sh.notes} numberOfLines={2}>{item.checkin.notes}</Text>
         ) : null}
@@ -711,6 +725,8 @@ const sh = makeReactiveStyles(() => StyleSheet.create({
   noCheckin: { fontSize: 11, color: Colors.dark.textMuted, fontStyle: "italic" },
   rateBtn: { flexDirection: "row", alignItems: "center", gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1, borderColor: Colors.dark.primary },
   rateBtnText: { fontSize: 11, fontWeight: "600", color: Colors.dark.primary },
+  paidRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5 },
+  paidText: { fontSize: 11, fontWeight: "700", color: Colors.dark.primary },
   notes: { fontSize: 12, color: Colors.dark.textMuted, marginTop: 4 },
   monthHeader: {
     paddingHorizontal: Spacing.xl,
