@@ -8781,29 +8781,90 @@ import fs from "fs";
       const paidSessionIdSet = new Set<string>();
 
       if (allSessionIds.length > 0) {
-        // Derive "paid" from two sources:
-        // 1. V2 ledger `consume` rows with zero debt (wallet debit / package redemption)
-        // 2. Coach-marked-paid rows (reason = 'coach_mark_paid')
+        // Balance-aware paid determination:
+        // A session with a consume row is "paid" unless it represents genuine
+        // outstanding debt. The rule per credit type:
+        //   - balance >= 0: ALL sessions with consume rows are paid (all past
+        //     debt was cleared by subsequent package purchases).
+        //   - balance < 0: the |balance| most-recently-attended debt-sessions
+        //     remain pending; older ones are paid (FIFO — oldest debt settled
+        //     first, matching how consume_debt_settlement works at purchase time).
+        // Sessions marked paid by a coach (reason='coach_mark_paid') are always paid.
         type PaidSessionRow = { session_id: string | null };
+        type ConsumeRow = { session_id: string | null; type: string; debt: unknown };
         const sessionIdList = sql.join(allSessionIds.map((id: string) => sql`${id}`), sql`, `);
-        const paidRows = await db.execute(sql`
-          SELECT session_id
+
+        // 1. Fetch all consume rows for these sessions.
+        const consumeRowsResult = await db.execute(sql`
+          SELECT session_id, type, COALESCE((metadata->>'debt')::numeric, 0) AS debt
           FROM credit_ledger_v2
           WHERE player_id = ${player.id}
             AND reason = 'consume'
             AND session_id IN (${sessionIdList})
-          GROUP BY session_id
-          HAVING COALESCE(SUM(COALESCE((metadata->>'debt')::numeric, 0)), 0) = 0
+        `);
 
-          UNION
+        // 2. Fetch current credit balance per type.
+        const balanceResult = await db.execute(sql`
+          SELECT type, credits
+          FROM player_credit_balance
+          WHERE player_id = ${player.id}
+        `);
+        const balanceByType: Record<string, number> = {};
+        for (const row of balanceResult.rows as { type: string; credits: unknown }[]) {
+          balanceByType[row.type] = Number(row.credits);
+        }
 
+        // 3. Group consume rows by credit type, tagged with session start time
+        //    for chronological ordering.
+        const consumeByType: Record<string, { sessionId: string; debt: number; startTime: number }[]> = {};
+        for (const row of consumeRowsResult.rows as ConsumeRow[]) {
+          if (!row.session_id) continue;
+          const sessionInfo = sessionMap[row.session_id];
+          if (!sessionInfo) continue;
+          const creditType = row.type || "group";
+          if (!consumeByType[creditType]) consumeByType[creditType] = [];
+          consumeByType[creditType].push({
+            sessionId: row.session_id,
+            debt: Number(row.debt),
+            startTime: new Date(sessionInfo.startTime).getTime(),
+          });
+        }
+
+        // 4. Per credit type: mark sessions paid using the FIFO balance rule.
+        for (const creditType of Object.keys(consumeByType)) {
+          const rows = consumeByType[creditType];
+          const balance = balanceByType[creditType] ?? 0;
+
+          const zeroDebt = rows.filter(r => r.debt === 0);
+          const hasDebt = rows.filter(r => r.debt > 0);
+
+          // Zero-debt consume rows are always paid.
+          for (const r of zeroDebt) paidSessionIdSet.add(r.sessionId);
+
+          if (hasDebt.length === 0) continue;
+
+          if (balance >= 0) {
+            // Debt fully cleared — all sessions with consume rows are paid.
+            for (const r of hasDebt) paidSessionIdSet.add(r.sessionId);
+          } else {
+            // Sort oldest-first so FIFO clearing pays the oldest sessions first.
+            hasDebt.sort((a, b) => a.startTime - b.startTime);
+            const pendingCount = Math.min(Math.round(Math.abs(balance)), hasDebt.length);
+            const paidCount = hasDebt.length - pendingCount;
+            for (let i = 0; i < paidCount; i++) paidSessionIdSet.add(hasDebt[i].sessionId);
+            // Remaining hasDebt[paidCount..] sessions stay pending.
+          }
+        }
+
+        // 5. Sessions explicitly marked paid by a coach are always paid.
+        const coachMarkPaidResult = await db.execute(sql`
           SELECT session_id
           FROM credit_ledger_v2
           WHERE player_id = ${player.id}
             AND reason = 'coach_mark_paid'
             AND session_id IN (${sessionIdList})
         `);
-        for (const row of paidRows.rows as PaidSessionRow[]) {
+        for (const row of coachMarkPaidResult.rows as PaidSessionRow[]) {
           if (row.session_id) paidSessionIdSet.add(row.session_id);
         }
       }
