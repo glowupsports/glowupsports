@@ -1013,15 +1013,27 @@ export default function PlayerJourneyScreen() {
             {sessionSections.length === 0 ? (
               <View style={[styles.emptyState, { flex: 1 }]}>
                 <Ionicons
-                  name={paymentFilter === "pending" ? "checkmark-circle-outline" : "fitness-outline"}
+                  name={
+                    allSessions.length === 0
+                      ? "fitness-outline"
+                      : paymentFilter === "pending"
+                      ? "checkmark-circle-outline"
+                      : "fitness-outline"
+                  }
                   size={48}
                   color={Colors.dark.textMuted}
                 />
                 <Text style={styles.emptyText}>
-                  {paymentFilter === "pending" ? "All sessions paid" : "No paid sessions yet"}
+                  {allSessions.length === 0
+                    ? "No sessions yet"
+                    : paymentFilter === "pending"
+                    ? "All sessions paid"
+                    : "No paid sessions yet"}
                 </Text>
                 <Text style={styles.emptySubtext}>
-                  {paymentFilter === "pending"
+                  {allSessions.length === 0
+                    ? "Your session history will appear here after your first lesson"
+                    : paymentFilter === "pending"
                     ? "You have no outstanding sessions"
                     : "Paid sessions will appear here"}
                 </Text>
