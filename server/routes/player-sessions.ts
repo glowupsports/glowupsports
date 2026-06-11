@@ -8803,11 +8803,12 @@ import fs from "fs";
             AND session_id IN (${sessionIdList})
         `);
 
-        // 2. Fetch current credit balance per type.
+        // 2. Fetch current credit balance per type (scoped to this academy).
         const balanceResult = await db.execute(sql`
           SELECT type, credits
           FROM player_credit_balance
           WHERE player_id = ${player.id}
+            AND academy_id = ${academyId}
         `);
         const balanceByType: Record<string, number> = {};
         for (const row of balanceResult.rows as { type: string; credits: unknown }[]) {
@@ -8849,7 +8850,9 @@ import fs from "fs";
           } else {
             // Sort oldest-first so FIFO clearing pays the oldest sessions first.
             hasDebt.sort((a, b) => a.startTime - b.startTime);
-            const pendingCount = Math.min(Math.round(Math.abs(balance)), hasDebt.length);
+            // Use ceil so a fractional negative balance (e.g. -0.4) still
+            // marks at least one session pending rather than silently zeroing out.
+            const pendingCount = Math.min(Math.ceil(Math.abs(balance)), hasDebt.length);
             const paidCount = hasDebt.length - pendingCount;
             for (let i = 0; i < paidCount; i++) paidSessionIdSet.add(hasDebt[i].sessionId);
             // Remaining hasDebt[paidCount..] sessions stay pending.
