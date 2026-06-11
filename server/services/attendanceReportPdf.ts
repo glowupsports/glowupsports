@@ -128,7 +128,7 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
   };
 
   const dayKey = (dateStr: string) => {
-    return new Date(dateStr).toISOString().split('T')[0];
+    return new Date(dateStr).toLocaleDateString('en-CA', { timeZone: 'Asia/Dubai' });
   };
 
   const nonCancelledLessonRecords = lessonRecords.filter(r => r.status !== 'cancelled');
@@ -195,6 +195,7 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
 
   const paidHtml = buildMonthDayGroups(paidLessons);
   const pendingHtml = buildMonthDayGroups(pendingLessons);
+  const allLessonsHtml = buildMonthDayGroups(lessonRecords);
 
   return `<!DOCTYPE html>
 <html>
@@ -475,24 +476,14 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       font-family: inherit;
     }
 
+    .print-combined { display: none; }
+
     @media print {
       body { background: #0B0D10 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
       .tabs-bar { display: none !important; }
-      .tab-panel { display: block !important; }
+      .tab-panel { display: none !important; }
       .print-btn { display: none !important; }
-      .print-only-heading { display: block !important; }
-    }
-
-    .print-only-heading {
-      display: none;
-      font-size: 16px;
-      font-weight: 700;
-      color: rgba(255,255,255,0.6);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 12px;
-      padding-top: 24px;
-      border-top: 1px solid rgba(255,255,255,0.1);
+      .print-combined { display: block !important; }
     }
 
     @media (max-width: 600px) {
@@ -561,8 +552,11 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     </div>
 
     <div class="tab-panel" id="panel-paid">
-      <div class="print-only-heading">Paid Lessons</div>
       ${paidHtml}
+    </div>
+
+    <div class="print-combined">
+      ${allLessonsHtml}
     </div>
 
     <div class="footer">
