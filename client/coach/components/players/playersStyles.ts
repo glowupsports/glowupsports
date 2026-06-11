@@ -3077,6 +3077,148 @@ export const styles = StyleSheet.create({
     marginTop: 16,
     fontStyle: "italic",
   },
+  editAttendanceMarkPaidButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: "rgba(200, 255, 61, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(200, 255, 61, 0.35)",
+    marginTop: 8,
+  },
+  editAttendanceMarkPaidButtonPaid: {
+    backgroundColor: "rgba(200, 255, 61, 0.18)",
+    borderColor: "rgba(200, 255, 61, 0.55)",
+  },
+  editAttendanceMarkPaidText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: Colors.dark.primary,
+  },
+
+  // === ATTENDANCE STATS ROW ===
+  attendanceStatsRow: {
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    marginBottom: 2,
+  },
+  attendanceStatBox: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.07)",
+  },
+  attendanceStatValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.dark.text,
+  },
+  attendanceStatLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+
+  // === HEATMAP STRIP ===
+  heatmapContainer: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  heatmapLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: Colors.dark.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 5,
+  },
+  heatmapDots: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  heatmapDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+
+  // === 2-COLUMN ATTENDANCE CARD GRID ===
+  attendanceCardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: Spacing.md,
+    gap: 8,
+    marginBottom: Spacing.sm,
+  },
+  attendanceCard: {
+    width: "48%",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  attendanceCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  attendanceCardDate: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: Colors.dark.text,
+    flex: 1,
+  },
+  attendancePaidBadge: {
+    width: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attendanceCardTime: {
+    fontSize: 10,
+    color: Colors.dark.textSecondary,
+    marginBottom: 6,
+  },
+  attendanceCardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 4,
+  },
+  attendanceCardTypePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  attendanceCardTypeText: {
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  attendanceCardStatusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  attendanceCardStatusText: {
+    fontSize: 9,
+    fontWeight: "600",
+  },
   paymentsSection: {
     backgroundColor: Backgrounds.card,
     borderRadius: BorderRadius.xl,

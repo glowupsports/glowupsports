@@ -35,6 +35,7 @@ interface AttendanceHistoryRecord {
   // fresh wallet debit, `'v2-settlement'` when the session was paid via a
   // later top-up against existing debt, `null` when V2 has no evidence.
   creditChargeSource?: "v2-consume" | "v2-settlement" | null;
+  paymentStatus?: "paid" | "pending";
 }
 
 interface SeriesAttendanceSummary {
@@ -68,8 +69,8 @@ const PAGE_SIZE = 20;
 
 export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader = false }: Props) {
   const queryClient = useQueryClient();
-  const [expandedSeriesIds, setExpandedSeriesIds] = useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = useState<"all" | "private" | "semi" | "group">("all");
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   // Pagination state — accumulate records across pages
   const [pageOffset, setPageOffset] = useState(0);
@@ -149,22 +150,6 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
 
   const hasMore = allHistory.length < totalSessions;
 
-  const seriesIdKey = seriesAttendanceSummaries.map(s => s.seriesId).sort().join(',');
-  useEffect(() => {
-    if (seriesAttendanceSummaries.length > 0) {
-      setExpandedSeriesIds(new Set(seriesAttendanceSummaries.map(s => s.seriesId)));
-    }
-  }, [seriesIdKey]);
-
-  useEffect(() => {
-    if (typeFilter !== "all" && seriesAttendanceSummaries.length > 1) {
-      const matchingSeriesIds = new Set(
-        filteredHistory.map(r => r.seriesId).filter(Boolean) as string[]
-      );
-      setExpandedSeriesIds(matchingSeriesIds);
-    }
-  }, [typeFilter, filteredHistory.length, seriesAttendanceSummaries.length]);
-
   const resetAndRefetchHistory = () => {
     // Remove all cached attendance pages for this player
     queryClient.removeQueries({
@@ -228,6 +213,32 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setIsUpdatingAttendance(false);
       Alert.alert("Error", "Failed to update attendance");
+    },
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: async ({ sessionId }: { sessionId: string }) => {
+      const response = await fetch(
+        new URL(`/api/coach/players/${playerId}/sessions/${sessionId}/payment-status`, getApiUrl()).toString(),
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+        }
+      );
+      if (!response.ok) throw new Error("Failed to update payment status");
+      return response.json() as Promise<{ paymentStatus: "paid" | "pending" }>;
+    },
+    onSuccess: () => {
+      resetAndRefetchHistory();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setEditingAttendance(null);
+      setIsMarkingPaid(false);
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setIsMarkingPaid(false);
+      Alert.alert("Error", "Failed to update payment status");
     },
   });
 
@@ -323,177 +334,77 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
 
   const displayedHistory = filteredHistory;
 
-  const renderAttendanceRow = (record: AttendanceHistoryRecord, showTime = false) => {
+  const getDotColor = (status: string | null) => {
+    if (status === "present") return Colors.dark.primary;
+    if (status === "late") return Colors.dark.gold;
+    if (status === "absent") return Colors.dark.error;
+    return "rgba(255,255,255,0.18)";
+  };
+
+  const renderAttendanceCard = (record: AttendanceHistoryRecord) => {
     const sessionRating = sessionRatingsMap[record.sessionId];
+    const isPaid = record.paymentStatus === "paid";
+    const statusColor =
+      record.status === "present" ? Colors.dark.primary :
+      record.status === "absent" ? Colors.dark.error :
+      record.status === "late" ? Colors.dark.gold :
+      Colors.dark.textMuted;
+    const statusLabel =
+      record.status === "present" ? "Present" :
+      record.status === "absent" ? "Absent" :
+      record.status === "late" ? "Late" :
+      record.status === "holiday" ? "Holiday" :
+      record.status === "vacation" ? "Vacation" :
+      record.status === "cancelled" ? "Cancelled" : "Pending";
+    const typeLow = (record.sessionType ?? "").toLowerCase();
+    const typeLabel = typeLow === "private" ? "Private" : typeLow.includes("semi") ? "Semi" : "Group";
+    const typeColor = typeLow === "private" ? "#A78BFA" : typeLow.includes("semi") ? Colors.dark.gold : Colors.dark.primary;
+    const typeBg = typeLow === "private" ? "rgba(167,139,250,0.12)" : typeLow.includes("semi") ? "rgba(251,191,36,0.12)" : "rgba(200,255,61,0.1)";
+    const hasDupCharge = (record.creditChargeCount ?? 0) > 1;
     return (
-    <View key={record.sessionId}>
-      <View style={styles.attendanceHistoryRow}>
-        <View style={styles.attendanceHistoryDate}>
-          <Text style={styles.attendanceHistoryDateText}>{formatAttendanceDate(record.date)}</Text>
-          {showTime ? (
-            <Text style={styles.attendanceHistoryTime}>
-              {formatAttendanceTime(record.startTime)} - {formatAttendanceTime(record.endTime)}
-            </Text>
-          ) : null}
-        </View>
-        <View style={styles.attendanceHistoryDetails}>
-          <View style={styles.attendanceHistoryType}>
-            <Text style={styles.attendanceHistoryTypeText}>
-              {record.sessionType === "private" ? "Private" :
-               record.sessionType === "group" ? "Group" :
-               (record.sessionType === "semi-private" || record.sessionType === "semi_private") ? "Semi" : record.sessionType}
-            </Text>
-          </View>
-          <View style={[
-            styles.attendanceStatusBadge,
-            record.status === "present" ? styles.attendanceStatusPresent :
-            record.status === "absent" ? styles.attendanceStatusAbsent :
-            record.status === "late" ? styles.attendanceStatusLate :
-            (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusCancelled :
-            styles.attendanceStatusPending
-          ]}>
-            <Ionicons
-              name={record.status === "present" ? "checkmark-circle" :
-                    record.status === "absent" ? "close-circle" :
-                    (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? "calendar-outline" : "time"}
-              size={14}
-              color={record.status === "present" ? Colors.dark.primary :
-                     record.status === "absent" ? Colors.dark.error :
-                     (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? Colors.dark.textSecondary : Colors.dark.gold}
-            />
-            <Text style={[
-              styles.attendanceStatusText,
-              record.status === "present" ? styles.attendanceStatusTextPresent :
-              record.status === "absent" ? styles.attendanceStatusTextAbsent :
-              record.status === "late" ? styles.attendanceStatusTextLate :
-              (record.status === "holiday" || record.status === "cancelled" || record.status === "vacation") ? styles.attendanceStatusTextCancelled :
-              styles.attendanceStatusTextPending
-            ]}>
-              {record.status === "present" ? "Present" :
-               record.status === "absent" ? "Absent" :
-               record.status === "late" ? "Late" :
-               record.status === "holiday" ? "Holiday" :
-               record.status === "vacation" ? "Vacation" :
-               record.status === "cancelled" ? "Cancelled" : "Pending"}
-              {showTime && record.lateMinutes && record.lateMinutes > 0 ? ` (+${record.lateMinutes}m late)` : ""}
-            </Text>
-          </View>
-          {(() => {
-            // Task #817 / #1450 — show "−1 group" / "−1 group · settled" /
-            // "No charge" / "DUP CHARGE" sub-line directly under the row so
-            // the ledger truth is visible.
-            const status = (record.status || "").toLowerCase();
-            const showCharge =
-              status === "present" || status === "late" || status === "absent";
-            if (!showCharge) return null;
-            const charged = Number(record.creditsCharged ?? 0);
-            // creditsCharged is reported as a positive magnitude by the API.
-            const amt = charged > 0 ? -charged : charged;
-            const typeLabel = record.creditChargeType === "semi_private"
-              ? "semi"
-              : record.creditChargeType === "private"
-                ? "private"
-                : "group";
-            const duplicate = (record.creditChargeCount ?? 0) > 1;
-            if (duplicate) {
-              return (
-                <View
-                  style={{
-                    marginLeft: 6,
-                    paddingHorizontal: 6,
-                    paddingVertical: 1,
-                    borderRadius: 4,
-                    backgroundColor: Colors.dark.error,
-                  }}
-                  accessibilityLabel="Duplicate charge detected"
-                >
-                  <Text style={{ fontSize: 9, fontWeight: "800", color: "#fff" }}>
-                    DUP CHARGE
-                  </Text>
-                </View>
-              );
-            }
-            if (amt === 0) {
-              return (
-                <Text
-                  style={{ marginLeft: 6, fontSize: 10, color: Colors.dark.textMuted }}
-                >
-                  No charge
-                </Text>
-              );
-            }
-            const isSettlement = record.creditChargeSource === "v2-settlement";
-            const suffix = isSettlement ? " · settled" : "";
-            return (
-              <Text
-                style={{ marginLeft: 6, fontSize: 10, color: Colors.dark.textSecondary, fontWeight: "600" }}
-                accessibilityLabel={`${Math.abs(amt)} ${typeLabel} credit ${isSettlement ? "settled via debt" : "charged"}`}
-              >
-                {amt < 0 ? "−" : "+"}
-                {Math.abs(amt)} {typeLabel}{suffix}
-              </Text>
-            );
-          })()}
-          {sessionRating ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginLeft: 4 }}>
-              <Feather name="star" size={12} color="#FFD700" />
-              <Text style={{ color: "#FFD700", fontSize: 11, fontWeight: "600" }}>{sessionRating.rating}/5</Text>
+      <Pressable
+        key={record.sessionId}
+        style={styles.attendanceCard}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setEditingAttendance(record);
+        }}
+      >
+        <View style={styles.attendanceCardHeader}>
+          <Text style={styles.attendanceCardDate} numberOfLines={1}>{formatAttendanceDate(record.date)}</Text>
+          {isPaid ? (
+            <View style={styles.attendancePaidBadge}>
+              <Ionicons name="checkmark-circle" size={13} color={Colors.dark.primary} />
             </View>
           ) : null}
-          {/* Task #817: per-lesson credit charge pill so the user can see exactly
-              how many credits were debited for this session. Flags duplicates. */}
-          {(record.creditsCharged ?? 0) > 0 ? (
-            <View style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 2,
-              marginLeft: 4,
-              paddingHorizontal: 6,
-              paddingVertical: 2,
-              borderRadius: 4,
-              backgroundColor: (record.creditChargeCount ?? 1) > 1
-                ? "rgba(255, 80, 80, 0.18)"
-                : "rgba(200, 255, 61, 0.15)",
-              borderWidth: 1,
-              borderColor: (record.creditChargeCount ?? 1) > 1
-                ? Colors.dark.error
-                : Colors.dark.primary,
-            }}>
-              <Ionicons
-                name="ticket-outline"
-                size={11}
-                color={(record.creditChargeCount ?? 1) > 1 ? Colors.dark.error : Colors.dark.primary}
-              />
-              <Text style={{
-                color: (record.creditChargeCount ?? 1) > 1 ? Colors.dark.error : Colors.dark.primary,
-                fontSize: 10,
-                fontWeight: "700",
-              }}>
-                −{record.creditsCharged}
-                {(record.creditChargeCount ?? 1) > 1 ? `×${record.creditChargeCount}!` : ""}
-              </Text>
+          {hasDupCharge ? (
+            <View style={{ paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3, backgroundColor: Colors.dark.error }}>
+              <Text style={{ fontSize: 7, fontWeight: "800", color: "#fff" }}>DUP</Text>
             </View>
           ) : null}
-          <Pressable
-            style={styles.attendanceEditButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setEditingAttendance(record);
-            }}
-          >
-            <Ionicons name="pencil" size={16} color={Colors.dark.xpCyan} />
-          </Pressable>
         </View>
-      </View>
-      {sessionRating?.comment ? (
-        <View style={{ paddingHorizontal: Spacing.md, paddingBottom: Spacing.xs, flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
-          <Feather name="message-square" size={11} color={Colors.dark.textSecondary} style={{ marginTop: 2 }} />
-          <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontStyle: "italic", flex: 1 }} numberOfLines={2}>
-            {sessionRating.comment}
-          </Text>
+        <Text style={styles.attendanceCardTime} numberOfLines={1}>
+          {formatAttendanceTime(record.startTime)} – {formatAttendanceTime(record.endTime)}
+        </Text>
+        <View style={styles.attendanceCardFooter}>
+          <View style={[styles.attendanceCardTypePill, { backgroundColor: typeBg }]}>
+            <Text style={[styles.attendanceCardTypeText, { color: typeColor }]}>{typeLabel}</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+            <View style={[styles.attendanceCardStatusDot, { backgroundColor: statusColor }]} />
+            <Text style={[styles.attendanceCardStatusText, { color: statusColor }]}>{statusLabel}</Text>
+          </View>
         </View>
-      ) : null}
-    </View>
+        {sessionRating ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginTop: 4 }}>
+            <Feather name="star" size={10} color="#FFD700" />
+            <Text style={{ color: "#FFD700", fontSize: 10, fontWeight: "600" }}>{sessionRating.rating}/5</Text>
+            {sessionRating.comment ? (
+              <Text style={{ color: Colors.dark.textMuted, fontSize: 9 }} numberOfLines={1}> · {sessionRating.comment}</Text>
+            ) : null}
+          </View>
+        ) : null}
+      </Pressable>
     );
   };
 
@@ -605,85 +516,51 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
               })}
             </ScrollView>
 
-            {seriesAttendanceSummaries.length > 1 && (
-              <View style={styles.seriesSummaryContainer}>
-                <Text style={styles.seriesSummaryTitle}>Per Lesson Group</Text>
-                <View style={styles.seriesSummaryGrid}>
-                  {seriesAttendanceSummaries.map((summary) => (
-                    <View key={summary.seriesId} style={styles.seriesSummaryCard}>
-                      <View style={styles.seriesSummaryHeader}>
-                        <Text style={styles.seriesSummaryDay}>{summary.dayName}</Text>
-                        <Text style={styles.seriesSummaryTime}>{formatSeriesTime(summary.startTime)}</Text>
-                      </View>
-                      <View style={styles.seriesSummaryStats}>
-                        <View style={styles.seriesSummaryStat}>
-                          <Text style={[styles.seriesSummaryStatValue, { color: Colors.dark.primary }]}>{summary.presentCount}</Text>
-                          <Text style={styles.seriesSummaryStatLabel}>Present</Text>
-                        </View>
-                        <View style={styles.seriesSummaryStat}>
-                          <Text style={[styles.seriesSummaryStatValue, { color: Colors.dark.error }]}>{summary.absentCount}</Text>
-                          <Text style={styles.seriesSummaryStatLabel}>Absent</Text>
-                        </View>
-                        <View style={styles.seriesSummaryStat}>
-                          <Text style={[
-                            styles.seriesSummaryStatValue,
-                            { color: summary.attendanceRate >= 80 ? Colors.dark.primary :
-                                     summary.attendanceRate >= 60 ? Colors.dark.gold : Colors.dark.error }
-                          ]}>
-                            {summary.attendanceRate}%
-                          </Text>
-                          <Text style={styles.seriesSummaryStatLabel}>Rate</Text>
-                        </View>
-                      </View>
-                    </View>
+            {(() => {
+              const billable = filteredHistory.filter(r => r.status !== "holiday" && r.status !== "vacation");
+              const presentCnt = billable.filter(r => r.status === "present").length;
+              const absentCnt = billable.filter(r => r.status === "absent").length;
+              const lateCnt = billable.filter(r => r.status === "late").length;
+              const rate = billable.length > 0 ? Math.round(((presentCnt + lateCnt) / billable.length) * 100) : 0;
+              const rateColor = rate >= 80 ? Colors.dark.primary : rate >= 60 ? Colors.dark.gold : Colors.dark.error;
+              return (
+                <View style={styles.attendanceStatsRow}>
+                  <View style={styles.attendanceStatBox}>
+                    <Text style={styles.attendanceStatValue}>{billable.length}</Text>
+                    <Text style={styles.attendanceStatLabel}>Total</Text>
+                  </View>
+                  <View style={styles.attendanceStatBox}>
+                    <Text style={[styles.attendanceStatValue, { color: Colors.dark.primary }]}>{presentCnt}</Text>
+                    <Text style={styles.attendanceStatLabel}>Present</Text>
+                  </View>
+                  <View style={styles.attendanceStatBox}>
+                    <Text style={[styles.attendanceStatValue, { color: Colors.dark.error }]}>{absentCnt}</Text>
+                    <Text style={styles.attendanceStatLabel}>Absent</Text>
+                  </View>
+                  <View style={styles.attendanceStatBox}>
+                    <Text style={[styles.attendanceStatValue, { color: rateColor }]}>{rate}%</Text>
+                    <Text style={styles.attendanceStatLabel}>Rate</Text>
+                  </View>
+                </View>
+              );
+            })()}
+
+            {filteredHistory.length > 0 && (
+              <View style={styles.heatmapContainer}>
+                <Text style={styles.heatmapLabel}>Attendance pattern</Text>
+                <View style={styles.heatmapDots}>
+                  {filteredHistory.slice(0, 60).map(r => (
+                    <View key={r.sessionId} style={[styles.heatmapDot, { backgroundColor: getDotColor(r.status) }]} />
                   ))}
                 </View>
               </View>
             )}
 
-            {seriesAttendanceSummaries.length > 1 ? (
-              seriesAttendanceSummaries.map((summary) => {
-                const displayedSeriesRecords = displayedHistory
-                  .filter(r => r.seriesId === summary.seriesId)
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                if (displayedSeriesRecords.length === 0) return null;
-                const filteredSeriesCount = typeFilter !== "all"
-                  ? filteredHistory.filter(r => r.seriesId === summary.seriesId).length
-                  : displayedSeriesRecords.length;
-                const isExpanded = expandedSeriesIds.has(summary.seriesId);
-                const toggleExpanded = () => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setExpandedSeriesIds(prev => {
-                    const newSet = new Set(prev);
-                    if (newSet.has(summary.seriesId)) {
-                      newSet.delete(summary.seriesId);
-                    } else {
-                      newSet.add(summary.seriesId);
-                    }
-                    return newSet;
-                  });
-                };
-                return (
-                  <View key={summary.seriesId} style={styles.seriesGroupSection}>
-                    <Pressable style={styles.seriesGroupHeader} onPress={toggleExpanded}>
-                      <View style={styles.seriesGroupHeaderLeft}>
-                        <Text style={styles.seriesGroupDay}>{summary.dayName}</Text>
-                        <Text style={styles.seriesGroupTime}>{formatSeriesTime(summary.startTime)}</Text>
-                        <View style={styles.seriesGroupCount}>
-                          <Text style={styles.seriesGroupCountText}>{filteredSeriesCount}</Text>
-                        </View>
-                      </View>
-                      <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color={Colors.dark.xpCyan} />
-                    </Pressable>
-                    {isExpanded && displayedSeriesRecords.map((record) => renderAttendanceRow(record, false))}
-                  </View>
-                );
-              })
-            ) : (
-              [...displayedHistory]
+            <View style={styles.attendanceCardGrid}>
+              {[...displayedHistory]
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((record) => renderAttendanceRow(record, true))
-            )}
+                .map(renderAttendanceCard)}
+            </View>
 
             {hasMore ? (
               <Pressable
@@ -757,6 +634,36 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
             <Text style={styles.editAttendanceNote}>
               Changing attendance will automatically adjust credits
             </Text>
+
+            <Pressable
+              style={[
+                styles.editAttendanceMarkPaidButton,
+                editingAttendance?.paymentStatus === "paid" && styles.editAttendanceMarkPaidButtonPaid,
+                (isMarkingPaid || isUpdatingAttendance) && { opacity: 0.5 },
+              ]}
+              disabled={isMarkingPaid || isUpdatingAttendance}
+              onPress={() => {
+                if (!editingAttendance) return;
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setIsMarkingPaid(true);
+                markPaidMutation.mutate({ sessionId: editingAttendance.sessionId });
+              }}
+            >
+              {isMarkingPaid ? (
+                <TennisBallSpinner size="small" color={Colors.dark.primary} />
+              ) : (
+                <>
+                  <Ionicons
+                    name={editingAttendance?.paymentStatus === "paid" ? "checkmark-circle" : "checkmark-circle-outline"}
+                    size={18}
+                    color={Colors.dark.primary}
+                  />
+                  <Text style={styles.editAttendanceMarkPaidText}>
+                    {editingAttendance?.paymentStatus === "paid" ? "Undo Paid" : "Mark as Paid"}
+                  </Text>
+                </>
+              )}
+            </Pressable>
           </View>
         </Pressable>
       </Modal>

@@ -1241,6 +1241,35 @@ import { getPlayerHealthSnapshot } from "./player-health";
           }
         }
 
+        // ─── Step 5: Payment status — which sessions are paid ────────────────────
+        const paidSessionIdSet = new Set<string>();
+        if (sessionIdsForCredits.length > 0) {
+          try {
+            const sessionIdList2 = sql.join(
+              sessionIdsForCredits.map(id => sql`${id}`),
+              sql`, `,
+            );
+            const paidRows = await db.execute(sql`
+              SELECT session_id FROM credit_ledger_v2
+              WHERE player_id = ${playerId}
+                AND session_id IN (${sessionIdList2})
+                AND reason = 'coach_mark_paid'
+              UNION
+              SELECT session_id FROM credit_ledger_v2
+              WHERE player_id = ${playerId}
+                AND reason = 'consume'
+                AND session_id IN (${sessionIdList2})
+              GROUP BY session_id
+              HAVING COALESCE(SUM(COALESCE((metadata->>'debt')::numeric, 0)), 0) = 0
+            `);
+            for (const row of paidRows.rows as { session_id: string }[]) {
+              if (row.session_id) paidSessionIdSet.add(row.session_id);
+            }
+          } catch (payErr) {
+            console.warn("[AttendanceHistory] Payment status query skipped:", payErr);
+          }
+        }
+
         // ─── Format page for frontend ─────────────────────────────────────────────
         const history = pagedRows.map(record => {
           const seriesInfo = record.series_id ? seriesMap[record.series_id] : null;
@@ -1267,6 +1296,7 @@ import { getPlayerHealthSnapshot } from "./player-health";
             creditChargeCount: charge ? charge.count : 0,
             creditChargeType: charge?.type ?? null,
             creditChargeSource: charge?.source ?? null,
+            paymentStatus: paidSessionIdSet.has(record.session_id) ? "paid" as const : "pending" as const,
           };
         });
 
@@ -1303,6 +1333,69 @@ import { getPlayerHealthSnapshot } from "./player-health";
       } catch (error) {
         console.error("Error fetching player attendance history:", error);
         res.status(500).json({ error: "Failed to fetch attendance history" });
+      }
+    },
+  );
+
+  // Toggle payment status for a session (mark paid / undo paid)
+  router.patch(
+    "/api/coach/players/:playerId/sessions/:sessionId/payment-status",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { playerId, sessionId } = req.params;
+        const academyId = req.user!.academyId!;
+
+        const { valid } = await validatePlayerOwnership(playerId, academyId, storage);
+        if (!valid) {
+          return res.status(404).json({ error: "Player not found" });
+        }
+
+        const existing = await db.execute(sql`
+          SELECT id FROM credit_ledger_v2
+          WHERE player_id = ${playerId}
+            AND session_id = ${sessionId}
+            AND reason = 'coach_mark_paid'
+          LIMIT 1
+        `);
+
+        if (existing.rows.length > 0) {
+          await db.execute(sql`
+            DELETE FROM credit_ledger_v2
+            WHERE player_id = ${playerId}
+              AND session_id = ${sessionId}
+              AND reason = 'coach_mark_paid'
+          `);
+          return res.json({ paymentStatus: "pending" });
+        } else {
+          const eventKey = `coach_mark_paid:${sessionId}:${playerId}`;
+          await db.execute(sql`
+            INSERT INTO credit_ledger_v2 (
+              id, player_id, academy_id, type, delta, reason, event_key,
+              actor_id, actor_role, session_id, balance_after, metadata, occurred_at
+            ) VALUES (
+              gen_random_uuid(),
+              ${playerId},
+              ${academyId},
+              'money',
+              0,
+              'coach_mark_paid',
+              ${eventKey},
+              ${req.user!.userId},
+              'coach',
+              ${sessionId},
+              0,
+              ${JSON.stringify({ markedBy: req.user!.userId })}::jsonb,
+              NOW()
+            )
+            ON CONFLICT (event_key) DO NOTHING
+          `);
+          return res.json({ paymentStatus: "paid" });
+        }
+      } catch (error) {
+        console.error("Error updating payment status:", error);
+        res.status(500).json({ error: "Failed to update payment status" });
       }
     },
   );
