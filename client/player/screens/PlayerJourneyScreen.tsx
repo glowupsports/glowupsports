@@ -751,6 +751,7 @@ export default function PlayerJourneyScreen() {
   const [selectedSkill, setSelectedSkill] = useState<DomainBadge | null>(null);
   const [checkinSession, setCheckinSession] = useState<{ sessionId: string; sessionTitle: string; coachName: string | null } | null>(null);
   const [detailSession, setDetailSession] = useState<SessionHistoryItem | null>(null);
+  const [paymentFilter, setPaymentFilter] = useState<"pending" | "paid">("pending");
 
   const handleRateSession = useCallback((sessionId: string, sessionType: string, coachName: string | null) => {
     setCheckinSession({ sessionId, sessionTitle: `${sessionType} Session`, coachName });
@@ -773,9 +774,21 @@ export default function PlayerJourneyScreen() {
     enabled: activeTab === "sessions",
   });
 
-  const sessionSections = useMemo(
-    () => groupSessionsByMonth(sessionHistoryData?.sessions ?? []),
+  const allSessions = useMemo(
+    () => sessionHistoryData?.sessions ?? [],
     [sessionHistoryData],
+  );
+  const pendingSessions = useMemo(
+    () => allSessions.filter((s) => s.paymentStatus !== "paid"),
+    [allSessions],
+  );
+  const paidSessions = useMemo(
+    () => allSessions.filter((s) => s.paymentStatus === "paid"),
+    [allSessions],
+  );
+  const sessionSections = useMemo(
+    () => groupSessionsByMonth(paymentFilter === "paid" ? paidSessions : pendingSessions),
+    [paymentFilter, pendingSessions, paidSessions],
   );
 
   const isLoading = journeyLoading;
@@ -963,31 +976,77 @@ export default function PlayerJourneyScreen() {
           <View style={[styles.centered, { flex: 1 }]}>
             <TennisBallSpinner size="large" />
           </View>
-        ) : sessionSections.length === 0 ? (
-          <View style={[styles.emptyState, { flex: 1 }]}>
-            <Ionicons name="fitness-outline" size={48} color={Colors.dark.textMuted} />
-            <Text style={styles.emptyText}>No sessions yet</Text>
-            <Text style={styles.emptySubtext}>Your session history will appear here after your first lesson</Text>
-          </View>
         ) : (
-          <SectionList
-            sections={sessionSections}
-            keyExtractor={(item) => item.sessionId}
-            renderItem={({ item, index, section }) => (
-              <SessionHistoryCard
-                item={item}
-                isLast={index === section.data.length - 1}
-                onRate={handleRateSession}
-                onPress={handleSessionPress}
+          <View style={{ flex: 1 }}>
+            <View style={styles.paymentTabBar}>
+              <Pressable
+                style={[styles.paymentTab, paymentFilter === "pending" && styles.paymentTabActive]}
+                onPress={() => { Haptics.selectionAsync(); setPaymentFilter("pending"); }}
+              >
+                <Text style={[styles.paymentTabText, paymentFilter === "pending" && styles.paymentTabTextActive]}>
+                  Pending
+                </Text>
+                {pendingSessions.length > 0 && (
+                  <View style={[styles.paymentTabBadge, paymentFilter === "pending" && styles.paymentTabBadgeActive]}>
+                    <Text style={[styles.paymentTabBadgeText, paymentFilter === "pending" && styles.paymentTabBadgeTextActive]}>
+                      {pendingSessions.length}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+              <Pressable
+                style={[styles.paymentTab, paymentFilter === "paid" && styles.paymentTabActive]}
+                onPress={() => { Haptics.selectionAsync(); setPaymentFilter("paid"); }}
+              >
+                <Text style={[styles.paymentTabText, paymentFilter === "paid" && styles.paymentTabTextActive]}>
+                  Paid
+                </Text>
+                {paidSessions.length > 0 && (
+                  <View style={[styles.paymentTabBadge, paymentFilter === "paid" && styles.paymentTabBadgeActive]}>
+                    <Text style={[styles.paymentTabBadgeText, paymentFilter === "paid" && styles.paymentTabBadgeTextActive]}>
+                      {paidSessions.length}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+            {sessionSections.length === 0 ? (
+              <View style={[styles.emptyState, { flex: 1 }]}>
+                <Ionicons
+                  name={paymentFilter === "pending" ? "checkmark-circle-outline" : "fitness-outline"}
+                  size={48}
+                  color={Colors.dark.textMuted}
+                />
+                <Text style={styles.emptyText}>
+                  {paymentFilter === "pending" ? "All sessions paid" : "No paid sessions yet"}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {paymentFilter === "pending"
+                    ? "You have no outstanding sessions"
+                    : "Paid sessions will appear here"}
+                </Text>
+              </View>
+            ) : (
+              <SectionList
+                sections={sessionSections}
+                keyExtractor={(item) => item.sessionId}
+                renderItem={({ item, index, section }) => (
+                  <SessionHistoryCard
+                    item={item}
+                    isLast={index === section.data.length - 1}
+                    onRate={handleRateSession}
+                    onPress={handleSessionPress}
+                  />
+                )}
+                renderSectionHeader={({ section }) => (
+                  <SessionMonthHeader title={section.title} />
+                )}
+                stickySectionHeadersEnabled
+                contentContainerStyle={{ paddingBottom: insets.bottom + 200, paddingTop: Spacing.sm }}
+                showsVerticalScrollIndicator={false}
               />
             )}
-            renderSectionHeader={({ section }) => (
-              <SessionMonthHeader title={section.title} />
-            )}
-            stickySectionHeadersEnabled
-            contentContainerStyle={{ paddingBottom: insets.bottom + 200, paddingTop: Spacing.sm }}
-            showsVerticalScrollIndicator={false}
-          />
+          </View>
         )
       ) : (
         <FlatList
@@ -1132,6 +1191,56 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     fontWeight: "500",
   },
   tabTextActive: {
+    color: Colors.dark.primary,
+  },
+  paymentTabBar: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.xl,
+    marginBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  paymentTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  paymentTabActive: {
+    borderColor: Colors.dark.primary,
+    backgroundColor: "rgba(0, 212, 255, 0.08)",
+  },
+  paymentTabText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "600",
+  },
+  paymentTabTextActive: {
+    color: Colors.dark.primary,
+  },
+  paymentTabBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.dark.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+  },
+  paymentTabBadgeActive: {
+    backgroundColor: "rgba(0, 212, 255, 0.2)",
+  },
+  paymentTabBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: Colors.dark.textMuted,
+  },
+  paymentTabBadgeTextActive: {
     color: Colors.dark.primary,
   },
   timelineContent: {

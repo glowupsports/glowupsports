@@ -817,13 +817,13 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
   </div>
   <div class="summary-totals">
     <div class="summary-total-item">
-      <div class="summary-total-label">Openstaand</div>
+      <div class="summary-total-label">Pending</div>
       <div class="summary-total-amount color-orange" id="openstaand-amount">${currency} ${openstaandTotal.toLocaleString()}</div>
       <div class="summary-total-count"><span id="openstaand-count">${openstaandSessions.length}</span> sessions</div>
     </div>
     <div class="summary-divider"></div>
     <div class="summary-total-item">
-      <div class="summary-total-label">Betaald</div>
+      <div class="summary-total-label">Paid</div>
       <div class="summary-total-amount color-green" id="betaald-amount">${currency} ${betaaldTotal.toLocaleString()}</div>
       <div class="summary-total-count"><span id="betaald-count">${betaaldSessions.length}</span> sessions</div>
     </div>
@@ -835,11 +835,11 @@ ${isManage ? `<div id="manage-error-banner" style="display:none;background:#7f1d
 
 <div class="tabs-bar">
   <button class="tab-btn tab-active" id="tab-btn-openstaand">
-    Openstaand
+    Pending
     <span class="tab-count">${isManage ? manageOpenstaand.length : openstaandSessions.length}</span>
   </button>
   <button class="tab-btn" id="tab-btn-betaald">
-    Betaald
+    Paid
     <span class="tab-count">${betaaldSessions.length}</span>
   </button>
 </div>
