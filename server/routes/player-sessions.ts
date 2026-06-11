@@ -9394,29 +9394,37 @@ router.get(
         OFFSET ${offset}
       `);
 
-      // Determine which sessions have been marked paid via credit ledger
-      const allSessionIds = (rows.rows as any[]).map((r) => r.session_id).filter(Boolean);
+      // Derive payment status from two sources (matches public-attendance endpoint logic):
+      // 1. V2 ledger `consume` rows with zero total debt → wallet debit / package redemption
+      // 2. Coach-marked-paid rows (reason = 'coach_mark_paid') → cash or manual marking
+      // Any session not covered by either source is treated as `pending`.
+      const allSessionIds = (rows.rows as any[]).map((r) => r.session_id).filter(Boolean) as string[];
       const paidSessionIdSet = new Set<string>();
       if (allSessionIds.length > 0) {
         try {
+          type PaidSessionRow = { session_id: string | null };
           const sessionIdList = sql.join(
             allSessionIds.map((id: string) => sql`${id}`),
             sql`, `,
           );
           const paidRows = await db.execute(sql`
-            SELECT session_id FROM credit_ledger_v2
-            WHERE player_id = ${playerId}
-              AND session_id IN (${sessionIdList})
-              AND reason = 'coach_mark_paid'
-            UNION
-            SELECT session_id FROM credit_ledger_v2
+            SELECT session_id
+            FROM credit_ledger_v2
             WHERE player_id = ${playerId}
               AND reason = 'consume'
               AND session_id IN (${sessionIdList})
             GROUP BY session_id
             HAVING COALESCE(SUM(COALESCE((metadata->>'debt')::numeric, 0)), 0) = 0
+
+            UNION
+
+            SELECT session_id
+            FROM credit_ledger_v2
+            WHERE player_id = ${playerId}
+              AND reason = 'coach_mark_paid'
+              AND session_id IN (${sessionIdList})
           `);
-          for (const row of paidRows.rows as { session_id: string }[]) {
+          for (const row of paidRows.rows as PaidSessionRow[]) {
             if (row.session_id) paidSessionIdSet.add(row.session_id);
           }
         } catch (payErr) {
