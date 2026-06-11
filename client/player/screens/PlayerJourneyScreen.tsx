@@ -986,13 +986,11 @@ export default function PlayerJourneyScreen() {
                 <Text style={[styles.paymentTabText, paymentFilter === "pending" && styles.paymentTabTextActive]}>
                   Pending
                 </Text>
-                {pendingSessions.length > 0 && (
-                  <View style={[styles.paymentTabBadge, paymentFilter === "pending" && styles.paymentTabBadgeActive]}>
-                    <Text style={[styles.paymentTabBadgeText, paymentFilter === "pending" && styles.paymentTabBadgeTextActive]}>
-                      {pendingSessions.length}
-                    </Text>
-                  </View>
-                )}
+                <View style={[styles.paymentTabBadge, paymentFilter === "pending" && styles.paymentTabBadgeActive]}>
+                  <Text style={[styles.paymentTabBadgeText, paymentFilter === "pending" && styles.paymentTabBadgeTextActive]}>
+                    {pendingSessions.length}
+                  </Text>
+                </View>
               </Pressable>
               <Pressable
                 style={[styles.paymentTab, paymentFilter === "paid" && styles.paymentTabActive]}
@@ -1001,13 +999,11 @@ export default function PlayerJourneyScreen() {
                 <Text style={[styles.paymentTabText, paymentFilter === "paid" && styles.paymentTabTextActive]}>
                   Paid
                 </Text>
-                {paidSessions.length > 0 && (
-                  <View style={[styles.paymentTabBadge, paymentFilter === "paid" && styles.paymentTabBadgeActive]}>
-                    <Text style={[styles.paymentTabBadgeText, paymentFilter === "paid" && styles.paymentTabBadgeTextActive]}>
-                      {paidSessions.length}
-                    </Text>
-                  </View>
-                )}
+                <View style={[styles.paymentTabBadge, paymentFilter === "paid" && styles.paymentTabBadgeActive]}>
+                  <Text style={[styles.paymentTabBadgeText, paymentFilter === "paid" && styles.paymentTabBadgeTextActive]}>
+                    {paidSessions.length}
+                  </Text>
+                </View>
               </Pressable>
             </View>
             {sessionSections.length === 0 ? (
