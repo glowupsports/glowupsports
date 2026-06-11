@@ -53,19 +53,10 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
-
-  const formatShortDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short',
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
     });
   };
 
@@ -73,11 +64,11 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     if (!timeStr) return '';
     try {
       const date = new Date(timeStr);
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
         minute: '2-digit',
         hour12: false,
-        timeZone: 'Asia/Dubai'
+        timeZone: 'Asia/Dubai',
       });
     } catch {
       return '';
@@ -97,24 +88,19 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     if (status === 'present') return '#10B981';
     if (status === 'absent') return '#EF4444';
     if (status === 'late') return '#F97316';
-    if (status === 'vacation') return '#8B5CF6';
+    if (status === 'cancelled') return '#6B7280';
     if (status === 'active') return '#6B7280';
     return '#F59E0B';
   };
 
-  const getStatusLabel = (status: string | null) => {
+  const getStatusLabel = (status: string | null, lateMinutes?: number | null) => {
     if (status === 'present') return 'Present';
     if (status === 'absent') return 'Absent';
-    if (status === 'late') return 'Late';
-    if (status === 'vacation') return 'Vacation';
+    if (status === 'late') return `Late${lateMinutes && lateMinutes > 0 ? ` (+${lateMinutes}m)` : ''}`;
+    if (status === 'cancelled') return 'Cancelled';
     if (status === 'pending') return 'Pending';
     if (status === 'active') return 'Scheduled';
     return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
-  };
-
-  const getDayName = (dayOfWeek: number) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[dayOfWeek] || '';
   };
 
   const getAttendanceRateColor = (rate: number) => {
@@ -124,6 +110,27 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     return '#EF4444';
   };
 
+  const monthLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'Asia/Dubai' });
+  };
+
+  const monthKey = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const y = d.toLocaleDateString('en-US', { year: 'numeric', timeZone: 'Asia/Dubai' });
+    const m = d.toLocaleDateString('en-US', { month: '2-digit', timeZone: 'Asia/Dubai' });
+    return `${y}-${m}`;
+  };
+
+  const dayLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'Asia/Dubai' });
+  };
+
+  const dayKey = (dateStr: string) => {
+    return new Date(dateStr).toISOString().split('T')[0];
+  };
+
   const nonCancelledLessonRecords = lessonRecords.filter(r => r.status !== 'cancelled');
   const lessonPresentCount = nonCancelledLessonRecords.filter(r => r.status === 'present').length;
   const lessonAbsentCount = nonCancelledLessonRecords.filter(r => r.status === 'absent').length;
@@ -131,260 +138,74 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     ? Math.round((lessonPresentCount / nonCancelledLessonRecords.length) * 100)
     : 0;
 
-  const seriesGroupsRaw: Map<string, { seriesId: string; info: SeriesInfo | null; records: typeof lessonRecords }> = new Map();
+  const paidLessons = lessonRecords.filter(r => r.paymentStatus === 'paid');
+  const pendingLessons = lessonRecords.filter(r => r.paymentStatus !== 'paid');
 
-  for (const record of lessonRecords) {
-    const key = record.seriesId || '__no_series__';
-    if (!seriesGroupsRaw.has(key)) {
-      const info = record.seriesId && data.seriesMap ? data.seriesMap[record.seriesId] || null : null;
-      seriesGroupsRaw.set(key, { seriesId: key, info, records: [] });
+  const buildMonthDayGroups = (records: typeof lessonRecords): string => {
+    if (records.length === 0) {
+      return `<div class="empty-tab">No lessons in this category.</div>`;
     }
-    seriesGroupsRaw.get(key)!.records.push(record);
-  }
 
-  const realSeriesCount = Array.from(seriesGroupsRaw.keys()).filter(k => k !== '__no_series__').length;
-  const isMultiSeries = realSeriesCount > 1;
+    const sorted = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  let sortedSeriesGroups: { seriesId: string; info: SeriesInfo | null; records: typeof lessonRecords }[];
+    const monthGroups = new Map<string, Map<string, typeof lessonRecords>>();
+    for (const r of sorted) {
+      const mk = monthKey(r.startTime || r.date);
+      const dk = dayKey(r.startTime || r.date);
+      if (!monthGroups.has(mk)) monthGroups.set(mk, new Map());
+      const dayMap = monthGroups.get(mk)!;
+      if (!dayMap.has(dk)) dayMap.set(dk, []);
+      dayMap.get(dk)!.push(r);
+    }
 
-  if (isMultiSeries) {
-    sortedSeriesGroups = Array.from(seriesGroupsRaw.values()).sort((a, b) => {
-      if (!a.info && !b.info) return 0;
-      if (!a.info) return 1;
-      if (!b.info) return -1;
-      return a.info.dayOfWeek - b.info.dayOfWeek;
-    });
-  } else {
-    sortedSeriesGroups = [{ seriesId: '__combined__', info: null, records: lessonRecords }];
-  }
+    let html = '';
+    for (const [_mk, dayMap] of monthGroups) {
+      const firstRecord = dayMap.values().next().value![0];
+      html += `<div class="month-group">
+        <div class="month-header">${monthLabel(firstRecord.startTime || firstRecord.date)}</div>`;
 
-  interface SeriesTableData {
-    idx: number;
-    title: string;
-    dayName: string;
-    timeLabel: string;
-    sessionType: string;
-    presentCount: number;
-    absentCount: number;
-    totalCount: number;
-    attendanceRate: number;
-    lessonsJson: string;
-  }
+      for (const [_dk, dayRecords] of dayMap) {
+        const firstDay = dayRecords[0];
+        html += `<div class="day-group">
+          <div class="day-label">${dayLabel(firstDay.startTime || firstDay.date)}</div>
+          <div class="day-rows">`;
 
-  const seriesTables: SeriesTableData[] = sortedSeriesGroups.map((group, idx) => {
-    const sorted = [...group.records].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-    const numbered = sorted.map((record, i) => ({
-      ...record,
-      lessonNumber: i + 1,
-    }));
-    const newestFirst = [...numbered].reverse();
+        for (const r of dayRecords) {
+          const statusColor = getStatusColor(r.status);
+          const statusLabel = getStatusLabel(r.status, r.lateMinutes);
+          const typeLabel = getSessionTypeLabel(r.sessionType);
+          const time = formatTime(r.startTime);
+          const isCancelled = r.status === 'cancelled';
 
-    const nonCancelled = group.records.filter(r => r.status !== 'cancelled');
-    const present = nonCancelled.filter(r => r.status === 'present').length;
-    const absent = nonCancelled.filter(r => r.status === 'absent').length;
-    const total = nonCancelled.length;
-    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
-
-    const json = JSON.stringify(newestFirst.map(r => ({
-      n: r.lessonNumber,
-      date: formatShortDate(r.date),
-      time: formatTime(r.startTime),
-      type: getSessionTypeLabel(r.sessionType),
-      statusColor: getStatusColor(r.status),
-      statusLabel: getStatusLabel(r.status) + (r.lateMinutes && r.lateMinutes > 0 ? ` (+${r.lateMinutes}m)` : ''),
-      paymentClass: r.paymentStatus === 'paid' ? 'paid' : r.paymentStatus === 'cancelled' ? 'cancelled' : r.paymentStatus === 'no_charge' ? 'cancelled' : 'pending',
-      paymentLabel: r.paymentStatus === 'paid' ? 'Paid' : r.paymentStatus === 'cancelled' ? 'N/A' : r.paymentStatus === 'no_charge' ? 'No Charge' : 'Pending',
-    })));
-
-    return {
-      idx,
-      title: group.info?.title || '',
-      dayName: group.info ? getDayName(group.info.dayOfWeek) : '',
-      timeLabel: group.info?.startTime || '',
-      sessionType: group.info ? getSessionTypeLabel(group.info.sessionType) : '',
-      presentCount: present,
-      absentCount: absent,
-      totalCount: total,
-      attendanceRate: rate,
-      lessonsJson: json,
-    };
-  });
-
-  const seriesBreakdownHtml = data.seriesSummaries && data.seriesSummaries.length >= 1 && !isMultiSeries ? `
-    <div class="series-breakdown">
-      <div class="section-title">Attendance per Lesson Group</div>
-      <div class="series-grid">
-        ${data.seriesSummaries.map(summary => `
-          <div class="series-card">
-            <div class="series-header">
-              <div class="series-day">${getDayName(summary.series.dayOfWeek)}</div>
-              <div class="series-time">${summary.series.startTime}</div>
-            </div>
-            <div class="series-title">${summary.series.title}</div>
-            <div class="series-stats">
-              <div class="series-stat">
-                <span class="series-stat-value" style="color: #00D4FF;">${summary.totalSessions}</span>
-                <span class="series-stat-label">Sessions</span>
-              </div>
-              <div class="series-stat">
-                <span class="series-stat-value" style="color: #10B981;">${summary.presentCount}</span>
-                <span class="series-stat-label">Present</span>
-              </div>
-              <div class="series-stat">
-                <span class="series-stat-value" style="color: #EF4444;">${summary.absentCount}</span>
-                <span class="series-stat-label">Absent</span>
-              </div>
-              <div class="series-stat">
-                <span class="series-stat-value" style="color: ${getAttendanceRateColor(summary.attendanceRate)};">${summary.attendanceRate}%</span>
-                <span class="series-stat-label">Rate</span>
-              </div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  ` : '';
-
-  const buildSeriesSection = (table: SeriesTableData) => {
-    const id = table.idx;
-    const hasHeader = isMultiSeries;
-
-    const headerHtml = hasHeader ? `
-      <div class="series-table-header">
-        <div class="series-table-header-left">
-          <span class="series-table-day">${table.dayName || 'Other Sessions'}</span>
-          ${table.timeLabel ? `<span class="series-table-time">${table.timeLabel}</span>` : ''}
-          ${table.title ? `<span class="series-table-title">${table.title}</span>` : ''}
-        </div>
-        <div class="series-table-header-stats">
-          <span style="color:#00D4FF;font-weight:700;">${table.totalCount}</span>
-          <span style="color:rgba(255,255,255,0.4);font-size:11px;">lessons</span>
-          <span style="margin:0 6px;color:rgba(255,255,255,0.15);">|</span>
-          <span style="color:#10B981;font-weight:700;">${table.presentCount}</span>
-          <span style="color:rgba(255,255,255,0.4);font-size:11px;">present</span>
-          <span style="margin:0 6px;color:rgba(255,255,255,0.15);">|</span>
-          <span style="color:#EF4444;font-weight:700;">${table.absentCount}</span>
-          <span style="color:rgba(255,255,255,0.4);font-size:11px;">absent</span>
-          <span style="margin:0 6px;color:rgba(255,255,255,0.15);">|</span>
-          <span style="color:${getAttendanceRateColor(table.attendanceRate)};font-weight:700;">${table.attendanceRate}%</span>
-          <span style="color:rgba(255,255,255,0.4);font-size:11px;">rate</span>
-        </div>
-      </div>
-    ` : '';
-
-    return `
-    <div class="lessons-section">
-      ${headerHtml}
-      <div class="lessons-header">
-        <div class="section-title" style="margin-bottom:0;">${isMultiSeries ? '' : 'Lessons'}</div>
-        <div class="pagination-controls" id="paginationControls_${id}" style="display:flex;align-items:center;gap:12px;">
-          <button class="page-btn" id="prevBtn_${id}">&#8592; Prev</button>
-          <span class="page-info" id="pageInfo_${id}"></span>
-          <button class="page-btn" id="nextBtn_${id}">Next &#8594;</button>
-        </div>
-      </div>
-      <table class="attendance-table" style="margin-top:16px;">
-        <thead>
-          <tr>
-            <th>Lesson</th>
-            <th>Date &amp; Time</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Payment</th>
-          </tr>
-        </thead>
-        <tbody id="lessonsTableBody_${id}"></tbody>
-      </table>
-      <div id="emptyLessons_${id}" style="display:none;text-align:center;padding:32px;color:rgba(255,255,255,0.4);">No lessons recorded yet.</div>
-    </div>
-    <div id="lessonsData_${id}" data-lessons="${table.lessonsJson.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}" style="display:none;"></div>
-
-    <script>
-      (function() {
-        var rawData = document.getElementById('lessonsData_${id}');
-        var lessons = rawData ? JSON.parse(rawData.getAttribute('data-lessons') || '[]') : [];
-        var BLOCK = 10;
-        var currentPage = 0;
-        var totalPages = Math.max(1, Math.ceil(lessons.length / BLOCK));
-
-        function renderPage(page) {
-          var tbody = document.getElementById('lessonsTableBody_${id}');
-          var empty = document.getElementById('emptyLessons_${id}');
-          var info = document.getElementById('pageInfo_${id}');
-          var prevBtn = document.getElementById('prevBtn_${id}');
-          var nextBtn = document.getElementById('nextBtn_${id}');
-
-          tbody.innerHTML = '';
-          if (lessons.length === 0) {
-            empty.style.display = 'block';
-            document.getElementById('paginationControls_${id}').style.display = 'none';
-            return;
-          }
-
-          var start = page * BLOCK;
-          var end = Math.min(start + BLOCK, lessons.length);
-          var slice = lessons.slice(start, end);
-
-          slice.forEach(function(r) {
-            var tr = document.createElement('tr');
-            tr.innerHTML =
-              '<td class="date-cell" style="width:12%;font-weight:700;color:#C8FF3D;">L' + r.n + '</td>' +
-              '<td class="date-cell"><div class="date-text">' + r.date + '</div><div class="time-text">' + r.time + '</div></td>' +
-              '<td class="type-cell"><span class="session-type-badge">' + r.type + '</span></td>' +
-              '<td class="status-cell"><span class="status-badge" style="background:' + r.statusColor + '20;color:' + r.statusColor + ';">' + r.statusLabel + '</span></td>' +
-              '<td class="payment-cell"><span class="payment-badge ' + r.paymentClass + '">' + r.paymentLabel + '</span></td>';
-            tbody.appendChild(tr);
-          });
-
-          var minLesson = slice[slice.length - 1].n;
-          var maxLesson = slice[0].n;
-          info.textContent = 'Lessons ' + minLesson + '\\u2013' + maxLesson + ' of ' + lessons.length;
-          prevBtn.disabled = page === 0;
-          nextBtn.disabled = page >= totalPages - 1;
-          prevBtn.style.opacity = prevBtn.disabled ? '0.3' : '1';
-          nextBtn.style.opacity = nextBtn.disabled ? '0.3' : '1';
+          html += `<div class="lesson-row${isCancelled ? ' lesson-cancelled' : ''}">
+            <div class="lesson-time">${time}</div>
+            <div class="lesson-type"><span class="type-badge">${typeLabel}</span></div>
+            <div class="lesson-status"><span class="status-badge" style="background:${statusColor}20;color:${statusColor};">${statusLabel}</span></div>
+          </div>`;
         }
 
-        function changePage(dir) {
-          var next = currentPage + dir;
-          if (next >= 0 && next < totalPages) {
-            currentPage = next;
-            renderPage(currentPage);
-          }
-        }
+        html += `</div></div>`;
+      }
 
-        var prevBtnEl = document.getElementById('prevBtn_${id}');
-        var nextBtnEl = document.getElementById('nextBtn_${id}');
-        if (prevBtnEl) prevBtnEl.addEventListener('click', function() { changePage(-1); });
-        if (nextBtnEl) nextBtnEl.addEventListener('click', function() { changePage(1); });
+      html += `</div>`;
+    }
 
-        renderPage(0);
-      })();
-    </script>
-    `;
+    return html;
   };
 
-  const seriesSectionsContent = seriesTables.map(t => buildSeriesSection(t)).join('\n');
-  const allSeriesSectionsHtml = isMultiSeries
-    ? `<div class="series-tables-grid">${seriesSectionsContent}</div>`
-    : seriesSectionsContent;
+  const paidHtml = buildMonthDayGroups(paidLessons);
+  const pendingHtml = buildMonthDayGroups(pendingLessons);
 
-  return `
-<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 14px;
@@ -393,14 +214,15 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       background: #0B0D10;
       min-height: 100vh;
     }
-    
+
     .report-container {
-      width: 100%;
-      min-height: 100vh;
-      padding: 40px;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 24px;
       background: linear-gradient(180deg, #0B0D10 0%, #12151A 100%);
+      min-height: 100vh;
     }
-    
+
     .header {
       display: flex;
       justify-content: space-between;
@@ -409,396 +231,243 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       padding-bottom: 24px;
       border-bottom: 2px solid #C8FF3D;
     }
-    
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    
+
     .logo-text {
-      font-size: 28px;
+      font-size: 24px;
       font-weight: 700;
       background: linear-gradient(90deg, #C8FF3D, #00D4FF);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-    
+
     .report-title-box {
       text-align: right;
-      background: rgba(200, 255, 61, 0.1);
-      border: 1px solid rgba(200, 255, 61, 0.3);
+      background: rgba(200, 255, 61, 0.08);
+      border: 1px solid rgba(200, 255, 61, 0.25);
       border-radius: 12px;
-      padding: 16px 24px;
+      padding: 12px 20px;
     }
-    
+
     .report-label {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       color: #C8FF3D;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
-    
+
     .report-date {
-      font-size: 18px;
+      font-size: 15px;
       font-weight: 700;
       color: white;
-      margin-top: 4px;
+      margin-top: 2px;
     }
-    
+
     .player-card {
-      background: linear-gradient(135deg, rgba(200, 255, 61, 0.15) 0%, rgba(200, 255, 61, 0.05) 100%);
-      border: 1px solid rgba(200, 255, 61, 0.3);
+      background: linear-gradient(135deg, rgba(200, 255, 61, 0.12) 0%, rgba(200, 255, 61, 0.04) 100%);
+      border: 1px solid rgba(200, 255, 61, 0.25);
       border-radius: 16px;
       padding: 24px;
       margin-bottom: 32px;
     }
-    
+
     .player-name {
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 700;
       color: #C8FF3D;
       margin-bottom: 20px;
     }
-    
+
     .stats-row {
       display: flex;
-      gap: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
-    
+
     .stat-box {
       flex: 1;
+      min-width: 100px;
       background: rgba(255, 255, 255, 0.05);
       border-radius: 12px;
-      padding: 20px;
+      padding: 16px;
       text-align: center;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
-    
-    .stat-value {
-      font-size: 36px;
-      font-weight: 700;
-    }
-    
-    .stat-value.total { color: #00D4FF; }
+
+    .stat-value { font-size: 32px; font-weight: 700; }
+    .stat-value.total  { color: #00D4FF; }
     .stat-value.present { color: #10B981; }
-    .stat-value.absent { color: #EF4444; }
-    .stat-value.rate { color: #C8FF3D; }
-    
+    .stat-value.absent  { color: #EF4444; }
+    .stat-value.rate    { color: ${getAttendanceRateColor(lessonAttendanceRate)}; }
+
     .stat-label {
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.6);
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-top: 4px;
     }
-    
-    .series-breakdown {
-      margin-bottom: 32px;
-    }
-    
-    .series-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-    }
-    
-    .series-card {
-      background: rgba(0, 212, 255, 0.08);
-      border: 1px solid rgba(0, 212, 255, 0.25);
-      border-radius: 12px;
-      padding: 16px;
-    }
-    
-    .series-header {
+
+    .tabs-bar {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
+      gap: 8px;
+      margin-bottom: 24px;
     }
-    
-    .series-day {
-      font-size: 18px;
-      font-weight: 700;
-      color: #00D4FF;
-    }
-    
-    .series-time {
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.6);
-      background: rgba(255, 255, 255, 0.1);
-      padding: 4px 10px;
-      border-radius: 8px;
-    }
-    
-    .series-title {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.5);
-      margin-bottom: 12px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
-    .series-stats {
-      display: flex;
-      gap: 12px;
-    }
-    
-    .series-stat {
+
+    .tab-btn {
       flex: 1;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      padding: 8px 4px;
-    }
-    
-    .series-stat-value {
-      display: block;
-      font-size: 20px;
-      font-weight: 700;
-    }
-    
-    .series-stat-label {
-      display: block;
-      font-size: 9px;
-      color: rgba(255, 255, 255, 0.5);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-top: 2px;
-    }
-
-    .series-tables-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
-      align-items: start;
-    }
-
-    .series-tables-grid .lessons-section {
-      margin-bottom: 0;
-    }
-
-    .series-tables-grid .attendance-table th,
-    .series-tables-grid .attendance-table td {
-      padding: 10px 8px;
-      font-size: 12px;
-    }
-
-    .series-tables-grid .series-table-header-left {
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .series-tables-grid .series-table-day {
-      font-size: 16px;
-    }
-
-    .series-tables-grid .series-table-header-stats {
-      font-size: 11px;
-      flex-wrap: wrap;
-      gap: 2px;
-    }
-
-    .series-tables-grid .series-table-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-    }
-
-    .series-table-header {
-      background: rgba(0, 212, 255, 0.1);
-      border: 1px solid rgba(0, 212, 255, 0.25);
-      border-radius: 12px 12px 0 0;
-      padding: 16px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .series-table-header-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .series-table-day {
-      font-size: 20px;
-      font-weight: 700;
-      color: #00D4FF;
-    }
-
-    .series-table-time {
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.6);
-      background: rgba(255, 255, 255, 0.1);
-      padding: 4px 12px;
-      border-radius: 8px;
-    }
-
-    .series-table-title {
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.5);
-      font-weight: 500;
-    }
-
-    .series-table-header-stats {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 13px;
-    }
-    
-    .attendance-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0 8px;
-    }
-    
-    .attendance-table th {
-      text-align: left;
       padding: 12px 16px;
-      font-size: 11px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      color: rgba(255,255,255,0.5);
+      font-family: inherit;
+      font-size: 14px;
       font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+
+    .tab-btn.active-pending {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.45);
+      color: #F59E0B;
+    }
+
+    .tab-btn.active-paid {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.45);
+      color: #10B981;
+    }
+
+    .tab-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 11px;
+      padding: 0 6px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tab-btn.active-pending .tab-count {
+      background: rgba(245, 158, 11, 0.3);
+      color: #F59E0B;
+    }
+
+    .tab-btn.active-paid .tab-count {
+      background: rgba(16, 185, 129, 0.3);
+      color: #10B981;
+    }
+
+    .tab-btn:not(.active-pending):not(.active-paid) .tab-count {
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.4);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .month-group { margin-bottom: 28px; }
+
+    .month-header {
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.4);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: rgba(255, 255, 255, 0.5);
+      letter-spacing: 1.5px;
+      padding-bottom: 10px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
-    
-    .attendance-table td {
-      padding: 16px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+
+    .day-group { margin-bottom: 8px; }
+
+    .day-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.55);
+      padding: 6px 0 4px;
     }
-    
-    .attendance-table tr td:first-child {
-      border-radius: 8px 0 0 8px;
+
+    .day-rows { display: flex; flex-direction: column; gap: 6px; }
+
+    .lesson-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 12px 16px;
       border-left: 3px solid #C8FF3D;
     }
-    
-    .attendance-table tr td:last-child {
-      border-radius: 0 8px 8px 0;
+
+    .lesson-row.lesson-cancelled {
+      border-left-color: #4B5563;
+      opacity: 0.55;
     }
-    
-    .date-cell {
-      width: 40%;
-    }
-    
-    .date-text {
+
+    .lesson-time {
+      font-size: 14px;
       font-weight: 600;
       color: white;
-      font-size: 14px;
+      min-width: 52px;
     }
-    
-    .time-text {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.5);
-      margin-top: 2px;
-    }
-    
-    .type-cell {
-      width: 30%;
-    }
-    
-    .session-type-badge {
+
+    .type-badge {
       display: inline-block;
-      padding: 4px 12px;
-      background: rgba(200, 255, 61, 0.15);
-      border-radius: 12px;
+      padding: 3px 10px;
+      background: rgba(200, 255, 61, 0.12);
+      border-radius: 8px;
       font-size: 12px;
       font-weight: 500;
       color: #C8FF3D;
+      white-space: nowrap;
     }
-    
-    .status-cell {
-      width: 30%;
-      text-align: right;
-    }
-    
+
     .status-badge {
       display: inline-block;
-      padding: 6px 14px;
-      border-radius: 16px;
+      padding: 4px 12px;
+      border-radius: 12px;
       font-size: 12px;
       font-weight: 600;
+      white-space: nowrap;
     }
-    
-    .payment-cell {
+
+    .lesson-status { margin-left: auto; }
+
+    .empty-tab {
       text-align: center;
+      padding: 48px 24px;
+      color: rgba(255,255,255,0.3);
+      font-size: 14px;
     }
-    
-    .payment-badge {
-      display: inline-block;
-      padding: 6px 14px;
-      border-radius: 16px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    
-    .payment-badge.paid {
-      background: rgba(16, 185, 129, 0.2);
-      color: #10B981;
-    }
-    
-    .payment-badge.pending {
-      background: rgba(245, 158, 11, 0.2);
-      color: #F59E0B;
-    }
-    
-    .payment-badge.cancelled {
-      background: rgba(229, 57, 53, 0.15);
-      color: #E53935;
-    }
-    
+
     .footer {
-      margin-top: 40px;
-      padding-top: 24px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: 48px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
       text-align: center;
-      color: rgba(255, 255, 255, 0.4);
+      color: rgba(255,255,255,0.3);
       font-size: 12px;
     }
-    
-    .download-btn {
+
+    .print-btn {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       background: linear-gradient(135deg, #C8FF3D 0%, #9FCC31 100%);
       color: #0B0D10;
       border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-left: 16px;
-      text-decoration: none;
-    }
-    
-    .download-btn:hover {
-      opacity: 0.9;
-    }
-
-    .lessons-section {
-      margin-bottom: 32px;
-    }
-
-    .lessons-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0;
-    }
-
-    .page-btn {
-      background: rgba(200, 255, 61, 0.15);
-      color: #C8FF3D;
-      border: 1px solid rgba(200, 255, 61, 0.4);
-      padding: 8px 18px;
+      padding: 10px 20px;
       border-radius: 8px;
       font-size: 13px;
       font-weight: 600;
@@ -806,98 +475,54 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       font-family: inherit;
     }
 
-    .page-btn:hover {
-      background: rgba(200, 255, 61, 0.25);
+    @media print {
+      body { background: #0B0D10 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .tabs-bar { display: none !important; }
+      .tab-panel { display: block !important; }
+      .print-btn { display: none !important; }
+      .print-only-heading { display: block !important; }
     }
 
-    .page-info {
-      font-size: 13px;
-      color: rgba(255, 255, 255, 0.6);
-      min-width: 120px;
-      text-align: center;
-    }
-    
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    
-    .section-title {
-      font-size: 14px;
+    .print-only-heading {
+      display: none;
+      font-size: 16px;
       font-weight: 700;
-      color: rgba(255, 255, 255, 0.8);
+      color: rgba(255,255,255,0.6);
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 16px;
-    }
-    
-    @media print {
-      body {
-        background: #0B0D10 !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      
-      .report-container {
-        padding: 20px;
-      }
-      
-      .download-btn {
-        display: none !important;
-      }
-    }
-    
-    @page {
-      size: A4;
-      margin: 0;
-    }
-
-    @media (max-width: 900px) {
-      .series-tables-grid {
-        grid-template-columns: 1fr;
-      }
+      margin-bottom: 12px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255,255,255,0.1);
     }
 
     @media (max-width: 600px) {
-      .series-table-header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .series-table-header-stats {
-        flex-wrap: wrap;
-      }
-      .stats-row {
-        flex-wrap: wrap;
-      }
-      .stat-box {
-        min-width: 45%;
-      }
+      .stats-row { flex-wrap: wrap; }
+      .stat-box { min-width: calc(50% - 6px); }
+      .header { flex-direction: column; gap: 16px; }
     }
   </style>
 </head>
 <body>
   <div class="report-container">
+
     <div class="header">
-      <div class="logo">
-        <div class="logo-text">GLOW UP TENNIS</div>
-      </div>
-      <div class="header-actions">
+      <div class="logo-text">GLOW UP TENNIS</div>
+      <div style="display:flex;align-items:center;gap:12px;">
         <div class="report-title-box">
           <div class="report-label">Attendance Report</div>
           <div class="report-date">${formatDate(data.reportDate)}</div>
         </div>
-        <button class="download-btn" onclick="window.print()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <button class="print-btn" onclick="window.print()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          Download PDF
+          Save PDF
         </button>
       </div>
     </div>
-    
+
     <div class="player-card">
       <div class="player-name">${data.player.name}</div>
       <div class="stats-row">
@@ -919,16 +544,49 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
         </div>
       </div>
     </div>
-    
-    ${seriesBreakdownHtml}
-    
-    ${allSeriesSectionsHtml}
-    
+
+    <div class="tabs-bar">
+      <button class="tab-btn active-pending" id="btn-pending" onclick="switchTab('pending')">
+        Pending
+        <span class="tab-count">${pendingLessons.length}</span>
+      </button>
+      <button class="tab-btn" id="btn-paid" onclick="switchTab('paid')">
+        Paid
+        <span class="tab-count">${paidLessons.length}</span>
+      </button>
+    </div>
+
+    <div class="tab-panel active" id="panel-pending">
+      ${pendingHtml}
+    </div>
+
+    <div class="tab-panel" id="panel-paid">
+      <div class="print-only-heading">Paid Lessons</div>
+      ${paidHtml}
+    </div>
+
     <div class="footer">
       <p>Generated by ${data.academy.name} &bull; ${formatDate(data.reportDate)}</p>
     </div>
+
   </div>
+
+  <script>
+    function switchTab(tab) {
+      var panels = ['pending', 'paid'];
+      panels.forEach(function(t) {
+        var panel = document.getElementById('panel-' + t);
+        var btn = document.getElementById('btn-' + t);
+        if (t === tab) {
+          panel.classList.add('active');
+          btn.classList.add(t === 'pending' ? 'active-pending' : 'active-paid');
+        } else {
+          panel.classList.remove('active');
+          btn.classList.remove('active-pending', 'active-paid');
+        }
+      });
+    }
+  </script>
 </body>
-</html>
-`;
+</html>`;
 }
