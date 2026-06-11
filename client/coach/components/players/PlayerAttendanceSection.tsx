@@ -355,7 +355,6 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
     const typeLabel = typeLow === "private" ? "Private" : typeLow.includes("semi") ? "Semi" : "Group";
     const typeColor = typeLow === "private" ? "#A78BFA" : typeLow.includes("semi") ? Colors.dark.gold : Colors.dark.primary;
     const typeBg = typeLow === "private" ? "rgba(167,139,250,0.12)" : typeLow.includes("semi") ? "rgba(251,191,36,0.12)" : "rgba(200,255,61,0.1)";
-    const hasDupCharge = (record.creditChargeCount ?? 0) > 1;
     return (
       <Pressable
         key={record.sessionId}
@@ -372,11 +371,6 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
               <Ionicons name="checkmark-circle" size={13} color={Colors.dark.primary} />
             </View>
           ) : null}
-          {hasDupCharge ? (
-            <View style={{ paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3, backgroundColor: Colors.dark.error }}>
-              <Text style={{ fontSize: 7, fontWeight: "800", color: "#fff" }}>DUP</Text>
-            </View>
-          ) : null}
         </View>
         <Text style={styles.attendanceCardTime} numberOfLines={1}>
           {formatAttendanceTime(record.startTime)} – {formatAttendanceTime(record.endTime)}
@@ -390,15 +384,6 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
             <Text style={[styles.attendanceCardStatusText, { color: statusColor }]}>{statusLabel}</Text>
           </View>
         </View>
-        {sessionRating ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginTop: 4 }}>
-            <Feather name="star" size={10} color="#FFD700" />
-            <Text style={{ color: "#FFD700", fontSize: 10, fontWeight: "600" }}>{sessionRating.rating}/5</Text>
-            {sessionRating.comment ? (
-              <Text style={{ color: Colors.dark.textMuted, fontSize: 9 }} numberOfLines={1}> · {sessionRating.comment}</Text>
-            ) : null}
-          </View>
-        ) : null}
       </Pressable>
     );
   };
@@ -512,7 +497,7 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
             </ScrollView>
 
             {(() => {
-              const billable = filteredHistory.filter(r => r.status !== "holiday" && r.status !== "vacation");
+              const billable = allHistory.filter(r => r.status !== "holiday" && r.status !== "vacation");
               const presentCnt = billable.filter(r => r.status === "present").length;
               const absentCnt = billable.filter(r => r.status === "absent").length;
               const lateCnt = billable.filter(r => r.status === "late").length;
@@ -629,6 +614,39 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
             <Text style={styles.editAttendanceNote}>
               Changing attendance will automatically adjust credits
             </Text>
+
+            {editingAttendance && (() => {
+              const rating = sessionRatingsMap[editingAttendance.sessionId];
+              const hasDupCharge = (editingAttendance.creditChargeCount ?? 0) > 1;
+              const hasDetails = rating || (editingAttendance.creditsCharged ?? 0) > 0 || hasDupCharge;
+              if (!hasDetails) return null;
+              return (
+                <View style={{ marginTop: 12, padding: 12, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.04)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
+                  {rating ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: (editingAttendance.creditsCharged ?? 0) > 0 || hasDupCharge ? 8 : 0 }}>
+                      <Feather name="star" size={13} color="#FFD700" />
+                      <Text style={{ color: "#FFD700", fontSize: 13, fontWeight: "700" }}>{rating.rating}/5</Text>
+                      {rating.comment ? (
+                        <Text style={{ color: Colors.dark.textMuted, fontSize: 12, flex: 1 }} numberOfLines={2}>{rating.comment}</Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  {(editingAttendance.creditsCharged ?? 0) > 0 || hasDupCharge ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Feather name="credit-card" size={13} color={Colors.dark.textMuted} />
+                      <Text style={{ color: Colors.dark.textMuted, fontSize: 12 }}>
+                        {editingAttendance.creditsCharged ?? 0} credit{(editingAttendance.creditsCharged ?? 0) !== 1 ? "s" : ""} charged
+                      </Text>
+                      {hasDupCharge ? (
+                        <View style={{ paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4, backgroundColor: "rgba(239,68,68,0.2)", borderWidth: 1, borderColor: Colors.dark.error }}>
+                          <Text style={{ fontSize: 9, fontWeight: "800", color: Colors.dark.error }}>DUPLICATE</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })()}
 
             <Pressable
               style={[
