@@ -1690,8 +1690,8 @@ router.post(
               academyId!,
             );
             for (const s of allCoachSeries) {
-              // Include both active AND ended series for smart merge
-              if (s.status !== "active" && s.status !== "ended") continue;
+              // Only merge into active series — ended series must not receive new sessions
+              if (s.status !== "active") continue;
               if (s.dayOfWeek !== sessionDayOfWeek) continue;
               if (s.startTime !== startTimeStr) continue;
               if (s.sessionType !== sessionType) continue;

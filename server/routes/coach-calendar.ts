@@ -181,10 +181,15 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
           const endedSeriesIds = new Set(endedSeriesRows.map((s) => s.id));
           if (endedSeriesIds.size > 0) {
             const now = new Date();
+            const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
             ownSessions = ownSessions.filter((s) => {
               if (!s.seriesId || !endedSeriesIds.has(s.seriesId)) return true;
-              // Keep past sessions from ended series (historical), filter out future ones
-              return new Date(s.startTime) < now;
+              // Keep past sessions from ended series (historical)
+              if (new Date(s.startTime) < now) return true;
+              // Keep future sessions that were recently created — they were manually
+              // booked into the series after it ended and must remain visible
+              if (s.createdAt && new Date(s.createdAt) > ninetyDaysAgo) return true;
+              return false;
             });
           }
         }
