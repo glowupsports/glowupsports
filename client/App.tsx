@@ -31,7 +31,7 @@ import i18n, { initializeI18n, isRTL } from "@/i18n";
 import { initializeRevenueCat, SubscriptionProvider } from "@/lib/revenuecat";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/lib/query-client";
+import { queryClient, getApiUrl } from "@/lib/query-client";
 import { getEnv } from "@/lib/env";
 
 import RootStackNavigator, { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -418,18 +418,23 @@ export default function App() {
   // before any icon component renders — preventing the Metro CORS error fallback.
   const [fontsLoaded, fontError] = useFonts(
     Platform.OS === "web"
-      ? {
-          // Keys MUST match the fontName each icon set uses as CSS font-family on web.
-          // Expo's createIconSet wrapper passes fontFile=null to the vendor, so
-          // fontReference = fontFamily = fontName (exact case matters).
-          ionicons: "/fonts/Ionicons.ttf",
-          feather: "/fonts/Feather.ttf",
-          material: "/fonts/MaterialIcons.ttf",
-          anticon: "/fonts/AntDesign.ttf",
-          FontAwesome: "/fonts/FontAwesome.ttf",
-          entypo: "/fonts/Entypo.ttf",
-          "material-community": "/fonts/MaterialCommunityIcons.ttf",
-        }
+      ? (() => {
+          // Keys MUST exactly match fontBasename used by @expo/vector-icons on web:
+          // fontBasename = fontFile without extension (e.g. "Ionicons.ttf" → "Ionicons").
+          // React Native Web looks up fontFamily via JS — case-sensitive, so
+          // "ionicons" ≠ "Ionicons". URLs must point to Express (port 5000 in dev)
+          // not the Expo dev server (port 8081) — use getApiUrl() for absolute paths.
+          const base = getApiUrl();
+          return {
+            Ionicons: `${base}/fonts/Ionicons.ttf`,
+            Feather: `${base}/fonts/Feather.ttf`,
+            MaterialIcons: `${base}/fonts/MaterialIcons.ttf`,
+            AntDesign: `${base}/fonts/AntDesign.ttf`,
+            FontAwesome: `${base}/fonts/FontAwesome.ttf`,
+            Entypo: `${base}/fonts/Entypo.ttf`,
+            MaterialCommunityIcons: `${base}/fonts/MaterialCommunityIcons.ttf`,
+          };
+        })()
       : {
           ...Ionicons.font,
           ...Feather.font,
