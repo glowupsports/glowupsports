@@ -29,29 +29,30 @@
       }
     </style>
     <style id="icon-fonts">
-      /* font-family names MUST match what @expo/vector-icons uses as CSS font-family on web.
-         Expo's wrapper passes fontFile=null to the vendor createIconSet, so the web
-         fontReference = fontFamily = the fontName string (exact case matters). */
+      /* font-family names MUST exactly match fontBasename used by @expo/vector-icons on web.
+         fontBasename = fontFile without extension (e.g. "Ionicons.ttf" → "Ionicons").
+         React Native Web resolves fontFamily via JavaScript (case-sensitive), so
+         "ionicons" ≠ "Ionicons". Use exact filenames without extension. */
       @font-face {
-        font-family: "ionicons";
+        font-family: "Ionicons";
         src: url("/fonts/Ionicons.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
       }
       @font-face {
-        font-family: "feather";
+        font-family: "Feather";
         src: url("/fonts/Feather.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
       }
       @font-face {
-        font-family: "material";
+        font-family: "MaterialIcons";
         src: url("/fonts/MaterialIcons.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
       }
       @font-face {
-        font-family: "anticon";
+        font-family: "AntDesign";
         src: url("/fonts/AntDesign.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
@@ -63,13 +64,13 @@
         font-style: normal;
       }
       @font-face {
-        font-family: "entypo";
+        font-family: "Entypo";
         src: url("/fonts/Entypo.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;
       }
       @font-face {
-        font-family: "material-community";
+        font-family: "MaterialCommunityIcons";
         src: url("/fonts/MaterialCommunityIcons.ttf") format("truetype");
         font-weight: normal;
         font-style: normal;

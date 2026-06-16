@@ -422,17 +422,16 @@ export default function App() {
           // Keys MUST exactly match fontBasename used by @expo/vector-icons on web:
           // fontBasename = fontFile without extension (e.g. "Ionicons.ttf" → "Ionicons").
           // React Native Web looks up fontFamily via JS — case-sensitive, so
-          // "ionicons" ≠ "Ionicons". URLs must point to Express (port 5000 in dev)
-          // not the Expo dev server (port 8081) — use getApiUrl() for absolute paths.
-          const base = getApiUrl();
+          // "ionicons" ≠ "Ionicons". Use relative URLs so fonts resolve from
+          // whichever domain serves the app (glowupsports.com or replit.app).
           return {
-            Ionicons: `${base}/fonts/Ionicons.ttf`,
-            Feather: `${base}/fonts/Feather.ttf`,
-            MaterialIcons: `${base}/fonts/MaterialIcons.ttf`,
-            AntDesign: `${base}/fonts/AntDesign.ttf`,
-            FontAwesome: `${base}/fonts/FontAwesome.ttf`,
-            Entypo: `${base}/fonts/Entypo.ttf`,
-            MaterialCommunityIcons: `${base}/fonts/MaterialCommunityIcons.ttf`,
+            Ionicons: "/fonts/Ionicons.ttf",
+            Feather: "/fonts/Feather.ttf",
+            MaterialIcons: "/fonts/MaterialIcons.ttf",
+            AntDesign: "/fonts/AntDesign.ttf",
+            FontAwesome: "/fonts/FontAwesome.ttf",
+            Entypo: "/fonts/Entypo.ttf",
+            MaterialCommunityIcons: "/fonts/MaterialCommunityIcons.ttf",
           };
         })()
       : {

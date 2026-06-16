@@ -142,6 +142,11 @@ function isAllowedOrigin(origin: string): boolean {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return true;
     }
+
+    // Allow custom production domain
+    if (hostname === 'glowupsports.com' || hostname === 'www.glowupsports.com') {
+      return true;
+    }
     
     return false;
   } catch {
