@@ -230,6 +230,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       padding: 40px 24px;
       background: linear-gradient(180deg, #0B0D10 0%, #12151A 100%);
       min-height: 100vh;
+      position: relative;
+      z-index: 1;
     }
 
     .header {
@@ -279,6 +281,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       border-radius: 16px;
       padding: 24px;
       margin-bottom: 32px;
+      position: relative;
+      z-index: 1;
     }
 
     .player-name {
@@ -322,6 +326,8 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       display: flex;
       gap: 8px;
       margin-bottom: 24px;
+      position: relative;
+      z-index: 2;
     }
 
     .tab-btn {
@@ -340,6 +346,7 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
       justify-content: center;
       gap: 8px;
       transition: all 0.15s;
+      pointer-events: auto;
     }
 
     .tab-btn.active-pending {
@@ -582,15 +589,15 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
     </div>
 
     <div class="tabs-bar">
-      <button class="tab-btn" id="btn-all" onclick="switchTab('all')">
+      <button class="tab-btn" id="btn-all">
         All
         <span class="tab-count">${lessonRecords.length}</span>
       </button>
-      <button class="tab-btn active-pending" id="btn-pending" onclick="switchTab('pending')">
+      <button class="tab-btn active-pending" id="btn-pending">
         Pending
         <span class="tab-count">${pendingLessons.length}</span>
       </button>
-      <button class="tab-btn" id="btn-paid" onclick="switchTab('paid')">
+      <button class="tab-btn" id="btn-paid">
         Paid
         <span class="tab-count">${paidLessons.length}</span>
       </button>
@@ -635,6 +642,14 @@ export function generateAttendanceReportHtml(data: AttendanceReportData): string
         }
       });
     }
+    document.addEventListener('DOMContentLoaded', function() {
+      ['all', 'pending', 'paid'].forEach(function(tab) {
+        var btn = document.getElementById('btn-' + tab);
+        if (btn) {
+          btn.addEventListener('click', function() { switchTab(tab); });
+        }
+      });
+    });
   </script>
 </body>
 </html>`;
