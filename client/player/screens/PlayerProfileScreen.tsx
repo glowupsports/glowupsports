@@ -822,6 +822,32 @@ export default function PlayerProfileScreen() {
     }
   }, [profileGodData, queryClient]);
 
+  const { data: seasonData } = useQuery<{
+    currentSeason: {
+      enrollmentId: string;
+      startedAt: string;
+      seasonId: string;
+      seasonName: string;
+      seasonStartDate: string;
+      seasonIsActive: boolean;
+      sessionCount: number;
+      creditsUsed: number;
+    } | null;
+    history: {
+      enrollmentId: string;
+      startedAt: string;
+      endedAt: string | null;
+      seasonName: string;
+      seasonStartDate: string;
+      sessionCount: number;
+      creditsUsed: number;
+    }[];
+  }>({
+    queryKey: ["/api/player/me/season"],
+    enabled: !isGuest,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const holidaysSubtitle = useMemo(() => {
     const fmt = (d: string) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
     if (vacationData?.activeVacation) {
@@ -1826,6 +1852,76 @@ export default function PlayerProfileScreen() {
                     <Ionicons name="chatbubble" size={18} color={Colors.dark.primary} />
                   </Pressable>
                 </View>
+              ) : null}
+            </View>
+          </>
+        ) : null}
+
+        {/* Season History Section */}
+        {(seasonData?.currentSeason || (seasonData?.history && seasonData.history.length > 0)) ? (
+          <>
+            <Text style={styles.sectionGroupHeader}>Season History</Text>
+            <View style={seasonStyles.card}>
+              {seasonData?.currentSeason ? (
+                <View style={seasonStyles.currentBlock}>
+                  <View style={seasonStyles.currentRow}>
+                    <View style={seasonStyles.currentIconWrap}>
+                      <Ionicons name="flash" size={14} color="#CCFF00" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={seasonStyles.currentName}>{seasonData.currentSeason.seasonName}</Text>
+                      <Text style={seasonStyles.currentSub}>
+                        Since {new Date(seasonData.currentSeason.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                      </Text>
+                    </View>
+                    <View style={seasonStyles.activeBadge}>
+                      <Text style={seasonStyles.activeBadgeText}>Active</Text>
+                    </View>
+                  </View>
+                  <View style={seasonStyles.statRow}>
+                    <View style={seasonStyles.statChip}>
+                      <Ionicons name="calendar-outline" size={11} color={Colors.dark.textSecondary} />
+                      <Text style={seasonStyles.statText}>{seasonData.currentSeason.sessionCount} sessions</Text>
+                    </View>
+                    <View style={seasonStyles.statChip}>
+                      <Ionicons name="card-outline" size={11} color={Colors.dark.textSecondary} />
+                      <Text style={seasonStyles.statText}>{seasonData.currentSeason.creditsUsed} credits used</Text>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+              {seasonData?.history && seasonData.history.length > 0 ? (
+                <>
+                  {seasonData.currentSeason ? <View style={seasonStyles.divider} /> : null}
+                  {seasonData.history.map((h, i) => (
+                    <View
+                      key={h.enrollmentId}
+                      style={[
+                        seasonStyles.historyRow,
+                        i < seasonData.history.length - 1 && seasonStyles.historyRowBorder,
+                      ]}
+                    >
+                      <Ionicons name="calendar-outline" size={14} color={Colors.dark.textSecondary} style={{ marginRight: 10 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={seasonStyles.historyName}>{h.seasonName}</Text>
+                        <Text style={seasonStyles.historySub}>
+                          {new Date(h.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          {h.endedAt ? ` — ${new Date(h.endedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : ""}
+                        </Text>
+                        <View style={seasonStyles.statRow}>
+                          <View style={seasonStyles.statChip}>
+                            <Ionicons name="calendar-outline" size={10} color={Colors.dark.textMuted} />
+                            <Text style={seasonStyles.statTextMuted}>{h.sessionCount} sessions</Text>
+                          </View>
+                          <View style={seasonStyles.statChip}>
+                            <Ionicons name="card-outline" size={10} color={Colors.dark.textMuted} />
+                            <Text style={seasonStyles.statTextMuted}>{h.creditsUsed} credits used</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </>
               ) : null}
             </View>
           </>
@@ -4023,3 +4119,98 @@ const profileAppearanceStyles = makeReactiveStyles(() => StyleSheet.create({
     color: "#000",
   },
 }));
+
+const seasonStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.dark.backgroundCard,
+    borderRadius: 12,
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    overflow: "hidden",
+  },
+  currentBlock: {
+    backgroundColor: "#CCFF0010",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#CCFF0025",
+  },
+  currentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  currentIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#CCFF0020",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  currentName: {
+    color: "#CCFF00",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  currentSub: {
+    color: Colors.dark.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  activeBadge: {
+    backgroundColor: "#CCFF0020",
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  activeBadgeText: {
+    color: "#CCFF00",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  statRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+  },
+  statChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  statText: {
+    color: Colors.dark.textSecondary,
+    fontSize: 11,
+  },
+  statTextMuted: {
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.dark.border + "30",
+    marginHorizontal: 14,
+  },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  historyRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border + "30",
+  },
+  historyName: {
+    color: Colors.dark.text,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  historySub: {
+    color: Colors.dark.textSecondary,
+    fontSize: 11,
+    marginTop: 1,
+  },
+});

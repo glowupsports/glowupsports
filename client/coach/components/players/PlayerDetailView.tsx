@@ -1580,10 +1580,13 @@ export function PlayerDetailView({
   interface PlayerSeason {
     enrollmentId: string;
     startedAt: string;
+    endedAt?: string | null;
     seasonId: string;
     seasonName: string;
     seasonStartDate: string;
     seasonIsActive: boolean;
+    sessionCount?: number;
+    creditsUsed?: number;
   }
   const { data: playerSeasonData, refetch: refetchPlayerSeason } = useQuery<{ currentSeason: PlayerSeason | null; history: PlayerSeason[] }>({
     queryKey: [`/api/coach/players/${player.id}/season`],
@@ -2292,6 +2295,90 @@ export function PlayerDetailView({
 
         <CollapsibleSection title="Match History" icon="tennisball-outline" iconColor="#f97316">
           <CoachMatchHistorySection playerId={player.id} />
+        </CollapsibleSection>
+
+        <CollapsibleSection title="Season History" icon="ribbon-outline" iconColor="#CCFF00">
+          <View style={{ paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md }}>
+            {!playerSeasonData ? (
+              <View style={{ paddingVertical: Spacing.md, alignItems: "center" }}>
+                <Text style={{ color: Colors.dark.textMuted, fontSize: 13 }}>Loading...</Text>
+              </View>
+            ) : playerSeasonData.currentSeason ? (
+              <View style={{ marginBottom: Spacing.sm }}>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 6 }}>CURRENT SEASON</Text>
+                <View style={{ backgroundColor: "#CCFF0010", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#CCFF0025" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Ionicons name="flash" size={14} color="#CCFF00" style={{ marginRight: 8 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: "#CCFF00", fontSize: 13, fontWeight: "700" }}>{playerSeasonData.currentSeason.seasonName}</Text>
+                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 2 }}>
+                        Since {new Date(playerSeasonData.currentSeason.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                      </Text>
+                    </View>
+                    <View style={{ backgroundColor: "#CCFF0020", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ color: "#CCFF00", fontSize: 11, fontWeight: "700" }}>Active</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="calendar-outline" size={11} color={Colors.dark.textSecondary} />
+                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 11 }}>
+                        {playerSeasonData.currentSeason.sessionCount ?? 0} sessions
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="card-outline" size={11} color={Colors.dark.textSecondary} />
+                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 11 }}>
+                        {playerSeasonData.currentSeason.creditsUsed ?? 0} credits used
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+            {playerSeasonData?.history && playerSeasonData.history.length > 0 ? (
+              <View>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 6, marginTop: playerSeasonData.currentSeason ? 8 : 0 }}>PAST SEASONS</Text>
+                {playerSeasonData.history.map((h, i) => (
+                  <View
+                    key={h.enrollmentId}
+                    style={{
+                      paddingVertical: 10,
+                      borderBottomWidth: i < playerSeasonData.history.length - 1 ? 1 : 0,
+                      borderBottomColor: Colors.dark.border + "30",
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Ionicons name="calendar-outline" size={14} color={Colors.dark.textSecondary} style={{ marginRight: 8 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: Colors.dark.text, fontSize: 13, fontWeight: "600" }}>{h.seasonName}</Text>
+                        <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 1 }}>
+                          {new Date(h.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          {h.endedAt ? ` — ${new Date(h.endedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : ""}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: "row", gap: 12, marginTop: 5, paddingLeft: 22 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Ionicons name="calendar-outline" size={10} color={Colors.dark.textMuted} />
+                        <Text style={{ color: Colors.dark.textMuted, fontSize: 11 }}>
+                          {h.sessionCount ?? 0} sessions
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Ionicons name="card-outline" size={10} color={Colors.dark.textMuted} />
+                        <Text style={{ color: Colors.dark.textMuted, fontSize: 11 }}>
+                          {h.creditsUsed ?? 0} credits used
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : playerSeasonData && !playerSeasonData.currentSeason ? (
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 13, textAlign: "center", paddingVertical: Spacing.md }}>No season history yet</Text>
+            ) : null}
+          </View>
         </CollapsibleSection>
 
       </ScrollView>

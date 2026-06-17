@@ -17,6 +17,50 @@ import {
   playerCreditBalance,
 } from "@shared/schema";
 
+// ── Season stats helper ────────────────────────────────────────────────────
+// For each enrollment ID passed, returns session attendance count and credits
+// consumed within the enrollment window. Uses a single DB round-trip via
+// correlated subqueries scoped to player_season_enrollments.
+async function fetchEnrollmentStats(
+  enrollmentIds: string[],
+): Promise<Record<string, { sessionCount: number; creditsUsed: number }>> {
+  if (enrollmentIds.length === 0) return {};
+  const idList = enrollmentIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ");
+  const rows = await db.execute(sql`
+    SELECT
+      pse.id AS enrollment_id,
+      (
+        SELECT COUNT(*)::int
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        WHERE sp.player_id = pse.player_id
+          AND s.academy_id = pse.academy_id
+          AND sp.attendance_status IN ('present', 'late')
+          AND s.start_time >= pse.started_at
+          AND (pse.ended_at IS NULL OR s.start_time < pse.ended_at)
+      ) AS session_count,
+      (
+        SELECT COALESCE(SUM(ABS(delta::numeric)), 0)::int
+        FROM credit_ledger_v2
+        WHERE player_id = pse.player_id
+          AND academy_id = pse.academy_id
+          AND reason = 'consume'
+          AND occurred_at >= pse.started_at
+          AND (pse.ended_at IS NULL OR occurred_at < pse.ended_at)
+      ) AS credits_used
+    FROM player_season_enrollments pse
+    WHERE pse.id IN (${sql.raw(idList)})
+  `);
+  const map: Record<string, { sessionCount: number; creditsUsed: number }> = {};
+  for (const r of rows as { enrollment_id: string; session_count: number; credits_used: number }[]) {
+    map[r.enrollment_id] = {
+      sessionCount: r.session_count ?? 0,
+      creditsUsed: r.credits_used ?? 0,
+    };
+  }
+  return map;
+}
+
 const router = Router();
 
 // ── GET /api/admin/seasons ─────────────────────────────────────────────────
@@ -301,7 +345,19 @@ router.get(
         )
         .orderBy(sql`${playerSeasonEnrollments.startedAt} DESC`);
 
-      res.json({ currentSeason: current ?? null, history });
+      // Attach per-enrollment stats (session count + credits used)
+      const allIds = [
+        ...(current ? [current.enrollmentId] : []),
+        ...history.map((h) => h.enrollmentId),
+      ];
+      const stats = await fetchEnrollmentStats(allIds);
+
+      res.json({
+        currentSeason: current
+          ? { ...current, ...(stats[current.enrollmentId] ?? { sessionCount: 0, creditsUsed: 0 }) }
+          : null,
+        history: history.map((h) => ({ ...h, ...(stats[h.enrollmentId] ?? { sessionCount: 0, creditsUsed: 0 }) })),
+      });
     } catch (err) {
       console.error("[admin-seasons] GET /api/player/me/season error:", err);
       res.status(500).json({ error: "Failed to fetch season" });
@@ -362,7 +418,19 @@ router.get(
         )
         .orderBy(sql`${playerSeasonEnrollments.startedAt} DESC`);
 
-      res.json({ currentSeason: current ?? null, history });
+      // Attach per-enrollment stats (session count + credits used)
+      const allIds = [
+        ...(current ? [current.enrollmentId] : []),
+        ...history.map((h) => h.enrollmentId),
+      ];
+      const stats = await fetchEnrollmentStats(allIds);
+
+      res.json({
+        currentSeason: current
+          ? { ...current, ...(stats[current.enrollmentId] ?? { sessionCount: 0, creditsUsed: 0 }) }
+          : null,
+        history: history.map((h) => ({ ...h, ...(stats[h.enrollmentId] ?? { sessionCount: 0, creditsUsed: 0 }) })),
+      });
     } catch (err) {
       console.error("[admin-seasons] GET /api/coach/players/:playerId/season error:", err);
       res.status(500).json({ error: "Failed to fetch player season" });
