@@ -9395,7 +9395,14 @@ export const playerSeasonEnrollments = pgTable("player_season_enrollments", {
   startedAt: timestamp("started_at").notNull().defaultNow(),
   endedAt: timestamp("ended_at"), // null = current enrollment
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  // Enforce at most one open enrollment per (player, academy, season).
+  // A partial unique index on ended_at IS NULL prevents concurrent inserts
+  // from bypassing the application-level idempotency check in the end-season route.
+  uniqueIndex("pse_open_unique_idx")
+    .on(table.playerId, table.academyId, table.seasonId)
+    .where(sql`${table.endedAt} IS NULL`),
+]);
 export type PlayerSeasonEnrollment = typeof playerSeasonEnrollments.$inferSelect;
 
 // ── Coach Report State ─────────────────────────────────────────────────────────

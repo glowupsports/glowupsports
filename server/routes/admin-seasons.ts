@@ -177,27 +177,52 @@ router.post(
 
       const now = new Date();
 
-      // Close existing open enrollments
-      await db
-        .update(playerSeasonEnrollments)
-        .set({ endedAt: now })
+      // Skip players who already have an open enrollment for the active season —
+      // re-running end-season on them would close the enrollment we just created
+      // and insert a duplicate, accumulating stale rows for the same season.
+      const alreadyEnrolled = await db
+        .select({ playerId: playerSeasonEnrollments.playerId })
+        .from(playerSeasonEnrollments)
         .where(
           and(
             inArray(playerSeasonEnrollments.playerId, verifiedIds),
             eq(playerSeasonEnrollments.academyId, academyId),
+            eq(playerSeasonEnrollments.seasonId, activeSeason.id),
             isNull(playerSeasonEnrollments.endedAt),
           ),
         );
+      const alreadyEnrolledSet = new Set(alreadyEnrolled.map((r) => r.playerId));
+      const toProcessIds = verifiedIds.filter((id) => !alreadyEnrolledSet.has(id));
 
-      // Re-enroll each player in the active season with started_at = now
-      await db.insert(playerSeasonEnrollments).values(
-        verifiedIds.map((playerId) => ({
-          playerId,
-          academyId,
-          seasonId: activeSeason.id,
-          startedAt: now,
-        })),
-      );
+      if (toProcessIds.length > 0) {
+        // Wrap close + re-enroll in a transaction so the two steps are atomic.
+        // The partial unique index on (player_id, academy_id, season_id)
+        // WHERE ended_at IS NULL acts as the final backstop against concurrent
+        // duplicate inserts that slip past the pre-check above.
+        await db.transaction(async (tx) => {
+          // Close existing open enrollments for players not yet in active season
+          await tx
+            .update(playerSeasonEnrollments)
+            .set({ endedAt: now })
+            .where(
+              and(
+                inArray(playerSeasonEnrollments.playerId, toProcessIds),
+                eq(playerSeasonEnrollments.academyId, academyId),
+                isNull(playerSeasonEnrollments.endedAt),
+              ),
+            );
+
+          // Re-enroll each player in the active season with started_at = now
+          await tx.insert(playerSeasonEnrollments).values(
+            toProcessIds.map((playerId) => ({
+              playerId,
+              academyId,
+              seasonId: activeSeason.id,
+              startedAt: now,
+            })),
+          );
+        });
+      }
 
       // Clean up 0-credit balance rows for these players
       await db
@@ -211,7 +236,8 @@ router.post(
 
       res.json({
         ok: true,
-        processedCount: verifiedIds.length,
+        processedCount: toProcessIds.length,
+        skippedCount: alreadyEnrolledSet.size,
         seasonName: activeSeason.name,
       });
     } catch (err) {
