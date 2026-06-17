@@ -1576,6 +1576,38 @@ export function PlayerDetailView({
     staleTime: 0,
   });
 
+  interface PlayerSeason {
+    enrollmentId: string;
+    startedAt: string;
+    seasonId: string;
+    seasonName: string;
+    seasonStartDate: string;
+    seasonIsActive: boolean;
+  }
+  const { data: playerSeasonData, refetch: refetchPlayerSeason } = useQuery<{ currentSeason: PlayerSeason | null; history: PlayerSeason[] }>({
+    queryKey: [`/api/coach/players/${player.id}/season`],
+    staleTime: 60_000,
+  });
+
+  const endSeasonMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/coach/players/end-season", { playerIds: [player.id] });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to end season");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchPlayerSeason();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Season Ended", "Player's season has been reset. Credits cleared.");
+    },
+    onError: (err: Error) => {
+      Alert.alert("Error", err.message || "Failed to end season");
+    },
+  });
+
   interface AttendanceHistoryRecord {
     sessionId: string;
     date: string;
@@ -1846,6 +1878,12 @@ export function PlayerDetailView({
               <View style={styles.premiumXpBadge}>
                 <Ionicons name="flash" size={14} color={Colors.dark.xpCyan} />
                 <Text style={styles.premiumXpText}>{xpData.totalXp} XP</Text>
+              </View>
+            ) : null}
+            {playerSeasonData?.currentSeason ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#CCFF0015", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4, borderWidth: 1, borderColor: "#CCFF0030" }}>
+                <Ionicons name="calendar-outline" size={11} color="#CCFF00" />
+                <Text style={{ color: "#CCFF00", fontSize: 11, fontWeight: "600" }}>{playerSeasonData.currentSeason.seasonName}</Text>
               </View>
             ) : null}
           </View>
@@ -2708,6 +2746,24 @@ export function PlayerDetailView({
               setShowScheduleExtraLesson(true);
             },
           }] : []),
+          ...(!isSupervisorReadOnly ? [{
+            id: "end-season",
+            label: "End Season",
+            icon: "ribbon-outline" as ActionSheetItem["icon"],
+            color: "#CCFF00",
+            isLoading: endSeasonMutation.isPending,
+            keepOpenWhileLoading: true,
+            onPress: () => {
+              Alert.alert(
+                "End Season",
+                `Reset ${localPlayer.name}'s season. Zero-credit balances will be cleared and their season clock restarted. Continue?`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "End Season", style: "destructive", onPress: () => endSeasonMutation.mutate() },
+                ],
+              );
+            },
+          }] as ActionSheetItem[] : []),
           {
             id: "merge",
             label: "Merge Player",

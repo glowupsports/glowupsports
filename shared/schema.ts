@@ -9371,6 +9371,33 @@ export function computeArenaRarity(
   };
 }
 
+// ── Academy Seasons ───────────────────────────────────────────────────────────
+// Academy-level seasons (e.g. "Season 2025-2026"). One active season per academy.
+export const academySeasons = pgTable("academy_seasons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  name: text("name").notNull(), // e.g. "Season 2025-2026"
+  startDate: date("start_date").notNull(),
+  endedAt: timestamp("ended_at"), // null = currently active
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type AcademySeason = typeof academySeasons.$inferSelect;
+
+// Player enrollment windows within a season.
+// Each time a player "ends season", their old enrollment is closed (ended_at = now)
+// and a new one is opened in the current active season (started_at = now).
+export const playerSeasonEnrollments = pgTable("player_season_enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playerId: varchar("player_id").notNull().references(() => players.id),
+  academyId: varchar("academy_id").notNull(),
+  seasonId: varchar("season_id").notNull().references(() => academySeasons.id),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  endedAt: timestamp("ended_at"), // null = current enrollment
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type PlayerSeasonEnrollment = typeof playerSeasonEnrollments.$inferSelect;
+
 // ── Coach Report State ─────────────────────────────────────────────────────────
 // Persists paid/excluded session IDs for the Dean Hamilton coach report.
 // Previously stored in a local JSON file (coach-report-dean.json) which was

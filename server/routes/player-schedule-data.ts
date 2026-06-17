@@ -150,6 +150,7 @@ router.get(
           notifications: [],
           academyPaymentInfo: null,
           calendarToken: null,
+          seasonData: null,
           _keys: {
             v2Wallet: "/api/v2/credits/wallet/",
             payments: "/api/parent/payments/",
@@ -203,6 +204,7 @@ router.get(
         notifications,
         academyPaymentInfo,
         calendarToken,
+        seasonData,
       ] = await Promise.all([
         subFetch<unknown>(`/api/player/me/sessions`, authHeader, forwardHeaders),
         subFetch<unknown>(`/api/player/me/court-bookings`, authHeader, forwardHeaders),
@@ -214,6 +216,7 @@ router.get(
         subFetch<unknown>(`/api/player/me/notifications`, authHeader, forwardHeaders),
         subFetch<unknown>(academyPaymentInfoPath, authHeader, forwardHeaders),
         subFetch<unknown>(`/api/player/me/calendar-token`, authHeader, forwardHeaders),
+        subFetch<unknown>(`/api/player/me/season`, authHeader, forwardHeaders),
       ]);
 
       const errors: Record<string, number | null> = {};
@@ -230,6 +233,7 @@ router.get(
       note("notifications", notifications);
       note("academyPaymentInfo", academyPaymentInfo);
       note("calendarToken", calendarToken);
+      note("seasonData", seasonData);
 
       const responseBody = {
         sessions: sessions.data ?? [],
@@ -242,6 +246,7 @@ router.get(
         notifications: notifications.data ?? [],
         academyPaymentInfo: academyPaymentInfo.data ?? null,
         calendarToken: calendarToken.data ?? null,
+        seasonData: seasonData.data ?? null,
         // Echo the resolved playerId-templated keys so the client
         // can prime caches under the EXACT keys it would otherwise
         // hit, no string-templating in two places.

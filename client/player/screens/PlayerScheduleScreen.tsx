@@ -464,6 +464,14 @@ export default function PlayerScheduleScreen() {
     // silent server-side sessions failure surfaces as a retryable load
     // error instead of a misleading "no upcoming sessions" empty state.
     _errors?: Record<string, number | null>;
+    seasonData?: {
+      currentSeason: {
+        id: string;
+        seasonName: string;
+        startedAt: string;
+        endedAt: string | null;
+      } | null;
+    } | null;
   }
 
   const {
@@ -498,6 +506,7 @@ export default function PlayerScheduleScreen() {
   const playerPayments = paymentsData?.payments || [];
   const notificationsData = scheduleGodData?.notifications ?? undefined;
   const academyPaymentInfo = scheduleGodData?.academyPaymentInfo ?? undefined;
+  const seasonData = scheduleGodData?.seasonData ?? null;
 
   // Prime each legacy queryKey so downstream components and any
   // cross-screen consumer hits cache instead of triggering a fresh
@@ -1419,6 +1428,23 @@ export default function PlayerScheduleScreen() {
               >
                 <Feather name="chevron-right" size={20} color={ProTennisColors.textSecondary} />
               </Pressable>
+            </View>
+          </Animated.View>
+        ) : null}
+
+        {/* Season summary card (sessions tab only) */}
+        {activeTab === "sessions" && seasonData?.currentSeason ? (
+          <Animated.View entering={FadeIn.duration(300)} style={{ marginHorizontal: 16, marginBottom: 8 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#CCFF0010", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: "#CCFF0025" }}>
+              <Ionicons name="ribbon-outline" size={16} color="#CCFF00" style={{ marginRight: 8 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#CCFF00", fontSize: 12, fontWeight: "700", letterSpacing: 0.5 }}>
+                  {seasonData.currentSeason.seasonName}
+                </Text>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 1 }}>
+                  Since {new Date(seasonData.currentSeason.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                </Text>
+              </View>
             </View>
           </Animated.View>
         ) : null}

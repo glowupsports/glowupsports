@@ -1028,6 +1028,87 @@ async function run() {
     `);
     console.log("[db-migrate] coach_report_state table — OK");
 
+    // ── Task #2117: academy_seasons + player_season_enrollments ───────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS academy_seasons (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        academy_id VARCHAR NOT NULL REFERENCES academies(id),
+        name TEXT NOT NULL,
+        start_date DATE NOT NULL,
+        ended_at TIMESTAMP,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS academy_seasons_active_per_academy_idx
+      ON academy_seasons(academy_id) WHERE is_active = true
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS player_season_enrollments (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        player_id VARCHAR NOT NULL REFERENCES players(id),
+        academy_id VARCHAR NOT NULL,
+        season_id VARCHAR NOT NULL REFERENCES academy_seasons(id),
+        started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        ended_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS player_season_enrollments_player_idx
+      ON player_season_enrollments(player_id, academy_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS player_season_enrollments_season_idx
+      ON player_season_enrollments(season_id)
+    `);
+
+    // Backfill: create one active season per academy that doesn't have one yet,
+    // then enroll all players that don't have an enrollment for that academy.
+    await client.query(`
+      INSERT INTO academy_seasons (id, academy_id, name, start_date, is_active)
+      SELECT
+        gen_random_uuid(),
+        a.id,
+        'Season 2025-2026',
+        '2025-01-01',
+        true
+      FROM academies a
+      WHERE NOT EXISTS (
+        SELECT 1 FROM academy_seasons s WHERE s.academy_id = a.id AND s.is_active = true
+      )
+    `);
+
+    // Enroll existing players: started_at = their first session date, or academy join date
+    await client.query(`
+      INSERT INTO player_season_enrollments (id, player_id, academy_id, season_id, started_at)
+      SELECT
+        gen_random_uuid(),
+        p.id,
+        p.academy_id,
+        s.id,
+        COALESCE(
+          (
+            SELECT MIN(sess.start_time)
+            FROM sessions sess
+            JOIN session_players sp ON sp.session_id = sess.id
+            WHERE sp.player_id = p.id
+              AND sess.academy_id = p.academy_id
+          ),
+          p.created_at,
+          NOW()
+        ) AS started_at
+      FROM players p
+      JOIN academy_seasons s ON s.academy_id = p.academy_id AND s.is_active = true
+      WHERE p.academy_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM player_season_enrollments e
+          WHERE e.player_id = p.id AND e.academy_id = p.academy_id AND e.ended_at IS NULL
+        )
+    `);
+    console.log("[db-migrate] Task #2117 academy_seasons + player_season_enrollments — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

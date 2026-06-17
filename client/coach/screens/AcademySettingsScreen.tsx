@@ -112,6 +112,8 @@ export default function AcademySettingsScreen() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"settings" | "team" | "invites">("settings");
+  const [showNewSeason, setShowNewSeason] = useState(false);
+  const [newSeasonName, setNewSeasonName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("coach");
   
@@ -143,6 +145,39 @@ export default function AcademySettingsScreen() {
 
   const { data: settings, isLoading: settingsLoading } = useQuery<AcademySettings>({
     queryKey: ["/api/academy/settings"],
+  });
+
+  interface Season {
+    id: string;
+    name: string;
+    startDate: string;
+    endedAt: string | null;
+    isActive: boolean;
+    createdAt: string;
+  }
+  const { data: seasonsData, isLoading: seasonsLoading, refetch: refetchSeasons } = useQuery<{ seasons: Season[] }>({
+    queryKey: ["/api/admin/seasons"],
+  });
+
+  const createSeasonMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/seasons", { name: newSeasonName.trim() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create season");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchSeasons();
+      setShowNewSeason(false);
+      setNewSeasonName("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Season Created", "The new season has been started and all players enrolled.");
+    },
+    onError: (err: Error) => {
+      Alert.alert("Error", err.message || "Failed to create season");
+    },
   });
 
   const { data: members = [], isLoading: membersLoading } = useQuery<AcademyMember[]>({
@@ -822,6 +857,86 @@ export default function AcademySettingsScreen() {
           </View>
         </View>
       ) : null}
+
+      {/* Seasons Section */}
+      <View style={styles.glassSection}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.md }}>
+          <Text style={styles.sectionTitle}>SEASONS</Text>
+          <Pressable
+            onPress={() => {
+              setNewSeasonName("");
+              setShowNewSeason(true);
+            }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}
+          >
+            <Ionicons name="add" size={14} color={Colors.dark.primary} />
+            <Text style={{ color: Colors.dark.primary, fontSize: 12, fontWeight: "600" }}>New Season</Text>
+          </Pressable>
+        </View>
+        {seasonsLoading ? (
+          <TennisBallSpinner color={Colors.dark.xpCyan} />
+        ) : !seasonsData?.seasons?.length ? (
+          <Text style={styles.emptyText ?? { color: Colors.dark.textSecondary, fontSize: 14, textAlign: "center", paddingVertical: Spacing.md }}>No seasons yet</Text>
+        ) : (
+          seasonsData.seasons.map((season, idx) => (
+            <View key={season.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm, borderBottomWidth: idx < (seasonsData.seasons.length - 1) ? 1 : 0, borderBottomColor: Colors.dark.cardBorder + "40" }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>{season.name}</Text>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>
+                  {new Date(season.startDate).toLocaleDateString()}
+                  {season.isActive ? " · Active" : season.endedAt ? ` → ${new Date(season.endedAt).toLocaleDateString()}` : ""}
+                </Text>
+              </View>
+              {season.isActive ? (
+                <View style={{ backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
+                  <Text style={{ color: Colors.dark.primary, fontSize: 11, fontWeight: "700" }}>ACTIVE</Text>
+                </View>
+              ) : null}
+            </View>
+          ))
+        )}
+        {showNewSeason ? (
+          <View style={{ marginTop: Spacing.md }}>
+            <TextInput
+              style={[styles.input, { marginBottom: Spacing.sm }]}
+              value={newSeasonName}
+              onChangeText={setNewSeasonName}
+              placeholder="e.g. Season 2026-2027"
+              placeholderTextColor={Colors.dark.textMuted}
+              autoFocus
+            />
+            <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+              <Pressable
+                style={{ flex: 1, backgroundColor: Colors.dark.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", opacity: createSeasonMutation.isPending ? 0.6 : 1 }}
+                onPress={() => {
+                  if (!newSeasonName.trim()) return;
+                  Alert.alert(
+                    "Start New Season?",
+                    `This will end the current active season and start "${newSeasonName.trim()}". All players will be re-enrolled. Continue?`,
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Start Season", style: "default", onPress: () => createSeasonMutation.mutate() },
+                    ],
+                  );
+                }}
+                disabled={createSeasonMutation.isPending}
+              >
+                {createSeasonMutation.isPending ? (
+                  <TennisBallSpinner color="#000" />
+                ) : (
+                  <Text style={{ color: "#000", fontWeight: "700" }}>Create Season</Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={{ flex: 1, backgroundColor: Colors.dark.cardBorder + "30", borderRadius: 8, paddingVertical: 10, alignItems: "center" }}
+                onPress={() => setShowNewSeason(false)}
+              >
+                <Text style={{ color: Colors.dark.textSecondary, fontWeight: "600" }}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+      </View>
 
       {hasChanges && (
         <AnimatedButton

@@ -147,6 +147,9 @@ export default function PlayersScreen() {
   const hasRestoredRef = useRef(false);
   const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [filterPlayerIds, setFilterPlayerIds] = useState<string[] | null>(null);
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
+  const [filterZeroCredits, setFilterZeroCredits] = useState(false);
   const [impactedSessionIds, setImpactedSessionIds] = useState<string[]>([]);
   const [impactedSessions, setImpactedSessions] = useState<{
     id: string;
@@ -389,6 +392,31 @@ export default function PlayersScreen() {
     });
   };
 
+  const endSeasonBulkMutation = useMutation({
+    mutationFn: async (playerIds: string[]) => {
+      const res = await apiRequest("POST", "/api/coach/players/end-season", { playerIds });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to end season");
+      }
+      return res.json();
+    },
+    onSuccess: (data: { processedCount: number; seasonName: string }) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setBulkSelectMode(false);
+      setSelectedPlayerIds(new Set());
+      setFilterZeroCredits(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+      Alert.alert(
+        "Season Ended",
+        `${data.processedCount} player${data.processedCount === 1 ? "" : "s"} reset for ${data.seasonName}. Zero-credit balances cleared.`,
+      );
+    },
+    onError: (err: Error) => {
+      Alert.alert("Error", err.message || "Failed to end season");
+    },
+  });
+
   const archivePlayerMutation = useMutation({
     mutationFn: async (playerId: string) => {
       return apiRequest("POST", `/api/players/${playerId}/archive`, {});
@@ -626,6 +654,9 @@ export default function PlayersScreen() {
           (p.email && p.email.toLowerCase().includes(query))
       );
     }
+    if (filterZeroCredits) {
+      result = result.filter((p) => (p.remainingCredits ?? 0) <= 0);
+    }
     if (filterLevel) {
       result = result.filter((p) => getEffectiveBallLevel(p.ballLevel) === filterLevel);
       
@@ -690,7 +721,7 @@ export default function PlayersScreen() {
           return a.name.localeCompare(b.name);
       }
     });
-  }, [players, pastPlayers, pendingPaymentPlayers, rosterTab, searchQuery, filterLevel, filterSubLevel, sortBy, filterPlayerIds]);
+  }, [players, pastPlayers, pendingPaymentPlayers, rosterTab, searchQuery, filterLevel, filterSubLevel, sortBy, filterPlayerIds, filterZeroCredits]);
 
   const getStatusBadge = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -760,7 +791,39 @@ export default function PlayersScreen() {
     scrollY.value = 0;
   }, [rosterTab, headerTranslation, lastScrollY, scrollY]);
 
-  const renderPlayerItem = useCallback(({ item: player }: { item: typeof filteredPlayers[0] }) => (
+  const renderPlayerItem = useCallback(({ item: player }: { item: typeof filteredPlayers[0] }) => {
+    if (bulkSelectMode) {
+      const isSelected = selectedPlayerIds.has(player.id);
+      return (
+        <Pressable
+          onPress={() => {
+            setSelectedPlayerIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(player.id)) next.delete(player.id);
+              else next.add(player.id);
+              return next;
+            });
+          }}
+          style={{ position: "relative" }}
+        >
+          <View style={{ opacity: isSelected ? 1 : 0.75 }}>
+            <GamingPlayerCard
+              player={player}
+              onPress={() => {}}
+              getStatusBadge={getStatusBadge}
+              needsBaseline={false}
+              isPast={false}
+              isPendingPayment={false}
+              juniorAssessmentBadge={null}
+            />
+          </View>
+          <View style={{ position: "absolute", top: 12, right: 16, width: 24, height: 24, borderRadius: 12, backgroundColor: isSelected ? Colors.dark.primary : Colors.dark.cardBorder + "80", borderWidth: 2, borderColor: isSelected ? Colors.dark.primary : Colors.dark.textMuted, alignItems: "center", justifyContent: "center" }}>
+            {isSelected ? <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} /> : null}
+          </View>
+        </Pressable>
+      );
+    }
+    return (
     <GamingPlayerCard
       player={player}
       onPress={() => handleSelectPlayer(player)}
@@ -822,10 +885,12 @@ export default function PlayersScreen() {
         );
       } : undefined}
     />
-  ), [
+    );
+  }, [
     handleSelectPlayer, getStatusBadge, rosterTab, playerIdsWithoutBaseline,
     assessmentBadges, archivePlayerMutation, archivePendingPaymentMutation,
     restorePlayerMutation, restoreFromPendingPaymentMutation, markPendingPaymentMutation,
+    bulkSelectMode, selectedPlayerIds,
   ]);
 
   if (selectedPlayer && !isDesktop) {
@@ -1216,6 +1281,55 @@ export default function PlayersScreen() {
         </Pressable>
       ) : null}
 
+      {/* === BULK SELECT BAR === */}
+      {rosterTab === "active" ? (
+        <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}>
+          <Pressable
+            onPress={() => {
+              setBulkSelectMode(!bulkSelectMode);
+              setSelectedPlayerIds(new Set());
+              setFilterZeroCredits(false);
+            }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: bulkSelectMode ? Colors.dark.primary + "30" : Colors.dark.cardBorder + "30", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: bulkSelectMode ? Colors.dark.primary : "transparent" }}
+          >
+            <Ionicons name={bulkSelectMode ? "checkmark-circle" : "checkmark-circle-outline"} size={15} color={bulkSelectMode ? Colors.dark.primary : Colors.dark.textSecondary} />
+            <Text style={{ color: bulkSelectMode ? Colors.dark.primary : Colors.dark.textSecondary, fontSize: 13, fontWeight: "600" }}>
+              {bulkSelectMode ? (selectedPlayerIds.size > 0 ? `${selectedPlayerIds.size} Selected` : "Selecting…") : "Bulk Select"}
+            </Text>
+          </Pressable>
+          {bulkSelectMode ? (
+            <>
+              <Pressable
+                onPress={() => {
+                  setFilterZeroCredits(!filterZeroCredits);
+                  setSelectedPlayerIds(new Set());
+                }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: filterZeroCredits ? "#CCFF0020" : Colors.dark.cardBorder + "30", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: filterZeroCredits ? "#CCFF00" : "transparent" }}
+              >
+                <Ionicons name="ticket-outline" size={14} color={filterZeroCredits ? "#CCFF00" : Colors.dark.textSecondary} />
+                <Text style={{ color: filterZeroCredits ? "#CCFF00" : Colors.dark.textSecondary, fontSize: 13, fontWeight: "600" }}>0 Credits</Text>
+              </Pressable>
+              {filteredPlayers.length > 0 ? (
+                <Pressable
+                  onPress={() => {
+                    if (selectedPlayerIds.size === filteredPlayers.length) {
+                      setSelectedPlayerIds(new Set());
+                    } else {
+                      setSelectedPlayerIds(new Set(filteredPlayers.map((p) => p.id)));
+                    }
+                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.dark.cardBorder + "30", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}
+                >
+                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>
+                    {selectedPlayerIds.size === filteredPlayers.length ? "Deselect All" : "Select All"}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* === GAMING FILTER PILLS === */}
       
       <ScrollView 
@@ -1415,6 +1529,48 @@ export default function PlayersScreen() {
 
       )}
       </Animated.View>
+
+      {/* === END SEASON ACTION BAR === */}
+      {bulkSelectMode && selectedPlayerIds.size > 0 ? (
+        <View style={{ position: "absolute", left: 16, right: 16, bottom: TAB_BAR_HEIGHT + insets.bottom + 12, backgroundColor: Colors.dark.backgroundCard, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: Colors.dark.primary + "40", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "700" }}>
+              {selectedPlayerIds.size} player{selectedPlayerIds.size === 1 ? "" : "s"} selected
+            </Text>
+            <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Zero balances will be cleared
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => {
+              const names = filteredPlayers
+                .filter((p) => selectedPlayerIds.has(p.id))
+                .map((p) => p.name)
+                .slice(0, 3)
+                .join(", ");
+              const extra = selectedPlayerIds.size > 3 ? ` +${selectedPlayerIds.size - 3} more` : "";
+              Alert.alert(
+                "End Season",
+                `End the current season for ${names}${extra}?\n\nThis will record a season summary and clear any zero or negative credit balances.`,
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "End Season",
+                    style: "destructive",
+                    onPress: () => endSeasonBulkMutation.mutate(Array.from(selectedPlayerIds)),
+                  },
+                ]
+              );
+            }}
+            disabled={endSeasonBulkMutation.isPending}
+            style={{ backgroundColor: Colors.dark.primary, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, opacity: endSeasonBulkMutation.isPending ? 0.6 : 1 }}
+          >
+            <Text style={{ color: Colors.dark.buttonText, fontSize: 14, fontWeight: "700" }}>
+              {endSeasonBulkMutation.isPending ? "Ending…" : "End Season"}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <PremiumAddPlayerFlow
         visible={showAddModal}

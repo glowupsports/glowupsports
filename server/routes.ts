@@ -58,6 +58,7 @@ import adminCreditIntegrityRouter from "./routes/admin-credit-integrity";
 import adminChatRouter from "./routes/admin-chat";
 import adminCourtBookingsRouter from "./routes/admin-court-bookings";
 import adminBroadcastRouter from "./routes/admin-broadcast";
+import adminSeasonsRouter from "./routes/admin-seasons";
 import playerCreditsRouter from "./routes/player-credits";
 import creditsV2Router from "./routes/credits-v2";
 import playerProgressRouter from "./routes/player-progress";
@@ -427,6 +428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(adminChatRouter);
   app.use(adminCourtBookingsRouter);
   app.use(adminBroadcastRouter);
+  app.use(adminSeasonsRouter);
   app.use(playerCreditsRouter);
   app.use(creditsV2Router);
   app.use(playerProgressRouter);
