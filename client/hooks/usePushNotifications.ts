@@ -92,6 +92,17 @@ export function usePushNotifications() {
               navigation.navigate('CourtBookingConfirmation', { sessionId: data.sessionId });
             }
             break;
+          case 'SeasonWrapUp':
+            navigation.navigate('SeasonWrapUp', {
+              seasonName: String(data.seasonName || ''),
+              sessionsAttended: Number(data.sessionsAttended) || 0,
+              xpEarned: Number(data.xpEarned) || 0,
+              levelLabel: String(data.levelLabel || ''),
+              levelFrom: data.levelFrom ? String(data.levelFrom) : undefined,
+              levelTo: data.levelTo ? String(data.levelTo) : undefined,
+              enrollmentStarted: data.enrollmentStarted ? String(data.enrollmentStarted) : undefined,
+            });
+            break;
           case 'court_booking_proof':
             if (data.sessionId) {
               navigation.navigate('CoachCourtBookingProof', {

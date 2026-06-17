@@ -119,6 +119,7 @@ import PrivacySettingsScreen from "@/player/screens/PrivacySettingsScreen";
 import PlayerTrainingScreen from "@/player/screens/PlayerTrainingScreen";
 import TrainingDetailScreen from "@/player/screens/TrainingDetailScreen";
 import CourtBookingConfirmationScreen from "@/player/screens/CourtBookingConfirmationScreen";
+import SeasonWrapUpScreen from "@/player/screens/SeasonWrapUpScreen";
 import SkillDetailScreen from "@/player/screens/SkillDetailScreen";
 import PlayerJourneyScreen from "@/player/screens/PlayerJourneyScreen";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -271,6 +272,15 @@ export type PlayerV2StackParamList = {
   Training: undefined;
   TrainingDetail: { sessionId: string };
   CourtBookingConfirmation: { sessionId: string };
+  SeasonWrapUp: {
+    seasonName: string;
+    sessionsAttended: number;
+    xpEarned: number;
+    levelLabel: string;
+    levelFrom?: string;
+    levelTo?: string;
+    enrollmentStarted?: string;
+  };
   SkillDetail: { domain: string };
   Journey: undefined;
   // Corporate
@@ -733,6 +743,7 @@ function PlayerV2StackWithDrawer() {
         <Stack.Screen name="Training" component={PlayerTrainingScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="TrainingDetail" component={TrainingDetailScreen} options={{ presentation: "card" }} />
         <Stack.Screen name="CourtBookingConfirmation" component={CourtBookingConfirmationScreen} options={{ presentation: "card", headerShown: true, headerTitle: "Court Booking", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.primary, headerTitleStyle: { color: Colors.dark.text, fontWeight: "600" } }} />
+        <Stack.Screen name="SeasonWrapUp" component={SeasonWrapUpScreen} options={{ presentation: "card", headerShown: false }} />
         <Stack.Screen name="SkillDetail" component={SkillDetailScreen} options={{ presentation: "card" }} />
         <Stack.Screen name="Journey" component={PlayerJourneyScreen} options={({ navigation }) => ({ presentation: "card", headerShown: true, headerTitle: "My Journey", headerStyle: { backgroundColor: Colors.dark.backgroundRoot }, headerTintColor: Colors.dark.text, headerBackTitle: "Back", headerLeft: () => (<HeaderButton onPress={() => navigation.goBack()}><Feather name="arrow-left" size={22} color={Colors.dark.text} /></HeaderButton>) })} />
 

@@ -1,10 +1,11 @@
 // Task #2117 — End Season system
 // Admin: manage academy seasons (list, create)
 // Coach/Admin: end season for one or many players
+// Task #2119 — Season Wrap-Up push notification + summary data
 
 import { Router, type Response } from "express";
 import { db } from "../db";
-import { sql, eq, and, isNull, inArray } from "drizzle-orm";
+import { sql, eq, and, isNull, inArray, gte, lte, sum } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -15,7 +16,16 @@ import {
   playerSeasonEnrollments,
   players,
   playerCreditBalance,
+  playerNotifications,
+  xpTransactions,
+  sessionPlayers,
+  sessions,
+  playerLevelEvents,
 } from "@shared/schema";
+import {
+  sendPushNotification,
+  getPlayerPushTokens,
+} from "../pushNotifications";
 
 // ── Season stats helper ────────────────────────────────────────────────────
 // For each enrollment ID passed, returns session attendance count and credits
@@ -221,22 +231,133 @@ router.post(
 
       const now = new Date();
 
-      // Skip players who already have an open enrollment for the active season —
-      // re-running end-season on them would close the enrollment we just created
-      // and insert a duplicate, accumulating stale rows for the same season.
-      const alreadyEnrolled = await db
-        .select({ playerId: playerSeasonEnrollments.playerId })
+      // ── Gather stats for the ending enrollment window (before closing) ────
+      // Single query serves double duty: gives us each player's enrollment startedAt
+      // for stats, AND lets us detect players already in the active season (idempotency guard).
+      const openEnrollments = await db
+        .select({
+          playerId: playerSeasonEnrollments.playerId,
+          seasonId: playerSeasonEnrollments.seasonId,
+          startedAt: playerSeasonEnrollments.startedAt,
+        })
         .from(playerSeasonEnrollments)
         .where(
           and(
             inArray(playerSeasonEnrollments.playerId, verifiedIds),
             eq(playerSeasonEnrollments.academyId, academyId),
-            eq(playerSeasonEnrollments.seasonId, activeSeason.id),
             isNull(playerSeasonEnrollments.endedAt),
           ),
         );
-      const alreadyEnrolledSet = new Set(alreadyEnrolled.map((r) => r.playerId));
+
+      const enrollmentByPlayer = new Map(openEnrollments.map((e) => [e.playerId, e.startedAt]));
+
+      // Skip players who already have an open enrollment for the active season —
+      // re-running end-season on them would close the enrollment we just created
+      // and insert a duplicate, accumulating stale rows for the same season.
+      const alreadyEnrolledSet = new Set(
+        openEnrollments.filter((e) => e.seasonId === activeSeason.id).map((e) => e.playerId),
+      );
       const toProcessIds = verifiedIds.filter((id) => !alreadyEnrolledSet.has(id));
+
+      // Fetch current ball/skill level for players being processed
+      const playerProfiles = toProcessIds.length > 0
+        ? await db
+          .select({ id: players.id, ballLevel: players.ballLevel, skillLevel: players.skillLevel, name: players.name })
+          .from(players)
+          .where(inArray(players.id, toProcessIds))
+        : [];
+      const playerProfileMap = new Map(playerProfiles.map((p) => [p.id, p]));
+
+      // Build per-player stats
+      interface PlayerSeasonStats {
+        playerId: string;
+        seasonName: string;
+        sessionsAttended: number;
+        xpEarned: number;
+        levelLabel: string;
+        levelFrom?: string;
+        levelTo?: string;
+        enrollmentStarted: string;
+      }
+
+      const playerStatsMap = new Map<string, PlayerSeasonStats>();
+
+      for (const playerId of toProcessIds) {
+        const startedAt = enrollmentByPlayer.get(playerId) ?? new Date(0);
+        const profile = playerProfileMap.get(playerId);
+
+        // Count sessions attended in the enrollment window
+        const attendedRows = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(sessionPlayers)
+          .innerJoin(sessions, eq(sessionPlayers.sessionId, sessions.id))
+          .where(
+            and(
+              eq(sessionPlayers.playerId, playerId),
+              sql`${sessionPlayers.attendanceStatus} IN ('present', 'late')`,
+              gte(sessions.startTime, startedAt),
+              lte(sessions.startTime, now),
+            ),
+          );
+        const sessionsAttended = attendedRows[0]?.count ?? 0;
+
+        // Sum XP earned in the enrollment window
+        const xpRows = await db
+          .select({ total: sum(xpTransactions.xpAmount) })
+          .from(xpTransactions)
+          .where(
+            and(
+              eq(xpTransactions.playerId, playerId),
+              gte(xpTransactions.createdAt, startedAt),
+              lte(xpTransactions.createdAt, now),
+            ),
+          );
+        const xpEarned = parseInt(String(xpRows[0]?.total ?? 0), 10) || 0;
+
+        // Find level events during the window to compute progression
+        const levelEventsInWindow = await db
+          .select({
+            fromBallLevel: playerLevelEvents.fromBallLevel,
+            fromSkillLevel: playerLevelEvents.fromSkillLevel,
+            toBallLevel: playerLevelEvents.toBallLevel,
+            toSkillLevel: playerLevelEvents.toSkillLevel,
+          })
+          .from(playerLevelEvents)
+          .where(
+            and(
+              eq(playerLevelEvents.playerId, playerId),
+              gte(playerLevelEvents.createdAt, startedAt),
+              lte(playerLevelEvents.createdAt, now),
+            ),
+          )
+          .orderBy(sql`${playerLevelEvents.createdAt} ASC`);
+
+        const currentBallLevel = profile?.ballLevel ?? "yellow";
+        const currentSkillLevel = profile?.skillLevel ?? 1;
+        const currentLevelLabel = `${currentBallLevel.charAt(0).toUpperCase() + currentBallLevel.slice(1)} Level ${currentSkillLevel}`;
+
+        let levelFrom: string | undefined;
+        let levelTo: string | undefined;
+        if (levelEventsInWindow.length > 0) {
+          const first = levelEventsInWindow[0];
+          const last = levelEventsInWindow[levelEventsInWindow.length - 1];
+          const fromBall = first.fromBallLevel ?? currentBallLevel;
+          const fromSkill = first.fromSkillLevel ?? currentSkillLevel;
+          levelFrom = `${fromBall.charAt(0).toUpperCase() + fromBall.slice(1)} Level ${fromSkill}`;
+          levelTo = `${last.toBallLevel.charAt(0).toUpperCase() + last.toBallLevel.slice(1)} Level ${last.toSkillLevel}`;
+        }
+
+        playerStatsMap.set(playerId, {
+          playerId,
+          seasonName: activeSeason.name,
+          sessionsAttended,
+          xpEarned,
+          levelLabel: currentLevelLabel,
+          levelFrom,
+          levelTo,
+          enrollmentStarted: startedAt.toISOString(),
+        });
+      }
 
       if (toProcessIds.length > 0) {
         // Wrap close + re-enroll in a transaction so the two steps are atomic.
@@ -277,6 +398,61 @@ router.post(
             sql`${playerCreditBalance.credits} = 0`,
           ),
         );
+
+      // ── Insert in-app notifications + send push for each player ────────────
+      // Manual insert is the single write to playerNotifications.
+      // sendPushNotification is called WITHOUT playerId to avoid a second insert.
+      for (const playerId of toProcessIds) {
+        const stats = playerStatsMap.get(playerId);
+        if (!stats) continue;
+
+        const progressLine = stats.levelFrom && stats.levelTo
+          ? `${stats.levelFrom} → ${stats.levelTo}`
+          : stats.levelLabel;
+
+        const notifTitle = `${stats.seasonName} — Season Wrap-Up`;
+        const notifBody = `You attended ${stats.sessionsAttended} session${stats.sessionsAttended !== 1 ? "s" : ""} and earned ${stats.xpEarned} XP. Tap to see your full summary.`;
+        const notifData = {
+          seasonName: stats.seasonName,
+          sessionsAttended: stats.sessionsAttended,
+          xpEarned: stats.xpEarned,
+          levelLabel: stats.levelLabel,
+          levelFrom: stats.levelFrom ?? "",
+          levelTo: stats.levelTo ?? "",
+          progressLine,
+          enrollmentStarted: stats.enrollmentStarted,
+          screen: "SeasonWrapUp",
+        };
+
+        // Insert in-app notification (single write path)
+        try {
+          await db.insert(playerNotifications).values({
+            playerId,
+            title: notifTitle,
+            body: notifBody,
+            type: "season_wrap_up",
+            data: notifData,
+          });
+        } catch (notifErr) {
+          console.error(`[admin-seasons] Failed to insert notification for player ${playerId}:`, notifErr);
+        }
+
+        // Send push notification (fire-and-forget, no playerId to avoid double insert)
+        try {
+          const tokens = await getPlayerPushTokens(playerId);
+          if (tokens.length > 0) {
+            await sendPushNotification(
+              tokens,
+              notifTitle,
+              `${stats.sessionsAttended} sessions · ${stats.xpEarned} XP earned this season`,
+              notifData,
+              // intentionally omit playerId — notification already inserted above
+            );
+          }
+        } catch (pushErr) {
+          console.warn(`[admin-seasons] Push delivery failed for player ${playerId} (non-fatal):`, pushErr);
+        }
+      }
 
       res.json({
         ok: true,

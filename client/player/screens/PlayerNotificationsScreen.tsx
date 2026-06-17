@@ -38,6 +38,7 @@ const NOTIFICATION_CONFIG: Record<string, { icon: string; color: string; iconSet
   friend_request: { icon: "person-add", color: "#00E5FF", iconSet: "ionicons" },
   friend_request_accepted: { icon: "people", color: Colors.dark.accentText, iconSet: "ionicons" },
   community_group_join: { icon: "people-circle", color: "#00E5FF", iconSet: "ionicons" },
+  season_wrap_up: { icon: "trophy", color: "#FFD700", iconSet: "ionicons" },
 };
 
 function getNotificationConfig(type: string) {
@@ -109,6 +110,16 @@ export default function PlayerNotificationsScreen() {
         if (groupId) {
           navigation.navigate("GroupDetail", { groupId, groupName });
         }
+      } else if (item.type === "season_wrap_up") {
+        navigation.navigate("SeasonWrapUp" as any, {
+          seasonName: String(item.data?.seasonName || ""),
+          sessionsAttended: Number(item.data?.sessionsAttended) || 0,
+          xpEarned: Number(item.data?.xpEarned) || 0,
+          levelLabel: String(item.data?.levelLabel || ""),
+          levelFrom: item.data?.levelFrom ? String(item.data.levelFrom) : undefined,
+          levelTo: item.data?.levelTo ? String(item.data.levelTo) : undefined,
+          enrollmentStarted: item.data?.enrollmentStarted ? String(item.data.enrollmentStarted) : undefined,
+        });
       }
     };
 
