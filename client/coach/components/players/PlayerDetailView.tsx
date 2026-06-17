@@ -2748,7 +2748,7 @@ export function PlayerDetailView({
               setShowScheduleExtraLesson(true);
             },
           }] : []),
-          ...(!isSupervisorReadOnly && (coach?.role === "head_coach" || user?.role === "academy_owner" || user?.role === "platform_owner" || user?.role === "admin") ? [{
+          ...((coach?.role === "head_coach" || user?.role === "academy_owner" || user?.role === "platform_owner" || user?.role === "admin") ? [{
             id: "end-season",
             label: "End Season",
             icon: "ribbon-outline" as ActionSheetItem["icon"],
