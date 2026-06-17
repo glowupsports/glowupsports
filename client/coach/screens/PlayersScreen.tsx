@@ -655,7 +655,7 @@ export default function PlayersScreen() {
       );
     }
     if (filterZeroCredits) {
-      result = result.filter((p) => (p.remainingCredits ?? 0) <= 0);
+      result = result.filter((p) => (p.remainingCredits ?? 0) === 0);
     }
     if (filterLevel) {
       result = result.filter((p) => getEffectiveBallLevel(p.ballLevel) === filterLevel);
@@ -817,7 +817,7 @@ export default function PlayersScreen() {
               juniorAssessmentBadge={null}
             />
           </View>
-          <View style={{ position: "absolute", top: 12, right: 16, width: 24, height: 24, borderRadius: 12, backgroundColor: isSelected ? Colors.dark.primary : Colors.dark.cardBorder + "80", borderWidth: 2, borderColor: isSelected ? Colors.dark.primary : Colors.dark.textMuted, alignItems: "center", justifyContent: "center" }}>
+          <View style={{ position: "absolute", top: 12, right: 16, width: 24, height: 24, borderRadius: 12, backgroundColor: isSelected ? Colors.dark.primary : Colors.dark.border + "80", borderWidth: 2, borderColor: isSelected ? Colors.dark.primary : Colors.dark.textMuted, alignItems: "center", justifyContent: "center" }}>
             {isSelected ? <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} /> : null}
           </View>
         </Pressable>
@@ -1281,8 +1281,8 @@ export default function PlayersScreen() {
         </Pressable>
       ) : null}
 
-      {/* === BULK SELECT BAR === */}
-      {rosterTab === "active" ? (
+      {/* === BULK SELECT BAR (head_coach / academy_owner / admin only) === */}
+      {rosterTab === "active" && (coach?.role === "head_coach" || coach?.role === "academy_owner" || coach?.role === "admin") ? (
         <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}>
           <Pressable
             onPress={() => {
@@ -1290,7 +1290,7 @@ export default function PlayersScreen() {
               setSelectedPlayerIds(new Set());
               setFilterZeroCredits(false);
             }}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: bulkSelectMode ? Colors.dark.primary + "30" : Colors.dark.cardBorder + "30", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: bulkSelectMode ? Colors.dark.primary : "transparent" }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: bulkSelectMode ? Colors.dark.primary + "30" : Colors.dark.border + "30", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: bulkSelectMode ? Colors.dark.primary : "transparent" }}
           >
             <Ionicons name={bulkSelectMode ? "checkmark-circle" : "checkmark-circle-outline"} size={15} color={bulkSelectMode ? Colors.dark.primary : Colors.dark.textSecondary} />
             <Text style={{ color: bulkSelectMode ? Colors.dark.primary : Colors.dark.textSecondary, fontSize: 13, fontWeight: "600" }}>
@@ -1304,7 +1304,7 @@ export default function PlayersScreen() {
                   setFilterZeroCredits(!filterZeroCredits);
                   setSelectedPlayerIds(new Set());
                 }}
-                style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: filterZeroCredits ? "#CCFF0020" : Colors.dark.cardBorder + "30", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: filterZeroCredits ? "#CCFF00" : "transparent" }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: filterZeroCredits ? "#CCFF0020" : Colors.dark.border + "30", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: filterZeroCredits ? "#CCFF00" : "transparent" }}
               >
                 <Ionicons name="ticket-outline" size={14} color={filterZeroCredits ? "#CCFF00" : Colors.dark.textSecondary} />
                 <Text style={{ color: filterZeroCredits ? "#CCFF00" : Colors.dark.textSecondary, fontSize: 13, fontWeight: "600" }}>0 Credits</Text>
@@ -1318,7 +1318,7 @@ export default function PlayersScreen() {
                       setSelectedPlayerIds(new Set(filteredPlayers.map((p) => p.id)));
                     }
                   }}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.dark.cardBorder + "30", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.dark.border + "30", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }}
                 >
                   <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, fontWeight: "600" }}>
                     {selectedPlayerIds.size === filteredPlayers.length ? "Deselect All" : "Select All"}
@@ -1530,8 +1530,8 @@ export default function PlayersScreen() {
       )}
       </Animated.View>
 
-      {/* === END SEASON ACTION BAR === */}
-      {bulkSelectMode && selectedPlayerIds.size > 0 ? (
+      {/* === END SEASON ACTION BAR (head_coach / academy_owner / admin only) === */}
+      {bulkSelectMode && selectedPlayerIds.size > 0 && (coach?.role === "head_coach" || coach?.role === "academy_owner" || coach?.role === "admin") ? (
         <View style={{ position: "absolute", left: 16, right: 16, bottom: TAB_BAR_HEIGHT + insets.bottom + 12, backgroundColor: Colors.dark.backgroundCard, borderRadius: 16, padding: 12, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: Colors.dark.primary + "40", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "700" }}>

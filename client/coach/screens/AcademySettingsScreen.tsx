@@ -879,7 +879,7 @@ export default function AcademySettingsScreen() {
           <Text style={styles.emptyText ?? { color: Colors.dark.textSecondary, fontSize: 14, textAlign: "center", paddingVertical: Spacing.md }}>No seasons yet</Text>
         ) : (
           seasonsData.seasons.map((season, idx) => (
-            <View key={season.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm, borderBottomWidth: idx < (seasonsData.seasons.length - 1) ? 1 : 0, borderBottomColor: Colors.dark.cardBorder + "40" }}>
+            <View key={season.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm, borderBottomWidth: idx < (seasonsData.seasons.length - 1) ? 1 : 0, borderBottomColor: Colors.dark.border + "40" }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>{season.name}</Text>
                 <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>
@@ -928,7 +928,7 @@ export default function AcademySettingsScreen() {
                 )}
               </Pressable>
               <Pressable
-                style={{ flex: 1, backgroundColor: Colors.dark.cardBorder + "30", borderRadius: 8, paddingVertical: 10, alignItems: "center" }}
+                style={{ flex: 1, backgroundColor: Colors.dark.border + "30", borderRadius: 8, paddingVertical: 10, alignItems: "center" }}
                 onPress={() => setShowNewSeason(false)}
               >
                 <Text style={{ color: Colors.dark.textSecondary, fontWeight: "600" }}>Cancel</Text>

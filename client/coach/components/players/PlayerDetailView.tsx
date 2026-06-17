@@ -1118,6 +1118,7 @@ export function PlayerDetailView({
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showCreateInvoiceModal, setShowCreateInvoiceModal] = useState(false);
   const [showScheduleExtraLesson, setShowScheduleExtraLesson] = useState(false);
+  const [showSeasonHistory, setShowSeasonHistory] = useState(false);
   const [extraLessonWizardConfig, setExtraLessonWizardConfig] = useState<
     | {
         date: Date;
@@ -1881,10 +1882,11 @@ export function PlayerDetailView({
               </View>
             ) : null}
             {playerSeasonData?.currentSeason ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#CCFF0015", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4, borderWidth: 1, borderColor: "#CCFF0030" }}>
+              <Pressable onPress={() => setShowSeasonHistory(true)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#CCFF0015", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4, borderWidth: 1, borderColor: "#CCFF0030" }}>
                 <Ionicons name="calendar-outline" size={11} color="#CCFF00" />
                 <Text style={{ color: "#CCFF00", fontSize: 11, fontWeight: "600" }}>{playerSeasonData.currentSeason.seasonName}</Text>
-              </View>
+                <Ionicons name="chevron-down" size={10} color="#CCFF0080" />
+              </Pressable>
             ) : null}
           </View>
 
@@ -2746,7 +2748,7 @@ export function PlayerDetailView({
               setShowScheduleExtraLesson(true);
             },
           }] : []),
-          ...(!isSupervisorReadOnly ? [{
+          ...(!isSupervisorReadOnly && (coach?.role === "head_coach" || user?.role === "academy_owner" || user?.role === "admin") ? [{
             id: "end-season",
             label: "End Season",
             icon: "ribbon-outline" as ActionSheetItem["icon"],
@@ -2793,6 +2795,56 @@ export function PlayerDetailView({
           }] as ActionSheetItem[] : []),
         ]}
       />
+
+      {/* Season history sheet */}
+      <Modal visible={showSeasonHistory} transparent animationType="slide" onRequestClose={() => setShowSeasonHistory(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: "#00000088" }} onPress={() => setShowSeasonHistory(false)}>
+          <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: Colors.dark.backgroundCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
+              <Ionicons name="ribbon-outline" size={18} color="#CCFF00" style={{ marginRight: 8 }} />
+              <Text style={{ color: Colors.dark.text, fontSize: 16, fontWeight: "700", flex: 1 }}>Season History</Text>
+              <Pressable onPress={() => setShowSeasonHistory(false)}>
+                <Ionicons name="close" size={20} color={Colors.dark.textSecondary} />
+              </Pressable>
+            </View>
+            {playerSeasonData?.currentSeason ? (
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 6 }}>CURRENT</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#CCFF0010", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#CCFF0025" }}>
+                  <Ionicons name="flash" size={14} color="#CCFF00" style={{ marginRight: 8 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: "#CCFF00", fontSize: 13, fontWeight: "700" }}>{playerSeasonData.currentSeason.seasonName}</Text>
+                    <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 2 }}>
+                      Since {new Date(playerSeasonData.currentSeason.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    </Text>
+                  </View>
+                  <View style={{ backgroundColor: "#CCFF0020", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Text style={{ color: "#CCFF00", fontSize: 11, fontWeight: "700" }}>Active</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+            {playerSeasonData?.history && playerSeasonData.history.length > 0 ? (
+              <View>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 6, marginTop: 8 }}>PAST SEASONS</Text>
+                {playerSeasonData.history.map((h, i) => (
+                  <View key={h.enrollmentId} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: i < playerSeasonData.history.length - 1 ? 1 : 0, borderBottomColor: Colors.dark.border + "30" }}>
+                    <Ionicons name="calendar-outline" size={14} color={Colors.dark.textSecondary} style={{ marginRight: 8 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: Colors.dark.text, fontSize: 13, fontWeight: "600" }}>{h.seasonName}</Text>
+                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 1 }}>
+                        {new Date(h.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : playerSeasonData?.currentSeason ? null : (
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 13, textAlign: "center", paddingVertical: 20 }}>No season history yet</Text>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
 
       <MergePlayerModal
         visible={showMergeModal}

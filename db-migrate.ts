@@ -1072,7 +1072,10 @@ async function run() {
         gen_random_uuid(),
         a.id,
         'Season 2025-2026',
-        '2025-01-01',
+        COALESCE(
+          (SELECT DATE(MIN(sess.start_time)) FROM sessions sess WHERE sess.academy_id = a.id),
+          '2025-01-01'
+        )::DATE,
         true
       FROM academies a
       WHERE NOT EXISTS (

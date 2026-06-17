@@ -1433,21 +1433,63 @@ export default function PlayerScheduleScreen() {
         ) : null}
 
         {/* Season summary card (sessions tab only) */}
-        {activeTab === "sessions" && seasonData?.currentSeason ? (
-          <Animated.View entering={FadeIn.duration(300)} style={{ marginHorizontal: 16, marginBottom: 8 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#CCFF0010", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: "#CCFF0025" }}>
-              <Ionicons name="ribbon-outline" size={16} color="#CCFF00" style={{ marginRight: 8 }} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: "#CCFF00", fontSize: 12, fontWeight: "700", letterSpacing: 0.5 }}>
-                  {seasonData.currentSeason.seasonName}
-                </Text>
-                <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 1 }}>
-                  Since {new Date(seasonData.currentSeason.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                </Text>
+        {activeTab === "sessions" && seasonData?.currentSeason ? (() => {
+          const enrollmentStart = new Date(seasonData.currentSeason.startedAt);
+          const seasonSessions = Array.isArray(rawSessions)
+            ? rawSessions.filter((s) => s.session?.startTime && new Date(s.session.startTime) >= enrollmentStart)
+            : [];
+          const attended = seasonSessions.filter((s) => s.attendanceStatus === "present").length;
+          const total = seasonSessions.length;
+          const attendancePct = total > 0 ? Math.round((attended / total) * 100) : null;
+          const privateCt = seasonSessions.filter((s) => s.session?.sessionType === "private").length;
+          const groupCt = seasonSessions.filter((s) => s.session?.sessionType === "group").length;
+          return (
+            <Animated.View entering={FadeIn.duration(300)} style={{ marginHorizontal: 16, marginBottom: 8 }}>
+              <View style={{ backgroundColor: "#CCFF0010", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: "#CCFF0025" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: total > 0 ? 8 : 0 }}>
+                  <Ionicons name="ribbon-outline" size={15} color="#CCFF00" style={{ marginRight: 7 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: "#CCFF00", fontSize: 12, fontWeight: "700", letterSpacing: 0.5 }}>
+                      {seasonData.currentSeason.seasonName}
+                    </Text>
+                    <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 1 }}>
+                      Since {new Date(seasonData.currentSeason.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    </Text>
+                  </View>
+                  {attendancePct !== null ? (
+                    <View style={{ backgroundColor: "#CCFF0020", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ color: "#CCFF00", fontSize: 12, fontWeight: "700" }}>{attendancePct}%</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {total > 0 ? (
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <View style={{ flex: 1, backgroundColor: "#FFFFFF08", borderRadius: 8, paddingVertical: 6, alignItems: "center" }}>
+                      <Text style={{ color: Colors.dark.text, fontSize: 15, fontWeight: "700" }}>{attended}</Text>
+                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 10, marginTop: 1 }}>Attended</Text>
+                    </View>
+                    {privateCt > 0 ? (
+                      <View style={{ flex: 1, backgroundColor: "#FFFFFF08", borderRadius: 8, paddingVertical: 6, alignItems: "center" }}>
+                        <Text style={{ color: Colors.dark.text, fontSize: 15, fontWeight: "700" }}>{privateCt}</Text>
+                        <Text style={{ color: Colors.dark.textSecondary, fontSize: 10, marginTop: 1 }}>Private</Text>
+                      </View>
+                    ) : null}
+                    {groupCt > 0 ? (
+                      <View style={{ flex: 1, backgroundColor: "#FFFFFF08", borderRadius: 8, paddingVertical: 6, alignItems: "center" }}>
+                        <Text style={{ color: Colors.dark.text, fontSize: 15, fontWeight: "700" }}>{groupCt}</Text>
+                        <Text style={{ color: Colors.dark.textSecondary, fontSize: 10, marginTop: 1 }}>Group</Text>
+                      </View>
+                    ) : null}
+                    <View style={{ flex: 1, backgroundColor: "#FFFFFF08", borderRadius: 8, paddingVertical: 6, alignItems: "center" }}>
+                      <Text style={{ color: Colors.dark.text, fontSize: 15, fontWeight: "700" }}>{total}</Text>
+                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 10, marginTop: 1 }}>Total</Text>
+                    </View>
+                  </View>
+                ) : null}
               </View>
-            </View>
-          </Animated.View>
-        ) : null}
+            </Animated.View>
+          );
+        })() : null}
 
         {/* Hero card (sessions tab only) */}
         {activeTab === "sessions" ? (
