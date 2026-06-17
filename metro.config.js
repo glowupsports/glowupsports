@@ -22,9 +22,11 @@ const healthConnectInstalled = fs.existsSync(
 // serializer. It processes all 2400+ modules single-threaded and adds
 // several minutes of overhead. Expo Go static deployments never upload
 // source maps to Sentry anyway, so the work is wasted.
-// Dev builds (no --no-dev flag) keep the full Sentry config as normal.
+// In the Replit dev container (REPLIT_DEV_DOMAIN is set), skip Sentry to
+// reduce cold-start bundle time by ~8 minutes.
 const isStaticBuild = process.argv.includes("--no-dev");
-const config = isStaticBuild
+const isReplitDev = !!process.env.REPLIT_DEV_DOMAIN;
+const config = (isStaticBuild || isReplitDev)
   ? getDefaultConfig(__dirname)
   : getSentryExpoConfig(__dirname);
 
@@ -117,5 +119,13 @@ config.resolver = {
     return context.resolveRequest(context, moduleName, platform);
   },
 };
+
+// Metro cache lives in /tmp by default, which is wiped on every Replit
+// container restart. Point it to a workspace directory so it persists
+// across sessions and cuts subsequent cold starts by ~5 minutes.
+const { FileStore } = require("metro-cache");
+config.cacheStores = [
+  new FileStore({ root: path.resolve(__dirname, ".metro-cache") }),
+];
 
 module.exports = config;
