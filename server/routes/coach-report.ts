@@ -224,15 +224,18 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
     !paid.has(s.id) && !excluded.has(s.id) && s.status !== "cancelled"
   );
 
-  // Betaald: marked as paid
-  const betaaldSessions = sessions.filter(s => paid.has(s.id));
+  // Betaald (public): paid AND not excluded — hidden sessions stay hidden even when paid
+  const betaaldSessions = sessions.filter(s => paid.has(s.id) && !excluded.has(s.id));
+  // Betaald (manage/admin): all paid sessions including excluded, so admin can fully manage them
+  const manageBetaaldSessions = sessions.filter(s => paid.has(s.id));
 
   // In manage view, the "Openstaand" tab shows everything that is NOT paid
   // (including excluded/cancelled so admin can manage them)
   const manageOpenstaand = sessions.filter(s => !paid.has(s.id));
 
   const openstaandTotal = openstaandSessions.length * rate;
-  const betaaldTotal = betaaldSessions.length * rate;
+  const betaaldDisplaySessions = isManage ? manageBetaaldSessions : betaaldSessions;
+  const betaaldTotal = betaaldDisplaySessions.length * rate;
 
   // ── build Openstaand tab body (week/day grouped) ──────────────────────────
   function buildOpenstaandBody(tabSessions: SessionRow[]): string {
@@ -366,7 +369,7 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
   }
 
   const openstaandBody = buildOpenstaandBody(isManage ? manageOpenstaand : openstaandSessions);
-  const betaaldBody = buildBetaaldBody(betaaldSessions);
+  const betaaldBody = buildBetaaldBody(isManage ? manageBetaaldSessions : betaaldSessions);
 
   const manageNote = isManage
     ? `<div class="manage-banner">
@@ -825,7 +828,7 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
     <div class="summary-total-item">
       <div class="summary-total-label">Paid</div>
       <div class="summary-total-amount color-green" id="betaald-amount">${currency} ${betaaldTotal.toLocaleString()}</div>
-      <div class="summary-total-count"><span id="betaald-count">${betaaldSessions.length}</span> sessions</div>
+      <div class="summary-total-count"><span id="betaald-count">${betaaldDisplaySessions.length}</span> sessions</div>
     </div>
   </div>
 </div>
@@ -840,7 +843,7 @@ ${isManage ? `<div id="manage-error-banner" style="display:none;background:#7f1d
   </button>
   <button class="tab-btn" id="tab-btn-betaald">
     Paid
-    <span class="tab-count">${betaaldSessions.length}</span>
+    <span class="tab-count">${betaaldDisplaySessions.length}</span>
   </button>
 </div>
 
