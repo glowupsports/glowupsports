@@ -6,8 +6,8 @@ channel = "stable-24_05"
 packages = ["imagemagick"]
 
 [deployment]
-deploymentTarget = "cloudrun"
-build = ["sh", "-c", "npm run expo:static:build && npm run server:build"]
+deploymentTarget = "autoscale"
+build = ["sh", "-c", "npm run expo:static:build && EXPO_PUBLIC_DOMAIN=${REPLIT_INTERNAL_APP_DOMAIN:-glow-up-sports--ltvjeugd.replit.app} npx expo export --platform web --output-dir dist && npm run server:build"]
 run = ["npm", "run", "server:prod"]
 
 [env]

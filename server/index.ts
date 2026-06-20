@@ -864,7 +864,11 @@ function configureExpoAndLanding(app: express.Application) {
       }
       const distIndexPath = path.resolve(process.cwd(), "dist", "index.html");
       if (fs.existsSync(distIndexPath)) {
-        return res.sendFile(distIndexPath);
+        const html = fs.readFileSync(distIndexPath, 'utf-8')
+          .replace(/%WEB_TITLE%/g, 'Glow Up Sports')
+          .replace(/%LANG_ISO_CODE%/g, 'en');
+        res.setHeader('Content-Type', 'text/html');
+        return res.send(html);
       }
       return serveLandingPage({
         req,
