@@ -347,12 +347,17 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
 
     let body = `<div id="betaald-list" class="betaald-list">`;
     for (const s of sorted) {
+      const isHidden = excluded.has(s.id);
       let buttons = "";
       if (isManage) {
         buttons = `<button
           class="toggle-btn btn-unpay"
         >Mark Unpaid</button>`;
       }
+
+      const hiddenBadge = (isManage && isHidden)
+        ? `<span style="background:#6B21A8;color:#E9D5FF;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.5px;">HIDDEN</span>`
+        : "";
 
       body += `
         <div class="session-row paid-row" data-id="${s.id}">
@@ -361,6 +366,7 @@ function buildHTML(sessions: SessionRow[], state: ReportState, isManage: boolean
           <span class="cell-badge" style="${typeBadgeStyle(s.session_type)}">${typeLabel(s.session_type)}</span>
           <span class="cell-earned">${currency} ${rate}</span>
           <span class="paid-badge">Paid</span>
+          ${hiddenBadge}
           ${buttons}
         </div>`;
     }
@@ -936,6 +942,22 @@ router.post(["/coach-overview/dean/:token/exclude", "/api/coach-report/dean/:tok
     console.error("[CoachReport] Toggle error:", err);
     return res.status(500).json({ error: "Internal error" });
   }
+});
+
+// TEMP debug — returns raw state JSON (manage-token protected)
+router.get(["/coach-overview/dean/:token/state", "/api/coach-report/dean/:token/state"], async (req: Request, res: Response) => {
+  const { token } = req.params;
+  const manageParam = req.query["manage"] as string | undefined;
+  const manageToken = getManageToken().trim();
+  const decodedManage = manageParam ? decodeURIComponent(manageParam).trim() : undefined;
+  if (token !== getPublicToken().trim() || !manageToken || decodedManage !== manageToken) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  const state = await loadState();
+  const paidSet = new Set(state.paidSessionIds);
+  const exclSet = new Set(state.excludedSessionIds);
+  const both = state.paidSessionIds.filter(id => exclSet.has(id));
+  return res.json({ paid: state.paidSessionIds.length, excluded: state.excludedSessionIds.length, paidAndHidden: both.length, paidAndHiddenIds: both });
 });
 
 router.post(["/coach-overview/dean/:token/pay", "/api/coach-report/dean/:token/pay"], async (req: Request, res: Response) => {
