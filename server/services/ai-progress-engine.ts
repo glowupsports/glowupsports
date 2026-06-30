@@ -49,7 +49,7 @@ async function callOpenAIWithBudget(
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       messages: [
         { role: "system", content: actualSystemPrompt },
         { role: "user", content: actualUserPrompt },
@@ -62,7 +62,7 @@ async function callOpenAIWithBudget(
       logAiCall({
         userId: context.userId ?? null,
         featureType: context.featureType ?? "other",
-        model: "gpt-4o-mini",
+        model: "gpt-5-mini",
         promptTokens: response.usage?.prompt_tokens ?? 0,
         completionTokens: response.usage?.completion_tokens ?? 0,
         totalTokens: response.usage?.total_tokens ?? 0,

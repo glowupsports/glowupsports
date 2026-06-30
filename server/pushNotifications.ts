@@ -4043,7 +4043,7 @@ Return ONLY valid JSON, no markdown:
           const systemPrompt = "You are an expert tennis/sports AI coach generating concise, personalised weekly focus digests for players. Be specific, data-driven, and encouraging. Never use emojis. Return only valid JSON.";
 
           const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-5-mini",
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
@@ -4056,7 +4056,7 @@ Return ONLY valid JSON, no markdown:
           logAiCall({
             userId: null,
             featureType: "notification",
-            model: "gpt-4o-mini",
+            model: "gpt-5-mini",
             promptTokens: response.usage?.prompt_tokens ?? 0,
             completionTokens: response.usage?.completion_tokens ?? 0,
             totalTokens: response.usage?.total_tokens ?? 0,

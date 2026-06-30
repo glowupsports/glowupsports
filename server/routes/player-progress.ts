@@ -2785,7 +2785,7 @@ import { getPlayerHealthSnapshot } from "./player-health";
         let reply: string | null = null;
         try {
           const response = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-5-mini",
             messages: [
               { role: "system", content: systemPrompt },
               ...safeMessages,
@@ -2797,7 +2797,7 @@ import { getPlayerHealthSnapshot } from "./player-health";
           logAiCall({
             userId: req.user!.userId,
             featureType: "chat",
-            model: "gpt-4o-mini",
+            model: "gpt-5-mini",
             promptTokens: response.usage?.prompt_tokens ?? 0,
             completionTokens: response.usage?.completion_tokens ?? 0,
             totalTokens: response.usage?.total_tokens ?? 0,
@@ -3291,7 +3291,7 @@ import { getPlayerHealthSnapshot } from "./player-health";
         });
 
         const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+          model: "gpt-5-mini",
           messages: [
             { role: "system", content: systemPrompt },
             ...safeMessages,
@@ -3306,7 +3306,7 @@ import { getPlayerHealthSnapshot } from "./player-health";
         logAiCall({
           userId: req.user!.userId,
           featureType: "chat",
-          model: "gpt-4o-mini",
+          model: "gpt-5-mini",
           promptTokens: usage?.prompt_tokens ?? 0,
           completionTokens: usage?.completion_tokens ?? 0,
           totalTokens: usage?.total_tokens ?? 0,
@@ -4176,7 +4176,7 @@ router.post(
           });
 
           const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-5-mini",
             messages: [
               {
                 role: "system",

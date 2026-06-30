@@ -8,7 +8,7 @@ import { z } from "zod";
 
 const router = Router();
 
-const GPT4O_MINI_COST_PER_1K_TOKENS = 0.00015;
+const GPT5_MINI_COST_PER_1K_TOKENS = 0.00015;
 
 function getStartOfMonth(): Date {
   const d = new Date();
@@ -51,7 +51,7 @@ router.get(
       const todayTotal = todayTotalResult[0]?.total ?? 0;
       const monthTotal = monthTotalResult[0]?.total ?? 0;
       const monthTokens = Number(monthTotalResult[0]?.tokens ?? 0);
-      const estimatedCostEur = (monthTokens / 1000) * GPT4O_MINI_COST_PER_1K_TOKENS;
+      const estimatedCostEur = (monthTokens / 1000) * GPT5_MINI_COST_PER_1K_TOKENS;
 
       const topUsersResult = await db
         .select({
@@ -196,7 +196,7 @@ router.get(
         const tokensUsed = Number(usage?.totalTokens ?? 0);
         const totalCalls = Number(usage?.totalCalls ?? 0);
         const budget = academy.monthlyTokenBudget ?? null;
-        const costEstimate = Math.round((tokensUsed / 1000) * GPT4O_MINI_COST_PER_1K_TOKENS * 100) / 100;
+        const costEstimate = Math.round((tokensUsed / 1000) * GPT5_MINI_COST_PER_1K_TOKENS * 100) / 100;
         const budgetRemaining = budget !== null ? Math.max(0, budget - tokensUsed) : null;
         const percentUsed = budget && budget > 0 ? Math.min(100, Math.round((tokensUsed / budget) * 100)) : null;
         const budgetStatus: "ok" | "warning" | "exhausted" | "unlimited" =

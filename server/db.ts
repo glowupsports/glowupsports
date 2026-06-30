@@ -514,7 +514,7 @@ pool.query('SELECT 1').then(async () => {
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id VARCHAR REFERENCES users(id) ON DELETE SET NULL,
         feature_type TEXT NOT NULL,
-        model TEXT NOT NULL DEFAULT 'gpt-4o-mini',
+        model TEXT NOT NULL DEFAULT 'gpt-5-mini',
         prompt_tokens INTEGER DEFAULT 0,
         completion_tokens INTEGER DEFAULT 0,
         total_tokens INTEGER DEFAULT 0,

@@ -186,7 +186,7 @@ async function generateWithOpenAI(
   prompt: string,
 ): Promise<ReleaseNoteSlide[]> {
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
     response_format: { type: "json_object" },
     temperature: 0.4,
     messages: [

@@ -403,7 +403,7 @@ export default function AiUsageScreen() {
           <StatCard
             label="Est. Cost"
             value={`€${month.estimatedCostEur.toFixed(2)}`}
-            sub="gpt-4o-mini rate"
+            sub="gpt-5-mini rate"
             color={Colors.dark.gold}
           />
         </View>

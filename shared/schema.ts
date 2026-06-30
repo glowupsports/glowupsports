@@ -7969,7 +7969,7 @@ export const aiUsageLogs = pgTable("ai_usage_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id"),
   featureType: text("feature_type").notNull().$type<AiFeatureType>(),
-  model: text("model").notNull().default("gpt-4o-mini"),
+  model: text("model").notNull().default("gpt-5-mini"),
   promptTokens: integer("prompt_tokens").default(0),
   completionTokens: integer("completion_tokens").default(0),
   totalTokens: integer("total_tokens").default(0),
