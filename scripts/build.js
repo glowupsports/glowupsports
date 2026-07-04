@@ -153,7 +153,7 @@ async function startMetro(expoPublicDomain) {
 
 async function downloadFile(url, outputPath) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 300_000);
+  const timeoutId = setTimeout(() => controller.abort(), 600_000);
 
   try {
     console.log(`Downloading: ${url}`);
@@ -178,7 +178,7 @@ async function downloadFile(url, outputPath) {
     }
 
     if (error.name === "AbortError") {
-      throw new Error(`Download timeout after 5m: ${url}`);
+      throw new Error(`Download timeout after 10m: ${url}`);
     }
     throw error;
   } finally {
@@ -211,7 +211,7 @@ async function downloadBundle(platform, timestamp) {
 
 async function downloadManifest(platform) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 300_000);
+  const timeoutId = setTimeout(() => controller.abort(), 600_000);
 
   try {
     console.log(`Fetching ${platform} manifest...`);
@@ -230,7 +230,7 @@ async function downloadManifest(platform) {
   } catch (error) {
     if (error.name === "AbortError") {
       throw new Error(
-        `Manifest download timeout after 5m for platform: ${platform}`,
+        `Manifest download timeout after 10m for platform: ${platform}`,
       );
     }
     throw error;
@@ -508,7 +508,7 @@ async function main() {
 
   await startMetro(domain);
 
-  const downloadTimeout = 300000;
+  const downloadTimeout = 600000;
   const downloadPromise = downloadBundlesAndManifests(timestamp);
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => {
