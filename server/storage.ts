@@ -10,7 +10,7 @@ import { desc, asc } from "drizzle-orm";
 import { users, type User, type InsertUser, corporateAccounts, corporateMembers, corporateCreditTransactions, type CorporateAccount, type InsertCorporateAccount, type CorporateMember, type InsertCorporateMember, type CorporateCreditTransaction, academies, academyApplications, invites, joinRequests, academyTransferRequests, coachInvitations, type Academy, type AcademyApplication, type InsertAcademyApplication, type Invite, type InsertInvite, type JoinRequest, type InsertJoinRequest, type AcademyTransferRequest, type InsertAcademyTransferRequest, type CoachInvitation, type InsertCoachInvitation, coaches, locations, courts, players, packages, sessions, sessionPlayers, playerHolidays, sessionFeedback, auditLogs, offlineQueue, playerNotes, playerProgress, sessionTemplates, coachNotifications, recurringSeries, coachingSeries, seriesPlayers, type CoachingSeries, type InsertCoachingSeries, type SeriesPlayer, type InsertSeriesPlayer, playerSessionCancellations, type PlayerSessionCancellation, type InsertPlayerSessionCancellation, skillDomains, playerSkillState, sessionSkillObservations, levelRequirements, coachStatsRollup, playerProgressFlags, domainAssessments, xpTransactions, coachXpTransactions, conversations, conversationParticipants, messages, messageReactions, communityGroups, groupMembers, familyGroups, familyMembers, coachCourtPreferences, coachCourtRules, locationTravelTimes, coachAvailability, availabilityExceptions, coachSettings, bookingRequests, coachTimeBlocks, playerMatches, playerConnections, type PlayerConnection, playerInvites, type PlayerInvite, type InsertPlayerInvite, academySettings, academyInvites, coachAcademyMemberships, coachFreelanceProfiles, type CoachFreelanceProfile, type InsertCoachFreelanceProfile, academyOwnerProfiles, pushDeviceTokens, notificationPreferences, scheduledNotifications, billingAccounts, subscriptionPlans, subscriptions, invoices, payments, refunds, playerSubscriptions, creditPackageTemplates, type PackageTemplate, type InsertPackageTemplate, sessionRatings, coachReviews, reviewResponses, reviewFlags, reviewPrompts, coachReviewStats, type CoachReview, type ReviewResponse, type ReviewFlag, type ReviewPrompt, type CoachReviewStats, academyPricing, coachContracts, type AcademyPricing, type InsertAcademyPricing, type CoachContract, type InsertCoachContract, courtAvailability, courtAvailabilitySnapshots, courtBookings, type CourtAvailability, type CourtBooking, type InsertCourtBooking, type InsertAcademy, type Coach, type InsertCoach, type Location, type InsertLocation, type Court, type InsertCourt, type Player, type InsertPlayer, type Session, type InsertSession, type SessionPlayer, type InsertSessionPlayer, type PlayerHoliday, type InsertPlayerHoliday, type SessionFeedback, type InsertSessionFeedback, type AuditLog, type InsertAuditLog, type OfflineQueue, type InsertOfflineQueue, type PlayerNote, type InsertPlayerNote, type PlayerProgress, type InsertPlayerProgress, type Package, type InsertPackage, type SessionTemplate, type InsertSessionTemplate, type CoachNotification, type InsertCoachNotification, type SkillDomain, type InsertSkillDomain, type PlayerSkillState, type InsertPlayerSkillState, type SessionSkillObservation, type InsertSessionSkillObservation, type LevelRequirement, type InsertLevelRequirement, type CoachStatsRollup, type InsertCoachStatsRollup, type PlayerProgressFlag, type InsertPlayerProgressFlag, type DomainAssessment, type InsertDomainAssessment, type XpTransaction, type InsertXpTransaction, type CoachXpTransaction, type InsertCoachXpTransaction, type RecurringSeries, type InsertRecurringSeries, type Conversation, type InsertConversation, type ConversationParticipant, type InsertConversationParticipant, type Message, type InsertMessage, type MessageReaction, type InsertMessageReaction, type CoachCourtPreference, type CoachCourtRules, type CoachAvailability, type InsertCoachAvailability, type BookingRequest, type InsertBookingRequest, type AcademySettings, type InsertAcademySettings, type AcademyInvite, type InsertAcademyInvite, type AcademyOwnerProfile, type InsertAcademyOwnerProfile, type CoachAcademyMembership, type InsertCoachAcademyMembership, type PushDeviceToken, type InsertPushDeviceToken, type NotificationPreference, type InsertNotificationPreference, type ScheduledNotification, type InsertScheduledNotification, type BillingAccount, type InsertBillingAccount, type SubscriptionPlan, type Subscription, type InsertSubscription, type Invoice, type InsertInvoice, type Payment, type InsertPayment, type Refund, type InsertRefund, type PlayerSubscription, type InsertPlayerSubscription, coachPayouts, type CoachPayout, type InsertCoachPayout, platformConfig, type PlatformConfig, diagnosticReports, type DiagnosticReport, type InsertDiagnosticReport, parentPlayerRelations, parentSettings, paymentReminders, coachPaymentRules, coachEarnings, type ParentPlayerRelation, type InsertParentPlayerRelation, type ParentSettings, type InsertParentSettings, type PaymentReminder, type InsertPaymentReminder, creditTransactions, type CreditTransaction, type InsertCreditTransaction, creditLots, creditLedgerV2, playerCreditBalance, playerMoneyWallet, inSessionFeedback, playerBaselines, playerBaselineSkillScores, playerPillarProgress, ballLevels, type PlayerBaseline, type InsertPlayerBaseline, deepAssessmentSkills, playerDeepAssessments, type DeepAssessmentSkill, type PlayerDeepAssessment, type InsertPlayerDeepAssessment, glowSkills, levelSkills, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, lessonGroupMembers, playerLevelEvents, adultGlowMatches, adultSkillAssessments, sessionWaitlist, squadMembers, playerBadges, playerTitles, playerQuests, dailyQuestSlots, playerStreaks, shopOrders, shopOrderItems, shopWishlist, marketplaceListings, sellerProfiles, playerBallLevels, playerSkillScores, levelTrials, sessionSkillFeedback, matchLogs, skillEvidence, levelUpEvents, matches, matchOpponents, matchPlans, matchChallenges, matchReflections, matchPillarScores, coachMatchReviews, matchTrainingSuggestions, playerXpEvents, playerLevelUpCelebrations, playerFeatureUnlockHistory, deepAssessmentPillarSummaries, tournaments, tournamentParticipants, tournamentMatches, ladderPlayers, ladderChallenges, playRequests, playRequestParticipants, liveMatches, playerNotifications } from "@shared/schema";
 
 // ==================== VIDEO FEEDBACK ====================
-import { videoFeedback, type VideoFeedback, type InsertVideoFeedback, feedItems, yearlyRecaps, weeklyDigests, monthlyDigests, highlightReels, playerOfWeek, academySeasons, playerSeasonEnrollments } from "@shared/schema";
+import { videoFeedback, type VideoFeedback, type InsertVideoFeedback, feedItems, yearlyRecaps, weeklyDigests, monthlyDigests, highlightReels, playerOfWeek, academySeasons, playerSeasonEnrollments, sessionPlans } from "@shared/schema";
 
 // Strip invisible/zero-width Unicode and trim whitespace from player name
 // fields before they are persisted.
@@ -964,6 +964,10 @@ export const storage = {
       // Get message IDs for proper reaction cleanup
       const academyMessages = await tx.select({ id: messages.id }).from(messages).where(eq(messages.academyId, id));
       const messageIds = academyMessages.map(m => m.id);
+
+      // Get coaching series IDs — needed to delete seriesPlayers before coachingSeries
+      const academySeriesRecords = await tx.select({ id: coachingSeries.id }).from(coachingSeries).where(eq(coachingSeries.academyId, id));
+      const seriesIds = academySeriesRecords.map(s => s.id);
       
       // ===== PHASE 1: Delete deepest nested relationships first =====
       
@@ -990,12 +994,17 @@ export const storage = {
         await tx.delete(paymentReminders).where(inArray(paymentReminders.invoiceId, invoiceIds));
       }
       
-      // Delete message-related (reactions depend on messages)
+      // Delete message-related — sweep by both messageId and academyId/conversationId to catch
+      // any messages or reactions not tagged with academyId (older DM threads, etc.)
       if (messageIds.length > 0) {
         await tx.delete(messageReactions).where(inArray(messageReactions.messageId, messageIds));
       }
+      await tx.delete(messageReactions).where(eq(messageReactions.academyId, id));
+      if (conversationIds.length > 0) {
+        await tx.delete(messages).where(inArray(messages.conversationId, conversationIds));
+      }
       await tx.delete(messages).where(eq(messages.academyId, id));
-      
+
       // Delete conversation-related
       if (conversationIds.length > 0) {
         await tx.delete(conversationParticipants).where(inArray(conversationParticipants.conversationId, conversationIds));
@@ -1003,14 +1012,28 @@ export const storage = {
       await tx.delete(conversations).where(eq(conversations.academyId, id));
       
       // ===== PHASE 2: Delete session-related data =====
-      
+
+      // creditTransactions.sessionPlayerId → sessionPlayers.id (no cascade) — must go before sessionPlayers
+      if (playerIds.length > 0) {
+        await tx.delete(creditTransactions).where(inArray(creditTransactions.playerId, playerIds));
+      }
+
       if (sessionIds.length > 0) {
         await tx.delete(sessionPlayers).where(inArray(sessionPlayers.sessionId, sessionIds));
         await tx.delete(sessionFeedback).where(inArray(sessionFeedback.sessionId, sessionIds));
         await tx.delete(sessionSkillObservations).where(inArray(sessionSkillObservations.sessionId, sessionIds));
+        await tx.delete(sessionWaitlist).where(inArray(sessionWaitlist.sessionId, sessionIds));
+        await tx.delete(inSessionFeedback).where(inArray(inSessionFeedback.sessionId, sessionIds));
+        await tx.delete(sessionSkillFeedback).where(inArray(sessionSkillFeedback.sessionId, sessionIds));
+        await tx.delete(sessionPlans).where(inArray(sessionPlans.sessionId, sessionIds));
       }
       await tx.delete(playerSessionCancellations).where(eq(playerSessionCancellations.academyId, id));
       await tx.delete(sessions).where(eq(sessions.academyId, id));
+      // seriesPlayers.seriesId → coaching_series.id NOTNull — delete before coachingSeries
+      if (seriesIds.length > 0) {
+        await tx.delete(seriesPlayers).where(inArray(seriesPlayers.seriesId, seriesIds));
+      }
+      await tx.delete(coachingSeries).where(eq(coachingSeries.academyId, id));
       await tx.delete(recurringSeries).where(eq(recurringSeries.academyId, id));
       
       // ===== PHASE 3: Delete court-related data =====
@@ -1077,6 +1100,17 @@ export const storage = {
         await tx.delete(highlightReels).where(inArray(highlightReels.playerId, playerIds));
         await tx.delete(playerOfWeek).where(inArray(playerOfWeek.playerId, playerIds));
         await tx.delete(feedItems).where(inArray(feedItems.authorPlayerId, playerIds));
+        // playerBaselineSkillScores.baselineId → playerBaselines.id (NOTNull) — delete before playerBaselines
+        await tx.delete(playerBaselineSkillScores).where(inArray(playerBaselineSkillScores.playerId, playerIds));
+        await tx.delete(playerBaselines).where(inArray(playerBaselines.playerId, playerIds));
+        await tx.delete(playerSkillScores).where(inArray(playerSkillScores.playerId, playerIds));
+        await tx.delete(playerPillarProgress).where(inArray(playerPillarProgress.playerId, playerIds));
+        // skillEvidence.trialId → levelTrials.id (nullable but delete skillEvidence first)
+        await tx.delete(skillEvidence).where(inArray(skillEvidence.playerId, playerIds));
+        await tx.delete(levelTrials).where(inArray(levelTrials.playerId, playerIds));
+        // matchLogs.opponentPlayerId may reference this academy's players from external records
+        await tx.update(matchLogs).set({ opponentPlayerId: null }).where(inArray(matchLogs.opponentPlayerId, playerIds));
+        await tx.delete(matchLogs).where(inArray(matchLogs.playerId, playerIds));
       }
       
       // ===== PHASE 6: Delete booking and request data =====
