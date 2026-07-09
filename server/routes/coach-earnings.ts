@@ -423,11 +423,29 @@ router.get("/api/coach/earnings/summary", authMiddleware, async (req: AuthReques
 
 router.get("/api/coach/earnings/breakdown", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const coachId = req.user!.coachId;
+    const userRole = req.user?.role;
+    const academyId = req.user?.academyId;
+    const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+    const supervisorCoachIdParam = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+    let coachId = req.user!.coachId;
+
+    if (supervisorCoachIdParam && isOwnerRole) {
+      const targetCoach = await db
+        .select({ id: coaches.id, academyId: coaches.academyId })
+        .from(coaches)
+        .where(and(eq(coaches.id, supervisorCoachIdParam), eq(coaches.academyId, academyId as string)))
+        .limit(1);
+      if (targetCoach.length === 0) {
+        return res.status(403).json({ error: "Coach not found in your academy" });
+      }
+      coachId = supervisorCoachIdParam;
+    }
+
     if (!coachId) {
       return res.status(400).json({ error: "Coach ID required" });
     }
-    
+
     const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
     const year = parseInt(req.query.year as string) || new Date().getFullYear();
     
@@ -571,11 +589,29 @@ router.get("/api/coach/earnings/breakdown", authMiddleware, async (req: AuthRequ
 
 router.get("/api/coach/earnings/history", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const coachId = req.user!.coachId;
+    const userRole = req.user?.role;
+    const academyId = req.user?.academyId;
+    const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+    const supervisorCoachIdParam = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+    let coachId = req.user!.coachId;
+
+    if (supervisorCoachIdParam && isOwnerRole) {
+      const targetCoach = await db
+        .select({ id: coaches.id, academyId: coaches.academyId })
+        .from(coaches)
+        .where(and(eq(coaches.id, supervisorCoachIdParam), eq(coaches.academyId, academyId as string)))
+        .limit(1);
+      if (targetCoach.length === 0) {
+        return res.status(403).json({ error: "Coach not found in your academy" });
+      }
+      coachId = supervisorCoachIdParam;
+    }
+
     if (!coachId) {
       return res.status(400).json({ error: "Coach ID required" });
     }
-    
+
     const contracts = await getEffectiveContracts(coachId);
     const primaryContract = contracts[0];
     const currency = primaryContract?.currency || "AED";
@@ -672,7 +708,25 @@ router.get("/api/coach/earnings/history", authMiddleware, async (req: AuthReques
 
 router.get("/api/coach/earnings/analytics", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
-    const coachId = req.user!.coachId;
+    const userRole = req.user?.role;
+    const academyId = req.user?.academyId;
+    const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+    const supervisorCoachIdParam = isOwnerRole ? (req.query.supervisorCoachId as string | undefined) : undefined;
+
+    let coachId = req.user!.coachId;
+
+    if (supervisorCoachIdParam && isOwnerRole) {
+      const targetCoach = await db
+        .select({ id: coaches.id, academyId: coaches.academyId })
+        .from(coaches)
+        .where(and(eq(coaches.id, supervisorCoachIdParam), eq(coaches.academyId, academyId as string)))
+        .limit(1);
+      if (targetCoach.length === 0) {
+        return res.status(403).json({ error: "Coach not found in your academy" });
+      }
+      coachId = supervisorCoachIdParam;
+    }
+
     if (!coachId) {
       return res.status(400).json({ error: "Coach ID required" });
     }
