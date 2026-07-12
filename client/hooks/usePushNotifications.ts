@@ -23,6 +23,14 @@ type DeepLinkData = {
   groupName?: string;
   tab?: "training" | "communities";
   seriesId?: string;
+  // SeasonWrapUp fields
+  seasonName?: string;
+  sessionsAttended?: number | string;
+  xpEarned?: number | string;
+  levelLabel?: string;
+  levelFrom?: string;
+  levelTo?: string;
+  enrollmentStarted?: string;
 };
 
 if (Platform.OS !== 'web') {

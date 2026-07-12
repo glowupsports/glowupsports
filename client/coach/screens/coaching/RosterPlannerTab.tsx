@@ -20,6 +20,7 @@ import { useCoachingScroll } from "./CoachingScrollContext";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const ADULT_LEVELS = ["adult_beginner", "adult_intermediate", "adult_advanced", "adult_competitive"];
 
 type FilterMode = "all" | "has_space" | "full";
 
@@ -74,6 +75,7 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
   const tz = academy?.timezone || "Asia/Dubai";
 
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "junior" | "adult">("all");
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null);
   const [moving, setMoving] = useState(false);
   const [completeTarget, setCompleteTarget] = useState<Series | null>(null);
@@ -91,11 +93,17 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
   const filteredSeries = useMemo(() => {
     return activeSeries.filter((s) => {
       const isFull = s.playerCount >= s.maxPlayers;
-      if (filter === "has_space") return !isFull;
-      if (filter === "full") return isFull;
+      if (filter === "has_space" && isFull) return false;
+      if (filter === "full" && !isFull) return false;
+      if (categoryFilter === "adult") {
+        return !!s.primaryBallLevel && ADULT_LEVELS.includes(s.primaryBallLevel.toLowerCase());
+      }
+      if (categoryFilter === "junior") {
+        return !s.primaryBallLevel || !ADULT_LEVELS.includes(s.primaryBallLevel.toLowerCase());
+      }
       return true;
     });
-  }, [activeSeries, filter]);
+  }, [activeSeries, filter, categoryFilter]);
 
   const handleMovePress = (player: PlayerPreview, fromSeriesId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -239,6 +247,26 @@ export function RosterPlannerTab({ insets, tabBarHeight }: TabProps) {
             >
               <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
                 {labels[f]}
+              </Text>
+            </Pressable>
+          );
+        })}
+        <View style={styles.filterDivider} />
+        {(["all", "junior", "adult"] as const).map((cat) => {
+          const labels: Record<string, string> = { all: "All Groups", junior: "Junior", adult: "Adult" };
+          const isActive = categoryFilter === cat;
+          const catColor = cat === "adult" ? "#E040FB" : cat === "junior" ? Colors.dark.successNeon : Colors.dark.primary;
+          return (
+            <Pressable
+              key={`cat-${cat}`}
+              style={[styles.filterChip, isActive && { borderColor: catColor, backgroundColor: catColor + "20" }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setCategoryFilter(cat);
+              }}
+            >
+              <Text style={[styles.filterChipText, isActive && { color: catColor, fontWeight: "700" }]}>
+                {labels[cat]}
               </Text>
             </Pressable>
           );
@@ -411,6 +439,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     gap: Spacing.sm,
+    alignItems: "center",
+  },
+  filterDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    marginHorizontal: 4,
   },
   filterChip: {
     paddingHorizontal: 14,

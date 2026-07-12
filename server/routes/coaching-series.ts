@@ -12,7 +12,7 @@ import { authMiddlewareWithFreshData as authMiddleware, requireAcademy, type Aut
 import { sanitizeTemplateName } from "../utils/sanitize";
 import { utcToLocalTime, getFirstSessionDate, addDaysToLocalDate, ensureResolvableLocalTime } from "../utils/timezone";
 import { apiCache, CACHE_KEYS, CACHE_TTL } from "../cache";
-import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, sessionFeedback, inSessionFeedback, xpTransactions, coachTimeBlocks, playerHolidays, playerNotifications, coaches, courtBookingConfirmations } from "@shared/schema";
+import { players, sessions, coachingSeries, seriesPlayers, sessionPlayers, sessionFeedback, inSessionFeedback, xpTransactions, coachTimeBlocks, playerHolidays, playerNotifications, coaches, courtBookingConfirmations, programTemplates } from "@shared/schema";
 import { uploadToObjectStorage, getSignedUrl, deleteFromObjectStorage, objectKeyFromUrl } from "../objectStorage";
 import { courtScreenshotUpload, seriesPhotoUpload, wrapUploadHandler } from "../upload-middleware";
 import fs from "fs";
@@ -1553,6 +1553,10 @@ router.patch(
         // Camp inclusions & discount price (Task #2035)
         "inclusions",
         "originalPrice",
+        // Season Programs
+        "programRules",
+        "enrollmentType",
+        "programCategory",
       ];
 
       // Validation for schedule fields
@@ -1632,6 +1636,26 @@ router.patch(
             } else {
               updates["inclusions"] = null;
             }
+            continue;
+          }
+          if (field === "programRules") {
+            const val = req.body[field];
+            if (val !== null && val !== undefined) {
+              if (!Array.isArray(val) || val.some((v: unknown) => typeof v !== "string")) {
+                return res.status(400).json({ error: "programRules must be an array of strings or null" });
+              }
+              updates["programRules"] = (val as string[]).slice(0, 20).map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+            } else {
+              updates["programRules"] = null;
+            }
+            continue;
+          }
+          if (field === "enrollmentType") {
+            const val = req.body[field];
+            if (val !== null && !["open", "approval", "closed"].includes(val)) {
+              return res.status(400).json({ error: "enrollmentType must be open, approval, or closed" });
+            }
+            updates["enrollmentType"] = val;
             continue;
           }
           updates[field] =
@@ -4840,6 +4864,325 @@ router.post(
       return res.status(500).json({ error: "Failed to upload photo" });
     }
   }
+);
+
+// ==================== PROGRAM TEMPLATES API ====================
+
+// GET /api/coach/program-templates — list all templates for this academy
+router.get(
+  "/api/coach/program-templates",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      const userRole = req.user!.role;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+
+      const rows = await db
+        .select()
+        .from(programTemplates)
+        .where(
+          isOwnerRole
+            ? eq(programTemplates.academyId, academyId as string)
+            : and(
+                eq(programTemplates.academyId, academyId as string),
+                eq(programTemplates.coachId, coachId as string),
+              ),
+        )
+        .orderBy(asc(programTemplates.createdAt));
+
+      return res.json(rows);
+    } catch (err) {
+      console.error("[ProgramTemplates] GET error:", err);
+      return res.status(500).json({ error: "Failed to fetch program templates" });
+    }
+  },
+);
+
+// POST /api/coach/program-templates — create a program template
+router.post(
+  "/api/coach/program-templates",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      const { name, description, sessionType, ballLevel, programCategory, defaultDuration, defaultMaxPlayers, defaultWeekCount, defaultPrice, currency, rules, enrollmentType } = req.body;
+
+      if (!name?.trim()) {
+        return res.status(400).json({ error: "name is required" });
+      }
+
+      const [template] = await db
+        .insert(programTemplates)
+        .values({
+          academyId: academyId as string,
+          coachId: coachId as string,
+          name: name.trim(),
+          description: description?.trim() || null,
+          sessionType: sessionType || "group",
+          ballLevel: ballLevel || null,
+          programCategory: programCategory || null,
+          defaultDuration: defaultDuration ? Number(defaultDuration) : 60,
+          defaultMaxPlayers: defaultMaxPlayers ? Number(defaultMaxPlayers) : 6,
+          defaultWeekCount: defaultWeekCount ? Number(defaultWeekCount) : 12,
+          defaultPrice: defaultPrice ? String(defaultPrice) : null,
+          currency: currency || "AED",
+          rules: Array.isArray(rules) ? (rules as string[]).slice(0, 20).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [],
+          enrollmentType: ["open", "approval", "closed"].includes(enrollmentType) ? enrollmentType : "open",
+          isActive: true,
+        })
+        .returning();
+
+      return res.json(template);
+    } catch (err) {
+      console.error("[ProgramTemplates] POST error:", err);
+      return res.status(500).json({ error: "Failed to create program template" });
+    }
+  },
+);
+
+// PATCH /api/coach/program-templates/:id — update a program template
+router.patch(
+  "/api/coach/program-templates/:id",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      const userRole = req.user!.role;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+
+      const [existing] = await db
+        .select()
+        .from(programTemplates)
+        .where(eq(programTemplates.id, id))
+        .limit(1);
+
+      if (!existing) return res.status(404).json({ error: "Template not found" });
+      if (existing.academyId !== academyId) return res.status(403).json({ error: "Not authorized" });
+      if (!isOwnerRole && existing.coachId !== coachId) return res.status(403).json({ error: "Not authorized" });
+
+      const updates: any = {};
+      const allowedFields = ["name", "description", "sessionType", "ballLevel", "programCategory", "defaultDuration", "defaultMaxPlayers", "defaultWeekCount", "defaultPrice", "currency", "rules", "enrollmentType", "isActive"];
+      for (const field of allowedFields) {
+        if (req.body[field] !== undefined) {
+          if (field === "rules") {
+            const val = req.body[field];
+            updates["rules"] = Array.isArray(val) ? (val as string[]).slice(0, 20).map((r: string) => r.trim()).filter((r: string) => r.length > 0) : [];
+          } else if (field === "enrollmentType") {
+            const val = req.body[field];
+            if (!["open", "approval", "closed"].includes(val)) continue;
+            updates["enrollmentType"] = val;
+          } else if (["defaultDuration", "defaultMaxPlayers", "defaultWeekCount"].includes(field)) {
+            updates[field] = Number(req.body[field]);
+          } else {
+            updates[field] = req.body[field];
+          }
+        }
+      }
+
+      const [updated] = await db
+        .update(programTemplates)
+        .set(updates)
+        .where(eq(programTemplates.id, id))
+        .returning();
+
+      return res.json(updated);
+    } catch (err) {
+      console.error("[ProgramTemplates] PATCH error:", err);
+      return res.status(500).json({ error: "Failed to update template" });
+    }
+  },
+);
+
+// DELETE /api/coach/program-templates/:id — delete a program template
+router.delete(
+  "/api/coach/program-templates/:id",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const academyId = req.user!.academyId;
+      const coachId = req.user!.coachId;
+      const userRole = req.user!.role;
+      const isOwnerRole = userRole === "academy_owner" || userRole === "owner" || userRole === "platform_owner";
+
+      const [existing] = await db
+        .select({ coachId: programTemplates.coachId, academyId: programTemplates.academyId })
+        .from(programTemplates)
+        .where(eq(programTemplates.id, id))
+        .limit(1);
+
+      if (!existing) return res.status(404).json({ error: "Template not found" });
+      if (existing.academyId !== academyId) return res.status(403).json({ error: "Not authorized" });
+      if (!isOwnerRole && existing.coachId !== coachId) return res.status(403).json({ error: "Not authorized" });
+
+      await db.delete(programTemplates).where(eq(programTemplates.id, id));
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[ProgramTemplates] DELETE error:", err);
+      return res.status(500).json({ error: "Failed to delete template" });
+    }
+  },
+);
+
+// GET /api/player/programs — public coaching series (season programs) a player can browse & join
+router.get(
+  "/api/player/programs",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user!.academyId;
+      const playerId = req.user!.playerId;
+
+      // Fetch public series that are active and not closed for enrollment
+      const publicSeries = await db
+        .select({
+          id: coachingSeries.id,
+          title: coachingSeries.title,
+          ballLevel: coachingSeries.ballLevel,
+          programCategory: coachingSeries.programCategory,
+          sessionType: coachingSeries.sessionType,
+          dayOfWeek: coachingSeries.dayOfWeek,
+          startTime: coachingSeries.startTime,
+          duration: coachingSeries.duration,
+          maxPlayers: coachingSeries.maxPlayers,
+          seriesStartDate: coachingSeries.seriesStartDate,
+          seriesEndDate: coachingSeries.seriesEndDate,
+          price: coachingSeries.price,
+          programRules: coachingSeries.programRules,
+          enrollmentType: coachingSeries.enrollmentType,
+          imageUrl: coachingSeries.imageUrl,
+          coachId: coachingSeries.coachId,
+          coachName: coaches.name,
+        })
+        .from(coachingSeries)
+        .leftJoin(coaches, eq(coachingSeries.coachId, coaches.id))
+        .where(
+          and(
+            eq(coachingSeries.academyId, academyId as string),
+            eq(coachingSeries.isPublic, true),
+            eq(coachingSeries.status, "active"),
+          ),
+        )
+        .orderBy(asc(coachingSeries.dayOfWeek));
+
+      // Batch-fetch player counts
+      const seriesIds = publicSeries.map((s) => s.id);
+      const playerCounts = seriesIds.length > 0
+        ? await db
+            .select({ seriesId: seriesPlayers.seriesId, count: sql<number>`count(*)::int` })
+            .from(seriesPlayers)
+            .where(and(inArray(seriesPlayers.seriesId, seriesIds), eq(seriesPlayers.status, "active")))
+            .groupBy(seriesPlayers.seriesId)
+        : [];
+
+      const countMap = new Map(playerCounts.map((r) => [r.seriesId, r.count]));
+
+      // Check which series the player is already enrolled in
+      const enrolledRows = playerId && seriesIds.length > 0
+        ? await db
+            .select({ seriesId: seriesPlayers.seriesId })
+            .from(seriesPlayers)
+            .where(and(inArray(seriesPlayers.seriesId, seriesIds), eq(seriesPlayers.playerId, playerId), eq(seriesPlayers.status, "active")))
+        : [];
+      const enrolledSet = new Set(enrolledRows.map((r) => r.seriesId));
+
+      const result = publicSeries
+        .filter((s) => s.enrollmentType !== "closed")
+        .map((s) => ({
+          ...s,
+          currentPlayers: countMap.get(s.id) || 0,
+          spotsLeft: Math.max(0, (s.maxPlayers || 6) - (countMap.get(s.id) || 0)),
+          isEnrolled: enrolledSet.has(s.id),
+        }));
+
+      return res.json(result);
+    } catch (err) {
+      console.error("[PlayerPrograms] GET error:", err);
+      return res.status(500).json({ error: "Failed to fetch programs" });
+    }
+  },
+);
+
+// POST /api/player/programs/:seriesId/join — player requests to join a season program
+router.post(
+  "/api/player/programs/:seriesId/join",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { seriesId } = req.params;
+      const playerId = req.user!.playerId;
+      const academyId = req.user!.academyId;
+      const { termsAccepted } = req.body;
+
+      if (!playerId) return res.status(403).json({ error: "Player access required" });
+
+      const [series] = await db
+        .select()
+        .from(coachingSeries)
+        .where(and(eq(coachingSeries.id, seriesId), eq(coachingSeries.academyId, academyId as string), eq(coachingSeries.isPublic, true), eq(coachingSeries.status, "active")))
+        .limit(1);
+
+      if (!series) return res.status(404).json({ error: "Program not found or not available" });
+      if (series.enrollmentType === "closed") return res.status(400).json({ error: "This program is not accepting new members" });
+
+      // Check if rules require acceptance
+      const rules = (series.programRules as string[] | null) || [];
+      if (rules.length > 0 && !termsAccepted) {
+        return res.status(400).json({ error: "You must accept the program rules to join", requiresTerms: true, rules });
+      }
+
+      // Check if already enrolled
+      const [existing] = await db
+        .select()
+        .from(seriesPlayers)
+        .where(and(eq(seriesPlayers.seriesId, seriesId), eq(seriesPlayers.playerId, playerId)))
+        .limit(1);
+
+      if (existing && existing.status === "active") {
+        return res.status(409).json({ error: "You are already enrolled in this program" });
+      }
+
+      // Check capacity
+      const [countRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(seriesPlayers)
+        .where(and(eq(seriesPlayers.seriesId, seriesId), eq(seriesPlayers.status, "active")));
+      const currentCount = countRow?.count || 0;
+      if (currentCount >= (series.maxPlayers || 6)) {
+        return res.status(400).json({ error: "This program is full" });
+      }
+
+      const now = new Date();
+      const termsVersion = rules.length > 0 ? `v${now.getTime()}` : null;
+
+      if (existing && existing.status !== "active") {
+        // Re-activate
+        await db.update(seriesPlayers).set({ status: "active", leftAt: null, termsAcceptedAt: termsAccepted ? now : null, termsVersion }).where(eq(seriesPlayers.id, existing.id));
+      } else {
+        await db.insert(seriesPlayers).values({
+          seriesId,
+          playerId,
+          status: "active",
+          termsAcceptedAt: termsAccepted ? now : null,
+          termsVersion,
+        });
+      }
+
+      return res.json({ success: true, status: "enrolled" });
+    } catch (err) {
+      console.error("[PlayerPrograms] JOIN error:", err);
+      return res.status(500).json({ error: "Failed to join program" });
+    }
+  },
 );
 
 // DELETE /api/coach/series/:id/photo — remove cover photo from a series

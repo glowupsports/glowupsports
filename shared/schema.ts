@@ -1896,6 +1896,11 @@ export const coachingSeries = pgTable("coaching_series", {
   // Optional "from price" shown struck-through next to the actual price
   originalPrice: numeric("original_price"),
 
+  // Season Programs — rules players must accept on enrollment, enrollment flow type, and category
+  programRules: jsonb("program_rules").$type<string[]>(),
+  enrollmentType: text("enrollment_type").default("open"), // open / approval / closed
+  programCategory: text("program_category"), // junior / adult
+
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1938,7 +1943,11 @@ export const seriesPlayers = pgTable("series_players", {
   // Guest membership - temporary player in a group (e.g., during merges/holidays)
   isGuest: boolean("is_guest").default(false),
   guestUntil: date("guest_until"),
-  
+
+  // Season Program — terms acceptance tracking
+  termsAcceptedAt: timestamp("terms_accepted_at"),
+  termsVersion: text("terms_version"),
+
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   seriesPlayerIdx: index("series_players_series_player_idx").on(table.seriesId, table.playerId),
@@ -1950,6 +1959,39 @@ export const seriesPlayers = pgTable("series_players", {
 export const insertSeriesPlayerSchema = createInsertSchema(seriesPlayers).omit({ id: true });
 export type InsertSeriesPlayer = z.infer<typeof insertSeriesPlayerSchema>;
 export type SeriesPlayer = typeof seriesPlayers.$inferSelect;
+
+// Season Program Templates — reusable blueprints coaches set up once and
+// instantiate into coaching_series at the start of each new season.
+export const programTemplates = pgTable("program_templates", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").references(() => academies.id),
+  coachId: varchar("coach_id").references(() => coaches.id),
+
+  name: text("name").notNull(),
+  description: text("description"),
+
+  sessionType: text("session_type").notNull().default("group"),
+  ballLevel: text("ball_level"), // blue/red/orange/green/yellow/adult_beginner/adult_intermediate/adult_advanced/adult_competitive
+  programCategory: text("program_category"), // junior / adult
+
+  defaultDuration: integer("default_duration").default(60),
+  defaultMaxPlayers: integer("default_max_players").default(6),
+  defaultWeekCount: integer("default_week_count").default(12),
+  defaultPrice: numeric("default_price"),
+  currency: text("currency").default("AED"),
+
+  rules: jsonb("rules").$type<string[]>(),
+  enrollmentType: text("enrollment_type").default("open"), // open / approval / closed
+
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertProgramTemplateSchema = createInsertSchema(programTemplates).omit({ id: true, createdAt: true });
+export type InsertProgramTemplate = z.infer<typeof insertProgramTemplateSchema>;
+export type ProgramTemplate = typeof programTemplates.$inferSelect;
 
 // Court Booking Confirmations — Task #1712
 // One row per player per session. Players upload a screenshot proving they have

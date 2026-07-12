@@ -108,6 +108,10 @@ export interface SeriesDetail {
   // Camp inclusions & discount price (Task #2035)
   inclusions?: string[] | null;
   originalPrice?: string | null;
+  // Season Programs
+  programRules?: string[] | null;
+  enrollmentType?: string | null;
+  programCategory?: string | null;
   players: Player[];
   sessions: SessionInstance[];
   stats: {

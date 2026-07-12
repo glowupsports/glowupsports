@@ -29,12 +29,15 @@ import { GuestBrowsingBanner } from "@/components/GuestBrowsingBanner";
 const BALL_LEVEL_FILTERS = [
   { id: "my_level", label: "My Level", color: "dynamic" },
   { id: "all", label: "All Levels", color: "#A0A8B8" },
-  { id: "blue", label: "Blue", color: "#3B82F6" },
-  { id: "red", label: "Red", color: "#EF4444" },
-  { id: "orange", label: "Orange", color: "#F97316" },
-  { id: "green", label: "Green", color: "#22C55E" },
-  { id: "yellow", label: "Yellow", color: "#EAB308" },
-  { id: "glow", label: "Glow", color: "#E040FB" },
+  { id: "blue", label: "Blue Ball", color: "#3B82F6" },
+  { id: "red", label: "Red Ball", color: "#EF4444" },
+  { id: "orange", label: "Orange Ball", color: "#F97316" },
+  { id: "green", label: "Green Ball", color: "#22C55E" },
+  { id: "yellow", label: "Yellow Ball", color: "#EAB308" },
+  { id: "adult_beginner", label: "Adult Beginner", color: "#E040FB" },
+  { id: "adult_intermediate", label: "Adult Intermediate", color: "#AB47BC" },
+  { id: "adult_advanced", label: "Adult Advanced", color: "#7B1FA2" },
+  { id: "adult_competitive", label: "Adult Competitive", color: "#F50057" },
 ];
 
 const ProTennisColors = new Proxy({} as Record<string, string>, {
@@ -75,6 +78,10 @@ const ProTennisColors = new Proxy({} as Record<string, string>, {
 
 function getBallLevelColor(level: string): string {
   const l = level?.toLowerCase() || "";
+  if (l === "adult_competitive") return "#F50057";
+  if (l === "adult_advanced") return "#7B1FA2";
+  if (l === "adult_intermediate") return "#AB47BC";
+  if (l === "adult_beginner") return "#E040FB";
   if (l.includes("blue")) return "#3B82F6";
   if (l.includes("red")) return "#EF4444";
   if (l.includes("orange")) return "#F97316";
@@ -82,6 +89,20 @@ function getBallLevelColor(level: string): string {
   if (l.includes("yellow")) return "#EAB308";
   if (l.includes("glow")) return "#E040FB";
   return ProTennisColors.electricGreen;
+}
+
+function getBallLevelLabel(level: string): string {
+  const l = level?.toLowerCase() || "";
+  if (l === "adult_beginner") return "Adult Beginner";
+  if (l === "adult_intermediate") return "Adult Intermediate";
+  if (l === "adult_advanced") return "Adult Advanced";
+  if (l === "adult_competitive") return "Adult Competitive";
+  if (l === "blue") return "Blue Ball";
+  if (l === "red") return "Red Ball";
+  if (l === "orange") return "Orange Ball";
+  if (l === "green") return "Green Ball";
+  if (l === "yellow") return "Yellow Ball";
+  return level || "Open";
 }
 
 interface Participant {
@@ -110,6 +131,30 @@ interface GroupSession {
   cancellationPolicy?: string;
 }
 
+interface Program {
+  id: string;
+  title: string;
+  ballLevel?: string;
+  programCategory?: string;
+  sessionType?: string;
+  dayOfWeek?: number;
+  startTime?: string;
+  duration?: number;
+  maxPlayers?: number;
+  currentPlayers?: number;
+  seriesStartDate?: string;
+  seriesEndDate?: string;
+  price?: string;
+  programRules?: string[];
+  enrollmentType?: string;
+  coachName?: string;
+  imageUrl?: string;
+  spotsLeft?: number;
+  isEnrolled?: boolean;
+}
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 export default function BrowseGroupLessonsScreen() {
   const navigation = useNavigation<any>();
   const { navigateToTab } = useTabNavigation();
@@ -122,6 +167,10 @@ export default function BrowseGroupLessonsScreen() {
   const [selectedSession, setSelectedSession] = useState<GroupSession | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<string>("my_level");
   const [policyModalVisible, setPolicyModalVisible] = useState(false);
+  const [viewMode, setViewMode] = useState<"sessions" | "programs">("sessions");
+  const [joiningProgramId, setJoiningProgramId] = useState<string | null>(null);
+  const [termsProgram, setTermsProgram] = useState<Program | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Task #1580 — guests use the public sessions feed so they see real
   // upcoming sessions across all academies rather than an empty list.
@@ -130,6 +179,45 @@ export default function BrowseGroupLessonsScreen() {
       ? ["/api/public/group-sessions"]
       : ["/api/player/available-group-sessions"],
   });
+
+  const { data: programsData = [], isLoading: programsLoading, refetch: _refetchPrograms } = useQuery<Program[]>({
+    queryKey: ["/api/player/programs"],
+    enabled: !isGuest && viewMode === "programs",
+  });
+
+  const joinProgramMutation = useMutation({
+    mutationFn: ({ seriesId, termsAccepted }: { seriesId: string; termsAccepted: boolean }) =>
+      apiRequest("POST", `/api/player/programs/${seriesId}/join`, { termsAccepted }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/player/programs"] });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTermsProgram(null);
+      setTermsAccepted(false);
+      setJoiningProgramId(null);
+      Alert.alert("Enrolled!", "You have successfully joined this season program.");
+    },
+    onError: (err: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setJoiningProgramId(null);
+      Alert.alert("Error", err.message || "Failed to join program");
+    },
+  });
+
+  const handleJoinProgram = (program: Program) => {
+    guardAction(
+      () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        if (program.programRules && program.programRules.length > 0) {
+          setTermsAccepted(false);
+          setTermsProgram(program);
+        } else {
+          setJoiningProgramId(program.id);
+          joinProgramMutation.mutate({ seriesId: program.id, termsAccepted: false });
+        }
+      },
+      { routeName: "BrowseGroupLessons" },
+    );
+  };
 
   const { data: profileData } = useQuery<{ player: { ballLevel?: string } }>({
     queryKey: ["/api/player/me/profile"],
@@ -239,6 +327,24 @@ export default function BrowseGroupLessonsScreen() {
           </Pressable>
         </View>
 
+        {/* View mode toggle: Sessions | Programs */}
+        <View style={styles.viewToggleRow}>
+          <Pressable
+            style={[styles.viewToggleBtn, viewMode === "sessions" && styles.viewToggleBtnActive]}
+            onPress={() => setViewMode("sessions")}
+          >
+            <Feather name="calendar" size={14} color={viewMode === "sessions" ? ProTennisColors.electricGreen : ProTennisColors.textMuted} />
+            <Text style={[styles.viewToggleText, viewMode === "sessions" && styles.viewToggleTextActive]}>Sessions</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.viewToggleBtn, viewMode === "programs" && styles.viewToggleBtnActive]}
+            onPress={() => setViewMode("programs")}
+          >
+            <Feather name="award" size={14} color={viewMode === "programs" ? ProTennisColors.electricGreen : ProTennisColors.textMuted} />
+            <Text style={[styles.viewToggleText, viewMode === "programs" && styles.viewToggleTextActive]}>Season Programs</Text>
+          </Pressable>
+        </View>
+
         {isGuest ? (
           <GuestBrowsingBanner onSignIn={() => setShowPrompt(true)} />
         ) : null}
@@ -257,6 +363,108 @@ export default function BrowseGroupLessonsScreen() {
             />
           }
         >
+        {viewMode === "programs" ? (
+          /* ── Season Programs View ───────────────────────── */
+          programsLoading ? (
+            <View style={styles.loadingContainer}>
+              <TennisBallSpinner size="large" color="#E040FB" />
+              <Text style={styles.loadingText}>Loading season programs...</Text>
+            </View>
+          ) : programsData.length === 0 ? (
+            <Animated.View entering={FadeIn.duration(400)} style={styles.emptyContainer}>
+              <View style={styles.emptyIcon}>
+                <Feather name="award" size={48} color={ProTennisColors.textMuted} />
+              </View>
+              <Text style={styles.emptyTitle}>No Season Programs Available</Text>
+              <Text style={styles.emptySubtitle}>{"Your academy hasn't published any open season programs yet. Check back later."}</Text>
+            </Animated.View>
+          ) : (
+            <View style={styles.sessionsList}>
+              <Text style={styles.sectionTitle}>{programsData.length} Season Program{programsData.length !== 1 ? "s" : ""}</Text>
+              {programsData.map((program, index) => {
+                const levelColor = getBallLevelColor(program.ballLevel || "");
+                const isFull = (program.spotsLeft ?? 1) <= 0;
+                const isJoining = joiningProgramId === program.id && joinProgramMutation.isPending;
+                return (
+                  <Animated.View key={program.id} entering={FadeInUp.delay(index * 60).duration(300)}>
+                    <View style={[styles.sessionCard, program.isEnrolled && styles.enrolledCard]}>
+                      <View style={[styles.levelStrip, { backgroundColor: levelColor }]} />
+                      <View style={styles.cardContent}>
+                        <View style={styles.cardHeader}>
+                          <View style={styles.titleSection}>
+                            <Text style={styles.coachName}>{program.title}</Text>
+                            {program.ballLevel ? (
+                              <View style={[styles.levelBadge, { borderColor: levelColor + "60", backgroundColor: levelColor + "20" }]}>
+                                <Text style={[styles.levelText, { color: levelColor }]}>{getBallLevelLabel(program.ballLevel)}</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                        </View>
+                        <View style={styles.detailsRow}>
+                          {program.dayOfWeek !== undefined && program.dayOfWeek !== null ? (
+                            <View style={styles.detailItem}>
+                              <Feather name="calendar" size={14} color={ProTennisColors.textSecondary} />
+                              <Text style={styles.detailText}>{DAY_LABELS[program.dayOfWeek] ?? ""}{program.startTime ? ` ${program.startTime}` : ""}</Text>
+                            </View>
+                          ) : null}
+                          {program.seriesStartDate ? (
+                            <View style={styles.detailItem}>
+                              <Feather name="clock" size={14} color={ProTennisColors.textSecondary} />
+                              <Text style={styles.detailText}>From {program.seriesStartDate.slice(0, 10)}</Text>
+                            </View>
+                          ) : null}
+                          <View style={styles.detailItem}>
+                            <Feather name="users" size={14} color={isFull ? ProTennisColors.error : ProTennisColors.electricGreen} />
+                            <Text style={[styles.detailText, { color: isFull ? ProTennisColors.error : ProTennisColors.electricGreen }]}>
+                              {isFull ? "Full" : `${program.spotsLeft ?? "?"} spot${program.spotsLeft !== 1 ? "s" : ""} left`}
+                            </Text>
+                          </View>
+                          {program.enrollmentType && program.enrollmentType !== "open" ? (
+                            <View style={styles.detailItem}>
+                              <Feather name="shield" size={14} color={ProTennisColors.textSecondary} />
+                              <Text style={styles.detailText}>{program.enrollmentType}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {program.coachName ? (
+                          <Text style={[styles.coachName, { fontSize: 12, marginTop: 4 }]}>Coach {program.coachName.split(" ")[0]}</Text>
+                        ) : null}
+                        {program.programRules && program.programRules.length > 0 ? (
+                          <View style={styles.rulesPreviewRow}>
+                            <Feather name="file-text" size={12} color={ProTennisColors.textMuted} />
+                            <Text style={styles.rulesPreviewText}>{program.programRules.length} program rule{program.programRules.length !== 1 ? "s" : ""} — review before joining</Text>
+                          </View>
+                        ) : null}
+                        {program.isEnrolled ? (
+                          <View style={styles.enrolledBadge}>
+                            <Feather name="check-circle" size={14} color={ProTennisColors.electricGreen} />
+                            <Text style={[styles.enrolledBadgeText, { color: ProTennisColors.electricGreen }]}>Enrolled</Text>
+                          </View>
+                        ) : (
+                          <TouchableOpacity
+                            style={[styles.enrollButton, isFull && { opacity: 0.4 }]}
+                            disabled={isFull || isJoining}
+                            onPress={() => handleJoinProgram(program)}
+                          >
+                            {isJoining ? (
+                              <TennisBallSpinner size="small" color={"#000"} />
+                            ) : (
+                              <>
+                                <Feather name="plus-circle" size={16} color={"#000"} />
+                                <Text style={styles.enrollButtonText}>{isFull ? "Program Full" : "Join Program"}</Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  </Animated.View>
+                );
+              })}
+            </View>
+          )
+        ) : (
+        <>
         <View style={styles.filterContainer}>
           <ScrollView 
             horizontal 
@@ -459,8 +667,73 @@ export default function BrowseGroupLessonsScreen() {
             })}
           </View>
         )}
+        </>
+        )}
         </ScrollView>
       </Animated.View>
+
+      {/* Terms Acceptance Modal */}
+      <Modal
+        visible={!!termsProgram}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setTermsProgram(null)}
+      >
+        <View style={styles.detailModalOverlay}>
+          <Pressable style={styles.detailModalBackdrop} onPress={() => setTermsProgram(null)} />
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setTermsProgram(null)}>
+                <Feather name="x" size={24} color={ProTennisColors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Program Rules</Text>
+              <View style={{ width: 40 }} />
+            </View>
+            {termsProgram ? (
+              <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+                <View style={{ padding: Spacing.lg }}>
+                  <Text style={{ fontSize: 17, fontWeight: "700", color: ProTennisColors.textPrimary, marginBottom: Spacing.sm }}>{termsProgram.title}</Text>
+                  <Text style={{ fontSize: 13, color: ProTennisColors.textSecondary, marginBottom: Spacing.md }}>Please read and accept the program rules to join.</Text>
+                  {(termsProgram.programRules || []).map((rule, i) => (
+                    <View key={i} style={styles.termsRuleRow}>
+                      <Feather name="check-circle" size={14} color={ProTennisColors.electricGreen} />
+                      <Text style={styles.termsRuleText}>{rule}</Text>
+                    </View>
+                  ))}
+                  <Pressable
+                    style={styles.termsAcceptRow}
+                    onPress={() => setTermsAccepted((v) => !v)}
+                  >
+                    <View style={[styles.termsCheckbox, termsAccepted && styles.termsCheckboxChecked]}>
+                      {termsAccepted ? <Feather name="check" size={12} color="#000" /> : null}
+                    </View>
+                    <Text style={styles.termsAcceptText}>I have read and accept these program rules</Text>
+                  </Pressable>
+                  <TouchableOpacity
+                    style={[styles.enrollButton, !termsAccepted && { opacity: 0.4 }]}
+                    disabled={!termsAccepted || joinProgramMutation.isPending}
+                    onPress={() => {
+                      if (!termsProgram || !termsAccepted) return;
+                      setJoiningProgramId(termsProgram.id);
+                      joinProgramMutation.mutate({ seriesId: termsProgram.id, termsAccepted: true });
+                    }}
+                  >
+                    {joinProgramMutation.isPending ? (
+                      <TennisBallSpinner size="small" color={"#000"} />
+                    ) : (
+                      <>
+                        <Feather name="plus-circle" size={16} color={"#000"} />
+                        <Text style={styles.enrollButtonText}>Join Program</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={!!selectedSession}
@@ -648,6 +921,87 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     maxHeight: "85%",
     minHeight: "60%",
   },
+  viewToggleRow: {
+    flexDirection: "row",
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.sm,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 20,
+    padding: 3,
+  },
+  viewToggleBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 17,
+  },
+  viewToggleBtnActive: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  viewToggleText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: ProTennisColors.textMuted,
+  },
+  viewToggleTextActive: {
+    color: ProTennisColors.electricGreen,
+  },
+  rulesPreviewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 6,
+  },
+  rulesPreviewText: {
+    fontSize: 12,
+    color: ProTennisColors.textMuted,
+  },
+  termsRuleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  termsRuleText: {
+    flex: 1,
+    fontSize: 14,
+    color: ProTennisColors.textPrimary,
+    lineHeight: 20,
+  },
+  termsAcceptRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 10,
+  },
+  termsCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  termsCheckboxChecked: {
+    backgroundColor: ProTennisColors.electricGreen,
+    borderColor: ProTennisColors.electricGreen,
+  },
+  termsAcceptText: {
+    flex: 1,
+    fontSize: 14,
+    color: ProTennisColors.textPrimary,
+    fontWeight: "600",
+  },
   modalDragHandle: {
     width: 40,
     height: 4,
@@ -774,6 +1128,16 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
     flexDirection: "row",
     borderWidth: 1,
     borderColor: ProTennisColors.border,
+  },
+  enrolledBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.sm,
+  },
+  enrolledBadgeText: {
+    fontSize: 13,
+    fontWeight: "700",
   },
   enrolledCard: {
     borderColor: ProTennisColors.success,

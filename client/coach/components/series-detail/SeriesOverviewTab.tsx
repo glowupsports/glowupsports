@@ -645,6 +645,8 @@ export function SeriesOverviewTab({
         ) : null}
       </View>
 
+      <ProgramRulesSection series={series} />
+
       {series.sessionType === "camp" && (
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Camp inclusions</Text>
@@ -1168,6 +1170,297 @@ export function SeriesOverviewTab({
     </View>
   );
 }
+
+// ── Program Rules Section ─────────────────────────────────────────────────────
+// Coaches can define rules players must accept when joining the program,
+// and set the enrollment type (open / approval / closed).
+function ProgramRulesSection({ series }: { series: SeriesDetail }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [ruleInput, setRuleInput] = useState("");
+  const [localRules, setLocalRules] = useState<string[]>((series.programRules as string[]) || []);
+  const [enrollmentType, setEnrollmentType] = useState(series.enrollmentType || "open");
+
+  const saveMutation = useMutation({
+    mutationFn: (payload: { programRules: string[]; enrollmentType: string }) =>
+      apiRequest("PATCH", `/api/coach/series/${series.id}`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/coach/series/${series.id}`] });
+      setEditing(false);
+    },
+    onError: () => Alert.alert("Error", "Could not save program rules"),
+  });
+
+  const handleAddRule = () => {
+    const trimmed = ruleInput.trim();
+    if (!trimmed || localRules.length >= 20) return;
+    setLocalRules((prev) => [...prev, trimmed]);
+    setRuleInput("");
+  };
+
+  const handleRemoveRule = (idx: number) => {
+    setLocalRules((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSave = () => {
+    saveMutation.mutate({ programRules: localRules, enrollmentType });
+  };
+
+  const handleCancel = () => {
+    setLocalRules((series.programRules as string[]) || []);
+    setEnrollmentType(series.enrollmentType || "open");
+    setEditing(false);
+  };
+
+  const enrollmentLabels: Record<string, string> = {
+    open: "Open — anyone can join instantly",
+    approval: "Approval — coach reviews each request",
+    closed: "Closed — not accepting new members",
+  };
+
+  if (!editing && localRules.length === 0 && (!series.programRules || (series.programRules as string[]).length === 0)) {
+    return (
+      <View style={rulesStyles.container}>
+        <View style={rulesStyles.headerRow}>
+          <Ionicons name="document-text-outline" size={16} color={Colors.dark.primary} />
+          <Text style={rulesStyles.sectionTitle}>Program Rules</Text>
+          <Pressable onPress={() => setEditing(true)} style={rulesStyles.editBtn}>
+            <Ionicons name="add-circle-outline" size={18} color={Colors.dark.primary} />
+            <Text style={rulesStyles.editBtnText}>Add Rules</Text>
+          </Pressable>
+        </View>
+        <Text style={rulesStyles.emptyText}>No program rules set. Add rules players must accept when joining.</Text>
+      </View>
+    );
+  }
+
+  const displayRules = editing ? localRules : ((series.programRules as string[]) || []);
+  const displayEnrollment = editing ? enrollmentType : (series.enrollmentType || "open");
+
+  return (
+    <View style={rulesStyles.container}>
+      <View style={rulesStyles.headerRow}>
+        <Ionicons name="document-text-outline" size={16} color={Colors.dark.primary} />
+        <Text style={rulesStyles.sectionTitle}>Program Rules</Text>
+        {!editing ? (
+          <Pressable onPress={() => { setLocalRules((series.programRules as string[]) || []); setEnrollmentType(series.enrollmentType || "open"); setEditing(true); }} style={rulesStyles.editBtn}>
+            <Ionicons name="pencil-outline" size={16} color={Colors.dark.primary} />
+            <Text style={rulesStyles.editBtnText}>Edit</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      {/* Enrollment type */}
+      <View style={rulesStyles.enrollmentRow}>
+        <Ionicons name="people-circle-outline" size={14} color={Colors.dark.textMuted} />
+        {editing ? (
+          <View style={rulesStyles.enrollmentPicker}>
+            {(["open", "approval", "closed"] as const).map((type) => (
+              <Pressable
+                key={type}
+                style={[rulesStyles.enrollChip, enrollmentType === type && rulesStyles.enrollChipActive]}
+                onPress={() => setEnrollmentType(type)}
+              >
+                <Text style={[rulesStyles.enrollChipText, enrollmentType === type && rulesStyles.enrollChipTextActive]}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <Text style={rulesStyles.enrollmentLabel}>{enrollmentLabels[displayEnrollment] || displayEnrollment}</Text>
+        )}
+      </View>
+
+      {/* Rules list */}
+      {displayRules.map((rule, idx) => (
+        <View key={idx} style={rulesStyles.ruleRow}>
+          <Ionicons name="checkmark-circle-outline" size={14} color={Colors.dark.primary} style={{ marginTop: 2 }} />
+          <Text style={rulesStyles.ruleText}>{rule}</Text>
+          {editing ? (
+            <Pressable onPress={() => handleRemoveRule(idx)} style={{ padding: 4 }}>
+              <Ionicons name="close-circle" size={16} color={Colors.dark.error} />
+            </Pressable>
+          ) : null}
+        </View>
+      ))}
+
+      {/* Add rule input */}
+      {editing ? (
+        <>
+          {localRules.length < 20 ? (
+            <View style={rulesStyles.addRow}>
+              <TextInput
+                style={rulesStyles.ruleInput}
+                value={ruleInput}
+                onChangeText={setRuleInput}
+                placeholder="Add a rule..."
+                placeholderTextColor={Colors.dark.textMuted}
+                onSubmitEditing={handleAddRule}
+                returnKeyType="done"
+              />
+              <Pressable onPress={handleAddRule} style={rulesStyles.addBtn}>
+                <Ionicons name="add" size={20} color={Colors.dark.primary} />
+              </Pressable>
+            </View>
+          ) : null}
+          <View style={rulesStyles.saveRow}>
+            <Pressable onPress={handleCancel} style={rulesStyles.cancelBtn}>
+              <Text style={rulesStyles.cancelBtnText}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleSave} style={rulesStyles.saveBtn} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? (
+                <TennisBallSpinner size="small" color={Colors.dark.buttonText} />
+              ) : (
+                <Text style={rulesStyles.saveBtnText}>Save Rules</Text>
+              )}
+            </Pressable>
+          </View>
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+const rulesStyles = StyleSheet.create({
+  container: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: 12,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.primary + "25",
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  sectionTitle: {
+    flex: 1,
+    color: Colors.dark.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  editBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  editBtnText: {
+    color: Colors.dark.primary,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  emptyText: {
+    color: Colors.dark.textMuted,
+    fontSize: 13,
+    fontStyle: "italic",
+  },
+  enrollmentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  enrollmentLabel: {
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+    flex: 1,
+  },
+  enrollmentPicker: {
+    flexDirection: "row",
+    gap: 6,
+    flex: 1,
+    flexWrap: "wrap",
+  },
+  enrollChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  enrollChipActive: {
+    backgroundColor: Colors.dark.primary + "25",
+    borderColor: Colors.dark.primary,
+  },
+  enrollChipText: {
+    color: Colors.dark.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  enrollChipTextActive: {
+    color: Colors.dark.primary,
+  },
+  ruleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingVertical: 5,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.05)",
+  },
+  ruleText: {
+    flex: 1,
+    color: Colors.dark.text,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  addRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: Spacing.sm,
+  },
+  ruleInput: {
+    flex: 1,
+    backgroundColor: Colors.dark.backgroundRoot,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: Colors.dark.text,
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  addBtn: {
+    padding: 6,
+  },
+  saveRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: Spacing.md,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    alignItems: "center",
+  },
+  cancelBtnText: {
+    color: Colors.dark.textMuted,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  saveBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: Colors.dark.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveBtnText: {
+    color: Colors.dark.buttonText,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+});
 
 // ── Court Booking Setup Section (Task #1712) ──────────────────────────────────
 // Lets coaches configure the community court location and optionally target

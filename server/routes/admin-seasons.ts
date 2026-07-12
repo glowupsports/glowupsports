@@ -62,7 +62,7 @@ async function fetchEnrollmentStats(
     WHERE pse.id IN (${sql.raw(idList)})
   `);
   const map: Record<string, { sessionCount: number; creditsUsed: number }> = {};
-  for (const r of rows as { enrollment_id: string; session_count: number; credits_used: number }[]) {
+  for (const r of (rows as unknown) as { enrollment_id: string; session_count: number; credits_used: number }[]) {
     map[r.enrollment_id] = {
       sessionCount: r.session_count ?? 0,
       creditsUsed: r.credits_used ?? 0,
