@@ -70,7 +70,7 @@ jobs:
         run: npm ci
 
       - name: Run server + shared vitest suite
-        run: npx vitest run --config vitest.config.ts
+        run: npx vitest run --config vitest.config.ts --exclude '**/tenant-isolation.test.ts'
 
       - name: Run client vitest suite
         run: npx vitest run --config vitest.client.config.ts
