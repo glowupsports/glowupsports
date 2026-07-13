@@ -51,14 +51,11 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    # Server vitest suite reads from Supabase via SUPABASE_DATABASE_URL.
-    # Set this (and any other secrets the suite needs) under
-    # GitHub → Repo Settings → Secrets and variables → Actions.
     env:
       NODE_ENV: test
       SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
       DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
-      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-test-placeholder-not-a-real-secret' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
