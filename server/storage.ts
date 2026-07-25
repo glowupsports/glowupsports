@@ -10,7 +10,7 @@ import { desc, asc } from "drizzle-orm";
 import { users, type User, type InsertUser, corporateAccounts, corporateMembers, corporateCreditTransactions, type CorporateAccount, type InsertCorporateAccount, type CorporateMember, type InsertCorporateMember, type CorporateCreditTransaction, academies, academyApplications, invites, joinRequests, academyTransferRequests, coachInvitations, type Academy, type AcademyApplication, type InsertAcademyApplication, type Invite, type InsertInvite, type JoinRequest, type InsertJoinRequest, type AcademyTransferRequest, type InsertAcademyTransferRequest, type CoachInvitation, type InsertCoachInvitation, coaches, locations, courts, players, packages, sessions, sessionPlayers, playerHolidays, sessionFeedback, auditLogs, offlineQueue, playerNotes, playerProgress, sessionTemplates, coachNotifications, recurringSeries, coachingSeries, seriesPlayers, type CoachingSeries, type InsertCoachingSeries, type SeriesPlayer, type InsertSeriesPlayer, playerSessionCancellations, type PlayerSessionCancellation, type InsertPlayerSessionCancellation, skillDomains, playerSkillState, sessionSkillObservations, levelRequirements, coachStatsRollup, playerProgressFlags, domainAssessments, xpTransactions, coachXpTransactions, conversations, conversationParticipants, messages, messageReactions, communityGroups, groupMembers, familyGroups, familyMembers, coachCourtPreferences, coachCourtRules, locationTravelTimes, coachAvailability, availabilityExceptions, coachSettings, bookingRequests, coachTimeBlocks, playerMatches, playerConnections, type PlayerConnection, playerInvites, type PlayerInvite, type InsertPlayerInvite, academySettings, academyInvites, coachAcademyMemberships, coachFreelanceProfiles, type CoachFreelanceProfile, type InsertCoachFreelanceProfile, academyOwnerProfiles, pushDeviceTokens, notificationPreferences, scheduledNotifications, billingAccounts, subscriptionPlans, subscriptions, invoices, payments, refunds, playerSubscriptions, creditPackageTemplates, type PackageTemplate, type InsertPackageTemplate, sessionRatings, coachReviews, reviewResponses, reviewFlags, reviewPrompts, coachReviewStats, type CoachReview, type ReviewResponse, type ReviewFlag, type ReviewPrompt, type CoachReviewStats, academyPricing, coachContracts, type AcademyPricing, type InsertAcademyPricing, type CoachContract, type InsertCoachContract, courtAvailability, courtAvailabilitySnapshots, courtBookings, type CourtAvailability, type CourtBooking, type InsertCourtBooking, type InsertAcademy, type Coach, type InsertCoach, type Location, type InsertLocation, type Court, type InsertCourt, type Player, type InsertPlayer, type Session, type InsertSession, type SessionPlayer, type InsertSessionPlayer, type PlayerHoliday, type InsertPlayerHoliday, type SessionFeedback, type InsertSessionFeedback, type AuditLog, type InsertAuditLog, type OfflineQueue, type InsertOfflineQueue, type PlayerNote, type InsertPlayerNote, type PlayerProgress, type InsertPlayerProgress, type Package, type InsertPackage, type SessionTemplate, type InsertSessionTemplate, type CoachNotification, type InsertCoachNotification, type SkillDomain, type InsertSkillDomain, type PlayerSkillState, type InsertPlayerSkillState, type SessionSkillObservation, type InsertSessionSkillObservation, type LevelRequirement, type InsertLevelRequirement, type CoachStatsRollup, type InsertCoachStatsRollup, type PlayerProgressFlag, type InsertPlayerProgressFlag, type DomainAssessment, type InsertDomainAssessment, type XpTransaction, type InsertXpTransaction, type CoachXpTransaction, type InsertCoachXpTransaction, type RecurringSeries, type InsertRecurringSeries, type Conversation, type InsertConversation, type ConversationParticipant, type InsertConversationParticipant, type Message, type InsertMessage, type MessageReaction, type InsertMessageReaction, type CoachCourtPreference, type CoachCourtRules, type CoachAvailability, type InsertCoachAvailability, type BookingRequest, type InsertBookingRequest, type AcademySettings, type InsertAcademySettings, type AcademyInvite, type InsertAcademyInvite, type AcademyOwnerProfile, type InsertAcademyOwnerProfile, type CoachAcademyMembership, type InsertCoachAcademyMembership, type PushDeviceToken, type InsertPushDeviceToken, type NotificationPreference, type InsertNotificationPreference, type ScheduledNotification, type InsertScheduledNotification, type BillingAccount, type InsertBillingAccount, type SubscriptionPlan, type Subscription, type InsertSubscription, type Invoice, type InsertInvoice, type Payment, type InsertPayment, type Refund, type InsertRefund, type PlayerSubscription, type InsertPlayerSubscription, coachPayouts, type CoachPayout, type InsertCoachPayout, platformConfig, type PlatformConfig, diagnosticReports, type DiagnosticReport, type InsertDiagnosticReport, parentPlayerRelations, parentSettings, paymentReminders, coachPaymentRules, coachEarnings, type ParentPlayerRelation, type InsertParentPlayerRelation, type ParentSettings, type InsertParentSettings, type PaymentReminder, type InsertPaymentReminder, creditTransactions, type CreditTransaction, type InsertCreditTransaction, creditLots, creditLedgerV2, playerCreditBalance, playerMoneyWallet, inSessionFeedback, playerBaselines, playerBaselineSkillScores, playerPillarProgress, ballLevels, type PlayerBaseline, type InsertPlayerBaseline, deepAssessmentSkills, playerDeepAssessments, type DeepAssessmentSkill, type PlayerDeepAssessment, type InsertPlayerDeepAssessment, glowSkills, levelSkills, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, lessonGroupMembers, playerLevelEvents, adultGlowMatches, adultSkillAssessments, sessionWaitlist, squadMembers, playerBadges, playerTitles, playerQuests, dailyQuestSlots, playerStreaks, shopOrders, shopOrderItems, shopWishlist, marketplaceListings, sellerProfiles, playerBallLevels, playerSkillScores, levelTrials, sessionSkillFeedback, matchLogs, skillEvidence, levelUpEvents, matches, matchOpponents, matchPlans, matchChallenges, matchReflections, matchPillarScores, coachMatchReviews, matchTrainingSuggestions, playerXpEvents, playerLevelUpCelebrations, playerFeatureUnlockHistory, deepAssessmentPillarSummaries, tournaments, tournamentParticipants, tournamentMatches, ladderPlayers, ladderChallenges, playRequests, playRequestParticipants, liveMatches, playerNotifications } from "@shared/schema";
 
 // ==================== VIDEO FEEDBACK ====================
-import { videoFeedback, type VideoFeedback, type InsertVideoFeedback, feedItems, yearlyRecaps, weeklyDigests, monthlyDigests, highlightReels, playerOfWeek, academySeasons, playerSeasonEnrollments, sessionPlans } from "@shared/schema";
+import { videoFeedback, type VideoFeedback, type InsertVideoFeedback, feedItems, yearlyRecaps, weeklyDigests, monthlyDigests, highlightReels, playerOfWeek, academySeasons, playerSeasonEnrollments, sessionPlans, programTemplates, courtBookingConfirmations, squads, lessonGroups, equipment, equipmentRentals, posts, questTemplates, roleMessageTemplates, serviceProviders, shopCategories, shopProducts, shopServices, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners, coachWellnessLogs, playerAiTrainingPlans, playerMonthlyAssessments, playerMonthlyReports, playerSessionReflections, packageTemplates, openToPlay, ladders, bookingRequestBatches, coachTierPricing } from "@shared/schema";
 
 // Strip invisible/zero-width Unicode and trim whitespace from player name
 // fields before they are persisted.
@@ -968,7 +968,35 @@ export const storage = {
       // Get coaching series IDs — needed to delete seriesPlayers before coachingSeries
       const academySeriesRecords = await tx.select({ id: coachingSeries.id }).from(coachingSeries).where(eq(coachingSeries.academyId, id));
       const seriesIds = academySeriesRecords.map(s => s.id);
-      
+
+      // Collect IDs for tables that have their own children
+      const academyCommunityGroupRecords = await tx.select({ id: communityGroups.id }).from(communityGroups).where(eq(communityGroups.academyId, id));
+      const communityGroupIds = academyCommunityGroupRecords.map(g => g.id);
+
+      const academyTournamentRecords = await tx.select({ id: tournaments.id }).from(tournaments).where(eq(tournaments.academyId, id));
+      const tournamentIds = academyTournamentRecords.map(t => t.id);
+
+      const academyLadderRecords = await tx.select({ id: ladders.id }).from(ladders).where(eq(ladders.academyId, id));
+      const ladderIds = academyLadderRecords.map(l => l.id);
+
+      const academyMatchRecords = await tx.select({ id: matches.id }).from(matches).where(eq(matches.academyId, id));
+      const matchIds = academyMatchRecords.map(m => m.id);
+
+      const academyOpenMatchRecords = await tx.select({ id: openMatches.id }).from(openMatches).where(eq(openMatches.academyId, id));
+      const openMatchIds = academyOpenMatchRecords.map(m => m.id);
+
+      const academyCorporateRecords = await tx.select({ id: corporateAccounts.id }).from(corporateAccounts).where(eq(corporateAccounts.academyId, id));
+      const corporateAccountIds = academyCorporateRecords.map(c => c.id);
+
+      const academyEquipmentRecords = await tx.select({ id: equipment.id }).from(equipment).where(eq(equipment.academyId, id));
+      const equipmentIds = academyEquipmentRecords.map(e => e.id);
+
+      const academyLessonGroupRecords = await tx.select({ id: lessonGroups.id }).from(lessonGroups).where(eq(lessonGroups.academyId, id));
+      const lessonGroupIds = academyLessonGroupRecords.map(g => g.id);
+
+      const academySquadRecords = await tx.select({ id: squads.id }).from(squads).where(eq(squads.academyId, id));
+      const squadIds = academySquadRecords.map(s => s.id);
+
       // ===== PHASE 1: Delete deepest nested relationships first =====
       
       // Delete review-related (deepest level)
@@ -983,7 +1011,62 @@ export const storage = {
         await tx.delete(coachReviewStats).where(inArray(coachReviewStats.coachId, coachIds));
       }
       await tx.delete(coachReviews).where(eq(coachReviews.academyId, id));
-      
+
+      // Community group members (groupMembers.groupId → communityGroups.id, must go before communityGroups)
+      if (communityGroupIds.length > 0) {
+        await tx.delete(groupMembers).where(inArray(groupMembers.groupId, communityGroupIds));
+      }
+
+      // Squad members (must go before squads)
+      if (squadIds.length > 0) {
+        await tx.delete(squadMembers).where(inArray(squadMembers.squadId, squadIds));
+      }
+
+      // Match children (must go before matches)
+      if (matchIds.length > 0) {
+        await tx.delete(matchOpponents).where(inArray(matchOpponents.matchId, matchIds));
+        await tx.delete(matchPlans).where(inArray(matchPlans.matchId, matchIds));
+        await tx.delete(matchReflections).where(inArray(matchReflections.matchId, matchIds));
+        await tx.delete(matchPillarScores).where(inArray(matchPillarScores.matchId, matchIds));
+        await tx.delete(coachMatchReviews).where(inArray(coachMatchReviews.matchId, matchIds));
+        await tx.delete(matchTrainingSuggestions).where(inArray(matchTrainingSuggestions.matchId, matchIds));
+      }
+      // matchChallenges has its own academyId FK and also references matches — delete before both
+      await tx.delete(matchChallenges).where(eq(matchChallenges.academyId, id));
+
+      // Open match slots (must go before openMatches)
+      if (openMatchIds.length > 0) {
+        await tx.delete(openMatchSlots).where(inArray(openMatchSlots.matchId, openMatchIds));
+      }
+
+      // Equipment rentals (must go before equipment)
+      if (equipmentIds.length > 0) {
+        await tx.delete(equipmentRentals).where(inArray(equipmentRentals.equipmentId, equipmentIds));
+      }
+
+      // Lesson group members (must go before lessonGroups)
+      if (lessonGroupIds.length > 0) {
+        await tx.delete(lessonGroupMembers).where(inArray(lessonGroupMembers.groupId, lessonGroupIds));
+      }
+
+      // Tournament children (must go before tournaments)
+      if (tournamentIds.length > 0) {
+        await tx.delete(tournamentParticipants).where(inArray(tournamentParticipants.tournamentId, tournamentIds));
+        await tx.delete(tournamentMatches).where(inArray(tournamentMatches.tournamentId, tournamentIds));
+      }
+
+      // Ladder children (must go before ladders)
+      if (ladderIds.length > 0) {
+        await tx.delete(ladderPlayers).where(inArray(ladderPlayers.ladderId, ladderIds));
+        await tx.delete(ladderChallenges).where(inArray(ladderChallenges.ladderId, ladderIds));
+      }
+
+      // Corporate children (must go before corporateAccounts)
+      if (corporateAccountIds.length > 0) {
+        await tx.delete(corporateMembers).where(inArray(corporateMembers.corporateAccountId, corporateAccountIds));
+      }
+      await tx.delete(corporateCreditTransactions).where(eq(corporateCreditTransactions.academyId, id));
+
       // Delete payment-related (refunds depend on payments)
       if (paymentIds.length > 0) {
         await tx.delete(refunds).where(inArray(refunds.paymentId, paymentIds));
@@ -1026,7 +1109,11 @@ export const storage = {
         await tx.delete(inSessionFeedback).where(inArray(inSessionFeedback.sessionId, sessionIds));
         await tx.delete(sessionSkillFeedback).where(inArray(sessionSkillFeedback.sessionId, sessionIds));
         await tx.delete(sessionPlans).where(inArray(sessionPlans.sessionId, sessionIds));
+        await tx.delete(sessionRatings).where(inArray(sessionRatings.sessionId, sessionIds));
+        // courtBookingConfirmations.session_id has ON DELETE CASCADE, but delete by academyId too for safety
+        await tx.delete(courtBookingConfirmations).where(inArray(courtBookingConfirmations.sessionId, sessionIds));
       }
+      await tx.delete(courtBookingConfirmations).where(eq(courtBookingConfirmations.academyId, id));
       await tx.delete(playerSessionCancellations).where(eq(playerSessionCancellations.academyId, id));
       await tx.delete(sessions).where(eq(sessions.academyId, id));
       // seriesPlayers.seriesId → coaching_series.id NOTNull — delete before coachingSeries
@@ -1063,7 +1150,14 @@ export const storage = {
         await tx.delete(sessionTemplates).where(inArray(sessionTemplates.coachId, coachIds));
         await tx.delete(coachEarnings).where(inArray(coachEarnings.coachId, coachIds));
         await tx.delete(coachPaymentRules).where(inArray(coachPaymentRules.coachId, coachIds));
+        await tx.delete(coachWellnessLogs).where(inArray(coachWellnessLogs.coachId, coachIds));
       }
+      await tx.delete(coachContracts).where(eq(coachContracts.academyId, id));
+      await tx.delete(coachTierPricing).where(eq(coachTierPricing.academyId, id));
+      // Nullify source_academy_id on coachTimeBlocks (the block belongs to the coach, not the academy)
+      await tx.update(coachTimeBlocks).set({ sourceAcademyId: null }).where(eq(coachTimeBlocks.sourceAcademyId, id));
+      // Nullify freelance_academy_id on coachFreelanceProfiles
+      await tx.update(coachFreelanceProfiles).set({ freelanceAcademyId: null }).where(eq(coachFreelanceProfiles.freelanceAcademyId, id));
       await tx.delete(coachPayouts).where(eq(coachPayouts.academyId, id));
       
       // ===== PHASE 5: Delete player-related data =====
@@ -1111,10 +1205,18 @@ export const storage = {
         // matchLogs.opponentPlayerId may reference this academy's players from external records
         await tx.update(matchLogs).set({ opponentPlayerId: null }).where(inArray(matchLogs.opponentPlayerId, playerIds));
         await tx.delete(matchLogs).where(inArray(matchLogs.playerId, playerIds));
+        // Additional player-linked tables added after original deleteAcademy
+        await tx.delete(playerAiTrainingPlans).where(inArray(playerAiTrainingPlans.playerId, playerIds));
+        await tx.delete(playerDeepAssessments).where(inArray(playerDeepAssessments.playerId, playerIds));
+        await tx.delete(playerInvites).where(inArray(playerInvites.playerId, playerIds));
+        await tx.delete(playerMonthlyAssessments).where(inArray(playerMonthlyAssessments.playerId, playerIds));
+        await tx.delete(playerMonthlyReports).where(inArray(playerMonthlyReports.playerId, playerIds));
+        await tx.delete(playerSessionReflections).where(inArray(playerSessionReflections.playerId, playerIds));
       }
       
       // ===== PHASE 6: Delete booking and request data =====
-      
+
+      await tx.delete(bookingRequestBatches).where(eq(bookingRequestBatches.academyId, id));
       await tx.delete(bookingRequests).where(eq(bookingRequests.academyId, id));
       await tx.delete(joinRequests).where(eq(joinRequests.academyId, id));
       await tx.delete(academyTransferRequests).where(or(
@@ -1126,10 +1228,11 @@ export const storage = {
       
       await tx.delete(payments).where(eq(payments.academyId, id));
       await tx.delete(invoices).where(eq(invoices.academyId, id));
-      // Credit Engine V2 cleanup (Task #692 step 2). The legacy V1 tables
-      // (`packages`, `package_templates`, `credit_transactions`) are inert
-      // and no longer touched here. V2 ledger/lots/balance/wallet rows cascade
-      // on academy_id, but we delete them explicitly for clarity & safety.
+      // V1 tables — still have FK constraints even though no new rows are created
+      await tx.delete(packages).where(eq(packages.academyId, id));
+      await tx.delete(packageTemplates).where(eq(packageTemplates.academyId, id));
+      // Credit Engine V2 cleanup (Task #692 step 2). V2 ledger/lots/balance/wallet
+      // rows cascade on academy_id, but we delete them explicitly for clarity & safety.
       await tx.delete(creditLedgerV2).where(eq(creditLedgerV2.academyId, id));
       await tx.delete(creditLots).where(eq(creditLots.academyId, id));
       await tx.delete(playerCreditBalance).where(eq(playerCreditBalance.academyId, id));
@@ -1142,6 +1245,7 @@ export const storage = {
       // ===== PHASE 8: Delete academy structure =====
       
       await tx.delete(courts).where(eq(courts.academyId, id));
+      await tx.delete(locationTravelTimes).where(eq(locationTravelTimes.academyId, id));
       await tx.delete(locations).where(eq(locations.academyId, id));
       await tx.delete(auditLogs).where(eq(auditLogs.academyId, id));
       
@@ -1189,6 +1293,36 @@ export const storage = {
       // academySeasons has a non-cascading FK to academies.id; must go before the academy row.
       // playerSeasonEnrollments (which references academy_seasons) was already deleted in Phase 5.
       await tx.delete(academySeasons).where(eq(academySeasons.academyId, id));
+
+      // ===== PHASE 12b: Clean up remaining direct-academyId tables =====
+      // These tables all have FK → academies.id with NO ACTION. Delete them before the academy row.
+
+      await tx.delete(programTemplates).where(eq(programTemplates.academyId, id));
+      await tx.delete(openToPlay).where(eq(openToPlay.academyId, id));
+      await tx.delete(openMatches).where(eq(openMatches.academyId, id));
+      await tx.delete(communityGroups).where(eq(communityGroups.academyId, id));
+      await tx.delete(tournaments).where(eq(tournaments.academyId, id));
+      await tx.delete(ladders).where(eq(ladders.academyId, id));
+      await tx.delete(corporateAccounts).where(eq(corporateAccounts.academyId, id));
+      await tx.delete(equipment).where(eq(equipment.academyId, id));
+      await tx.delete(lessonGroups).where(eq(lessonGroups.academyId, id));
+      await tx.delete(posts).where(eq(posts.academyId, id));
+      await tx.delete(questTemplates).where(eq(questTemplates.academyId, id));
+      await tx.delete(roleMessageTemplates).where(eq(roleMessageTemplates.academyId, id));
+      await tx.delete(serviceProviders).where(eq(serviceProviders.academyId, id));
+      await tx.delete(shopOrders).where(eq(shopOrders.academyId, id));
+      await tx.delete(shopProducts).where(eq(shopProducts.academyId, id));
+      await tx.delete(shopServices).where(eq(shopServices.academyId, id));
+      await tx.delete(shopCategories).where(eq(shopCategories.academyId, id));
+      await tx.delete(marketplaceListings).where(eq(marketplaceListings.academyId, id));
+      await tx.delete(spotlightNominations).where(eq(spotlightNominations.academyId, id));
+      await tx.delete(spotlightWeeklyWinners).where(eq(spotlightWeeklyWinners.academyId, id));
+      await tx.delete(spotlightMonthlyWinners).where(eq(spotlightMonthlyWinners.academyId, id));
+      await tx.delete(squads).where(eq(squads.academyId, id));
+      await tx.delete(matches).where(eq(matches.academyId, id));
+      await tx.delete(academyPricing).where(eq(academyPricing.academyId, id));
+      await tx.delete(videoFeedback).where(eq(videoFeedback.academyId, id));
+      await tx.delete(feedItems).where(eq(feedItems.academyId, id));
 
       await tx.delete(academies).where(eq(academies.id, id));
     });
