@@ -3980,7 +3980,8 @@ router.delete(
 
       res.json({ success: true, message: "Academy deleted successfully" });
     } catch (error) {
-      console.error("Delete academy error:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error("Delete academy error:", msg, error);
       res.status(500).json({ error: "Failed to delete academy" });
     }
   },

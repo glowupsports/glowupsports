@@ -10,7 +10,7 @@ import { desc, asc } from "drizzle-orm";
 import { users, type User, type InsertUser, corporateAccounts, corporateMembers, corporateCreditTransactions, type CorporateAccount, type InsertCorporateAccount, type CorporateMember, type InsertCorporateMember, type CorporateCreditTransaction, academies, academyApplications, invites, joinRequests, academyTransferRequests, coachInvitations, type Academy, type AcademyApplication, type InsertAcademyApplication, type Invite, type InsertInvite, type JoinRequest, type InsertJoinRequest, type AcademyTransferRequest, type InsertAcademyTransferRequest, type CoachInvitation, type InsertCoachInvitation, coaches, locations, courts, players, packages, sessions, sessionPlayers, playerHolidays, sessionFeedback, auditLogs, offlineQueue, playerNotes, playerProgress, sessionTemplates, coachNotifications, recurringSeries, coachingSeries, seriesPlayers, type CoachingSeries, type InsertCoachingSeries, type SeriesPlayer, type InsertSeriesPlayer, playerSessionCancellations, type PlayerSessionCancellation, type InsertPlayerSessionCancellation, skillDomains, playerSkillState, sessionSkillObservations, levelRequirements, coachStatsRollup, playerProgressFlags, domainAssessments, xpTransactions, coachXpTransactions, conversations, conversationParticipants, messages, messageReactions, communityGroups, groupMembers, familyGroups, familyMembers, coachCourtPreferences, coachCourtRules, locationTravelTimes, coachAvailability, availabilityExceptions, coachSettings, bookingRequests, coachTimeBlocks, playerMatches, playerConnections, type PlayerConnection, playerInvites, type PlayerInvite, type InsertPlayerInvite, academySettings, academyInvites, coachAcademyMemberships, coachFreelanceProfiles, type CoachFreelanceProfile, type InsertCoachFreelanceProfile, academyOwnerProfiles, pushDeviceTokens, notificationPreferences, scheduledNotifications, billingAccounts, subscriptionPlans, subscriptions, invoices, payments, refunds, playerSubscriptions, creditPackageTemplates, type PackageTemplate, type InsertPackageTemplate, sessionRatings, coachReviews, reviewResponses, reviewFlags, reviewPrompts, coachReviewStats, type CoachReview, type ReviewResponse, type ReviewFlag, type ReviewPrompt, type CoachReviewStats, academyPricing, coachContracts, type AcademyPricing, type InsertAcademyPricing, type CoachContract, type InsertCoachContract, courtAvailability, courtAvailabilitySnapshots, courtBookings, type CourtAvailability, type CourtBooking, type InsertCourtBooking, type InsertAcademy, type Coach, type InsertCoach, type Location, type InsertLocation, type Court, type InsertCourt, type Player, type InsertPlayer, type Session, type InsertSession, type SessionPlayer, type InsertSessionPlayer, type PlayerHoliday, type InsertPlayerHoliday, type SessionFeedback, type InsertSessionFeedback, type AuditLog, type InsertAuditLog, type OfflineQueue, type InsertOfflineQueue, type PlayerNote, type InsertPlayerNote, type PlayerProgress, type InsertPlayerProgress, type Package, type InsertPackage, type SessionTemplate, type InsertSessionTemplate, type CoachNotification, type InsertCoachNotification, type SkillDomain, type InsertSkillDomain, type PlayerSkillState, type InsertPlayerSkillState, type SessionSkillObservation, type InsertSessionSkillObservation, type LevelRequirement, type InsertLevelRequirement, type CoachStatsRollup, type InsertCoachStatsRollup, type PlayerProgressFlag, type InsertPlayerProgressFlag, type DomainAssessment, type InsertDomainAssessment, type XpTransaction, type InsertXpTransaction, type CoachXpTransaction, type InsertCoachXpTransaction, type RecurringSeries, type InsertRecurringSeries, type Conversation, type InsertConversation, type ConversationParticipant, type InsertConversationParticipant, type Message, type InsertMessage, type MessageReaction, type InsertMessageReaction, type CoachCourtPreference, type CoachCourtRules, type CoachAvailability, type InsertCoachAvailability, type BookingRequest, type InsertBookingRequest, type AcademySettings, type InsertAcademySettings, type AcademyInvite, type InsertAcademyInvite, type AcademyOwnerProfile, type InsertAcademyOwnerProfile, type CoachAcademyMembership, type InsertCoachAcademyMembership, type PushDeviceToken, type InsertPushDeviceToken, type NotificationPreference, type InsertNotificationPreference, type ScheduledNotification, type InsertScheduledNotification, type BillingAccount, type InsertBillingAccount, type SubscriptionPlan, type Subscription, type InsertSubscription, type Invoice, type InsertInvoice, type Payment, type InsertPayment, type Refund, type InsertRefund, type PlayerSubscription, type InsertPlayerSubscription, coachPayouts, type CoachPayout, type InsertCoachPayout, platformConfig, type PlatformConfig, diagnosticReports, type DiagnosticReport, type InsertDiagnosticReport, parentPlayerRelations, parentSettings, paymentReminders, coachPaymentRules, coachEarnings, type ParentPlayerRelation, type InsertParentPlayerRelation, type ParentSettings, type InsertParentSettings, type PaymentReminder, type InsertPaymentReminder, creditTransactions, type CreditTransaction, type InsertCreditTransaction, creditLots, creditLedgerV2, playerCreditBalance, playerMoneyWallet, inSessionFeedback, playerBaselines, playerBaselineSkillScores, playerPillarProgress, ballLevels, type PlayerBaseline, type InsertPlayerBaseline, deepAssessmentSkills, playerDeepAssessments, type DeepAssessmentSkill, type PlayerDeepAssessment, type InsertPlayerDeepAssessment, glowSkills, levelSkills, bookingInvites, bookingInviteGuests, openMatches, openMatchSlots, playerBookingPreferences, lessonGroupMembers, playerLevelEvents, adultGlowMatches, adultSkillAssessments, sessionWaitlist, squadMembers, playerBadges, playerTitles, playerQuests, dailyQuestSlots, playerStreaks, shopOrders, shopOrderItems, shopWishlist, marketplaceListings, sellerProfiles, playerBallLevels, playerSkillScores, levelTrials, sessionSkillFeedback, matchLogs, skillEvidence, levelUpEvents, matches, matchOpponents, matchPlans, matchChallenges, matchReflections, matchPillarScores, coachMatchReviews, matchTrainingSuggestions, playerXpEvents, playerLevelUpCelebrations, playerFeatureUnlockHistory, deepAssessmentPillarSummaries, tournaments, tournamentParticipants, tournamentMatches, ladderPlayers, ladderChallenges, playRequests, playRequestParticipants, liveMatches, playerNotifications } from "@shared/schema";
 
 // ==================== VIDEO FEEDBACK ====================
-import { videoFeedback, type VideoFeedback, type InsertVideoFeedback, feedItems, yearlyRecaps, weeklyDigests, monthlyDigests, highlightReels, playerOfWeek, academySeasons, playerSeasonEnrollments, sessionPlans, programTemplates, courtBookingConfirmations, squads, lessonGroups, equipment, equipmentRentals, posts, questTemplates, roleMessageTemplates, serviceProviders, shopCategories, shopProducts, shopServices, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners, coachWellnessLogs, playerAiTrainingPlans, playerMonthlyAssessments, playerMonthlyReports, playerSessionReflections, packageTemplates, openToPlay, ladders, bookingRequestBatches, coachTierPricing } from "@shared/schema";
+import { videoFeedback, type VideoFeedback, type InsertVideoFeedback, feedItems, yearlyRecaps, weeklyDigests, monthlyDigests, highlightReels, playerOfWeek, academySeasons, playerSeasonEnrollments, sessionPlans, programTemplates, courtBookingConfirmations, squads, lessonGroups, equipment, equipmentRentals, posts, questTemplates, roleMessageTemplates, serviceProviders, shopCategories, shopProducts, shopServices, spotlightNominations, spotlightWeeklyWinners, spotlightMonthlyWinners, coachWellnessLogs, playerAiTrainingPlans, playerMonthlyAssessments, playerMonthlyReports, playerSessionReflections, packageTemplates, openToPlay, ladders, bookingRequestBatches, coachTierPricing, lessonTemplates, drillBlocks } from "@shared/schema";
 
 // Strip invisible/zero-width Unicode and trim whitespace from player name
 // fields before they are persisted.
@@ -1023,13 +1023,25 @@ export const storage = {
       }
 
       // Match children (must go before matches)
+      // matchOpponents has no matchId column — it's keyed by playerId.
+      // Null out matches.opponentId first (nullable FK) so we can delete matchOpponents rows
+      // before deleting matches in Phase 12b.
       if (matchIds.length > 0) {
-        await tx.delete(matchOpponents).where(inArray(matchOpponents.matchId, matchIds));
+        await tx.update(matches).set({ opponentId: null }).where(inArray(matches.id, matchIds));
         await tx.delete(matchPlans).where(inArray(matchPlans.matchId, matchIds));
         await tx.delete(matchReflections).where(inArray(matchReflections.matchId, matchIds));
         await tx.delete(matchPillarScores).where(inArray(matchPillarScores.matchId, matchIds));
         await tx.delete(coachMatchReviews).where(inArray(coachMatchReviews.matchId, matchIds));
         await tx.delete(matchTrainingSuggestions).where(inArray(matchTrainingSuggestions.matchId, matchIds));
+      }
+      // Null out matchPlans.opponentId before deleting matchOpponents
+      // (matchPlans.opponentId → matchOpponents.id is a nullable FK)
+      if (playerIds.length > 0) {
+        await tx.update(matchPlans).set({ opponentId: null }).where(inArray(matchPlans.playerId, playerIds));
+      }
+      // Delete matchOpponents by playerId (the actual FK column on that table)
+      if (playerIds.length > 0) {
+        await tx.delete(matchOpponents).where(inArray(matchOpponents.playerId, playerIds));
       }
       // matchChallenges has its own academyId FK and also references matches — delete before both
       await tx.delete(matchChallenges).where(eq(matchChallenges.academyId, id));
@@ -1154,7 +1166,11 @@ export const storage = {
       }
       await tx.delete(coachContracts).where(eq(coachContracts.academyId, id));
       await tx.delete(coachTierPricing).where(eq(coachTierPricing.academyId, id));
-      // Nullify source_academy_id on coachTimeBlocks (the block belongs to the coach, not the academy)
+      // Delete coachTimeBlocks for this academy's coaches (coachId FK is NOT NULL, non-cascading)
+      // and nullify sourceAcademyId on any remaining blocks from other academies that referenced this academy.
+      if (coachIds.length > 0) {
+        await tx.delete(coachTimeBlocks).where(inArray(coachTimeBlocks.coachId, coachIds));
+      }
       await tx.update(coachTimeBlocks).set({ sourceAcademyId: null }).where(eq(coachTimeBlocks.sourceAcademyId, id));
       // Nullify freelance_academy_id on coachFreelanceProfiles
       await tx.update(coachFreelanceProfiles).set({ freelanceAcademyId: null }).where(eq(coachFreelanceProfiles.freelanceAcademyId, id));
@@ -1323,6 +1339,14 @@ export const storage = {
       await tx.delete(academyPricing).where(eq(academyPricing.academyId, id));
       await tx.delete(videoFeedback).where(eq(videoFeedback.academyId, id));
       await tx.delete(feedItems).where(eq(feedItems.academyId, id));
+      // drillBlocks.templateId → lessonTemplates.id (NOT NULL, non-cascading) — must go before lessonTemplates
+      // Collect lesson template IDs for this academy to delete their drill blocks
+      const academyLessonTemplateRecords = await tx.select({ id: lessonTemplates.id }).from(lessonTemplates).where(eq(lessonTemplates.academyId, id));
+      const lessonTemplateIds = academyLessonTemplateRecords.map(t => t.id);
+      if (lessonTemplateIds.length > 0) {
+        await tx.delete(drillBlocks).where(inArray(drillBlocks.templateId, lessonTemplateIds));
+      }
+      await tx.delete(lessonTemplates).where(eq(lessonTemplates.academyId, id));
 
       await tx.delete(academies).where(eq(academies.id, id));
     });
