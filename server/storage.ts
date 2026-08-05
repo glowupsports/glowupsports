@@ -2453,14 +2453,29 @@ export const storage = {
         db.delete(domainAssessments).where(eq(domainAssessments.coachId, coachId)),
       ]);
 
-      // Coaching series batch: Delete series_players first (FK dependency), then coaching_series
-      await db.delete(seriesPlayers).where(
-        inArray(
-          seriesPlayers.seriesId,
-          db.select({ id: coachingSeries.id }).from(coachingSeries).where(eq(coachingSeries.coachId, coachId))
-        )
-      );
-      await db.delete(coachingSeries).where(eq(coachingSeries.coachId, coachId));
+      // Coaching series batch: collect series IDs first so we can clean up FK references
+      const coachSeriesRecords = await db
+        .select({ id: coachingSeries.id })
+        .from(coachingSeries)
+        .where(eq(coachingSeries.coachId, coachId));
+      const coachSeriesIds = coachSeriesRecords.map((s) => s.id);
+
+      if (coachSeriesIds.length > 0) {
+        // Null out community_groups.series_id before deleting coaching_series
+        // (community_groups_series_id_coaching_series_id_fk is non-cascading)
+        await db
+          .update(communityGroups)
+          .set({ seriesId: null })
+          .where(inArray(communityGroups.seriesId, coachSeriesIds));
+
+        // Delete series_players (FK dependency on coaching_series.id)
+        await db
+          .delete(seriesPlayers)
+          .where(inArray(seriesPlayers.seriesId, coachSeriesIds));
+
+        // Now safe to delete coaching_series rows
+        await db.delete(coachingSeries).where(eq(coachingSeries.coachId, coachId));
+      }
 
       // Second batch: Chat related (sequential to avoid FK race conditions)
       // First, get all message IDs sent by this coach
