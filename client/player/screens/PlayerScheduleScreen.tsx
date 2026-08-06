@@ -1432,6 +1432,26 @@ export default function PlayerScheduleScreen() {
           </Animated.View>
         ) : null}
 
+        {/* Season ended banner (sessions tab only) — shown when the academy
+            has ended the season and no new one has started yet. */}
+        {activeTab === "sessions" && seasonData !== null && !seasonData.currentSeason ? (
+          <Animated.View entering={FadeIn.duration(300)} style={{ marginHorizontal: 16, marginBottom: 8 }}>
+            <View style={{ backgroundColor: "#FF950010", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: "#FF950030", flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#FF950020", justifyContent: "center", alignItems: "center" }}>
+                <Ionicons name="time-outline" size={18} color="#FF9500" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: "#FF9500", fontSize: 13, fontWeight: "700", marginBottom: 2 }}>
+                  Season ended
+                </Text>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, lineHeight: 16 }}>
+                  Your coach will start the next season soon.
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        ) : null}
+
         {/* Season summary card (sessions tab only) */}
         {activeTab === "sessions" && seasonData?.currentSeason ? (() => {
           const enrollmentStart = new Date(seasonData.currentSeason.startedAt);

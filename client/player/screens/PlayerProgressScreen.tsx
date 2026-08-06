@@ -1622,6 +1622,20 @@ export default function PlayerProgressScreen() {
   const videoFeedbacks = progressGodData?.videoFeedback ?? null;
   const playerProfile = progressGodData?.profile ?? null;
 
+  // Read season data from the already-cached schedule god query so the
+  // Progress screen can show a "Season ended" banner without an extra
+  // network round-trip. The schedule-data query is populated by
+  // PlayerScheduleScreen on first mount; if the cache is cold we just
+  // get undefined and show nothing (safe fallback).
+  const scheduleGodCache = queryClient.getQueryData<{
+    seasonData?: { currentSeason: { id: string; seasonName: string; startedAt: string; endedAt: string | null } | null } | null;
+  }>(["/api/player/me/schedule-data"]);
+  // seasonData === null  → API returned null (no season system / error)
+  // seasonData !== null && currentSeason === null → season ended, no open enrollment
+  const seasonEndedBanner = scheduleGodCache?.seasonData !== undefined
+    && scheduleGodCache.seasonData !== null
+    && scheduleGodCache.seasonData.currentSeason === null;
+
   const recentNotes = useMemo(() => {
     if (!sessionFeedbacks || sessionFeedbacks.length === 0) return [];
     return [...sessionFeedbacks]
@@ -1946,6 +1960,25 @@ export default function PlayerProgressScreen() {
               : "Coach-validated skill development"}
           </Text>
         </View>
+
+        {/* Season ended banner — shown when the academy has ended the season
+            and no new enrollment is open yet. seasonEndedBanner is derived
+            from the schedule god cache so no extra network call is needed. */}
+        {seasonEndedBanner ? (
+          <View style={{ marginHorizontal: 16, marginBottom: 12, backgroundColor: "#FF950010", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: "#FF950030", flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#FF950020", justifyContent: "center", alignItems: "center" }}>
+              <Ionicons name="time-outline" size={18} color="#FF9500" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "#FF9500", fontSize: 13, fontWeight: "700", marginBottom: 2 }}>
+                Season ended
+              </Text>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, lineHeight: 16 }}>
+                Your coach will start the next season soon.
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         {/* Sport Tab Switcher */}
         {isMultiSport ? (
