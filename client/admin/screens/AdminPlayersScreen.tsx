@@ -1816,7 +1816,6 @@ const dtStyles = StyleSheet.create({
   tableArea: {
     flex: 1,
     flexDirection: "row",
-    overflow: "hidden",
   },
   tableScroll: {
     flex: 1,

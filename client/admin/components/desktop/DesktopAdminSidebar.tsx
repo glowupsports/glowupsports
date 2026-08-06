@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { useAuth } from "@/coach/context/AuthContext";
 
@@ -83,11 +84,26 @@ interface Props {
   academyName?: string;
 }
 
-function NavItemRow({ item, isActive, onPress }: { item: NavItem; isActive: boolean; onPress: () => void }) {
+function NavItemRow({
+  item,
+  isActive,
+  onPress,
+  collapsed,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  onPress: () => void;
+  collapsed: boolean;
+}) {
   const [hovered, setHovered] = useState(false);
   return (
     <Pressable
-      style={[styles.navItem, isActive && styles.navItemActive, !isActive && hovered && styles.navItemHovered]}
+      style={[
+        styles.navItem,
+        collapsed && styles.navItemCollapsed,
+        isActive && styles.navItemActive,
+        !isActive && hovered && styles.navItemHovered,
+      ]}
       onPress={onPress}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
@@ -96,20 +112,42 @@ function NavItemRow({ item, isActive, onPress }: { item: NavItem; isActive: bool
         name={item.icon}
         size={18}
         color={isActive ? "#C8FF3D" : Colors.dark.textMuted}
-        style={styles.navIcon}
+        style={collapsed ? styles.navIconCollapsed : styles.navIcon}
       />
-      <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-        {item.label}
-      </Text>
-      {isActive && <View style={styles.activeIndicator} />}
+      {!collapsed && (
+        <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+          {item.label}
+        </Text>
+      )}
+      {isActive && <View style={collapsed ? styles.activeIndicatorCollapsed : styles.activeIndicator} />}
     </Pressable>
   );
 }
+
+const STORAGE_KEY = "adminSidebarCollapsed";
 
 export default function DesktopAdminSidebar({ activeRoute, onNavigate, academyName }: Props) {
   const { user } = useAuth();
   const isOwner = user?.role === "academy_owner";
   const [portalMode, setPortalMode] = useState<PortalMode>("admin");
+  const [collapsed, setCollapsed] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  // Load persisted collapse state
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((val) => {
+        if (val === "true") setCollapsed(true);
+      })
+      .catch(() => {})
+      .finally(() => setReady(true));
+  }, []);
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    AsyncStorage.setItem(STORAGE_KEY, String(next)).catch(() => {});
+  };
 
   const _userDisplayName = user?.displayName ?? user?.username ?? "";
   const initials = _userDisplayName
@@ -120,22 +158,31 @@ export default function DesktopAdminSidebar({ activeRoute, onNavigate, academyNa
         .join("")
     : "A";
 
+  // Don't render until AsyncStorage has loaded, to avoid a flash
+  if (!ready) return null;
+
+  const sidebarWidth = collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH;
+
   return (
-    <View style={styles.sidebar}>
-      <View style={styles.logoSection}>
+    <View style={[styles.sidebar, { width: sidebarWidth }]}>
+      {/* Logo / header */}
+      <View style={[styles.logoSection, collapsed && styles.logoSectionCollapsed]}>
         <View style={styles.logoIcon}>
           <Ionicons name="flash" size={20} color="#C8FF3D" />
         </View>
-        <View style={styles.logoText}>
-          <Text style={styles.logoName} numberOfLines={1}>
-            {academyName ?? "Academy"}
-          </Text>
-          <Text style={styles.logoRole}>Admin Portal</Text>
-        </View>
+        {!collapsed && (
+          <View style={styles.logoText}>
+            <Text style={styles.logoName} numberOfLines={1}>
+              {academyName ?? "Academy"}
+            </Text>
+            <Text style={styles.logoRole}>Admin Portal</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.divider} />
 
+      {/* Nav items */}
       <ScrollView style={styles.navScroll} showsVerticalScrollIndicator={false}>
         {NAV_SECTIONS.map((section) => {
           if (section.ownerOnly && !isOwner) return null;
@@ -144,14 +191,17 @@ export default function DesktopAdminSidebar({ activeRoute, onNavigate, academyNa
           );
           if (visibleItems.length === 0) return null;
           return (
-            <View key={section.title} style={styles.section}>
-              <Text style={styles.sectionLabel}>{section.title}</Text>
+            <View key={section.title} style={[styles.section, collapsed && styles.sectionCollapsed]}>
+              {!collapsed && (
+                <Text style={styles.sectionLabel}>{section.title}</Text>
+              )}
               {visibleItems.map((item) => (
                 <NavItemRow
                   key={`${item.route}-${item.label}`}
                   item={item}
                   isActive={activeRoute === item.route}
                   onPress={() => onNavigate(item.route)}
+                  collapsed={collapsed}
                 />
               ))}
             </View>
@@ -159,52 +209,72 @@ export default function DesktopAdminSidebar({ activeRoute, onNavigate, academyNa
         })}
       </ScrollView>
 
+      {/* Footer */}
       <View style={styles.footer}>
         <View style={styles.divider} />
 
-        <View style={styles.modeSwitcher}>
-          <Text style={styles.modeLabel}>View as:</Text>
-          <View style={styles.modePills}>
-            {(["admin", "coach", "owner"] as PortalMode[]).map((mode) => (
-              <Pressable
-                key={mode}
-                style={[styles.modePill, portalMode === mode && styles.modePillActive]}
-                onPress={() => setPortalMode(mode)}
-              >
-                <Text style={[styles.modePillText, portalMode === mode && styles.modePillTextActive]}>
-                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
-                </Text>
-              </Pressable>
-            ))}
+        {!collapsed && (
+          <View style={styles.modeSwitcher}>
+            <Text style={styles.modeLabel}>View as:</Text>
+            <View style={styles.modePills}>
+              {(["admin", "coach", "owner"] as PortalMode[]).map((mode) => (
+                <Pressable
+                  key={mode}
+                  style={[styles.modePill, portalMode === mode && styles.modePillActive]}
+                  onPress={() => setPortalMode(mode)}
+                >
+                  <Text style={[styles.modePillText, portalMode === mode && styles.modePillTextActive]}>
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
-        <View style={styles.userRow}>
+        <View style={[styles.userRow, collapsed && styles.userRowCollapsed]}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
-          <View style={styles.userInfo}>
-            <Text style={styles.userName} numberOfLines={1}>
-              {user?.displayName ?? user?.username ?? "Admin"}
-            </Text>
-            <Text style={styles.userRole} numberOfLines={1}>
-              {user?.role === "academy_owner" ? "Owner" : "Admin"}
-            </Text>
-          </View>
+          {!collapsed && (
+            <View style={styles.userInfo}>
+              <Text style={styles.userName} numberOfLines={1}>
+                {user?.displayName ?? user?.username ?? "Admin"}
+              </Text>
+              <Text style={styles.userRole} numberOfLines={1}>
+                {user?.role === "academy_owner" ? "Owner" : "Admin"}
+              </Text>
+            </View>
+          )}
         </View>
+
+        {/* Collapse toggle */}
+        <Pressable
+          onPress={toggleCollapsed}
+          style={[styles.collapseBtn, collapsed && styles.collapseBtnCollapsed]}
+        >
+          <Ionicons
+            name={collapsed ? "chevron-forward" : "chevron-back"}
+            size={14}
+            color={Colors.dark.textMuted}
+          />
+          {!collapsed && (
+            <Text style={styles.collapseBtnText}>Collapse</Text>
+          )}
+        </Pressable>
       </View>
     </View>
   );
 }
 
 const SIDEBAR_WIDTH = 240;
+const SIDEBAR_COLLAPSED_WIDTH = 60;
 const NEON = "#C8FF3D";
 const SIDEBAR_BG = "#0B0D10";
 const BORDER_COLOR = "rgba(255,255,255,0.07)";
 
 const styles = StyleSheet.create({
   sidebar: {
-    width: SIDEBAR_WIDTH,
     flexShrink: 0,
     backgroundColor: SIDEBAR_BG,
     borderRightWidth: 1,
@@ -217,6 +287,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.lg,
     gap: Spacing.sm,
+  },
+  logoSectionCollapsed: {
+    justifyContent: "center",
+    paddingHorizontal: 0,
   },
   logoIcon: {
     width: 36,
@@ -253,6 +327,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     paddingHorizontal: Spacing.sm,
   },
+  sectionCollapsed: {
+    paddingHorizontal: 4,
+  },
   sectionLabel: {
     color: Colors.dark.textMuted,
     fontSize: 10,
@@ -271,6 +348,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     position: "relative",
   },
+  navItemCollapsed: {
+    justifyContent: "center",
+    paddingHorizontal: 0,
+  },
   navItemActive: {
     backgroundColor: "rgba(200,255,61,0.08)",
   },
@@ -279,6 +360,11 @@ const styles = StyleSheet.create({
   },
   navIcon: {
     marginRight: Spacing.sm,
+    width: 20,
+    textAlign: "center",
+  },
+  navIconCollapsed: {
+    marginRight: 0,
     width: 20,
     textAlign: "center",
   },
@@ -299,8 +385,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
   },
+  activeIndicatorCollapsed: {
+    width: 3,
+    height: 16,
+    borderRadius: 2,
+    backgroundColor: NEON,
+    position: "absolute",
+    right: 0,
+  },
   footer: {
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   modeSwitcher: {
     paddingHorizontal: Spacing.md,
@@ -346,6 +440,11 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     gap: Spacing.sm,
   },
+  userRowCollapsed: {
+    justifyContent: "center",
+    paddingHorizontal: 0,
+    paddingTop: Spacing.md,
+  },
   avatar: {
     width: 34,
     height: 34,
@@ -373,5 +472,28 @@ const styles = StyleSheet.create({
     color: Colors.dark.textMuted,
     fontSize: 11,
     marginTop: 1,
+  },
+  collapseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.sm,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
+    borderColor: BORDER_COLOR,
+  },
+  collapseBtnCollapsed: {
+    marginHorizontal: 4,
+    justifyContent: "center",
+    paddingHorizontal: 0,
+  },
+  collapseBtnText: {
+    fontSize: 12,
+    color: Colors.dark.textMuted,
+    fontWeight: "500",
   },
 });
