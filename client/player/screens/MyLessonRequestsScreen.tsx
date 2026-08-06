@@ -16,6 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Spacing, Typography, BorderRadius, TextColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
+import { getBallLevelAccentColor } from "@/coach/components/calendar/calendarUtils";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
@@ -43,6 +44,7 @@ interface BookingRequest {
   expiresAt?: string | null;
   createdAt: string;
   sessionId?: string | null;
+  ballLevel?: string | null;
 }
 
 const DECLINE_REASON_LABELS: Record<string, string> = {
@@ -98,6 +100,9 @@ function ApprovedCard({ item }: { item: BookingRequest }) {
   const dateStr = start.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
   const timeStr = `${start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 
+  // Ball-level accent: tints the card border and gradient to match group colour.
+  const levelColor = getBallLevelAccentColor(item.ballLevel) ?? Colors.dark.primary;
+
   const goToConfirmed = () => {
     navigation.navigate("BookingConfirmed", {
       sessionType: item.sessionType,
@@ -109,6 +114,7 @@ function ApprovedCard({ item }: { item: BookingRequest }) {
       durationMinutes: item.duration,
       locationName: item.locationName ?? undefined,
       sessionId: item.sessionId ?? undefined,
+      ballLevel: item.ballLevel ?? undefined,
     });
   };
 
@@ -131,7 +137,7 @@ function ApprovedCard({ item }: { item: BookingRequest }) {
 
   const borderColor = glowAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [Colors.dark.primary + "40", Colors.dark.primary + "CC"],
+    outputRange: [levelColor + "40", levelColor + "CC"],
   });
 
   const approvedCardStyle: ViewStyle = {
@@ -145,12 +151,12 @@ function ApprovedCard({ item }: { item: BookingRequest }) {
     <Pressable onPress={goToConfirmed}>
       <Animated.View style={[approvedCardStyle, { transform: [{ scale: scaleAnim }], borderColor }]}>
         <LinearGradient
-          colors={[Colors.dark.primary + "20", Colors.dark.backgroundSecondary]}
+          colors={[levelColor + "20", Colors.dark.backgroundSecondary]}
           style={styles.approvedGradient}
         >
           <View style={styles.approvedIconRow}>
             <View style={styles.approvedIconBg}>
-              <Ionicons name="checkmark-circle" size={32} color={Colors.dark.primary} />
+              <Ionicons name="checkmark-circle" size={32} color={levelColor} />
             </View>
             <View style={styles.approvedTextBlock}>
               <Text style={styles.approvedTitle}>Booking Confirmed</Text>
@@ -161,16 +167,16 @@ function ApprovedCard({ item }: { item: BookingRequest }) {
 
           <View style={styles.approvedDetails}>
             <View style={styles.approvedDetailRow}>
-              <Ionicons name="calendar" size={16} color={Colors.dark.primary} />
+              <Ionicons name="calendar" size={16} color={levelColor} />
               <Text style={styles.approvedDetailText}>{dateStr}</Text>
             </View>
             <View style={styles.approvedDetailRow}>
-              <Ionicons name="time" size={16} color={Colors.dark.primary} />
+              <Ionicons name="time" size={16} color={levelColor} />
               <Text style={styles.approvedDetailText}>{timeStr}</Text>
             </View>
             {item.coachName ? (
               <View style={styles.approvedDetailRow}>
-                <Ionicons name="person" size={16} color={Colors.dark.primary} />
+                <Ionicons name="person" size={16} color={levelColor} />
                 <Text style={styles.approvedDetailText}>{item.coachName}</Text>
               </View>
             ) : null}
@@ -178,7 +184,7 @@ function ApprovedCard({ item }: { item: BookingRequest }) {
 
           {item.coachWelcomeMessage ? (
             <View style={styles.welcomeMsgCard}>
-              <Ionicons name="chatbubble-ellipses" size={14} color={Colors.dark.primary} />
+              <Ionicons name="chatbubble-ellipses" size={14} color={levelColor} />
               <Text style={styles.welcomeMsgText}>{item.coachWelcomeMessage}</Text>
             </View>
           ) : null}
@@ -273,6 +279,7 @@ function CounterProposalCard({
           durationMinutes: item.duration,
           locationName: item.locationName ?? undefined,
           sessionId: item.sessionId ?? undefined,
+          ballLevel: item.ballLevel ?? undefined,
         });
       }
       onAccepted();

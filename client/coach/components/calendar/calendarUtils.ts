@@ -41,6 +41,18 @@ function gradientForStage(stage: string): [string, string] | null {
 }
 
 /**
+ * Returns a single accent colour for a ball-level string.
+ * Returns null when the level is unknown / not set.
+ * Mirrors gradientForStage's palette so coach calendar and player views agree.
+ */
+export function getBallLevelAccentColor(ballLevel: string | null | undefined): string | null {
+  const stage = stageFromBallLevel(ballLevel);
+  if (!stage) return null;
+  const g = gradientForStage(stage);
+  return g ? g[0] : null;
+}
+
+/**
  * Returns the gradient color pair for a calendar session block.
  *
  * Priority:

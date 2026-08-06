@@ -206,6 +206,7 @@ export type PlayerV2StackParamList = {
     focusArea?: string;
     courtLocation?: string | null;
     sessionId?: string;
+    ballLevel?: string;
   };
   BookingPreferences: undefined;
   BookingInvites: undefined;

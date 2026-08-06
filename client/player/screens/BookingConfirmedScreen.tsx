@@ -18,6 +18,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
+import { getBallLevelAccentColor } from "@/coach/components/calendar/calendarUtils";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -35,6 +36,7 @@ type BookingConfirmedParams = {
     focusArea?: string;
     courtLocation?: string | null;
     sessionId?: string;
+    ballLevel?: string;
   };
 };
 
@@ -124,7 +126,12 @@ export default function BookingConfirmedScreen() {
     focusArea,
     courtLocation: courtLocationParam,
     sessionId,
+    ballLevel,
   } = route.params ?? {};
+
+  // Derive ball-level accent color (red/orange/green/yellow → matching hex).
+  // Falls back to the academy primary when no level is set.
+  const levelColor = getBallLevelAccentColor(ballLevel) ?? Colors.dark.primary;
 
   const [courtSkipped, setCourtSkipped] = useState(false);
 
@@ -229,20 +236,20 @@ export default function BookingConfirmedScreen() {
             <View style={styles.coachPhotoContainer}>
               <Image
                 source={{ uri: coachPhotoUrl }}
-                style={styles.coachPhoto}
+                style={[styles.coachPhoto, { borderColor: levelColor }]}
                 contentFit="cover"
               />
               <View style={styles.coachPhotoCheck}>
-                <Ionicons name="checkmark-circle" size={32} color={Colors.dark.primary} />
+                <Ionicons name="checkmark-circle" size={32} color={levelColor} />
               </View>
             </View>
           ) : (
             <LinearGradient
-              colors={[Colors.dark.primary + "40", Colors.dark.primary + "10"]}
+              colors={[levelColor + "40", levelColor + "10"]}
               style={styles.checkGradient}
             >
               <View style={styles.checkRing}>
-                <Ionicons name="checkmark-circle" size={72} color={Colors.dark.primary} />
+                <Ionicons name="checkmark-circle" size={72} color={levelColor} />
               </View>
             </LinearGradient>
           )}
@@ -254,21 +261,21 @@ export default function BookingConfirmedScreen() {
           <Text style={styles.subtitle}>{sessionTypeLabel} is on the books</Text>
         </Animated.View>
 
-        {/* Details card */}
+        {/* Details card — border tinted by ball-level colour */}
         <Animated.View
           style={[
             styles.detailsCard,
-            { opacity: cardOpacity, transform: [{ translateY: cardAnim }] },
+            { opacity: cardOpacity, transform: [{ translateY: cardAnim }], borderColor: levelColor + "40" },
           ]}
         >
           <View style={styles.detailRow}>
-            <Ionicons name="calendar" size={20} color={Colors.dark.primary} />
+            <Ionicons name="calendar" size={20} color={levelColor} />
             <Text style={styles.detailLabel}>Date</Text>
             <Text style={styles.detailValue}>{dateStr}</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.detailRow}>
-            <Ionicons name="time" size={20} color={Colors.dark.primary} />
+            <Ionicons name="time" size={20} color={levelColor} />
             <Text style={styles.detailLabel}>Time</Text>
             <Text style={styles.detailValue}>{timeStr}</Text>
           </View>
@@ -276,7 +283,7 @@ export default function BookingConfirmedScreen() {
             <>
               <View style={styles.divider} />
               <View style={styles.detailRow}>
-                <Ionicons name="hourglass" size={20} color={Colors.dark.primary} />
+                <Ionicons name="hourglass" size={20} color={levelColor} />
                 <Text style={styles.detailLabel}>Duration</Text>
                 <Text style={styles.detailValue}>{durationMinutes} min</Text>
               </View>
@@ -286,7 +293,7 @@ export default function BookingConfirmedScreen() {
             <>
               <View style={styles.divider} />
               <View style={styles.detailRow}>
-                <Ionicons name="person" size={20} color={Colors.dark.primary} />
+                <Ionicons name="person" size={20} color={levelColor} />
                 <Text style={styles.detailLabel}>Coach</Text>
                 <Text style={styles.detailValue}>{coachName}</Text>
               </View>
@@ -296,7 +303,7 @@ export default function BookingConfirmedScreen() {
             <>
               <View style={styles.divider} />
               <View style={styles.detailRow}>
-                <Ionicons name="location" size={20} color={Colors.dark.primary} />
+                <Ionicons name="location" size={20} color={levelColor} />
                 <Text style={styles.detailLabel}>Location</Text>
                 <Text style={styles.detailValue}>{locationName}</Text>
               </View>
@@ -306,7 +313,7 @@ export default function BookingConfirmedScreen() {
             <>
               <View style={styles.divider} />
               <View style={styles.detailRow}>
-                <Ionicons name="tennisball" size={20} color={Colors.dark.primary} />
+                <Ionicons name="tennisball" size={20} color={levelColor} />
                 <Text style={styles.detailLabel}>Focus</Text>
                 <Text style={styles.detailValue}>{focusArea}</Text>
               </View>

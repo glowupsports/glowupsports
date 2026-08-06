@@ -55,6 +55,7 @@ import * as Linking from "expo-linking";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useTabNavigation } from "@/components/TabNavigationContext";
 import { useAcademyTheme } from "@/contexts/AcademyThemeContext";
+import { getBallLevelAccentColor } from "@/coach/components/calendar/calendarUtils";
 import { useTrackFeature } from "@/player/hooks/useTrackFeature";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import {
@@ -153,9 +154,11 @@ interface SessionData {
     locationAddress?: string | null;
     locationLat?: number | null;
     locationLng?: number | null;
+    ballLevel?: string | null;
   } | null;
   coachName: string | null;
   coachPhotoUrl?: string | null;
+  ballLevel?: string | null;
   // Task #1101 — payment surfacing for paid-online (Stripe) lessons.
   paymentStatus?: string | null;
   price?: string | null;
@@ -208,6 +211,7 @@ interface ScheduledItem {
   locationLng?: number | null;
   status: "upcoming" | "completed" | "cancelled";
   attendanceStatus?: string;
+  ballLevel?: string | null;
   // Task #1101 — payment indicators surfaced on the card.
   paymentStatus?: string | null;
   price?: string | null;
@@ -662,6 +666,7 @@ export default function PlayerScheduleScreen() {
           locationLng: s.session.locationLng ?? null,
           status: isCancelled ? "cancelled" : isPast ? "completed" : "upcoming",
           attendanceStatus: s.attendanceStatus,
+          ballLevel: s.session.ballLevel ?? s.ballLevel ?? null,
           paymentStatus: s.paymentStatus ?? null,
           price: s.price ?? null,
           currency: s.currency ?? null,
@@ -2288,7 +2293,10 @@ function DayHero({
   }
 
   const [primary, ...rest] = items;
-  const accent = getEventColor(primary.type);
+  // For lesson-type sessions, prefer the ball-level colour so the card
+  // tint matches the coach calendar. Court and match keep their own colours.
+  const isLesson = primary.type !== "court" && primary.type !== "match";
+  const accent = (isLesson && getBallLevelAccentColor(primary.ballLevel)) || getEventColor(primary.type);
   const startDateTime = new Date(`${primary.date}T${primary.startTime}`);
   const now = new Date();
   const diffMs = startDateTime.getTime() - now.getTime();
@@ -2427,7 +2435,8 @@ function DayHero({
       {rest.length > 0 ? (
         <View style={styles.secondaryList}>
           {rest.map((it) => {
-            const c = getEventColor(it.type);
+            const isLessonItem = it.type !== "court" && it.type !== "match";
+            const c = (isLessonItem && getBallLevelAccentColor(it.ballLevel)) || getEventColor(it.type);
             return (
               <Pressable
                 key={it.id}

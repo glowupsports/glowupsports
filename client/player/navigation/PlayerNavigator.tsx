@@ -150,6 +150,7 @@ export type PlayerStackParamList = {
     focusArea?: string;
     courtLocation?: string | null;
     sessionId?: string;
+    ballLevel?: string;
   };
   PlayerFinder: undefined;
   FriendsList: { initialTab?: "friends" | "requests" } | undefined;

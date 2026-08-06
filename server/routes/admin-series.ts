@@ -6815,6 +6815,7 @@ router.get(
           },
           coachName: session.coachId ? coachMap[session.coachId] || null : null,
           coachPhotoUrl: session.coachId ? coachPhotoMap[session.coachId] ?? null : null,
+          ballLevel: session.ballLevel ?? null,
           // Task #1101 — surface payment fields so the player schedule UI can
           // render a "Paid" indicator + currency-formatted price for sessions
           // that were paid for online (e.g. drop-in card-paid lessons).
