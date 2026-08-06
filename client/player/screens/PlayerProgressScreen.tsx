@@ -2080,13 +2080,7 @@ export default function PlayerProgressScreen() {
               </View>
               <View style={styles.levelLabelRow}>
                 <Text style={styles.ballLevelHint}>
-                  {isNewPlayer
-                    ? "Your starting level"
-                    : activeSport === "padel"
-                    ? "Padel level"
-                    : activeSport === "pickleball"
-                    ? "Pickleball rating"
-                    : "Tap to learn more"}
+                  {isNewPlayer ? "Your starting level" : "Tap to learn more"}
                 </Text>
                 <Ionicons name="information-circle-outline" size={12} color={Colors.dark.textMuted} />
               </View>
@@ -2488,7 +2482,7 @@ export default function PlayerProgressScreen() {
         <View style={styles.pillarRingsSection}>
           <View style={styles.pillarHeaderRow}>
             <Text style={styles.sectionTitle}>
-              {activeSport === "padel" ? "PADEL SKILLS" : activeSport === "pickleball" ? "PICKLEBALL SKILLS" : "THE 6 PILLARS"}
+              {"THE 6 PILLARS"}
             </Text>
             {isNewPlayer && (
               <View style={styles.pillarNewBadge}>
