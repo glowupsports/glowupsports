@@ -20,11 +20,9 @@ import { apiFetch } from "@/lib/query-client";
 
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 const NEWS_SPORT_PREF_KEY = "@news_sport_preference";
-type SportKey = "tennis" | "padel" | "pickleball";
+type SportKey = "tennis";
 const SPORT_LABELS: Record<SportKey, string> = {
   tennis: "TENNIS",
-  padel: "PADEL",
-  pickleball: "PICKLEBALL",
 };
 
 interface NewsArticle {
@@ -54,11 +52,8 @@ export function NewsTicker({
   const [sport, setSport] = useState<SportKey>("tennis");
 
   useEffect(() => {
-    AsyncStorage.getItem(NEWS_SPORT_PREF_KEY).then((val) => {
-      if (val && ["tennis", "padel", "pickleball"].includes(val)) {
-        setSport(val as SportKey);
-      }
-    }).catch(() => {});
+    // Sport is locked to tennis — clear any stale padel/pickleball preference
+    AsyncStorage.removeItem(NEWS_SPORT_PREF_KEY).catch(() => {});
   }, []);
 
   const { data: newsData, isLoading } = useQuery<{ articles: NewsArticle[] }>({

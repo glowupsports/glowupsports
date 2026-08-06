@@ -27,12 +27,10 @@ const { width: _SCREEN_WIDTH } = Dimensions.get("window");
 
 const NEWS_SPORT_PREF_KEY = "@news_sport_preference";
 
-type SportKey = "tennis" | "padel" | "pickleball";
+type SportKey = "tennis";
 
 const SPORT_CHIPS: { key: SportKey; label: string }[] = [
   { key: "tennis", label: "Tennis" },
-  { key: "padel", label: "Padel" },
-  { key: "pickleball", label: "Pickleball" },
 ];
 
 interface NewsArticle {
@@ -315,36 +313,9 @@ export default function NewsScreen() {
   const [prefLoaded, setPrefLoaded] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const saved = await AsyncStorage.getItem(NEWS_SPORT_PREF_KEY);
-        if (saved && ["tennis", "padel", "pickleball"].includes(saved)) {
-          setSelectedSport(saved as SportKey);
-        } else {
-          try {
-            const profileRes = await apiFetch("/api/player/me/profile");
-            if (profileRes.ok) {
-              const profile = await profileRes.json();
-              type SportProfileEntry = { sport?: string; sportType?: string };
-              const sports: string[] = (profile?.sportProfiles as SportProfileEntry[] | undefined)?.map(
-                (sp) => (sp.sport || sp.sportType || "").toLowerCase()
-              ) ?? [];
-              if (sports.includes("tennis")) {
-                setSelectedSport("tennis");
-              } else if (sports.includes("padel")) {
-                setSelectedSport("padel");
-              } else if (sports.includes("pickleball")) {
-                setSelectedSport("pickleball");
-              }
-            }
-          } catch {
-          }
-        }
-      } catch {
-      } finally {
-        setPrefLoaded(true);
-      }
-    })();
+    // Sport is locked to tennis — clear any stale padel/pickleball preference
+    AsyncStorage.removeItem(NEWS_SPORT_PREF_KEY).catch(() => {});
+    setPrefLoaded(true);
   }, []);
 
   const handleSelectSport = useCallback(async (sport: SportKey) => {
