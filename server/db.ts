@@ -25,16 +25,47 @@ const pool = new Pool({
   max: 5,
   min: 0,
   connectionTimeoutMillis: 8000,
-  idleTimeoutMillis: 5000,
-  keepAlive: false,
-  allowExitOnIdle: true,
+  // 30 s idle timeout — well below Supabase PgBouncer's ~60 s limit so the
+  // pool discards connections before the server kills them. Previously this
+  // was 5 s which is too aggressive for cron jobs that may run every minute.
+  idleTimeoutMillis: 30000,
+  // Send TCP keepalive probes so the OS detects and surfaces dead connections
+  // rather than letting Supabase/PgBouncer silently terminate them mid-query.
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
+  // Never let an idle pool cause the process to exit — the server has crons
+  // and must stay alive even during quiet periods.
+  allowExitOnIdle: false,
 });
 
-console.log('[Database] Pool configured: max=5, min=0, keepAlive=false');
+console.log('[Database] Pool configured: max=5, min=0, keepAlive=true, idleTimeoutMillis=30000');
 
-// Add error handler to pool
-pool.on('error', (err) => {
-  console.error('[Database] Pool error:', err.message);
+// Handle background connection errors (e.g. Supabase/PgBouncer terminating
+// idle connections) without crashing the process. Without this handler an
+// "error" event on a pool client would be an unhandled EventEmitter error
+// and would kill Node.  We log + capture so Sentry records it once but the
+// app keeps running.
+pool.on('error', (err: Error) => {
+  const msg = err.message ?? '';
+  // "terminating connection due to administrator command" and
+  // "Connection terminated unexpectedly" are normal PgBouncer health-check
+  // behaviour — demote them to warnings so they don't trigger alert fatigue.
+  if (
+    msg.includes('terminating connection due to administrator command') ||
+    msg.includes('Connection terminated unexpectedly') ||
+    msg.includes('connection terminated')
+  ) {
+    console.warn('[Database] Pool connection terminated by server (PgBouncer idle sweep) — pool will open a fresh connection on next query:', msg);
+  } else {
+    console.error('[Database] Pool error:', msg);
+    // Only send non-routine errors to Sentry to avoid noise.
+    try {
+      const Sentry = require('@sentry/node');
+      Sentry.captureException(err, { tags: { source: 'pg_pool' } });
+    } catch (_) {
+      // Sentry not available in this context — ignore.
+    }
+  }
 });
 
 // Test connection on startup
