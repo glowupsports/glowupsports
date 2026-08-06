@@ -27,8 +27,13 @@ export function PlansTab({ insets: _insets, tabBarHeight }: TabProps) {
   const coachId = coach?.id || calendarData?.ownSessions?.[0]?.coachId;
 
   const { data: templates = [], isLoading } = useQuery<SessionTemplate[]>({
-    queryKey: ["/api/coach/templates", { coachId }],
+    queryKey: ["/api/coach/templates", coachId],
     enabled: !!coachId,
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/coach/templates?coachId=${coachId}`);
+      if (!res.ok) throw new Error("Failed to fetch templates");
+      return res.json();
+    },
   });
 
   const createTemplateMutation = useMutation({

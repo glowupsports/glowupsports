@@ -93,7 +93,8 @@ function setupSecurityHeaders(app: express.Application) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com", "blob:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://js.stripe.com", "https://cdn.jsdelivr.net", "blob:"],
+        workerSrc: ["'self'", "blob:"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
@@ -882,6 +883,14 @@ function configureExpoAndLanding(app: express.Application) {
   });
 
   setupExpoDevProxy(app);
+
+  // Serve icon fonts unconditionally (dev + production) so the browser can load
+  // Ionicons, Feather, MaterialIcons etc. without a 401. This must live outside
+  // setupExpoDevProxy, which is skipped in production (NODE_ENV !== 'development').
+  app.use("/fonts", express.static(
+    path.resolve(process.cwd(), "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts"),
+    { maxAge: "1d" }
+  ));
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
 
