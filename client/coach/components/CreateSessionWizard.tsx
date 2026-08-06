@@ -106,6 +106,49 @@ interface Coach {
   color?: string | null;
 }
 
+interface ProgramTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  sessionType?: string;
+  ballLevel?: string;
+  programCategory?: string;
+  defaultDuration?: number;
+  defaultMaxPlayers?: number;
+  defaultWeekCount?: number;
+  defaultPrice?: string;
+  rules?: string[];
+  enrollmentType?: string;
+  isActive?: boolean;
+}
+
+const PROGRAM_TEMPLATE_BALL_COLORS: Record<string, string> = {
+  blue: "#3B82F6",
+  red: "#FF4444",
+  orange: "#FF851B",
+  green: "#2ECC40",
+  yellow: "#FFDC00",
+  glow: "#00D4FF",
+  adult_beginner: "#E040FB",
+  adult_intermediate: "#AB47BC",
+  adult_advanced: "#7B1FA2",
+  adult_competitive: "#F50057",
+};
+const PROGRAM_TEMPLATE_BALL_NAMES: Record<string, string> = {
+  blue: "Blue", red: "Red", orange: "Orange", green: "Green",
+  yellow: "Yellow", glow: "Glow",
+  adult_beginner: "Adult Beginner", adult_intermediate: "Adult Intermediate",
+  adult_advanced: "Adult Advanced", adult_competitive: "Adult Competitive",
+};
+function getTemplateBallColor(level?: string): string {
+  if (!level) return Colors.dark.primary;
+  return PROGRAM_TEMPLATE_BALL_COLORS[level] || Colors.dark.primary;
+}
+function getTemplateBallName(level?: string): string {
+  if (!level) return "";
+  return PROGRAM_TEMPLATE_BALL_NAMES[level] || level;
+}
+
 interface CreateSessionWizardProps {
   visible: boolean;
   onClose: () => void;
@@ -377,6 +420,12 @@ export default function CreateSessionWizard({
   const [travelTime, setTravelTime] = useState(0);
   const [notes, setNotes] = useState("");
 
+  // Template picker — series mode only
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [programCategory, setProgramCategory] = useState<string | null>(null);
+  const [enrollmentType, setEnrollmentType] = useState<string | null>(null);
+  const [programRules, setProgramRules] = useState<string[]>([]);
+
   // Loading states
   const [_isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [multiWeekBlockedSlots, setMultiWeekBlockedSlots] = useState<
@@ -410,6 +459,17 @@ export default function CreateSessionWizard({
   >({
     queryKey: ["/api/coach/travel-times"],
     enabled: visible,
+  });
+
+  // Fetch program templates (series mode only — used by template picker step 0)
+  const { data: programTemplates = [], isLoading: loadingTemplates } = useQuery<ProgramTemplate[]>({
+    queryKey: ["/api/coach/program-templates"],
+    enabled: createSeriesMode && visible,
+    queryFn: async () => {
+      const res = await apiFetch("/api/coach/program-templates");
+      if (!res.ok) return [];
+      return res.json();
+    },
   });
 
   // Compute busyWeekOf from selectedDate (YYYY-MM-DD) for the player query
@@ -868,6 +928,10 @@ export default function CreateSessionWizard({
     setTravelTime(0);
     setNotes("");
     setMultiWeekBlockedSlots(new Set());
+    setShowTemplatePicker(false);
+    setProgramCategory(null);
+    setEnrollmentType(null);
+    setProgramRules([]);
   }, []);
 
   useEffect(() => {
@@ -891,10 +955,21 @@ export default function CreateSessionWizard({
       if (initialPlayer) {
         setSelectedPlayers([initialPlayer]);
       }
+      // Show template picker when creating a series
+      if (createSeriesMode) {
+        setShowTemplatePicker(true);
+      }
     } else {
       resetForm();
     }
   }, [visible]);
+
+  // Auto-skip template picker if no templates are defined
+  useEffect(() => {
+    if (createSeriesMode && visible && showTemplatePicker && !loadingTemplates && programTemplates.length === 0) {
+      setShowTemplatePicker(false);
+    }
+  }, [createSeriesMode, visible, showTemplatePicker, loadingTemplates, programTemplates.length]);
 
   // Clear startTime when court changes (to revalidate against new court's blocked slots)
   useEffect(() => {
@@ -1213,6 +1288,10 @@ export default function CreateSessionWizard({
           visibility === "open" && dropInPrice && Number(dropInPrice) > 0
             ? Number(dropInPrice)
             : null,
+        // Template-derived program metadata
+        ...(programCategory ? { programCategory } : {}),
+        ...(enrollmentType ? { enrollmentType } : {}),
+        ...(programRules.length > 0 ? { programRules } : {}),
       };
 
       const endpoint = adminMode ? "/api/admin/series" : "/api/coach/series";
@@ -1303,6 +1382,132 @@ export default function CreateSessionWizard({
     opacity: interpolate(glowPulse.value, [0, 1], [0.3, 0.8]),
     transform: [{ scale: interpolate(glowPulse.value, [0, 1], [1, 1.02]) }],
   }));
+
+  // Apply a program template — pre-fill wizard fields then dismiss picker
+  const applyTemplate = useCallback((tmpl: ProgramTemplate) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (tmpl.ballLevel) setBallLevel(tmpl.ballLevel);
+    if (tmpl.defaultDuration) setDuration(tmpl.defaultDuration);
+    if (tmpl.defaultMaxPlayers) setMaxPlayers(tmpl.defaultMaxPlayers);
+    if (tmpl.defaultWeekCount) setWeekCount(tmpl.defaultWeekCount);
+    if (tmpl.defaultPrice) setDropInPrice(tmpl.defaultPrice);
+    if (tmpl.programCategory) setProgramCategory(tmpl.programCategory);
+    if (tmpl.enrollmentType) setEnrollmentType(tmpl.enrollmentType);
+    if (tmpl.rules && tmpl.rules.length > 0) setProgramRules(tmpl.rules);
+    if (tmpl.sessionType) setSessionType(tmpl.sessionType as SessionType);
+    setShowTemplatePicker(false);
+  }, []);
+
+  // Template picker — shown as Step 0 in series creation mode
+  const renderTemplatePicker = () => (
+    <View style={{ flex: 1 }}>
+      {/* Header matches wizard header style */}
+      <View style={styles.header}>
+        <Pressable onPress={onClose} style={styles.closeBtn}>
+          <Ionicons name="close" size={24} color={Colors.dark.text} />
+        </Pressable>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Choose a template</Text>
+          <Text style={styles.headerSubtitle}>New Series</Text>
+        </View>
+        <View style={styles.headerRight} />
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: Spacing.lg, paddingBottom: 48 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {loadingTemplates ? (
+          <View style={{ alignItems: "center", paddingVertical: 60 }}>
+            <TennisBallSpinner size="large" color={Colors.dark.xpCyan} />
+          </View>
+        ) : (
+          <>
+            {/* Start from scratch — always first */}
+            <Pressable
+              style={tpStyles.scratchCard}
+              onPress={() => setShowTemplatePicker(false)}
+            >
+              <View style={tpStyles.scratchIcon}>
+                <Ionicons name="add-circle-outline" size={26} color={Colors.dark.xpCyan} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={tpStyles.scratchTitle}>Start from scratch</Text>
+                <Text style={tpStyles.scratchSubtitle}>Configure all settings manually</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+            </Pressable>
+
+            {programTemplates.length > 0 && (
+              <>
+                <Text style={tpStyles.sectionLabel}>YOUR TEMPLATES</Text>
+                {programTemplates.map((tmpl) => {
+                  const color = getTemplateBallColor(tmpl.ballLevel);
+                  return (
+                    <Pressable
+                      key={tmpl.id}
+                      style={tpStyles.templateCard}
+                      onPress={() => applyTemplate(tmpl)}
+                    >
+                      <View style={[tpStyles.colorBar, { backgroundColor: color }]} />
+                      <View style={tpStyles.cardBody}>
+                        <Text style={tpStyles.cardName}>{tmpl.name}</Text>
+                        {tmpl.description ? (
+                          <Text style={tpStyles.cardDesc}>{tmpl.description}</Text>
+                        ) : null}
+                        <View style={tpStyles.cardMeta}>
+                          {tmpl.ballLevel ? (
+                            <View style={[tpStyles.metaBadge, { borderColor: color + "60" }]}>
+                              <View style={[tpStyles.metaDot, { backgroundColor: color }]} />
+                              <Text style={[tpStyles.metaText, { color }]}>
+                                {getTemplateBallName(tmpl.ballLevel)}
+                              </Text>
+                            </View>
+                          ) : null}
+                          {tmpl.defaultWeekCount ? (
+                            <View style={tpStyles.metaBadge}>
+                              <Text style={tpStyles.metaText}>{tmpl.defaultWeekCount}w</Text>
+                            </View>
+                          ) : null}
+                          {tmpl.defaultMaxPlayers ? (
+                            <View style={tpStyles.metaBadge}>
+                              <Text style={tpStyles.metaText}>max {tmpl.defaultMaxPlayers}</Text>
+                            </View>
+                          ) : null}
+                          {tmpl.defaultDuration ? (
+                            <View style={tpStyles.metaBadge}>
+                              <Text style={tpStyles.metaText}>{tmpl.defaultDuration}min</Text>
+                            </View>
+                          ) : null}
+                          {tmpl.enrollmentType && tmpl.enrollmentType !== "open" ? (
+                            <View style={[tpStyles.metaBadge, { borderColor: Colors.dark.warning + "60" }]}>
+                              <Text style={[tpStyles.metaText, { color: Colors.dark.warning }]}>
+                                {tmpl.enrollmentType}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {tmpl.rules && tmpl.rules.length > 0 ? (
+                          <View style={tpStyles.rulesHint}>
+                            <Ionicons name="document-text-outline" size={12} color={Colors.dark.textMuted} />
+                            <Text style={tpStyles.rulesHintText}>
+                              {tmpl.rules.length} rule{tmpl.rules.length !== 1 ? "s" : ""}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={Colors.dark.textMuted} />
+                    </Pressable>
+                  );
+                })}
+              </>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </View>
+  );
 
   // Render slide content
   const renderSlideContent = () => {
@@ -3197,7 +3402,10 @@ export default function CreateSessionWizard({
             styles.container,
             { paddingTop: insets.top, paddingBottom: insets.bottom },
           ]}
-        >
+
+          >
+          {showTemplatePicker ? renderTemplatePicker() : (
+            <>
           {/* Header */}
           <View style={styles.header}>
             <Pressable onPress={onClose} style={styles.closeBtn}>
@@ -3325,6 +3533,8 @@ export default function CreateSessionWizard({
               </Pressable>
             )}
           </View>
+            </>
+          )}
         </View>
       </Modal>
 
@@ -5392,5 +5602,111 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.dark.buttonText,
     fontWeight: "700",
+  },
+});
+
+// Template picker styles
+const tpStyles = StyleSheet.create({
+  scratchCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.dark.xpCyan + "40",
+    borderStyle: "dashed",
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
+  },
+  scratchIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.dark.xpCyan + "15",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scratchTitle: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  scratchSubtitle: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  sectionLabel: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  templateCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.dark.backgroundSecondary,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+    marginBottom: Spacing.sm,
+  },
+  colorBar: {
+    width: 4,
+    alignSelf: "stretch",
+  },
+  cardBody: {
+    flex: 1,
+    padding: Spacing.md,
+  },
+  cardName: {
+    ...Typography.body,
+    color: Colors.dark.text,
+    fontWeight: "700",
+  },
+  cardDesc: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  cardMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: Spacing.sm,
+  },
+  metaBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  metaDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  metaText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  rulesHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: Spacing.xs,
+  },
+  rulesHintText: {
+    ...Typography.small,
+    color: Colors.dark.textMuted,
+    fontSize: 11,
   },
 });
