@@ -25,10 +25,6 @@ import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const SPORTS = [
   { key: "tennis", label: "Tennis", icon: "tennisball-outline" },
-  { key: "padel", label: "Padel", icon: "golf-outline" },
-  { key: "squash", label: "Squash", icon: "football-outline" },
-  { key: "pickleball", label: "Pickleball", icon: "baseball-outline" },
-  { key: "badminton", label: "Badminton", icon: "barbell-outline" },
 ] as const;
 
 type SportKey = typeof SPORTS[number]["key"];

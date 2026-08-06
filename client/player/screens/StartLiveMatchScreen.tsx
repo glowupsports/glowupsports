@@ -26,8 +26,6 @@ type StartLiveMatchParams = {
 
 const SPORTS = [
   { value: "tennis", label: "Tennis" },
-  { value: "padel", label: "Padel" },
-  { value: "pickleball", label: "Pickleball" },
 ];
 
 const FORMATS = [

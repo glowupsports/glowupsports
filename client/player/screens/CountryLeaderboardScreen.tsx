@@ -11,13 +11,11 @@ import { ThemedText } from "@/components/ThemedText";
 import { buildPhotoUrl } from "@/lib/query-client";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
-type Sport = "tennis" | "padel" | "pickleball";
+type Sport = "tennis";
 type Scope = "country" | "global";
 
 const SPORTS: { key: Sport; label: string; icon: string }[] = [
   { key: "tennis", label: "Tennis", icon: "tennisball" },
-  { key: "padel", label: "Padel", icon: "ellipse" },
-  { key: "pickleball", label: "Pickleball", icon: "disc" },
 ];
 
 interface RankedPlayer {

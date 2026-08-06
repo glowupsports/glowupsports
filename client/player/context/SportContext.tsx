@@ -4,7 +4,7 @@ import { useAuth } from "@/coach/context/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 
 import { GlowColors, Colors } from "@/constants/theme";
-export type Sport = "tennis" | "padel" | "pickleball";
+export type Sport = "tennis";
 
 export const SPORT_DEFINITIONS: {
   key: Sport;
@@ -14,8 +14,6 @@ export const SPORT_DEFINITIONS: {
   description: string;
 }[] = [
   { key: "tennis", label: "Tennis", icon: "tennisball", color: Colors.dark.accentText, description: "Classic racquet sport" },
-  { key: "padel", label: "Padel", icon: "golf", color: "#00E5FF", description: "Enclosed court with walls" },
-  { key: "pickleball", label: "Pickleball", icon: "baseball", color: "#A855F7", description: "Fast-growing paddle sport" },
 ];
 
 export function getSportColor(sport: string): string {

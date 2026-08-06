@@ -30,7 +30,7 @@ const TEXT_SECONDARY = "#8A95A8";
 const TEXT_MUTED = "#4A5568";
 const ACCENT = GlowColors.primary;
 
-type SportFilter = "all" | "tennis" | "padel" | "pickleball";
+type SportFilter = "all" | "tennis";
 type TypeFilter = "all" | "group" | "private" | "open_match";
 type TravelTimeFilter = "any" | "20" | "30" | "45";
 
@@ -168,8 +168,6 @@ function SportFilterBottomSheet({
   const sports: { id: SportFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
     { id: "all", label: "All Sports", icon: "globe-outline" },
     { id: "tennis", label: "Tennis", icon: "tennisball-outline" },
-    { id: "padel", label: "Padel", icon: "square-outline" },
-    { id: "pickleball", label: "Pickleball", icon: "ellipse-outline" },
   ];
 
   return (

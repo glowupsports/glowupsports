@@ -892,7 +892,7 @@ export default function TournamentsScreen() {
           <View style={{ flex: 1 }}>
             <View style={styles.discoverFilters}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sportChips}>
-                {["all", "tennis", "padel", "pickleball"].map(s => (
+                {["all", "tennis"].map(s => (
                   <Pressable
                     key={s}
                     style={[styles.sportChip, discoverSport === s ? styles.sportChipActive : null]}

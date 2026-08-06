@@ -51,7 +51,7 @@ interface Props {
 }
 
 type FilterType = "all" | "active" | "paused" | "ended";
-type SportFilter = "all" | "tennis" | "padel" | "pickleball";
+type SportFilter = "all" | "tennis";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const FLEXIBLE_DAY = -1;
@@ -517,7 +517,7 @@ export function CoachingSeriesSection({ onSeriesPress, onCreatePress }: Props) {
 
       {showSportFilter ? (
         <View style={styles.sportFilterRow}>
-          {(["all", "tennis", "padel", "pickleball"] as SportFilter[]).map((s) => {
+          {(["all", "tennis"] as SportFilter[]).map((s) => {
             const isActive = sportFilter === s;
             const sportColor = s === "all" ? Colors.dark.textMuted : getSportColor(s);
             return (

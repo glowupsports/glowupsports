@@ -24,7 +24,7 @@ import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 
 type NavigationProp = NativeStackNavigationProp<CoachStackParamList>;
 
-const SPORTS = ["tennis", "padel", "pickleball"];
+const SPORTS = ["tennis"];
 const FORMATS = [
   { key: "knockout", label: "Single Elimination" },
   { key: "round_robin", label: "Round Robin" },

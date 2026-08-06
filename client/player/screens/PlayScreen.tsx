@@ -4277,7 +4277,7 @@ export default function PlayScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.leaderboardFilterScroll}
                 >
-                  {["all", "tennis", "padel", "pickleball"].map((sport) => (
+                  {["all", "tennis"].map((sport) => (
                     <Pressable
                       key={sport}
                       style={[

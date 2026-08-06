@@ -78,7 +78,7 @@ const router = Router();
 router.get(
   "/api/admin/seasons",
   authMiddleware,
-  requireRole("admin", "academy_owner", "coach"),
+  requireRole("admin", "academy_owner", "owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.currentAcademyId;
@@ -103,7 +103,7 @@ router.get(
 router.post(
   "/api/admin/seasons",
   authMiddleware,
-  requireRole("admin", "academy_owner"),
+  requireRole("admin", "academy_owner", "owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.currentAcademyId;
@@ -187,7 +187,7 @@ router.post(
 router.post(
   "/api/coach/players/end-season",
   authMiddleware,
-  requireRole("admin", "academy_owner", "head_coach", "coach"),
+  requireRole("admin", "academy_owner", "owner", "head_coach", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.currentAcademyId;

@@ -26,13 +26,9 @@ import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 const SPORTS = [
   { key: "all", label: "All", icon: "apps-outline" },
   { key: "tennis", label: "Tennis", icon: "tennisball-outline" },
-  { key: "padel", label: "Padel", icon: "golf-outline" },
-  { key: "squash", label: "Squash", icon: "football-outline" },
-  { key: "pickleball", label: "Pickle", icon: "baseball-outline" },
-  { key: "badminton", label: "Badmint.", icon: "barbell-outline" },
 ] as const;
 
-type SportKey = "all" | "tennis" | "padel" | "squash" | "pickleball" | "badminton";
+type SportKey = "all" | "tennis";
 
 interface Participant {
   id: string;

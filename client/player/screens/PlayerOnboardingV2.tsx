@@ -40,9 +40,6 @@ type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
 const SPORT_LABELS: Record<string, string> = {
   tennis: "Tennis",
-  padel: "Padel",
-  pickleball: "Pickleball",
-  squash: "Squash",
 };
 
 const ISO_TO_COUNTRY: Record<string, string> = {
