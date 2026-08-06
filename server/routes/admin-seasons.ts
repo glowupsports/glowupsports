@@ -98,6 +98,73 @@ router.get(
   },
 );
 
+// ── POST /api/admin/seasons/end-current ───────────────────────────────────
+// Ends the current active season for the academy WITHOUT creating a new one.
+// Closes all open player season enrollments and marks the season as ended.
+// The UI should then prompt the owner to start a new season when ready.
+router.post(
+  "/api/admin/seasons/end-current",
+  authMiddleware,
+  requireRole("admin", "academy_owner", "owner"),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const academyId = req.user?.currentAcademyId;
+      if (!academyId) return res.status(400).json({ error: "Academy required" });
+
+      const now = new Date();
+
+      // Find the currently active season
+      const [activeSeason] = await db
+        .select()
+        .from(academySeasons)
+        .where(
+          and(
+            eq(academySeasons.academyId, academyId),
+            eq(academySeasons.isActive, true),
+          ),
+        )
+        .limit(1);
+
+      if (!activeSeason) {
+        return res.status(400).json({ error: "No active season to end" });
+      }
+
+      // Close all open enrollments for this academy
+      const closedResult = await db
+        .update(playerSeasonEnrollments)
+        .set({ endedAt: now })
+        .where(
+          and(
+            eq(playerSeasonEnrollments.academyId, academyId),
+            isNull(playerSeasonEnrollments.endedAt),
+          ),
+        )
+        .returning({ playerId: playerSeasonEnrollments.playerId });
+
+      // Mark the season as ended
+      await db
+        .update(academySeasons)
+        .set({ isActive: false, endedAt: now })
+        .where(
+          and(
+            eq(academySeasons.academyId, academyId),
+            eq(academySeasons.isActive, true),
+          ),
+        );
+
+      res.json({
+        success: true,
+        seasonName: activeSeason.name,
+        endedAt: now.toISOString(),
+        enrollmentsClosed: closedResult.length,
+      });
+    } catch (err) {
+      console.error("[admin-seasons] POST /api/admin/seasons/end-current error:", err);
+      res.status(500).json({ error: "Failed to end season" });
+    }
+  },
+);
+
 // ── POST /api/admin/seasons ────────────────────────────────────────────────
 // Creates a new season, closes the current active one, auto-enrolls all players.
 router.post(

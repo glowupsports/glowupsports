@@ -180,6 +180,28 @@ export default function AcademySettingsScreen() {
     },
   });
 
+  const endCurrentSeasonMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/seasons/end-current");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to end season");
+      }
+      return res.json() as Promise<{ success: boolean; seasonName: string; endedAt: string; enrollmentsClosed: number }>;
+    },
+    onSuccess: (data) => {
+      refetchSeasons();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        "Season Ended",
+        `"${data.seasonName}" has been closed. ${data.enrollmentsClosed} player enrollment${data.enrollmentsClosed !== 1 ? "s" : ""} archived. Start a new season when you're ready.`,
+      );
+    },
+    onError: (err: Error) => {
+      Alert.alert("Error", err.message || "Failed to end season");
+    },
+  });
+
   const { data: members = [], isLoading: membersLoading } = useQuery<AcademyMember[]>({
     queryKey: ["/api/academy/members"],
   });
@@ -873,6 +895,18 @@ export default function AcademySettingsScreen() {
             <Text style={{ color: Colors.dark.primary, fontSize: 12, fontWeight: "600" }}>New Season</Text>
           </Pressable>
         </View>
+
+        {/* No-active-season banner — prompts the owner to start one */}
+        {!seasonsLoading && seasonsData?.seasons?.length && !seasonsData.seasons.some(s => s.isActive) ? (
+          <View style={{ backgroundColor: Colors.dark.gold + "18", borderRadius: 10, borderWidth: 1, borderColor: Colors.dark.gold + "40", padding: Spacing.md, marginBottom: Spacing.md, flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+            <Ionicons name="time-outline" size={18} color={Colors.dark.gold} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: Colors.dark.gold, fontWeight: "700", fontSize: 13 }}>No active season</Text>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>Tap "+ New Season" to start the next season and re-enroll all players.</Text>
+            </View>
+          </View>
+        ) : null}
+
         {seasonsLoading ? (
           <TennisBallSpinner color={Colors.dark.xpCyan} />
         ) : !seasonsData?.seasons?.length ? (
@@ -888,8 +922,34 @@ export default function AcademySettingsScreen() {
                 </Text>
               </View>
               {season.isActive ? (
-                <View style={{ backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
-                  <Text style={{ color: Colors.dark.primary, fontSize: 11, fontWeight: "700" }}>ACTIVE</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                  <View style={{ backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
+                    <Text style={{ color: Colors.dark.primary, fontSize: 11, fontWeight: "700" }}>ACTIVE</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => {
+                      Alert.alert(
+                        "End Season?",
+                        `This will close "${season.name}" and archive all player enrollments. You can start a new season afterwards. This cannot be undone.`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: "End Season",
+                            style: "destructive",
+                            onPress: () => endCurrentSeasonMutation.mutate(),
+                          },
+                        ],
+                      );
+                    }}
+                    disabled={endCurrentSeasonMutation.isPending}
+                    style={{ backgroundColor: Colors.dark.error + "18", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: Colors.dark.error + "40" }}
+                  >
+                    {endCurrentSeasonMutation.isPending ? (
+                      <TennisBallSpinner size="small" color={Colors.dark.error} />
+                    ) : (
+                      <Text style={{ color: Colors.dark.error, fontSize: 11, fontWeight: "700" }}>END</Text>
+                    )}
+                  </Pressable>
                 </View>
               ) : null}
             </View>
@@ -910,9 +970,12 @@ export default function AcademySettingsScreen() {
                 style={{ flex: 1, backgroundColor: Colors.dark.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", opacity: createSeasonMutation.isPending ? 0.6 : 1 }}
                 onPress={() => {
                   if (!newSeasonName.trim()) return;
+                  const hasActiveSeason = seasonsData?.seasons?.some(s => s.isActive);
                   Alert.alert(
                     "Start New Season?",
-                    `This will end the current active season and start "${newSeasonName.trim()}". All players will be re-enrolled. Continue?`,
+                    hasActiveSeason
+                      ? `This will end the current active season and start "${newSeasonName.trim()}". All players will be re-enrolled. Continue?`
+                      : `Start "${newSeasonName.trim()}"? All academy players will be enrolled.`,
                     [
                       { text: "Cancel", style: "cancel" },
                       { text: "Start Season", style: "default", onPress: () => createSeasonMutation.mutate() },
