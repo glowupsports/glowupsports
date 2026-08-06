@@ -1740,7 +1740,7 @@ Return only the JSON array, nothing else.`;
           const response = await openai.chat.completions.create({
             model: "gpt-5-mini",
             messages: [{ role: "user", content: prompt }],
-            max_tokens: 200,
+            max_completion_tokens: 200,
             temperature: 0.7,
           });
           const content =

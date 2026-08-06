@@ -230,7 +230,7 @@ Rating guide: "Good" = executing well, "Needs Work" = minor improvements needed,
           ],
         },
       ],
-      max_tokens: 800,
+      max_completion_tokens: 800,
       temperature: 0.4,
     });
 

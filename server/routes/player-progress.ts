@@ -2790,7 +2790,7 @@ import { getPlayerHealthSnapshot } from "./player-health";
               { role: "system", content: systemPrompt },
               ...safeMessages,
             ],
-            max_tokens: (budgetState as string | null) === "warning" ? 400 : 600,
+            max_completion_tokens: (budgetState as string | null) === "warning" ? 400 : 600,
             temperature: 0.6,
           });
           reply = response.choices?.[0]?.message?.content || null;
@@ -3296,7 +3296,7 @@ import { getPlayerHealthSnapshot } from "./player-health";
             { role: "system", content: systemPrompt },
             ...safeMessages,
           ],
-          max_tokens: (playerBudgetState as string | null) === "warning" ? 280 : 400,
+          max_completion_tokens: (playerBudgetState as string | null) === "warning" ? 280 : 400,
           temperature: 0.7,
         });
 
@@ -4198,7 +4198,7 @@ Write a 2–3 sentence neutral summary that captures the player's self-perceptio
             ],
             response_format: { type: "json_object" },
             temperature: 0.4,
-            max_tokens: 250,
+            max_completion_tokens: 250,
           });
 
           const raw = completion.choices?.[0]?.message?.content?.trim() || "";

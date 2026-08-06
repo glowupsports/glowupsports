@@ -54,7 +54,7 @@ async function callOpenAIWithBudget(
         { role: "system", content: actualSystemPrompt },
         { role: "user", content: actualUserPrompt },
       ],
-      max_tokens: actualMaxTokens,
+      max_completion_tokens: actualMaxTokens,
       temperature: 0.7,
     });
 

@@ -77,7 +77,7 @@ async function generateOrGetCachedQuestions(): Promise<QuizQuestion[]> {
           content: `Generate exactly 5 multiple-choice tennis quiz questions. Mix difficulty: 2 easy, 2 medium, 1 hard. Cover: rules, scoring, technique, Grand Slams, history, equipment. Return a JSON array of exactly 5 items where each item has exactly these fields: "q" (question string), "opts" (array of exactly 4 answer strings), "correct" (one of the opts strings, verbatim), "explanation" (1-2 sentences explaining the correct answer).`,
         },
       ],
-      max_tokens: 900,
+      max_completion_tokens: 900,
       temperature: 0.8,
     });
 
