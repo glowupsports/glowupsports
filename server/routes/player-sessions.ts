@@ -6502,21 +6502,27 @@ import fs from "fs";
           filters,
         );
 
-        const paymentsWithDetails = await Promise.all(
-          payments.map(async (p) => {
-            const player = p.playerId
-              ? await storage.getPlayer(p.playerId)
-              : null;
-            const receiver = p.receivedBy
-              ? await storage.getCoach(p.receivedBy)
-              : null;
-            return {
-              ...p,
-              playerName: player?.name || p.payerName || "Unknown",
-              receiverName: receiver?.name || "Unknown",
-            };
-          }),
-        );
+        // Bulk-fetch players and coaches in 2 queries instead of 2N.
+        const uniquePlayerIds = [...new Set(payments.map((p) => p.playerId).filter(Boolean) as string[])];
+        const uniqueCoachIds  = [...new Set(payments.map((p) => p.receivedBy).filter(Boolean) as string[])];
+
+        const [playerRows, coachRows] = await Promise.all([
+          uniquePlayerIds.length > 0
+            ? db.select({ id: players.id, name: players.name }).from(players).where(inArray(players.id, uniquePlayerIds))
+            : Promise.resolve([] as { id: string; name: string }[]),
+          uniqueCoachIds.length > 0
+            ? db.select({ id: coaches.id, name: coaches.name }).from(coaches).where(inArray(coaches.id, uniqueCoachIds))
+            : Promise.resolve([] as { id: string; name: string }[]),
+        ]);
+
+        const playerMap = new Map(playerRows.map((r) => [r.id, r.name]));
+        const coachMap  = new Map(coachRows.map((r)  => [r.id, r.name]));
+
+        const paymentsWithDetails = payments.map((p) => ({
+          ...p,
+          playerName:   (p.playerId ? playerMap.get(p.playerId) : null) || p.payerName || "Unknown",
+          receiverName: (p.receivedBy ? coachMap.get(p.receivedBy) : null) || "Unknown",
+        }));
 
         res.json(paymentsWithDetails);
       } catch (error) {
