@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
-import { getSportConfig, getSportColor, SPORTS, type Sport, type SportOrMulti } from "@shared/sportConfig";
+import { getSportConfig, getSportColor, type Sport, type SportOrMulti } from "@shared/sportConfig";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 
 interface SportBadgeProps {
@@ -31,14 +31,16 @@ interface SportSelectorProps {
   selectedSports: string[];
   onToggle: (sport: Sport) => void;
   label?: string;
+  /** Sports to display. Defaults to ["tennis"] — pass explicitly to show more. */
+  sports?: Sport[];
 }
 
-export function SportMultiSelector({ selectedSports, onToggle, label }: SportSelectorProps) {
+export function SportMultiSelector({ selectedSports, onToggle, label, sports = ["tennis"] }: SportSelectorProps) {
   return (
     <View style={styles.selectorContainer}>
       {label ? <Text style={styles.selectorLabel}>{label}</Text> : null}
       <View style={styles.sportRow}>
-        {SPORTS.map((sport) => {
+        {sports.map((sport) => {
           const config = getSportConfig(sport);
           const selected = selectedSports.includes(sport);
           const color = getSportColor(sport);
@@ -75,10 +77,12 @@ interface SportSingleSelectorProps {
   onSelect: (sport: SportOrMulti) => void;
   label?: string;
   includeMulti?: boolean;
+  /** Sports to display. Defaults to ["tennis"] — pass explicitly to show more. */
+  sports?: Sport[];
 }
 
-export function SportSingleSelector({ selectedSport, onSelect, label, includeMulti }: SportSingleSelectorProps) {
-  const options: SportOrMulti[] = includeMulti ? [...SPORTS, "multi"] : [...SPORTS];
+export function SportSingleSelector({ selectedSport, onSelect, label, includeMulti, sports = ["tennis"] }: SportSingleSelectorProps) {
+  const options: SportOrMulti[] = includeMulti ? [...sports, "multi"] : [...sports];
   return (
     <View style={styles.selectorContainer}>
       {label ? <Text style={styles.selectorLabel}>{label}</Text> : null}
