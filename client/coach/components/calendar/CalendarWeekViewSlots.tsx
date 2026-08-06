@@ -8,12 +8,13 @@ import {
   formatDateObjectInTimezone,
   getTimeInTimezone,
 } from "@/lib/dateUtils";
-import { getSessionTypeGradient } from "./calendarUtils";
+import { getSessionGradient } from "./calendarUtils";
 import { WeekDraggableSessionBlock, SlotReservationBlock } from "./SessionBlocks";
 import type { SlotReservation } from "@/coach/context/CoachContext";
 
 interface SessionPlayer {
   name: string;
+  ballLevel?: string | null;
 }
 
 interface WeekSession {
@@ -21,6 +22,7 @@ interface WeekSession {
   startTime: string;
   endTime: string;
   sessionType: string;
+  ballLevel?: string | null;
   courtId: string | null;
   players?: SessionPlayer[];
   title?: string | null;
@@ -249,7 +251,7 @@ export function CalendarWeekViewSlots({
                     const sessionStart = parseUTCTimestamp(session.startTime);
                     const isPast = sessionEnd < now;
                     const isActive = now >= sessionStart && now < sessionEnd;
-                    const gradientColors = getSessionTypeGradient(session.sessionType);
+                    const gradientColors = getSessionGradient(session);
                     const typeLabel =
                       session.sessionType === "private" || session.sessionType === "private_adjusted" ? "PRIVATE" :
                       session.sessionType === "semi_private" ? "SEMI" :

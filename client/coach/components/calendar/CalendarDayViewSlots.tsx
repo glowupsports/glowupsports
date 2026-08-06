@@ -11,13 +11,14 @@ import {
   formatTimeInTimezone,
   getTimeInTimezone,
 } from "@/lib/dateUtils";
-import { getSessionTypeGradient } from "./calendarUtils";
+import { getSessionGradient } from "./calendarUtils";
 import { DraggableSessionBlock, PulsingDot, SlotReservationBlock } from "./SessionBlocks";
 import { CalendarFilterOverlay } from "./CalendarFilterOverlay";
 import type { SlotReservation } from "@/coach/context/CoachContext";
 
 interface SessionPlayer {
   name: string;
+  ballLevel?: string | null;
 }
 
 interface DaySession {
@@ -25,6 +26,7 @@ interface DaySession {
   startTime: string;
   endTime: string;
   sessionType: string;
+  ballLevel?: string | null;
   courtId: string | null;
   status?: string | null;
   skipReason?: string | null;
@@ -295,7 +297,7 @@ export function CalendarDayViewSlots({
                       : (playerName ? `${typeLabel}\n${playerName}` : typeLabel);
                     const gradientColors = isAllHolidayCancelled
                       ? ["#4A4A6A", "#2E2E4E"] as [string, string]
-                      : getSessionTypeGradient(session.sessionType);
+                      : getSessionGradient(session);
                     return (
                       <React.Fragment key={session.id}>
                         <DraggableSessionBlock

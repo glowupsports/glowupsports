@@ -37,6 +37,7 @@ import { CalendarDayViewSlots } from "@/coach/components/calendar/CalendarDayVie
 import { AddPlayerToSessionModal, type CalendarSessionForAdd } from "@/coach/components/calendar/AddPlayerToSessionModal";
 import { TIME_COLUMN_WIDTH, MIN_COURT_LANE_WIDTH, HOUR_HEIGHT_60, HOUR_HEIGHT_30, START_HOUR, END_HOUR } from "@/coach/components/calendar/calendarConstants";
 import { styles } from "@/coach/components/calendar/calendarStyles";
+import { getSessionGradient } from "@/coach/components/calendar/calendarUtils";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 type _CalendarRouteParams = {
   Calendar: {
@@ -1871,7 +1872,7 @@ export default function CalendarScreen() {
           popupSession.sessionType === 'group' ? 'Group' :
           popupSession.sessionType === 'activity' ? 'Activity' :
           popupSession.sessionType === 'physical' ? 'Physical' : 'Session';
-        const accentColor = getSessionTypeGradient(popupSession.sessionType)?.[0] || '#C8FF3D';
+        const accentColor = getSessionGradient(popupSession)?.[0] || '#C8FF3D';
         const playerName = popupSession.players?.[0]?.name || '';
         const playerInitial = playerName ? playerName.charAt(0).toUpperCase() : '?';
         const courtName = allCourts.find((c: any) => c.id === popupSession.courtId)?.name || '';

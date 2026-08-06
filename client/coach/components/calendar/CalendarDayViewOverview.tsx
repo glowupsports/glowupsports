@@ -5,10 +5,11 @@ import * as Haptics from "expo-haptics";
 import { Colors } from "@/constants/theme";
 import { styles } from "./calendarStyles";
 import { parseUTCTimestamp, formatTimeInTimezone } from "@/lib/dateUtils";
-import { getSessionTypeGradient } from "./calendarUtils";
+import { getSessionGradient } from "./calendarUtils";
 
 interface SessionPlayer {
   name: string;
+  ballLevel?: string | null;
 }
 
 interface CalendarSession {
@@ -16,6 +17,7 @@ interface CalendarSession {
   startTime: string;
   endTime: string;
   sessionType: string;
+  ballLevel?: string | null;
   courtId: string | null;
   players?: SessionPlayer[];
   title?: string | null;
@@ -65,7 +67,7 @@ export function CalendarDayViewOverview({
             session.sessionType === "physical" ? "Physical" : "Session";
           const playerNames = session.players?.map(p => p.name.split(" ")[0]).join(", ") || "";
           const courtName = courts.find(c => c.id === session.courtId)?.name || "";
-          const gradientColors = getSessionTypeGradient(session.sessionType);
+          const gradientColors = getSessionGradient(session);
           const now = new Date();
           const sessionStart = parseUTCTimestamp(session.startTime);
           const sessionEnd = parseUTCTimestamp(session.endTime);

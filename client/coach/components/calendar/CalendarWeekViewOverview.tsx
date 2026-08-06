@@ -9,7 +9,7 @@ import {
   getLocalDateString,
   formatDateObjectInTimezone,
 } from "@/lib/dateUtils";
-import { getSessionTypeGradient } from "./calendarUtils";
+import { getSessionGradient } from "./calendarUtils";
 import { useQuery } from "@tanstack/react-query";
 import { useCoach } from "@/coach/context/CoachContext";
 import { getApiUrl, getAuthHeaders } from "@/lib/query-client";
@@ -17,6 +17,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 interface SessionPlayer {
   name: string;
+  ballLevel?: string | null;
 }
 
 interface WeekSession {
@@ -24,6 +25,7 @@ interface WeekSession {
   startTime: string;
   endTime: string;
   sessionType: string;
+  ballLevel?: string | null;
   courtId: string | null;
   players?: SessionPlayer[];
   title?: string | null;
@@ -320,7 +322,7 @@ export function CalendarWeekViewOverview({
                           const durationHours = endFrac - startFrac;
                           const topOffset = (startFrac - band.start) * OVERVIEW_ROW_HEIGHT;
                           const blockHeight = Math.max(durationHours * OVERVIEW_ROW_HEIGHT, 28);
-                          const gradientColors = getSessionTypeGradient(session.sessionType);
+                          const gradientColors = getSessionGradient(session);
                           const typeLabel =
                             session.sessionType === "private" || session.sessionType === "private_adjusted" ? "PVT" :
                             session.sessionType === "semi_private" ? "SEMI" :
