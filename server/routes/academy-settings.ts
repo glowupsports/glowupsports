@@ -4,9 +4,31 @@ import { Router, type Request, type Response, type NextFunction } from "express"
   import { storage } from "../storage";
   import { eq, and } from "drizzle-orm";
   import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, type AuthenticatedRequest } from "../auth";
+  import { resolveAcademyAuthority, canManageSettings, canManageMembers, canManageFinances, canGrantRole, type AcademyAuthority } from "../lib/academy-auth";
   import { pushDeviceTokens, academies } from "@shared/schema";
   import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "../services/invoicePdf";
   const router = Router();
+
+  // ── Batch 2A: Authority-gating middleware factory ─────────────────────────
+  // Resolves the actor's authority for req.user.academyId, enforces the
+  // supplied permission function, and caches the result on the request so
+  // handlers can use it without a second DB round-trip.
+  function requireAuthority(
+    check: (a: AcademyAuthority) => boolean,
+    message: string,
+  ) {
+    return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+      const academyId = req.user?.academyId;
+      if (!academyId) return res.status(400).json({ error: "Academy required" });
+      const authority = await resolveAcademyAuthority(req.user!, academyId);
+      if (!check(authority)) return res.status(403).json({ error: message });
+      (req as any).academyAuthority = authority; // cached for handler use
+      next();
+    };
+  }
+  const requireSettings = requireAuthority(canManageSettings, "Insufficient authority to manage academy settings");
+  const requireFinance  = requireAuthority(canManageFinances,  "Insufficient authority to manage academy finances");
+  const requireMembers  = requireAuthority(canManageMembers,   "Insufficient authority to manage academy members");
 
   function generateShortInviteCode(): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -51,6 +73,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/academy/venue-profile",
     authMiddleware,
     requireAcademy,
+    requireSettings,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user?.academyId;
@@ -270,6 +293,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/academy/settings",
     authMiddleware,
     requireAcademy,
+    requireSettings,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -363,6 +387,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/academy/invites",
     authMiddleware,
     requireAcademy,
+    requireMembers,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -490,6 +515,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/academy/invites/:id",
     authMiddleware,
     requireAcademy,
+    requireMembers,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -551,6 +577,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/academy/members/:id",
     authMiddleware,
     requireAcademy,
+    requireMembers,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;

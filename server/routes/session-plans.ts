@@ -3,6 +3,7 @@ import { db } from "../db";
 import { lessonTemplates, drillBlocks, sessionPlans, sessions, playerBallLevels, sessionPlayers } from "../../shared/schema";
 import { eq, and, sql, inArray, isNull, or } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, validateSessionOwnership } from "../auth";
+import { resolveAcademyAuthority, canManageSessionPlan } from "../lib/academy-auth";
 import { storage } from "../storage";
 
 const router = Router();
