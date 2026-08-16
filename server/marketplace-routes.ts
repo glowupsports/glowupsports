@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { db } from "./db";
 import { 
   marketplaceListings, marketplaceFavorites, marketplaceMessages, sellerProfiles,
-  insertMarketplaceListingSchema, players
+  insertMarketplaceListingSchema, players, users
 } from "../shared/schema";
 import { eq, and, desc, sql, or, ilike, gte, lte } from "drizzle-orm";
 import { authMiddlewareWithFreshData as authMiddleware, requireFeatureUnlock, JWTPayload } from "./auth";
@@ -10,6 +10,74 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { UnsupportedMediaTypeError, wrapUploadHandler } from "./upload-middleware";
+import { isBlockedByEither, checkMinorSafetyForDM } from "./lib/messaging-policy";
+
+// ── Marketplace messaging helper ───────────────────────────────────────────────
+
+/**
+ * Validate and resolve the recipient for a seller reply.
+ *
+ * Accepts the client-supplied `requestedRecipientId` only as a lookup key —
+ * never as trusted authorization. The caller's identity is verified by
+ * confirming that `requestedRecipientId` previously sent a message to `sellerId`
+ * on the exact same `listingId`.
+ *
+ * This prevents:
+ *   - Fabricated recipientIds (no thread → reject)
+ *   - Multi-buyer confusion: Buyer A and Buyer B both messaging a seller on
+ *     the same listing must be kept isolated; LIMIT 1 without a buyer filter
+ *     would arbitrarily pick one.
+ *   - Cross-listing spoofing: a thread on listing X cannot authorize a reply
+ *     on listing Y.
+ */
+export async function resolveSellerReplyRecipient(
+  dbClient: typeof db,
+  {
+    listingId,
+    sellerId,
+    requestedRecipientId,
+  }: {
+    listingId: string;
+    sellerId: string;
+    requestedRecipientId: string | undefined;
+  },
+): Promise<
+  | { ok: true; recipientId: string }
+  | { ok: false; error: string; status: number }
+> {
+  if (!requestedRecipientId) {
+    return { ok: false, error: "recipientId is required for seller replies", status: 400 };
+  }
+  if (requestedRecipientId === sellerId) {
+    return { ok: false, error: "Seller cannot reply to themselves", status: 400 };
+  }
+
+  // All three conditions must match:
+  //   listingId  — this specific listing (not any other)
+  //   senderId   — the requested buyer specifically (not an arbitrary buyer)
+  //   recipientId — the seller (confirms the direction: buyer → seller)
+  const [thread] = await dbClient
+    .select({ senderId: marketplaceMessages.senderId })
+    .from(marketplaceMessages)
+    .where(
+      and(
+        eq(marketplaceMessages.listingId, listingId),
+        eq(marketplaceMessages.senderId, requestedRecipientId),
+        eq(marketplaceMessages.recipientId, sellerId),
+      ),
+    )
+    .limit(1);
+
+  if (!thread) {
+    return {
+      ok: false,
+      error: "No existing message thread with this recipient for this listing",
+      status: 400,
+    };
+  }
+
+  return { ok: true, recipientId: requestedRecipientId };
+}
 
 const router = Router();
 
@@ -502,9 +570,62 @@ router.post("/player/marketplace/:id/message", authMiddleware, requirePlayerProf
       return res.status(404).json({ error: "Listing not found" });
     }
 
-    const recipientId = listing[0].sellerId === senderId 
-      ? req.body.recipientId // Seller replying to buyer
-      : listing[0].sellerId; // Buyer messaging seller
+    let recipientId: string;
+    if (listing[0].sellerId === senderId) {
+      // Seller replying: validate the client-supplied recipientId server-side.
+      // The body value is only used as a lookup key — resolveSellerReplyRecipient
+      // verifies it against the actual per-buyer thread on this exact listing.
+      const resolved = await resolveSellerReplyRecipient(db, {
+        listingId: id,
+        sellerId: senderId,
+        requestedRecipientId: req.body.recipientId,
+      });
+      if (!resolved.ok) {
+        return res.status(resolved.status).json({ error: resolved.error });
+      }
+      recipientId = resolved.recipientId; // statically string — narrowed by ok discriminant
+    } else {
+      // Buyer messaging: recipient is always the listing owner — never client-trusted
+      recipientId = listing[0].sellerId;
+    }
+
+    // Verify recipient is a real player
+    const [recipientPlayer] = await db
+      .select({ id: players.id })
+      .from(players)
+      .where(eq(players.id, recipientId))
+      .limit(1);
+    if (!recipientPlayer) {
+      return res.status(404).json({ error: "Recipient not found" });
+    }
+
+    // Minor/child safety: checked using player IDs — independent of users row lookup.
+    // Missing DOB defaults to minor-restricted per policy.
+    const safetyCheck = await checkMinorSafetyForDM(senderId, recipientId);
+    if (!safetyCheck.allowed) {
+      return res.status(403).json({ error: safetyCheck.reason ?? "Messaging not permitted" });
+    }
+
+    // Block check: requires user IDs (player_blocks stores user IDs not player IDs).
+    // Sender userId comes from the session (trusted); recipient userId looked up via users.playerId.
+    const senderUserId = req.user!.userId;
+    const [recipientUserRow] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.playerId, recipientId))
+      .limit(1);
+
+    if (!recipientUserRow?.id) {
+      // Recipient player exists (confirmed above) but has no user account.
+      // Deliberate policy: marketplace requires authenticated user accounts on both sides.
+      // Reject rather than silently skip the block check.
+      return res.status(403).json({ error: "Recipient does not have a valid account" });
+    }
+
+    const blocked = await isBlockedByEither(senderUserId, recipientUserRow.id);
+    if (blocked) {
+      return res.status(403).json({ error: "Unable to send message" });
+    }
 
     const [msg] = await db.insert(marketplaceMessages).values({
       listingId: id,

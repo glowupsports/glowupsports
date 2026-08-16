@@ -228,6 +228,12 @@ router.post("/award-xp", async (req: AuthenticatedRequest, res: Response) => {
       return res.status(404).json({ error: "Player not found" });
     }
 
+    // Cross-academy safeguard: target player must be in the actor's academy.
+    // platform_owner may award XP cross-academy; all other roles are academy-scoped.
+    if (req.user!.role !== "platform_owner" && req.user!.academyId && player.academyId !== req.user!.academyId) {
+      return res.status(403).json({ error: "Target player is not in your academy" });
+    }
+
     const currentLevel = player.level || 1;
     const currentXp = player.totalXp || 0;
     const xpToAward = rule.xpAmount;

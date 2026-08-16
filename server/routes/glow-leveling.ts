@@ -8,6 +8,7 @@ import { ADULT_GLOW_SKILLS_BY_LEVEL } from "../seeds/adult-glow-skills-seed";
 import { checkForScoringAnomaly } from "../services/coach-calibration-engine";
 import { sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 import { updatePillarProgress } from "../utils/pillarProgress";
+import { canManageTrial } from "../lib/progression-actor-policy";
 
 const router = Router();
 
@@ -1116,7 +1117,17 @@ router.post("/api/glow/players/:playerId/trials", authMiddleware, requireAcademy
     const coachId = req.user!.coachId;
     const academyId = req.user!.academyId;
     const { toLevelId } = req.body;
-    
+
+    // Batch 2C: trial management requires coach identity — players cannot manage their own trials;
+    // same-academy membership alone is insufficient
+    const trialStartAuth = await canManageTrial(
+      { userId: req.user!.userId, coachId, playerId: (req.user as any).playerId ?? null, academyId: academyId ?? null, role: req.user!.role },
+      playerId,
+    );
+    if (!trialStartAuth.allowed) {
+      return res.status(403).json({ error: trialStartAuth.reason ?? "Insufficient authority to manage trials" });
+    }
+
     // Validate player ownership
     if (!await validatePlayerAccess(playerId, academyId)) {
       return res.status(404).json({ error: "Player not found" });
@@ -1227,7 +1238,16 @@ router.post("/api/glow/trials/:trialId/complete", authMiddleware, requireAcademy
     if (!await validatePlayerAccess(trial.playerId, academyId)) {
       return res.status(404).json({ error: "Trial not found" });
     }
-    
+
+    // Batch 2C: trial completion requires coach authority — same-academy membership alone is insufficient
+    const trialCompleteAuth = await canManageTrial(
+      { userId: req.user!.userId, coachId, playerId: (req.user as any).playerId ?? null, academyId: academyId ?? null, role: req.user!.role },
+      trial.playerId,
+    );
+    if (!trialCompleteAuth.allowed) {
+      return res.status(403).json({ error: trialCompleteAuth.reason ?? "Insufficient authority to complete trials" });
+    }
+
     if (trial.status !== "in_progress") {
       return res.status(400).json({ error: "Trial is not in progress" });
     }
@@ -1549,7 +1569,7 @@ router.get("/api/glow/trials/:trialId/tests", authMiddleware, requireAcademy, as
 router.post("/api/glow/trials/:trialId/tests/:testId", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { trialId, testId } = req.params;
-    const coachId = req.user!.coachId || req.user!.userId; // Fall back to user id for academy admins
+    const coachId = req.user!.coachId ?? null; // Batch 2C: never fall back to userId — actor identity must come from session coachId
     const academyId = req.user!.academyId;
     const { passed, score, notes, metrics } = req.body;
     
@@ -1565,7 +1585,16 @@ router.post("/api/glow/trials/:trialId/tests/:testId", authMiddleware, requireAc
     if (!await validatePlayerAccess(trial.playerId, academyId)) {
       return res.status(404).json({ error: "Trial not found" });
     }
-    
+
+    // Batch 2C: trial test recording requires coach authority — same-academy membership alone is insufficient
+    const trialTestAuth = await canManageTrial(
+      { userId: req.user!.userId, coachId, playerId: (req.user as any).playerId ?? null, academyId: academyId ?? null, role: req.user!.role },
+      trial.playerId,
+    );
+    if (!trialTestAuth.allowed) {
+      return res.status(403).json({ error: trialTestAuth.reason ?? "Insufficient authority to record trial test results" });
+    }
+
     if (trial.status !== "in_progress") {
       return res.status(400).json({ error: "Trial is not in progress" });
     }
@@ -1908,7 +1937,16 @@ router.post("/api/glow/players/:playerId/assessment", authMiddleware, requireAca
     const { levelId, skillScores, notes } = req.body;
     const academyId = req.user!.academyId;
     const coachId = req.user!.coachId;
-    
+
+    // Batch 2C: assessment submission requires coach authority — same-academy membership alone is insufficient
+    const assessAuth = await canManageTrial(
+      { userId: req.user!.userId, coachId, playerId: (req.user as any).playerId ?? null, academyId: academyId ?? null, role: req.user!.role },
+      playerId,
+    );
+    if (!assessAuth.allowed) {
+      return res.status(403).json({ error: assessAuth.reason ?? "Insufficient authority to submit assessment" });
+    }
+
     if (!await validatePlayerAccess(playerId, academyId)) {
       return res.status(404).json({ error: "Player not found" });
     }

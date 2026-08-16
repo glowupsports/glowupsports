@@ -10,6 +10,8 @@ import { Router, type Response } from "express";
   import { aiQuotaMiddleware, logAiCall } from "../middleware/aiQuotaMiddleware";
   import { broadcastSessionUpdate } from "../websocket";
 import { getPlayerHealthSnapshot } from "./player-health";
+import { canMutateSession } from "../lib/session-actor-policy";
+import { resolveAcademyAuthority } from "../lib/academy-auth";
   const router = Router();
   
     // ==================== PLAYER PROGRESS ====================
@@ -574,6 +576,16 @@ import { getPlayerHealthSnapshot } from "./player-health";
         const { valid } = await validatePlayerOwnership(id, academyId, storage);
         if (!valid) {
           return res.status(404).json({ error: "Player not found" });
+        }
+
+        // Batch 2C: skill observation requires at minimum coach authority; requireAcademy alone is insufficient
+        const obsAuthority = await resolveAcademyAuthority(
+          { userId: req.user!.userId, role: req.user!.role ?? undefined, coachId: req.user!.coachId, academyId: academyId ?? undefined } as any,
+          academyId!,
+        );
+        const COACH_WRITE_ROLES = new Set(["coach", "assistant", "supervisor", "admin", "owner", "platform_owner"]);
+        if (!COACH_WRITE_ROLES.has(obsAuthority)) {
+          return res.status(403).json({ error: "Coach authority required to record skill progress" });
         }
 
         const progress = await storage.createPlayerProgress({
@@ -1471,6 +1483,16 @@ import { getPlayerHealthSnapshot } from "./player-health";
         );
         if (!valid) {
           return res.status(404).json({ error: "Player not found" });
+        }
+
+        // Batch 2C: attendance write requires coach/supervisor authority for this session
+        // A plain academy member who is not the session's coach (or a supervisor+) must be rejected
+        const sessionAuth = await canMutateSession(
+          { userId: req.user!.userId, coachId: req.user!.coachId, academyId: req.user!.academyId, role: req.user!.role },
+          sessionId,
+        );
+        if (!sessionAuth.allowed) {
+          return res.status(403).json({ error: sessionAuth.reason ?? "Insufficient authority to write attendance for this session" });
         }
 
         // Get the session player record

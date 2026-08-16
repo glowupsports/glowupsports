@@ -77,14 +77,9 @@ export async function canAwardXp(
   actor: ProgressionActor,
   targetPlayerId: string,
 ): Promise<PolicyResult> {
-  // A player account calling the management XP endpoint is always denied
-  if (actor.playerId && !actor.coachId) {
-    return {
-      allowed: false,
-      reason: "Player accounts may not call the XP management endpoint",
-    };
-  }
-
+  // Explicit allow-list: resolve authority and check against the allowed set.
+  // Do NOT short-circuit with an implicit player-deny — any role not in
+  // XP_AWARD_AUTHORITY (including future roles) is rejected by the check below.
   if (!actor.academyId) {
     return { allowed: false, reason: "Academy context required for XP award" };
   }
@@ -98,6 +93,15 @@ export async function canAwardXp(
     return {
       allowed: false,
       reason: `Authority "${authority}" is not permitted to award XP`,
+    };
+  }
+
+  // Self-award guard: an actor who also holds a player identity cannot award XP to themselves
+  // (prevents dual-role actors — e.g. a coach who is also a player — from self-awarding).
+  if (actor.playerId && actor.playerId === targetPlayerId) {
+    return {
+      allowed: false,
+      reason: "An actor cannot award XP to themselves through the management endpoint",
     };
   }
 

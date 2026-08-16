@@ -298,13 +298,15 @@ describe("ProgressionActorPolicy", () => {
     vi.mocked(resolveAcademyAuthority).mockResolvedValue("member");
   });
 
-  it("PA-1: canAwardXp denies player-only accounts (no coachId)", async () => {
+  it("PA-1: canAwardXp denies player-only accounts via explicit allow-list (not blacklist)", async () => {
+    // resolveAcademyAuthority returns "member" by default — not in XP_AWARD_AUTHORITY
     const result = await canAwardXp(
       { userId: "u1", coachId: null, playerId: "p1", academyId: "acad-1", role: "player" },
       "player-target",
     );
     expect(result.allowed).toBe(false);
-    expect(result.reason).toMatch(/player accounts/i);
+    // Reason must reference authority (allow-list deny), NOT an early player-blacklist check
+    expect(result.reason).toMatch(/authority|permitted/i);
   });
 
   it("PA-2: canAwardXp allows coaches", async () => {
