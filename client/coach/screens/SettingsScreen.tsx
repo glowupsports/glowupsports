@@ -224,7 +224,6 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const { t, i18n } = useTranslation();
   const { logout, user } = useAuth();
-  const isOwnerOrAdmin = user?.role === "academy_owner" || user?.role === "owner" || user?.role === "admin" || user?.role === "coach";
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
   const [_hasChanges, setHasChanges] = useState(false);
@@ -322,7 +321,7 @@ export default function SettingsScreen() {
 
   const { data: seasonsData, isLoading: seasonsLoading, refetch: refetchSeasons } = useQuery<{ seasons: Season[] }>({
     queryKey: ["/api/admin/seasons"],
-    enabled: isOwnerOrAdmin,
+    enabled: true,
   });
 
   const createSeasonMutation = useMutation({
@@ -628,6 +627,123 @@ export default function SettingsScreen() {
         ) : null}
 
         
+        {/* ====== SEASONS (always visible) ====== */}
+        <View style={styles.section}>
+          <SectionHeader title="Seasons" icon="calendar-outline" />
+
+          {/* No-active-season banner */}
+          {!seasonsLoading && seasonsData?.seasons?.length && !seasonsData.seasons.some(s => s.isActive) ? (
+            <View style={{ backgroundColor: Colors.dark.gold + "18", borderRadius: 10, borderWidth: 1, borderColor: Colors.dark.gold + "40", padding: Spacing.md, marginBottom: Spacing.md, flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+              <Ionicons name="time-outline" size={18} color={Colors.dark.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.dark.gold, fontWeight: "700", fontSize: 13 }}>No active season</Text>
+                <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>{"Tap '+ New Season' to start the next season and re-enroll all players."}</Text>
+              </View>
+            </View>
+          ) : null}
+
+          {seasonsLoading ? (
+            <TennisBallSpinner color={Colors.dark.xpCyan} />
+          ) : !seasonsData?.seasons?.length ? (
+            <Text style={{ color: Colors.dark.textSecondary, fontSize: 14, textAlign: "center", paddingVertical: Spacing.md }}>No seasons yet</Text>
+          ) : (
+            seasonsData.seasons.map((season, idx) => (
+              <View key={season.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm, borderBottomWidth: idx < (seasonsData.seasons.length - 1) ? 1 : 0, borderBottomColor: Colors.dark.border + "40" }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>{season.name}</Text>
+                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>
+                    {new Date(season.startDate).toLocaleDateString()}
+                    {season.isActive ? " · Active" : season.endedAt ? " → " + new Date(season.endedAt).toLocaleDateString() : ""}
+                  </Text>
+                </View>
+                {season.isActive ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                    <View style={{ backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
+                      <Text style={{ color: Colors.dark.primary, fontSize: 11, fontWeight: "700" }}>ACTIVE</Text>
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        Alert.alert(
+                          "End Season?",
+                          `This will close "${season.name}" and archive all player enrollments. You can start a new season afterwards. This cannot be undone.`,
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            { text: "End Season", style: "destructive", onPress: () => endCurrentSeasonMutation.mutate() },
+                          ],
+                        );
+                      }}
+                      disabled={endCurrentSeasonMutation.isPending}
+                      style={{ backgroundColor: Colors.dark.error + "18", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: Colors.dark.error + "40" }}
+                    >
+                      {endCurrentSeasonMutation.isPending ? (
+                        <TennisBallSpinner size="small" color={Colors.dark.error} />
+                      ) : (
+                        <Text style={{ color: Colors.dark.error, fontSize: 11, fontWeight: "700" }}>END</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            ))
+          )}
+
+          {showNewSeason ? (
+            <View style={{ marginTop: Spacing.md }}>
+              <TextInput
+                style={[styles.settingInput ?? { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 8, padding: 10, color: Colors.dark.text, fontSize: 14, borderWidth: 1, borderColor: Colors.dark.border, marginBottom: Spacing.sm }]}
+                value={newSeasonName}
+                onChangeText={setNewSeasonName}
+                placeholder="e.g. Season 2026-2027"
+                placeholderTextColor={Colors.dark.textMuted}
+                autoFocus
+              />
+              <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+                <Pressable
+                  style={{ flex: 1, backgroundColor: Colors.dark.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", opacity: createSeasonMutation.isPending ? 0.6 : 1 }}
+                  onPress={() => {
+                    if (!newSeasonName.trim()) return;
+                    const hasActiveSeason = seasonsData?.seasons?.some(s => s.isActive);
+                    Alert.alert(
+                      "Start New Season?",
+                      hasActiveSeason
+                        ? `This will end the current active season and start "${newSeasonName.trim()}". All players will be re-enrolled. Continue?`
+                        : `Start "${newSeasonName.trim()}"? All academy players will be enrolled.`,
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { text: "Start Season", style: "default", onPress: () => createSeasonMutation.mutate() },
+                      ],
+                    );
+                  }}
+                  disabled={createSeasonMutation.isPending}
+                >
+                  {createSeasonMutation.isPending ? (
+                    <TennisBallSpinner color="#000" />
+                  ) : (
+                    <Text style={{ color: "#000", fontWeight: "700" }}>Create Season</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={{ paddingHorizontal: 16, backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 8, paddingVertical: 10, alignItems: "center" }}
+                  onPress={() => { setShowNewSeason(false); setNewSeasonName(""); }}
+                >
+                  <Text style={{ color: Colors.dark.textSecondary, fontWeight: "600" }}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => { setNewSeasonName(""); setShowNewSeason(true); }}
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: Spacing.md, alignSelf: "flex-start", backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}
+            >
+              <Ionicons name="add" size={14} color={Colors.dark.primary} />
+              <Text style={{ color: Colors.dark.primary, fontSize: 12, fontWeight: "600" }}>New Season</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* GROUP: ACADEMY */}
+        <Text style={{ color: Colors.dark.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", paddingHorizontal: Spacing.md, paddingTop: Spacing.lg, paddingBottom: 4 }}>Academy</Text>
+
         <View style={styles.section}>
           <Pressable
             style={styles.sectionHeaderRow}
@@ -1106,6 +1222,9 @@ export default function SettingsScreen() {
           ) : null}
         </View>
 
+        {/* GROUP: COACHING */}
+        <Text style={{ color: Colors.dark.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", paddingHorizontal: Spacing.md, paddingTop: Spacing.lg, paddingBottom: 4 }}>Coaching</Text>
+
         {/* ====== LESSON RECAPS (Phase 3) ====== */}
         <LessonRecapSettingSection navigation={navigation} />
 
@@ -1402,6 +1521,9 @@ export default function SettingsScreen() {
           </> : null}
         </View>
 
+        {/* GROUP: ACCOUNT */}
+        <Text style={{ color: Colors.dark.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", paddingHorizontal: Spacing.md, paddingTop: Spacing.lg, paddingBottom: 4 }}>Account</Text>
+
         <View style={styles.section}>
           <Pressable
             style={styles.sectionHeaderRow}
@@ -1530,6 +1652,9 @@ export default function SettingsScreen() {
           ))}
           </> : null}
         </View>
+
+        {/* GROUP: ABOUT */}
+        <Text style={{ color: Colors.dark.textMuted, fontSize: 11, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase", paddingHorizontal: Spacing.md, paddingTop: Spacing.lg, paddingBottom: 4 }}>About</Text>
 
         <View style={styles.section}>
           <Pressable
@@ -1674,122 +1799,6 @@ export default function SettingsScreen() {
               </View>
             </View>
             </> : null}
-          </View>
-        ) : null}
-
-        {/* Seasons Section — visible to academy owners and admins only */}
-        {isOwnerOrAdmin ? (
-          <View style={styles.section}>
-            <SectionHeader title="Seasons" icon="calendar-outline" />
-
-            {/* No-active-season banner */}
-            {!seasonsLoading && seasonsData?.seasons?.length && !seasonsData.seasons.some(s => s.isActive) ? (
-              <View style={{ backgroundColor: Colors.dark.gold + "18", borderRadius: 10, borderWidth: 1, borderColor: Colors.dark.gold + "40", padding: Spacing.md, marginBottom: Spacing.md, flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                <Ionicons name="time-outline" size={18} color={Colors.dark.gold} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: Colors.dark.gold, fontWeight: "700", fontSize: 13 }}>No active season</Text>
-                  <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>{"Tap \"+ New Season\" to start the next season and re-enroll all players."}</Text>
-                </View>
-              </View>
-            ) : null}
-
-            {seasonsLoading ? (
-              <TennisBallSpinner color={Colors.dark.xpCyan} />
-            ) : !seasonsData?.seasons?.length ? (
-              <Text style={{ color: Colors.dark.textSecondary, fontSize: 14, textAlign: "center", paddingVertical: Spacing.md }}>No seasons yet</Text>
-            ) : (
-              seasonsData.seasons.map((season, idx) => (
-                <View key={season.id} style={{ flexDirection: "row", alignItems: "center", paddingVertical: Spacing.sm, borderBottomWidth: idx < (seasonsData.seasons.length - 1) ? 1 : 0, borderBottomColor: Colors.dark.border + "40" }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "600" }}>{season.name}</Text>
-                    <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>
-                      {new Date(season.startDate).toLocaleDateString()}
-                      {season.isActive ? " · Active" : season.endedAt ? ` → ${new Date(season.endedAt).toLocaleDateString()}` : ""}
-                    </Text>
-                  </View>
-                  {season.isActive ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-                      <View style={{ backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
-                        <Text style={{ color: Colors.dark.primary, fontSize: 11, fontWeight: "700" }}>ACTIVE</Text>
-                      </View>
-                      <Pressable
-                        onPress={() => {
-                          Alert.alert(
-                            "End Season?",
-                            `This will close "${season.name}" and archive all player enrollments. You can start a new season afterwards. This cannot be undone.`,
-                            [
-                              { text: "Cancel", style: "cancel" },
-                              { text: "End Season", style: "destructive", onPress: () => endCurrentSeasonMutation.mutate() },
-                            ],
-                          );
-                        }}
-                        disabled={endCurrentSeasonMutation.isPending}
-                        style={{ backgroundColor: Colors.dark.error + "18", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: Colors.dark.error + "40" }}
-                      >
-                        {endCurrentSeasonMutation.isPending ? (
-                          <TennisBallSpinner size="small" color={Colors.dark.error} />
-                        ) : (
-                          <Text style={{ color: Colors.dark.error, fontSize: 11, fontWeight: "700" }}>END</Text>
-                        )}
-                      </Pressable>
-                    </View>
-                  ) : null}
-                </View>
-              ))
-            )}
-
-            {showNewSeason ? (
-              <View style={{ marginTop: Spacing.md }}>
-                <TextInput
-                  style={[styles.settingInput ?? { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 8, padding: 10, color: Colors.dark.text, fontSize: 14, borderWidth: 1, borderColor: Colors.dark.border, marginBottom: Spacing.sm }]}
-                  value={newSeasonName}
-                  onChangeText={setNewSeasonName}
-                  placeholder="e.g. Season 2026-2027"
-                  placeholderTextColor={Colors.dark.textMuted}
-                  autoFocus
-                />
-                <View style={{ flexDirection: "row", gap: Spacing.sm }}>
-                  <Pressable
-                    style={{ flex: 1, backgroundColor: Colors.dark.primary, borderRadius: 8, paddingVertical: 10, alignItems: "center", opacity: createSeasonMutation.isPending ? 0.6 : 1 }}
-                    onPress={() => {
-                      if (!newSeasonName.trim()) return;
-                      const hasActiveSeason = seasonsData?.seasons?.some(s => s.isActive);
-                      Alert.alert(
-                        "Start New Season?",
-                        hasActiveSeason
-                          ? `This will end the current active season and start "${newSeasonName.trim()}". All players will be re-enrolled. Continue?`
-                          : `Start "${newSeasonName.trim()}"? All academy players will be enrolled.`,
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          { text: "Start Season", style: "default", onPress: () => createSeasonMutation.mutate() },
-                        ],
-                      );
-                    }}
-                    disabled={createSeasonMutation.isPending}
-                  >
-                    {createSeasonMutation.isPending ? (
-                      <TennisBallSpinner color="#000" />
-                    ) : (
-                      <Text style={{ color: "#000", fontWeight: "700" }}>Create Season</Text>
-                    )}
-                  </Pressable>
-                  <Pressable
-                    style={{ paddingHorizontal: 16, backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 8, paddingVertical: 10, alignItems: "center" }}
-                    onPress={() => { setShowNewSeason(false); setNewSeasonName(""); }}
-                  >
-                    <Text style={{ color: Colors.dark.textSecondary, fontWeight: "600" }}>Cancel</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => { setNewSeasonName(""); setShowNewSeason(true); }}
-                style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: Spacing.md, alignSelf: "flex-start", backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}
-              >
-                <Ionicons name="add" size={14} color={Colors.dark.primary} />
-                <Text style={{ color: Colors.dark.primary, fontSize: 12, fontWeight: "600" }}>New Season</Text>
-              </Pressable>
-            )}
           </View>
         ) : null}
 
