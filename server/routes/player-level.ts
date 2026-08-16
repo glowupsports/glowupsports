@@ -13,6 +13,7 @@ import {
 } from "@shared/schema";
 import { sendLevelUpNotification, sendXPGainNotification } from "../pushNotifications";
 import { isAppleReviewAccount, authMiddlewareWithFreshData as authMiddleware, type AuthenticatedRequest } from "../auth";
+import { canAwardXp, canMutateProgressionConfig } from "../lib/progression-actor-policy";
 
 const router = Router();
 
@@ -180,6 +181,21 @@ router.post("/award-xp", async (req: AuthenticatedRequest, res: Response) => {
 
     if (!playerId || !actionSource) {
       return res.status(400).json({ error: "playerId and actionSource are required" });
+    }
+
+    // Batch 2C: management XP endpoint requires coach/admin/owner authority — never callable by players
+    const xpAuth = await canAwardXp(
+      {
+        userId: req.user!.userId,
+        coachId: req.user!.coachId,
+        playerId: (req.user as any).playerId,
+        academyId: req.user!.academyId,
+        role: req.user!.role,
+      },
+      playerId,
+    );
+    if (!xpAuth.allowed) {
+      return res.status(403).json({ error: xpAuth.reason ?? "Insufficient authority to award XP" });
     }
 
     // Get XP rule for this action
@@ -553,6 +569,9 @@ router.get("/config/thresholds", async (_req: Request, res: Response) => {
 
 router.put("/config/thresholds/:level", async (req: Request, res: Response) => {
   try {
+    // Batch 2C: global progression config restricted to platform_owner
+    const cfgAuth = canMutateProgressionConfig({ userId: (req as any).user?.userId, role: (req as any).user?.role });
+    if (!cfgAuth.allowed) return res.status(403).json({ error: cfgAuth.reason });
     const level = parseInt(req.params.level);
     const { xpRequired, title, badgeUnlock, titleUnlock } = req.body;
 
@@ -607,6 +626,9 @@ router.get("/config/xp-rules", async (_req: Request, res: Response) => {
 
 router.put("/config/xp-rules/:actionSource", async (req: Request, res: Response) => {
   try {
+    // Batch 2C: global progression config restricted to platform_owner
+    const cfgAuth = canMutateProgressionConfig({ userId: (req as any).user?.userId, role: (req as any).user?.role });
+    if (!cfgAuth.allowed) return res.status(403).json({ error: cfgAuth.reason });
     const { actionSource } = req.params;
     const { xpAmount, description, isOneTime, cooldownMinutes, maxPerDay, isActive } = req.body;
 
@@ -665,6 +687,9 @@ router.get("/config/feature-unlocks", async (_req: Request, res: Response) => {
 
 router.put("/config/feature-unlocks/:featureKey", async (req: Request, res: Response) => {
   try {
+    // Batch 2C: global progression config restricted to platform_owner
+    const cfgAuth = canMutateProgressionConfig({ userId: (req as any).user?.userId, role: (req as any).user?.role });
+    if (!cfgAuth.allowed) return res.status(403).json({ error: cfgAuth.reason });
     const { featureKey } = req.params;
     const { 
       requiredLevel, 

@@ -263,24 +263,29 @@ function handleMessage(socket: AuthenticatedSocket, message: WsMessage) {
 }
 
 function handleTyping(socket: AuthenticatedSocket, payload: TypingPayload) {
+  // Batch 2B: always use session identity — never trust client-supplied coachId/playerId
   broadcastToAcademy(socket.academyId, {
     type: "typing",
     payload: {
       conversationId: payload.conversationId,
-      coachId: socket.coachId || payload.coachId,
+      coachId: socket.coachId,    // from verified JWT only
+      playerId: socket.playerId,  // from verified JWT only
       isTyping: payload.isTyping,
     },
   }, socket);
 }
 
 function handleReadReceipt(socket: AuthenticatedSocket, payload: ReadReceiptPayload) {
+  // Batch 2B: derive reader identity from verified JWT — never trust client-supplied readerId/readerType
+  const readerId = socket.coachId ?? socket.playerId ?? socket.userId;
+  const readerType: "coach" | "player" = socket.coachId ? "coach" : "player";
   broadcastToAcademy(socket.academyId, {
     type: "read_receipt",
     payload: {
       conversationId: payload.conversationId,
       messageId: payload.messageId,
-      readerType: payload.readerType,
-      readerId: payload.readerId,
+      readerType,
+      readerId,
       readAt: new Date().toISOString(),
     },
   }, socket);

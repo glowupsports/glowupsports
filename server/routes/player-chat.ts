@@ -3,6 +3,7 @@ import { storage } from "../storage";
 import { authMiddlewareWithFreshData as authMiddleware, JWTPayload } from "../auth";
 import { filterProfanity } from "../profanityFilter";
 import { isPlayerMinor, getPlayerParentalControls } from "../childSafety";
+import { isBlockedByEither } from "../lib/messaging-policy";
 import { chatRateLimiter } from "../rateLimiter";
 import { getCoachPushTokens, sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 import { db } from "../db";
@@ -505,6 +506,14 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
       if (!coachId) {
         return res.status(400).json({ error: "coachId required for coach_player conversation" });
       }
+      // Batch 2B: verify the requested coach belongs to the player's own academy (tenant isolation)
+      if (academyId) {
+        const [targetCoach] = await db.select({ academyId: coaches.academyId })
+          .from(coaches).where(eq(coaches.id, coachId)).limit(1);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach is not a member of your academy" });
+        }
+      }
       const conversation = await storage.getOrCreateCoachPlayerConversation(coachId, playerId, academyId ?? undefined);
       return res.json(conversation);
     }
@@ -631,6 +640,26 @@ router.post("/api/player/me/conversations", authMiddleware, requirePlayerOrOwner
       const otherPlayer = await storage.getPlayer(otherPlayerId, academyId ?? undefined);
       if (!otherPlayer) {
         return res.status(404).json({ error: "Other player not found" });
+      }
+      // Batch 2B: recipient minor safety check
+      const otherPlayerIsMinor = await isPlayerMinor(otherPlayerId);
+      if (otherPlayerIsMinor) {
+        const otherControls = await getPlayerParentalControls(otherPlayerId);
+        if (!otherControls.chatEnabled) {
+          return res.status(403).json({
+            error: "This player's parental controls prevent messaging.",
+            code: "RECIPIENT_MINOR_CHAT_RESTRICTED",
+          });
+        }
+      }
+      // Batch 2B: block check — prevent DMs when either party has blocked the other
+      const [senderUser] = await db.select({ id: users.id }).from(users).where(eq(users.playerId, playerId)).limit(1);
+      const [otherUser] = await db.select({ id: users.id }).from(users).where(eq(users.playerId, otherPlayerId)).limit(1);
+      if (senderUser?.id && otherUser?.id) {
+        const blocked = await isBlockedByEither(senderUser.id, otherUser.id);
+        if (blocked) {
+          return res.status(403).json({ error: "A block prevents this interaction", code: "BLOCKED" });
+        }
       }
       const existing = await storage.getPlayerToPlayerConversation(playerId, otherPlayerId, academyId ?? "");
       if (existing) {

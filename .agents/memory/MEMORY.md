@@ -1,1 +1,2 @@
 - [Adult Glow rating engine](adult-glow-rating-engine.md) — UTR-style score ratio replaces binary win/loss; scoreJson is the source of truth; skill gates are achievements not promotion blockers.
+- [Batch 2B+2C auth containment policies](batch2bc-policies.md) — MessagingPolicy, SessionActorPolicy, ProgressionActorPolicy: decisions, gotchas, scope rules, and test coverage.

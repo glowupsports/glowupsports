@@ -3,6 +3,7 @@ import { db } from "../db";
 import { skillEvidence, glowSkills, players } from "../../shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { AuthenticatedRequest, authMiddlewareWithFreshData as authMiddleware, requireAcademy, validatePlayerOwnership } from "../auth";
+import { canReviewEvidence } from "../lib/progression-actor-policy";
 import { storage as appStorage } from "../storage";
 import multer from "multer";
 import path from "path";
@@ -99,7 +100,8 @@ router.post(
     try {
       const { playerId } = req.params;
       const academyId = req.user!.academyId;
-      const coachId = req.user!.coachId || req.user!.userId;
+      // Batch 2C: use session-derived identity; players may self-submit (playerId fallback)
+      const coachId = req.user!.coachId ?? req.user!.playerId ?? null;
       
       // Validate player belongs to this academy
       const ownership = await validatePlayerOwnership(playerId, academyId, appStorage);
@@ -159,7 +161,8 @@ router.post("/api/players/:playerId/evidence/record", authMiddleware, requireAca
   try {
     const { playerId } = req.params;
     const academyId = req.user!.academyId;
-    const coachId = req.user!.coachId || req.user!.userId;
+    // Batch 2C: use session-derived identity; players may self-submit (playerId fallback)
+    const coachId = req.user!.coachId ?? req.user!.playerId ?? null;
     
     // Validate player belongs to this academy
     const ownership = await validatePlayerOwnership(playerId, academyId, appStorage);
@@ -211,7 +214,7 @@ router.post("/api/evidence/:evidenceId/review", authMiddleware, requireAcademy, 
   try {
     const { evidenceId } = req.params;
     const academyId = req.user!.academyId;
-    const coachId = req.user!.coachId || req.user!.userId;
+    const coachId = req.user!.coachId ?? null;
     const { reviewScore, reviewNotes, approved } = req.body;
     
     // Get evidence with player info for ownership check
@@ -231,6 +234,17 @@ router.post("/api/evidence/:evidenceId/review", authMiddleware, requireAcademy, 
     // Validate player belongs to this academy
     if (existingEvidence.playerAcademyId !== academyId) {
       return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Batch 2C: evidence review requires coach identity + authority
+    const reviewAuth = await canReviewEvidence({
+      userId: req.user!.userId,
+      coachId: req.user!.coachId,
+      academyId: req.user!.academyId,
+      role: req.user!.role,
+    });
+    if (!reviewAuth.allowed) {
+      return res.status(403).json({ error: reviewAuth.reason ?? "Insufficient authority to review evidence" });
     }
     
     const [evidence] = await db

@@ -1987,66 +1987,20 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
     },
   );
 
-  // Offline sync
+  // Offline sync — retired endpoint (Batch 2C security hardening).
+  // Per-action ownership/roster checks cannot be uniformly enforced on a batch
+  // payload.  Clients must use the individual attendance/feedback endpoints
+  // which enforce canMutateSession and canWriteAttendance.
+  // Returns 410 Gone so mobile clients can detect and handle the deprecation.
   router.post(
     "/api/coach/offline/sync",
     authMiddleware,
     requireAcademy,
-    async (req: AuthenticatedRequest, res: Response) => {
-      try {
-        const _coachId = req.user!.coachId;
-        const { actions } = req.body;
-
-        const results = [];
-        for (const action of actions) {
-          try {
-            // Process each offline action
-            switch (action.type) {
-              case "attendance": {
-                const spRecord = await storage.updateAttendance(
-                  action.sessionId,
-                  action.playerId,
-                  action.status,
-                  action.lateMinutes,
-                  action.absenceReason,
-                );
-                const isChargeable = action.status === "present" || action.status === "late";
-                if (isChargeable && spRecord && !spRecord.creditDeductedAt) {
-                  try {
-                    const { ensureCreditProcessed } = await import("../storage");
-                    await ensureCreditProcessed(spRecord.id);
-                  } catch (creditErr) {
-                    console.error(`[OfflineSync] Credit processing failed for player ${action.playerId}:`, creditErr);
-                  }
-                }
-                // Note: holiday/vacation debt cancellation is handled inside updateAttendance()
-                break;
-              }
-              case "feedback":
-                await storage.createSessionFeedback({
-                  sessionId: action.sessionId,
-                  intensity: action.intensity,
-                  mood: action.mood,
-                  focusTags: action.focusTags,
-                  coachNotes: action.coachNotes,
-                });
-                break;
-            }
-            results.push({ id: action.id, success: true });
-          } catch (err) {
-            results.push({
-              id: action.id,
-              success: false,
-              error: (err as Error).message,
-            });
-          }
-        }
-
-        res.json({ synced: results });
-      } catch (error) {
-        console.error("Error syncing offline actions:", error);
-        res.status(500).json({ error: "Failed to sync" });
-      }
+    (_req: AuthenticatedRequest, res: Response) => {
+      return res.status(410).json({
+        error: "Offline sync endpoint is retired. Use the individual session endpoints.",
+        code: "ENDPOINT_RETIRED",
+      });
     },
   );
 
