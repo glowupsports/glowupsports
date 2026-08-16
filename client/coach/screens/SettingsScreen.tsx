@@ -224,7 +224,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<CoachStackParamList>>();
   const { t, i18n } = useTranslation();
   const { logout, user } = useAuth();
-  const isOwnerOrAdmin = user?.role === "academy_owner" || user?.role === "owner" || user?.role === "admin";
+  const isOwnerOrAdmin = user?.role === "academy_owner" || user?.role === "owner" || user?.role === "admin" || user?.role === "coach";
   const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
   const [settings, setSettings] = useState<CoachSettings>(defaultSettings);
   const [_hasChanges, setHasChanges] = useState(false);

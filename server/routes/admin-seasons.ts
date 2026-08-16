@@ -105,7 +105,7 @@ router.get(
 router.post(
   "/api/admin/seasons/end-current",
   authMiddleware,
-  requireRole("admin", "academy_owner", "owner"),
+  requireRole("admin", "academy_owner", "owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.currentAcademyId;
@@ -170,7 +170,7 @@ router.post(
 router.post(
   "/api/admin/seasons",
   authMiddleware,
-  requireRole("admin", "academy_owner", "owner"),
+  requireRole("admin", "academy_owner", "owner", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.currentAcademyId;
