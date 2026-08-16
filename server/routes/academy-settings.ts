@@ -398,6 +398,21 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(400).json({ error: "Email is required" });
         }
 
+        // Role whitelist — platform_owner is never grantable through generic invites
+        const INVITE_ROLES = ["coach", "assistant", "head_coach"] as const;
+        if (!(INVITE_ROLES as readonly string[]).includes(role)) {
+          return res.status(400).json({
+            error: `Role "${role}" is not a valid invite role. Allowed: ${INVITE_ROLES.join(", ")}`,
+          });
+        }
+        // Grant matrix: caller may not assign a role above their own authority level
+        const inviteAuth = (req as any).academyAuthority as AcademyAuthority;
+        if (!canGrantRole(inviteAuth, role)) {
+          return res.status(403).json({
+            error: `Your authority does not allow granting the "${role}" role`,
+          });
+        }
+
         // Generate invite code
         const inviteCode = generateShortInviteCode();
 
@@ -589,6 +604,20 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         const targetMember = members.find((m) => m.id === id);
         if (!targetMember) {
           return res.status(404).json({ error: "Member not found" });
+        }
+
+        // Anti-self-promotion: actors may not modify their own membership record
+        if (req.user!.coachId && targetMember.coachId === req.user!.coachId) {
+          return res.status(403).json({ error: "Cannot modify your own membership role" });
+        }
+        // Grant matrix for role changes — only checked when role field is present in payload
+        if (role !== undefined) {
+          const patchAuth = (req as any).academyAuthority as AcademyAuthority;
+          if (!canGrantRole(patchAuth, role)) {
+            return res.status(403).json({
+              error: `Your authority does not allow assigning the "${role}" role`,
+            });
+          }
         }
 
         const membership = await storage.updateCoachMembership(id, {
@@ -1431,6 +1460,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/billing/account",
     authMiddleware,
     requireAcademy,
+    requireFinance,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -1561,6 +1591,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/billing/package-templates",
     authMiddleware,
     requireAcademy,
+    requireFinance,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -1629,6 +1660,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/billing/package-templates/:id",
     authMiddleware,
     requireAcademy,
+    requireFinance,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -1654,6 +1686,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/billing/package-templates/:id",
     authMiddleware,
     requireAcademy,
+    requireFinance,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -1676,6 +1709,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/billing/assign-package",
     authMiddleware,
     requireAcademy,
+    requireFinance,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -1787,6 +1821,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/billing/invoices",
     authMiddleware,
     requireAcademy,
+    requireFinance,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -2185,6 +2220,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/billing/payments",
     authMiddleware,
     requireAcademy,
+    requireFinance,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;
@@ -2252,6 +2288,7 @@ import { Router, type Request, type Response, type NextFunction } from "express"
     "/api/billing/refunds",
     authMiddleware,
     requireAcademy,
+    requireFinance,
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const academyId = req.user!.academyId!;

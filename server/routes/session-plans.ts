@@ -82,7 +82,7 @@ router.get("/api/lesson-templates/:templateId", authMiddleware, requireAcademy, 
 router.post("/api/sessions/:sessionId/plan/generate", authMiddleware, requireAcademy, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { sessionId } = req.params;
-    const coachId = req.user!.coachId || req.user!.userId;
+    const coachId = req.user!.coachId ?? null;
     const academyId = req.user!.academyId;
     const { templateId, customBlocks } = req.body;
     
@@ -97,6 +97,12 @@ router.post("/api/sessions/:sessionId/plan/generate", authMiddleware, requireAca
     
     if (!session) {
       return res.status(404).json({ error: "Session not found" });
+    }
+
+    // Verify actor can manage this session's plan (supervisor+ OR own session)
+    const genAuthority = await resolveAcademyAuthority(req.user!, academyId!);
+    if (!canManageSessionPlan(genAuthority, session.coachId ?? null, coachId)) {
+      return res.status(403).json({ error: "Insufficient authority to manage this session plan" });
     }
     
     // Check for existing plan
@@ -205,6 +211,13 @@ router.post("/api/sessions/:sessionId/plan/start", authMiddleware, requireAcadem
     if (!ownership.valid) {
       return res.status(403).json({ error: "Access denied" });
     }
+
+    // Verify actor can manage this session's plan (supervisor+ OR own session)
+    const [startSession] = await db.select({ coachId: sessions.coachId }).from(sessions).where(eq(sessions.id, sessionId));
+    const startAuthority = await resolveAcademyAuthority(req.user!, academyId!);
+    if (!canManageSessionPlan(startAuthority, startSession?.coachId ?? null, req.user!.coachId ?? null)) {
+      return res.status(403).json({ error: "Insufficient authority to manage this session plan" });
+    }
     
     const [plan] = await db
       .select()
@@ -243,6 +256,13 @@ router.patch("/api/sessions/:sessionId/plan/blocks/:blockIndex", authMiddleware,
     const ownership = await validateSessionOwnership(sessionId, academyId, storage);
     if (!ownership.valid) {
       return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Verify actor can manage this session's plan (supervisor+ OR own session)
+    const [blockSession] = await db.select({ coachId: sessions.coachId }).from(sessions).where(eq(sessions.id, sessionId));
+    const blockAuthority = await resolveAcademyAuthority(req.user!, academyId!);
+    if (!canManageSessionPlan(blockAuthority, blockSession?.coachId ?? null, req.user!.coachId ?? null)) {
+      return res.status(403).json({ error: "Insufficient authority to manage this session plan" });
     }
     
     const [plan] = await db
@@ -303,6 +323,13 @@ router.post("/api/sessions/:sessionId/plan/complete", authMiddleware, requireAca
     const ownership = await validateSessionOwnership(sessionId, academyId, storage);
     if (!ownership.valid) {
       return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Verify actor can manage this session's plan (supervisor+ OR own session)
+    const [completeSession] = await db.select({ coachId: sessions.coachId }).from(sessions).where(eq(sessions.id, sessionId));
+    const completeAuthority = await resolveAcademyAuthority(req.user!, academyId!);
+    if (!canManageSessionPlan(completeAuthority, completeSession?.coachId ?? null, req.user!.coachId ?? null)) {
+      return res.status(403).json({ error: "Insufficient authority to manage this session plan" });
     }
     
     const [plan] = await db
