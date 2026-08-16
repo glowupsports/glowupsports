@@ -694,15 +694,12 @@ import { hashPassword, generateToken, generateRefreshToken } from "../auth";
           });
         }
 
-        // TODO: Integrate with actual payment processing
-        // For now, return success with the calculated amount
-        const totalPaid = totalOwed;
-
-        res.json({
-          success: true,
-          message: `Paid outstanding balance of ${totalPaid}`,
-          paid: totalPaid,
-          count: playerIds.length,
+        // FAKE-PAY / MONEY-02: Real payment processing not implemented.
+        // Returning fake success here would manufacture financial truth without
+        // a provider event. Disabled until a real payment path exists (Batch 2+).
+        return res.status(503).json({
+          error: "Bulk payment processing is not yet available. Please use individual payment flows.",
+          code: "PAYMENT_NOT_IMPLEMENTED",
         });
       } catch (error) {
         console.error("Error processing bulk payment:", error);

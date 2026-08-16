@@ -1,13 +1,20 @@
-name: Publish OTA Update
+# OTA-01 FIX: Automatic production publish on main-branch push is DISABLED.
+# Production OTA now requires an explicit manual promotion step.
+# To publish to production: run the EAS CLI manually:
+#   eas update --branch production --message "Release: <description>"
+# Do not re-enable the `on.push` trigger without owner approval.
+#
+# Original trigger (disabled):
+# on:
+#   push:
+#     branches: ['main']
 
-on:
-  push:
-    branches: ['main']
+name: Publish OTA Update
 
 jobs:
   update:
     name: Publish Update
     type: update
     params:
-      branch: production
-      message: "OTA Update"
+      branch: preview
+      message: "OTA Preview Update"

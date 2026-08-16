@@ -837,10 +837,10 @@ import { Router, type Request, type Response } from "express";
         if (!parsedOtpVerify.success) return res.status(400).json({ error: fromZodError(parsedOtpVerify.error).message });
         const { email, code } = parsedOtpVerify.data;
 
-        const result = verifyOTPCode(email, code);
+        const result = await verifyOTPCode(email, code);
 
         if (result.valid) {
-          markEmailVerified(email);
+          await markEmailVerified(email);
           res.json({ success: true, verified: true });
         } else {
           res.status(400).json({ error: result.error, verified: false });
@@ -919,7 +919,7 @@ import { Router, type Request, type Response } from "express";
         if (!existingEmailUser) {
           // New email - require OTP verification
           // First check if the email was already verified via the /auth/otp/verify endpoint
-          if (isEmailVerified(email)) {
+          if (await isEmailVerified(email)) {
             // Already verified in this session — skip re-checking the OTP
           } else {
             const { otpCode } = req.body;
@@ -930,7 +930,7 @@ import { Router, type Request, type Response } from "express";
               });
             }
 
-            const otpResult = verifyOTPCode(email, otpCode);
+            const otpResult = await verifyOTPCode(email, otpCode);
             if (!otpResult.valid) {
               return res.status(400).json({
                 error: otpResult.error || "Invalid verification code",
@@ -1007,7 +1007,7 @@ import { Router, type Request, type Response } from "express";
         const refreshToken = generateRefreshToken(playerRegJwtPayload);
 
         // Clear the verified-email flag now that registration is complete
-        clearEmailVerified(email);
+        await clearEmailVerified(email);
 
         res.status(201).json({
           token,

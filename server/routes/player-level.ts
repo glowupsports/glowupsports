@@ -718,9 +718,10 @@ router.put("/config/feature-unlocks/:featureKey", async (req: Request, res: Resp
   }
 });
 
-// ==================== SEED DEFAULT DATA ====================
+// ==================== SEED DEFAULT DATA ==================== (gated in production — DEV-01 / TEST-02)
 
 router.post("/seed-defaults", async (_req: Request, res: Response) => {
+  if (process.env.NODE_ENV === "production") return res.sendStatus(404);
   try {
     // Seed level thresholds
     const defaultThresholds = [

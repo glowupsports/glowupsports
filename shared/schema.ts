@@ -72,6 +72,39 @@ export const passwordResetCodes = pgTable("password_reset_codes", {
 
 export type PasswordResetCode = typeof passwordResetCodes.$inferSelect;
 
+// OTP codes — DB-backed, cryptographically secure (STAGE-01 / OTP-01)
+// Replaces the in-process Maps in emailService.ts so state survives restarts
+// and is shared across autoscaled instances.
+export const otpCodes = pgTable("otp_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),          // normalised lowercase
+  codeHash: text("code_hash").notNull(),   // bcrypt hash — never store plaintext
+  purpose: text("purpose").notNull().default("registration"), // registration | login
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),            // set on first successful verify (single-use)
+  verifiedAt: timestamp("verified_at"),    // set when OTP verified but registration not yet complete
+  attemptCount: integer("attempt_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  emailIdx: index("otp_codes_email_idx").on(table.email),
+  expiresAtIdx: index("otp_codes_expires_at_idx").on(table.expiresAt),
+}));
+
+export type OtpCode = typeof otpCodes.$inferSelect;
+
+// Rate limit hits — shared Postgres-backed store for multi-instance / autoscale (RL-01)
+// Replaces process-local MemoryStore in express-rate-limit and custom Map-based limiters.
+// Cleanup: a periodic job (or ON CONFLICT … DO UPDATE) evicts expired rows.
+export const rateLimitHits = pgTable("rate_limit_hits", {
+  key: text("key").notNull(),              // "<limiter_prefix>:<identifier>"
+  windowStart: timestamp("window_start").notNull(),
+  count: integer("count").notNull().default(1),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => ({
+  keyWindowPk: uniqueIndex("rate_limit_hits_key_window_idx").on(table.key, table.windowStart),
+  expiresAtIdx: index("rate_limit_hits_expires_at_idx").on(table.expiresAt),
+}));
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   email: true,

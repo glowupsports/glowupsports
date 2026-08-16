@@ -1734,8 +1734,9 @@ router.post("/api/glow/messages/render-all", authMiddleware, async (req: Authent
   }
 });
 
-// Seed role message templates
+// Seed role message templates — gated in production (DEV-01 / TEST-01)
 router.post("/api/glow/messages/seed", async (_req, res: Response) => {
+  if (process.env.NODE_ENV === "production") return res.sendStatus(404);
   try {
     const { seedDefaultTemplates } = await import("../services/role-language-engine");
     const count = await seedDefaultTemplates();
@@ -2463,9 +2464,10 @@ router.post("/api/coach/sessions/:sessionId/intake", authMiddleware, requireAcad
   }
 });
 
-// ==================== SEED ENDPOINT ====================
+// ==================== SEED ENDPOINT ==================== (gated in production — DEV-01 / TEST-02)
 
 router.post("/api/glow/seed", async (_req, res: Response) => {
+  if (process.env.NODE_ENV === "production") return res.sendStatus(404);
   try {
     const { seedGlowLevelingData } = await import("../seeds/glow-leveling-seed");
     const result = await seedGlowLevelingData();

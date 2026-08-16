@@ -2,11 +2,16 @@
 // Integration: connection:conn_resend_01KDF7GB7D3CMQPBEEJ67T7ZSP
 
 import { Resend } from 'resend';
+import { randomInt } from "crypto";
+import bcrypt from "bcrypt";
 import {
   type AcademyTheme,
   type BrandingColors,
   getBrandingColors,
 } from "@shared/theme";
+import { db } from "./db";
+import { otpCodes } from "@shared/schema";
+import { eq, and, isNull, isNotNull, gt } from "drizzle-orm";
 
 /**
  * Resolve brand colours for transactional emails. Defensive: any missing or
@@ -691,74 +696,58 @@ export async function sendBetaFeedbackEmail(params: {
 }
 
 // ==================== EMAIL OTP VERIFICATION ====================
+// OTP-01 fix: OTP state is now persisted in the `otp_codes` DB table so it
+// survives restarts and is shared across autoscaled instances.
+// crypto.randomInt() replaces Math.random() for cryptographic safety.
+// Codes are bcrypt-hashed before storage — plaintext only appears in the email.
 
-interface OTPStore {
-  code: string;
-  email: string;
-  expiresAt: Date;
-  attempts: number;
+export async function markEmailVerified(email: string): Promise<void> {
+  // Extend expiry on the most recently verified OTP so the registration endpoint
+  // can confirm the email without the user re-entering the code.
+  await db
+    .update(otpCodes)
+    .set({ expiresAt: new Date(Date.now() + 15 * 60 * 1000) })
+    .where(and(eq(otpCodes.email, email.toLowerCase()), isNotNull(otpCodes.verifiedAt)));
 }
 
-// In-memory OTP store (in production, use Redis or database)
-const otpStore = new Map<string, OTPStore>();
-
-// In-memory store for emails that have been OTP-verified but not yet registered
-const verifiedEmails = new Map<string, Date>(); // email -> expiry
-
-export function markEmailVerified(email: string): void {
-  const expiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-  verifiedEmails.set(email.toLowerCase(), expiry);
+export async function isEmailVerified(email: string): Promise<boolean> {
+  const row = await db.query.otpCodes.findFirst({
+    where: and(
+      eq(otpCodes.email, email.toLowerCase()),
+      isNotNull(otpCodes.verifiedAt),
+      gt(otpCodes.expiresAt, new Date()),
+    ),
+  });
+  return !!row;
 }
 
-export function isEmailVerified(email: string): boolean {
-  const expiry = verifiedEmails.get(email.toLowerCase());
-  if (!expiry) return false;
-  if (expiry < new Date()) {
-    verifiedEmails.delete(email.toLowerCase());
-    return false;
-  }
-  return true;
+export async function clearEmailVerified(email: string): Promise<void> {
+  await db.delete(otpCodes).where(eq(otpCodes.email, email.toLowerCase()));
 }
-
-export function clearEmailVerified(email: string): void {
-  verifiedEmails.delete(email.toLowerCase());
-}
-
-// Clean up expired OTPs every 5 minutes
-setInterval(() => {
-  const now = new Date();
-  for (const [key, otp] of otpStore.entries()) {
-    if (otp.expiresAt < now) {
-      otpStore.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
 
 function generateOTPCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // OTP-01: crypto.randomInt is cryptographically secure; Math.random is not.
+  return randomInt(100000, 1000000).toString();
 }
 
 export async function sendOTPEmail(email: string): Promise<{ success: boolean; error?: string }> {
   try {
-    // Generate 6-digit OTP
     const code = generateOTPCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    const codeHash = await bcrypt.hash(code, 10);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const normalizedEmail = email.toLowerCase();
 
-    // Store OTP (key by email, allows same email to have multiple OTPs for different accounts)
-    const otpKey = `${email.toLowerCase()}_${Date.now()}`;
-    otpStore.set(otpKey, {
-      code,
-      email: email.toLowerCase(),
-      expiresAt,
-      attempts: 0,
-    });
+    // Invalidate any outstanding unused OTPs for this email before issuing new one
+    await db.delete(otpCodes).where(
+      and(eq(otpCodes.email, normalizedEmail), isNull(otpCodes.usedAt)),
+    );
 
-    // Also store by email for verification lookup
-    otpStore.set(email.toLowerCase(), {
-      code,
-      email: email.toLowerCase(),
+    // Persist the hashed OTP — plaintext code is only used in the email body below
+    await db.insert(otpCodes).values({
+      email: normalizedEmail,
+      codeHash,
+      purpose: "registration",
       expiresAt,
-      attempts: 0,
     });
 
     const html = `
@@ -906,50 +895,51 @@ export async function sendPasswordResetEmail(params: { to: string; code: string;
   });
 }
 
-export function verifyOTPCode(email: string, code: string): { valid: boolean; error?: string } {
+export async function verifyOTPCode(email: string, code: string): Promise<{ valid: boolean; error?: string }> {
   const normalizedEmail = email.toLowerCase();
-  const storedOTP = otpStore.get(normalizedEmail);
 
-  if (!storedOTP) {
+  const stored = await db.query.otpCodes.findFirst({
+    where: and(
+      eq(otpCodes.email, normalizedEmail),
+      isNull(otpCodes.usedAt),
+      gt(otpCodes.expiresAt, new Date()),
+    ),
+    orderBy: (t, { desc }) => [desc(t.createdAt)],
+  });
+
+  if (!stored) {
     return { valid: false, error: "No verification code found. Please request a new one." };
   }
 
-  // Check expiry
-  if (storedOTP.expiresAt < new Date()) {
-    otpStore.delete(normalizedEmail);
-    return { valid: false, error: "Verification code has expired. Please request a new one." };
-  }
-
-  // Check attempts (max 5)
-  if (storedOTP.attempts >= 5) {
-    otpStore.delete(normalizedEmail);
+  if (stored.attemptCount >= 5) {
+    await db.delete(otpCodes).where(eq(otpCodes.id, stored.id));
     return { valid: false, error: "Too many failed attempts. Please request a new code." };
   }
 
-  // Verify code
-  if (storedOTP.code !== code) {
-    storedOTP.attempts++;
-    return { valid: false, error: `Invalid code. ${5 - storedOTP.attempts} attempts remaining.` };
+  const match = await bcrypt.compare(code, stored.codeHash);
+  if (!match) {
+    const newCount = stored.attemptCount + 1;
+    await db.update(otpCodes).set({ attemptCount: newCount }).where(eq(otpCodes.id, stored.id));
+    const remaining = 5 - newCount;
+    return { valid: false, error: `Invalid code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.` };
   }
 
-  // Success - delete the OTP
-  otpStore.delete(normalizedEmail);
+  // Single-use: mark as used and verified in one update
+  const now = new Date();
+  await db.update(otpCodes).set({ usedAt: now, verifiedAt: now }).where(eq(otpCodes.id, stored.id));
   console.log(`[OTP] Email verified: ${maskEmail(email)}`);
-  
   return { valid: true };
 }
 
-export function hasValidOTP(email: string): boolean {
-  const normalizedEmail = email.toLowerCase();
-  const storedOTP = otpStore.get(normalizedEmail);
-  
-  if (!storedOTP) return false;
-  if (storedOTP.expiresAt < new Date()) {
-    otpStore.delete(normalizedEmail);
-    return false;
-  }
-  
-  return true;
+export async function hasValidOTP(email: string): Promise<boolean> {
+  const row = await db.query.otpCodes.findFirst({
+    where: and(
+      eq(otpCodes.email, email.toLowerCase()),
+      isNull(otpCodes.usedAt),
+      gt(otpCodes.expiresAt, new Date()),
+    ),
+  });
+  return !!row;
 }
 
 // Monthly Player Report Email

@@ -264,22 +264,9 @@ import { Router, type Response } from "express";
         // Update invoice with package ID
         await storage.updateInvoice(invoice.id, { packageId: pkg.id });
 
-        // Create credit transaction for the purchase
-        await storage.createCreditTransaction({
-          playerId,
-          academyId,
-          packageId: pkg.id,
-          type: "credit",
-          creditType,
-          amount: totalCredits,
-          reason: "package_purchased",
-          metadata: {
-            invoiceId: invoice.id,
-            pricePerCredit,
-            totalPrice,
-            currency,
-          },
-        });
+        // MONEY-02: Only grant credits when payment is confirmed (isPaid = true).
+        // An unpaid / pending invoice must not immediately credit the player.
+        // Credits are created below inside the isPaid block alongside the payment record.
 
         // Task #990 — when a coach grants an already-paid credit package
         // (i.e. `purchasedAt` was provided so the invoice is marked paid),
@@ -289,6 +276,23 @@ import { Router, type Response } from "express";
         // sees zero history. Idempotent against the partial unique index
         // on (package_id) WHERE source IN ('coach_mark_paid','coach_package_purchase').
         if (isPaid) {
+          // Grant credits only when payment is confirmed (purchasedAt was supplied by coach)
+          await storage.createCreditTransaction({
+            playerId,
+            academyId,
+            packageId: pkg.id,
+            type: "credit",
+            creditType,
+            amount: totalCredits,
+            reason: "package_purchased",
+            metadata: {
+              invoiceId: invoice.id,
+              pricePerCredit,
+              totalPrice,
+              currency,
+            },
+          });
+
           try {
             await storage.createPayment({
               academyId: academyId!,
