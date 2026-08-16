@@ -72,14 +72,15 @@ export function canManageSessionPlan(
 // ── Role-grant matrix ──────────────────────────────────────────────────────
 // Defines which roles a caller of a given authority may assign via generic
 // invite / member-mutation endpoints.
-// platform_owner is NEVER grantable through generic endpoints — only a trusted
-// out-of-band ownership flow may create platform owners.
+// Neither platform_owner nor academy_owner is grantable through generic invite /
+// member-mutation endpoints.  Academy-owner elevation MUST use the dedicated
+// trusted ownership flow only.  platform_owner elevation is out-of-band (DB only).
 
 const GRANT_MAP: Record<AcademyAuthority, readonly string[]> = {
   supervisor:     ["coach", "assistant"],
   admin:          ["coach", "assistant", "head_coach"],
   owner:          ["coach", "assistant", "head_coach", "admin"],
-  platform_owner: ["coach", "assistant", "head_coach", "admin", "academy_owner"],
+  platform_owner: ["coach", "assistant", "head_coach", "admin"],
   coach:          [],
   assistant:      [],
   member:         [],

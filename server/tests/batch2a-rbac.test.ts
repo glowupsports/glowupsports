@@ -201,6 +201,33 @@ describe("Grant-matrix enforcement", () => {
     // Either 400 (invalid role) or 403 (grant denied) — must not be 201
     expect([400, 403]).toContain(res.status);
   });
+
+  it("test 12 — platform_owner cannot grant 'academy_owner' via generic endpoints (trusted-flow only)", async () => {
+    // Policy: academy_owner elevation is ONLY permitted via the dedicated trusted
+    // ownership flow — never through generic invite or member-mutation endpoints,
+    // not even when the caller is platform_owner.
+    //
+    // Invite path: "academy_owner" fails the INVITE_ROLES whitelist → 400.
+    // Member-mutation path: canGrantRole(platform_owner, "academy_owner") → false → 403.
+
+    mockAcademyAuthority = "platform_owner";
+    const { canGrantRole } = await vi.importActual<
+      typeof import("../lib/academy-auth")
+    >("../lib/academy-auth");
+
+    // 12a — grant matrix: platform_owner may NOT assign academy_owner
+    expect(canGrantRole("platform_owner", "academy_owner")).toBe(false);
+
+    // 12b — invite endpoint rejects academy_owner (caught by role whitelist, status 400)
+    const app = express();
+    app.use(express.json());
+    app.use(academySettingsRouter);
+    const res = await supertest(app)
+      .post("/api/academy/invites")
+      .send({ email: "owner-takeover@example.com", role: "academy_owner" });
+    expect([400, 403]).toContain(res.status);
+    expect(res.status).not.toBe(201);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
