@@ -4569,93 +4569,15 @@ export const storage = {
     const result = await db.insert(sessions).values(data).returning();
     const session = result[0];
 
-    // Auto-cancel overlapping player court bookings when a coaching session claims a court.
-    // This runs best-effort (errors are logged, not rethrown) so session creation never fails
-    // because of a booking conflict side-effect.
+    // B3-P0 item 17: The previous auto-cancel block silently destroyed player court
+    // bookings whenever a coaching session claimed the same court.  That is a
+    // destructive side-effect with no refund path.  Removed.  Callers that need
+    // court-conflict handling must check for conflicts explicitly before calling
+    // createSession (e.g. admin-court-bookings POST already does this).
     if (session.courtId && session.startTime && session.endTime) {
-      try {
-        const startTs = new Date(session.startTime);
-        const endTs = new Date(session.endTime);
-        // Extract date (YYYY-MM-DD) and HH:MM from the timestamps in UTC
-        const datePart = startTs.toISOString().slice(0, 10);
-        const startHHMM = startTs.toISOString().slice(11, 16); // "HH:MM"
-        const endHHMM = endTs.toISOString().slice(11, 16);
-
-        const toMin = (t: string) => {
-          const [h, m] = t.split(":").map(Number);
-          return h * 60 + m;
-        };
-        const sessionStart = toMin(startHHMM);
-        const sessionEnd = toMin(endHHMM);
-
-        // Fetch all confirmed/pending bookings on this court and date
-        const existingBookings = await db
-          .select({
-            id: courtBookings.id,
-            playerId: courtBookings.playerId,
-            startTime: courtBookings.startTime,
-            endTime: courtBookings.endTime,
-          })
-          .from(courtBookings)
-          .where(
-            and(
-              eq(courtBookings.courtId, session.courtId),
-              eq(courtBookings.date, datePart),
-              or(
-                eq(courtBookings.status, "confirmed"),
-                eq(courtBookings.status, "pending"),
-              )
-            )
-          );
-
-        const overlapping = existingBookings.filter((b) => {
-          const bStart = toMin(b.startTime);
-          const bEnd = toMin(b.endTime);
-          return sessionStart < bEnd && sessionEnd > bStart;
-        });
-
-        if (overlapping.length > 0) {
-          const overlappingIds = overlapping.map((b) => b.id);
-          await db
-            .update(courtBookings)
-            .set({
-              status: "cancelled",
-              cancelledAt: new Date(),
-              cancelReason: "Court reserved for scheduled coaching session",
-            })
-            .where(inArray(courtBookings.id, overlappingIds));
-
-          // Notify affected players (fire-and-forget via dynamic import to avoid circular deps)
-          const affectedPlayerIds = overlapping
-            .map((b) => b.playerId)
-            .filter(Boolean) as string[];
-          if (affectedPlayerIds.length > 0) {
-            import("./pushNotifications").then(({ getPlayerPushTokens, sendPushNotification }) => {
-              for (const playerId of affectedPlayerIds) {
-                getPlayerPushTokens(playerId)
-                  .then((tokens) => {
-                    if (tokens.length > 0) {
-                      sendPushNotification(
-                        tokens,
-                        "Court Booking Cancelled",
-                        `Your court booking on ${datePart} has been cancelled — the court has been reserved for a coaching session.`,
-                        { type: "court_booking_cancelled" },
-                        playerId
-                      ).catch(() => {/* ignore */});
-                    }
-                  })
-                  .catch(() => {/* ignore */});
-              }
-            }).catch(() => {/* ignore */});
-          }
-
-          console.info(
-            `[createSession] Auto-cancelled ${overlapping.length} court booking(s) on court ${session.courtId} (${datePart} ${startHHMM}–${endHHMM}) for new session ${session.id}`
-          );
-        }
-      } catch (conflictErr) {
-        console.warn("[createSession] Court booking conflict-guard error (non-fatal):", conflictErr);
-      }
+      console.info(
+        `[createSession] Session ${session.id} assigned court ${session.courtId} — court conflict check is the caller's responsibility.`,
+      );
     }
 
     return session;
@@ -5369,16 +5291,14 @@ export const storage = {
       // This is new attendance if we're marking as present (transition from absent/null to present)
       return result[0] ? { record: result[0], isNewAttendance: attended } : null;
     } else {
-      // Insert new session player entry
-      const result = await db.insert(sessionPlayers)
-        .values({
-          sessionId,
-          playerId,
-          attendanceStatus: status,
-        })
-        .returning();
-      // New record marked as present is new attendance
-      return result[0] ? { record: result[0], isNewAttendance: attended } : null;
+      // B3-P0 item 1: markAttendance is update-only.  Roster additions go through
+      // addPlayerToSession.  Creating a session_players row here as a side-effect of
+      // an attendance write would bypass capacity checks, policy guards, and credit
+      // processing invariants.  Reject and let the caller surface a 403.
+      console.warn(
+        `[markAttendance] Player ${playerId} has no session_players row for session ${sessionId} — rejecting unrostered attendance write`,
+      );
+      return null;
     }
   },
 
@@ -12865,6 +12785,126 @@ export const storage = {
     await db.execute(sql`
       DELETE FROM coach_time_blocks WHERE source_session_id = ${sessionId}
     `);
+  },
+
+  /**
+   * B3-P0 items 7+8: Cancel a private/private_adjusted session — fully atomic.
+   *
+   * ALL seven writes run inside a single DB transaction so a mid-sequence failure
+   * rolls everything back and leaves the DB in its pre-cancellation state:
+   *   1. Mark session_player as absent (idempotent: no-op if already absent).
+   *   2. Insert cancellation receipt (idempotent: skipped if one already exists).
+   *   3. Apply XP penalty (only if xpPenalty !== 0).
+   *   4. Mark the session as cancelled.
+   *   5. Delete the coach time block.
+   *   6. Poison all unsettled V1 credit-debt rows so the credit engine cannot
+   *      later charge the player for a cancelled session.
+   *   7. Emit V2 credit_ledger_v2 refund rows for any un-refunded consume entries
+   *      tied to this session (idempotent via event_key UNIQUE constraint).
+   *
+   * The opts object carries the data that the route previously committed
+   * individually before calling this helper.  Moving them here ensures that a
+   * failure at step 5, 6, or 7 also rolls back the absence record and receipt
+   * — preventing the "cancellation looks successful but session stays active"
+   * and "retry duplicates the receipt or XP penalty" failure modes.
+   */
+  async cancelPrivateSessionAtomic(
+    sessionId: string,
+    playerId: string,
+    cancelReason: string,
+    opts: {
+      sessionPlayerId: string;
+      sessionPlayerNotes: string;
+      absenceReason: string | null;
+      cancellationRecord: InsertPlayerSessionCancellation;
+      xpPenalty: number;
+      xpDescription: string;
+    },
+  ): Promise<void> {
+    const { refundV2ConsumesForCancelledSession } = await import(
+      "./services/ledger-integrity"
+    );
+
+    await db.transaction(async (tx) => {
+      // 1. Mark player absent (idempotent — SET is always safe to re-apply)
+      await tx
+        .update(sessionPlayers)
+        .set({
+          attendanceStatus: "absent",
+          absenceReason: opts.absenceReason,
+          notes: opts.sessionPlayerNotes,
+        })
+        .where(eq(sessionPlayers.id, opts.sessionPlayerId));
+
+      // 2. Create cancellation receipt (idempotent — skip if one already exists
+      //    for this session+player so retries do not duplicate the row)
+      const existingReceipt = await tx
+        .select({ id: playerSessionCancellations.id })
+        .from(playerSessionCancellations)
+        .where(
+          and(
+            eq(playerSessionCancellations.sessionId, sessionId),
+            eq(playerSessionCancellations.playerId, playerId),
+          ),
+        )
+        .limit(1);
+      if (existingReceipt.length === 0) {
+        await tx.insert(playerSessionCancellations).values(opts.cancellationRecord);
+      }
+
+      // 3. XP penalty (only applied if non-zero; not idempotent but only reaches
+      //    here if the whole transaction has not yet committed)
+      if (opts.xpPenalty !== 0) {
+        await tx.insert(xpTransactions).values({
+          playerId,
+          xpAmount: opts.xpPenalty,
+          sessionId: sessionId,
+          source: opts.xpDescription,
+          description: opts.xpDescription,
+        });
+        await tx
+          .update(players)
+          .set({ totalXp: sql`COALESCE(${players.totalXp}, 0) + ${opts.xpPenalty}` })
+          .where(eq(players.id, playerId));
+      }
+
+      // 4. Cancel session
+      await tx.execute(sql`
+        UPDATE sessions
+        SET status = 'cancelled',
+            cancelled_at = now(),
+            cancellation_reason = ${cancelReason}
+        WHERE id = ${sessionId}
+      `);
+
+      // 5. Release coach time block (idempotent — no-op if already gone)
+      await tx.execute(sql`
+        DELETE FROM coach_time_blocks WHERE source_session_id = ${sessionId}
+      `);
+
+      // 6. Poison all unsettled V1 credit debt rows so the credit engine
+      //    cannot later charge the player.  Uses a single UPDATE rather than
+      //    the SELECT-then-loop in cancelSessionDebt so it can stay inside tx.
+      await tx.execute(sql`
+        UPDATE credit_transactions
+        SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+          'cancelled',   true,
+          'cancelledAt', now()::text,
+          'cancelReason', ${cancelReason}
+        )
+        WHERE player_id = ${playerId}
+          AND session_id = ${sessionId}
+          AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')
+          AND (metadata->>'settled')   IS DISTINCT FROM 'true'
+          AND (metadata->>'cancelled') IS DISTINCT FROM 'true'
+      `);
+
+      // 7. V2 ledger refund — reverse any un-refunded consume rows in
+      //    credit_ledger_v2 tied to this session. Uses the same idempotent
+      //    event_key contract as the standalone cancelSession path, so re-runs
+      //    (retries, cron sweeps) are safe.
+      await refundV2ConsumesForCancelledSession(sessionId, tx);
+    });
   },
 
   // Get coach's time blocks for a date (shows "Busy" for other academies)

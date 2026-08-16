@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { db, pool } from "../db";
 import { authMiddlewareWithFreshData as authMiddleware, type JWTPayload } from "../auth";
 import { courtBookings, courts, players, users } from "@shared/schema";
-import { eq, and, gte, lte, inArray, or, lt, gt } from "drizzle-orm";
+import { eq, and, gte, lte, inArray, or, lt, gt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sendPushNotification, getPlayerPushTokens } from "../pushNotifications";
 
@@ -219,56 +219,10 @@ router.post(
         return res.status(404).json({ error: "Player not found in your academy" });
       }
 
-      // Check for time-overlap conflicts on this court + date
-      const existingBookings = await db
-        .select({
-          id: courtBookings.id,
-          startTime: courtBookings.startTime,
-          endTime: courtBookings.endTime,
-        })
-        .from(courtBookings)
-        .where(
-          and(
-            eq(courtBookings.courtId, courtId),
-            eq(courtBookings.date, date),
-            or(
-              eq(courtBookings.status, "confirmed"),
-              eq(courtBookings.status, "pending"),
-            )
-          )
-        );
-
-      const hasConflict = existingBookings.some((b) =>
-        timesOverlap(startTime, endTime, b.startTime, b.endTime)
-      );
-
-      if (hasConflict) {
-        return res.status(409).json({
-          error: "This time slot conflicts with an existing booking. Please choose a different time.",
-        });
-      }
-
-      // Also check coaching sessions for overlap
-      const sessionConflict = await pool.query(
-        `SELECT 1 FROM sessions s
-         WHERE s.court_id = $1
-           AND DATE(s.start_time) = $2
-           AND s.status NOT IN ('cancelled')
-           AND TO_CHAR(s.start_time, 'HH24:MI') < $4
-           AND TO_CHAR(s.end_time, 'HH24:MI') > $3
-         LIMIT 1`,
-        [courtId, date, startTime, endTime]
-      );
-      if ((sessionConflict.rows?.length ?? 0) > 0) {
-        return res.status(409).json({
-          error: "This time slot conflicts with a scheduled coaching session.",
-        });
-      }
-
       // Get admin user id for booking
       const adminUserId = req.user!.userId;
 
-      // Find the player's user id
+      // Find the player's user id (outside the transaction — read-only lookup)
       const playerUser = await db
         .select({ id: users.id })
         .from(users)
@@ -276,25 +230,87 @@ router.post(
         .limit(1);
       const bookingUserId = playerUser[0]?.id ?? adminUserId;
 
-      const [newBooking] = await db
-        .insert(courtBookings)
-        .values({
-          courtId,
-          userId: bookingUserId,
-          playerId,
-          academyId,
-          date,
-          startTime,
-          endTime,
-          durationMinutes,
-          bookingType: "public",
-          status: "confirmed",
-          notes: notes ?? null,
-          price: "0",
-          currency: "AED",
-          paymentStatus: "free",
-        })
-        .returning();
+      // B3-P0 item 5: Atomic conflict-check + insert.
+      // We take an advisory lock keyed on this court so that concurrent POST
+      // requests for the same court are serialised, eliminating the TOCTOU race
+      // between the availability read and the insert.
+      // Initialised to undefined — the transaction closure assigns it on success.
+      // TypeScript cannot track closure assignments, so we initialise explicitly and
+      // narrow with the !newBooking guard below.
+      let newBooking: typeof courtBookings.$inferSelect | undefined = undefined;
+      let conflictError: { status: number; error: string } | null = null;
+      await db.transaction(async (tx) => {
+        // Advisory lock — court-scoped, held until transaction commits/rolls back
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${courtId}))`);
+
+        // Re-check court booking conflicts inside the lock
+        const existingBookings = await tx
+          .select({
+            id: courtBookings.id,
+            startTime: courtBookings.startTime,
+            endTime: courtBookings.endTime,
+          })
+          .from(courtBookings)
+          .where(
+            and(
+              eq(courtBookings.courtId, courtId),
+              eq(courtBookings.date, date),
+              or(
+                eq(courtBookings.status, "confirmed"),
+                eq(courtBookings.status, "pending"),
+              )
+            )
+          );
+
+        if (existingBookings.some((b) => timesOverlap(startTime, endTime, b.startTime, b.endTime))) {
+          conflictError = { status: 409, error: "This time slot conflicts with an existing booking. Please choose a different time." };
+          return; // will abort the transaction
+        }
+
+        // Re-check coaching session conflicts inside the lock
+        const sessionConflict = await tx.execute(sql`
+          SELECT 1 FROM sessions s
+          WHERE s.court_id = ${courtId}
+            AND DATE(s.start_time) = ${date}::date
+            AND s.status NOT IN ('cancelled')
+            AND TO_CHAR(s.start_time, 'HH24:MI') < ${endTime}
+            AND TO_CHAR(s.end_time,   'HH24:MI') > ${startTime}
+          LIMIT 1
+        `);
+        if ((sessionConflict as any).rows?.length > 0) {
+          conflictError = { status: 409, error: "This time slot conflicts with a scheduled coaching session." };
+          return;
+        }
+
+        // Atomic insert
+        const [inserted] = await tx
+          .insert(courtBookings)
+          .values({
+            courtId,
+            userId: bookingUserId,
+            playerId,
+            academyId,
+            date,
+            startTime,
+            endTime,
+            durationMinutes,
+            bookingType: "public",
+            status: "confirmed",
+            notes: notes ?? null,
+            price: "0",
+            currency: "AED",
+            paymentStatus: "free",
+          })
+          .returning();
+        newBooking = inserted;
+      });
+
+      if (conflictError) {
+        return res.status((conflictError as any).status).json({ error: (conflictError as any).error });
+      }
+      if (!newBooking) {
+        return res.status(500).json({ error: "Booking creation failed unexpectedly" });
+      }
 
       // Notify the player
       try {

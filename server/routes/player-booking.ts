@@ -876,9 +876,20 @@ router.post(
         }
       }
 
-      // Create booking request + court block atomically in a single transaction
-      // This prevents race conditions where two concurrent requests could book the same court
+      // B3-P0 item 16: effectiveRepeat must be known before we open the DB
+      // transaction so that the batch record, primary request, and ALL repeat-week
+      // requests can be committed atomically in ONE transaction.  A failure at any
+      // repeat week then rolls back the primary too (true all-or-nothing atomicity).
+      const effectiveRepeat =
+        !isJoinRequest &&
+        (sessionType === "private" || sessionType === "semi_private")
+          ? Math.min(Math.max(repeatWeeks ?? 1, 1), 52)
+          : 1;
+
+      // Create booking request + court block + batch + all repeat weeks atomically.
       let request: any;
+      let batchId: string | null = null;
+      let txWindowMins = 120; // captured inside tx, used for post-commit notifications
 
       try {
         await db.transaction(async (tx) => {
@@ -895,8 +906,8 @@ router.post(
                 .from(coachSettings)
                 .where(eq(coachSettings.coachId, coachId))
                 .limit(1);
-              const windowMins = cSetting?.bookingResponseWindowMinutes ?? 120;
-              expiresAt = new Date(Date.now() + windowMins * 60 * 1000);
+              txWindowMins = cSetting?.bookingResponseWindowMinutes ?? 120;
+              expiresAt = new Date(Date.now() + txWindowMins * 60 * 1000);
             } catch {
               expiresAt = new Date(Date.now() + 120 * 60 * 1000);
             }
@@ -982,6 +993,56 @@ router.post(
               status: "blocked",
               blockedReason: `booking_request:${request.id}`,
             });
+          }
+
+          // 3. B3-P0 item 16: For multi-week bookings, create the batch record and
+          //    ALL repeat-week booking requests in the SAME transaction as the primary.
+          //    If any insert fails the entire booking (primary + batch + all weeks) rolls back.
+          if (effectiveRepeat > 1) {
+            const [batchRow] = await tx
+              .insert(bookingRequestBatches)
+              .values({
+                coachId: coachId || null,
+                playerId,
+                academyId: bookingAcademyId,
+              })
+              .returning();
+            batchId = batchRow.id;
+
+            // Stamp batchId on the primary request
+            await tx
+              .update(bookingRequests)
+              .set({ batchId })
+              .where(eq(bookingRequests.id, request.id));
+            request = { ...request, batchId };
+
+            // Insert weeks 2..N (week 1 = primary, weeks 2..N = repeats)
+            const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+            const startBase = new Date(requestedStart).getTime();
+            const endBase = new Date(requestedEnd).getTime();
+            for (let w = 1; w < effectiveRepeat; w++) {
+              const wStart = new Date(startBase + w * WEEK_MS);
+              const wEnd = new Date(endBase + w * WEEK_MS);
+              await tx.insert(bookingRequests).values({
+                academyId: bookingAcademyId,
+                playerId,
+                coachId: coachId || null,
+                locationId: locationId || null,
+                courtId: courtId || null,
+                requestedStart: wStart,
+                requestedEnd: wEnd,
+                duration,
+                sessionType,
+                playerNote: playerNote || null,
+                status: "pending",
+                expiresAt: new Date(Date.now() + txWindowMins * 60 * 1000),
+                courtBookingStatus: courtBookingStatus || null,
+                courtBookingNote: courtBookingNote || null,
+                courtBookingUrl: courtBookingUrl || null,
+                paymentIntent: paymentIntent || null,
+                batchId,
+              });
+            }
           }
         });
       } catch (txError: any) {
@@ -1085,35 +1146,6 @@ router.post(
         }
       }
 
-      // Task #2026 — Compute effectiveRepeat early so we can decide the
-      // notification strategy before sending anything.
-      const effectiveRepeat =
-        !isJoinRequest &&
-        (sessionType === "private" || sessionType === "semi_private")
-          ? Math.min(Math.max(repeatWeeks ?? 1, 1), 52)
-          : 1;
-
-      // Task #2026 — For multi-week batches: create the batch record first,
-      // then stamp the primary request and all repeat requests with its ID.
-      // This must happen before notifications so the batchId is ready.
-      let batchId: string | null = null;
-      if (effectiveRepeat > 1) {
-        try {
-          const [batchRow] = await db.insert(bookingRequestBatches).values({
-            coachId: coachId || null,
-            playerId,
-            academyId: bookingAcademyId,
-          }).returning();
-          batchId = batchRow.id;
-          await db.update(bookingRequests).set({ batchId }).where(eq(bookingRequests.id, request.id));
-          request = { ...request, batchId };
-        } catch (batchErr) {
-          console.error("[Booking] Failed to create batch record:", batchErr);
-          // Fall back to UUID-only batch (no FK) so the rest still works
-          batchId = crypto.randomUUID();
-        }
-      }
-
       // Notify coach (in-app + push).
       // For single-week requests: send one notification per request (existing behaviour).
       // For multi-week batches: skip here — one consolidated notification is sent
@@ -1200,53 +1232,16 @@ router.post(
         }
       }
 
-      // Task #2000 / #2026 — Recurring bookings: create weekly copies.
-      // All copies share the same batchId (FK to booking_request_batches).
+      // B3-P0 item 16: For multi-week bookings, the primary, batch record, and all
+      // repeat-week requests were committed atomically in the transaction above.
+      // This block only sends post-commit notifications — no further DB writes.
       if (effectiveRepeat > 1) {
         const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
         const startBase = new Date(requestedStart).getTime();
-        const endBase = new Date(requestedEnd).getTime();
-        // Compute coach response window once for reuse
-        let windowMins = 120;
-        if (coachId) {
-          try {
-            const [cs] = await db
-              .select({ bookingResponseWindowMinutes: coachSettings.bookingResponseWindowMinutes })
-              .from(coachSettings)
-              .where(eq(coachSettings.coachId, coachId))
-              .limit(1);
-            windowMins = cs?.bookingResponseWindowMinutes ?? 120;
-          } catch { /* use default */ }
-        }
-
-        const allWeekStarts: Date[] = [new Date(requestedStart)]; // index 0 = primary
-        for (let w = 1; w < effectiveRepeat; w++) {
-          try {
-            const wStart = new Date(startBase + w * WEEK_MS);
-            const wEnd = new Date(endBase + w * WEEK_MS);
-            allWeekStarts.push(wStart);
-            await db.insert(bookingRequests).values({
-              academyId: bookingAcademyId,
-              playerId,
-              coachId: coachId || null,
-              locationId: locationId || null,
-              courtId: courtId || null,
-              requestedStart: wStart,
-              requestedEnd: wEnd,
-              duration,
-              sessionType,
-              playerNote: playerNote || null,
-              status: "pending",
-              expiresAt: new Date(Date.now() + windowMins * 60 * 1000),
-              courtBookingStatus: courtBookingStatus || null,
-              courtBookingNote: courtBookingNote || null,
-              courtBookingUrl: courtBookingUrl || null,
-              paymentIntent: paymentIntent || null,
-              batchId,
-            }).returning();
-          } catch (weekErr) {
-            console.error(`[Booking] Failed to create week-${w} repeat booking:`, weekErr);
-          }
+        // Reconstruct the ordered list of week-start dates for notification labels.
+        const allWeekStarts: Date[] = [];
+        for (let w = 0; w < effectiveRepeat; w++) {
+          allWeekStarts.push(new Date(startBase + w * WEEK_MS));
         }
 
         // Send ONE consolidated batch notification to the COACH (in-app + push)

@@ -95,12 +95,8 @@ import fs from "fs";
 
         // Check if session is in the future
         const sessionTime = new Date(session.startTime);
-        const dateParam = req.query.date as string | undefined;
-        const now = dateParam ? new Date(dateParam) : new Date();
-        const DUBAI_OFFSET = 4;
-        const _dubaiNow = new Date(
-          now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
-        );
+        // B3-P0 item 6: server time is authoritative — client-supplied date is not accepted
+        const now = new Date();
         if (sessionTime <= now) {
           return res
             .status(400)
@@ -125,72 +121,122 @@ import fs from "fs";
           ? "not_eligible"
           : "eligible";
 
-        // Update session player to cancelled/absent
-        await storage.updateSessionPlayer(sessionPlayer.id, {
-          attendanceStatus: "absent",
-          absenceReason: reason,
-          notes: `Cancelled: ${reason}${reasonText ? ` - ${reasonText}` : ""} (${Math.round(hoursUntilSession)}h notice)`,
-        });
+        // B3-P0 items 7+8: For private/private_adjusted sessions, ALL cancellation
+        // writes — absence record, cancellation receipt, XP penalty, session cancel,
+        // timeblock release, V1 debt poison, and V2 ledger refund — run inside ONE
+        // db.transaction() via cancelPrivateSessionAtomic.  This prevents any
+        // partial-cancellation state: if any step fails the entire transaction rolls
+        // back and the caller receives 500.  It also prevents retry-duplication: the
+        // receipt insert is guarded by an existence check inside the transaction.
+        //
+        // For semi-private sessions the session stays active (the remaining player
+        // is later upgraded to private_adjusted), so we only record the absence and
+        // receipt using the standard helpers.
+        if (session.sessionType === "private" || session.sessionType === "private_adjusted") {
+          // Compute XP penalty parameters before the atomic call
+          let xpPenalty = 0;
+          let xpDescription = "";
+          let penaltyTier = "";
+          let creditsToDeduct = 0;
 
-        // Create cancellation record
-        await storage.createPlayerSessionCancellation({
-          sessionType: session.sessionType,
-          sessionId,
-          playerId,
-          academyId: player?.academyId,
-          cancellationType: "cancel",
-          reason,
-          reasonText: reasonText || null,
-          sessionDate: sessionTime,
-          billingStatus,
-          makeUpEligibility,
-          notifiedCoach: true,
-          coachNotifiedAt: new Date(),
-        });
-
-        // LATE CANCELLATION: Deduct credits and apply XP penalties
-        if (isLateCancellation) {
-          const creditType = session.sessionType.includes("semi")
-            ? "semi_private"
-            : session.sessionType.includes("group")
-              ? "group"
+          if (isLateCancellation) {
+            const creditType = session.sessionType.includes("semi")
+              ? "semi_private"
               : "private";
 
-          // Determine penalty tier based on hours until session
-          let creditsToDeduct = 0;
-          let xpPenalty = 0;
-          let penaltyTier = "";
+            if (hoursUntilSession < 2) {
+              creditsToDeduct = 1;
+              xpPenalty = -50;
+              penaltyTier = "critical";
+            } else if (hoursUntilSession < 24) {
+              creditsToDeduct = 1;
+              xpPenalty = -25;
+              penaltyTier = "late";
+            }
 
-          if (hoursUntilSession < 2) {
-            creditsToDeduct = 1;
-            xpPenalty = -50;
-            penaltyTier = "critical";
-          } else if (hoursUntilSession < 24) {
-            creditsToDeduct = 1;
-            xpPenalty = -25;
-            penaltyTier = "late";
+            if (creditsToDeduct > 0) {
+              // Task #685 Phase 4 — V1 retired. V2 engine owns late-cancel debits.
+              console.warn(
+                `[LateCancellation][V2] Player ${playerId} late-cancelled session ${sessionId} (tier: ${penaltyTier}, ${creditsToDeduct} ${creditType} credit(s), ${Math.round(hoursUntilSession)}h notice) — V2 late-cancel debit path not yet wired; tracked under Task #684 Phase 3.`,
+              );
+            }
+            if (xpPenalty !== 0) {
+              xpDescription = `Late cancellation penalty (${Math.round(hoursUntilSession)}h notice)`;
+              console.log(`[LateCancellation] Player ${playerId} XP penalty: ${xpPenalty} (tier: ${penaltyTier})`);
+            }
           }
 
-          if (creditsToDeduct > 0) {
-            // Task #685 Phase 4 — V1 retired. The V2 engine owns late-cancel
-            // debits (see services/credit-engine.ts). We do not mark
-            // billingStatus/creditTransactionId here because the V2 ledger
-            // is the source of truth.
-            console.warn(
-              `[LateCancellation][V2] Player ${playerId} late-cancelled session ${sessionId} (academy ${session.academyId}, tier: ${penaltyTier}, ${creditsToDeduct} ${creditType} credit(s), ${Math.round(hoursUntilSession)}h notice) — V1 retired, no legacy ledger insert. V2 late-cancel debit path is not yet wired; tracked under Task #684 Phase 3 follow-up.`,
-            );
-          }
-
-          if (xpPenalty !== 0) {
-            await storage.addPlayerXP(
-              playerId,
-              xpPenalty,
+          try {
+            await storage.cancelPrivateSessionAtomic(
               sessionId,
-              `Late cancellation penalty (${Math.round(hoursUntilSession)}h notice)`,
+              playerId,
+              reason || "player_cancelled",
+              {
+                sessionPlayerId: sessionPlayer.id,
+                sessionPlayerNotes: `Cancelled: ${reason}${reasonText ? ` - ${reasonText}` : ""} (${Math.round(hoursUntilSession)}h notice)`,
+                absenceReason: reason || null,
+                cancellationRecord: {
+                  sessionType: session.sessionType,
+                  sessionId,
+                  playerId,
+                  academyId: player?.academyId,
+                  cancellationType: "cancel",
+                  reason,
+                  reasonText: reasonText || null,
+                  sessionDate: sessionTime,
+                  billingStatus,
+                  makeUpEligibility,
+                  notifiedCoach: true,
+                  coachNotifiedAt: new Date(),
+                },
+                xpPenalty,
+                xpDescription,
+              },
             );
             console.log(
-              `[LateCancellation] Player ${playerId} XP penalty: ${xpPenalty} (tier: ${penaltyTier})`,
+              `[PlayerCancel] Atomically cancelled private session ${sessionId}: absence + receipt + V1 debt + V2 refund + timeblock released.`,
             );
+          } catch (releaseErr) {
+            // Transaction rolled back — nothing was committed; safe to retry.
+            console.error("[PlayerCancel] CRITICAL: atomic private-session release failed:", releaseErr);
+            return res.status(500).json({
+              error: "Cancellation could not be completed — please retry. If the issue persists, contact support.",
+            });
+          }
+        } else {
+          // Semi-private (and any other non-private session type): record absence and
+          // receipt only — the session stays active for the remaining player.
+          await storage.updateSessionPlayer(sessionPlayer.id, {
+            attendanceStatus: "absent",
+            absenceReason: reason,
+            notes: `Cancelled: ${reason}${reasonText ? ` - ${reasonText}` : ""} (${Math.round(hoursUntilSession)}h notice)`,
+          });
+
+          await storage.createPlayerSessionCancellation({
+            sessionType: session.sessionType,
+            sessionId,
+            playerId,
+            academyId: player?.academyId,
+            cancellationType: "cancel",
+            reason,
+            reasonText: reasonText || null,
+            sessionDate: sessionTime,
+            billingStatus,
+            makeUpEligibility,
+            notifiedCoach: true,
+            coachNotifiedAt: new Date(),
+          });
+
+          // XP penalty for late semi-private cancellations
+          if (isLateCancellation) {
+            let xpPenalty = 0;
+            let penaltyTier = "";
+            if (hoursUntilSession < 2) { xpPenalty = -50; penaltyTier = "critical"; }
+            else if (hoursUntilSession < 24) { xpPenalty = -25; penaltyTier = "late"; }
+            if (xpPenalty !== 0) {
+              await storage.addPlayerXP(playerId, xpPenalty, sessionId, `Late cancellation penalty (${Math.round(hoursUntilSession)}h notice)`);
+              console.log(`[LateCancellation] Player ${playerId} XP penalty: ${xpPenalty} (tier: ${penaltyTier})`);
+            }
           }
         }
 
@@ -362,12 +408,8 @@ import fs from "fs";
 
         // Check if session is in the future
         const sessionTime = new Date(session.startTime);
-        const dateParam = req.query.date as string | undefined;
-        const now = dateParam ? new Date(dateParam) : new Date();
-        const DUBAI_OFFSET = 4;
-        const _dubaiNow = new Date(
-          now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
-        );
+        // B3-P0 item 6: server time is authoritative — client-supplied date is not accepted
+        const now = new Date();
         if (sessionTime <= now) {
           return res
             .status(400)
@@ -485,12 +527,8 @@ import fs from "fs";
 
         // Check if session is today or in the near future
         const sessionTime = new Date(session.startTime);
-        const dateParam = req.query.date as string | undefined;
-        const now = dateParam ? new Date(dateParam) : new Date();
-        const DUBAI_OFFSET = 4;
-        const _dubaiNow = new Date(
-          now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
-        );
+        // B3-P0 item 6: server time is authoritative — client-supplied date is not accepted
+        const now = new Date();
         const hoursUntilSession =
           (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
@@ -508,20 +546,14 @@ import fs from "fs";
         }
 
         // Update session player with late status
-        const wasCharged = sessionPlayer.attendanceStatus === "present" || sessionPlayer.attendanceStatus === "late";
+        // B3-P0 item 3: do NOT call ensureCreditProcessed here — "running late" is a
+        // notification, not attendance confirmation. The coach marks actual attendance
+        // separately; charging before that would double-bill or pre-bill prematurely.
         await storage.updateSessionPlayer(sessionPlayer.id, {
           attendanceStatus: "late",
           lateMinutes: minutes,
           notes: message || `Running ${minutes} min late`,
         });
-        if (!wasCharged && !sessionPlayer.creditDeductedAt) {
-          try {
-            const { ensureCreditProcessed } = await import("../storage");
-            await ensureCreditProcessed(sessionPlayer.id);
-          } catch (creditErr) {
-            console.error(`[Late] Credit processing failed for player ${playerId}:`, creditErr);
-          }
-        }
 
         const player = await storage.getPlayer(playerId);
 
@@ -582,20 +614,39 @@ import fs from "fs";
           return res.status(404).json({ error: "Session not found" });
         }
 
-        // Try to update session_players attendance
+        // B3-P0 item 2: reject check-in if player is not rostered
         const sp = await storage.getSessionPlayer(sessionId, playerId);
-        if (sp) {
-          const wasCharged = sp.attendanceStatus === "present" || sp.attendanceStatus === "late";
-          await storage.updateSessionPlayer(sp.id, {
-            attendanceStatus: "present",
+        if (!sp) {
+          return res.status(403).json({ error: "You are not rostered for this session" });
+        }
+
+        // B3-P0 item 2: enforce time window — allow check-in from 30 min before start
+        // through end of session (start + duration)
+        const checkInNow = new Date();
+        const sessionStart = new Date(session.startTime);
+        const sessionDurationMs = (session.duration ?? 60) * 60 * 1000;
+        const sessionEnd = new Date(sessionStart.getTime() + sessionDurationMs);
+        const windowOpenMs = sessionStart.getTime() - 30 * 60 * 1000;
+        if (checkInNow.getTime() < windowOpenMs) {
+          return res.status(400).json({
+            error: "Check-in is not available yet. You can check in up to 30 minutes before the session starts.",
           });
-          if (!wasCharged && !sp.creditDeductedAt) {
-            try {
-              const { ensureCreditProcessed } = await import("../storage");
-              await ensureCreditProcessed(sp.id);
-            } catch (creditErr) {
-              console.error(`[CheckIn] Credit processing failed for player ${playerId}:`, creditErr);
-            }
+        }
+        if (checkInNow > sessionEnd) {
+          return res.status(400).json({ error: "Session has already ended" });
+        }
+
+        // Update attendance to present and process credit
+        const wasCharged = sp.attendanceStatus === "present" || sp.attendanceStatus === "late";
+        await storage.updateSessionPlayer(sp.id, {
+          attendanceStatus: "present",
+        });
+        if (!wasCharged && !sp.creditDeductedAt) {
+          try {
+            const { ensureCreditProcessed } = await import("../storage");
+            await ensureCreditProcessed(sp.id);
+          } catch (creditErr) {
+            console.error(`[CheckIn] Credit processing failed for player ${playerId}:`, creditErr);
           }
         }
 

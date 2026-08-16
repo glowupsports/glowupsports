@@ -3174,24 +3174,81 @@ router.post(
         return res.status(400).json({ error: "Player already in this class" });
       }
 
-      // Check max players (only active players count)
-      if (
-        existing.maxPlayers &&
-        currentPlayers.filter((p) => p.status === "active").length >=
-          existing.maxPlayers
-      ) {
+      // B3-P0 item 15: Atomically re-check capacity and insert the series player.
+      // We take an advisory lock keyed on this series ID so that concurrent
+      // add-player requests are serialised, eliminating the TOCTOU race between
+      // the capacity read and the insert.
+      const seriesLockKey = `series_add_player_${id}`;
+      let seriesPlayer: any;
+      let capacityError = false;
+      let alreadyMemberError = false;
+      await db.transaction(async (tx) => {
+        // Advisory lock — series-scoped, held until this transaction commits/rolls back
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${seriesLockKey}))`);
+
+        // Re-check membership under the lock: two concurrent requests can both pass
+        // the pre-lock membership lookup and end up here simultaneously.  Without this
+        // check, both would succeed and insert duplicate (series_id, player_id) rows.
+        const existingMemberResult = await tx.execute(sql`
+          SELECT id FROM series_players
+          WHERE series_id = ${id} AND player_id = ${playerId} AND status = 'active'
+          LIMIT 1
+        `);
+        const isMemberAlready = ((existingMemberResult as any).rows?.length ?? (existingMemberResult as any).length ?? 0) > 0;
+        if (isMemberAlready) {
+          alreadyMemberError = true;
+          return;
+        }
+
+        // Fresh capacity count inside the lock
+        const freshPlayersResult = await tx.execute(sql`
+          SELECT COUNT(*) AS cnt
+          FROM series_players
+          WHERE series_id = ${id} AND status = 'active'
+        `);
+        const freshActiveCount = Number((freshPlayersResult as any).rows?.[0]?.cnt ?? (freshPlayersResult as any)[0]?.cnt ?? 0);
+        if (existing.maxPlayers && freshActiveCount >= existing.maxPlayers) {
+          capacityError = true;
+          return;
+        }
+
+        // Insert inside the same transaction so the lock covers the write.
+        // Use the typed Drizzle insert (not raw SQL) so the returned row has
+        // camelCase field names that match what the rest of this route and the
+        // client expect (e.g. seriesId, not series_id).
+        const [inserted] = await tx
+          .insert(seriesPlayers)
+          .values({
+            seriesId: id,
+            playerId,
+            status: "active",
+            joinedAt: effectiveJoinDate ? new Date(effectiveJoinDate) : new Date(),
+            linkedPackageId: assignedPackageId,
+            isGuest: isGuest || false,
+            guestUntil: guestUntil || null,
+          })
+          .returning();
+        seriesPlayer = inserted;
+      });
+
+      if (alreadyMemberError) {
+        // Both the pre-lock check and the locked re-check confirmed the player
+        // is already an active member — return 409 instead of inserting a duplicate.
+        return res.status(409).json({ error: "Player is already an active member of this series" });
+      }
+      if (capacityError) {
         return res.status(400).json({ error: "Class is at maximum capacity" });
       }
 
-      const seriesPlayer = await storage.addPlayerToSeries({
-        seriesId: id,
-        playerId,
-        status: "active",
-        joinedAt: effectiveJoinDate ? new Date(effectiveJoinDate) : new Date(),
-        linkedPackageId: assignedPackageId,
-        isGuest: isGuest || false,
-        guestUntil: guestUntil || null,
-      });
+      // Fire community-group sync (same as addPlayerToSeries does)
+      try {
+        const { syncCommunityGroupForSeries } = await import("../storage");
+        await syncCommunityGroupForSeries(id);
+      } catch { /* non-fatal */ }
+      try {
+        const { sendCommunityGroupJoinNotification } = await import("../pushNotifications");
+        sendCommunityGroupJoinNotification(playerId, id).catch(() => {});
+      } catch { /* non-fatal */ }
 
       // Backfill attendance for specified sessions (for new players)
       if (attendedSessionIds && attendedSessionIds.length > 0) {

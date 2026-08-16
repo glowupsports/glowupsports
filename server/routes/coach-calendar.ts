@@ -1568,12 +1568,8 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
             .json({ error: `Session is already ${session.status}` });
         }
 
-        const dateParam = req.query.date as string | undefined;
-        const now = dateParam ? new Date(dateParam) : new Date();
-        const DUBAI_OFFSET = 4;
-        const _dubaiNow = new Date(
-          now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
-        );
+        // B3-P0 item 6: server time is authoritative — client-supplied date is not accepted
+        const now = new Date();
 
         // Update session with cancellation details (no charge for coach-initiated cancellations)
         const updates: Record<string, unknown> = {
@@ -1711,13 +1707,8 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
         const windowHours = settings?.cancellationWindowHours || 24;
         const chargePercent = settings?.cancellationChargePercent || 100;
 
-        // Calculate hours until session
-        const dateParam = req.query.date as string | undefined;
-        const now = dateParam ? new Date(dateParam) : new Date();
-        const DUBAI_OFFSET = 4;
-        const _dubaiNow = new Date(
-          now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
-        );
+        // B3-P0 item 6: server time is authoritative — client-supplied date is not accepted
+        const now = new Date();
         const sessionStart = new Date(session.startTime);
         const hoursUntilSession =
           (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60);

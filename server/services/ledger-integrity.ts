@@ -54,8 +54,12 @@ export interface RefundResult {
 
 export async function refundV2ConsumesForCancelledSession(
   sessionId: string,
+  tx?: Tx,
 ): Promise<RefundResult> {
-  const stale = await db.execute(sql`
+  // Accept an optional transaction so callers inside a db.transaction() can
+  // include the V2 refund atomically with the rest of the cancellation work.
+  const exec = tx ?? db;
+  const stale = await exec.execute(sql`
     SELECT
       l.id                AS ledger_id,
       l.player_id         AS player_id,
@@ -83,7 +87,7 @@ export async function refundV2ConsumesForCancelledSession(
       eventKeyPrefix: "cancelled-session-refund",
       sessionId,
     },
-    null,
+    tx ?? null,
   );
 }
 

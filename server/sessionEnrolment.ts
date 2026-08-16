@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { sessions, sessionPlayers, sessionWaitlist } from "@shared/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 export type EnrolResult =
   | { ok: true; alreadyIn: boolean }
@@ -30,10 +30,15 @@ export async function enrollPlayerInGroupSession(
 ): Promise<EnrolResult> {
   try {
     return await db.transaction(async (tx) => {
+      // B3-P0 item 4: Lock the session row FOR UPDATE so that concurrent enrolments
+      // cannot both read the same capacity and both proceed past the capacity check.
+      // Without this lock, two simultaneous joins under READ COMMITTED isolation can
+      // each observe count < maxPlayers and both insert, causing an oversubscription.
       const [session] = await tx
         .select()
         .from(sessions)
         .where(eq(sessions.id, sessionId))
+        .for("update")
         .limit(1);
       if (!session) {
         return { ok: false, reason: "session_gone" } as const;
