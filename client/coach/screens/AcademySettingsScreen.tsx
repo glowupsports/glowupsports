@@ -902,7 +902,7 @@ export default function AcademySettingsScreen() {
             <Ionicons name="time-outline" size={18} color={Colors.dark.gold} />
             <View style={{ flex: 1 }}>
               <Text style={{ color: Colors.dark.gold, fontWeight: "700", fontSize: 13 }}>No active season</Text>
-              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>Tap "+ New Season" to start the next season and re-enroll all players.</Text>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>{"Tap \"+ New Season\" to start the next season and re-enroll all players."}</Text>
             </View>
           </View>
         ) : null}
