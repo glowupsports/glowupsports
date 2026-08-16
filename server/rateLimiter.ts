@@ -13,7 +13,9 @@ import { sql } from "drizzle-orm";
 
 // ── Shared DB-backed store ───────────────────────────────────────────────────
 
-class DbRateLimitStore {
+// Exported so tests can instantiate two separate instances against the same DB
+// and verify that hit counts are shared (autoscale proof).
+export class DbRateLimitStore {
   private windowMs: number;
   private prefix: string;
 

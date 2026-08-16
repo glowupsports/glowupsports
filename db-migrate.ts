@@ -1112,6 +1112,54 @@ async function run() {
     `);
     console.log("[db-migrate] Task #2117 academy_seasons + player_season_enrollments — OK");
 
+    // ── Batch 1 security tables: otp_codes + rate_limit_hits ─────────────────
+    // Fresh-DB-safe:   CREATE TABLE IF NOT EXISTS (runs on a blank schema)
+    // Upgrade-safe:    ALTER TABLE … ADD COLUMN IF NOT EXISTS (runs on a DB
+    //                  that already has the table without the purpose column,
+    //                  e.g. tables created directly via psql in Batch 1).
+    // Both statements are idempotent — running this script twice is safe.
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS otp_codes (
+        id            VARCHAR     PRIMARY KEY DEFAULT gen_random_uuid(),
+        email         TEXT        NOT NULL,
+        code_hash     TEXT        NOT NULL,
+        purpose       TEXT        NOT NULL DEFAULT 'registration',
+        expires_at    TIMESTAMP   NOT NULL,
+        used_at       TIMESTAMP,
+        verified_at   TIMESTAMP,
+        attempt_count INTEGER     NOT NULL DEFAULT 0,
+        created_at    TIMESTAMP   DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS otp_codes_email_idx ON otp_codes(email)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS otp_codes_expires_at_idx ON otp_codes(expires_at)
+    `);
+    // Upgrade path: add purpose to tables created before this column existed.
+    await client.query(`
+      ALTER TABLE otp_codes
+        ADD COLUMN IF NOT EXISTS purpose TEXT NOT NULL DEFAULT 'registration'
+    `);
+    console.log("[db-migrate] otp_codes (Batch-1 OTP-01) — OK");
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS rate_limit_hits (
+        key          TEXT      NOT NULL,
+        window_start TIMESTAMP NOT NULL,
+        count        INTEGER   NOT NULL DEFAULT 1,
+        expires_at   TIMESTAMP NOT NULL,
+        CONSTRAINT rate_limit_hits_key_window_idx UNIQUE (key, window_start)
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS rate_limit_hits_expires_at_idx
+        ON rate_limit_hits(expires_at)
+    `);
+    console.log("[db-migrate] rate_limit_hits (Batch-1 RL-01) — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

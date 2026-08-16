@@ -737,9 +737,15 @@ export async function sendOTPEmail(email: string): Promise<{ success: boolean; e
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     const normalizedEmail = email.toLowerCase();
 
-    // Invalidate any outstanding unused OTPs for this email before issuing new one
+    // Invalidate outstanding unused OTPs for this email+purpose only.
+    // Scoped by purpose so a registration OTP never deletes a reset OTP (or vice-versa)
+    // for the same email — purpose isolation as required by OTP-01.
     await db.delete(otpCodes).where(
-      and(eq(otpCodes.email, normalizedEmail), isNull(otpCodes.usedAt)),
+      and(
+        eq(otpCodes.email, normalizedEmail),
+        eq(otpCodes.purpose, "registration"),
+        isNull(otpCodes.usedAt),
+      ),
     );
 
     // Persist the hashed OTP — plaintext code is only used in the email body below
@@ -895,12 +901,14 @@ export async function sendPasswordResetEmail(params: { to: string; code: string;
   });
 }
 
-export async function verifyOTPCode(email: string, code: string): Promise<{ valid: boolean; error?: string }> {
+// purpose defaults to "registration"; pass "reset" or other values for future OTP types.
+export async function verifyOTPCode(email: string, code: string, purpose = "registration"): Promise<{ valid: boolean; error?: string }> {
   const normalizedEmail = email.toLowerCase();
 
   const stored = await db.query.otpCodes.findFirst({
     where: and(
       eq(otpCodes.email, normalizedEmail),
+      eq(otpCodes.purpose, purpose),
       isNull(otpCodes.usedAt),
       gt(otpCodes.expiresAt, new Date()),
     ),
