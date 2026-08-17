@@ -10,6 +10,7 @@ export const modules: ModuleMap = {
   "./components/mockups/glow-assessment/AssessmentWizard.tsx": () => import("../components/mockups/glow-assessment/AssessmentWizard.tsx"),
   "./components/mockups/glow-assessment/HomeCard.tsx": () => import("../components/mockups/glow-assessment/HomeCard.tsx"),
   "./components/mockups/glow-assessment/ResultReveal.tsx": () => import("../components/mockups/glow-assessment/ResultReveal.tsx"),
+  "./components/mockups/home-redesign/PlayerHomeV2.tsx": () => import("../components/mockups/home-redesign/PlayerHomeV2.tsx"),
   "./components/mockups/landing/LandingBoldAthletic.tsx": () => import("../components/mockups/landing/LandingBoldAthletic.tsx"),
   "./components/mockups/landing/LandingBrightAcademy.tsx": () => import("../components/mockups/landing/LandingBrightAcademy.tsx"),
   "./components/mockups/landing/LandingDarkElite.tsx": () => import("../components/mockups/landing/LandingDarkElite.tsx"),
