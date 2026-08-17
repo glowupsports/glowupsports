@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "KFsTxR8O9hpTXP2k6yIeM"
@@ -24,3 +23,10 @@ id = "-Zj8EdM2E5k_KlqhDUchW"
 uri = "file://attached_assets/generated_images/promo_ai_bg.png"
 type = "image"
 title = "ai circuit board dark glass"
+
+[[outputs]]
+id = "3-oRQ8aC9dFcMUCziZgX0"
+uri = "file://screenshots/home-v2-latest.jpg"
+type = "image"
+title = "Player Home V2 — Design Mockup"
+description = "Scrollable home screen redesign gebaseerd op de approved reference"
