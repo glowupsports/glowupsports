@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, DeviceEventEmitter } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -106,6 +106,7 @@ export default function CollapsibleModeSwitcher() {
     if (newMode === "player") {
       AsyncStorage.setItem(HOME_VERSION_KEY, "v2").catch(() => {});
       setHomeVersion("v2");
+      DeviceEventEmitter.emit("home:version:changed");
     }
     setMode(newMode);
     closeAndRun();
@@ -117,6 +118,7 @@ export default function CollapsibleModeSwitcher() {
     setHomeVersion("v3");
     // Ensure we're in player mode first
     setMode("player");
+    DeviceEventEmitter.emit("home:version:changed");
     closeAndRun();
   };
 

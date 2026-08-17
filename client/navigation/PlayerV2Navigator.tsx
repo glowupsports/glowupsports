@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { View, Text, Pressable, StyleSheet, Platform, useWindowDimensions } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform, useWindowDimensions, DeviceEventEmitter } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
@@ -147,15 +147,22 @@ import GlobalTournamentScreen from "@/player/screens/arena/GlobalTournamentScree
 // Renders either the classic V2 or the new V3 neon design, with a pill at the
 // top of V2 to invite the player to try V3.
 const HOME_VERSION_KEY = "player:home:version";
+export const HOME_VERSION_EVENT = "home:version:changed";
 
 function HomeVersionRouter() {
   const [version, setVersion] = React.useState<"v2" | "v3" | null>(null);
 
-  // Load stored preference once on mount
+  // Load stored preference on mount, and re-read whenever the switcher fires an event
   React.useEffect(() => {
-    AsyncStorage.getItem(HOME_VERSION_KEY)
-      .then((v) => setVersion(v === "v3" ? "v3" : "v2"))
-      .catch(() => setVersion("v2"));
+    const load = () =>
+      AsyncStorage.getItem(HOME_VERSION_KEY)
+        .then((v) => setVersion(v === "v3" ? "v3" : "v2"))
+        .catch(() => setVersion("v2"));
+
+    load();
+
+    const sub = DeviceEventEmitter.addListener(HOME_VERSION_EVENT, load);
+    return () => sub.remove();
   }, []);
 
   const switchTo = React.useCallback((next: "v2" | "v3") => {
