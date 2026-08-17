@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import { View, StyleSheet, Platform, useWindowDimensions } from "react-native";
+import { View, Text, Pressable, StyleSheet, Platform, useWindowDimensions } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
@@ -37,6 +37,7 @@ import AddFamilyMemberPrompt from "@/player/components/AddFamilyMemberPrompt";
 
 // ── Tab screens ─────────────────────────────────────────────────────────────
 import ProPlayerHomeDiagnosticScreen from "@/player/screens/ProPlayerHomeDiagnosticScreen";
+import { PlayerHomeV3Screen } from "@/player/screens/PlayerHomeV3Screen";
 import CommunityScreen from "@/player/screens/CommunityScreen";
 import PlayerProfileScreen from "@/player/screens/PlayerProfileScreen";
 import {
@@ -141,9 +142,79 @@ import TrophyRoomScreen from "@/player/screens/arena/TrophyRoomScreen";
 import AcademyClashScreen from "@/player/screens/arena/AcademyClashScreen";
 import GlobalTournamentScreen from "@/player/screens/arena/GlobalTournamentScreen";
 
+// ── Home version switcher ─────────────────────────────────────────────────────
+// Reads player:home:version from AsyncStorage ("v2" | "v3", default "v2").
+// Renders either the classic V2 or the new V3 neon design, with a pill at the
+// top of V2 to invite the player to try V3.
+const HOME_VERSION_KEY = "player:home:version";
+
+function HomeVersionRouter() {
+  const [version, setVersion] = React.useState<"v2" | "v3" | null>(null);
+
+  // Load stored preference once on mount
+  React.useEffect(() => {
+    AsyncStorage.getItem(HOME_VERSION_KEY)
+      .then((v) => setVersion(v === "v3" ? "v3" : "v2"))
+      .catch(() => setVersion("v2"));
+  }, []);
+
+  const switchTo = React.useCallback((next: "v2" | "v3") => {
+    setVersion(next);
+    AsyncStorage.setItem(HOME_VERSION_KEY, next).catch(() => {});
+  }, []);
+
+  if (version === null) return null; // brief suspend while AsyncStorage resolves
+
+  if (version === "v3") {
+    return (
+      <PlayerHomeV3Screen
+        onSwitchToClassic={() => switchTo("v2")}
+      />
+    );
+  }
+
+  // V2 — classic — with a subtle "Try new design" banner at the bottom
+  // We render it inside a View so we can overlay the try-V3 pill.
+  return (
+    <View style={{ flex: 1 }}>
+      <ProPlayerHomeDiagnosticScreen />
+      {/* Floating pill at the very bottom to invite V3 */}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: "absolute",
+          bottom: 8,
+          left: 0,
+          right: 0,
+          alignItems: "center",
+        }}
+      >
+        <Pressable
+          onPress={() => switchTo("v3")}
+          style={{
+            backgroundColor: "rgba(9,13,28,0.92)",
+            borderWidth: 1,
+            borderColor: "rgba(155,92,255,0.50)",
+            borderRadius: 30,
+            paddingHorizontal: 18,
+            paddingVertical: 9,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#9B5CFF" }}>
+            ✦  Try New Dashboard Design
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 // ── Isolated tab wrappers (one per tab — defined at module scope so the HOC
 //    is never re-created on re-render, preserving component identity). ────────
-const IsolatedHome = withIsolatedTabBoundary(ProPlayerHomeDiagnosticScreen, "Home");
+const IsolatedHome = withIsolatedTabBoundary(HomeVersionRouter, "Home");
 const IsolatedCommunity = withIsolatedTabBoundary(CommunityScreen, "Community");
 const IsolatedPlayStack = withIsolatedTabBoundary(PlayStackNavigator, "PlayStack");
 const IsolatedGrowth = withIsolatedTabBoundary(ProgressStackNavigator, "Growth");
