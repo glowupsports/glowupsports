@@ -218,15 +218,36 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
             <Text style={s.logoSub}>SPORTS</Text>
           </View>
 
-          {/* Notification bell */}
-          <Pressable
-            onPress={() => nav("PlayerNotifications")}
-            style={s.bellBtn}
-            hitSlop={12}
-          >
-            <Text style={{ fontSize: 18 }}>🔔</Text>
-            <View style={s.bellDot} />
-          </Pressable>
+          {/* Top-right controls: Classic toggle + Notification bell */}
+          <View style={{ position: "absolute", top: insets.top + 8, right: 16, flexDirection: "row", alignItems: "center", gap: 8 }}>
+            {onSwitchToClassic && (
+              <Pressable
+                onPress={onSwitchToClassic}
+                hitSlop={8}
+                style={{
+                  backgroundColor: "rgba(9,13,28,0.80)",
+                  borderWidth: 1,
+                  borderColor: "rgba(155,92,255,0.40)",
+                  borderRadius: 20,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Text style={{ fontSize: 10, color: "#9B5CFF", fontWeight: "700", letterSpacing: 0.5 }}>← Classic</Text>
+              </Pressable>
+            )}
+            <Pressable
+              onPress={() => nav("PlayerNotifications")}
+              style={s.bellBtn}
+              hitSlop={12}
+            >
+              <Text style={{ fontSize: 18 }}>🔔</Text>
+              <View style={s.bellDot} />
+            </Pressable>
+          </View>
 
           {/* Avatar + greeting */}
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 22 }}>
