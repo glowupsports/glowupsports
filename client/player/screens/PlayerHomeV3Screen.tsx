@@ -2,9 +2,9 @@
  * ╔══════════════════════════════════════════════════════════════════════════════╗
  * ║              PLAYER HOME V3  —  NEON DARK DESIGN                           ║
  * ╠══════════════════════════════════════════════════════════════════════════════╣
- * ║  Preview-approved design (mockup-sandbox/home-redesign/PlayerHomeV2).       ║
- * ║  Uses the same /api/player/me/home-data god-route as V2.                    ║
- * ║  Mounted by PlayerV2Navigator ▶ HomeVersionRouter when version = "v3".      ║
+ * ║  Redesigned to match the approved reference mockup (Aug 17, 2026).          ║
+ * ║  Key structural change: Next Session + Glow Ability are now STACKED         ║
+ * ║  full-width cards (not side-by-side half-width columns).                    ║
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  */
 import React, { useCallback, useMemo, useState } from "react";
@@ -29,105 +29,149 @@ import { usePlayer } from "@/player/context/PlayerContext";
 
 // ─── Brand assets ─────────────────────────────────────────────────────────────
 const IMG = {
-  racket:      require("@/assets/images/home/racket.png")      as ImageSourcePropType,
+  racket:      require("@/assets/images/home/racket.png")        as ImageSourcePropType,
   ballLimeOrb: require("@/assets/images/home/ball_lime_orb.png") as ImageSourcePropType,
-  ballBlue:    require("@/assets/images/home/ball_blue.png")   as ImageSourcePropType,
-  playerHero:  require("@/assets/images/home/player_hero.png") as ImageSourcePropType,
-  flame:       require("@/assets/images/home/icon_flame.png")  as ImageSourcePropType,
-  star:        require("@/assets/images/home/icon_star.png")   as ImageSourcePropType,
-  trophy:      require("@/assets/images/home/icon_trophy.png") as ImageSourcePropType,
+  ballBlue:    require("@/assets/images/home/ball_blue.png")     as ImageSourcePropType,
+  playerHero:  require("@/assets/images/home/player_hero.png")   as ImageSourcePropType,
+  flame:       require("@/assets/images/home/icon_flame.png")    as ImageSourcePropType,
+  star:        require("@/assets/images/home/icon_star.png")     as ImageSourcePropType,
+  trophy:      require("@/assets/images/home/icon_trophy.png")   as ImageSourcePropType,
   ballLime:    require("@/assets/images/home/icon_ball_lime.png") as ImageSourcePropType,
-  shoe:        require("@/assets/images/home/icon_shoe.png")   as ImageSourcePropType,
-  target:      require("@/assets/images/home/icon_target.png") as ImageSourcePropType,
+  shoe:        require("@/assets/images/home/icon_shoe.png")     as ImageSourcePropType,
+  target:      require("@/assets/images/home/icon_target.png")   as ImageSourcePropType,
   calendar:    require("@/assets/images/home/icon_calendar.png") as ImageSourcePropType,
-  group:       require("@/assets/images/home/icon_group.png")  as ImageSourcePropType,
-  ai:          require("@/assets/images/home/icon_ai.png")     as ImageSourcePropType,
-  chat:        require("@/assets/images/home/icon_chat.png")   as ImageSourcePropType,
+  group:       require("@/assets/images/home/icon_group.png")    as ImageSourcePropType,
+  ai:          require("@/assets/images/home/icon_ai.png")       as ImageSourcePropType,
+  chat:        require("@/assets/images/home/icon_chat.png")     as ImageSourcePropType,
 };
 
 // ─── Colours ──────────────────────────────────────────────────────────────────
 const C = {
+  bg:         "#020811",
   purple:     "#9B5CFF",
-  purpleDim:  "rgba(155,92,255,0.18)",
-  purpleBord: "rgba(155,92,255,0.38)",
+  purpleDim:  "rgba(155,92,255,0.16)",
+  purpleBord: "rgba(155,92,255,0.35)",
   lime:       "#CFFF00",
-  limeDim:    "rgba(207,255,0,0.12)",
-  limeBord:   "rgba(207,255,0,0.28)",
+  limeDim:    "rgba(207,255,0,0.10)",
+  limeBord:   "rgba(207,255,0,0.30)",
   blue:       "#2196FF",
   blueDim:    "rgba(33,150,255,0.12)",
   blueBord:   "rgba(33,150,255,0.30)",
   cyan:       "#18E3FF",
   cyanDim:    "rgba(24,227,255,0.10)",
-  text:       "#F6F7FB",
-  textSub:    "#A8ADBD",
-  textMuted:  "#747B8D",
-  card:       "#07101D",
-  muted:      "rgba(255,255,255,0.07)",
+  text:       "#F0F2FC",
+  textSub:    "#9DA3BA",
+  textMuted:  "#5C6278",
+  card:       "#070E1C",
+  cardBord:   "rgba(255,255,255,0.06)",
 };
 
-// ─── Data interface (subset of DashboardData) ─────────────────────────────────
+// ─── HomeData interface ────────────────────────────────────────────────────────
 interface HomeData {
   dashboard: {
     player: {
       id: string; name: string; level: number; xp: number;
-      glowScore: number; ballLevel: string | null; streak: number;
+      glowScore: number; levelProgressPct?: number; xpToNextLevel?: number;
+      ballLevel: string | null; streak: number;
       checkinStreak?: number; profilePhotoUrl?: string | null;
     };
-    coach: { id: string; name: string } | null;
+    coach: { id: string; name: string; photoUrl?: string | null } | null;
     academy: { id: string; name: string } | null;
     credits?: { total: number; group: number; private: number; semi_private: number };
-    nextSession?: { id: string; date: string; type: string; endTime?: string } | null;
+    nextSession?: {
+      id: string; date: string; type: string; endTime?: string;
+      duration?: number | null; courtName?: string | null;
+      coachName?: string | null; coachPhotoUrl?: string | null;
+    } | null;
+    lastFeedback?: {
+      message: string; date: string | Date;
+      coachName: string; coachPhotoUrl?: string | null;
+    } | null;
+    weeklyRecap?: { sessions: number } | null;
     isFreePlayer?: boolean;
   } | null;
   dailyFocus: { title: string; description: string } | null;
 }
 
+// ─── Relative time helper ─────────────────────────────────────────────────────
+function relativeTime(d: string | Date | null | undefined): string {
+  if (!d) return "";
+  const diff = Date.now() - new Date(d).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 // ─── GlowRing ─────────────────────────────────────────────────────────────────
-function GlowRing({ score }: { score: number }) {
-  const size = 170;
-  const stroke = 12;
+function GlowRing({ score, size = 150 }: { score: number; size?: number }) {
+  const stroke = 10;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
-  const filled = (Math.min(score, 100) / 100) * circ;
+  const pct = Math.max(3, Math.min(score, 100));          // min 3% so ring is visible
+  const filled = (pct / 100) * circ;
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFillObject}>
         <Defs>
-          <Filter id="g"><FeGaussianBlur stdDeviation="4" result="b" /><FeMerge><FeMergeNode in="b" /><FeMergeNode in="SourceGraphic" /></FeMerge></Filter>
+          <Filter id="glow">
+            <FeGaussianBlur stdDeviation="5" result="blur" />
+            <FeMerge><FeMergeNode in="blur" /><FeMergeNode in="SourceGraphic" /></FeMerge>
+          </Filter>
         </Defs>
-        <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={stroke} />
-        <Circle
-          cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={C.lime} strokeWidth={stroke} strokeLinecap="round"
+        {/* Track */}
+        <Circle cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
+        {/* Fill */}
+        <Circle cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke={C.lime} strokeWidth={stroke} strokeLinecap="round"
           strokeDasharray={`${filled} ${circ - filled}`}
           rotation={-90} originX={size / 2} originY={size / 2}
-          filter="url(#g)"
+          filter="url(#glow)"
         />
       </Svg>
-      <Text style={{ fontSize: 52, fontWeight: "800", color: C.lime, lineHeight: 56 }}>{score}</Text>
-      <Text style={{ fontSize: 14, color: C.textMuted }}>/100</Text>
+      <Text style={{ fontSize: 52, fontWeight: "900", color: C.lime, lineHeight: 56 }}>{score}</Text>
+      <Text style={{ fontSize: 13, color: C.textMuted, marginTop: -2 }}>/100</Text>
     </View>
   );
 }
 
-// ─── BrandImg — mix-blend-mode equivalent on native is "multiply"/"screen"
-//     RN has no mixBlendMode, so we use a semi-transparent Image overlay ──────
-function BrandImg({
-  source, size, style,
-}: { source: ImageSourcePropType; size: number; style?: object }) {
+// ─── LevelRing — Journey 4th column ──────────────────────────────────────────
+function LevelRing({ pct }: { pct: number }) {
+  const size = 72;
+  const stroke = 7;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const filled = (Math.min(pct, 100) / 100) * circ;
   return (
-    <Image
-      source={source}
-      style={[{ width: size, height: size, resizeMode: "contain" }, style]}
-    />
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFillObject}>
+        <Circle cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke="rgba(155,92,255,0.15)" strokeWidth={stroke} />
+        <Circle cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke={C.purple} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={`${filled} ${circ - filled}`}
+          rotation={-90} originX={size / 2} originY={size / 2}
+        />
+      </Svg>
+      <Text style={{ fontSize: 14, fontWeight: "900", color: C.purple }}>{pct}%</Text>
+    </View>
   );
 }
 
-// ─── Section label ─────────────────────────────────────────────────────────────
-function Label({ text, color = C.purple }: { text: string; color?: string }) {
+// ─── BrandImg ─────────────────────────────────────────────────────────────────
+function BrandImg({ source, size, style }: { source: ImageSourcePropType; size: number; style?: object }) {
+  return <Image source={source} style={[{ width: size, height: size, resizeMode: "contain" }, style]} />;
+}
+
+// ─── SectionLabel ─────────────────────────────────────────────────────────────
+function SectionLabel({ text, color = C.purple }: { text: string; color?: string }) {
   return (
-    <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1.5,
-      color, textTransform: "uppercase" }}>{text}</Text>
+    <Text style={{ fontSize: 11, fontWeight: "800", letterSpacing: 1.5, color, textTransform: "uppercase" }}>
+      {text}
+    </Text>
   );
 }
 
@@ -140,8 +184,7 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
 
-  // ── God query (identical to V2) ───────────────────────────────────────────
-  const { data: homeData, refetch, isLoading } = useQuery<HomeData>({
+  const { data: homeData, refetch } = useQuery<HomeData>({
     queryKey: ["/api/player/me/home-data"],
     enabled: !!user?.playerId && !isGuest,
     staleTime: 0,
@@ -156,278 +199,355 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const dash = homeData?.dashboard;
-  const dp = dash?.player;
+  const dp   = dash?.player;
 
   const player = useMemo(() => ({
-    name:     dp?.name     ?? user?.displayName ?? "Player",
-    level:    dp?.level    ?? playerCtx.level   ?? 1,
-    xp:       dp?.xp       ?? playerCtx.xp      ?? 0,
-    glowScore: dp?.glowScore ?? playerCtx.glowScore ?? 0,
-    streak:   dp?.streak   ?? 0,
-    photoUrl: dp?.profilePhotoUrl ?? user?.profilePhotoUrl ?? null,
-    initial:  (dp?.name ?? user?.displayName ?? "P").charAt(0).toUpperCase(),
+    name:            dp?.name              ?? user?.displayName ?? "Player",
+    level:           dp?.level             ?? playerCtx.level   ?? 1,
+    xp:              dp?.xp               ?? playerCtx.xp      ?? 0,
+    glowScore:       dp?.glowScore         ?? playerCtx.glowScore ?? 0,
+    levelProgressPct: dp?.levelProgressPct ?? 0,
+    streak:          dp?.streak            ?? 0,
+    photoUrl:        dp?.profilePhotoUrl   ?? user?.profilePhotoUrl ?? null,
+    initial:         (dp?.name ?? user?.displayName ?? "P").charAt(0).toUpperCase(),
+    ballLevel:       dp?.ballLevel,
   }), [dp, user, playerCtx.level, playerCtx.xp, playerCtx.glowScore]);
 
-  const credits    = dash?.credits;
-  const nextSes    = dash?.nextSession;
-  const coachName  = dash?.coach?.name;
-  const academy    = dash?.academy;
+  const credits      = dash?.credits;
+  const nextSes      = dash?.nextSession;
+  const coachData    = dash?.coach;
+  const academy      = dash?.academy;
+  const lastFeedback = dash?.lastFeedback;
+  const weeklyRecap  = dash?.weeklyRecap;
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
   const nav = (screen: string, params?: object) => {
     try { navigation.navigate(screen, params); } catch { /* no-op */ }
   };
 
-  // ─── Format date string ───────────────────────────────────────────────────
-  const formatSession = (dateStr?: string) => {
-    if (!dateStr) return { label: "Today", time: "" };
-    const d = new Date(dateStr);
+  // ── Format session date ────────────────────────────────────────────────────
+  const sesInfo = useMemo(() => {
+    if (!nextSes?.date) return { day: "No Session", time: "" };
+    const d = new Date(nextSes.date);
     const today = new Date();
     const isToday = d.toDateString() === today.toDateString();
-    const label = isToday ? "Today" : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-    const time  = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-    return { label, time };
-  };
+    const day = isToday
+      ? "Today"
+      : d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return { day, time };
+  }, [nextSes]);
 
-  const sesInfo = formatSession(nextSes?.date);
+  // Weekly recap line
+  const recapLine = useMemo(() => {
+    const parts: string[] = [];
+    if (weeklyRecap?.sessions) parts.push(`+${weeklyRecap.sessions} session${weeklyRecap.sessions !== 1 ? "s" : ""}`);
+    if (player.streak > 0)     parts.push(`${player.streak}-day streak`);
+    if (player.xp > 0)         parts.push(`${player.xp.toLocaleString()} XP`);
+    return parts.join(" · ");
+  }, [weeklyRecap, player.streak, player.xp]);
+
+  const showRecap = (weeklyRecap?.sessions ?? 0) > 0 || player.streak > 0;
+
+  // Skill label from glowScore
+  const skillLabel = player.glowScore >= 80 ? "Advanced" : player.glowScore >= 50 ? "Proficient" : "Developing";
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <View style={{ flex: 1, backgroundColor: "#02050C" }}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.lime} />}
       >
-        {/* ── 1. HEADER ─────────────────────────────────────────────────── */}
-        <View style={{ minHeight: 240, paddingTop: insets.top + 8, overflow: "hidden" }}>
-          {/* Hero player artwork — absolute right */}
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            1. HEADER
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <View style={{ paddingTop: insets.top + 4, overflow: "hidden", paddingBottom: 4 }}>
+          {/* Player hero — decorative right */}
           <Image
             source={IMG.playerHero}
-            style={{
-              position: "absolute", right: -8, top: insets.top - 4,
-              height: 230, width: 160, resizeMode: "contain",
-              opacity: 0.80,
-            }}
+            style={{ position: "absolute", right: -12, top: insets.top - 16,
+              height: 210, width: 150, resizeMode: "contain", opacity: 0.75 }}
           />
 
-          {/* Logo */}
-          <View style={{ alignItems: "center", marginBottom: 20 }}>
-            <Text style={s.logoMain}>GLOW UP</Text>
-            <Text style={s.logoSub}>SPORTS</Text>
+          {/* Logo row */}
+          <View style={{ alignItems: "center", marginBottom: 18 }}>
+            {/* Two-tone logo using two Text nodes for gradient effect */}
+            <View style={{ flexDirection: "row" }}>
+              <Text style={[s.logoWord, { color: "#C46FFF" }]}>GLOW </Text>
+              <Text style={[s.logoWord, { color: "#7B9FFF" }]}>UP</Text>
+            </View>
+            <Text style={s.logoSub}>S P O R T S</Text>
           </View>
 
-          {/* Top-right controls: Classic toggle + Notification bell */}
-          <View style={{ position: "absolute", top: insets.top + 8, right: 16, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {/* Top-right: Classic pill + bell */}
+          <View style={{ position: "absolute", top: insets.top + 6, right: 14,
+            flexDirection: "row", alignItems: "center", gap: 8 }}>
             {onSwitchToClassic && (
-              <Pressable
-                onPress={onSwitchToClassic}
-                hitSlop={8}
-                style={{
-                  backgroundColor: "rgba(9,13,28,0.80)",
-                  borderWidth: 1,
-                  borderColor: "rgba(155,92,255,0.40)",
-                  borderRadius: 20,
-                  paddingHorizontal: 10,
-                  paddingVertical: 5,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <Text style={{ fontSize: 10, color: "#9B5CFF", fontWeight: "700", letterSpacing: 0.5 }}>← Classic</Text>
+              <Pressable onPress={onSwitchToClassic} hitSlop={8} style={s.classicPill}>
+                <Text style={{ fontSize: 10, color: C.purple, fontWeight: "700" }}>← Classic</Text>
               </Pressable>
             )}
-            <Pressable
-              onPress={() => nav("PlayerNotifications")}
-              style={s.bellBtn}
-              hitSlop={12}
-            >
-              <Text style={{ fontSize: 18 }}>🔔</Text>
+            <Pressable onPress={() => nav("PlayerNotifications")} style={s.bellBtn} hitSlop={12}>
+              <Text style={{ fontSize: 17 }}>🔔</Text>
               <View style={s.bellDot} />
             </Pressable>
           </View>
 
           {/* Avatar + greeting */}
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 22 }}>
-            <Pressable onPress={() => nav("PlayerPublicProfile", { playerId: user?.playerId })} style={s.avatarWrap}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20 }}>
+            <Pressable
+              onPress={() => nav("PlayerPublicProfile", { playerId: user?.playerId })}
+              style={s.avatarWrap}
+            >
               {player.photoUrl ? (
                 <Image source={{ uri: player.photoUrl }} style={s.avatarImg} />
               ) : (
-                <LinearGradient colors={["#9B5CFF", "#4DA3FF"]} style={s.avatarImg}>
-                  <Text style={{ fontSize: 28, fontWeight: "800", color: "#fff" }}>{player.initial}</Text>
+                <LinearGradient colors={["#9B5CFF", "#4A6FFF"]} style={s.avatarImg}>
+                  <Text style={{ fontSize: 26, fontWeight: "800", color: "#fff" }}>
+                    {player.initial}
+                  </Text>
                 </LinearGradient>
               )}
               <View style={s.onlineDot} />
             </Pressable>
+
             <View style={{ flex: 1 }}>
               <Text style={s.greeting} numberOfLines={1}>
-                Good morning, {player.name} 👋
+                {getGreeting()}, {player.name} 👑
               </Text>
               <Text style={s.greetingSub}>{"Let's elevate your game today."}</Text>
             </View>
           </View>
         </View>
 
-        {/* ── 2. PLAYER STRIP ───────────────────────────────────────────── */}
-        <View style={[s.strip, { borderTopColor: C.muted, borderBottomColor: C.muted }]}>
-          <StripItem icon="🛡️" main={`Level ${player.level}`} sub="Rising Competitor" />
-          <View style={s.stripDivider} />
-          <StripItem icon="⚡" main={`${credits?.total ?? 0} Credits`} />
-          <View style={s.stripDivider} />
-          <StripItem icon="👨‍👩‍👧" main={academy?.name ?? "Free Player"} />
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            2. PLAYER STRIP
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <View style={s.strip}>
+          <StripItem emoji="🛡️" main={`Level ${player.level}`} sub="Rising Competitor" />
+          <View style={s.stripDiv} />
+          <StripItem emoji="⚡" main={`${credits?.total ?? 0} Credits`} />
+          <View style={s.stripDiv} />
+          <StripItem emoji="👥" main={academy?.name ?? "Free Player"} />
         </View>
 
-        {/* ── 3+4. HERO CARDS ───────────────────────────────────────────── */}
-        <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 22, paddingTop: 20 }}>
-          {/* Next Session */}
-          <View style={{ flex: 0.55 }}>
-            <LinearGradient
-              colors={["#1C0840", "#100620", "#080B1E"]}
-              start={{ x: 0.2, y: 0 }} end={{ x: 1, y: 1 }}
-              style={[s.heroCard, { borderColor: C.purpleBord }]}
-            >
-              {/* Racket artwork */}
-              <Image
-                source={IMG.racket}
-                style={{ position: "absolute", right: -12, top: -8,
-                  width: "62%", height: "60%", resizeMode: "contain", opacity: 0.90 }}
-              />
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            3. NEXT SESSION — full-width card
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <View style={{ paddingHorizontal: 18, paddingTop: 18 }}>
+          <LinearGradient
+            colors={["#1A0640", "#0E0520", "#080B1A"]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={s.sessionCard}
+          >
+            {/* Racket artwork — decorative top-right */}
+            <Image
+              source={IMG.racket}
+              style={{ position: "absolute", right: -10, top: -6,
+                width: 140, height: 140, resizeMode: "contain", opacity: 0.85 }}
+            />
 
-              <Label text="Next Session" color={C.purple} />
+            <SectionLabel text="Next Session" color={C.purple} />
 
-              {nextSes ? (
-                <>
-                  <Text style={s.todayLabel}>{sesInfo.label}</Text>
-                  <Text style={[s.timeLabel, { color: C.purple }]}>{sesInfo.time}</Text>
-                  {nextSes.type && (
-                    <Text style={{ fontSize: 13, color: C.textSub, marginTop: 2 }}>
-                      {nextSes.type.replace(/_/g, " ")} session
-                    </Text>
-                  )}
+            {nextSes ? (
+              <>
+                {/* Day + time */}
+                <Text style={s.sessionDay}>{sesInfo.day}</Text>
+                <Text style={s.sessionTime}>{sesInfo.time}</Text>
 
-                  <View style={s.cardDivider} />
+                {/* Meta rows */}
+                {nextSes.duration != null && (
+                  <View style={s.sessionRow}>
+                    <Text style={s.sessionRowText}>⏱  {nextSes.duration} min session</Text>
+                  </View>
+                )}
 
-                  {coachName && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <View style={s.coachAvatar}>
-                        <Text style={{ fontSize: 13, color: "#fff", fontWeight: "700" }}>
-                          {coachName.charAt(0)}
+                {/* Coach row */}
+                {(nextSes.coachName ?? coachData?.name) && (
+                  <View style={s.sessionRow}>
+                    {(nextSes.coachPhotoUrl ?? coachData?.photoUrl) ? (
+                      <Image
+                        source={{ uri: (nextSes.coachPhotoUrl ?? coachData?.photoUrl)! }}
+                        style={s.sessionCoachAvatar}
+                      />
+                    ) : (
+                      <View style={[s.sessionCoachAvatar,
+                        { backgroundColor: "#5A32A0", alignItems: "center", justifyContent: "center" }]}>
+                        <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12 }}>
+                          {(nextSes.coachName ?? coachData?.name ?? "C").charAt(0)}
                         </Text>
                       </View>
-                      <Text style={{ fontSize: 13, color: C.textSub }} numberOfLines={2}>{coachName}</Text>
-                    </View>
-                  )}
-
-                  <Pressable
-                    style={s.purpleBtn}
-                    onPress={() => nav("QuickBook")}
-                  >
-                    <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>
-                      View Session →
+                    )}
+                    <Text style={s.sessionRowText}>
+                      {nextSes.coachName ?? coachData?.name}
                     </Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <Text style={{ fontSize: 36, marginVertical: 12 }}>📅</Text>
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: C.text, marginBottom: 6 }}>
-                    No Session Today
+                  </View>
+                )}
+
+                {/* Court row */}
+                {nextSes.courtName && (
+                  <View style={s.sessionRow}>
+                    <Text style={s.sessionRowText}>📍  {nextSes.courtName}</Text>
+                  </View>
+                )}
+
+                <Pressable style={s.sessionBtn} onPress={() => nav("QuickBook")}>
+                  <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
+                    View Session  →
                   </Text>
-                  <Text style={{ fontSize: 12, color: C.textMuted, lineHeight: 18, marginBottom: 16 }}>
-                    Book a lesson or find a match partner.
-                  </Text>
-                  <Pressable style={s.purpleBtn} onPress={() => nav("QuickBook")}>
-                    <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>Book Now</Text>
-                  </Pressable>
-                </>
-              )}
-            </LinearGradient>
-          </View>
-
-          {/* Glow Ability */}
-          <View style={{ flex: 1 }}>
-            <LinearGradient
-              colors={["#030B04", "#060E07", "#060B18"]}
-              start={{ x: 0.2, y: 0 }} end={{ x: 1, y: 1 }}
-              style={[s.heroCard, { borderColor: C.limeBord, alignItems: "center" }]}
-            >
-              <View style={{ width: "100%", flexDirection: "row",
-                justifyContent: "space-between", alignItems: "center" }}>
-                <Label text="Glow Ability" color={C.lime} />
-              </View>
-
-              <View style={{ flex: 1, justifyContent: "center", paddingVertical: 8 }}>
-                <GlowRing score={player.glowScore} />
-              </View>
-
-              <Text style={{ fontSize: 17, fontWeight: "700", color: C.text }}>Proficient</Text>
-              <Text style={{ fontSize: 13, color: C.lime, fontWeight: "600", marginTop: 4 }}>
-                ↑ Rising
-              </Text>
-            </LinearGradient>
-          </View>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={[s.sessionDay, { fontSize: 32, marginTop: 10 }]}>No Session Today</Text>
+                <Text style={{ fontSize: 14, color: C.textMuted, lineHeight: 20, marginTop: 4, marginBottom: 20 }}>
+                  Book a lesson or find a match partner.
+                </Text>
+                <Pressable style={s.sessionBtn} onPress={() => nav("QuickBook")}>
+                  <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>Book Now</Text>
+                </Pressable>
+              </>
+            )}
+          </LinearGradient>
         </View>
 
-        {/* ── 5. QUICK ACTIONS ──────────────────────────────────────────── */}
-        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 22, paddingTop: 20 }}>
-          <QuickAction label="Book" sub="Session" icon={IMG.calendar} color={C.purple} dim={C.purpleDim} border={C.purpleBord} onPress={() => nav("QuickBook")} />
-          <QuickAction label="Find" sub="Match" icon={IMG.group} color={C.blue} dim={C.blueDim} border={C.blueBord} onPress={() => nav("PlayerFinder")} />
-          <QuickAction label="AI" sub="Coach" icon={IMG.ai} color={C.cyan} dim={C.cyanDim} border="rgba(24,227,255,0.25)" onPress={() => nav("PlayerAICoach")} />
-          <QuickAction label="Feed" sub="back" icon={IMG.chat} color="#4DA3FF" dim="rgba(77,163,255,0.10)" border="rgba(77,163,255,0.26)" onPress={() => nav("PlayerMessages")} />
-        </View>
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            4. GLOW ABILITY — full-width card (stacked below session)
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
+          <LinearGradient
+            colors={["#030C05", "#050F08", "#04091A"]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={s.abilityCard}
+          >
+            {/* Header row */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <SectionLabel text="Glow Ability" color={C.lime} />
+              {/* ⓘ info button */}
+              <View style={s.infoBtn}>
+                <Text style={{ fontSize: 11, color: C.textMuted, fontWeight: "700" }}>ⓘ</Text>
+              </View>
+            </View>
 
-        {/* ── 6. WEEKLY RECAP ───────────────────────────────────────────── */}
-        <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
-          <Pressable style={[s.recapBanner, { borderColor: C.limeBord }]}
-            onPress={() => nav("Growth")}>
-            <Text style={{ fontSize: 18 }}>✦</Text>
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: C.text }}>
-                Your weekly recap is ready
-              </Text>
-              <Text style={{ fontSize: 13, color: C.textMuted, marginTop: 2 }}>
-                {player.streak > 0 ? `${player.streak}-day streak · ` : ""}XP {player.xp.toLocaleString()}
+            {/* Ring + score */}
+            <View style={{ alignItems: "center", paddingVertical: 16 }}>
+              <GlowRing score={player.glowScore} size={154} />
+            </View>
+
+            {/* Skill label + delta */}
+            <View style={{ alignItems: "center" }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: C.text }}>{skillLabel}</Text>
+              <Text style={{ fontSize: 13, color: C.lime, fontWeight: "600", marginTop: 5 }}>
+                ↑ Rising this week
               </Text>
             </View>
-            <Text style={{ fontSize: 14, fontWeight: "700", color: C.lime }}>See →</Text>
-          </Pressable>
+          </LinearGradient>
         </View>
 
-        {/* ── 7. TODAY'S FOCUS ──────────────────────────────────────────── */}
-        <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
-          <View style={[s.focusCard, { borderColor: C.purpleBord }]}>
-            {/* Header */}
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            5. QUICK ACTIONS
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 18, paddingTop: 14 }}>
+          <QuickAction label="Book Session" icon={IMG.calendar} color={C.purple}
+            bg={C.purpleDim} border={C.purpleBord} onPress={() => nav("QuickBook")} />
+          <QuickAction label="Find Match"   icon={IMG.group}    color={C.blue}
+            bg={C.blueDim}   border={C.blueBord}   onPress={() => nav("PlayerFinder")} />
+          <QuickAction label="AI Coach"     icon={IMG.ai}       color={C.cyan}
+            bg={C.cyanDim}   border="rgba(24,227,255,0.25)" onPress={() => nav("PlayerAICoach")} />
+          <QuickAction label="Feedback"     icon={IMG.chat}     color="#5AADFF"
+            bg="rgba(77,163,255,0.10)" border="rgba(77,163,255,0.28)" onPress={() => nav("PlayerMessages")} />
+        </View>
+
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            6. WEEKLY RECAP BANNER
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {showRecap && (
+          <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
+            <Pressable style={s.recapBanner} onPress={() => nav("Growth")}>
+              <Text style={{ fontSize: 16, marginRight: 2 }}>✦</Text>
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: C.text }}>
+                  Your weekly recap is ready
+                </Text>
+                {recapLine ? (
+                  <Text style={{ fontSize: 12, color: C.textMuted, marginTop: 2 }}>{recapLine}</Text>
+                ) : null}
+              </View>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: C.lime }}>See recap →</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            7. TODAY'S FOCUS
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
+          <View style={s.focusCard}>
             <View style={s.focusHeader}>
-              <BrandImg source={IMG.target} size={26} />
-              <Text style={{ fontSize: 12, fontWeight: "800", color: C.text,
-                letterSpacing: 1.2, textTransform: "uppercase", marginLeft: 8 }}>
+              <BrandImg source={IMG.target} size={22} />
+              <Text style={{ fontSize: 11, fontWeight: "800", color: C.text,
+                letterSpacing: 1.5, textTransform: "uppercase", marginLeft: 8, flex: 1 }}>
                 {"Today's Focus"}
               </Text>
+              <Text style={{ fontSize: 15, color: C.textMuted }}>›</Text>
             </View>
-
-            {/* Three focus slots */}
             <View style={{ flexDirection: "row" }}>
-              <FocusSlot icon={IMG.ballLime} label="Serve\nConsistency" sub="Hit 70%+ first serves" last={false} />
-              <FocusSlot icon={IMG.shoe}     label="Foot-\nwork"        sub="Stay light & balanced" last={false} />
-              <FocusSlot icon={IMG.target}   label="Rally\nPatience"    sub="Build the point" last />
+              <FocusSlot icon={IMG.ballLime} label="Serve Consistency" sub="Hit 70%+ first serves" last={false} />
+              <FocusSlot icon={IMG.shoe}     label="Footwork"           sub="Stay light & balanced"  last={false} />
+              <FocusSlot icon={IMG.target}   label="Rally Patience"     sub="Build the point"        last />
             </View>
           </View>
         </View>
 
-        {/* ── 8+9. FEEDBACK + UPCOMING MATCH ───────────────────────────── */}
-        <View style={{ flexDirection: "row", gap: 12, paddingHorizontal: 22, paddingTop: 16 }}>
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            8+9. COACH FEEDBACK + UPCOMING MATCH
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 18, paddingTop: 12 }}>
+
           {/* Coach Feedback */}
           <View style={[s.sideCard, { borderColor: C.purpleBord, flex: 1 }]}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between",
-              alignItems: "center", marginBottom: 12 }}>
-              <Label text="Coach Feedback" />
-              <View style={s.newBadge}><Text style={s.newBadgeText}>NEW</Text></View>
+            {/* Header */}
+            <View style={{ flexDirection: "row", alignItems: "center",
+              justifyContent: "space-between", marginBottom: 10 }}>
+              <SectionLabel text="Recent Coach Feedback" color={C.purple} />
+              <View style={s.newBadge}><Text style={s.newBadgeTxt}>NEW</Text></View>
             </View>
-            <Text style={{ fontSize: 13, color: C.text, lineHeight: 20, marginBottom: 8 }}>
-              Great improvement in your backhand depth! Focus on earlier preparation on returns.
-            </Text>
+
+            {lastFeedback ? (
+              <>
+                {/* Coach photo row */}
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  {lastFeedback.coachPhotoUrl ? (
+                    <Image source={{ uri: lastFeedback.coachPhotoUrl }} style={s.feedbackAvatar} />
+                  ) : (
+                    <View style={[s.feedbackAvatar,
+                      { backgroundColor: "#5A32A0", alignItems: "center", justifyContent: "center" }]}>
+                      <Text style={{ fontSize: 18, color: "#fff", fontWeight: "800" }}>
+                        {(lastFeedback.coachName || "C").charAt(0)}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: C.text }} numberOfLines={1}>
+                      {lastFeedback.coachName}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: C.textMuted }}>
+                      {relativeTime(lastFeedback.date)}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 13, color: C.text, lineHeight: 19, marginBottom: 10 }} numberOfLines={5}>
+                  {lastFeedback.message}
+                </Text>
+              </>
+            ) : (
+              <Text style={{ fontSize: 13, color: C.text, lineHeight: 19, marginBottom: 10 }}>
+                Great improvement in your backhand depth! Focus on earlier preparation on returns. Keep it up!
+              </Text>
+            )}
+
             <Pressable onPress={() => nav("PlayerMessages")}>
               <Text style={{ fontSize: 13, fontWeight: "700", color: C.lime }}>View All →</Text>
             </Pressable>
@@ -435,46 +555,72 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
 
           {/* Upcoming Match */}
           <View style={[s.sideCard, { borderColor: C.blueBord, flex: 1, overflow: "hidden" }]}>
-            {/* Decorative ball */}
             <Image source={IMG.ballLimeOrb}
-              style={{ position: "absolute", right: -8, bottom: 50,
-                width: 70, height: 70, resizeMode: "contain", opacity: 0.40 }}
-            />
-            <Label text="Upcoming Match" color={C.blue} />
-            <Text style={{ fontSize: 18, fontWeight: "800", color: C.blue, marginTop: 8 }}>
+              style={{ position: "absolute", right: -10, bottom: 44,
+                width: 68, height: 68, resizeMode: "contain", opacity: 0.35 }} />
+
+            <SectionLabel text="Upcoming Match" color={C.blue} />
+
+            <Text style={{ fontSize: 16, fontWeight: "800", color: C.blue, marginTop: 8 }}>
               Sat 9:00 AM
             </Text>
-            <Text style={{ fontSize: 13, color: C.textSub, marginTop: 4, lineHeight: 18 }}>
+            <Text style={{ fontSize: 12, color: C.textSub, marginTop: 4, lineHeight: 17 }}>
               U18 Singles{"\n"}Quarterfinals
             </Text>
             <View style={[s.mmrPill, { marginTop: 10 }]}>
-              <Text style={{ fontSize: 12, color: C.lime, fontWeight: "700" }}>+32 MMR on win</Text>
+              <Text style={{ fontSize: 11, color: C.lime, fontWeight: "700" }}>+32 MMR on win</Text>
             </View>
-            <Pressable onPress={() => nav("MatchHistory")} style={{ marginTop: 8 }}>
+            <Pressable onPress={() => nav("MatchHistory")} style={{ marginTop: 10 }}>
               <Text style={{ fontSize: 12, fontWeight: "700", color: C.blue }}>View Match →</Text>
             </Pressable>
           </View>
         </View>
 
-        {/* ── 10. YOUR JOURNEY ──────────────────────────────────────────── */}
-        <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
-          <View style={[s.journeyCard, { borderColor: C.purpleBord }]}>
-            <Label text="Your Journey" color={C.purple} />
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            10. YOUR JOURNEY
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
+          <View style={s.journeyCard}>
+            <SectionLabel text="Your Journey" color={C.purple} />
             <View style={{ flexDirection: "row", marginTop: 16 }}>
-              <JourneyItem icon={IMG.flame} value={String(player.streak)} sub="Day Streak" last={false} />
-              <JourneyItem icon={IMG.star}  value={player.xp.toLocaleString()} sub="XP Points" last={false} valueColor={C.lime} />
-              <JourneyItem icon={IMG.trophy} value={`Lv ${player.level}`} sub="Level" last />
+              {/* Streak */}
+              <JourneyCol
+                icon={IMG.flame}
+                value={String(player.streak)}
+                label="Day Streak"
+                last={false}
+              />
+              {/* XP */}
+              <JourneyCol
+                icon={IMG.star}
+                value={player.xp.toLocaleString()}
+                label="XP Points"
+                valueColor={C.lime}
+                last={false}
+              />
+              {/* Level + rank label */}
+              <JourneyCol
+                icon={IMG.trophy}
+                value={`Lv ${player.level}`}
+                label="Rising Competitor"
+                last={false}
+              />
+              {/* Level progress ring */}
+              <View style={[s.journeyCol, { borderRightWidth: 0 }]}>
+                <LevelRing pct={player.levelProgressPct || 0} />
+                <Text style={{ fontSize: 10, color: C.textMuted, textAlign: "center", marginTop: 5 }}>
+                  to Lv {player.level + 1}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* ── SWITCH TO CLASSIC ─────────────────────────────────────────── */}
+        {/* Classic switch */}
         {onSwitchToClassic && (
-          <View style={{ paddingHorizontal: 22, paddingTop: 20 }}>
+          <View style={{ paddingHorizontal: 18, paddingTop: 18 }}>
             <Pressable onPress={onSwitchToClassic} style={s.switchBtn}>
-              <Text style={{ fontSize: 13, color: C.textMuted }}>
-                Switch to Classic Dashboard
-              </Text>
+              <Text style={{ fontSize: 13, color: C.textMuted }}>Switch to Classic Dashboard</Text>
             </Pressable>
           </View>
         )}
@@ -483,14 +629,22 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StripItem({ icon, main, sub }: { icon: string; main: string; sub?: string }) {
+function StripItem({ emoji, main, sub }: { emoji: string; main: string; sub?: string }) {
   return (
-    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8 }}>
-      <Text style={{ fontSize: 16 }}>{icon}</Text>
-      <View>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: C.text }} numberOfLines={1}>{main}</Text>
+    <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+      <Text style={{ fontSize: 15 }}>{emoji}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 12, fontWeight: "700", color: C.text }} numberOfLines={1}>{main}</Text>
         {sub && <Text style={{ fontSize: 10, color: C.textMuted }}>{sub}</Text>}
       </View>
     </View>
@@ -498,170 +652,181 @@ function StripItem({ icon, main, sub }: { icon: string; main: string; sub?: stri
 }
 
 function QuickAction({
-  label, sub, icon, color, dim, border, onPress,
-}: { label: string; sub: string; icon: ImageSourcePropType; color: string; dim: string; border: string; onPress: () => void }) {
+  label, icon, color, bg, border, onPress,
+}: { label: string; icon: ImageSourcePropType; color: string; bg: string; border: string; onPress: () => void }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[s.qAction, { backgroundColor: dim, borderColor: border }]}
-    >
-      <BrandImg source={icon} size={40} />
+    <Pressable onPress={onPress} style={[s.qaBtn, { backgroundColor: bg, borderColor: border }]}>
+      <BrandImg source={icon} size={38} />
       <Text style={{ fontSize: 11, fontWeight: "700", color, textAlign: "center",
-        marginTop: 6, lineHeight: 15 }}>
-        {label}{"\n"}{sub}
-      </Text>
+        marginTop: 7, lineHeight: 14 }} numberOfLines={2}>{label}</Text>
     </Pressable>
   );
 }
 
-function FocusSlot({
-  icon, label, sub, last,
-}: { icon: ImageSourcePropType; label: string; sub: string; last: boolean }) {
+function FocusSlot({ icon, label, sub, last }: {
+  icon: ImageSourcePropType; label: string; sub: string; last: boolean;
+}) {
   return (
-    <View style={[s.focusSlot, last ? {} : { borderRightColor: C.muted, borderRightWidth: 1 }]}>
+    <View style={[s.focusSlot, last ? {} : { borderRightColor: C.cardBord, borderRightWidth: 1 }]}>
       <BrandImg source={icon} size={48} />
-      <Text style={{ fontSize: 11, fontWeight: "700", color: C.text,
-        textAlign: "center", marginTop: 8, lineHeight: 15 }}>{label}</Text>
+      <Text style={{ fontSize: 12, fontWeight: "700", color: C.text,
+        textAlign: "center", marginTop: 8, lineHeight: 16 }} numberOfLines={2}>{label}</Text>
       <Text style={{ fontSize: 10, color: C.textMuted, textAlign: "center",
-        marginTop: 4, lineHeight: 14 }}>{sub}</Text>
+        marginTop: 4, lineHeight: 14 }} numberOfLines={2}>{sub}</Text>
     </View>
   );
 }
 
-function JourneyItem({
-  icon, value, sub, last, valueColor = C.text,
-}: { icon: ImageSourcePropType; value: string; sub: string; last: boolean; valueColor?: string }) {
+function JourneyCol({ icon, value, label, valueColor = C.text, last }: {
+  icon: ImageSourcePropType; value: string; label: string; valueColor?: string; last: boolean;
+}) {
   return (
-    <View style={[s.journeyItem, last ? {} : { borderRightColor: C.muted, borderRightWidth: 1 }]}>
-      <BrandImg source={icon} size={44} />
-      <Text style={{ fontSize: 22, fontWeight: "900", color: valueColor,
-        marginTop: 6, lineHeight: 26 }}>{value}</Text>
-      <Text style={{ fontSize: 11, color: C.textMuted }}>{sub}</Text>
+    <View style={[s.journeyCol, last ? { borderRightWidth: 0 } : {}]}>
+      <BrandImg source={icon} size={38} />
+      <Text style={{ fontSize: 20, fontWeight: "900", color: valueColor,
+        marginTop: 6, lineHeight: 24, textAlign: "center" }}>{value}</Text>
+      <Text style={{ fontSize: 10, color: C.textMuted, textAlign: "center",
+        marginTop: 3, lineHeight: 13 }}>{label}</Text>
     </View>
   );
 }
 
 // ─── StyleSheet ───────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  logoMain: {
-    fontSize: 30, fontWeight: "900", letterSpacing: 2,
-    color: C.purple,
-  },
-  logoSub: {
-    fontSize: 10, fontWeight: "700", color: C.textMuted, letterSpacing: 6, marginTop: 1,
+  // Logo
+  logoWord: { fontSize: 32, fontWeight: "900", letterSpacing: 1.5 },
+  logoSub:  { fontSize: 10, fontWeight: "600", color: C.textMuted, letterSpacing: 5, marginTop: 0 },
+
+  // Top controls
+  classicPill: {
+    backgroundColor: "rgba(9,13,28,0.85)",
+    borderWidth: 1, borderColor: "rgba(155,92,255,0.38)",
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
   },
   bellBtn: {
-    position: "absolute", top: 52, right: 20,
-    width: 46, height: 46, borderRadius: 23,
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.05)",
-    borderWidth: 1, borderColor: C.muted,
+    borderWidth: 1, borderColor: C.cardBord,
     alignItems: "center", justifyContent: "center",
   },
   bellDot: {
-    position: "absolute", top: 8, right: 8,
-    width: 9, height: 9, borderRadius: 5,
-    backgroundColor: C.lime, borderWidth: 2, borderColor: "#02050C",
+    position: "absolute", top: 7, right: 7,
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: C.lime, borderWidth: 2, borderColor: C.bg,
   },
-  avatarWrap: { position: "relative", width: 72, height: 72 },
+
+  // Avatar
+  avatarWrap: { position: "relative", width: 68, height: 68 },
   avatarImg: {
-    width: 72, height: 72, borderRadius: 36,
+    width: 68, height: 68, borderRadius: 34,
     alignItems: "center", justifyContent: "center",
-    borderWidth: 3, borderColor: C.purple,
+    borderWidth: 2.5, borderColor: C.purple,
   },
   onlineDot: {
-    position: "absolute", bottom: 4, right: 4,
-    width: 12, height: 12, borderRadius: 6,
-    backgroundColor: "#00E676", borderWidth: 2, borderColor: "#02050C",
+    position: "absolute", bottom: 3, right: 3,
+    width: 11, height: 11, borderRadius: 6,
+    backgroundColor: "#00E676", borderWidth: 2, borderColor: C.bg,
   },
-  greeting: { fontSize: 20, fontWeight: "700", color: C.text, lineHeight: 26 },
+
+  // Greeting
+  greeting:    { fontSize: 26, fontWeight: "700", color: C.text, lineHeight: 32 },
   greetingSub: { fontSize: 14, color: C.textMuted, marginTop: 3 },
 
+  // Strip
   strip: {
     flexDirection: "row", alignItems: "center",
-    paddingHorizontal: 22, paddingVertical: 14,
+    paddingHorizontal: 18, paddingVertical: 12,
     borderTopWidth: 1, borderBottomWidth: 1,
+    borderTopColor: C.cardBord, borderBottomColor: C.cardBord,
+    marginTop: 10,
   },
-  stripDivider: { width: 1, height: 32, backgroundColor: C.muted, marginHorizontal: 14 },
+  stripDiv: { width: 1, height: 28, backgroundColor: C.cardBord, marginHorizontal: 10 },
 
-  heroCard: {
-    borderRadius: 22, borderWidth: 1.5,
-    padding: 18, minHeight: 380,
-    overflow: "hidden",
+  // Next Session card — FULL WIDTH
+  sessionCard: {
+    borderRadius: 20, borderWidth: 1.5, borderColor: C.purpleBord,
+    padding: 20, overflow: "hidden", minHeight: 260,
   },
-  todayLabel: {
-    fontSize: 44, fontWeight: "800", color: C.text,
-    lineHeight: 50, marginTop: 12, letterSpacing: -1,
-  },
-  timeLabel: {
-    fontSize: 30, fontWeight: "800", lineHeight: 36, marginTop: 4,
-  },
-  cardDivider: {
-    height: 1, backgroundColor: "rgba(155,92,255,0.15)",
-    marginVertical: 12,
-  },
-  coachAvatar: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: "#00897B",
-    alignItems: "center", justifyContent: "center",
-  },
-  purpleBtn: {
-    marginTop: "auto" as any,
-    backgroundColor: C.purple, borderRadius: 14,
+  sessionDay:  { fontSize: 42, fontWeight: "900", color: C.text, lineHeight: 48, marginTop: 10, letterSpacing: -1 },
+  sessionTime: { fontSize: 28, fontWeight: "800", color: C.purple, lineHeight: 34, marginTop: 2 },
+  sessionRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+  sessionRowText: { fontSize: 13, color: C.textSub, flex: 1 },
+  sessionCoachAvatar: { width: 28, height: 28, borderRadius: 14 },
+  sessionBtn: {
+    marginTop: 18, backgroundColor: C.purple, borderRadius: 14,
     paddingVertical: 13, alignItems: "center",
   },
 
-  qAction: {
-    flex: 1, borderRadius: 18, borderWidth: 1,
-    paddingVertical: 16, alignItems: "center",
-    minHeight: 120,
+  // Glow Ability card — FULL WIDTH
+  abilityCard: {
+    borderRadius: 20, borderWidth: 1.5, borderColor: C.limeBord,
+    paddingHorizontal: 20, paddingTop: 18, paddingBottom: 22,
+    overflow: "hidden",
+  },
+  infoBtn: {
+    width: 26, height: 26, borderRadius: 13,
+    borderWidth: 1, borderColor: C.cardBord,
+    alignItems: "center", justifyContent: "center",
   },
 
+  // Quick Actions
+  qaBtn: {
+    flex: 1, borderRadius: 16, borderWidth: 1,
+    paddingVertical: 14, alignItems: "center",
+    minHeight: 104,
+  },
+
+  // Recap banner
   recapBanner: {
     flexDirection: "row", alignItems: "center",
     backgroundColor: "rgba(207,255,0,0.04)",
-    borderWidth: 1, borderRadius: 18,
-    padding: 16,
+    borderWidth: 1, borderColor: C.limeBord, borderRadius: 16,
+    padding: 14,
   },
 
+  // Today's Focus
   focusCard: {
-    backgroundColor: C.card, borderWidth: 1.5, borderRadius: 20, overflow: "hidden",
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.purpleBord,
+    borderRadius: 18, overflow: "hidden",
   },
   focusHeader: {
     flexDirection: "row", alignItems: "center",
-    padding: 14,
-    borderBottomWidth: 1, borderBottomColor: C.muted,
-    backgroundColor: "rgba(155,92,255,0.06)",
+    padding: 13, borderBottomWidth: 1, borderBottomColor: C.cardBord,
+    backgroundColor: "rgba(155,92,255,0.05)",
   },
-  focusSlot: {
-    flex: 1, padding: 14, alignItems: "center",
-  },
+  focusSlot: { flex: 1, padding: 12, alignItems: "center" },
 
+  // Side cards
   sideCard: {
-    backgroundColor: C.card, borderWidth: 1.5, borderRadius: 20, padding: 16,
-    minHeight: 200,
+    backgroundColor: C.card, borderWidth: 1.5, borderRadius: 18, padding: 14,
+    minHeight: 220,
   },
   newBadge: {
     backgroundColor: C.limeDim, borderWidth: 1, borderColor: C.limeBord,
-    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2,
   },
-  newBadgeText: { fontSize: 9, fontWeight: "800", color: C.lime, letterSpacing: 0.5 },
-
+  newBadgeTxt: { fontSize: 8, fontWeight: "900", color: C.lime, letterSpacing: 0.5 },
+  feedbackAvatar: { width: 46, height: 46, borderRadius: 23 },
   mmrPill: {
     backgroundColor: C.limeDim, borderWidth: 1, borderColor: C.limeBord,
-    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, alignSelf: "flex-start",
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, alignSelf: "flex-start",
   },
 
+  // Journey
   journeyCard: {
-    backgroundColor: C.card, borderWidth: 1.5, borderRadius: 22, padding: 20,
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.purpleBord,
+    borderRadius: 18, padding: 18,
   },
-  journeyItem: {
-    flex: 1, alignItems: "center", paddingHorizontal: 8,
+  journeyCol: {
+    flex: 1, alignItems: "center", paddingHorizontal: 2,
+    borderRightWidth: 1, borderRightColor: C.cardBord,
   },
 
+  // Classic switch
   switchBtn: {
-    borderWidth: 1, borderColor: C.muted, borderRadius: 12,
+    borderWidth: 1, borderColor: C.cardBord, borderRadius: 12,
     paddingVertical: 12, alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.03)",
+    backgroundColor: "rgba(255,255,255,0.02)",
   },
 });
 

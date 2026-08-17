@@ -554,6 +554,11 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
     100,
     Math.round((totalXp / (level * 500)) * 100),
   );
+  const xpToNextLevel = xpData.xpToNextLevel ?? 500;
+  // Level progress percentage: how far through the current level's XP range
+  const xpPerLevel = 500; // approximation: each level costs 500 XP
+  const xpEarnedThisLevel = Math.max(0, xpPerLevel - xpToNextLevel);
+  const levelProgressPct = Math.min(99, Math.max(1, Math.round((xpEarnedThisLevel / xpPerLevel) * 100)));
 
   const onboardingCompleted = player.onboardingCompleted ?? false;
 
@@ -609,16 +614,36 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
         }
       : null;
 
+  // Weekly recap: sessions attended in the past 7 days
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const weeklySessions = pastSessions.filter(
+    (s) => new Date(s.startTime) >= sevenDaysAgo && s.attendanceStatus === "present",
+  ).length;
+
+  // Feedback with coach photo (lastFeedback already has coachName; add photoUrl)
+  const lastFeedbackFull = feedbackList.length > 0
+    ? {
+        message: feedbackList[0].content,
+        date: feedbackList[0].createdAt,
+        coachName: coach?.name || "Coach",
+        coachPhotoUrl: coach?.photoUrl || null,
+      }
+    : null;
+
   return {
     isOnboarding: !onboardingCompleted,
     isFreePlayer: !player.academyId,
     pendingRequest,
+    weeklyRecap: { sessions: weeklySessions },
     player: {
       id: player.id,
       name: player.name,
       level,
       xp: totalXp,
       glowScore,
+      levelProgressPct,
+      xpToNextLevel,
       ballLevel: player.ballLevel,
       streak,
       checkinStreak,
@@ -660,7 +685,7 @@ async function fetchDashboard(playerId: string): Promise<Record<string, unknown>
       : null,
     nextSession,
     upcomingSessions: upcomingSessionsList,
-    lastFeedback,
+    lastFeedback: lastFeedbackFull,
     recentXpGains: [],
     credits: {
       total: totalCredits,
