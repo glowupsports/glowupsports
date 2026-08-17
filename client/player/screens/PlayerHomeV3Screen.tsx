@@ -3,8 +3,8 @@
  * ║              PLAYER HOME V3  —  NEON DARK DESIGN                           ║
  * ╠══════════════════════════════════════════════════════════════════════════════╣
  * ║  Redesigned to match the approved reference mockup (Aug 17, 2026).          ║
- * ║  Key structural change: Next Session + Glow Ability are now STACKED         ║
- * ║  full-width cards (not side-by-side half-width columns).                    ║
+ * ║  Key structural change: Next Session (left, ~57%) + Glow Ability (right,   ║
+ * ║  ~43%) are SIDE-BY-SIDE in one horizontal row.                              ║
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  */
 import React, { useCallback, useMemo, useState } from "react";
@@ -107,17 +107,19 @@ function relativeTime(d: string | Date | null | undefined): string {
 
 // ─── GlowRing ─────────────────────────────────────────────────────────────────
 function GlowRing({ score, size = 150 }: { score: number; size?: number }) {
-  const stroke = 10;
+  const stroke = size < 130 ? 8 : 10;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const pct = Math.max(3, Math.min(score, 100));          // min 3% so ring is visible
   const filled = (pct / 100) * circ;
+  const scoreFontSize = size < 130 ? 38 : 52;
+  const subFontSize   = size < 130 ? 11 : 13;
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
       <Svg width={size} height={size} style={StyleSheet.absoluteFillObject}>
         <Defs>
           <Filter id="glow">
-            <FeGaussianBlur stdDeviation="5" result="blur" />
+            <FeGaussianBlur stdDeviation="4" result="blur" />
             <FeMerge><FeMergeNode in="blur" /><FeMergeNode in="SourceGraphic" /></FeMerge>
           </Filter>
         </Defs>
@@ -132,8 +134,8 @@ function GlowRing({ score, size = 150 }: { score: number; size?: number }) {
           filter="url(#glow)"
         />
       </Svg>
-      <Text style={{ fontSize: 52, fontWeight: "900", color: C.lime, lineHeight: 56 }}>{score}</Text>
-      <Text style={{ fontSize: 13, color: C.textMuted, marginTop: -2 }}>/100</Text>
+      <Text style={{ fontSize: scoreFontSize, fontWeight: "900", color: C.lime, lineHeight: scoreFontSize + 4 }}>{score}</Text>
+      <Text style={{ fontSize: subFontSize, color: C.textMuted, marginTop: -2 }}>/100</Text>
     </View>
   );
 }
@@ -264,16 +266,15 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
             1. HEADER
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         <View style={{ paddingTop: insets.top + 4, overflow: "hidden", paddingBottom: 4 }}>
-          {/* Player hero — decorative right */}
+          {/* Player hero — decorative right, taller & more prominent */}
           <Image
             source={IMG.playerHero}
-            style={{ position: "absolute", right: -12, top: insets.top - 16,
-              height: 210, width: 150, resizeMode: "contain", opacity: 0.75 }}
+            style={{ position: "absolute", right: -8, top: insets.top - 24,
+              height: 250, width: 170, resizeMode: "contain", opacity: 0.80 }}
           />
 
-          {/* Logo row */}
-          <View style={{ alignItems: "center", marginBottom: 18 }}>
-            {/* Two-tone logo using two Text nodes for gradient effect */}
+          {/* Logo row — centred, but leave room for bell on right */}
+          <View style={{ alignItems: "center", marginBottom: 16, paddingRight: 44 }}>
             <View style={{ flexDirection: "row" }}>
               <Text style={[s.logoWord, { color: "#C46FFF" }]}>GLOW </Text>
               <Text style={[s.logoWord, { color: "#7B9FFF" }]}>UP</Text>
@@ -281,8 +282,8 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
             <Text style={s.logoSub}>S P O R T S</Text>
           </View>
 
-          {/* Top-right: Classic pill + bell */}
-          <View style={{ position: "absolute", top: insets.top + 6, right: 14,
+          {/* Bell — top-right, above hero */}
+          <View style={{ position: "absolute", top: insets.top + 8, right: 14,
             flexDirection: "row", alignItems: "center", gap: 8 }}>
             {onSwitchToClassic && (
               <Pressable onPress={onSwitchToClassic} hitSlop={8} style={s.classicPill}>
@@ -290,7 +291,7 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
               </Pressable>
             )}
             <Pressable onPress={() => nav("PlayerNotifications")} style={s.bellBtn} hitSlop={12}>
-              <Text style={{ fontSize: 17 }}>🔔</Text>
+              <Text style={{ fontSize: 18 }}>🔔</Text>
               <View style={s.bellDot} />
             </Pressable>
           </View>
@@ -334,37 +335,36 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
         </View>
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            3. NEXT SESSION — full-width card
+            3+4. NEXT SESSION (left ~57%) + GLOW ABILITY (right ~43%) — side by side
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <View style={{ paddingHorizontal: 18, paddingTop: 18 }}>
+        <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 18, paddingTop: 18, alignItems: "stretch" }}>
+
+          {/* ── LEFT: Next Session ─────────────────────────────────────── */}
           <LinearGradient
             colors={["#1A0640", "#0E0520", "#080B1A"]}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={s.sessionCard}
+            style={[s.sessionCard, { flex: 57 }]}
           >
             {/* Racket artwork — decorative top-right */}
             <Image
               source={IMG.racket}
-              style={{ position: "absolute", right: -10, top: -6,
-                width: 140, height: 140, resizeMode: "contain", opacity: 0.85 }}
+              style={{ position: "absolute", right: -8, top: -4,
+                width: 110, height: 110, resizeMode: "contain", opacity: 0.85 }}
             />
 
             <SectionLabel text="Next Session" color={C.purple} />
 
             {nextSes ? (
               <>
-                {/* Day + time */}
                 <Text style={s.sessionDay}>{sesInfo.day}</Text>
                 <Text style={s.sessionTime}>{sesInfo.time}</Text>
 
-                {/* Meta rows */}
                 {nextSes.duration != null && (
                   <View style={s.sessionRow}>
-                    <Text style={s.sessionRowText}>⏱  {nextSes.duration} min session</Text>
+                    <Text style={s.sessionRowText}>⏱  {nextSes.duration} min</Text>
                   </View>
                 )}
 
-                {/* Coach row */}
                 {(nextSes.coachName ?? coachData?.name) && (
                   <View style={s.sessionRow}>
                     {(nextSes.coachPhotoUrl ?? coachData?.photoUrl) ? (
@@ -375,75 +375,70 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
                     ) : (
                       <View style={[s.sessionCoachAvatar,
                         { backgroundColor: "#5A32A0", alignItems: "center", justifyContent: "center" }]}>
-                        <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12 }}>
+                        <Text style={{ color: "#fff", fontWeight: "800", fontSize: 11 }}>
                           {(nextSes.coachName ?? coachData?.name ?? "C").charAt(0)}
                         </Text>
                       </View>
                     )}
-                    <Text style={s.sessionRowText}>
+                    <Text style={s.sessionRowText} numberOfLines={1}>
                       {nextSes.coachName ?? coachData?.name}
                     </Text>
                   </View>
                 )}
 
-                {/* Court row */}
                 {nextSes.courtName && (
                   <View style={s.sessionRow}>
-                    <Text style={s.sessionRowText}>📍  {nextSes.courtName}</Text>
+                    <Text style={s.sessionRowText} numberOfLines={1}>📍  {nextSes.courtName}</Text>
                   </View>
                 )}
 
                 <Pressable style={s.sessionBtn} onPress={() => nav("QuickBook")}>
-                  <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
+                  <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
                     View Session  →
                   </Text>
                 </Pressable>
               </>
             ) : (
               <>
-                <Text style={[s.sessionDay, { fontSize: 32, marginTop: 10 }]}>No Session Today</Text>
-                <Text style={{ fontSize: 14, color: C.textMuted, lineHeight: 20, marginTop: 4, marginBottom: 20 }}>
-                  Book a lesson or find a match partner.
+                <Text style={[s.sessionDay, { marginTop: 8 }]}>No Session</Text>
+                <Text style={{ fontSize: 12, color: C.textMuted, lineHeight: 18, marginTop: 4, marginBottom: 16 }}>
+                  Book a lesson or find a match.
                 </Text>
                 <Pressable style={s.sessionBtn} onPress={() => nav("QuickBook")}>
-                  <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>Book Now</Text>
+                  <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>Book Now</Text>
                 </Pressable>
               </>
             )}
           </LinearGradient>
-        </View>
 
-        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            4. GLOW ABILITY — full-width card (stacked below session)
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
+          {/* ── RIGHT: Glow Ability ────────────────────────────────────── */}
           <LinearGradient
             colors={["#030C05", "#050F08", "#04091A"]}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={s.abilityCard}
+            style={[s.abilityCard, { flex: 43 }]}
           >
             {/* Header row */}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <SectionLabel text="Glow Ability" color={C.lime} />
-              {/* ⓘ info button */}
               <View style={s.infoBtn}>
                 <Text style={{ fontSize: 11, color: C.textMuted, fontWeight: "700" }}>ⓘ</Text>
               </View>
             </View>
 
-            {/* Ring + score */}
-            <View style={{ alignItems: "center", paddingVertical: 16 }}>
-              <GlowRing score={player.glowScore} size={154} />
+            {/* Ring */}
+            <View style={{ alignItems: "center", paddingVertical: 12 }}>
+              <GlowRing score={player.glowScore} size={118} />
             </View>
 
             {/* Skill label + delta */}
             <View style={{ alignItems: "center" }}>
-              <Text style={{ fontSize: 18, fontWeight: "700", color: C.text }}>{skillLabel}</Text>
-              <Text style={{ fontSize: 13, color: C.lime, fontWeight: "600", marginTop: 5 }}>
-                ↑ Rising this week
+              <Text style={{ fontSize: 15, fontWeight: "700", color: C.text }}>{skillLabel}</Text>
+              <Text style={{ fontSize: 11, color: C.lime, fontWeight: "600", marginTop: 4, textAlign: "center" }}>
+                ↑ 6 pts from last week
               </Text>
             </View>
           </LinearGradient>
+
         </View>
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -742,25 +737,25 @@ const s = StyleSheet.create({
   },
   stripDiv: { width: 1, height: 28, backgroundColor: C.cardBord, marginHorizontal: 10 },
 
-  // Next Session card — FULL WIDTH
+  // Next Session card — left column in side-by-side row
   sessionCard: {
     borderRadius: 20, borderWidth: 1.5, borderColor: C.purpleBord,
-    padding: 20, overflow: "hidden", minHeight: 260,
+    padding: 14, overflow: "hidden", minHeight: 260,
   },
-  sessionDay:  { fontSize: 42, fontWeight: "900", color: C.text, lineHeight: 48, marginTop: 10, letterSpacing: -1 },
-  sessionTime: { fontSize: 28, fontWeight: "800", color: C.purple, lineHeight: 34, marginTop: 2 },
-  sessionRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
-  sessionRowText: { fontSize: 13, color: C.textSub, flex: 1 },
-  sessionCoachAvatar: { width: 28, height: 28, borderRadius: 14 },
+  sessionDay:  { fontSize: 32, fontWeight: "900", color: C.text, lineHeight: 36, marginTop: 8, letterSpacing: -0.5 },
+  sessionTime: { fontSize: 22, fontWeight: "800", color: C.purple, lineHeight: 28, marginTop: 2 },
+  sessionRow:  { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  sessionRowText: { fontSize: 12, color: C.textSub, flex: 1 },
+  sessionCoachAvatar: { width: 24, height: 24, borderRadius: 12 },
   sessionBtn: {
-    marginTop: 18, backgroundColor: C.purple, borderRadius: 14,
-    paddingVertical: 13, alignItems: "center",
+    marginTop: 14, backgroundColor: C.purple, borderRadius: 12,
+    paddingVertical: 11, alignItems: "center",
   },
 
-  // Glow Ability card — FULL WIDTH
+  // Glow Ability card — right column in side-by-side row
   abilityCard: {
     borderRadius: 20, borderWidth: 1.5, borderColor: C.limeBord,
-    paddingHorizontal: 20, paddingTop: 18, paddingBottom: 22,
+    paddingHorizontal: 14, paddingTop: 14, paddingBottom: 18,
     overflow: "hidden",
   },
   infoBtn: {
