@@ -244,7 +244,7 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
               <Text style={s.greeting} numberOfLines={1}>
                 Good morning, {player.name} 👋
               </Text>
-              <Text style={s.greetingSub}>Let's elevate your game today.</Text>
+              <Text style={s.greetingSub}>{"Let's elevate your game today."}</Text>
             </View>
           </View>
         </View>
@@ -382,7 +382,7 @@ export function PlayerHomeV3Screen({ onSwitchToClassic }: { onSwitchToClassic?: 
               <BrandImg source={IMG.target} size={26} />
               <Text style={{ fontSize: 12, fontWeight: "800", color: C.text,
                 letterSpacing: 1.2, textTransform: "uppercase", marginLeft: 8 }}>
-                Today's Focus
+                {"Today's Focus"}
               </Text>
             </View>
 

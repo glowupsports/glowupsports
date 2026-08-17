@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
@@ -8,12 +8,15 @@ import Animated, {
 } from "react-native-reanimated";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors, Spacing, BorderRadius, Typography } from "@/constants/theme";
 import { useAppMode, AppMode } from "@/context/AppModeContext";
 import { makeReactiveStyles } from "@/hooks/useThemedStyles";
 import { useSupervisorMode } from "@/context/SupervisorModeContext";
 import { useAuth } from "@/coach/context/AuthContext";
+
+const HOME_VERSION_KEY = "player:home:version";
 
 const PANEL_WIDTH = 200;
 
@@ -34,7 +37,15 @@ export default function CollapsibleModeSwitcher() {
   const { user } = useAuth();
   const [showBackdrop, setShowBackdrop] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [homeVersion, setHomeVersion] = useState<"v2" | "v3">("v2");
   const slideX = useSharedValue(-PANEL_WIDTH);
+
+  // Track the stored home-version so we can show V3 as active
+  useEffect(() => {
+    AsyncStorage.getItem(HOME_VERSION_KEY)
+      .then((v) => setHomeVersion(v === "v3" ? "v3" : "v2"))
+      .catch(() => {});
+  }, [isOpen]); // re-read each time the panel opens
 
   // Task #1313 — Hooks must run unconditionally; hoist useAnimatedStyle above
   // the early return below.
@@ -75,26 +86,38 @@ export default function CollapsibleModeSwitcher() {
     }
   };
 
+  const closeAndRun = (fn?: () => void) => {
+    setIsOpen(false);
+    slideX.value = withSpring(-PANEL_WIDTH, { damping: 20, stiffness: 200 }, () => {
+      runOnJS(setShowBackdrop)(false);
+      if (fn) runOnJS(fn)();
+    });
+  };
+
   const handleModeChange = (newMode: AppMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Academy owners get a coach picker instead of directly switching to coach mode
     if (newMode === "coach" && (user?.role === "academy_owner" || user?.role === "owner" || user?.role === "platform_owner")) {
       setSupervisorCoach(null);
-      setIsOpen(false);
-      slideX.value = withSpring(-PANEL_WIDTH, { damping: 20, stiffness: 200 }, () => {
-        runOnJS(setShowBackdrop)(false);
-        runOnJS(setShowCoachPicker)(true);
-      });
+      closeAndRun(() => setShowCoachPicker(true));
       return;
     }
+    // When switching to Player (classic), reset home version to v2
+    if (newMode === "player") {
+      AsyncStorage.setItem(HOME_VERSION_KEY, "v2").catch(() => {});
+      setHomeVersion("v2");
+    }
     setMode(newMode);
-    setIsOpen(false);
-    slideX.value = withSpring(-PANEL_WIDTH, {
-      damping: 20,
-      stiffness: 200,
-    }, () => {
-      runOnJS(setShowBackdrop)(false);
-    });
+    closeAndRun();
+  };
+
+  const handleSwitchToV3 = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    AsyncStorage.setItem(HOME_VERSION_KEY, "v3").catch(() => {});
+    setHomeVersion("v3");
+    // Ensure we're in player mode first
+    setMode("player");
+    closeAndRun();
   };
 
   const currentConfig = modeConfig[mode];
@@ -114,7 +137,8 @@ export default function CollapsibleModeSwitcher() {
           <View style={styles.modeList}>
             {availableModes.map((m) => {
               const config = modeConfig[m];
-              const isActive = mode === m;
+              // "player" shows as active only when in v2 mode; v3 has its own row
+              const isActive = mode === m && !(m === "player" && homeVersion === "v3");
               return (
                 <Pressable
                   key={m}
@@ -147,6 +171,41 @@ export default function CollapsibleModeSwitcher() {
                 </Pressable>
               );
             })}
+
+            {/* Player V3 — new neon design, only visible when player mode is available */}
+            {availableModes.includes("player") && (
+              <>
+                <View style={styles.v3Divider} />
+                <Pressable
+                  style={[
+                    styles.modeButton,
+                    mode === "player" && homeVersion === "v3" && { backgroundColor: "#9B5CFF" },
+                  ]}
+                  onPress={handleSwitchToV3}
+                >
+                  <Ionicons
+                    name="sparkles"
+                    size={16}
+                    color={mode === "player" && homeVersion === "v3" ? Colors.dark.backgroundRoot : "#9B5CFF"}
+                  />
+                  <Text
+                    style={[
+                      styles.modeLabel,
+                      mode === "player" && homeVersion === "v3" && styles.modeLabelActive,
+                    ]}
+                  >
+                    Player V3
+                  </Text>
+                  {mode === "player" && homeVersion === "v3" ? (
+                    <Ionicons name="checkmark" size={14} color={Colors.dark.buttonText} />
+                  ) : (
+                    <View style={styles.newBadge}>
+                      <Text style={styles.newBadgeText}>NEW</Text>
+                    </View>
+                  )}
+                </Pressable>
+              </>
+            )}
           </View>
         </View>
       </Animated.View>
@@ -223,6 +282,23 @@ const styles = makeReactiveStyles(() => StyleSheet.create({
   modeLabelActive: {
     color: Colors.dark.buttonText,
     fontWeight: "600",
+  },
+  v3Divider: {
+    height: 1,
+    backgroundColor: "rgba(155,92,255,0.20)",
+    marginVertical: 4,
+  },
+  newBadge: {
+    backgroundColor: "rgba(155,92,255,0.18)",
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  newBadgeText: {
+    fontSize: 9,
+    fontWeight: "800" as const,
+    color: "#9B5CFF",
+    letterSpacing: 0.5,
   },
   toggleButton: {
     position: "absolute",
