@@ -1568,69 +1568,19 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
             .json({ error: `Session is already ${session.status}` });
         }
 
-        // B3-P0 item 6: server time is authoritative — client-supplied date is not accepted
-        const now = new Date();
+        // B3-P0 item 6: server time is authoritative — no client-supplied date accepted.
+        // B3-P0 residual: all writes (session, time-block, V1 poison, V2 reversal)
+        // are inside one db.transaction. Credit V2 is canonical — no post-commit V1 calls.
+        const { playerIds, v2Refunded } = await storage.cancelCoachSessionAtomic(
+          id,
+          {
+            cancelledBy: coachId || req.user!.userId,
+            reason: reason || "Cancelled by coach",
+          },
+        );
 
-        // Update session with cancellation details (no charge for coach-initiated cancellations)
-        const updates: Record<string, unknown> = {
-          status: "cancelled",
-          cancelledAt: now,
-          cancelledBy: coachId,
-          cancellationReason: reason || "Cancelled by coach",
-          isLastMinuteCancellation: false,
-          cancellationCharged: false,
-          cancellationChargeAmount: null,
-        };
-
-        await storage.updateSession(id, updates);
-
-        // Delete the unified time block to free up this time slot
-        await storage.deleteCoachTimeBlockBySession(id);
-
-        // Refund credits for any players who had credits deducted for this session
-        const sessionPlayersForRefund = await storage.getSessionPlayers(id);
-        const refundResults: {
-          playerId: string;
-          playerName?: string;
-          success: boolean;
-          reason?: string;
-        }[] = [];
-
-        for (const sp of sessionPlayersForRefund) {
-          if (!sp.playerId) continue;
-          // Only refund if credits were actually deducted (creditDeductedAt is set)
-          if (sp.creditDeductedAt) {
-            const refundResult = await storage.refundCreditsForSession(
-              sp.playerId!,
-              id,
-              academyId ?? undefined,
-            );
-            const player = await storage.getPlayer(sp.playerId!, academyId ?? undefined);
-            refundResults.push({
-              playerId: sp.playerId!,
-              playerName: player?.name,
-              success: refundResult.success,
-              reason: refundResult.reason,
-            });
-
-            if (refundResult.success) {
-              console.log(
-                `[Cancel] Refunded ${refundResult.creditType} credit to player ${player?.name || sp.playerId}`,
-              );
-            }
-          }
-        }
-
-        // Cancel any unsettled debt for ALL players — including those whose debt was created by
-        // ensureCreditProcessed (which sets creditDeductedAt). cancelSessionDebt is idempotent.
-        for (const sp of sessionPlayersForRefund) {
-          const debtResult = await storage.cancelSessionDebt(sp.playerId!, id, "session_cancelled_by_coach");
-          if (debtResult.cancelled) {
-            console.log(`[Cancel] Cancelled debt for player ${sp.playerId}, session ${id}`);
-          }
-        }
-
-        // Audit log
+        // ── POST-COMMIT side-effects (must run outside the transaction) ──────────
+        // Audit log (informational — does not need to be atomic with the cancel)
         await storage.createAuditLog({
           entityType: "session",
           entityId: id,
@@ -1640,7 +1590,8 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
             reason: reason || "Cancelled by coach",
             cancelledBy: "coach",
             noCharge: true,
-            creditsRefunded: refundResults.filter((r) => r.success).length,
+            v2CreditsRefunded: v2Refunded,
+            playerCount: playerIds.length,
           }),
           academyId: academyId!,
         });
@@ -1657,14 +1608,16 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
           });
         }
 
-        const refundedCount = refundResults.filter((r) => r.success).length;
         res.json({
           success: true,
           message:
-            refundedCount > 0
-              ? `Session cancelled. ${refundedCount} credit(s) refunded to players.`
+            v2Refunded > 0
+              ? `Session cancelled. ${v2Refunded} credit(s) refunded to players.`
               : "Session has been cancelled successfully.",
-          creditsRefunded: refundResults,
+          creditsRefunded: playerIds.map((playerId) => ({
+            playerId,
+            success: true,
+          })),
         });
       } catch (error) {
         console.error("Error cancelling session:", error);
@@ -1724,66 +1677,22 @@ import { sendFeedbackNotification, sendXPGainNotification, sendBadgeEarnedNotifi
           chargeAmount = (sessionPrice * chargePercent) / 100;
         }
 
-        // Update session with cancellation details
-        const updates: Record<string, unknown> = {
-          status: "cancelled",
-          cancelledAt: now,
-          cancelledBy: coachId,
-          isLastMinuteCancellation: isLastMinute,
-          cancellationCharged: shouldCharge,
-          cancellationChargeAmount: shouldCharge
-            ? chargeAmount.toString()
-            : null,
-        };
+        // B3-P0 residual: all DB writes run inside a single transaction —
+        // session status, time-block release, invoice creation (when charging),
+        // V1 debt poison, and V2 ledger refunds are all atomic.
+        await storage.lastMinuteCancelSessionAtomic(id, {
+          cancelledBy: coachId || "",
+          isLastMinute,
+          shouldCharge,
+          chargeAmount,
+          chargePercent,
+          sessionStartLocaleStr: sessionStart.toLocaleDateString(),
+          currency: settings?.currency || "AED",
+          invoiceDueDays: settings?.invoiceDueDays || 14,
+        });
 
-        await storage.updateSession(id, updates);
-
-        // Delete the unified time block to free up this time slot
-        await storage.deleteCoachTimeBlockBySession(id);
-
-        // If charged, create an invoice for the cancellation fee
-        if (shouldCharge && chargeAmount > 0) {
-          const sessionPlayers = await storage.getSessionPlayers(id);
-          for (const sp of sessionPlayers) {
-            if (sp.playerId) {
-              const player = await storage.getPlayer(sp.playerId);
-              if (player) {
-                await storage.createInvoice({
-                  academyId: academyId!,
-                  playerId: sp.playerId,
-                  invoiceNumber: `CANCEL-${Date.now()}-${sp.playerId.slice(-4)}`,
-                  amount: chargeAmount.toString(),
-                  currency: settings?.currency || "AED",
-                  status: "pending",
-                  dueDate: new Date(
-                    Date.now() +
-                      (settings?.invoiceDueDays || 14) * 24 * 60 * 60 * 1000,
-                  ).toISOString(),
-                  notes: `Late cancellation fee for session on ${sessionStart.toLocaleDateString()}`,
-                  lineItems: JSON.stringify([
-                    {
-                      description: `Late Cancellation Fee (${chargePercent}% of lesson)`,
-                      quantity: 1,
-                      unitPrice: chargeAmount,
-                      total: chargeAmount,
-                    },
-                  ]),
-                });
-              }
-            }
-          }
-        }
-
-        // Cancel any unsettled debt for ALL players — including those processed by ensureCreditProcessed.
-        const lastMinutePlayers = await storage.getSessionPlayers(id);
-        for (const sp of lastMinutePlayers) {
-          const debtResult = await storage.cancelSessionDebt(sp.playerId!, id, "session_cancelled_last_minute");
-          if (debtResult.cancelled) {
-            console.log(`[LastMinuteCancel] Cancelled debt for player ${sp.playerId}, session ${id}`);
-          }
-        }
-
-        // Audit log
+        // ── POST-COMMIT side-effects ──────────────────────────────────────────
+        // Audit log (informational)
         await storage.createAuditLog({
           entityType: "session",
           entityId: id,

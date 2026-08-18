@@ -1160,6 +1160,14 @@ async function run() {
     `);
     console.log("[db-migrate] rate_limit_hits (Batch-1 RL-01) — OK");
 
+    // B3-P0 residual: unique constraint on player_session_cancellations so that
+    // the mark-unavailable INSERT ON CONFLICT DO NOTHING is concurrency-safe.
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS player_session_cancellations_session_player_type_uniq
+        ON player_session_cancellations (session_id, player_id, cancellation_type)
+    `);
+    console.log("[db-migrate] player_session_cancellations_session_player_type_uniq — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

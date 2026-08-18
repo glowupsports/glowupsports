@@ -12907,6 +12907,236 @@ export const storage = {
     });
   },
 
+  /**
+   * B3-P0 residual — cancel a coach-initiated session atomically.
+   *
+   * Credit V2 is the canonical billing system for ALL active academies
+   * (isV2EnabledForAcademy hard-coded true; v1WritesAllowed hard-coded false).
+   * No new V1 credit_transactions can be created by any active billing path.
+   *
+   * ALL critical writes run inside a SINGLE DB transaction:
+   *   0. SELECT … FOR UPDATE — serialises concurrent cancels; a second
+   *      concurrent cancel finds status='cancelled' and exits as a no-op.
+   *   1. Mark session as cancelled (server time authoritative).
+   *   2. Release coach time block.
+   *   3. Poison historical V1 debt rows (bulk UPDATE, metadata only).
+   *   4. Emit Credit V2 reversal rows inside the same tx via
+   *      refundV2ConsumesForCancelledSession (idempotent, event_key-guarded).
+   *      If the V2 refund throws the whole tx rolls back — session stays live.
+   *
+   * External side-effects MUST run after this resolves — never inside the tx.
+   */
+  async cancelCoachSessionAtomic(
+    sessionId: string,
+    opts: {
+      cancelledBy: string;
+      reason: string;
+    },
+  ): Promise<{ playerIds: string[]; v2Refunded: number }> {
+    const { refundV2ConsumesForCancelledSession } = await import(
+      "./services/ledger-integrity"
+    );
+
+    let playerIds: string[] = [];
+    let v2Refunded = 0;
+
+    await db.transaction(async (tx) => {
+      // 0. Lock session row — serialises concurrent cancels.
+      const lockRow = await tx.execute(sql`
+        SELECT status FROM sessions WHERE id = ${sessionId} FOR UPDATE
+      `);
+      const currentStatus = (
+        lockRow.rows as { status: string }[]
+      )[0]?.status;
+      if (currentStatus === "cancelled") {
+        return; // Idempotent: already cancelled.
+      }
+
+      // Collect enrolled player IDs for the response summary.
+      const spRows = await tx.execute(sql`
+        SELECT player_id FROM session_players WHERE session_id = ${sessionId}
+      `);
+      playerIds = (spRows.rows as { player_id: string | null }[])
+        .map((r) => r.player_id)
+        .filter((id): id is string => typeof id === "string");
+
+      // 1. Mark session cancelled — server time is authoritative
+      await tx.execute(sql`
+        UPDATE sessions
+        SET status                      = 'cancelled',
+            cancelled_at                = now(),
+            cancelled_by                = ${opts.cancelledBy},
+            cancellation_reason         = ${opts.reason},
+            is_last_minute_cancellation = false,
+            cancellation_charged        = false,
+            cancellation_charge_amount  = NULL
+        WHERE id = ${sessionId}
+      `);
+
+      // 2. Release coach time block (idempotent — no-op if already gone)
+      await tx.execute(sql`
+        DELETE FROM coach_time_blocks WHERE source_session_id = ${sessionId}
+      `);
+
+      // 3. Poison all unsettled V1 debt rows for ALL players — single bulk UPDATE,
+      //    no per-player loop, safe to include inside the transaction (mirrors the
+      //    pattern in cancelPrivateSessionAtomic step 6).
+      await tx.execute(sql`
+        UPDATE credit_transactions
+        SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+          'cancelled',   true,
+          'cancelledAt', now()::text,
+          'cancelReason', ${opts.reason}
+        )
+        WHERE session_id = ${sessionId}
+          AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')
+          AND (metadata->>'settled')   IS DISTINCT FROM 'true'
+          AND (metadata->>'cancelled') IS DISTINCT FROM 'true'
+      `);
+
+      // 4. V2 ledger refunds for ALL enrolled players atomically. Passing `tx` so
+      //    the refund rows are written inside this transaction and roll back on error.
+      const refundResult = await refundV2ConsumesForCancelledSession(
+        sessionId,
+        tx,
+      );
+      v2Refunded = refundResult.refunded;
+    });
+
+    return { playerIds, v2Refunded };
+  },
+
+  /**
+   * B3-P0 residual — last-minute coach cancellation with optional charge, fully atomic.
+   *
+   * ALL critical writes run inside a single DB transaction:
+   *   1. Mark session cancelled with charge metadata.
+   *   2. Release coach time block.
+   *   3. Insert cancellation-fee invoices for all enrolled players (when shouldCharge).
+   *   4. Poison V1 debt rows (bulk UPDATE).
+   *   5. V2 ledger refunds via refundV2ConsumesForCancelledSession.
+   *
+   * External side-effects (WebSocket, cache, audit) handled by caller post-commit.
+   */
+  async lastMinuteCancelSessionAtomic(
+    sessionId: string,
+    opts: {
+      cancelledBy: string;
+      isLastMinute: boolean;
+      shouldCharge: boolean;
+      chargeAmount: number;
+      chargePercent: number;
+      sessionStartLocaleStr: string;
+      currency: string;
+      invoiceDueDays: number;
+    },
+  ): Promise<{ v2Refunded: number }> {
+    const { refundV2ConsumesForCancelledSession } = await import(
+      "./services/ledger-integrity"
+    );
+
+    let v2Refunded = 0;
+
+    await db.transaction(async (tx) => {
+      // 0. Lock the session row first (SELECT FOR UPDATE) so concurrent
+      //    last-minute-cancel requests are serialised and cannot both issue
+      //    invoices for the same session.  The status check below then acts
+      //    as a double-fire guard.
+      const lockRow = await tx.execute(sql`
+        SELECT status FROM sessions WHERE id = ${sessionId} FOR UPDATE
+      `);
+      const currentStatus = (
+        lockRow.rows as { status: string }[]
+      )[0]?.status;
+      if (currentStatus === "cancelled") {
+        // Already cancelled by a concurrent request — treat as idempotent no-op.
+        v2Refunded = 0;
+        return;
+      }
+
+      // 1. Mark session cancelled
+      await tx.execute(sql`
+        UPDATE sessions
+        SET status                      = 'cancelled',
+            cancelled_at                = now(),
+            cancelled_by                = ${opts.cancelledBy},
+            is_last_minute_cancellation = ${opts.isLastMinute},
+            cancellation_charged        = ${opts.shouldCharge},
+            cancellation_charge_amount  = ${opts.shouldCharge ? opts.chargeAmount.toString() : null}
+        WHERE id = ${sessionId}
+      `);
+
+      // 2. Release coach time block
+      await tx.execute(sql`
+        DELETE FROM coach_time_blocks WHERE source_session_id = ${sessionId}
+      `);
+
+      // 3. Create invoices atomically so invoice rows and session status stay in sync
+      if (opts.shouldCharge && opts.chargeAmount > 0) {
+        const spRows = await tx.execute(sql`
+          SELECT sp.player_id, s.academy_id
+          FROM session_players sp
+          JOIN sessions s ON s.id = sp.session_id
+          WHERE sp.session_id = ${sessionId}
+            AND sp.player_id IS NOT NULL
+        `);
+        const dueAt = new Date(
+          Date.now() + opts.invoiceDueDays * 24 * 60 * 60 * 1000,
+        );
+        for (const row of spRows.rows as {
+          player_id: string;
+          academy_id: string;
+        }[]) {
+          if (!row.player_id || !row.academy_id) continue;
+          const suffix = row.player_id.slice(-4);
+          const invoiceNo = `CANCEL-${Date.now()}-${suffix}`;
+          const lineItems = JSON.stringify([
+            {
+              description: `Late Cancellation Fee (${opts.chargePercent}% of lesson)`,
+              quantity: 1,
+              unitPrice: opts.chargeAmount,
+              total: opts.chargeAmount,
+            },
+          ]);
+          await tx.insert(invoices).values({
+            academyId: row.academy_id,
+            playerId: row.player_id,
+            invoiceNumber: invoiceNo,
+            amount: opts.chargeAmount.toString(),
+            currency: opts.currency,
+            status: "pending",
+            dueDate: dueAt.toISOString(),
+            notes: `Late cancellation fee for session on ${opts.sessionStartLocaleStr}`,
+            lineItems,
+          });
+        }
+      }
+
+      // 4. Poison V1 debt rows (bulk, no per-player loop)
+      await tx.execute(sql`
+        UPDATE credit_transactions
+        SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+          'cancelled',   true,
+          'cancelledAt', now()::text,
+          'cancelReason', 'session_cancelled_last_minute'
+        )
+        WHERE session_id = ${sessionId}
+          AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')
+          AND (metadata->>'settled')   IS DISTINCT FROM 'true'
+          AND (metadata->>'cancelled') IS DISTINCT FROM 'true'
+      `);
+
+      // 5. V2 ledger refunds for all players, inside the transaction
+      const refundResult = await refundV2ConsumesForCancelledSession(
+        sessionId,
+        tx,
+      );
+      v2Refunded = refundResult.refunded;
+    });
+
+    return { v2Refunded };
+  },
+
   // Get coach's time blocks for a date (shows "Busy" for other academies)
   // Only returns blocks from OTHER academies - own-academy sessions are already in ownSessions
   // For platform owners (no viewerAcademyId), returns ALL blocks with anonymized academy info

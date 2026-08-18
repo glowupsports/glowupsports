@@ -2212,7 +2212,13 @@ export const playerSessionCancellations = pgTable("player_session_cancellations"
   coachNotifiedAt: timestamp("coach_notified_at"),
   
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  // B3-P0 residual: unique constraint that makes the mark-unavailable INSERT
+  // concurrency-safe via ON CONFLICT DO NOTHING — prevents duplicate receipts
+  // when concurrent requests both observe no row before inserting.
+  sessionPlayerTypeUniq: uniqueIndex("player_session_cancellations_session_player_type_uniq")
+    .on(table.sessionId, table.playerId, table.cancellationType),
+}));
 
 export const insertPlayerSessionCancellationSchema = createInsertSchema(playerSessionCancellations).omit({ id: true, createdAt: true });
 export type InsertPlayerSessionCancellation = z.infer<typeof insertPlayerSessionCancellationSchema>;

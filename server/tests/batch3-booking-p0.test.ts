@@ -204,11 +204,11 @@ describe("Item 6 — Client-supplied date removed from cancel/late routes", () =
 
   it("coach cancel route uses server time only", () => {
     const src = readSrc("server/routes/coach-calendar.ts");
-    // After fix, the dateParam / dubaiNow block is removed from coach cancel
-    const cancelSection = src.slice(
-      src.indexOf("// Update session with cancellation details (no charge for coach-initiated cancellations)") - 300,
-      src.indexOf("// Update session with cancellation details (no charge for coach-initiated cancellations)") + 50
-    );
+    // After fix, the dateParam / dubaiNow block is removed from coach cancel.
+    // The route now delegates to cancelCoachSessionAtomic (B3-P0 residual fix).
+    const anchor = src.indexOf("storage.cancelCoachSessionAtomic(");
+    expect(anchor, "cancelCoachSessionAtomic must exist in cancel route").toBeGreaterThan(0);
+    const cancelSection = src.slice(anchor - 400, anchor + 50);
     expect(cancelSection).not.toContain("req.query.date");
     expect(cancelSection).toContain("B3-P0 item 6");
   });

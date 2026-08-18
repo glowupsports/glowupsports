@@ -429,29 +429,50 @@ import fs from "fs";
         const cancelHoursBeforeFree = academy?.cancelHoursBeforeFree || 24;
         const isLateNotice = hoursBeforeSession < cancelHoursBeforeFree;
 
-        // Update session player to unavailable
-        await storage.updateSessionPlayer(sessionPlayer.id, {
-          attendanceStatus: "absent",
-          absenceReason: reason,
-          notes: `Marked unavailable: ${reason}${reasonText ? ` - ${reasonText}` : ""} (${hoursBeforeSession}h notice)`,
-        });
+        // B3-P0 residual: wrap the two sequential writes (attendance update +
+        // cancellation receipt) in a single transaction so a failure after the
+        // first write cannot leave partial state (absent without a receipt).
+        const noteText = `Marked unavailable: ${reason}${reasonText ? ` - ${reasonText}` : ""} (${hoursBeforeSession}h notice)`;
+        await db.transaction(async (tx) => {
+          // 1. Mark player absent (idempotent — safe to re-apply on retry)
+          await tx.execute(sql`
+            UPDATE session_players
+            SET attendance_status = 'absent',
+                absence_reason    = ${reason},
+                notes             = ${noteText}
+            WHERE id = ${sessionPlayer.id}
+          `);
 
-        // Create cancellation record for tracking
-        await storage.createPlayerSessionCancellation({
-          sessionType: session.sessionType,
-          sessionId,
-          playerId,
-          academyId: player?.academyId,
-          cancellationType: "unavailable",
-          reason,
-          reasonText: reasonText || null,
-          sessionDate: sessionTime,
-          hoursBeforeSession,
-          isLateCancel: isLateNotice,
-          billingStatus: "charged", // Group always counts
-          makeUpEligibility: isLateNotice ? "not_eligible" : "eligible", // Academy can grant make-up for timely notices
-          notifiedCoach: true,
-          coachNotifiedAt: new Date(),
+          // 2. Insert cancellation receipt.  ON CONFLICT DO NOTHING is the
+          // correct concurrency-safe idempotency guard now that the table has
+          // a unique index on (session_id, player_id, cancellation_type).
+          // The previous WHERE NOT EXISTS pattern was NOT safe under concurrent
+          // transactions because both could observe no row before inserting.
+          await tx.execute(sql`
+            INSERT INTO player_session_cancellations (
+              session_type, session_id, player_id, academy_id,
+              cancellation_type, reason, reason_text, session_date,
+              hours_before_session, is_late_cancel, billing_status,
+              make_up_eligibility, notified_coach, coach_notified_at
+            )
+            VALUES (
+              ${session.sessionType},
+              ${sessionId},
+              ${playerId},
+              ${player?.academyId ?? null},
+              'unavailable',
+              ${reason},
+              ${reasonText || null},
+              ${sessionTime.toISOString()}::timestamptz,
+              ${hoursBeforeSession},
+              ${isLateNotice},
+              'charged',
+              ${isLateNotice ? "not_eligible" : "eligible"},
+              true,
+              now()
+            )
+            ON CONFLICT (session_id, player_id, cancellation_type) DO NOTHING
+          `);
         });
 
         // Send notification to coach

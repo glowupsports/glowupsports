@@ -3442,10 +3442,35 @@ router.post(
         return res.status(404).json({ error: "Session not found" });
       }
 
+      // B3-P0 residual — guard 1: reject attendance writes on cancelled sessions.
+      if (session.status === "cancelled") {
+        return res.status(400).json({
+          error: "Cannot record attendance for a cancelled session",
+        });
+      }
+
       let xpAwarded = false;
 
       // Handle batch attendance (array of records)
       if (req.body.attendance && Array.isArray(req.body.attendance)) {
+        // B3-P0 residual — guard 2: validate ALL players in the batch before any
+        // write so a mix of valid + unrostered players never leaves partial state.
+        if (req.body.attendance.length > 0) {
+          const enrolledRows = await storage.getSessionPlayers(id);
+          const enrolledSet = new Set(
+            enrolledRows.map((sp) => sp.playerId).filter(Boolean),
+          );
+          const invalid = (
+            req.body.attendance as { playerId: string }[]
+          ).filter((r) => !enrolledSet.has(r.playerId));
+          if (invalid.length > 0) {
+            return res.status(400).json({
+              error: "One or more players in the batch are not enrolled in this session",
+              invalidPlayerIds: invalid.map((r) => r.playerId),
+            });
+          }
+        }
+
         const results = [];
         for (const record of req.body.attendance) {
           const updated = await storage.updateAttendance(
