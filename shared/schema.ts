@@ -1186,7 +1186,7 @@ export const players = pgTable("players", {
   bio: text("bio"), // Short player bio
   lastActiveAt: timestamp("last_active_at"),
   preferredTime: text("preferred_time"), // Preferred session time (morning/afternoon/evening)
-  status: text("status").default("active"), // active | inactive | suspended
+  status: text("status").default("active"), // active | inactive | suspended | removed
   
   // New Onboarding Fields
   tennisIdol: text("tennis_idol"), // Favorite tennis player (Federer, Nadal, Alcaraz, etc.)
@@ -1312,6 +1312,18 @@ export const updatePlayerSchema = z.object({
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type UpdatePlayer = z.infer<typeof updatePlayerSchema>;
 export type Player = typeof players.$inferSelect;
+
+/**
+ * Task #2201 — First-class player lifecycle status.
+ * No DB enum exists (players.status is plain text); this TS type is the
+ * authoritative definition used across all server code.
+ *   active          = operational
+ *   inactive        = archived, reversible via /restore
+ *   suspended       = temporary restriction (existing semantics, unchanged)
+ *   removed         = permanently detached from academy; generic /restore is prohibited
+ *   pending_payment = awaiting first payment (existing semantics, unchanged)
+ */
+export type PlayerStatus = "active" | "inactive" | "suspended" | "removed" | "pending_payment";
 
 // Schema for player self-edit via PATCH /api/player/me/info.
 // Contains only the fields a player is allowed to change themselves.
@@ -9475,6 +9487,10 @@ export const playerSeasonEnrollments = pgTable("player_season_enrollments", {
   seasonId: varchar("season_id").notNull().references(() => academySeasons.id),
   startedAt: timestamp("started_at").notNull().defaultNow(),
   endedAt: timestamp("ended_at"), // null = current enrollment
+  // Task #2201 — immutable snapshot of each credit type at season close.
+  // Stored as { group: N, semi_private: N, private: N } (signed integers).
+  // NULL on historical enrollments closed before this column was added.
+  closingCreditSnapshot: jsonb("closing_credit_snapshot"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   // Enforce at most one open enrollment per (player, academy, season).

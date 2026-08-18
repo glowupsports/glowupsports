@@ -2,10 +2,11 @@ import crypto from "crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
-  import { eq, and } from "drizzle-orm";
+  import { eq, and, sql } from "drizzle-orm";
+  import { disconnectCoachSockets } from "../websocket";
   import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, type AuthenticatedRequest } from "../auth";
   import { resolveAcademyAuthority, canManageSettings, canManageMembers, canManageFinances, canGrantRole, type AcademyAuthority } from "../lib/academy-auth";
-  import { pushDeviceTokens, academies } from "@shared/schema";
+  import { pushDeviceTokens, academies, coachAcademyMemberships } from "@shared/schema";
   import { generateInvoiceHtml, parseLineItems, parseInvoiceMetadata } from "../services/invoicePdf";
   const router = Router();
 
@@ -620,12 +621,87 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
+        // ── Deactivation path: future-session check + concurrency-safe tx ─────
+        if (isActive === false) {
+          // Pre-flight: reject if any future scheduled sessions are assigned to
+          // this coach in this academy (the caller must resolve them first).
+          const futureSessions = await db.execute(sql`
+            SELECT id FROM sessions
+            WHERE coach_id   = ${targetMember.coachId}
+              AND academy_id  = ${academyId}
+              AND start_time  > NOW()
+              AND status      = 'scheduled'
+            LIMIT 10
+          `);
+          if (futureSessions.rows.length > 0) {
+            return res.status(409).json({
+              error: "Coach has future scheduled sessions. Resolve them before deactivating.",
+              futureSessionIds: futureSessions.rows.map((r: any) => r.id),
+            });
+          }
+
+          // Atomic deactivation: lock membership row → last-owner guard → deactivate.
+          let updated: typeof coachAcademyMemberships.$inferSelect | undefined;
+          await db.transaction(async (tx) => {
+            // Lock the target membership row
+            const locked = await tx.execute(sql`
+              SELECT id, role, is_active
+              FROM coach_academy_memberships
+              WHERE id = ${id} AND academy_id = ${academyId}
+              FOR UPDATE
+            `);
+            if (locked.rows.length === 0) throw new Error("MEMBER_NOT_FOUND");
+            const lockedRow = locked.rows[0] as { id: string; role: string; is_active: boolean };
+
+            // Last-owner guard: lock and count all active owner rows.
+            // Using SELECT id ... FOR UPDATE (no aggregate) because PostgreSQL
+            // forbids FOR UPDATE with aggregate functions.  Counting the locked
+            // rows in application code achieves the same serialised view.
+            const ownerRows = await tx.execute(sql`
+              SELECT id
+              FROM coach_academy_memberships
+              WHERE academy_id = ${academyId}
+                AND is_active  = true
+                AND role       IN ('owner', 'academy_owner')
+              FOR UPDATE
+            `);
+            const cnt = ownerRows.rows.length;
+            const isOwnerRole = ["owner", "academy_owner"].includes(lockedRow.role);
+            if (isOwnerRole && cnt <= 1) throw new Error("LAST_OWNER");
+
+            const [deactivated] = await tx
+              .update(coachAcademyMemberships)
+              .set({ isActive: false })
+              .where(eq(coachAcademyMemberships.id, id))
+              .returning();
+            updated = deactivated;
+          });
+
+          // Revoke live WebSocket connections AFTER the commit
+          const revoked = disconnectCoachSockets(academyId, targetMember.coachId, "coach_deactivated");
+          console.log(
+            `[academy-members] deactivated coach ${targetMember.coachId} in ${academyId}, ` +
+            `revoked ${revoked} WS socket(s)`,
+          );
+
+          return res.json(updated);
+        }
+
+        // ── Non-deactivation patch (role change or re-activation) ─────────────
         const membership = await storage.updateCoachMembership(id, {
           role,
           isActive,
         });
         res.json(membership);
       } catch (error) {
+        if ((error as Error).message === "LAST_OWNER") {
+          return res.status(409).json({
+            error: "Cannot remove the last active owner of this academy",
+          });
+        }
+        if ((error as Error).message === "MEMBER_NOT_FOUND") {
+          return res.status(404).json({ error: "Member not found" });
+        }
         console.error("Error updating member:", error);
         res.status(500).json({ error: "Failed to update member" });
       }

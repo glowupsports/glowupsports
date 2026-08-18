@@ -134,6 +134,34 @@ async function lockBalance(
   return num((result.rows[0] as { credits: unknown }).credits);
 }
 
+/**
+ * Task #2201 — Snapshot all three credit-type balances for a player at the
+ * moment this is called, using transactional FOR UPDATE locks so the values
+ * are authoritative at the exact point of season close.
+ *
+ * Lock acquisition order: group → semi_private → private (alphabetically
+ * consistent with the deadlock-avoidance rule of always locking in a
+ * deterministic order per player; callers must iterate players in ascending
+ * player_id order to avoid cross-player deadlocks).
+ *
+ * Returns a plain object safe to store as JSONB. A missing balance row is
+ * initialised to 0 by lockBalance (INSERT … ON CONFLICT DO NOTHING).
+ */
+export async function snapshotClosingCredits(
+  tx: TxLike,
+  playerId: string,
+  academyId: string,
+): Promise<{ group: number; semi_private: number; private: number }> {
+  // Sequential locks in deterministic order (group → semi_private → private).
+  // Using await-in-series rather than Promise.all to prevent intra-player
+  // deadlocks: a concurrent consume/refund locks exactly one type, so as long
+  // as we always acquire all three in the same order there can be no cycle.
+  const group = await lockBalance(tx, playerId, academyId, "group");
+  const semi_private = await lockBalance(tx, playerId, academyId, "semi_private");
+  const priv = await lockBalance(tx, playerId, academyId, "private");
+  return { group, semi_private, private: priv };
+}
+
 async function writeBalance(
   tx: TxLike,
   playerId: string,

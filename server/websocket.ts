@@ -1,7 +1,10 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { Server } from "node:http";
 import jwt from "jsonwebtoken";
+import { eq, and } from "drizzle-orm";
 import { storage } from "./storage";
+import { db } from "./db";
+import { coachAcademyMemberships } from "@shared/schema";
 import { JWT_SECRET } from "./auth";
 
 interface AuthenticatedSocket extends WebSocket {
@@ -122,6 +125,21 @@ export function setupWebSocket(server: Server): WebSocketServer {
         const coach = await storage.getCoach(decoded.coachId, decoded.academyId);
         if (!coach || coach.academyId !== decoded.academyId) {
           socket.close(4005, "Coach verification failed");
+          return;
+        }
+        // Task #2201 — also verify the coach's academy membership is still active.
+        // A deactivated coach must not establish new WS connections for that academy.
+        const [activeMembership] = await db
+          .select({ id: coachAcademyMemberships.id })
+          .from(coachAcademyMemberships)
+          .where(and(
+            eq(coachAcademyMemberships.coachId, decoded.coachId),
+            eq(coachAcademyMemberships.academyId, decoded.academyId),
+            eq(coachAcademyMemberships.isActive, true),
+          ))
+          .limit(1);
+        if (!activeMembership) {
+          socket.close(4006, "Coach membership inactive");
           return;
         }
       }
@@ -325,6 +343,38 @@ export function broadcastToPlayerIds(
       }
     });
   });
+}
+
+// Task #2201 — Force-disconnect every active socket for a given coachId within
+// an academy. Called immediately after deactivating a coach membership so the
+// coach's live sessions are terminated within the request SLA.
+export function disconnectCoachSockets(
+  academyId: string,
+  coachId: string,
+  reason: string,
+): number {
+  if (!coachId || !academyId) return 0;
+  let closed = 0;
+  const message = JSON.stringify({
+    type: "force_logout",
+    payload: { reason, coachId, at: new Date().toISOString() },
+  });
+  const room = academyRooms.get(academyId);
+  if (!room) return 0;
+  room.forEach((socket) => {
+    if (socket.coachId !== coachId) return;
+    try {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(message);
+      }
+      // 4011 = "coach policy enforced"
+      socket.close(4011, reason);
+      closed += 1;
+    } catch (err) {
+      console.warn("[ws] disconnectCoachSockets close failed:", err);
+    }
+  });
+  return closed;
 }
 
 // Family F — Force-disconnect every active socket for a given playerId.

@@ -1168,6 +1168,17 @@ async function run() {
     `);
     console.log("[db-migrate] player_session_cancellations_session_player_type_uniq — OK");
 
+    // ── Task #2201 — Pre-Season Lifecycle & RBAC Integrity ────────────────────
+    // Closing credit snapshot column on player_season_enrollments.
+    // Stores per-type signed balances at season close as { group, semi_private, private }.
+    // NULL on historical rows closed before this migration ran — use NULL as sentinel
+    // for "no snapshot available" rather than backfilling.
+    await client.query(`
+      ALTER TABLE player_season_enrollments
+        ADD COLUMN IF NOT EXISTS closing_credit_snapshot jsonb NULL
+    `);
+    console.log("[db-migrate] Task #2201 closing_credit_snapshot — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

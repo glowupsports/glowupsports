@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from "express";
   import { db, pool } from "../db";
   import { storage } from "../storage";
-  import { eq, sql, and, inArray, count } from "drizzle-orm";
-  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema, playerInvites, coachBlockedSlots } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
+  import { eq, sql, and, inArray, count, isNull, gt } from "drizzle-orm";
+  import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema, playerInvites, coachBlockedSlots, lessonGroups, lessonGroupMembers, sessionWaitlist, bookingRequests, sessions, sessionPlayers } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
   
   function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
@@ -1471,18 +1471,20 @@ import { Router, type Request, type Response } from "express";
     },
   );
 
-  // Delete player (permanently removes all associated data)
+  // Delete player (hard delete — platform_owner only; no academy context required)
+  // Task #2201: restricted to platform_owner. Academy-scoped removal should use
+  // POST /api/players/:id/remove-from-academy instead.
   router.delete(
     "/api/players/:id",
     authMiddleware,
-    requireAcademy,
+    requireRole("platform_owner"),
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { id } = req.params;
-        const coachId = req.user!.coachId;
-        const academyId = req.user!.academyId!;
+        const actorId = req.user!.userId;
 
-        const result = await deletePlayerWithUserWipe(id, academyId);
+        // Pass null — platform_owner delete is cross-academy
+        const result = await deletePlayerWithUserWipe(id, null);
         if (!result.deleted) {
           return res.status(404).json({ error: "Player not found" });
         }
@@ -1491,9 +1493,9 @@ import { Router, type Request, type Response } from "express";
           entityType: "player",
           entityId: id,
           action: "delete",
-          performedBy: coachId!,
+          performedBy: actorId,
           metadata: JSON.stringify({
-            academyId,
+            academyId: null,
             deletedAt: new Date().toISOString(),
             wipedUserIds: result.wipedUserIds,
             keptUserIds: result.keptUserIds,
@@ -2330,6 +2332,165 @@ import { Router, type Request, type Response } from "express";
     },
   );
 
+  // Permanently remove a player from the academy (academy-scoped, reversible only
+  // via a full re-invite flow).  Blocks if any of the five obligation categories
+  // still hold open future commitments.
+  // Task #2201: transactional with player FOR UPDATE + obligation checks inside tx.
+  router.post(
+    "/api/players/:id/remove-from-academy",
+    authMiddleware,
+    requireAcademy,
+    requireRole("admin", "academy_owner", "platform_owner"),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id: pid } = req.params;
+        const academyId = req.user!.currentAcademyId ?? req.user!.academyId;
+        if (!academyId) return res.status(400).json({ error: "Academy context required" });
+
+        type Blocker = { type: string; count: number; ids: string[] };
+        let blockers: Blocker[] = [];
+        let removeErr: Error | null = null;
+
+        try {
+          await db.transaction(async (tx) => {
+            // 1. Lock player row — establishes a consistent view for the checks
+            const locked = await tx.execute(sql`
+              SELECT id, status, academy_id
+              FROM players
+              WHERE id = ${pid}
+              FOR UPDATE
+            `);
+            if (locked.rows.length === 0) throw new Error("PLAYER_NOT_FOUND");
+            const row = locked.rows[0] as { id: string; status: string | null; academy_id: string | null };
+
+            // 2. Verify this player belongs to the caller's academy
+            if (row.academy_id !== academyId) throw new Error("ACADEMY_MISMATCH");
+            if (row.status === "removed") throw new Error("ALREADY_REMOVED");
+
+            // 3. Five-category obligation check — all within the same transaction
+            const found: Blocker[] = [];
+
+            const futureSessionRows = await tx.execute(sql`
+              SELECT sp.id
+              FROM session_players sp
+              JOIN sessions s ON s.id = sp.session_id
+              WHERE sp.player_id  = ${pid}
+                AND s.academy_id  = ${academyId}
+                AND s.start_time  > NOW()
+                AND s.status      = 'scheduled'
+            `);
+            if (futureSessionRows.rows.length > 0) {
+              found.push({
+                type: "session_enrollment",
+                count: futureSessionRows.rows.length,
+                ids: futureSessionRows.rows.map((r: any) => r.id as string),
+              });
+            }
+
+            const seriesRows = await tx.execute(sql`
+              SELECT sp.id
+              FROM series_players sp
+              JOIN coaching_series cs ON cs.id = sp.series_id
+              WHERE sp.player_id  = ${pid}
+                AND cs.academy_id = ${academyId}
+                AND sp.status     IN ('active', 'paused')
+            `);
+            if (seriesRows.rows.length > 0) {
+              found.push({
+                type: "series_membership",
+                count: seriesRows.rows.length,
+                ids: seriesRows.rows.map((r: any) => r.id as string),
+              });
+            }
+
+            const groupRows = await tx.execute(sql`
+              SELECT lgm.id
+              FROM lesson_group_members lgm
+              JOIN lesson_groups lg ON lg.id = lgm.group_id
+              WHERE lgm.player_id = ${pid}
+                AND lg.academy_id = ${academyId}
+                AND lgm.status    = 'active'
+            `);
+            if (groupRows.rows.length > 0) {
+              found.push({
+                type: "group_membership",
+                count: groupRows.rows.length,
+                ids: groupRows.rows.map((r: any) => r.id as string),
+              });
+            }
+
+            const waitlistRows = await tx.execute(sql`
+              SELECT id FROM session_waitlist
+              WHERE player_id = ${pid}
+                AND status    IN ('waiting', 'offered')
+            `);
+            if (waitlistRows.rows.length > 0) {
+              found.push({
+                type: "waitlist_entry",
+                count: waitlistRows.rows.length,
+                ids: waitlistRows.rows.map((r: any) => r.id as string),
+              });
+            }
+
+            const bookingRows = await tx.execute(sql`
+              SELECT id FROM booking_requests
+              WHERE player_id     = ${pid}
+                AND academy_id    = ${academyId}
+                AND status        = 'pending'
+                AND requested_start > NOW()
+            `);
+            if (bookingRows.rows.length > 0) {
+              found.push({
+                type: "booking_request",
+                count: bookingRows.rows.length,
+                ids: bookingRows.rows.map((r: any) => r.id as string),
+              });
+            }
+
+            if (found.length > 0) {
+              blockers = found;
+              throw new Error("HAS_BLOCKERS"); // triggers rollback
+            }
+
+            // 4. All clear — detach from academy
+            await tx.execute(sql`
+              UPDATE players
+              SET academy_id = NULL, status = 'removed'
+              WHERE id = ${pid}
+            `);
+          });
+        } catch (err) {
+          removeErr = err as Error;
+        }
+
+        if (removeErr?.message === "HAS_BLOCKERS") {
+          return res.status(409).json({
+            error: "Player has open future obligations in this academy. Resolve them first.",
+            blockers,
+          });
+        }
+        if (removeErr?.message === "PLAYER_NOT_FOUND") {
+          return res.status(404).json({ error: "Player not found" });
+        }
+        if (removeErr?.message === "ACADEMY_MISMATCH") {
+          return res.status(403).json({ error: "Player does not belong to your academy" });
+        }
+        if (removeErr?.message === "ALREADY_REMOVED") {
+          return res.status(400).json({ error: "Player is already removed from this academy" });
+        }
+        if (removeErr) {
+          console.error("[remove-from-academy] error:", removeErr);
+          return res.status(500).json({ error: "Failed to remove player" });
+        }
+
+        return res.json({ success: true, message: "Player permanently removed from academy" });
+      } catch (error) {
+        console.error("[remove-from-academy] unexpected error:", error);
+        res.status(500).json({ error: "Failed to remove player from academy" });
+      }
+    },
+  );
+
   // Restore player (move back to active)
   router.post(
     "/api/players/:id/restore",
@@ -2340,9 +2501,17 @@ import { Router, type Request, type Response } from "express";
         const { id } = req.params;
         const academyId = req.user!.academyId;
 
-        const { valid } = await validatePlayerOwnership(id, academyId, storage);
-        if (!valid) {
+        const { valid, player } = await validatePlayerOwnership(id, academyId, storage);
+        if (!valid || !player) {
           return res.status(404).json({ error: "Player not found" });
+        }
+
+        // Task #2201 — permanently removed players require a fresh invite flow;
+        // the generic /restore endpoint cannot reinstate them.
+        if ((player as any).status === "removed") {
+          return res.status(409).json({
+            error: "Cannot restore a permanently removed player. Use the re-invite flow instead.",
+          });
         }
 
         await db.update(players).set({ status: "active" }).where(eq(players.id, id));

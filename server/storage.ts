@@ -2814,7 +2814,11 @@ export const storage = {
 
   async getAllPlayers(academyId?: string): Promise<Player[]> {
     if (academyId) {
-      return db.select().from(players).where(eq(players.academyId, academyId));
+      // Task #2201 — exclude removed players from academy-scoped lists.
+      return db
+        .select()
+        .from(players)
+        .where(and(eq(players.academyId, academyId), ne(players.status, "removed")));
     }
     return db.select().from(players);
   },
@@ -2833,6 +2837,8 @@ export const storage = {
     } else if (!statusFilter || statusFilter === "active") {
       // Preserve legacy JS-side filter semantics: rows with NULL status
       // were treated as active (because `null !== 'inactive'` is true in JS).
+      // Task #2201: also exclude 'removed' from the active view (removed players
+      // are academy-detached and must not appear in operational player lists).
       // Use OR(IS NULL, status NOT IN (...)) so SQL pushdown matches.
       playerWhere.push(
         or(
@@ -2840,6 +2846,7 @@ export const storage = {
           and(
             ne(players.status, "inactive"),
             ne(players.status, "pending_payment"),
+            ne(players.status, "removed"),
           )!,
         )!,
       );
@@ -2920,7 +2927,12 @@ export const storage = {
   },
 
   async getPlayersByAcademy(academyId: string): Promise<Player[]> {
-    return db.select().from(players).where(eq(players.academyId, academyId));
+    // Task #2201 — exclude permanently removed players (they are detached from the
+    // academy but the row is retained for audit; status = 'removed' is the sentinel).
+    return db
+      .select()
+      .from(players)
+      .where(and(eq(players.academyId, academyId), ne(players.status, "removed")));
   },
 
   // ==================== PLAYER INVITES ====================
@@ -5088,6 +5100,17 @@ export const storage = {
   },
 
   async addPlayerToSession(data: InsertSessionPlayer): Promise<SessionPlayer> {
+    // Task #2201 — guard: removed players must not be enrolled in new sessions.
+    if (data.playerId) {
+      const [playerRow] = await db
+        .select({ status: players.status })
+        .from(players)
+        .where(eq(players.id, data.playerId))
+        .limit(1);
+      if (playerRow && (playerRow.status === "removed")) {
+        throw new Error(`Player ${data.playerId} has been removed from this academy and cannot be enrolled in sessions.`);
+      }
+    }
     // Check if player is already in the session to prevent duplicates
     if (data.sessionId && data.playerId) {
       const existing = await db
@@ -8038,6 +8061,21 @@ export const storage = {
   async updateCoachMembership(id: string, data: Partial<CoachAcademyMembership>): Promise<CoachAcademyMembership | undefined> {
     const result = await db.update(coachAcademyMemberships).set(data).where(eq(coachAcademyMemberships.id, id)).returning();
     return result[0];
+  },
+
+  // Task #2201 — Called by auth middleware on every coach/head_coach request to
+  // ensure the membership is still active before granting the academy context.
+  async isCoachMembershipActive(coachId: string, academyId: string): Promise<boolean> {
+    const [row] = await db
+      .select({ id: coachAcademyMemberships.id })
+      .from(coachAcademyMemberships)
+      .where(and(
+        eq(coachAcademyMemberships.coachId, coachId),
+        eq(coachAcademyMemberships.academyId, academyId),
+        eq(coachAcademyMemberships.isActive, true),
+      ))
+      .limit(1);
+    return Boolean(row);
   },
 
   async setPrimaryAcademy(coachId: string, academyId: string): Promise<void> {

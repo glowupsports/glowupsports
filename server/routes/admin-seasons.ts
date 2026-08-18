@@ -5,7 +5,7 @@
 
 import { Router, type Response } from "express";
 import { db } from "../db";
-import { sql, eq, and, isNull, inArray, gte, lte, sum } from "drizzle-orm";
+import { sql, eq, and, isNull, inArray, gte, lte, sum, asc } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -21,7 +21,9 @@ import {
   sessionPlayers,
   sessions,
   playerLevelEvents,
+  academies,
 } from "@shared/schema";
+import { snapshotClosingCredits } from "../services/credit-engine";
 import {
   sendPushNotification,
   getPlayerPushTokens,
@@ -100,65 +102,79 @@ router.get(
 
 // ── POST /api/admin/seasons/end-current ───────────────────────────────────
 // Ends the current active season for the academy WITHOUT creating a new one.
-// Closes all open player season enrollments and marks the season as ended.
-// The UI should then prompt the owner to start a new season when ready.
+// Closes all open player season enrollments (with credit snapshots) and marks
+// the season as ended.  The UI should then prompt the owner to start a new
+// season when ready.
+//
+// Task #2201: wrapped in a single db.transaction with the academy row locked
+// FOR UPDATE first — this serialises concurrent calls even when no active-
+// season row exists to lock.  Players are closed in ascending player_id order
+// to prevent deadlocks against concurrent credit operations.
 router.post(
   "/api/admin/seasons/end-current",
   authMiddleware,
-  requireRole("admin", "academy_owner", "owner", "coach"),
+  requireRole("admin", "academy_owner", "owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.currentAcademyId;
       if (!academyId) return res.status(400).json({ error: "Academy required" });
 
       const now = new Date();
+      let seasonName = "";
+      let enrollmentsClosed = 0;
 
-      // Find the currently active season
-      const [activeSeason] = await db
-        .select()
-        .from(academySeasons)
-        .where(
-          and(
-            eq(academySeasons.academyId, academyId),
-            eq(academySeasons.isActive, true),
-          ),
-        )
-        .limit(1);
+      await db.transaction(async (tx) => {
+        // Serialise all season mutations for this academy — including the
+        // first-ever season creation where no active-season row exists.
+        await tx.execute(
+          sql`SELECT id FROM academies WHERE id = ${academyId} FOR UPDATE`,
+        );
 
-      if (!activeSeason) {
-        return res.status(400).json({ error: "No active season to end" });
-      }
+        const [activeSeason] = await tx
+          .select()
+          .from(academySeasons)
+          .where(and(eq(academySeasons.academyId, academyId), eq(academySeasons.isActive, true)))
+          .limit(1);
 
-      // Close all open enrollments for this academy
-      const closedResult = await db
-        .update(playerSeasonEnrollments)
-        .set({ endedAt: now })
-        .where(
-          and(
+        if (!activeSeason) throw new Error("NO_ACTIVE_SEASON");
+        seasonName = activeSeason.name;
+
+        // Open enrollments sorted by player_id for deadlock-safe lock order
+        const openEnrollments = await tx
+          .select({ id: playerSeasonEnrollments.id, playerId: playerSeasonEnrollments.playerId })
+          .from(playerSeasonEnrollments)
+          .where(and(
             eq(playerSeasonEnrollments.academyId, academyId),
             isNull(playerSeasonEnrollments.endedAt),
-          ),
-        )
-        .returning({ playerId: playerSeasonEnrollments.playerId });
+          ))
+          .orderBy(asc(playerSeasonEnrollments.playerId));
 
-      // Mark the season as ended
-      await db
-        .update(academySeasons)
-        .set({ isActive: false, endedAt: now })
-        .where(
-          and(
-            eq(academySeasons.academyId, academyId),
-            eq(academySeasons.isActive, true),
-          ),
-        );
+        enrollmentsClosed = openEnrollments.length;
+
+        for (const enrollment of openEnrollments) {
+          const snapshot = await snapshotClosingCredits(tx, enrollment.playerId, academyId);
+          await tx
+            .update(playerSeasonEnrollments)
+            .set({ endedAt: now, closingCreditSnapshot: snapshot })
+            .where(eq(playerSeasonEnrollments.id, enrollment.id));
+        }
+
+        await tx
+          .update(academySeasons)
+          .set({ isActive: false, endedAt: now })
+          .where(and(eq(academySeasons.academyId, academyId), eq(academySeasons.isActive, true)));
+      });
 
       res.json({
         success: true,
-        seasonName: activeSeason.name,
+        seasonName,
         endedAt: now.toISOString(),
-        enrollmentsClosed: closedResult.length,
+        enrollmentsClosed,
       });
     } catch (err) {
+      if ((err as Error).message === "NO_ACTIVE_SEASON") {
+        return res.status(400).json({ error: "No active season to end" });
+      }
       console.error("[admin-seasons] POST /api/admin/seasons/end-current error:", err);
       res.status(500).json({ error: "Failed to end season" });
     }
@@ -166,11 +182,17 @@ router.post(
 );
 
 // ── POST /api/admin/seasons ────────────────────────────────────────────────
-// Creates a new season, closes the current active one, auto-enrolls all players.
+// Creates a new season, closes the current active one (with credit snapshots),
+// and auto-enrolls all non-removed players.
+//
+// Task #2201: atomic transaction with academy-row FOR UPDATE first so two
+// concurrent create-season requests for the same academy create exactly one
+// season (the second sees the committed new season and fails at the unique
+// constraint, or serialises behind the first and gets a clean state).
 router.post(
   "/api/admin/seasons",
   authMiddleware,
-  requireRole("admin", "academy_owner", "owner", "coach"),
+  requireRole("admin", "academy_owner", "owner"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const academyId = req.user?.currentAcademyId;
@@ -182,63 +204,74 @@ router.post(
       }
 
       const now = new Date();
+      let newSeason!: typeof academySeasons.$inferSelect;
+      let enrolledCount = 0;
 
-      // Close the currently active season
-      await db
-        .update(academySeasons)
-        .set({ isActive: false, endedAt: now })
-        .where(
-          and(
-            eq(academySeasons.academyId, academyId),
-            eq(academySeasons.isActive, true),
-          ),
+      await db.transaction(async (tx) => {
+        // Serialise on the academy row — protects both first-ever and transition
+        await tx.execute(
+          sql`SELECT id FROM academies WHERE id = ${academyId} FOR UPDATE`,
         );
 
-      // Create the new season
-      const [newSeason] = await db
-        .insert(academySeasons)
-        .values({
-          academyId,
-          name: name.trim(),
-          startDate: startDate ?? now.toISOString().split("T")[0],
-          isActive: true,
-        })
-        .returning();
+        // Close the currently active season (if any)
+        await tx
+          .update(academySeasons)
+          .set({ isActive: false, endedAt: now })
+          .where(and(eq(academySeasons.academyId, academyId), eq(academySeasons.isActive, true)));
 
-      // Close existing open enrollments for all players in this academy
-      await db
-        .update(playerSeasonEnrollments)
-        .set({ endedAt: now })
-        .where(
-          and(
+        // Create the new season
+        const [created] = await tx
+          .insert(academySeasons)
+          .values({
+            academyId,
+            name: name.trim(),
+            startDate: startDate ?? now.toISOString().split("T")[0],
+            isActive: true,
+          })
+          .returning();
+        newSeason = created;
+
+        // Snapshot and close all open enrollments (ascending player_id order)
+        const openEnrollments = await tx
+          .select({ id: playerSeasonEnrollments.id, playerId: playerSeasonEnrollments.playerId })
+          .from(playerSeasonEnrollments)
+          .where(and(
             eq(playerSeasonEnrollments.academyId, academyId),
             isNull(playerSeasonEnrollments.endedAt),
-          ),
-        );
+          ))
+          .orderBy(asc(playerSeasonEnrollments.playerId));
 
-      // Auto-enroll all active players in the new season
-      const academyPlayers = await db
-        .select({ id: players.id })
-        .from(players)
-        .where(
-          and(
+        for (const enrollment of openEnrollments) {
+          const snapshot = await snapshotClosingCredits(tx, enrollment.playerId, academyId);
+          await tx
+            .update(playerSeasonEnrollments)
+            .set({ endedAt: now, closingCreditSnapshot: snapshot })
+            .where(eq(playerSeasonEnrollments.id, enrollment.id));
+        }
+
+        // Auto-enroll all non-removed players in the new season
+        const academyPlayers = await tx
+          .select({ id: players.id })
+          .from(players)
+          .where(and(
             eq(players.academyId, academyId),
-            sql`${players.status} != 'removed'`,
-          ),
-        );
+            sql`${players.status} NOT IN ('inactive', 'removed')`,
+          ));
 
-      if (academyPlayers.length > 0) {
-        await db.insert(playerSeasonEnrollments).values(
-          academyPlayers.map((p) => ({
-            playerId: p.id,
-            academyId,
-            seasonId: newSeason.id,
-            startedAt: now,
-          })),
-        );
-      }
+        enrolledCount = academyPlayers.length;
+        if (academyPlayers.length > 0) {
+          await tx.insert(playerSeasonEnrollments).values(
+            academyPlayers.map((p) => ({
+              playerId: p.id,
+              academyId,
+              seasonId: created.id,
+              startedAt: now,
+            })),
+          );
+        }
+      });
 
-      res.json({ season: newSeason, enrolledCount: academyPlayers.length });
+      res.json({ season: newSeason, enrolledCount });
     } catch (err) {
       console.error("[admin-seasons] POST /api/admin/seasons error:", err);
       res.status(500).json({ error: "Failed to create season" });
@@ -427,22 +460,27 @@ router.post(
       }
 
       if (toProcessIds.length > 0) {
-        // Wrap close + re-enroll in a transaction so the two steps are atomic.
+        // Wrap snapshot + close + re-enroll in a single atomic transaction.
+        // Players are processed in ascending player_id order to prevent
+        // deadlocks against concurrent credit consume/refund operations.
         // The partial unique index on (player_id, academy_id, season_id)
-        // WHERE ended_at IS NULL acts as the final backstop against concurrent
-        // duplicate inserts that slip past the pre-check above.
+        // WHERE ended_at IS NULL guards against concurrent duplicate inserts.
+        const sortedIds = [...toProcessIds].sort();
         await db.transaction(async (tx) => {
-          // Close existing open enrollments for players not yet in active season
-          await tx
-            .update(playerSeasonEnrollments)
-            .set({ endedAt: now })
-            .where(
-              and(
-                inArray(playerSeasonEnrollments.playerId, toProcessIds),
-                eq(playerSeasonEnrollments.academyId, academyId),
-                isNull(playerSeasonEnrollments.endedAt),
-              ),
-            );
+          // Snapshot and close each player's open enrollment
+          for (const playerId of sortedIds) {
+            const snapshot = await snapshotClosingCredits(tx, playerId, academyId);
+            await tx
+              .update(playerSeasonEnrollments)
+              .set({ endedAt: now, closingCreditSnapshot: snapshot })
+              .where(
+                and(
+                  eq(playerSeasonEnrollments.playerId, playerId),
+                  eq(playerSeasonEnrollments.academyId, academyId),
+                  isNull(playerSeasonEnrollments.endedAt),
+                ),
+              );
+          }
 
           // Re-enroll each player in the active season with started_at = now
           await tx.insert(playerSeasonEnrollments).values(
@@ -455,16 +493,6 @@ router.post(
           );
         });
       }
-
-      // Clean up 0-credit balance rows for these players
-      await db
-        .delete(playerCreditBalance)
-        .where(
-          and(
-            inArray(playerCreditBalance.playerId, verifiedIds),
-            sql`${playerCreditBalance.credits} = 0`,
-          ),
-        );
 
       // ── Insert in-app notifications + send push for each player ────────────
       // Manual insert is the single write to playerNotifications.

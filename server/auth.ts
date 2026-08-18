@@ -278,6 +278,29 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
             return;
           }
         }
+
+        // Task #2201 — For coach / head_coach roles, verify that the coach's
+        // membership in the effective academy is still active. If deactivated,
+        // clear the academy context so requireAcademy rejects the request.
+        // Best-effort: on DB error, fall through without blocking the request;
+        // the WS handshake and route-level guards provide secondary enforcement.
+        if (
+          (freshUser.role === "coach" || freshUser.role === "head_coach") &&
+          effectiveAcademyId &&
+          freshUser.coachId
+        ) {
+          try {
+            const isActive = await freshUserStorage.isCoachMembershipActive(
+              freshUser.coachId,
+              effectiveAcademyId,
+            );
+            if (!isActive) {
+              effectiveAcademyId = null;
+            }
+          } catch (coachMemberErr) {
+            console.warn("[Auth] coach membership active-check failed (best-effort):", coachMemberErr);
+          }
+        }
         
         let effectivePlayerId = freshUser.playerId;
 
