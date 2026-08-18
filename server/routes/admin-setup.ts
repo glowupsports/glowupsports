@@ -3519,6 +3519,19 @@ import { Router, type Request, type Response } from "express";
           return res.status(403).json({ error: "Coach does not belong to this academy" });
         }
 
+        // Deactivation/session-assignment concurrency invariant: a session must
+        // not be (re)assigned to a coach whose membership has been deactivated.
+        // This is the complement of the future-session check inside the
+        // deactivation transaction — together they ensure that deactivation and
+        // session assignment are mutually exclusive rather than racing.
+        const isNewCoachActive = await storage.isCoachMembershipActive(newCoachId, academyId);
+        if (!isNewCoachActive) {
+          return res.status(403).json({
+            error: "COACH_INACTIVE",
+            message: "Cannot assign a session to an inactive coach.",
+          });
+        }
+
         // Server-side conflict check: reject if new coach is already booked at this time
         const allSessions = await storage.getSessionsByAcademy(academyId);
         const sessionStart = new Date(session.startTime);

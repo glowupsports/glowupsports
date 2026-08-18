@@ -282,8 +282,8 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
         // Task #2201 — For coach / head_coach roles, verify that the coach's
         // membership in the effective academy is still active. If deactivated,
         // clear the academy context so requireAcademy rejects the request.
-        // Best-effort: on DB error, fall through without blocking the request;
-        // the WS handshake and route-level guards provide secondary enforcement.
+        // Fail-closed: on any DB error, effectiveAcademyId is also cleared —
+        // we must never grant academy authority merely because the check failed.
         if (
           (freshUser.role === "coach" || freshUser.role === "head_coach") &&
           effectiveAcademyId &&
@@ -298,7 +298,15 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
               effectiveAcademyId = null;
             }
           } catch (coachMemberErr) {
-            console.warn("[Auth] coach membership active-check failed (best-effort):", coachMemberErr);
+            // Fail-closed: any DB/query error while verifying membership must
+            // deny the academy context.  We must never grant Academy A authority
+            // merely because the membership check failed.
+            console.error(
+              `[Auth] coach membership active-check failed for coach=${freshUser.coachId} ` +
+              `academy=${effectiveAcademyId} — denying academy context:`,
+              coachMemberErr,
+            );
+            effectiveAcademyId = null;
           }
         }
         

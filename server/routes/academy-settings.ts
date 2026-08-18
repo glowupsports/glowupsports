@@ -621,29 +621,17 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           }
         }
 
-        // ── Deactivation path: future-session check + concurrency-safe tx ─────
+        // ── Deactivation path: concurrency-safe tx ───────────────────────────
         if (isActive === false) {
-          // Pre-flight: reject if any future scheduled sessions are assigned to
-          // this coach in this academy (the caller must resolve them first).
-          const futureSessions = await db.execute(sql`
-            SELECT id FROM sessions
-            WHERE coach_id   = ${targetMember.coachId}
-              AND academy_id  = ${academyId}
-              AND start_time  > NOW()
-              AND status      = 'scheduled'
-            LIMIT 10
-          `);
-          if (futureSessions.rows.length > 0) {
-            return res.status(409).json({
-              error: "Coach has future scheduled sessions. Resolve them before deactivating.",
-              futureSessionIds: futureSessions.rows.map((r: any) => r.id),
-            });
-          }
-
-          // Atomic deactivation: lock membership row → last-owner guard → deactivate.
+          // Atomic deactivation: lock membership row → last-owner guard →
+          // future-session check (INSIDE tx, after lock so no session can
+          // be created for this coach between the check and the commit) →
+          // deactivate.
           let updated: typeof coachAcademyMemberships.$inferSelect | undefined;
+          let futureSessionConflict: string[] | null = null;
           await db.transaction(async (tx) => {
-            // Lock the target membership row
+            // Lock the target membership row first — any concurrent operation
+            // that needs to read or modify this membership will block here.
             const locked = await tx.execute(sql`
               SELECT id, role, is_active
               FROM coach_academy_memberships
@@ -668,6 +656,27 @@ import { Router, type Request, type Response, type NextFunction } from "express"
             const cnt = ownerRows.rows.length;
             const isOwnerRole = ["owner", "academy_owner"].includes(lockedRow.role);
             if (isOwnerRole && cnt <= 1) throw new Error("LAST_OWNER");
+
+            // Future-session check INSIDE the transaction (after acquiring the
+            // membership lock) so that any concurrent session-creation or
+            // reassignment that would add a future session for this coach is
+            // serialised relative to this check.  Either the session exists
+            // here → we reject; or we commit first → the session creation sees
+            // is_active=false and must reject on its own guard.
+            const futureSessions = await tx.execute(sql`
+              SELECT id FROM sessions
+              WHERE coach_id   = ${targetMember.coachId}
+                AND academy_id  = ${academyId}
+                AND start_time  > NOW()
+                AND status      = 'scheduled'
+              LIMIT 10
+            `);
+            if (futureSessions.rows.length > 0) {
+              futureSessionConflict = futureSessions.rows.map((r: any) => r.id);
+              const err = new Error("FUTURE_SESSIONS") as any;
+              err.sessionIds = futureSessionConflict;
+              throw err;
+            }
 
             const [deactivated] = await tx
               .update(coachAcademyMemberships)
@@ -701,6 +710,12 @@ import { Router, type Request, type Response, type NextFunction } from "express"
         }
         if ((error as Error).message === "MEMBER_NOT_FOUND") {
           return res.status(404).json({ error: "Member not found" });
+        }
+        if ((error as Error).message === "FUTURE_SESSIONS") {
+          return res.status(409).json({
+            error: "Coach has future scheduled sessions. Resolve them before deactivating.",
+            futureSessionIds: (error as any).sessionIds ?? [],
+          });
         }
         console.error("Error updating member:", error);
         res.status(500).json({ error: "Failed to update member" });
@@ -761,14 +776,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
           return res.status(400).json({ error: "No coach profile found" });
         }
 
-        // Verify membership
-        const memberships = await storage.getCoachMemberships(coachId);
-        const membership = memberships.find((m) => m.academyId === academyId);
-
-        if (!membership) {
-          return res
-            .status(403)
-            .json({ error: "Not a member of this academy" });
+        // Verify membership exists AND is currently active — checked directly
+        // against the DB to avoid any stale JWT/header/coaches.academyId bypass.
+        const isActive = await storage.isCoachMembershipActive(coachId, academyId);
+        if (!isActive) {
+          // Covers both missing membership and is_active = false.
+          return res.status(403).json({
+            error: "MEMBERSHIP_INACTIVE",
+            message: "You do not have an active membership in this academy.",
+          });
         }
 
         // Update user's current academy and coach's academy

@@ -893,6 +893,20 @@ router.post(
 
       try {
         await db.transaction(async (tx) => {
+          // 0. Concurrency guard: lock the player row with FOR SHARE.
+          //    This ensures player-removal and booking-creation are mutually
+          //    exclusive — if the removal transaction holds FOR UPDATE we block
+          //    here until it commits, then see status='removed' and reject.
+          //    Conversely, if we hold FOR SHARE first, the removal's obligation
+          //    check will see the pending booking and reject removal instead.
+          const playerLockResult = await tx.execute(
+            sql`SELECT id, status FROM players WHERE id = ${playerId} FOR SHARE`,
+          );
+          const lockedPlayer = playerLockResult.rows[0] as { id: string; status: string } | undefined;
+          if (!lockedPlayer || lockedPlayer.status === "removed") {
+            throw new Error("PLAYER_REMOVED");
+          }
+
           // 1. Insert the booking request
           // Compute expiresAt from coach's response window setting
           let expiresAt: Date | null = null;
@@ -1050,6 +1064,12 @@ router.post(
           return res.status(409).json({
             error:
               "This court is no longer available for the requested time slot. Please choose another slot.",
+          });
+        }
+        if (txError?.message === "PLAYER_REMOVED") {
+          return res.status(409).json({
+            error: "PLAYER_REMOVED",
+            message: "This player has been removed from the academy and cannot make booking requests.",
           });
         }
         throw txError; // Re-throw to outer catch
