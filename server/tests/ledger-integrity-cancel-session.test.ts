@@ -2,7 +2,8 @@
  * Task #1338 — verify `refundV2ConsumesForCancelledSession` discovers
  * unrefunded consume rows for a cancelled session and emits paired
  * `+abs(delta)` refund rows with the deterministic eventKey
- * `cancelled-session-refund:<sessionPlayerId>`.
+ * `session-player-refund:<sessionPlayerId>` (canonical key shared with
+ * refundV2ConsumesForRemovedSessionPlayer — see B3-P0 fix in ledger-integrity.ts).
  *
  * This test mocks the SUT's two collaborators (`db.execute` and
  * `manualAdjustment`) so the assertions are about the *contract* between
@@ -72,7 +73,8 @@ describe("refundV2ConsumesForCancelledSession", () => {
       reason: "refund_cancelled_session",
       actorId: "system",
       actorRole: "system",
-      eventKey: "cancelled-session-refund:sp-1",
+      // B3-P0: canonical event key shared with refundV2ConsumesForRemovedSessionPlayer
+      eventKey: "session-player-refund:sp-1",
       sessionId: "sess-1",
       sessionPlayerId: "sp-1",
     }));
@@ -80,7 +82,7 @@ describe("refundV2ConsumesForCancelledSession", () => {
     expect(manualAdjustmentMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
       type: "private",
       delta: 2,
-      eventKey: "cancelled-session-refund:sp-2",
+      eventKey: "session-player-refund:sp-2",
       sessionPlayerId: "sp-2",
     }));
   });

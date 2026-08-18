@@ -7,17 +7,26 @@
  * documented in the task plan so re-runs (whether from the cron, the
  * backfill script, or the live code path) are always no-ops.
  *
+ * B3-P0 canonical event key — BOTH refund paths use the same event key
+ * format so the credit_ledger_v2_event_key_unique constraint acts as the
+ * final guard against double-refunds:
+ *
  *   refundV2ConsumesForCancelledSession(sessionId)
- *     → eventKey: `cancelled-session-refund:<sessionPlayerId>`
- *     → ledger.reason: `refund_cancelled_session`
- *     Called from `storage.cancelSession` (fail-closed: errors propagate).
+ *     → eventKey: `session-player-refund:<sessionPlayerId>`
+ *     → ledger.reason: `refund_cancelled_session`   (audit trail only)
  *
  *   refundV2ConsumesForRemovedSessionPlayer(sessionId, sessionPlayerId, tx?)
- *     → eventKey: `player-removed-refund:<sessionPlayerId>`
- *     → ledger.reason: `refund_player_removed`
- *     Called from `storage.removePlayerFromSession` INSIDE a single
- *     `db.transaction` so the refund + delete are atomic. Pass the outer
- *     `tx` so refund writes ROLLBACK with the delete on any failure.
+ *     → eventKey: `session-player-refund:<sessionPlayerId>`
+ *     → ledger.reason: `refund_player_removed`      (audit trail only)
+ *
+ * If both paths race to refund the same session_player consume row, the
+ * second INSERT will hit the unique index and raise a DuplicateEventError
+ * that processStaleRows already handles as `skipped`. The ledger.reason in
+ * the winning row records which path actually applied the refund.
+ *
+ * Called from `storage.cancelCoachSessionAtomic`, `cancelSession`, and
+ * `removePlayerFromSession`. The outer tx is forwarded so writes rollback
+ * atomically with the rest of the cancel / remove transaction.
  */
 
 import { sql } from "drizzle-orm";
@@ -58,6 +67,16 @@ export async function refundV2ConsumesForCancelledSession(
 ): Promise<RefundResult> {
   // Accept an optional transaction so callers inside a db.transaction() can
   // include the V2 refund atomically with the rest of the cancellation work.
+  // B3-P0 residual: FOR UPDATE OF l acquires a row-level lock on every
+  // unrefunded consume row before processStaleRows writes refunds.
+  // Without this, a concurrent removePlayerFromSession can SELECT the same
+  // consume rows (unrefunded at that instant) and emit a second refund under
+  // a different event key prefix, producing a double-credit despite per-path
+  // idempotency.  With FOR UPDATE, the second operation blocks until the first
+  // commits; it then re-evaluates NOT EXISTS and finds the refund already
+  // applied → skips the row.
+  // Important: must be called inside an outer transaction (tx must be set)
+  // so the lock is released atomically with the refund insert.
   const exec = tx ?? db;
   const stale = await exec.execute(sql`
     SELECT
@@ -78,13 +97,16 @@ export async function refundV2ConsumesForCancelledSession(
           AND r.delta > 0
           AND r.reason IN ${REFUND_REASONS_SQL}
       )
+    FOR UPDATE OF l
   `);
 
   return await processStaleRows(
     stale.rows as unknown as StaleConsumeRow[],
     {
       ledgerReason: "refund_cancelled_session",
-      eventKeyPrefix: "cancelled-session-refund",
+      // B3-P0: canonical event key shared with refundV2ConsumesForRemovedSessionPlayer
+      // so the unique index acts as the single-refund-per-sp_id guard.
+      eventKeyPrefix: "session-player-refund",
       sessionId,
     },
     tx ?? null,
@@ -96,6 +118,10 @@ export async function refundV2ConsumesForRemovedSessionPlayer(
   sessionPlayerId: string,
   tx?: Tx,
 ): Promise<RefundResult> {
+  // B3-P0 residual: FOR UPDATE OF l — same serialisation rationale as
+  // refundV2ConsumesForCancelledSession.  Prevents the cancel-and-remove
+  // double-refund race where both paths SELECT the same unrefunded consume
+  // row before either has committed a refund row.
   const exec = tx ?? db;
   const stale = await exec.execute(sql`
     SELECT
@@ -115,13 +141,16 @@ export async function refundV2ConsumesForRemovedSessionPlayer(
           AND r.delta > 0
           AND r.reason IN ${REFUND_REASONS_SQL}
       )
+    FOR UPDATE OF l
   `);
 
   return await processStaleRows(
     stale.rows as unknown as StaleConsumeRow[],
     {
       ledgerReason: "refund_player_removed",
-      eventKeyPrefix: "player-removed-refund",
+      // B3-P0: canonical event key — same prefix as refundV2ConsumesForCancelledSession
+      // so both paths share the unique index guard (see module header).
+      eventKeyPrefix: "session-player-refund",
       sessionId,
     },
     tx ?? null,
@@ -132,14 +161,26 @@ async function processStaleRows(
   rows: StaleConsumeRow[],
   cfg: {
     ledgerReason: "refund_cancelled_session" | "refund_player_removed";
-    eventKeyPrefix: "cancelled-session-refund" | "player-removed-refund";
+    // B3-P0: canonical event key — both paths now use "session-player-refund"
+    eventKeyPrefix: "session-player-refund";
     sessionId: string | null;
   },
   tx: Tx | null,
 ): Promise<RefundResult> {
+  // B3-P1 deadlock prevention: sort by (player_id, type) before acquiring
+  // per-player balance locks inside manualAdjustmentTx.  All concurrent
+  // multi-player refund loops therefore try to lock balance rows in the same
+  // canonical order, eliminating the A→B / B→A lock cycle.
+  const sortedRows = [...rows].sort((a, b) => {
+    if (a.player_id < b.player_id) return -1;
+    if (a.player_id > b.player_id) return 1;
+    if (a.type < b.type) return -1;
+    if (a.type > b.type) return 1;
+    return 0;
+  });
   let refunded = 0;
   let skipped = 0;
-  for (const r of rows) {
+  for (const r of sortedRows) {
     const eventKey = `${cfg.eventKeyPrefix}:${r.session_player_id}`;
     const input = {
       playerId: r.player_id,

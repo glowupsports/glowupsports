@@ -1,10 +1,9 @@
 /**
  * Task #1338 — verify `refundV2ConsumesForRemovedSessionPlayer` emits
- * paired refund rows with the deterministic eventKey
- * `player-removed-refund:<sessionPlayerId>` for any unrefunded V2 consume
- * row tied to the given session_player. This is the helper that
- * `storage.removePlayerFromSession` calls *before* the actual delete to
- * avoid creating ghost orphans.
+ * paired refund rows with the deterministic canonical eventKey
+ * `session-player-refund:<sessionPlayerId>` (B3-P0 fix: shared with
+ * refundV2ConsumesForCancelledSession so the unique index prevents
+ * double-refunds across concurrent cancel + remove operations).
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -29,7 +28,7 @@ beforeEach(() => {
 });
 
 describe("refundV2ConsumesForRemovedSessionPlayer", () => {
-  it("emits a +abs(delta) refund_player_removed row with player-removed-refund:<spId> event_key", async () => {
+  it("emits a +abs(delta) refund_player_removed row with canonical session-player-refund:<spId> event_key", async () => {
     dbExecuteMock.mockResolvedValueOnce({
       rows: [
         {
@@ -61,7 +60,8 @@ describe("refundV2ConsumesForRemovedSessionPlayer", () => {
         reason: "refund_player_removed",
         actorId: "system",
         actorRole: "system",
-        eventKey: "player-removed-refund:sp-99",
+        // B3-P0: canonical event key shared with refundV2ConsumesForCancelledSession
+        eventKey: "session-player-refund:sp-99",
         sessionId: "sess-7",
         sessionPlayerId: "sp-99",
       }),

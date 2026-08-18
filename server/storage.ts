@@ -4606,42 +4606,44 @@ export const storage = {
   },
 
   async cancelSession(id: string): Promise<Session | undefined> {
-    const result = await db
-      .update(sessions)
-      .set({ status: "cancelled" })
-      .where(eq(sessions.id, id))
-      .returning();
-
-    // Cancel any unsettled debt transactions for all players in this session.
-    // We cancel for ALL players regardless of creditDeductedAt so that debts created
-    // by ensureCreditProcessed (which DOES set creditDeductedAt) are also cleaned up.
-    const players = await db
-      .select({ playerId: sessionPlayers.playerId })
-      .from(sessionPlayers)
-      .where(eq(sessionPlayers.sessionId, id));
-
-    for (const sp of players) {
-      await this.cancelSessionDebt(sp.playerId!, id, "session_cancelled");
-    }
-
-    // Task #1338 — V2 ledger refund. The legacy `cancelSessionDebt` path
-    // above only touches V1 `creditTransactions`. Any V2
-    // `credit_ledger_v2.consume` row tied to a `session_player` of this
-    // now-cancelled session is left as a permanent over-charge unless we
-    // explicitly refund it here. Idempotent on
-    // `event_key = cancelled-session-refund:<sessionPlayerId>`.
-    //
-    // Fail-closed: if the V2 refund fails, we re-throw so the caller sees an
-    // error instead of "success with silent drift". The refund query is
-    // idempotent (event_key UNIQUE), so a retry of `cancelSession` is safe
-    // — `cancelSessionDebt` is also keyed on existing V1 status and won't
-    // double-cancel.
+    // B3-P0 residual — wrap the sessions UPDATE, V1 debt poison, and V2 refund
+    // in a single transaction so a refund failure rolls back the cancellation
+    // (session stays scheduled) rather than leaving a cancelled session with an
+    // outstanding V2 debit.  Also acquire the sessions row lock first so this
+    // method serialises with consumeCredit (which locks sessions via FOR UPDATE
+    // OF sp, s) and cancelCoachSessionAtomic (also FOR UPDATE on sessions).
     const { refundV2ConsumesForCancelledSession } = await import(
       "./services/ledger-integrity"
     );
-    await refundV2ConsumesForCancelledSession(id);
+    return await db.transaction(async (tx) => {
+      // Step 0: row-level lock on sessions (prevents consume/cancel race).
+      await tx.execute(sql`SELECT id FROM sessions WHERE id = ${id} FOR UPDATE`);
 
-    return result[0];
+      const result = await tx
+        .update(sessions)
+        .set({ status: "cancelled" })
+        .where(eq(sessions.id, id))
+        .returning();
+
+      // Cancel any unsettled V1 debt transactions for all players in this session.
+      // cancelSessionDebt uses db.* internally so its writes are best-effort;
+      // these are V1 legacy rows and not the billing source of truth.
+      const players = await tx
+        .select({ playerId: sessionPlayers.playerId })
+        .from(sessionPlayers)
+        .where(eq(sessionPlayers.sessionId, id));
+
+      for (const sp of players) {
+        await this.cancelSessionDebt(sp.playerId!, id, "session_cancelled");
+      }
+
+      // V2 refund — pass tx so this is atomic with the sessions UPDATE.
+      // Idempotent on event_key = cancelled-session-refund:<sessionPlayerId>.
+      // If this throws → tx rolls back → session stays scheduled → no orphaned debit.
+      await refundV2ConsumesForCancelledSession(id, tx);
+
+      return result[0];
+    });
   },
 
   // Conflict checking
@@ -5123,15 +5125,19 @@ export const storage = {
       "./services/ledger-integrity"
     );
     await db.transaction(async (tx) => {
-      const sps = await tx
-        .select({ id: sessionPlayers.id })
-        .from(sessionPlayers)
-        .where(
-          and(
-            eq(sessionPlayers.sessionId, sessionId),
-            eq(sessionPlayers.playerId, playerId),
-          ),
-        );
+      // B3-P0 residual — lock the session_players rows with FOR UPDATE before
+      // querying the V2 ledger for consumes to refund.  Without this lock a
+      // concurrent consumeCredit (which also locks session_players via FOR UPDATE
+      // OF sp, s) could commit a new consume row between our refund query and the
+      // DELETE, leaving an orphaned, unrefunded V2 debit row.
+      const spsResult = await tx.execute(sql`
+        SELECT sp.id
+        FROM session_players sp
+        WHERE sp.session_id = ${sessionId}
+          AND sp.player_id = ${playerId}
+        FOR UPDATE OF sp
+      `);
+      const sps = spsResult.rows as { id: string }[];
 
       for (const sp of sps) {
         await refundV2ConsumesForRemovedSessionPlayer(sessionId, sp.id, tx);
@@ -8446,33 +8452,45 @@ export const storage = {
     // decrement + credit_transactions write-path. The engine handles
     // attendance + chargeability internally and is idempotent on
     // `consume:<sessionPlayerId>`, so re-runs are safe.
-    if (academyId) {
-      const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
-      if (await isV2EnabledForAcademy(academyId)) {
-        try {
-          const sps = await db.execute(sql`
-            SELECT id FROM session_players WHERE session_id = ${sessionId}
-          `);
-          const { consumeCredit } = await import("./services/credit-engine");
-          for (const row of sps.rows) {
-            const spId = (row as { id: string }).id;
-            try {
-              const r = await consumeCredit({ sessionPlayerId: spId, actorRole: "system" });
-              if (r.charged) results.consumed += 1;
-              else results.skipped += 1;
-            } catch (err: any) {
-              results.errors.push(`sp ${spId}: ${err?.message ?? String(err)}`);
-            }
+    // B3-P0 residual — fail closed when academy identity is absent so the
+    // code never falls through to V1 credit_transactions INSERT paths.
+    if (!academyId) {
+      console.error(
+        `[consumeCreditsForClassSession][FAIL-CLOSED] No academy_id for session=${sessionId} — V1 writes permanently disabled, skipping billing`,
+      );
+      return results;
+    }
+    const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
+    if (await isV2EnabledForAcademy(academyId)) {
+      try {
+        const sps = await db.execute(sql`
+          SELECT id FROM session_players WHERE session_id = ${sessionId}
+        `);
+        const { consumeCredit } = await import("./services/credit-engine");
+        for (const row of sps.rows) {
+          const spId = (row as { id: string }).id;
+          try {
+            const r = await consumeCredit({ sessionPlayerId: spId, actorRole: "system" });
+            if (r.charged) results.consumed += 1;
+            else results.skipped += 1;
+          } catch (err: any) {
+            results.errors.push(`sp ${spId}: ${err?.message ?? String(err)}`);
           }
-          return results;
-        } catch (v2Err: any) {
-          console.error(`[consumeCreditsForClassSession][V2] failed for session ${sessionId}:`, v2Err);
-          results.errors.push(v2Err?.message ?? "v2_consume_error");
-          return results;
         }
+        return results;
+      } catch (v2Err: any) {
+        console.error(`[consumeCreditsForClassSession][V2] failed for session ${sessionId}:`, v2Err);
+        results.errors.push(v2Err?.message ?? "v2_consume_error");
+        return results;
       }
     }
-    
+    // V2 flag returned false — should be impossible (hard-coded true), fail closed.
+    console.error(`[consumeCreditsForClassSession][FAIL-CLOSED] V2 flag false for academy=${academyId} — V1 writes disabled`);
+    return results;
+
+    // Legacy V1 path — unreachable now that V2 is canonical and all code
+    // paths above return before here.  Kept for reference only; will be
+    // deleted in the V1-cleanup follow-up task.
     // Fetch session duration for proportional credit charging
     const sessionResult = await db.select({ duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
     const sessionDuration = sessionResult[0]?.duration || 60;
@@ -8623,39 +8641,50 @@ export const storage = {
     // attendance-based "originally private" + semi→private re-classification
     // internally, so we just hand it every session_player and let it decide
     // chargeability. Idempotent on `consume:<sessionPlayerId>`.
-    if (academyId) {
-      const { isV2EnabledForAcademy } = await import("./services/credit-feature-flag");
-      if (await isV2EnabledForAcademy(academyId)) {
-        try {
-          const sps = await db.execute(sql`
-            SELECT id FROM session_players WHERE session_id = ${sessionId}
-          `);
-          const { consumeCredit } = await import("./services/credit-engine");
-          let lastType: string | null = null;
-          for (const row of sps.rows) {
-            const spId = (row as { id: string }).id;
-            try {
-              const r = await consumeCredit({ sessionPlayerId: spId, actorRole: "system" });
-              if (r.charged) {
-                results.consumed += 1;
-                if (r.type) lastType = r.type;
-              } else {
-                results.skipped += 1;
-              }
-            } catch (err: any) {
-              results.errors.push(`sp ${spId}: ${err?.message ?? String(err)}`);
+    //
+    // B3-P0 residual — fail closed when academy identity is absent so the
+    // code never falls through to V1 credit_transactions INSERT paths.
+    if (!academyId) {
+      console.error(
+        `[consumeCreditsForClassSessionWithAttendance][FAIL-CLOSED] No academy_id for session=${sessionId} — V1 writes permanently disabled, skipping billing`,
+      );
+      return results;
+    }
+    const { isV2EnabledForAcademy: isV2EFAWithAttendance } = await import("./services/credit-feature-flag");
+    if (await isV2EFAWithAttendance(academyId)) {
+      try {
+        const sps = await db.execute(sql`
+          SELECT id FROM session_players WHERE session_id = ${sessionId}
+        `);
+        const { consumeCredit } = await import("./services/credit-engine");
+        let lastType: string | null = null;
+        for (const row of sps.rows) {
+          const spId = (row as { id: string }).id;
+          try {
+            const r = await consumeCredit({ sessionPlayerId: spId, actorRole: "system" });
+            if (r.charged) {
+              results.consumed += 1;
+              if (r.type) lastType = r.type;
+            } else {
+              results.skipped += 1;
             }
+          } catch (err: any) {
+            results.errors.push(`sp ${spId}: ${err?.message ?? String(err)}`);
           }
-          if (lastType) results.actualCreditType = lastType;
-          return results;
-        } catch (v2Err: any) {
-          console.error(`[consumeCreditsForClassSessionWithAttendance][V2] failed for session ${sessionId}:`, v2Err);
-          results.errors.push(v2Err?.message ?? "v2_consume_error");
-          return results;
         }
+        if (lastType) results.actualCreditType = lastType;
+        return results;
+      } catch (v2Err: any) {
+        console.error(`[consumeCreditsForClassSessionWithAttendance][V2] failed for session ${sessionId}:`, v2Err);
+        results.errors.push(v2Err?.message ?? "v2_consume_error");
+        return results;
       }
     }
-    
+    // V2 flag returned false — should be impossible (hard-coded true), fail closed.
+    console.error(`[consumeCreditsForClassSessionWithAttendance][FAIL-CLOSED] V2 flag false for academy=${academyId} — V1 writes disabled`);
+    return results;
+
+    // Legacy V1 path — dead code. Kept as reference; will be removed in V1-cleanup task.
     // Fetch session duration for proportional credit charging
     const sessionResult = await db.select({ duration: sessions.duration }).from(sessions).where(eq(sessions.id, sessionId)).limit(1);
     const sessionDuration = sessionResult[0]?.duration || 60;
@@ -14547,13 +14576,20 @@ async function ensureCreditProcessed(
     }
 
     if (!academyIdForGate) {
-      // P1 alert: lookup never resolved an academy_id, so V2 short-circuit
-      // can't fire and we'd silently fall through to the legacy ledger
-      // (= the Apr 19 bypass shape). Callers should pass `academyIdHint`
-      // wherever possible to avoid this entirely.
-      console.warn(
-        `[EnsureCredit][V2-MISS] sessionPlayerId=${sessionPlayerId} academyId=null reason=lookup_returned_no_rows`,
+      // B3-P0 residual — fail closed: when academy identity cannot be resolved
+      // we must NOT fall through to the legacy V1 credit_transactions INSERT.
+      // V1 writes are permanently disabled system-wide (v1WritesAllowed = false).
+      // Returning action="error" (retryable) instead of "not_attended" so the
+      // repair/reconciliation cron does NOT stamp credit_deducted_at and will
+      // re-queue this session_player on the next reconciliation cycle.
+      console.error(
+        `[EnsureCredit][FAIL-CLOSED] sessionPlayerId=${sessionPlayerId} academyId=null reason=lookup_returned_no_rows — V1 writes disabled, returning retryable error`,
       );
+      return {
+        success: false,
+        action: "error" as const,
+        error: "no_academy_id_transient — academy lookup returned no rows; retry on next reconciliation cycle",
+      };
     }
 
     void acadLookupReason;

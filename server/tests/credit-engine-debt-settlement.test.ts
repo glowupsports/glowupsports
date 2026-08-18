@@ -117,10 +117,11 @@ class FakeDb {
       const balanceAfter = params[12] as number;
       const rawMeta = params[13];
       const metadata = typeof rawMeta === "string" ? JSON.parse(rawMeta) : (rawMeta ?? null);
+      // B3-P1 tx-safety: insertLedger now uses ON CONFLICT DO NOTHING so the
+      // DB never throws 23505. Simulate the same: if the event key exists,
+      // return empty rows (DO NOTHING) instead of throwing.
       if (this.ledger.has(eventKey)) {
-        const e: Error & { code?: string } = new Error("duplicate key");
-        e.code = "23505";
-        throw e;
+        return { rows: [], rowCount: 0 };
       }
       this.ledger.set(eventKey, { delta, reason, lotId, metadata, balanceAfter });
       return { rows: [{ id: `lg-${this.ledger.size}` }], rowCount: 1 };

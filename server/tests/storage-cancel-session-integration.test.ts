@@ -1,17 +1,13 @@
 /**
  * Task #1338 — integration-flavored test for `storage.cancelSession`.
  *
- * The key property to verify is "fail-closed on V2 refund failure": if the
- * V2 ledger refund throws, the `cancelSession` call must propagate the
- * error so the caller sees a 5xx instead of "success with silent drift".
- * The refund query and `cancelSessionDebt` are both idempotent, so a retry
- * after a transient failure is safe.
+ * B3-P0 residual fix: cancelSession now wraps all writes in a single
+ * db.transaction and passes tx to refundV2ConsumesForCancelledSession so
+ * that a refund failure rolls back the sessions UPDATE (session stays
+ * scheduled rather than cancelled with an outstanding V2 debit).
  *
- * The session row is already updated to `status='cancelled'` BEFORE the
- * refund runs — this matches existing behavior and is fine: a retry of
- * `cancelSession` will re-discover stale consume rows via the JOIN to
- * `sessions.status='cancelled'` (in the backfill script) or via the live
- * helper which joins `session_players → sessions` regardless of status.
+ * The sessions row is also locked via SELECT … FOR UPDATE at the start of
+ * the transaction so this method serialises with consumeCredit.
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -19,28 +15,40 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const refundFnMock = vi.fn();
 const cancelSessionDebtMock = vi.fn();
 
+let capturedTx: unknown = null;
+
 vi.mock("../db", () => {
-  const updateChain = {
-    set: () => updateChain,
-    where: () => updateChain,
-    returning: () => Promise.resolve([{ id: "sess-1", status: "cancelled" }]),
-  };
-  const selectChain = {
-    from: () => selectChain,
-    where: () => Promise.resolve([{ playerId: "player-1" }, { playerId: "player-2" }]),
+  const txObject: any = {
+    // B3-P0: cancelSession now opens with SELECT … FOR UPDATE on sessions.
+    execute: () => Promise.resolve({ rows: [{ id: "sess-1" }] }),
+    update: () => ({
+      set: () => ({
+        where: () => ({
+          returning: () => Promise.resolve([{ id: "sess-1", status: "cancelled" }]),
+        }),
+      }),
+    }),
+    select: () => ({
+      from: () => ({
+        where: () => Promise.resolve([{ playerId: "player-1" }, { playerId: "player-2" }]),
+      }),
+    }),
   };
   return {
     db: {
-      update: () => updateChain,
-      select: () => selectChain,
-      transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({}),
+      transaction: async (fn: (tx: unknown) => Promise<unknown>) => {
+        capturedTx = txObject;
+        return fn(txObject);
+      },
     },
     pool: {},
   };
 });
 
 vi.mock("../services/ledger-integrity", () => ({
-  refundV2ConsumesForCancelledSession: (sessionId: string) => refundFnMock(sessionId),
+  // B3-P0: refundV2ConsumesForCancelledSession now receives (sessionId, tx).
+  refundV2ConsumesForCancelledSession: (sessionId: string, tx: unknown) =>
+    refundFnMock(sessionId, tx),
   refundV2ConsumesForRemovedSessionPlayer: vi.fn(),
 }));
 
@@ -56,18 +64,20 @@ const { storage } = await import("../storage");
 beforeEach(() => {
   refundFnMock.mockReset();
   cancelSessionDebtMock.mockReset();
+  capturedTx = null;
   // Stub the V1 debt cancellation so we don't need to mock more of db.
   (storage as any).cancelSessionDebt = cancelSessionDebtMock;
   cancelSessionDebtMock.mockResolvedValue(undefined);
 });
 
 describe("storage.cancelSession (Task #1338 fail-closed wiring)", () => {
-  it("invokes the V2 refund helper exactly once with the session id", async () => {
+  it("invokes the V2 refund helper exactly once, passing the transaction", async () => {
     refundFnMock.mockResolvedValueOnce({ refunded: 0, skipped: 0 });
     const out = await storage.cancelSession("sess-1");
     expect(out).toEqual({ id: "sess-1", status: "cancelled" });
     expect(refundFnMock).toHaveBeenCalledTimes(1);
-    expect(refundFnMock).toHaveBeenCalledWith("sess-1");
+    // The tx object must be forwarded so V2 refund is atomic with the UPDATE.
+    expect(refundFnMock).toHaveBeenCalledWith("sess-1", capturedTx);
     // V1 debt cancellation runs once per player (2 in our mock).
     expect(cancelSessionDebtMock).toHaveBeenCalledTimes(2);
   });

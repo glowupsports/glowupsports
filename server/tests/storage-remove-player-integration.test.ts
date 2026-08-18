@@ -22,11 +22,9 @@ const refundHelperMock = vi.fn();
 let txDeleteShouldThrow = false;
 
 const txObject: any = {
-  select: () => ({
-    from: () => ({
-      where: () => Promise.resolve([{ id: "sp-99" }]),
-    }),
-  }),
+  // B3-P0 residual: removePlayerFromSession now uses tx.execute(sql`…FOR UPDATE OF sp`)
+  // instead of tx.select() so it acquires the row lock before the refund query.
+  execute: () => Promise.resolve({ rows: [{ id: "sp-99" }] }),
   delete: () => ({
     where: () => {
       callLog.push("delete");

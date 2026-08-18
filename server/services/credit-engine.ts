@@ -172,33 +172,39 @@ async function insertLedger(
     occurredAt?: Date;
   },
 ): Promise<{ id: string } | null> {
-  try {
-    const result = await tx.execute(sql`
-      INSERT INTO credit_ledger_v2 (
-        player_id, academy_id, type, delta, reason, event_key,
-        actor_id, actor_role, session_id, session_player_id, lot_id, invoice_id,
-        balance_after, metadata, occurred_at
-      ) VALUES (
-        ${args.playerId}, ${args.academyId}, ${args.type}, ${args.delta},
-        ${args.reason}, ${args.eventKey},
-        ${args.actorId ?? null}, ${args.actorRole ?? null},
-        ${args.sessionId ?? null}, ${args.sessionPlayerId ?? null},
-        ${args.lotId ?? null}, ${args.invoiceId ?? null},
-        ${args.balanceAfter}, ${args.metadata ? JSON.stringify(args.metadata) : null}::jsonb,
-        ${args.occurredAt ?? new Date()}
-      )
-      RETURNING id
-    `);
-    const row = result.rows[0] as { id: string } | undefined;
-    return row ?? null;
-  } catch (err) {
-    const e = err as { code?: string };
-    if (e.code === "23505") {
-      // Duplicate eventKey — treat as already processed.
-      return null;
-    }
-    throw err;
-  }
+  // B3-P1 tx-safety: use ON CONFLICT (event_key) DO NOTHING instead of
+  // catching SQLSTATE 23505 in JavaScript.
+  //
+  // When a unique violation is raised inside an active PostgreSQL transaction,
+  // PG marks that transaction as ABORTED — even if JS catches the exception.
+  // Any subsequent SQL in the same tx then fails with "current transaction is
+  // aborted, commands ignored until end of transaction block", breaking the
+  // outer cancel/remove transaction.
+  //
+  // ON CONFLICT DO NOTHING emits no exception. If the event_key row already
+  // exists, the INSERT silently does nothing and RETURNING returns zero rows.
+  // `insertLedger` returns null; `manualAdjustmentTxBody` throws a pure-JS
+  // DuplicateEventError; `processStaleRows` catches it as `skipped`; the
+  // outer transaction remains alive and can commit successfully.
+  const result = await tx.execute(sql`
+    INSERT INTO credit_ledger_v2 (
+      player_id, academy_id, type, delta, reason, event_key,
+      actor_id, actor_role, session_id, session_player_id, lot_id, invoice_id,
+      balance_after, metadata, occurred_at
+    ) VALUES (
+      ${args.playerId}, ${args.academyId}, ${args.type}, ${args.delta},
+      ${args.reason}, ${args.eventKey},
+      ${args.actorId ?? null}, ${args.actorRole ?? null},
+      ${args.sessionId ?? null}, ${args.sessionPlayerId ?? null},
+      ${args.lotId ?? null}, ${args.invoiceId ?? null},
+      ${args.balanceAfter}, ${args.metadata ? JSON.stringify(args.metadata) : null}::jsonb,
+      ${args.occurredAt ?? new Date()}
+    )
+    ON CONFLICT DO NOTHING
+    RETURNING id
+  `);
+  const row = result.rows[0] as { id: string } | undefined;
+  return row ?? null;
 }
 
 // ============================================================================
@@ -436,16 +442,24 @@ export async function consumeCredit(
   const eventKey = input.eventKey ?? `consume:${input.sessionPlayerId}`;
 
   const result = await db.transaction(async (tx) => {
-    // Lock the session_player row + join session info.
+    // B3-P0 residual — lock BOTH session_players and sessions rows so that
+    // consumeCredit and cancelCoachSessionAtomic are mutually serialised:
+    // - cancelCoachSessionAtomic does `SELECT … FOR UPDATE` on sessions.
+    // - consumeCredit does `FOR UPDATE OF sp, s` here.
+    // If a cancellation holds the sessions lock, this transaction waits and
+    // then reads session_status = 'cancelled' → returns no-charge.
+    // If this transaction holds both locks first, the cancellation refund
+    // query will see the consume row and include it in the refund.
     const spResult = await tx.execute(sql`
       SELECT
         sp.id, sp.session_id, sp.player_id, sp.attendance_status,
         s.session_type, s.series_id, s.academy_id, s.duration,
+        s.status AS session_status,
         COALESCE(s.credit_cost, 1) AS credit_cost
       FROM session_players sp
       JOIN sessions s ON s.id = sp.session_id
       WHERE sp.id = ${input.sessionPlayerId}
-      FOR UPDATE OF sp
+      FOR UPDATE OF sp, s
     `);
 
     if (spResult.rows.length === 0) {
@@ -469,8 +483,24 @@ export async function consumeCredit(
       series_id: string | null;
       academy_id: string | null;
       duration: number | null;
+      session_status: string | null;
       credit_cost: string | number;
     };
+
+    // B3-P0 residual — if the session is already cancelled (committed by a
+    // concurrent cancelCoachSessionAtomic that we waited on above), do not
+    // emit a consume row.  The cancellation refund will cover this player.
+    if (sp.session_status === "cancelled") {
+      return {
+        ok: true as const,
+        alreadyApplied: false,
+        charged: false,
+        type: null,
+        amount: 0,
+        newBalance: null,
+        lotIdsConsumed: [],
+      };
+    }
 
     if (!sp.academy_id) {
       return {
