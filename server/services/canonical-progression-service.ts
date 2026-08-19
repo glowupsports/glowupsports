@@ -17,6 +17,7 @@ import {
   canonicalDecisionApplicationReceipts,
   canonicalDecisionSnapshots,
   canonicalEvidenceContributions,
+  canonicalProgressionRejectedRequests,
   canonicalSkillDefinitions,
   developmentDecisionEvidenceLinks,
   developmentDecisionExecutionAttempts,
@@ -86,6 +87,8 @@ export interface CanonicalDecisionInput {
   evidenceRefs: string[];
   rationale?: string;
   observations: TrustedEvidenceObservation[];
+  requestId?: string;
+  idempotencyKey?: string;
 }
 
 export interface CanonicalCurrentDto {
@@ -121,6 +124,64 @@ export class CanonicalProgressionError extends Error {
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function rejectedRequestFingerprint(input: CanonicalDecisionInput) {
+  return sha256(JSON.stringify({
+    academyId: input.academyId,
+    playerId: input.playerId,
+    benchmarkId: input.benchmarkId,
+    proposedBenchmarkMastery: input.proposedBenchmarkMastery,
+    confidence: input.confidence,
+    evidenceRefs: [...input.evidenceRefs].sort(),
+    observations: input.observations.map((observation) => ({
+      evidenceIds: [...observation.evidenceIds].sort(),
+      sourceSystem: observation.sourceSystem,
+      underlyingEventOrSessionId: observation.underlyingEventOrSessionId,
+      sourceType: observation.sourceType,
+      observationWindow: observation.observationWindow,
+    })),
+  }));
+}
+
+async function auditUnresolvedTargetAndThrow(
+  input: CanonicalDecisionInput,
+  code: "TARGET_ACADEMY_NOT_RESOLVED" | "TARGET_PLAYER_NOT_RESOLVED" | "TARGET_SCOPE_NOT_RESOLVED",
+  detail: string,
+): Promise<never> {
+  const fingerprint = rejectedRequestFingerprint(input);
+  const suppliedRequestIdentity = input.idempotencyKey ?? input.requestId;
+  const suppliedRequestIdentityHash = suppliedRequestIdentity ? sha256(suppliedRequestIdentity) : null;
+  const requestIdentity = sha256([
+    input.actor.userId,
+    suppliedRequestIdentityHash ?? [input.academyId ?? "", input.playerId ?? "", fingerprint].join("|"),
+  ].join("|"));
+  await db.insert(canonicalProgressionRejectedRequests).values({
+    requestIdentity,
+    requestId: input.requestId ?? null,
+    authenticatedActorId: input.actor.userId,
+    authenticatedActorRole: input.actor.role,
+    submittedAcademyIdentifier: input.academyId ?? null,
+    submittedPlayerIdentifier: input.playerId ?? null,
+    submittedIdempotencyKeyHash: input.idempotencyKey ? sha256(input.idempotencyKey) : null,
+    rejectionStage: "TARGET_RESOLUTION",
+    stableRejectionCode: code,
+    internalRejectionDetail: detail,
+    requestPayloadHash: fingerprint,
+  }).onConflictDoNothing();
+  throw new CanonicalProgressionError("CANONICAL_TARGET_NOT_RESOLVED", "Canonical target cannot be resolved", 404);
+}
+
+async function resolveCanonicalTargetOrAudit(input: CanonicalDecisionInput): Promise<void> {
+  const [academy] = await db.select({ id: academies.id }).from(academies)
+    .where(eq(academies.id, input.academyId)).limit(1);
+  if (!academy) return auditUnresolvedTargetAndThrow(input, "TARGET_ACADEMY_NOT_RESOLVED", "Submitted academy identifier did not resolve");
+  const [player] = await db.select({ id: players.id, academyId: players.academyId }).from(players)
+    .where(eq(players.id, input.playerId)).limit(1);
+  if (!player) return auditUnresolvedTargetAndThrow(input, "TARGET_PLAYER_NOT_RESOLVED", "Submitted player identifier did not resolve");
+  if (player.academyId !== input.academyId) {
+    return auditUnresolvedTargetAndThrow(input, "TARGET_SCOPE_NOT_RESOLVED", "Submitted player is outside submitted academy scope");
+  }
 }
 
 function asNumber(value: unknown): number {
@@ -561,6 +622,7 @@ export async function proposeAndValidateDevelopmentDecision(input: CanonicalDeci
   if (!input?.actor?.userId) {
     throw new CanonicalProgressionError("AUTH_REVALIDATION_FAILED", "Authenticated actor identity is required", 401);
   }
+  await resolveCanonicalTargetOrAudit(input);
   await ensureCanonicalProgressionConfigPersisted();
   const v = versions();
   const config = loadFrozenArtifacts().freeze.evidence_config;

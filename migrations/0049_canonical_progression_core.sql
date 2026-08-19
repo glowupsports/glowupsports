@@ -258,6 +258,39 @@ CREATE TABLE IF NOT EXISTS canonical_recalibration_event (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Authenticated request-level audit for targets that cannot safely become a
+-- FK-backed development_decision. This is not canonical state or history.
+CREATE TABLE IF NOT EXISTS canonical_progression_rejected_request (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  request_identity TEXT NOT NULL UNIQUE,
+  request_id TEXT,
+  authenticated_actor_id VARCHAR NOT NULL,
+  authenticated_actor_role TEXT NOT NULL,
+  submitted_academy_identifier TEXT,
+  submitted_player_identifier TEXT,
+  submitted_idempotency_key_hash TEXT,
+  rejection_stage TEXT NOT NULL,
+  stable_rejection_code TEXT NOT NULL,
+  internal_rejection_detail TEXT,
+  request_payload_hash TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE canonical_progression_rejected_request
+  DROP COLUMN IF EXISTS submitted_idempotency_key;
+ALTER TABLE canonical_progression_rejected_request
+  ADD COLUMN IF NOT EXISTS submitted_idempotency_key_hash TEXT;
+
+-- A player must always belong to the academy carried by any canonical
+-- decision, including direct database writes outside the application service.
+CREATE UNIQUE INDEX IF NOT EXISTS players_academy_id_id_unique
+  ON players(academy_id, id);
+DO $$ BEGIN
+  ALTER TABLE development_decision
+    ADD CONSTRAINT development_decision_academy_player_fk
+    FOREIGN KEY (academy_id, player_id) REFERENCES players(academy_id, id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 CREATE INDEX IF NOT EXISTS canonical_skill_definition_family_idx ON canonical_skill_definition(family);
 CREATE INDEX IF NOT EXISTS canonical_skill_definition_pillar_idx ON canonical_skill_definition(pillar);
 CREATE INDEX IF NOT EXISTS canonical_benchmark_pathway_level_idx ON canonical_benchmark_definition(pathway, level);
@@ -349,6 +382,11 @@ DROP TRIGGER IF EXISTS canonical_development_decision_guard ON development_decis
 CREATE TRIGGER canonical_development_decision_guard
 BEFORE UPDATE OR DELETE ON development_decision
 FOR EACH ROW EXECUTE FUNCTION canonical_guard_development_decision();
+
+DROP TRIGGER IF EXISTS canonical_rejected_request_immutable_guard ON canonical_progression_rejected_request;
+CREATE TRIGGER canonical_rejected_request_immutable_guard
+BEFORE UPDATE OR DELETE ON canonical_progression_rejected_request
+FOR EACH ROW EXECUTE FUNCTION canonical_reject_immutable_write();
 
 DO $$
 DECLARE

@@ -461,4 +461,83 @@ describeDatabase("canonical progression database integration", () => {
     expect(Number(counts.receipt_count)).toBe(0);
     expect(Number(counts.rejection_count)).toBeGreaterThanOrEqual(4);
   });
+
+  it("audits unresolved authenticated targets without creating canonical decisions or leaking target existence", async () => {
+    const fixture = await createFixture();
+    const unknownAcademy = fixture.makeInput(fixture.evidenceOneId, "unknown-academy");
+    unknownAcademy.academyId = `unknown-academy-${randomUUID()}`;
+    unknownAcademy.idempotencyKey = "canonical-unresolved-retry-key";
+    const unknownPlayer = fixture.makeInput(fixture.evidenceOneId, "unknown-player");
+    unknownPlayer.playerId = `unknown-player-${randomUUID()}`;
+    const foreign = await createFixture();
+    const scopeMismatch = fixture.makeInput(foreign.evidenceOneId, "scope-mismatch");
+    scopeMismatch.playerId = foreign.playerId;
+
+    for (const input of [unknownAcademy, unknownPlayer, scopeMismatch]) {
+      await expect(proposeAndValidateDevelopmentDecision(input))
+        .rejects.toMatchObject({ code: "CANONICAL_TARGET_NOT_RESOLVED", message: "Canonical target cannot be resolved" });
+    }
+    // An explicit idempotency key wins over request payload differences.
+    const alteredRetry = {
+      ...unknownAcademy,
+      confidence: 0.91,
+      observations: [...unknownAcademy.observations].reverse(),
+    };
+    await expect(proposeAndValidateDevelopmentDecision(alteredRetry))
+      .rejects.toMatchObject({ code: "CANONICAL_TARGET_NOT_RESOLVED" });
+
+    const audits = await db.execute(sql`
+      SELECT stable_rejection_code, authenticated_actor_id, submitted_academy_identifier, submitted_player_identifier
+      FROM canonical_progression_rejected_request
+      WHERE authenticated_actor_id = ${fixture.actor.userId}
+      ORDER BY created_at
+    `);
+    expect(audits.rows).toHaveLength(3);
+    expect((audits.rows as any[]).map((row) => row.stable_rejection_code).sort()).toEqual([
+      "TARGET_ACADEMY_NOT_RESOLVED",
+      "TARGET_PLAYER_NOT_RESOLVED",
+      "TARGET_SCOPE_NOT_RESOLVED",
+    ]);
+    expect((audits.rows as any[]).every((row) => row.authenticated_actor_id === fixture.actor.userId)).toBe(true);
+
+    const noCanonicalMutation = await db.execute(sql`
+      SELECT
+        (SELECT count(*) FROM development_decision WHERE academy_id = ${fixture.academyId} AND player_id = ${fixture.playerId}) AS decision_count,
+        (SELECT count(*) FROM player_canonical_skill_state WHERE player_id = ${fixture.playerId}) AS skill_count
+    `);
+    expect(Number((noCanonicalMutation.rows[0] as any).decision_count)).toBe(0);
+    expect(Number((noCanonicalMutation.rows[0] as any).skill_count)).toBe(0);
+
+    await expect(db.execute(sql`
+      INSERT INTO development_decision (
+        academy_id, player_id, actor_user_id, status, benchmark_id, proposed_benchmark_mastery,
+        confidence, evidence_refs, taxonomy_config_version, benchmark_config_version,
+        evidence_config_version, strength_model_version, glow_config_version
+      ) VALUES (
+        ${fixture.academyId}, ${foreign.playerId}, ${fixture.actor.userId}, 'PROPOSED',
+        'BM_V1_BLUE_BLUE_3_B3_HOLD_RACKET', 0, 1, '[]'::jsonb,
+        'taxonomy-v1.0.0-final-freeze', 'crosswalk-v1.1.0-freeze-proposed',
+        'evidence-config-v1.0.1-final-freeze', 'strength-model-v1.0.1-final-freeze',
+        'glow-config-v1.0.0-final-freeze'
+      )
+    `)).rejects.toThrow();
+
+    const resolvedFailure = fixture.makeInput(fixture.evidenceOneId, "resolved-normal-rejection");
+    resolvedFailure.confidence = 0.01;
+    await expect(proposeAndValidateDevelopmentDecision(resolvedFailure)).rejects.toMatchObject({ code: "INSUFFICIENT_CONFIDENCE" });
+    const envelopeCountAfterResolvedFailure = await db.execute(sql`
+      SELECT count(*) FROM canonical_progression_rejected_request WHERE authenticated_actor_id = ${fixture.actor.userId}
+    `);
+    expect(Number((envelopeCountAfterResolvedFailure.rows[0] as any).count)).toBe(3);
+
+    const auditId = (await db.execute(sql`
+      SELECT id FROM canonical_progression_rejected_request WHERE authenticated_actor_id = ${fixture.actor.userId} LIMIT 1
+    `)).rows[0] as any;
+    await expect(db.execute(sql`
+      UPDATE canonical_progression_rejected_request SET stable_rejection_code = 'TAMPERED' WHERE id = ${auditId.id}
+    `)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+    await expect(db.execute(sql`
+      DELETE FROM canonical_progression_rejected_request WHERE id = ${auditId.id}
+    `)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+  });
 });

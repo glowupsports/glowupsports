@@ -9671,6 +9671,22 @@ export const developmentDecisions = pgTable("development_decision", {
   index("development_decision_academy_created_idx").on(table.academyId, table.createdAt),
 ]);
 
+export const canonicalProgressionRejectedRequests = pgTable("canonical_progression_rejected_request", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  requestIdentity: text("request_identity").notNull().unique(),
+  requestId: text("request_id"),
+  authenticatedActorId: varchar("authenticated_actor_id").notNull(),
+  authenticatedActorRole: text("authenticated_actor_role").notNull(),
+  submittedAcademyIdentifier: text("submitted_academy_identifier"),
+  submittedPlayerIdentifier: text("submitted_player_identifier"),
+  submittedIdempotencyKeyHash: text("submitted_idempotency_key_hash"),
+  rejectionStage: text("rejection_stage").notNull(),
+  stableRejectionCode: text("stable_rejection_code").notNull(),
+  internalRejectionDetail: text("internal_rejection_detail"),
+  requestPayloadHash: text("request_payload_hash").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const developmentDecisionValidations = pgTable("development_decision_validation", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   decisionId: varchar("decision_id").notNull().references(() => developmentDecisions.id, { onDelete: "cascade" }),
