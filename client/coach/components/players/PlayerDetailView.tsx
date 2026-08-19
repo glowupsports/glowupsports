@@ -48,6 +48,12 @@ import * as Clipboard from "expo-clipboard";
 import { styles } from "./playersStyles";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
 import { useAuth } from "@/coach/context/AuthContext";
+import {
+  closingCreditSnapshotRows,
+  PER_PLAYER_SEASON_TRANSITION_MESSAGE,
+  selectSeasonEnrollment,
+  type ClosingCreditSnapshot,
+} from "@shared/season-history";
 
 const TAB_BAR_HEIGHT = 80;
 
@@ -1563,20 +1569,6 @@ export function PlayerDetailView({
     queryKey: [`/api/players/${player.id}/pillar-progress`],
   });
 
-  // Fetch attendance summary
-  interface AttendanceSummary {
-    totalLessons: number;
-    attendedCount: number;
-    actuallyAttendedCount: number;
-    presentCount: number;
-    absentCount: number;
-    attendancePercentage: number;
-  }
-  const { data: attendanceSummary } = useQuery<AttendanceSummary>({
-    queryKey: [`/api/coach/players/${player.id}/attendance-summary`],
-    staleTime: 0,
-  });
-
   interface PlayerSeason {
     enrollmentId: string;
     startedAt: string;
@@ -1585,13 +1577,42 @@ export function PlayerDetailView({
     seasonName: string;
     seasonStartDate: string;
     seasonIsActive: boolean;
-    sessionCount?: number;
-    creditsUsed?: number;
+    sessionCount: number;
+    attendedCount: number;
+    noShowCount: number;
+    cancellationCount: number;
+    attendancePercentage: number;
+    creditsUsed: number;
+    closingCreditSnapshot: ClosingCreditSnapshot | null;
   }
   const { data: playerSeasonData, refetch: refetchPlayerSeason } = useQuery<{ currentSeason: PlayerSeason | null; history: PlayerSeason[] }>({
     queryKey: [`/api/coach/players/${player.id}/season`],
     staleTime: 60_000,
   });
+  const [selectedSeasonEnrollmentId, setSelectedSeasonEnrollmentId] = useState<string | null>(null);
+  const availableSeasonIds = [
+    ...(playerSeasonData?.currentSeason ? [playerSeasonData.currentSeason.enrollmentId] : []),
+    ...(playerSeasonData?.history.map((season) => season.enrollmentId) ?? []),
+  ].join(",");
+  const selectedSeason = selectSeasonEnrollment(
+    playerSeasonData?.currentSeason ?? null,
+    playerSeasonData?.history ?? [],
+    selectedSeasonEnrollmentId,
+  );
+  const isViewingClosedSeason = Boolean(selectedSeason?.endedAt);
+  const selectedClosingCredits = isViewingClosedSeason
+    ? closingCreditSnapshotRows(selectedSeason?.closingCreditSnapshot)
+    : null;
+
+  useEffect(() => {
+    if (!availableSeasonIds) {
+      setSelectedSeasonEnrollmentId(null);
+      return;
+    }
+    if (!selectedSeasonEnrollmentId || !availableSeasonIds.split(",").includes(selectedSeasonEnrollmentId)) {
+      setSelectedSeasonEnrollmentId(playerSeasonData?.currentSeason?.enrollmentId ?? playerSeasonData?.history[0]?.enrollmentId ?? null);
+    }
+  }, [availableSeasonIds, player.id, playerSeasonData?.currentSeason?.enrollmentId, playerSeasonData?.history, selectedSeasonEnrollmentId]);
 
   const endSeasonMutation = useMutation({
     mutationFn: async () => {
@@ -1605,7 +1626,10 @@ export function PlayerDetailView({
     onSuccess: () => {
       refetchPlayerSeason();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Season Ended", "Player's season has been reset. Credits cleared.");
+      Alert.alert(
+        "Season Ended",
+        "The player's current season was closed and saved to Season History. They remain in the academy and their credits are unchanged.",
+      );
     },
     onError: (err: Error) => {
       Alert.alert("Error", err.message || "Failed to end season");
@@ -1884,10 +1908,12 @@ export function PlayerDetailView({
                 <Text style={styles.premiumXpText}>{xpData.totalXp} XP</Text>
               </View>
             ) : null}
-            {playerSeasonData?.currentSeason ? (
+            {selectedSeason ? (
               <Pressable onPress={() => setShowSeasonHistory(true)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#CCFF0015", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4, borderWidth: 1, borderColor: "#CCFF0030" }}>
                 <Ionicons name="calendar-outline" size={11} color="#CCFF00" />
-                <Text style={{ color: "#CCFF00", fontSize: 11, fontWeight: "600" }}>{playerSeasonData.currentSeason.seasonName}</Text>
+                <Text style={{ color: "#CCFF00", fontSize: 11, fontWeight: "600" }}>
+                  {selectedSeason.seasonName}{isViewingClosedSeason ? " · Closed" : ""}
+                </Text>
                 <Ionicons name="chevron-down" size={10} color="#CCFF0080" />
               </Pressable>
             ) : null}
@@ -1896,17 +1922,27 @@ export function PlayerDetailView({
           {/* Quick Stats Row */}
           <View style={styles.premiumQuickStats}>
             <View style={styles.premiumQuickStat}>
-              <Text style={styles.premiumQuickStatValue}>{attendanceSummary?.totalLessons ?? 0}</Text>
+              <Text style={styles.premiumQuickStatValue}>{selectedSeason?.sessionCount ?? 0}</Text>
               <Text style={styles.premiumQuickStatLabel}>Sessions</Text>
             </View>
             <View style={styles.premiumQuickStatDivider} />
             <View style={styles.premiumQuickStat}>
               <Text style={[styles.premiumQuickStatValue, { color: Colors.dark.primary }]}>
-                {attendanceSummary?.attendancePercentage ?? 0}%
+                {selectedSeason?.attendancePercentage ?? 0}%
               </Text>
               <Text style={styles.premiumQuickStatLabel}>Attendance</Text>
             </View>
           </View>
+          {selectedSeason ? (
+            <View style={{ flexDirection: "row", justifyContent: "center", gap: Spacing.md, marginTop: 8 }}>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 11 }}>
+                {selectedSeason.noShowCount} no-show{selectedSeason.noShowCount === 1 ? "" : "s"}
+              </Text>
+              <Text style={{ color: Colors.dark.textSecondary, fontSize: 11 }}>
+                {selectedSeason.cancellationCount} cancellation{selectedSeason.cancellationCount === 1 ? "" : "s"}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Glow Assessment Card - visible for adult/yellow/glow ball level players */}
           {!localPlayer.ballLevel || ["yellow", "glow", ""].includes((localPlayer.ballLevel ?? "").toLowerCase()) ? (
@@ -2303,81 +2339,74 @@ export function PlayerDetailView({
               <View style={{ paddingVertical: Spacing.md, alignItems: "center" }}>
                 <Text style={{ color: Colors.dark.textMuted, fontSize: 13 }}>Loading...</Text>
               </View>
-            ) : playerSeasonData.currentSeason ? (
-              <View style={{ marginBottom: Spacing.sm }}>
-                <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 6 }}>CURRENT SEASON</Text>
-                <View style={{ backgroundColor: "#CCFF0010", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#CCFF0025" }}>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Ionicons name="flash" size={14} color="#CCFF00" style={{ marginRight: 8 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: "#CCFF00", fontSize: 13, fontWeight: "700" }}>{playerSeasonData.currentSeason.seasonName}</Text>
-                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 2 }}>
-                        Since {new Date(playerSeasonData.currentSeason.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                      </Text>
-                    </View>
-                    <View style={{ backgroundColor: "#CCFF0020", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
-                      <Text style={{ color: "#CCFF00", fontSize: 11, fontWeight: "700" }}>Active</Text>
-                    </View>
+            ) : selectedSeason ? (
+              <View style={{ gap: Spacing.sm }}>
+                <Pressable
+                  onPress={() => setShowSeasonHistory(true)}
+                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: isViewingClosedSeason ? Colors.dark.backgroundDefault : "#CCFF0010", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: isViewingClosedSeason ? Colors.dark.border + "60" : "#CCFF0025" }}
+                >
+                  <View>
+                    <Text style={{ color: isViewingClosedSeason ? Colors.dark.text : "#CCFF00", fontSize: 13, fontWeight: "700" }}>
+                      {selectedSeason.seasonName}
+                    </Text>
+                    <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 2 }}>
+                      {new Date(selectedSeason.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                      {selectedSeason.endedAt ? ` — ${new Date(selectedSeason.endedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : " — current"}
+                    </Text>
                   </View>
-                  <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Ionicons name="calendar-outline" size={11} color={Colors.dark.textSecondary} />
-                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 11 }}>
-                        {playerSeasonData.currentSeason.sessionCount ?? 0} sessions
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Ionicons name="card-outline" size={11} color={Colors.dark.textSecondary} />
-                      <Text style={{ color: Colors.dark.textSecondary, fontSize: 11 }}>
-                        {playerSeasonData.currentSeason.creditsUsed ?? 0} credits used
-                      </Text>
-                    </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={{ color: isViewingClosedSeason ? Colors.dark.gold : "#CCFF00", fontSize: 11, fontWeight: "700" }}>
+                      {isViewingClosedSeason ? "CLOSED" : "ACTIVE"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={14} color={Colors.dark.textSecondary} />
                   </View>
+                </Pressable>
+
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                  {[
+                    { label: "Sessions", value: selectedSeason.sessionCount },
+                    { label: "Attended", value: selectedSeason.attendedCount },
+                    { label: "Attendance", value: `${selectedSeason.attendancePercentage}%` },
+                    { label: "No-shows", value: selectedSeason.noShowCount },
+                    { label: "Cancellations", value: selectedSeason.cancellationCount },
+                  ].map((stat) => (
+                    <View key={stat.label} style={{ minWidth: "30%", flexGrow: 1, backgroundColor: Colors.dark.backgroundDefault, borderRadius: 8, padding: 8 }}>
+                      <Text style={{ color: Colors.dark.text, fontSize: 14, fontWeight: "700" }}>{stat.value}</Text>
+                      <Text style={{ color: Colors.dark.textMuted, fontSize: 10, marginTop: 2 }}>{stat.label}</Text>
+                    </View>
+                  ))}
                 </View>
-              </View>
-            ) : null}
-            {playerSeasonData?.history && playerSeasonData.history.length > 0 ? (
-              <View>
-                <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 6, marginTop: playerSeasonData.currentSeason ? 8 : 0 }}>PAST SEASONS</Text>
-                {playerSeasonData.history.map((h, i) => (
-                  <View
-                    key={h.enrollmentId}
-                    style={{
-                      paddingVertical: 10,
-                      borderBottomWidth: i < playerSeasonData.history.length - 1 ? 1 : 0,
-                      borderBottomColor: Colors.dark.border + "30",
-                    }}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Ionicons name="calendar-outline" size={14} color={Colors.dark.textSecondary} style={{ marginRight: 8 }} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: Colors.dark.text, fontSize: 13, fontWeight: "600" }}>{h.seasonName}</Text>
-                        <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 1 }}>
-                          {new Date(h.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                          {h.endedAt ? ` — ${new Date(h.endedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : ""}
-                        </Text>
-                      </View>
+
+                {isViewingClosedSeason ? (
+                  <View style={{ backgroundColor: Colors.dark.backgroundDefault, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.dark.border + "55" }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                      <Ionicons name="card-outline" size={14} color={Colors.dark.xpCyan} />
+                      <Text style={{ color: Colors.dark.text, fontSize: 13, fontWeight: "700" }}>Credits at season close</Text>
                     </View>
-                    <View style={{ flexDirection: "row", gap: 12, marginTop: 5, paddingLeft: 22 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                        <Ionicons name="calendar-outline" size={10} color={Colors.dark.textMuted} />
-                        <Text style={{ color: Colors.dark.textMuted, fontSize: 11 }}>
-                          {h.sessionCount ?? 0} sessions
-                        </Text>
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                        <Ionicons name="card-outline" size={10} color={Colors.dark.textMuted} />
-                        <Text style={{ color: Colors.dark.textMuted, fontSize: 11 }}>
-                          {h.creditsUsed ?? 0} credits used
-                        </Text>
-                      </View>
-                    </View>
+                    {selectedClosingCredits ? (
+                      selectedClosingCredits.map((credit) => (
+                        <View key={credit.key} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 5 }}>
+                          <Text style={{ color: Colors.dark.textSecondary, fontSize: 12 }}>{credit.label}</Text>
+                          <View style={{ alignItems: "flex-end" }}>
+                            <Text style={{ color: credit.isOutstanding ? Colors.dark.error : Colors.dark.text, fontSize: 14, fontWeight: "700" }}>{credit.value}</Text>
+                            <Text style={{ color: credit.isOutstanding ? Colors.dark.error : Colors.dark.textMuted, fontSize: 10 }}>{credit.detail}</Text>
+                          </View>
+                        </View>
+                      ))
+                    ) : (
+                      <Text style={{ color: Colors.dark.textMuted, fontSize: 12 }}>Closing credit snapshot unavailable</Text>
+                    )}
+                    <Text style={{ color: Colors.dark.textMuted, fontSize: 10, marginTop: 8 }}>Historical snapshot · Read only</Text>
                   </View>
-                ))}
+                ) : (
+                  <Text style={{ color: Colors.dark.textMuted, fontSize: 11 }}>
+                    Current credits are shown in the live Credit V2 panel.
+                  </Text>
+                )}
               </View>
-            ) : playerSeasonData && !playerSeasonData.currentSeason ? (
+            ) : (
               <Text style={{ color: Colors.dark.textSecondary, fontSize: 13, textAlign: "center", paddingVertical: Spacing.md }}>No season history yet</Text>
-            ) : null}
+            )}
           </View>
         </CollapsibleSection>
 
@@ -2845,7 +2874,7 @@ export function PlayerDetailView({
             onPress: () => {
               Alert.alert(
                 "End Season",
-                `Reset ${localPlayer.name}'s season. Zero-credit balances will be cleared and their season clock restarted. Continue?`,
+                PER_PLAYER_SEASON_TRANSITION_MESSAGE,
                 [
                   { text: "Cancel", style: "cancel" },
                   { text: "End Season", style: "destructive", onPress: () => endSeasonMutation.mutate() },
@@ -2897,7 +2926,13 @@ export function PlayerDetailView({
             {playerSeasonData?.currentSeason ? (
               <View style={{ marginBottom: 8 }}>
                 <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 6 }}>CURRENT</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#CCFF0010", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#CCFF0025" }}>
+                <Pressable
+                  onPress={() => {
+                    setSelectedSeasonEnrollmentId(playerSeasonData.currentSeason!.enrollmentId);
+                    setShowSeasonHistory(false);
+                  }}
+                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: selectedSeasonEnrollmentId === playerSeasonData.currentSeason.enrollmentId ? "#CCFF0020" : "#CCFF0010", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: selectedSeasonEnrollmentId === playerSeasonData.currentSeason.enrollmentId ? "#CCFF00" : "#CCFF0025" }}
+                >
                   <Ionicons name="flash" size={14} color="#CCFF00" style={{ marginRight: 8 }} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: "#CCFF00", fontSize: 13, fontWeight: "700" }}>{playerSeasonData.currentSeason.seasonName}</Text>
@@ -2908,22 +2943,35 @@ export function PlayerDetailView({
                   <View style={{ backgroundColor: "#CCFF0020", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
                     <Text style={{ color: "#CCFF00", fontSize: 11, fontWeight: "700" }}>Active</Text>
                   </View>
-                </View>
+                </Pressable>
               </View>
             ) : null}
             {playerSeasonData?.history && playerSeasonData.history.length > 0 ? (
               <View>
                 <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginBottom: 6, marginTop: 8 }}>PAST SEASONS</Text>
                 {playerSeasonData.history.map((h, i) => (
-                  <View key={h.enrollmentId} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: i < playerSeasonData.history.length - 1 ? 1 : 0, borderBottomColor: Colors.dark.border + "30" }}>
+                  <Pressable
+                    key={h.enrollmentId}
+                    onPress={() => {
+                      setSelectedSeasonEnrollmentId(h.enrollmentId);
+                      setShowSeasonHistory(false);
+                    }}
+                    style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: i < playerSeasonData.history.length - 1 ? 1 : 0, borderBottomColor: Colors.dark.border + "30", backgroundColor: selectedSeasonEnrollmentId === h.enrollmentId ? Colors.dark.primary + "10" : "transparent" }}
+                  >
                     <Ionicons name="calendar-outline" size={14} color={Colors.dark.textSecondary} style={{ marginRight: 8 }} />
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: Colors.dark.text, fontSize: 13, fontWeight: "600" }}>{h.seasonName}</Text>
                       <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 1 }}>
                         {new Date(h.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                        {h.endedAt ? ` — ${new Date(h.endedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : ""}
                       </Text>
                     </View>
-                  </View>
+                    {selectedSeasonEnrollmentId === h.enrollmentId ? (
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.dark.primary} />
+                    ) : (
+                      <Text style={{ color: Colors.dark.gold, fontSize: 10, fontWeight: "700" }}>CLOSED</Text>
+                    )}
+                  </Pressable>
                 ))}
               </View>
             ) : playerSeasonData?.currentSeason ? null : (

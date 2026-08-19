@@ -409,7 +409,7 @@ export default function PlayersScreen() {
       queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
       Alert.alert(
         "Season Ended",
-        `${data.processedCount} player${data.processedCount === 1 ? "" : "s"} reset for ${data.seasonName}. Zero-credit balances cleared.`,
+        `${data.processedCount} player${data.processedCount === 1 ? "" : "s"} closed for ${data.seasonName}. Attendance and closing credit snapshots are saved to Season History; all credit balances carry forward unchanged.`,
       );
     },
     onError: (err: Error) => {
@@ -1538,7 +1538,7 @@ export default function PlayersScreen() {
               {selectedPlayerIds.size} player{selectedPlayerIds.size === 1 ? "" : "s"} selected
             </Text>
             <Text style={{ color: Colors.dark.textSecondary, fontSize: 12, marginTop: 2 }}>
-              Zero balances will be cleared
+              Credits carry forward unchanged
             </Text>
           </View>
           <Pressable
@@ -1551,7 +1551,7 @@ export default function PlayersScreen() {
               const extra = selectedPlayerIds.size > 3 ? ` +${selectedPlayerIds.size - 3} more` : "";
               Alert.alert(
                 "End Season",
-                `End the current season for ${names}${extra}?\n\nThis will record a season summary and clear any zero or negative credit balances.`,
+                `End the current season for ${names}${extra}?\n\nThis saves each player's attendance and closing credit snapshot to Season History. Players remain in the academy, and positive, zero, and outstanding negative credits carry forward unchanged.`,
                 [
                   { text: "Cancel", style: "cancel" },
                   {

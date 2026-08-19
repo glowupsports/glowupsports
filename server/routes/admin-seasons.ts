@@ -28,17 +28,29 @@ import {
   sendPushNotification,
   getPlayerPushTokens,
 } from "../pushNotifications";
+import {
+  normalizeClosingCreditSnapshot,
+  type ClosingCreditSnapshot,
+} from "@shared/season-history";
 
 // ── Season stats helper ────────────────────────────────────────────────────
-// For each enrollment ID passed, returns session attendance count and credits
-// consumed within the enrollment window. Uses a single DB round-trip via
-// correlated subqueries scoped to player_season_enrollments.
-async function fetchEnrollmentStats(
+// For each enrollment ID passed, returns only metrics that fall inside the
+// enrollment's server-authoritative window. Closed rows end at ended_at; open
+// rows end at now. This prevents a newly opened season from inheriting lifetime
+// attendance or sessions from the prior enrollment.
+export async function fetchEnrollmentStats(
   enrollmentIds: string[],
-): Promise<Record<string, { sessionCount: number; creditsUsed: number }>> {
+): Promise<Record<string, {
+  sessionCount: number;
+  attendedCount: number;
+  noShowCount: number;
+  cancellationCount: number;
+  attendancePercentage: number;
+  creditsUsed: number;
+}>> {
   if (enrollmentIds.length === 0) return {};
   const idList = enrollmentIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ");
-  const rows = await db.execute(sql`
+  const result = await db.execute(sql`
     SELECT
       pse.id AS enrollment_id,
       (
@@ -47,10 +59,52 @@ async function fetchEnrollmentStats(
         JOIN sessions s ON s.id = sp.session_id
         WHERE sp.player_id = pse.player_id
           AND s.academy_id = pse.academy_id
-          AND sp.attendance_status IN ('present', 'late')
           AND s.start_time >= pse.started_at
-          AND (pse.ended_at IS NULL OR s.start_time < pse.ended_at)
+          AND s.start_time <= COALESCE(pse.ended_at, NOW())
+          AND s.status <> 'cancelled'
+          AND COALESCE(sp.attendance_status, '') NOT IN ('holiday', 'vacation')
+          AND NOT (
+            s.session_type IN ('semi', 'semi_private', 'private_adjusted')
+            AND sp.attendance_status = 'absent'
+          )
       ) AS session_count,
+      (
+        SELECT COUNT(*)::int
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        WHERE sp.player_id = pse.player_id
+          AND s.academy_id = pse.academy_id
+          AND s.start_time >= pse.started_at
+          AND s.start_time <= COALESCE(pse.ended_at, NOW())
+          AND s.status <> 'cancelled'
+          AND COALESCE(sp.attendance_status, '') NOT IN ('holiday', 'vacation')
+          AND NOT (
+            s.session_type IN ('semi', 'semi_private', 'private_adjusted')
+            AND sp.attendance_status = 'absent'
+          )
+          AND (sp.attendance_status IN ('present', 'late') OR sp.attendance_status IS NULL)
+      ) AS attended_count,
+      (
+        SELECT COUNT(*)::int
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        WHERE sp.player_id = pse.player_id
+          AND s.academy_id = pse.academy_id
+          AND s.start_time >= pse.started_at
+          AND s.start_time <= COALESCE(pse.ended_at, NOW())
+          AND sp.attendance_status = 'absent'
+          AND LOWER(COALESCE(sp.absence_reason, '')) IN ('no_show', 'no-show')
+      ) AS no_show_count,
+      (
+        SELECT COUNT(*)::int
+        FROM session_players sp
+        JOIN sessions s ON s.id = sp.session_id
+        WHERE sp.player_id = pse.player_id
+          AND s.academy_id = pse.academy_id
+          AND s.start_time >= pse.started_at
+          AND s.start_time <= COALESCE(pse.ended_at, NOW())
+          AND s.status = 'cancelled'
+      ) AS cancellation_count,
       (
         SELECT COALESCE(SUM(ABS(delta::numeric)), 0)::int
         FROM credit_ledger_v2
@@ -63,14 +117,143 @@ async function fetchEnrollmentStats(
     FROM player_season_enrollments pse
     WHERE pse.id IN (${sql.raw(idList)})
   `);
-  const map: Record<string, { sessionCount: number; creditsUsed: number }> = {};
-  for (const r of (rows as unknown) as { enrollment_id: string; session_count: number; credits_used: number }[]) {
+  const rows = Array.isArray(result)
+    ? result
+    : ((result as { rows?: unknown[] }).rows ?? []);
+  const map: Record<string, {
+    sessionCount: number;
+    attendedCount: number;
+    noShowCount: number;
+    cancellationCount: number;
+    attendancePercentage: number;
+    creditsUsed: number;
+  }> = {};
+  for (const r of rows as {
+    enrollment_id: string;
+    session_count: number;
+    attended_count: number;
+    no_show_count: number;
+    cancellation_count: number;
+    credits_used: number;
+  }[]) {
+    const sessionCount = Number(r.session_count ?? 0);
+    const attendedCount = Number(r.attended_count ?? 0);
     map[r.enrollment_id] = {
-      sessionCount: r.session_count ?? 0,
-      creditsUsed: r.credits_used ?? 0,
+      sessionCount,
+      attendedCount,
+      noShowCount: Number(r.no_show_count ?? 0),
+      cancellationCount: Number(r.cancellation_count ?? 0),
+      attendancePercentage: sessionCount > 0 ? Math.round((attendedCount / sessionCount) * 100) : 0,
+      creditsUsed: Number(r.credits_used ?? 0),
     };
   }
   return map;
+}
+
+type PlayerSeasonRow = {
+  enrollmentId: string;
+  startedAt: Date;
+  endedAt?: Date | null;
+  seasonId: string;
+  seasonName: string;
+  seasonStartDate: string;
+  seasonIsActive: boolean;
+  closingCreditSnapshot?: unknown;
+};
+
+export type PlayerSeasonDto = Omit<PlayerSeasonRow, "closingCreditSnapshot"> & {
+  closingCreditSnapshot: ClosingCreditSnapshot | null;
+  sessionCount: number;
+  attendedCount: number;
+  noShowCount: number;
+  cancellationCount: number;
+  attendancePercentage: number;
+  creditsUsed: number;
+};
+
+function toPlayerSeasonDto(
+  enrollment: PlayerSeasonRow,
+  stats: Awaited<ReturnType<typeof fetchEnrollmentStats>>,
+): PlayerSeasonDto {
+  const metrics = stats[enrollment.enrollmentId] ?? {
+    sessionCount: 0,
+    attendedCount: 0,
+    noShowCount: 0,
+    cancellationCount: 0,
+    attendancePercentage: 0,
+    creditsUsed: 0,
+  };
+
+  return {
+    ...enrollment,
+    // An open enrollment never uses a snapshot. A closed enrollment accepts
+    // only a complete three-type historical object; partial legacy rows remain
+    // unavailable rather than borrowing a live Credit V2 balance.
+    closingCreditSnapshot: enrollment.endedAt
+      ? normalizeClosingCreditSnapshot(enrollment.closingCreditSnapshot)
+      : null,
+    ...metrics,
+  };
+}
+
+export async function getPlayerSeasonHistory(
+  playerId: string,
+  academyId: string,
+): Promise<{ currentSeason: PlayerSeasonDto | null; history: PlayerSeasonDto[] }> {
+  const [current] = await db
+    .select({
+      enrollmentId: playerSeasonEnrollments.id,
+      startedAt: playerSeasonEnrollments.startedAt,
+      endedAt: playerSeasonEnrollments.endedAt,
+      seasonId: academySeasons.id,
+      seasonName: academySeasons.name,
+      seasonStartDate: academySeasons.startDate,
+      seasonIsActive: academySeasons.isActive,
+      closingCreditSnapshot: playerSeasonEnrollments.closingCreditSnapshot,
+    })
+    .from(playerSeasonEnrollments)
+    .innerJoin(academySeasons, eq(playerSeasonEnrollments.seasonId, academySeasons.id))
+    .where(
+      and(
+        eq(playerSeasonEnrollments.playerId, playerId),
+        eq(playerSeasonEnrollments.academyId, academyId),
+        isNull(playerSeasonEnrollments.endedAt),
+      ),
+    )
+    .limit(1);
+
+  const history = await db
+    .select({
+      enrollmentId: playerSeasonEnrollments.id,
+      startedAt: playerSeasonEnrollments.startedAt,
+      endedAt: playerSeasonEnrollments.endedAt,
+      seasonId: academySeasons.id,
+      seasonName: academySeasons.name,
+      seasonStartDate: academySeasons.startDate,
+      seasonIsActive: academySeasons.isActive,
+      closingCreditSnapshot: playerSeasonEnrollments.closingCreditSnapshot,
+    })
+    .from(playerSeasonEnrollments)
+    .innerJoin(academySeasons, eq(playerSeasonEnrollments.seasonId, academySeasons.id))
+    .where(
+      and(
+        eq(playerSeasonEnrollments.playerId, playerId),
+        eq(playerSeasonEnrollments.academyId, academyId),
+        sql`${playerSeasonEnrollments.endedAt} IS NOT NULL`,
+      ),
+    )
+    .orderBy(sql`${playerSeasonEnrollments.startedAt} DESC`);
+
+  const allIds = [
+    ...(current ? [current.enrollmentId] : []),
+    ...history.map((enrollment) => enrollment.enrollmentId),
+  ];
+  const stats = await fetchEnrollmentStats(allIds);
+
+  return {
+    currentSeason: current ? toPlayerSeasonDto(current, stats) : null,
+    history: history.map((enrollment) => toPlayerSeasonDto(enrollment, stats)),
+  };
 }
 
 const router = Router();
@@ -575,60 +758,7 @@ router.get(
       const academyId = req.user?.currentAcademyId ?? req.user?.academyId;
       if (!academyId) return res.json({ currentSeason: null, history: [] });
 
-      // Current enrollment
-      const [current] = await db
-        .select({
-          enrollmentId: playerSeasonEnrollments.id,
-          startedAt: playerSeasonEnrollments.startedAt,
-          seasonId: academySeasons.id,
-          seasonName: academySeasons.name,
-          seasonStartDate: academySeasons.startDate,
-          seasonIsActive: academySeasons.isActive,
-        })
-        .from(playerSeasonEnrollments)
-        .innerJoin(academySeasons, eq(playerSeasonEnrollments.seasonId, academySeasons.id))
-        .where(
-          and(
-            eq(playerSeasonEnrollments.playerId, playerId),
-            eq(playerSeasonEnrollments.academyId, academyId),
-            isNull(playerSeasonEnrollments.endedAt),
-          ),
-        )
-        .limit(1);
-
-      // Past enrollments
-      const history = await db
-        .select({
-          enrollmentId: playerSeasonEnrollments.id,
-          startedAt: playerSeasonEnrollments.startedAt,
-          endedAt: playerSeasonEnrollments.endedAt,
-          seasonName: academySeasons.name,
-          seasonStartDate: academySeasons.startDate,
-        })
-        .from(playerSeasonEnrollments)
-        .innerJoin(academySeasons, eq(playerSeasonEnrollments.seasonId, academySeasons.id))
-        .where(
-          and(
-            eq(playerSeasonEnrollments.playerId, playerId),
-            eq(playerSeasonEnrollments.academyId, academyId),
-            sql`${playerSeasonEnrollments.endedAt} IS NOT NULL`,
-          ),
-        )
-        .orderBy(sql`${playerSeasonEnrollments.startedAt} DESC`);
-
-      // Attach per-enrollment stats (session count + credits used)
-      const allIds = [
-        ...(current ? [current.enrollmentId] : []),
-        ...history.map((h) => h.enrollmentId),
-      ];
-      const stats = await fetchEnrollmentStats(allIds);
-
-      res.json({
-        currentSeason: current
-          ? { ...current, ...(stats[current.enrollmentId] ?? { sessionCount: 0, creditsUsed: 0 }) }
-          : null,
-        history: history.map((h) => ({ ...h, ...(stats[h.enrollmentId] ?? { sessionCount: 0, creditsUsed: 0 }) })),
-      });
+      res.json(await getPlayerSeasonHistory(playerId, academyId));
     } catch (err) {
       console.error("[admin-seasons] GET /api/player/me/season error:", err);
       res.status(500).json({ error: "Failed to fetch season" });
@@ -641,67 +771,14 @@ router.get(
 router.get(
   "/api/coach/players/:playerId/season",
   authMiddleware,
-  requireRole("admin", "academy_owner", "coach"),
+  requireRole("admin", "academy_owner", "owner", "head_coach", "coach"),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { playerId } = req.params;
       const academyId = req.user?.currentAcademyId;
       if (!academyId) return res.status(400).json({ error: "Academy required" });
 
-      // Current enrollment
-      const [current] = await db
-        .select({
-          enrollmentId: playerSeasonEnrollments.id,
-          startedAt: playerSeasonEnrollments.startedAt,
-          seasonId: academySeasons.id,
-          seasonName: academySeasons.name,
-          seasonStartDate: academySeasons.startDate,
-          seasonIsActive: academySeasons.isActive,
-        })
-        .from(playerSeasonEnrollments)
-        .innerJoin(academySeasons, eq(playerSeasonEnrollments.seasonId, academySeasons.id))
-        .where(
-          and(
-            eq(playerSeasonEnrollments.playerId, playerId),
-            eq(playerSeasonEnrollments.academyId, academyId),
-            isNull(playerSeasonEnrollments.endedAt),
-          ),
-        )
-        .limit(1);
-
-      // Past enrollments
-      const history = await db
-        .select({
-          enrollmentId: playerSeasonEnrollments.id,
-          startedAt: playerSeasonEnrollments.startedAt,
-          endedAt: playerSeasonEnrollments.endedAt,
-          seasonName: academySeasons.name,
-          seasonStartDate: academySeasons.startDate,
-        })
-        .from(playerSeasonEnrollments)
-        .innerJoin(academySeasons, eq(playerSeasonEnrollments.seasonId, academySeasons.id))
-        .where(
-          and(
-            eq(playerSeasonEnrollments.playerId, playerId),
-            eq(playerSeasonEnrollments.academyId, academyId),
-            sql`${playerSeasonEnrollments.endedAt} IS NOT NULL`,
-          ),
-        )
-        .orderBy(sql`${playerSeasonEnrollments.startedAt} DESC`);
-
-      // Attach per-enrollment stats (session count + credits used)
-      const allIds = [
-        ...(current ? [current.enrollmentId] : []),
-        ...history.map((h) => h.enrollmentId),
-      ];
-      const stats = await fetchEnrollmentStats(allIds);
-
-      res.json({
-        currentSeason: current
-          ? { ...current, ...(stats[current.enrollmentId] ?? { sessionCount: 0, creditsUsed: 0 }) }
-          : null,
-        history: history.map((h) => ({ ...h, ...(stats[h.enrollmentId] ?? { sessionCount: 0, creditsUsed: 0 }) })),
-      });
+      res.json(await getPlayerSeasonHistory(playerId, academyId));
     } catch (err) {
       console.error("[admin-seasons] GET /api/coach/players/:playerId/season error:", err);
       res.status(500).json({ error: "Failed to fetch player season" });

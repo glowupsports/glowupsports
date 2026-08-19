@@ -25,6 +25,12 @@ import { Colors, Backgrounds, Spacing, BorderRadius, Typography } from "@/consta
 import { apiRequest } from "@/lib/query-client";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { TennisBallSpinner } from "@/components/TennisBallSpinner";
+import { useCoach } from "@/coach/context/CoachContext";
+import {
+  ACADEMY_SEASON_TRANSITION_MESSAGE,
+  canManageAcademySeasons,
+  seasonManagementErrorMessage,
+} from "@shared/season-history";
 
 interface JoinCodeData {
   joinCode: string | null;
@@ -111,6 +117,8 @@ export default function AcademySettingsScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const { coach } = useCoach();
+  const canManageSeasons = canManageAcademySeasons(coach?.role);
   const [activeTab, setActiveTab] = useState<"settings" | "team" | "invites">("settings");
   const [showNewSeason, setShowNewSeason] = useState(false);
   const [newSeasonName, setNewSeasonName] = useState("");
@@ -164,7 +172,9 @@ export default function AcademySettingsScreen() {
       const res = await apiRequest("POST", "/api/admin/seasons", { name: newSeasonName.trim() });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to create season");
+        const error = new Error(err.error || "Failed to create season") as Error & { status?: number };
+        error.status = res.status;
+        throw error;
       }
       return res.json();
     },
@@ -173,10 +183,13 @@ export default function AcademySettingsScreen() {
       setShowNewSeason(false);
       setNewSeasonName("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Season Created", "The new season has been started and all players enrolled.");
+      Alert.alert(
+        "Season Created",
+        "The new season has started with clean season statistics. Previous attendance remains in Season History and all credits carry forward unchanged.",
+      );
     },
-    onError: (err: Error) => {
-      Alert.alert("Error", err.message || "Failed to create season");
+    onError: (err: Error & { status?: number }) => {
+      Alert.alert("Error", seasonManagementErrorMessage(err.status, err.message || "Failed to create season"));
     },
   });
 
@@ -185,7 +198,9 @@ export default function AcademySettingsScreen() {
       const res = await apiRequest("POST", "/api/admin/seasons/end-current");
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to end season");
+        const error = new Error(err.error || "Failed to end season") as Error & { status?: number };
+        error.status = res.status;
+        throw error;
       }
       return res.json() as Promise<{ success: boolean; seasonName: string; endedAt: string; enrollmentsClosed: number }>;
     },
@@ -194,11 +209,11 @@ export default function AcademySettingsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         "Season Ended",
-        `"${data.seasonName}" has been closed. ${data.enrollmentsClosed} player enrollment${data.enrollmentsClosed !== 1 ? "s" : ""} archived. Start a new season when you're ready.`,
+        `"${data.seasonName}" has been closed. ${data.enrollmentsClosed} player enrollment${data.enrollmentsClosed !== 1 ? "s" : ""} saved to Season History. Credits are unchanged. Start a new season when you're ready.`,
       );
     },
-    onError: (err: Error) => {
-      Alert.alert("Error", err.message || "Failed to end season");
+    onError: (err: Error & { status?: number }) => {
+      Alert.alert("Error", seasonManagementErrorMessage(err.status, err.message || "Failed to end season"));
     },
   });
 
@@ -884,6 +899,7 @@ export default function AcademySettingsScreen() {
       <View style={styles.glassSection}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: Spacing.md }}>
           <Text style={styles.sectionTitle}>SEASONS</Text>
+          {canManageSeasons ? (
           <Pressable
             onPress={() => {
               setNewSeasonName("");
@@ -894,10 +910,11 @@ export default function AcademySettingsScreen() {
             <Ionicons name="add" size={14} color={Colors.dark.primary} />
             <Text style={{ color: Colors.dark.primary, fontSize: 12, fontWeight: "600" }}>New Season</Text>
           </Pressable>
+          ) : null}
         </View>
 
         {/* No-active-season banner — prompts the owner to start one */}
-        {!seasonsLoading && seasonsData?.seasons?.length && !seasonsData.seasons.some(s => s.isActive) ? (
+        {canManageSeasons && !seasonsLoading && seasonsData?.seasons?.length && !seasonsData.seasons.some(s => s.isActive) ? (
           <View style={{ backgroundColor: Colors.dark.gold + "18", borderRadius: 10, borderWidth: 1, borderColor: Colors.dark.gold + "40", padding: Spacing.md, marginBottom: Spacing.md, flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
             <Ionicons name="time-outline" size={18} color={Colors.dark.gold} />
             <View style={{ flex: 1 }}>
@@ -926,11 +943,12 @@ export default function AcademySettingsScreen() {
                   <View style={{ backgroundColor: Colors.dark.primary + "22", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
                     <Text style={{ color: Colors.dark.primary, fontSize: 11, fontWeight: "700" }}>ACTIVE</Text>
                   </View>
+                  {canManageSeasons ? (
                   <Pressable
                     onPress={() => {
                       Alert.alert(
                         "End Season?",
-                        `This will close "${season.name}" and archive all player enrollments. You can start a new season afterwards. This cannot be undone.`,
+                        ACADEMY_SEASON_TRANSITION_MESSAGE,
                         [
                           { text: "Cancel", style: "cancel" },
                           {
@@ -950,12 +968,13 @@ export default function AcademySettingsScreen() {
                       <Text style={{ color: Colors.dark.error, fontSize: 11, fontWeight: "700" }}>END</Text>
                     )}
                   </Pressable>
+                  ) : null}
                 </View>
               ) : null}
             </View>
           ))
         )}
-        {showNewSeason ? (
+        {showNewSeason && canManageSeasons ? (
           <View style={{ marginTop: Spacing.md }}>
             <TextInput
               style={[styles.input, { marginBottom: Spacing.sm }]}
@@ -974,7 +993,7 @@ export default function AcademySettingsScreen() {
                   Alert.alert(
                     "Start New Season?",
                     hasActiveSeason
-                      ? `This will end the current active season and start "${newSeasonName.trim()}". All players will be re-enrolled. Continue?`
+                      ? `${ACADEMY_SEASON_TRANSITION_MESSAGE}\n\nStart "${newSeasonName.trim()}" and enroll all academy players?`
                       : `Start "${newSeasonName.trim()}"? All academy players will be enrolled.`,
                     [
                       { text: "Cancel", style: "cancel" },
