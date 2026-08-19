@@ -6,6 +6,7 @@ import {
   applyAcceptedDevelopmentDecision,
   getCanonicalCurrent,
   proposeAndValidateDevelopmentDecision,
+  setCanonicalApplyFailureInjectorForTests,
 } from "../services/canonical-progression-service";
 
 const hasDatabase = Boolean(process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL);
@@ -77,22 +78,9 @@ async function createFixture() {
 }
 
 async function cleanupFixture(academyId: string) {
-  await db.execute(sql`DELETE FROM canonical_recalibration_event WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM canonical_evidence_contribution WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM canonical_decision_snapshot WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM player_canonical_skill_history WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM development_decision_execution_attempt WHERE decision_id IN (SELECT id FROM development_decision WHERE academy_id = ${academyId})`);
-  await db.execute(sql`DELETE FROM canonical_decision_application_receipt WHERE decision_id IN (SELECT id FROM development_decision WHERE academy_id = ${academyId})`);
-  await db.execute(sql`DELETE FROM development_decision_evidence_link WHERE decision_id IN (SELECT id FROM development_decision WHERE academy_id = ${academyId})`);
-  await db.execute(sql`DELETE FROM development_decision_validation WHERE decision_id IN (SELECT id FROM development_decision WHERE academy_id = ${academyId})`);
-  await db.execute(sql`DELETE FROM development_decision WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM player_canonical_skill_state WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM player_canonical_progression WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM skill_evidence WHERE player_id IN (SELECT id FROM players WHERE academy_id = ${academyId})`);
-  await db.execute(sql`DELETE FROM users WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM players WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM coaches WHERE academy_id = ${academyId}`);
-  await db.execute(sql`DELETE FROM academies WHERE id = ${academyId}`);
+  // Audit/history rows are intentionally immutable at the PostgreSQL boundary.
+  // Randomized test fixtures remain as canonical audit provenance.
+  void academyId;
 }
 
 describeDatabase("canonical progression database integration", () => {
@@ -248,5 +236,229 @@ describeDatabase("canonical progression database integration", () => {
     expect(Number(audit.snapshot_count)).toBe(0);
     expect(Number(audit.receipt_count)).toBe(0);
     expect(audit.attempt_outcome).toBe("NO_CHANGE");
+  });
+
+  it("persists authenticated validation rejections with stable reasons and no canonical mutation", async () => {
+    const fixture = await createFixture();
+    const cases = [
+      {
+        code: "INVALID_BENCHMARK",
+        mutate: (input: any) => { input.benchmarkId = "BM_V1_DOES_NOT_EXIST"; },
+      },
+      {
+        code: "INSUFFICIENT_CONFIDENCE",
+        mutate: (input: any) => { input.confidence = 0.01; },
+      },
+      {
+        code: "EVIDENCE_INELIGIBLE",
+        mutate: (input: any) => { input.observations[0].sourceType = "PLAYER_SELF_REFLECTION"; },
+      },
+    ];
+
+    for (const rejection of cases) {
+      const input = fixture.makeInput(fixture.evidenceOneId, `rejection-${rejection.code}-${randomUUID()}`);
+      rejection.mutate(input);
+      await expect(proposeAndValidateDevelopmentDecision(input)).rejects.toMatchObject({ code: rejection.code });
+      const result = await db.execute(sql`
+        SELECT d.status, v.outcome, v.validation_errors
+        FROM development_decision d
+        JOIN development_decision_validation v ON v.decision_id = d.id
+        WHERE d.academy_id = ${fixture.academyId}
+        ORDER BY d.created_at DESC
+        LIMIT 1
+      `);
+      const audit = result.rows[0] as any;
+      expect(audit.status).toBe("REJECTED");
+      expect(audit.outcome).toBe("REJECTED");
+      expect(audit.validation_errors).toContain(rejection.code);
+    }
+
+    const state = await db.execute(sql`
+      SELECT
+        (SELECT count(*) FROM player_canonical_skill_state WHERE player_id = ${fixture.playerId}) AS skill_count,
+        (SELECT count(*) FROM player_canonical_skill_history WHERE player_id = ${fixture.playerId}) AS history_count,
+        (SELECT count(*) FROM canonical_decision_snapshot WHERE player_id = ${fixture.playerId}) AS snapshot_count,
+        (SELECT count(*) FROM canonical_decision_application_receipt WHERE player_id = ${fixture.playerId}) AS receipt_count
+    `);
+    expect(Number((state.rows[0] as any).skill_count)).toBe(0);
+    expect(Number((state.rows[0] as any).history_count)).toBe(0);
+    expect(Number((state.rows[0] as any).snapshot_count)).toBe(0);
+    expect(Number((state.rows[0] as any).receipt_count)).toBe(0);
+  });
+
+  it("returns one receipt-idempotent result when the same accepted decision is applied concurrently", async () => {
+    const fixture = await createFixture();
+    const decision = await proposeAndValidateDevelopmentDecision(fixture.makeInput(fixture.evidenceOneId, "same-decision-concurrency"));
+    const outcomes = await Promise.all([
+      applyAcceptedDevelopmentDecision(decision.id, fixture.actor),
+      applyAcceptedDevelopmentDecision(decision.id, fixture.actor),
+    ]) as any[];
+
+    expect(outcomes.every((outcome) => outcome.applied === true)).toBe(true);
+    expect(new Set(outcomes.map((outcome) => outcome.stateVersion))).toEqual(new Set([1]));
+    expect(outcomes.some((outcome) => outcome.code === "STALE_STATE_VERSION")).toBe(false);
+
+    const counts = await db.execute(sql`
+      SELECT p.state_version,
+        (SELECT count(*) FROM player_canonical_skill_history WHERE player_id = ${fixture.playerId}) AS history_count,
+        (SELECT count(*) FROM canonical_decision_snapshot WHERE decision_id = ${decision.id}) AS snapshot_count,
+        (SELECT count(*) FROM canonical_decision_application_receipt WHERE decision_id = ${decision.id}) AS receipt_count,
+        (SELECT count(*) FROM canonical_evidence_contribution WHERE decision_id = ${decision.id}) AS contribution_count
+      FROM player_canonical_progression p WHERE p.player_id = ${fixture.playerId}
+    `);
+    const result = counts.rows[0] as any;
+    expect(Number(result.state_version)).toBe(1);
+    expect(Number(result.history_count)).toBe(1);
+    expect(Number(result.snapshot_count)).toBe(1);
+    expect(Number(result.receipt_count)).toBe(1);
+    expect(Number(result.contribution_count)).toBe(1);
+  });
+
+  it("rolls back a forced Transaction B failure, records the failure, and retries the same accepted decision", async () => {
+    const fixture = await createFixture();
+    const decision = await proposeAndValidateDevelopmentDecision(fixture.makeInput(fixture.evidenceOneId, "forced-rollback"));
+    setCanonicalApplyFailureInjectorForTests(() => {
+      throw new Error("forced canonical transaction failure");
+    });
+    try {
+      await expect(applyAcceptedDevelopmentDecision(decision.id, fixture.actor)).rejects.toThrow("forced canonical transaction failure");
+    } finally {
+      setCanonicalApplyFailureInjectorForTests(null);
+    }
+
+    const rolledBack = await db.execute(sql`
+      SELECT d.status, p.state_version,
+        (SELECT count(*) FROM player_canonical_skill_state WHERE player_id = ${fixture.playerId}) AS skill_count,
+        (SELECT count(*) FROM player_canonical_skill_history WHERE player_id = ${fixture.playerId}) AS history_count,
+        (SELECT count(*) FROM canonical_decision_snapshot WHERE decision_id = ${decision.id}) AS snapshot_count,
+        (SELECT count(*) FROM canonical_evidence_contribution WHERE decision_id = ${decision.id}) AS contribution_count,
+        (SELECT count(*) FROM canonical_decision_application_receipt WHERE decision_id = ${decision.id}) AS receipt_count,
+        (SELECT outcome FROM development_decision_execution_attempt WHERE decision_id = ${decision.id} ORDER BY attempt_number DESC LIMIT 1) AS outcome
+      FROM development_decision d
+      JOIN player_canonical_progression p ON p.player_id = d.player_id
+      WHERE d.id = ${decision.id}
+    `);
+    const audit = rolledBack.rows[0] as any;
+    expect(audit.status).toBe("ACCEPTED");
+    expect(Number(audit.state_version)).toBe(0);
+    expect(Number(audit.skill_count)).toBe(0);
+    expect(Number(audit.history_count)).toBe(0);
+    expect(Number(audit.snapshot_count)).toBe(0);
+    expect(Number(audit.contribution_count)).toBe(0);
+    expect(Number(audit.receipt_count)).toBe(0);
+    expect(audit.outcome).toBe("TECHNICAL_FAILURE");
+
+    await expect(applyAcceptedDevelopmentDecision(decision.id, fixture.actor)).resolves.toMatchObject({
+      applied: true,
+      stateVersion: 1,
+    });
+  });
+
+  it("enforces immutable audit/config rows while the canonical executor updates current state", async () => {
+    const fixture = await createFixture();
+    const decision = await proposeAndValidateDevelopmentDecision(fixture.makeInput(fixture.evidenceOneId, "immutable-records"));
+    await applyAcceptedDevelopmentDecision(decision.id, fixture.actor);
+    const ids = await db.execute(sql`
+      SELECT
+        (SELECT id FROM player_canonical_skill_history WHERE decision_id = ${decision.id} LIMIT 1) AS history_id,
+        (SELECT id FROM canonical_decision_snapshot WHERE decision_id = ${decision.id} LIMIT 1) AS snapshot_id,
+        (SELECT id FROM canonical_evidence_contribution WHERE decision_id = ${decision.id} LIMIT 1) AS contribution_id,
+        (SELECT id FROM canonical_decision_application_receipt WHERE decision_id = ${decision.id} LIMIT 1) AS receipt_id,
+        (SELECT id FROM development_decision_execution_attempt WHERE decision_id = ${decision.id} LIMIT 1) AS attempt_id
+    `);
+    const row = ids.rows[0] as any;
+
+    await expect(db.execute(sql`UPDATE player_canonical_skill_history SET state_json = '{}'::jsonb WHERE id = ${row.history_id}`)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+    await expect(db.execute(sql`DELETE FROM player_canonical_skill_history WHERE id = ${row.history_id}`)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+    await expect(db.execute(sql`UPDATE canonical_decision_snapshot SET aggregate_json = '{}'::jsonb WHERE id = ${row.snapshot_id}`)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+    await expect(db.execute(sql`DELETE FROM canonical_evidence_contribution WHERE id = ${row.contribution_id}`)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+    await expect(db.execute(sql`UPDATE canonical_decision_application_receipt SET state_version = 99 WHERE id = ${row.receipt_id}`)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+    await expect(db.execute(sql`DELETE FROM development_decision_execution_attempt WHERE id = ${row.attempt_id}`)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+    await expect(db.execute(sql`UPDATE canonical_skill_definition SET family = 'tampered' WHERE id = 'RACKET_SAFE_HANDLING'`)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+    const recalibration = await db.execute(sql`
+      INSERT INTO canonical_recalibration_event (
+        academy_id, player_id, actor_user_id, reason, before_state, after_state,
+        old_taxonomy_config_version, old_benchmark_config_version, old_evidence_config_version, old_strength_model_version,
+        new_taxonomy_config_version, new_benchmark_config_version, new_evidence_config_version, new_strength_model_version
+      ) VALUES (
+        ${fixture.academyId}, ${fixture.playerId}, ${fixture.actor.userId}, 'immutability-test', '{}'::jsonb, '{}'::jsonb,
+        ${decision.taxonomyConfigVersion}, ${decision.benchmarkConfigVersion}, ${decision.evidenceConfigVersion}, ${decision.strengthModelVersion},
+        ${decision.taxonomyConfigVersion}, ${decision.benchmarkConfigVersion}, ${decision.evidenceConfigVersion}, ${decision.strengthModelVersion}
+      ) RETURNING id
+    `);
+    const recalibrationId = (recalibration.rows[0] as any).id;
+    await expect(db.execute(sql`UPDATE canonical_recalibration_event SET reason = 'tampered' WHERE id = ${recalibrationId}`)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+    await expect(db.execute(sql`DELETE FROM canonical_recalibration_event WHERE id = ${recalibrationId}`)).rejects.toThrow(/CANONICAL_IMMUTABILITY_VIOLATION/);
+
+    const state = await db.execute(sql`
+      SELECT state_version, absolute_strength, observation_status
+      FROM player_canonical_skill_state
+      WHERE player_id = ${fixture.playerId} AND canonical_skill_id = 'RACKET_SAFE_HANDLING'
+    `);
+    expect(Number((state.rows[0] as any).state_version)).toBe(1);
+    expect((state.rows[0] as any).observation_status).toBe("OBSERVED");
+  });
+
+  it("derives positive movement then a high-quality benchmark-relative regression from established state", async () => {
+    const fixture = await createFixture();
+    const improve = fixture.makeInput(fixture.evidenceOneId, "positive-movement");
+    improve.proposedBenchmarkMastery = 100;
+    const improvedDecision = await proposeAndValidateDevelopmentDecision(improve);
+    await applyAcceptedDevelopmentDecision(improvedDecision.id, fixture.actor);
+    const afterImprove = await getCanonicalCurrent(fixture.playerId, fixture.academyId);
+    const improved = afterImprove?.skills.find((skill) => skill.canonicalSkillId === "RACKET_SAFE_HANDLING");
+    expect(improved?.observationStatus).toBe("OBSERVED");
+    expect(improved?.absoluteStrength).toBeGreaterThan(0);
+    expect(improved?.confidence).toBeGreaterThan(0.2);
+
+    const regress = fixture.makeInput(fixture.evidenceTwoId, "legitimate-regression");
+    regress.proposedBenchmarkMastery = 0;
+    const regressionDecision = await proposeAndValidateDevelopmentDecision(regress);
+    await applyAcceptedDevelopmentDecision(regressionDecision.id, fixture.actor);
+    const afterRegression = await getCanonicalCurrent(fixture.playerId, fixture.academyId);
+    const regressed = afterRegression?.skills.find((skill) => skill.canonicalSkillId === "RACKET_SAFE_HANDLING");
+    expect(regressed?.absoluteStrength).toBeLessThan(improved!.absoluteStrength);
+    expect(regressed?.trend).toBe("REGRESSING");
+
+    // Missing pillars remain absent/null rather than becoming literal zero.
+    expect(afterRegression?.pillars.PHYSICAL.strength).toBeNull();
+    expect(afterRegression?.glowStatus).toBe("ESTABLISHING");
+  });
+
+  it("rejects cross-player evidence and every non-Ability benchmark classification without canonical mutation", async () => {
+    const fixture = await createFixture();
+    const foreign = await createFixture();
+    const wrongPlayerEvidence = fixture.makeInput(foreign.evidenceOneId, "wrong-player-evidence");
+    await expect(proposeAndValidateDevelopmentDecision(wrongPlayerEvidence))
+      .rejects.toMatchObject({ code: "INVALID_EVIDENCE_OWNERSHIP" });
+
+    const classifications = await db.execute(sql`
+      SELECT DISTINCT ON (classification) benchmark_id
+      FROM canonical_benchmark_definition
+      WHERE benchmark_config_version = 'crosswalk-v1.1.0-freeze-proposed'
+        AND classification IN ('HARD_GATE', 'CONTEXT_ONLY', 'SOCIAL_CHARACTER')
+      ORDER BY classification, benchmark_id
+    `);
+    for (const row of classifications.rows as any[]) {
+      const input = fixture.makeInput(fixture.evidenceOneId, `classification-${row.benchmark_id}`);
+      input.benchmarkId = row.benchmark_id;
+      await expect(proposeAndValidateDevelopmentDecision(input))
+        .rejects.toMatchObject({ code: "BENCHMARK_NOT_ABILITY_BEARING" });
+    }
+
+    const audit = await db.execute(sql`
+      SELECT
+        (SELECT count(*) FROM player_canonical_skill_state WHERE player_id = ${fixture.playerId}) AS skill_count,
+        (SELECT count(*) FROM player_canonical_skill_history WHERE player_id = ${fixture.playerId}) AS history_count,
+        (SELECT count(*) FROM canonical_decision_snapshot WHERE player_id = ${fixture.playerId}) AS snapshot_count,
+        (SELECT count(*) FROM canonical_decision_application_receipt WHERE player_id = ${fixture.playerId}) AS receipt_count,
+        (SELECT count(*) FROM development_decision d JOIN development_decision_validation v ON v.decision_id = d.id WHERE d.academy_id = ${fixture.academyId} AND d.status = 'REJECTED' AND v.outcome = 'REJECTED') AS rejection_count
+    `);
+    const counts = audit.rows[0] as any;
+    expect(Number(counts.skill_count)).toBe(0);
+    expect(Number(counts.history_count)).toBe(0);
+    expect(Number(counts.snapshot_count)).toBe(0);
+    expect(Number(counts.receipt_count)).toBe(0);
+    expect(Number(counts.rejection_count)).toBeGreaterThanOrEqual(4);
   });
 });

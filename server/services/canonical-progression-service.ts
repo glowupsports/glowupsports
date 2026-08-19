@@ -140,6 +140,7 @@ function configPaths() {
 }
 
 let cachedArtifacts: { freeze: FreezeArtifact; crosswalk: CrosswalkArtifact } | null = null;
+let frozenConfigVerifiedInProcess = false;
 
 function loadFrozenArtifacts() {
   if (cachedArtifacts) return cachedArtifacts;
@@ -247,6 +248,26 @@ function versions() {
   };
 }
 
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value as Record<string, unknown>).sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson((value as Record<string, unknown>)[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function assertFrozenConfigMatch(identity: string, expected: unknown, actual: unknown) {
+  if (stableJson(expected) !== stableJson(actual)) {
+    throw new CanonicalProgressionError(
+      "CONFIG_IMMUTABILITY_VIOLATION",
+      `Frozen canonical configuration identity ${identity} already exists with different content`,
+      409,
+    );
+  }
+}
+
 /**
  * Idempotently persists frozen taxonomy, crosswalk, components, and evidence
  * config. This only materializes checked-in configuration; it writes no player
@@ -255,76 +276,160 @@ function versions() {
 export async function ensureCanonicalProgressionConfigPersisted() {
   const { freeze, crosswalk } = loadFrozenArtifacts();
   const v = versions();
-
-  const existing = await db.select({ version: evidenceConfigVersions.version })
-    .from(evidenceConfigVersions)
+  if (frozenConfigVerifiedInProcess) return v;
+  const [persistedEvidenceConfig] = await db.select().from(evidenceConfigVersions)
     .where(eq(evidenceConfigVersions.version, v.evidenceConfigVersion))
     .limit(1);
-  if (existing.length) return v;
-
-  await db.transaction(async (tx) => {
-    await tx.insert(evidenceConfigVersions).values({
-      version: v.evidenceConfigVersion,
+  if (persistedEvidenceConfig) {
+    assertFrozenConfigMatch(`evidence:${v.evidenceConfigVersion}`, {
       configJson: freeze.evidence_config,
       provenance: "PHASE_1_FINAL_FROZEN_SPECIFICATION",
       isActive: true,
-    }).onConflictDoNothing();
+    }, {
+      configJson: persistedEvidenceConfig.configJson,
+      provenance: persistedEvidenceConfig.provenance,
+      isActive: persistedEvidenceConfig.isActive,
+    });
+    // A completed seed transaction materializes every related frozen row
+    // atomically, and the DB guard prevents later mutation. Avoid thousands of
+    // redundant per-row reads on every fresh application process.
+    frozenConfigVerifiedInProcess = true;
+    return v;
+  }
+
+  await db.transaction(async (tx) => {
+    // Serialize first-time materialization of this immutable configuration.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('canonical-progression-config-v1'))`);
+    const [existingEvidenceConfig] = await tx.select().from(evidenceConfigVersions)
+      .where(eq(evidenceConfigVersions.version, v.evidenceConfigVersion))
+      .limit(1);
+    if (existingEvidenceConfig) {
+      assertFrozenConfigMatch(`evidence:${v.evidenceConfigVersion}`, {
+        configJson: freeze.evidence_config,
+        provenance: "PHASE_1_FINAL_FROZEN_SPECIFICATION",
+        isActive: true,
+      }, {
+        configJson: existingEvidenceConfig.configJson,
+        provenance: existingEvidenceConfig.provenance,
+        isActive: existingEvidenceConfig.isActive,
+      });
+    } else {
+      await tx.insert(evidenceConfigVersions).values({
+        version: v.evidenceConfigVersion,
+        configJson: freeze.evidence_config,
+        provenance: "PHASE_1_FINAL_FROZEN_SPECIFICATION",
+        isActive: true,
+      });
+    }
 
     for (const atom of crosswalk.canonical_atoms) {
-      await tx.insert(canonicalSkillDefinitions).values({
-        id: atom.id,
+      const expected = {
         taxonomyConfigVersion: v.taxonomyConfigVersion,
         family: atom.family,
         pillar: atom.pillar,
         isAbilityBearing: atom.pillar !== "SOCIAL_CHARACTER" && atom.pillar !== "SOCIAL",
         definitionJson: atom,
-      }).onConflictDoNothing();
+      };
+      const [existingAtom] = await tx.select().from(canonicalSkillDefinitions)
+        .where(eq(canonicalSkillDefinitions.id, atom.id)).limit(1);
+      if (existingAtom) {
+        assertFrozenConfigMatch(`skill:${atom.id}`, expected, {
+          taxonomyConfigVersion: existingAtom.taxonomyConfigVersion,
+          family: existingAtom.family,
+          pillar: existingAtom.pillar,
+          isAbilityBearing: existingAtom.isAbilityBearing,
+          definitionJson: existingAtom.definitionJson,
+        });
+      } else {
+        await tx.insert(canonicalSkillDefinitions).values({ id: atom.id, ...expected });
+      }
     }
 
     for (const benchmark of crosswalk.benchmarks) {
       const [lower, upper] = intervalForBenchmark(freeze, benchmark.source.level);
-      const existingBenchmark = await tx.select({ id: canonicalBenchmarkDefinitions.id })
+      const [existingBenchmark] = await tx.select()
         .from(canonicalBenchmarkDefinitions)
         .where(and(
           eq(canonicalBenchmarkDefinitions.benchmarkConfigVersion, v.benchmarkConfigVersion),
           eq(canonicalBenchmarkDefinitions.benchmarkId, benchmark.benchmark_id),
         ))
         .limit(1);
-
-      const benchmarkDefinitionId = existingBenchmark[0]?.id ?? (
+      const expectedBenchmark = {
+        benchmarkConfigVersion: v.benchmarkConfigVersion,
+        taxonomyConfigVersion: v.taxonomyConfigVersion,
+        benchmarkId: benchmark.benchmark_id,
+        qualifiedSourceKey: benchmark.qualified_source_key,
+        sourceSkillId: benchmark.source_skill_id,
+        classification: benchmark.benchmark_classification,
+        componentMappingType: benchmark.component_mapping_type,
+        pathway: benchmark.source.pathway,
+        level: benchmark.source.level,
+        sourcePillar: benchmark.source.pillar ?? null,
+        sourceCategory: benchmark.source.category ?? null,
+        sourceName: benchmark.source.name ?? null,
+        intervalLower: String(lower),
+        intervalUpper: String(upper),
+        definitionJson: benchmark,
+      };
+      if (existingBenchmark) {
+        assertFrozenConfigMatch(`benchmark:${v.benchmarkConfigVersion}:${benchmark.benchmark_id}`, expectedBenchmark, {
+          taxonomyConfigVersion: existingBenchmark.taxonomyConfigVersion,
+          benchmarkConfigVersion: existingBenchmark.benchmarkConfigVersion,
+          benchmarkId: existingBenchmark.benchmarkId,
+          qualifiedSourceKey: existingBenchmark.qualifiedSourceKey,
+          sourceSkillId: existingBenchmark.sourceSkillId,
+          classification: existingBenchmark.classification,
+          componentMappingType: existingBenchmark.componentMappingType,
+          pathway: existingBenchmark.pathway,
+          level: existingBenchmark.level,
+          sourcePillar: existingBenchmark.sourcePillar,
+          sourceCategory: existingBenchmark.sourceCategory,
+          sourceName: existingBenchmark.sourceName,
+          intervalLower: String(Number(existingBenchmark.intervalLower)),
+          intervalUpper: String(Number(existingBenchmark.intervalUpper)),
+          definitionJson: existingBenchmark.definitionJson,
+        });
+      }
+      const benchmarkDefinitionId = existingBenchmark?.id ?? (
         await tx.insert(canonicalBenchmarkDefinitions).values({
-          benchmarkConfigVersion: v.benchmarkConfigVersion,
-          taxonomyConfigVersion: v.taxonomyConfigVersion,
-          benchmarkId: benchmark.benchmark_id,
-          qualifiedSourceKey: benchmark.qualified_source_key,
-          sourceSkillId: benchmark.source_skill_id,
-          classification: benchmark.benchmark_classification,
-          componentMappingType: benchmark.component_mapping_type,
-          pathway: benchmark.source.pathway,
-          level: benchmark.source.level,
-          sourcePillar: benchmark.source.pillar,
-          sourceCategory: benchmark.source.category,
-          sourceName: benchmark.source.name,
-          intervalLower: String(lower),
-          intervalUpper: String(upper),
-          definitionJson: benchmark,
+          ...expectedBenchmark,
         }).returning({ id: canonicalBenchmarkDefinitions.id })
       )[0].id;
 
       for (const component of benchmark.benchmark_components) {
-        await tx.insert(canonicalBenchmarkComponents).values({
-          benchmarkDefinitionId,
+        const expectedComponent = {
           canonicalSkillId: component.canonical_atomic_skill_id,
           componentKey: component.component_key,
           role: component.role,
           weight: String(component.weight),
           isAbilityBearing: component.abilityBearing,
-          mappingReason: component.mapping_reason,
-        }).onConflictDoNothing();
+          mappingReason: component.mapping_reason ?? null,
+        };
+        const [existingComponent] = await tx.select().from(canonicalBenchmarkComponents)
+          .where(and(
+            eq(canonicalBenchmarkComponents.benchmarkDefinitionId, benchmarkDefinitionId),
+            eq(canonicalBenchmarkComponents.componentKey, component.component_key),
+          )).limit(1);
+        if (existingComponent) {
+          assertFrozenConfigMatch(`component:${benchmarkDefinitionId}:${component.component_key}`, expectedComponent, {
+            canonicalSkillId: existingComponent.canonicalSkillId,
+            componentKey: existingComponent.componentKey,
+            role: existingComponent.role,
+            weight: String(Number(existingComponent.weight)),
+            isAbilityBearing: existingComponent.isAbilityBearing,
+            mappingReason: existingComponent.mappingReason,
+          });
+        } else {
+          await tx.insert(canonicalBenchmarkComponents).values({
+            benchmarkDefinitionId,
+            ...expectedComponent,
+          });
+        }
       }
     }
   });
 
+  frozenConfigVerifiedInProcess = true;
   return v;
 }
 
@@ -345,6 +450,43 @@ async function verifyActorAndPlayer(actor: ProgressionActor, academyId: string, 
   if (!player) throw new CanonicalProgressionError("PLAYER_NOT_FOUND", "Player is not in the actor academy", 404);
 }
 
+async function verifyActorAndPlayerInTransaction(
+  tx: any,
+  actor: ProgressionActor,
+  academyId: string,
+  playerId: string,
+) {
+  if (!actor?.userId || actor.academyId !== academyId) {
+    throw new CanonicalProgressionError("AUTH_REVALIDATION_FAILED", "Actor academy scope is invalid", 403);
+  }
+  if (actor.playerId === playerId) {
+    throw new CanonicalProgressionError("AUTH_REVALIDATION_FAILED", "A player cannot review their own canonical evidence", 403);
+  }
+  const policy = await canReviewEvidence(actor);
+  if (!policy.allowed) throw new CanonicalProgressionError("AUTH_REVALIDATION_FAILED", policy.reason ?? "Actor cannot review canonical evidence", 403);
+
+  const [player] = await tx.select({ id: players.id, academyId: players.academyId })
+    .from(players)
+    .where(eq(players.id, playerId))
+    .limit(1);
+  if (!player || player.academyId !== academyId) {
+    throw new CanonicalProgressionError("PLAYER_NOT_FOUND", "Player is not in the actor academy", 404);
+  }
+}
+
+async function ensureAggregateInTransaction(tx: any, academyId: string, playerId: string) {
+  const v = versions();
+  await tx.insert(playerCanonicalProgression).values({
+    playerId,
+    academyId,
+    taxonomyConfigVersion: v.taxonomyConfigVersion,
+    benchmarkConfigVersion: v.benchmarkConfigVersion,
+    evidenceConfigVersion: v.evidenceConfigVersion,
+    strengthModelVersion: v.strengthModelVersion,
+    glowConfigVersion: v.glowConfigVersion,
+  }).onConflictDoNothing();
+}
+
 async function ensureAggregate(academyId: string, playerId: string) {
   const v = versions();
   await db.insert(playerCanonicalProgression).values({
@@ -359,13 +501,14 @@ async function ensureAggregate(academyId: string, playerId: string) {
 }
 
 function validateDecisionShape(input: CanonicalDecisionInput) {
-  if (!Number.isFinite(input.proposedBenchmarkMastery) || input.proposedBenchmarkMastery < 0 || input.proposedBenchmarkMastery > 100) {
+  if (!input || !Number.isFinite(input.proposedBenchmarkMastery) || input.proposedBenchmarkMastery < 0 || input.proposedBenchmarkMastery > 100) {
     throw new CanonicalProgressionError("INVALID_MASTERY", "Benchmark mastery must be between 0 and 100");
   }
-  if (!Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1) {
+  if (!Number.isFinite(input?.confidence) || input.confidence < 0 || input.confidence > 1) {
     throw new CanonicalProgressionError("INVALID_CONFIDENCE", "Confidence must be between 0 and 1");
   }
-  if (!input.evidenceRefs.length || !input.observations.length) {
+  if (!Array.isArray(input?.evidenceRefs) || !Array.isArray(input?.observations)
+    || !input.evidenceRefs.length || !input.observations.length) {
     throw new CanonicalProgressionError("EVIDENCE_REQUIRED", "At least one trusted evidence observation is required");
   }
   const referenced = new Set(input.evidenceRefs);
@@ -379,6 +522,11 @@ function validateDecisionShape(input: CanonicalDecisionInput) {
   if (observedEvidence.size !== referenced.size || [...referenced].some((id) => !observedEvidence.has(id))) {
     throw new CanonicalProgressionError("INVALID_EVIDENCE_REFERENCE", "Every referenced evidence item must be represented in a trusted observation");
   }
+}
+
+function asCanonicalValidationError(error: unknown): CanonicalProgressionError {
+  if (error instanceof CanonicalProgressionError) return error;
+  return new CanonicalProgressionError("VALIDATION_FAILED", "Canonical decision validation failed", 422);
 }
 
 function validateTrustedObservations(
@@ -406,10 +554,170 @@ function validateTrustedObservations(
 }
 
 /**
- * Transaction A: validates an AI/server proposal and commits ACCEPTED or
- * REJECTED. Observations are accepted only through trusted server adapters.
+ * Transaction A. Once an authenticated actor enters this pipeline, every
+ * validation outcome is committed as ACCEPTED or REJECTED with its audit row.
  */
 export async function proposeAndValidateDevelopmentDecision(input: CanonicalDecisionInput) {
+  if (!input?.actor?.userId) {
+    throw new CanonicalProgressionError("AUTH_REVALIDATION_FAILED", "Authenticated actor identity is required", 401);
+  }
+  await ensureCanonicalProgressionConfigPersisted();
+  const v = versions();
+  const config = loadFrozenArtifacts().freeze.evidence_config;
+  const candidate = input as any;
+
+  const result = await db.transaction(async (tx) => {
+    const [decision] = await tx.insert(developmentDecisions).values({
+      academyId: String(candidate.academyId ?? ""),
+      playerId: String(candidate.playerId ?? ""),
+      actorUserId: input.actor.userId,
+      actorCoachId: input.actor.coachId ?? null,
+      status: "PROPOSED",
+      benchmarkDefinitionId: null,
+      benchmarkId: typeof candidate.benchmarkId === "string" ? candidate.benchmarkId : "",
+      proposedBenchmarkMastery: String(Number.isFinite(candidate.proposedBenchmarkMastery) ? candidate.proposedBenchmarkMastery : 0),
+      confidence: String(Number.isFinite(candidate.confidence) ? candidate.confidence : 0),
+      evidenceRefs: Array.isArray(candidate.evidenceRefs) ? candidate.evidenceRefs : [],
+      rationale: typeof candidate.rationale === "string" ? candidate.rationale : null,
+      expectedPlayerStateVersion: null,
+      ...v,
+    }).returning();
+
+    try {
+      await tx.update(developmentDecisions).set({ status: "VALIDATING", updatedAt: new Date() })
+        .where(eq(developmentDecisions.id, decision.id));
+      validateDecisionShape(input);
+      await verifyActorAndPlayerInTransaction(tx, input.actor, input.academyId, input.playerId);
+      if (input.confidence < asNumber(config.strengthUpdate.minimum_ai_confidence)) {
+        throw new CanonicalProgressionError("INSUFFICIENT_CONFIDENCE", "Decision confidence is below the frozen acceptance threshold", 422);
+      }
+
+      const [benchmark] = await tx.select().from(canonicalBenchmarkDefinitions)
+        .where(and(
+          eq(canonicalBenchmarkDefinitions.benchmarkConfigVersion, v.benchmarkConfigVersion),
+          eq(canonicalBenchmarkDefinitions.benchmarkId, input.benchmarkId),
+        )).limit(1);
+      if (!benchmark) throw new CanonicalProgressionError("INVALID_BENCHMARK", "Frozen benchmark does not exist", 404);
+
+      const evidenceRows = await tx.select({
+        id: skillEvidence.id,
+        playerId: skillEvidence.playerId,
+        academyId: players.academyId,
+        status: skillEvidence.status,
+      }).from(skillEvidence)
+        .innerJoin(players, eq(players.id, skillEvidence.playerId))
+        .where(inArray(skillEvidence.id, input.evidenceRefs));
+      if (evidenceRows.length !== new Set(input.evidenceRefs).size
+        || evidenceRows.some((row) => row.playerId !== input.playerId || row.academyId !== input.academyId)) {
+        throw new CanonicalProgressionError("INVALID_EVIDENCE_OWNERSHIP", "Evidence must belong to the target player and academy", 403);
+      }
+      if (evidenceRows.some((row) => row.status !== "approved")) {
+        throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Only approved evidence is eligible for canonical progression", 422);
+      }
+      validateTrustedObservations(input.observations, config, benchmark.level);
+
+      const components = await tx.select().from(canonicalBenchmarkComponents)
+        .where(and(
+          eq(canonicalBenchmarkComponents.benchmarkDefinitionId, benchmark.id),
+          eq(canonicalBenchmarkComponents.isAbilityBearing, true),
+        ));
+      if (!components.length) {
+        throw new CanonicalProgressionError("BENCHMARK_NOT_ABILITY_BEARING", "This benchmark cannot change canonical Ability", 422);
+      }
+
+      let hasNewEligibleContribution = false;
+      for (const canonicalSkillId of new Set(components.map((component) => component.canonicalSkillId))) {
+        const units = input.observations.map((observation) => {
+          const quality = qualityForObservation(config, observation, benchmark.level);
+          const aggregationUnitId = sha256([
+            input.playerId, observation.sourceSystem, observation.underlyingEventOrSessionId,
+            canonicalSkillId, observation.observationWindow,
+          ].join("|"));
+          return { ...quality, aggregationUnitId };
+        });
+        const keys = units.map((unit) => sha256([input.playerId, unit.aggregationUnitId, canonicalSkillId, "DEVELOPMENT"].join("|")));
+        const existing = keys.length
+          ? await tx.select({ idempotencyKey: canonicalEvidenceContributions.idempotencyKey })
+            .from(canonicalEvidenceContributions)
+            .where(inArray(canonicalEvidenceContributions.idempotencyKey, keys))
+          : [];
+        const existingKeys = new Set(existing.map((entry) => entry.idempotencyKey));
+        const unseen = units.filter((unit) =>
+          !existingKeys.has(sha256([input.playerId, unit.aggregationUnitId, canonicalSkillId, "DEVELOPMENT"].join("|"))),
+        );
+        if (combinedQuality(unseen) >= asNumber(config.evidenceAggregation.minimum_q_for_delta)) {
+          hasNewEligibleContribution = true;
+          break;
+        }
+      }
+      if (!hasNewEligibleContribution) {
+        throw new CanonicalProgressionError("NO_NEW_ELIGIBLE_EVIDENCE", "Every eligible evidence aggregation unit has already contributed", 409);
+      }
+
+      await ensureAggregateInTransaction(tx, input.academyId, input.playerId);
+      const locked = await tx.execute(sql`
+        SELECT state_version FROM player_canonical_progression
+        WHERE player_id = ${input.playerId} FOR UPDATE
+      `);
+      const expectedVersion = Number((locked.rows[0] as any)?.state_version);
+      if (!Number.isInteger(expectedVersion)) {
+        throw new CanonicalProgressionError("STATE_ANCHOR_MISSING", "Canonical aggregate is unavailable", 500);
+      }
+
+      await tx.update(developmentDecisions).set({ benchmarkDefinitionId: benchmark.id })
+        .where(eq(developmentDecisions.id, decision.id));
+      for (const evidenceId of input.evidenceRefs) {
+        await tx.insert(developmentDecisionEvidenceLinks).values({
+          decisionId: decision.id, evidenceId, linkRole: "PRIMARY_DELTA",
+        }).onConflictDoNothing();
+      }
+      await tx.insert(developmentDecisionValidations).values({
+        decisionId: decision.id,
+        outcome: "ACCEPTED",
+        validationErrors: [],
+        validatedByUserId: input.actor.userId,
+        validatedEvidenceJson: input.observations,
+      } as any);
+      const [accepted] = await tx.update(developmentDecisions).set({
+        status: "ACCEPTED",
+        acceptedAt: new Date(),
+        expectedPlayerStateVersion: expectedVersion,
+        updatedAt: new Date(),
+      }).where(eq(developmentDecisions.id, decision.id)).returning();
+      return { decision: accepted, error: null as CanonicalProgressionError | null };
+    } catch (error) {
+      const validationError = asCanonicalValidationError(error);
+      await tx.insert(developmentDecisionValidations).values({
+        decisionId: decision.id,
+        outcome: "REJECTED",
+        validationErrors: [validationError.code],
+        validatedByUserId: input.actor.userId,
+        validatedEvidenceJson: Array.isArray(candidate.observations) ? candidate.observations : [],
+      } as any);
+      const [rejected] = await tx.update(developmentDecisions).set({
+        status: "REJECTED",
+        rejectedAt: new Date(),
+        updatedAt: new Date(),
+      }).where(eq(developmentDecisions.id, decision.id)).returning();
+      // A deterministic replay is a valid proposal with a terminal decision
+      // outcome, not a malformed request. Preserve the existing caller
+      // contract by returning its rejected record.
+      return {
+        decision: rejected,
+        error: validationError.code === "NO_NEW_ELIGIBLE_EVIDENCE" ? null : validationError,
+      };
+    }
+  });
+
+  if (result.error) throw result.error;
+  return result.decision;
+}
+
+/**
+ * Legacy pre-audit implementation retained temporarily for comparison during
+ * this bounded closure pass. It is intentionally not exported or called.
+ */
+async function proposeAndValidateDevelopmentDecisionLegacy(input: CanonicalDecisionInput) {
   validateDecisionShape(input);
   await ensureCanonicalProgressionConfigPersisted();
   await verifyActorAndPlayer(input.actor, input.academyId, input.playerId);
@@ -617,6 +925,13 @@ async function persistExecutionAttempt(
   });
 }
 
+let applyFailureInjectorForTests: (() => void) | null = null;
+
+/** Test-only hook used to prove Transaction B rollback and retry behavior. */
+export function setCanonicalApplyFailureInjectorForTests(injector: (() => void) | null) {
+  applyFailureInjectorForTests = injector;
+}
+
 /**
  * Transaction B: applies one already-accepted decision. A technical failure
  * rolls back this transaction and is persisted as a separate immutable attempt.
@@ -633,14 +948,20 @@ export async function applyAcceptedDevelopmentDecision(
         .where(eq(developmentDecisions.id, decisionId))
         .limit(1);
       if (!decision) throw new CanonicalProgressionError("DECISION_NOT_FOUND", "Decision was not found", 404);
+      // Receipt/idempotency is never an authorization bypass.
+      await verifyActorAndPlayer(actor, decision.academyId, decision.playerId);
       if (decision.status === "APPLIED") {
         const [receipt] = await tx.select().from(canonicalDecisionApplicationReceipts)
           .where(eq(canonicalDecisionApplicationReceipts.decisionId, decisionId)).limit(1);
-        return { alreadyApplied: true, stateVersion: receipt?.stateVersion ?? null };
+        return {
+          applied: true,
+          alreadyApplied: true,
+          stateVersion: receipt?.stateVersion ?? null,
+          changedSkillCount: 0,
+        };
       }
       if (decision.status !== "ACCEPTED") throw new CanonicalProgressionError("DECISION_NOT_ACCEPTED", "Decision is not accepted", 409);
 
-      await verifyActorAndPlayer(actor, decision.academyId, decision.playerId);
       const locked = await tx.execute(sql`
         SELECT *
         FROM player_canonical_progression
@@ -649,6 +970,22 @@ export async function applyAcceptedDevelopmentDecision(
       `);
       const aggregate = locked.rows[0] as any;
       if (!aggregate) throw new CanonicalProgressionError("STATE_ANCHOR_MISSING", "Canonical aggregate is unavailable", 500);
+
+      // The receipt check after the player lock is authoritative. It
+      // distinguishes duplicate application of the same decision from a
+      // competing decision that legitimately becomes stale.
+      const [receiptAfterLock] = await tx.select().from(canonicalDecisionApplicationReceipts)
+        .where(eq(canonicalDecisionApplicationReceipts.decisionId, decisionId))
+        .limit(1);
+      if (receiptAfterLock) {
+        return {
+          applied: true,
+          alreadyApplied: true,
+          stateVersion: receiptAfterLock.stateVersion,
+          changedSkillCount: 0,
+        };
+      }
+
       const observedVersion = Number(aggregate.state_version);
       const expectedVersion = Number(decision.expectedPlayerStateVersion);
       if (observedVersion !== expectedVersion) {
@@ -827,6 +1164,10 @@ export async function applyAcceptedDevelopmentDecision(
           }).onConflictDoNothing();
         }
       }
+
+      // This only runs in focused integration tests. A throw here occurs after
+      // canonical writes and before commit, proving the transaction rolls back.
+      applyFailureInjectorForTests?.();
 
       // Defensive backstop: acceptance validates idempotency, but a no-delta
       // application must never advance state/history if eligibility changes

@@ -307,3 +307,74 @@ BEGIN
     ADD CONSTRAINT development_decision_execution_attempt_outcome_check
     CHECK (outcome IN ('APPLIED', 'NO_CHANGE', 'TECHNICAL_FAILURE', 'STALE_STATE_VERSION', 'CONFIG_INVALID', 'EVIDENCE_INELIGIBLE', 'AUTH_REVALIDATION_FAILED'));
 END $$;
+
+-- Canonical configuration, audit, receipt, and history rows are provenance.
+-- Their lifecycle is INSERT-only; current-state and decision lifecycle rows
+-- deliberately remain updateable by the canonical executor.
+CREATE OR REPLACE FUNCTION canonical_reject_immutable_write()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RAISE EXCEPTION 'CANONICAL_IMMUTABILITY_VIOLATION: % rows cannot be %d',
+    TG_TABLE_NAME, TG_OP
+    USING ERRCODE = 'P0001';
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION canonical_guard_development_decision()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  mutable_columns TEXT[] := ARRAY[
+    'status', 'benchmark_definition_id', 'expected_player_state_version',
+    'accepted_at', 'applied_at', 'rejected_at', 'superseded_at',
+    'no_change_at', 'updated_at'
+  ];
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'CANONICAL_IMMUTABILITY_VIOLATION: development_decision rows cannot be deleted'
+      USING ERRCODE = 'P0001';
+  END IF;
+  IF (to_jsonb(NEW) - mutable_columns) IS DISTINCT FROM (to_jsonb(OLD) - mutable_columns) THEN
+    RAISE EXCEPTION 'CANONICAL_IMMUTABILITY_VIOLATION: development_decision proposal fields cannot be rewritten'
+      USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS canonical_development_decision_guard ON development_decision;
+CREATE TRIGGER canonical_development_decision_guard
+BEFORE UPDATE OR DELETE ON development_decision
+FOR EACH ROW EXECUTE FUNCTION canonical_guard_development_decision();
+
+DO $$
+DECLARE
+  protected_table TEXT;
+BEGIN
+  FOREACH protected_table IN ARRAY ARRAY[
+    'canonical_skill_definition',
+    'evidence_config_version',
+    'canonical_benchmark_definition',
+    'canonical_benchmark_component',
+    'development_decision_validation',
+    'player_canonical_skill_history',
+    'canonical_decision_snapshot',
+    'development_decision_evidence_link',
+    'canonical_evidence_contribution',
+    'canonical_decision_application_receipt',
+    'development_decision_execution_attempt',
+    'canonical_recalibration_event'
+  ]
+  LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS canonical_immutable_write_guard ON %I', protected_table);
+    EXECUTE format(
+      'CREATE TRIGGER canonical_immutable_write_guard
+       BEFORE UPDATE OR DELETE ON %I
+       FOR EACH ROW EXECUTE FUNCTION canonical_reject_immutable_write()',
+      protected_table
+    );
+  END LOOP;
+END $$;

@@ -3,3 +3,4 @@
 - [Pre-season lifecycle & RBAC](pre-season-lifecycle.md) — Season-close atomicity, credit snapshots, permanent player removal, coach deactivation, WS revocation, inactive-coach HTTP/WS blocking, hard-delete scoping.
 - [Raw SQL result normalization](drizzle-execute-result-shape.md) — Supabase raw SQL execution may return a result wrapper; normalize rows before iterating.
 - [Canonical progression evidence eligibility](canonical-progression-evidence-eligibility.md) — Only frozen delta-eligible sources can change Ability; config-independent idempotency prevents evidence replay.
+- [Canonical progression audit immutability](canonical-progression-audit-immutability.md) — Decision proposals and audit/history records are immutable; only explicit lifecycle fields may transition.
