@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import { db, pool } from "../db";
@@ -178,5 +178,75 @@ describeDatabase("canonical progression database integration", () => {
       input.observations[0].sourceType = sourceType;
       await expect(proposeAndValidateDevelopmentDecision(input)).rejects.toMatchObject({ code: "EVIDENCE_INELIGIBLE" });
     }
+  });
+
+  it("records a defensively discovered no-delta decision as NO_CHANGE without state, history, snapshot, or receipt writes", async () => {
+    const fixture = await createFixture();
+    const input = fixture.makeInput(fixture.evidenceOneId, "no-change-after-acceptance");
+    const decision = await proposeAndValidateDevelopmentDecision(input);
+    expect(decision.status).toBe("ACCEPTED");
+
+    const componentResult = await db.execute(sql`
+      SELECT c.canonical_skill_id, c.component_key, c.weight
+      FROM canonical_benchmark_component c
+      JOIN canonical_benchmark_definition b ON b.id = c.benchmark_definition_id
+      WHERE b.id = ${decision.benchmarkDefinitionId}
+        AND c.is_ability_bearing = true
+      LIMIT 1
+    `);
+    const component = componentResult.rows[0] as any;
+    const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+    const aggregationUnitId = hash([
+      fixture.playerId,
+      input.observations[0].sourceSystem,
+      input.observations[0].underlyingEventOrSessionId,
+      component.canonical_skill_id,
+      input.observations[0].observationWindow,
+    ].join("|"));
+    const idempotencyKey = hash([fixture.playerId, aggregationUnitId, component.canonical_skill_id, "DEVELOPMENT"].join("|"));
+
+    // Simulate an independently completed contribution after Transaction A and
+    // before B obtains the player lock. B must audit NO_CHANGE, not APPLIED.
+    await db.execute(sql`
+      INSERT INTO canonical_evidence_contribution (
+        idempotency_key, decision_id, aggregation_unit_id, evidence_ids,
+        academy_id, player_id, canonical_skill_id, benchmark_id, component_key,
+        contribution_role, prior_state_version, resulting_state_version,
+        taxonomy_config_version, benchmark_config_version, evidence_config_version, strength_model_version,
+        component_weight, normalized_source_reliability, normalized_protocol_quality,
+        normalized_observation_completeness, normalized_benchmark_relevance_difficulty,
+        normalized_recency, normalized_independent_corroboration, computed_q, absolute_delta
+      ) VALUES (
+        ${idempotencyKey}, ${decision.id}, ${aggregationUnitId}, ${JSON.stringify([fixture.evidenceOneId])}::jsonb,
+        ${fixture.academyId}, ${fixture.playerId}, ${component.canonical_skill_id}, ${decision.benchmarkId}, ${component.component_key},
+        'DEVELOPMENT', 0, 1,
+        ${decision.taxonomyConfigVersion}, ${decision.benchmarkConfigVersion}, ${decision.evidenceConfigVersion}, ${decision.strengthModelVersion},
+        ${component.weight}, 1, 1, 1, 1, 1, 1, 1, 0
+      )
+    `);
+
+    await expect(applyAcceptedDevelopmentDecision(decision.id, fixture.actor)).resolves.toEqual({
+      noChange: true,
+      reason: "NO_NEW_ELIGIBLE_EVIDENCE",
+    });
+
+    const auditResult = await db.execute(sql`
+      SELECT d.status, d.no_change_at, p.state_version,
+        (SELECT count(*) FROM player_canonical_skill_history h WHERE h.player_id = ${fixture.playerId}) AS history_count,
+        (SELECT count(*) FROM canonical_decision_snapshot s WHERE s.decision_id = ${decision.id}) AS snapshot_count,
+        (SELECT count(*) FROM canonical_decision_application_receipt r WHERE r.decision_id = ${decision.id}) AS receipt_count,
+        (SELECT outcome FROM development_decision_execution_attempt a WHERE a.decision_id = ${decision.id} ORDER BY attempt_number DESC LIMIT 1) AS attempt_outcome
+      FROM development_decision d
+      JOIN player_canonical_progression p ON p.player_id = d.player_id
+      WHERE d.id = ${decision.id}
+    `);
+    const audit = auditResult.rows[0] as any;
+    expect(audit.status).toBe("NO_CHANGE");
+    expect(audit.no_change_at).not.toBeNull();
+    expect(Number(audit.state_version)).toBe(0);
+    expect(Number(audit.history_count)).toBe(0);
+    expect(Number(audit.snapshot_count)).toBe(0);
+    expect(Number(audit.receipt_count)).toBe(0);
+    expect(audit.attempt_outcome).toBe("NO_CHANGE");
   });
 });

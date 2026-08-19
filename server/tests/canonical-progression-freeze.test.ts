@@ -68,7 +68,8 @@ describe("Phase 2 canonical progression frozen invariants", () => {
     expect(sourceEntries.TRIAL_TEST_VERIFICATION).toBe("GATE_ELIGIBLE");
     expect(sourceEntries.VERIFIED_MATCH_EVENT).toBe("DELTA_ELIGIBLE_IF_COMPONENT_SCORED");
     expect(service).toContain('source?.eligibility !== "DELTA_ELIGIBLE"');
-    expect(service).toContain('if ((result as any).superseded)');
+    expect(service).toContain('status: "NO_CHANGE"');
+    expect(service).toContain('if ((result as any).noChange)');
     expect(service).toContain('"NO_NEW_ELIGIBLE_EVIDENCE"');
   });
 

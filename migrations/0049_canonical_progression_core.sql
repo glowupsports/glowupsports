@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS development_decision (
   player_id VARCHAR NOT NULL REFERENCES players(id) ON DELETE CASCADE,
   actor_user_id VARCHAR NOT NULL REFERENCES users(id),
   actor_coach_id VARCHAR REFERENCES coaches(id),
-  status TEXT NOT NULL DEFAULT 'PROPOSED' CHECK (status IN ('PROPOSED', 'VALIDATING', 'ACCEPTED', 'APPLIED', 'REJECTED', 'SUPERSEDED')),
+  status TEXT NOT NULL DEFAULT 'PROPOSED' CHECK (status IN ('PROPOSED', 'VALIDATING', 'ACCEPTED', 'APPLIED', 'REJECTED', 'SUPERSEDED', 'NO_CHANGE')),
   benchmark_definition_id VARCHAR REFERENCES canonical_benchmark_definition(id),
   benchmark_id TEXT NOT NULL,
   proposed_benchmark_mastery NUMERIC(8,4) NOT NULL CHECK (proposed_benchmark_mastery >= 0 AND proposed_benchmark_mastery <= 100),
@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS development_decision (
   applied_at TIMESTAMP,
   rejected_at TIMESTAMP,
   superseded_at TIMESTAMP,
+  no_change_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -226,7 +227,7 @@ CREATE TABLE IF NOT EXISTS development_decision_execution_attempt (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
   decision_id VARCHAR NOT NULL REFERENCES development_decision(id) ON DELETE CASCADE,
   attempt_number INTEGER NOT NULL,
-  outcome TEXT NOT NULL CHECK (outcome IN ('APPLIED', 'TECHNICAL_FAILURE', 'STALE_STATE_VERSION', 'CONFIG_INVALID', 'EVIDENCE_INELIGIBLE', 'AUTH_REVALIDATION_FAILED')),
+  outcome TEXT NOT NULL CHECK (outcome IN ('APPLIED', 'NO_CHANGE', 'TECHNICAL_FAILURE', 'STALE_STATE_VERSION', 'CONFIG_INVALID', 'EVIDENCE_INELIGIBLE', 'AUTH_REVALIDATION_FAILED')),
   failure_class TEXT,
   stable_error_code TEXT,
   diagnostic_reference TEXT,
@@ -276,3 +277,33 @@ CREATE INDEX IF NOT EXISTS canonical_decision_snapshot_player_created_idx ON can
 CREATE INDEX IF NOT EXISTS development_decision_evidence_link_evidence_idx ON development_decision_evidence_link(evidence_id);
 CREATE INDEX IF NOT EXISTS canonical_evidence_contribution_player_skill_idx ON canonical_evidence_contribution(player_id, canonical_skill_id);
 CREATE INDEX IF NOT EXISTS canonical_recalibration_event_player_created_idx ON canonical_recalibration_event(player_id, created_at);
+
+-- The first provisional migration may already have created these constraints
+-- without NO_CHANGE. Keep this upgrade additive and idempotent.
+ALTER TABLE development_decision
+  ADD COLUMN IF NOT EXISTS no_change_at TIMESTAMP;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'development_decision'::regclass
+      AND conname = 'development_decision_status_check'
+  ) THEN
+    ALTER TABLE development_decision DROP CONSTRAINT development_decision_status_check;
+  END IF;
+  ALTER TABLE development_decision
+    ADD CONSTRAINT development_decision_status_check
+    CHECK (status IN ('PROPOSED', 'VALIDATING', 'ACCEPTED', 'APPLIED', 'REJECTED', 'SUPERSEDED', 'NO_CHANGE'));
+
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'development_decision_execution_attempt'::regclass
+      AND conname = 'development_decision_execution_attempt_outcome_check'
+  ) THEN
+    ALTER TABLE development_decision_execution_attempt DROP CONSTRAINT development_decision_execution_attempt_outcome_check;
+  END IF;
+  ALTER TABLE development_decision_execution_attempt
+    ADD CONSTRAINT development_decision_execution_attempt_outcome_check
+    CHECK (outcome IN ('APPLIED', 'NO_CHANGE', 'TECHNICAL_FAILURE', 'STALE_STATE_VERSION', 'CONFIG_INVALID', 'EVIDENCE_INELIGIBLE', 'AUTH_REVALIDATION_FAILED'));
+END $$;

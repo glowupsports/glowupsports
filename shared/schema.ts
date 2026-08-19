@@ -9663,6 +9663,7 @@ export const developmentDecisions = pgTable("development_decision", {
   appliedAt: timestamp("applied_at"),
   rejectedAt: timestamp("rejected_at"),
   supersededAt: timestamp("superseded_at"),
+  noChangeAt: timestamp("no_change_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => [

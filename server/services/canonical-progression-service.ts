@@ -833,11 +833,11 @@ export async function applyAcceptedDevelopmentDecision(
       // between transactions.
       if (!stateChanges.length) {
         await tx.update(developmentDecisions).set({
-          status: "SUPERSEDED",
-          supersededAt: new Date(),
+          status: "NO_CHANGE",
+          noChangeAt: new Date(),
           updatedAt: new Date(),
         }).where(eq(developmentDecisions.id, decisionId));
-        return { superseded: true, reason: "NO_NEW_ELIGIBLE_EVIDENCE" };
+        return { noChange: true, reason: "NO_NEW_ELIGIBLE_EVIDENCE" };
       }
 
       const allStateRows = await tx.select({
@@ -910,10 +910,10 @@ export async function applyAcceptedDevelopmentDecision(
       );
       return { applied: false, stale: true, code: "STALE_STATE_VERSION" as const };
     }
-    if ((result as any).superseded) {
+    if ((result as any).noChange) {
       await persistExecutionAttempt(
         decisionId,
-        "EVIDENCE_INELIGIBLE",
+        "NO_CHANGE",
         null,
         null,
         "NO_NEW_ELIGIBLE_EVIDENCE",
