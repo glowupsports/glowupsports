@@ -9515,3 +9515,303 @@ export const coachReportState = pgTable("coach_report_state", {
   currency:           text("currency").default("AED"),
   updatedAt:          timestamp("updated_at").defaultNow(),
 });
+
+// ── Canonical Progression Core (Phase 2) ─────────────────────────────────────
+// These additive tables intentionally coexist with all legacy progression,
+// XP, MMR, Glow, feedback, and assessment tables. Only the canonical executor
+// may write player_canonical_progression and its normalized state/history.
+
+export const canonicalSkillDefinitions = pgTable("canonical_skill_definition", {
+  id: text("id").primaryKey(), // frozen canonical atomic skill ID
+  taxonomyConfigVersion: text("taxonomy_config_version").notNull(),
+  family: text("family").notNull(),
+  pillar: text("pillar").notNull(), // TECHNIQUE | TACTICAL | PHYSICAL | MENTAL | MATCH_PLAY | SOCIAL_CHARACTER
+  isAbilityBearing: boolean("is_ability_bearing").notNull().default(true),
+  definitionJson: jsonb("definition_json").notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("canonical_skill_definition_family_idx").on(table.family),
+  index("canonical_skill_definition_pillar_idx").on(table.pillar),
+]);
+
+export const evidenceConfigVersions = pgTable("evidence_config_version", {
+  version: text("version").primaryKey(),
+  configJson: jsonb("config_json").notNull(),
+  provenance: text("provenance").notNull(),
+  isActive: boolean("is_active").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const canonicalBenchmarkDefinitions = pgTable("canonical_benchmark_definition", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  benchmarkConfigVersion: text("benchmark_config_version").notNull(),
+  taxonomyConfigVersion: text("taxonomy_config_version").notNull(),
+  benchmarkId: text("benchmark_id").notNull(),
+  qualifiedSourceKey: text("qualified_source_key").notNull(),
+  sourceSkillId: text("source_skill_id").notNull(),
+  classification: text("classification").notNull(), // ABILITY_BENCHMARK | HARD_GATE | CONTEXT_ONLY | SOCIAL_CHARACTER
+  componentMappingType: text("component_mapping_type").notNull(),
+  pathway: text("pathway").notNull(),
+  level: text("level").notNull(),
+  sourcePillar: text("source_pillar"),
+  sourceCategory: text("source_category"),
+  sourceName: text("source_name"),
+  intervalLower: numeric("interval_lower", { precision: 12, scale: 4 }),
+  intervalUpper: numeric("interval_upper", { precision: 12, scale: 4 }),
+  definitionJson: jsonb("definition_json").notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("canonical_benchmark_version_id_unique").on(table.benchmarkConfigVersion, table.benchmarkId),
+  unique("canonical_benchmark_version_source_unique").on(table.benchmarkConfigVersion, table.qualifiedSourceKey),
+  index("canonical_benchmark_pathway_level_idx").on(table.pathway, table.level),
+  index("canonical_benchmark_classification_idx").on(table.classification),
+]);
+
+export const canonicalBenchmarkComponents = pgTable("canonical_benchmark_component", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  benchmarkDefinitionId: varchar("benchmark_definition_id")
+    .notNull()
+    .references(() => canonicalBenchmarkDefinitions.id, { onDelete: "cascade" }),
+  canonicalSkillId: text("canonical_skill_id")
+    .notNull()
+    .references(() => canonicalSkillDefinitions.id),
+  componentKey: text("component_key").notNull(),
+  role: text("role").notNull(),
+  weight: numeric("weight", { precision: 8, scale: 6 }).notNull(),
+  isAbilityBearing: boolean("is_ability_bearing").notNull().default(false),
+  mappingReason: text("mapping_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("canonical_benchmark_component_unique").on(table.benchmarkDefinitionId, table.componentKey),
+  index("canonical_benchmark_component_skill_idx").on(table.canonicalSkillId),
+]);
+
+export const playerCanonicalProgression = pgTable("player_canonical_progression", {
+  playerId: varchar("player_id").primaryKey().references(() => players.id, { onDelete: "cascade" }),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  stateVersion: integer("state_version").notNull().default(0),
+  placementStatus: text("placement_status").notNull().default("UNASSESSED"),
+  glowStatus: text("glow_status").notNull().default("ESTABLISHING"),
+  currentPathwayId: text("current_pathway_id"),
+  currentLevelId: text("current_level_id"),
+  estimatedGlow: numeric("estimated_glow", { precision: 14, scale: 4 }),
+  glowCoverage: numeric("glow_coverage", { precision: 8, scale: 6 }).notNull().default("0"),
+  glowConfidence: numeric("glow_confidence", { precision: 8, scale: 6 }).notNull().default("0"),
+  readinessJson: jsonb("readiness_json"),
+  taxonomyConfigVersion: text("taxonomy_config_version").notNull(),
+  benchmarkConfigVersion: text("benchmark_config_version").notNull(),
+  evidenceConfigVersion: text("evidence_config_version").notNull(),
+  strengthModelVersion: text("strength_model_version").notNull(),
+  glowConfigVersion: text("glow_config_version").notNull(),
+  lastDecisionId: varchar("last_decision_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  unique("player_canonical_progression_academy_player_unique").on(table.academyId, table.playerId),
+  index("player_canonical_progression_academy_placement_idx").on(table.academyId, table.placementStatus),
+  index("player_canonical_progression_academy_glow_idx").on(table.academyId, table.glowStatus),
+  index("player_canonical_progression_updated_idx").on(table.academyId, table.updatedAt),
+]);
+
+export const playerCanonicalSkillStates = pgTable("player_canonical_skill_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  canonicalSkillId: text("canonical_skill_id").notNull().references(() => canonicalSkillDefinitions.id),
+  activeBenchmarkDefinitionId: varchar("active_benchmark_definition_id").references(() => canonicalBenchmarkDefinitions.id),
+  activeBenchmarkId: text("active_benchmark_id"),
+  benchmarkConfigVersion: text("benchmark_config_version"),
+  absoluteStrength: numeric("absolute_strength", { precision: 14, scale: 4 }),
+  stageRelativeMastery: numeric("stage_relative_mastery", { precision: 8, scale: 4 }),
+  observationStatus: text("observation_status").notNull().default("UNOBSERVED"),
+  confidence: numeric("confidence", { precision: 8, scale: 6 }).notNull().default("0"),
+  coverage: numeric("coverage", { precision: 8, scale: 6 }).notNull().default("0"),
+  freshnessAt: timestamp("freshness_at"),
+  lastEvidenceAt: timestamp("last_evidence_at"),
+  trend: text("trend").notNull().default("STABLE"),
+  stateVersion: integer("state_version").notNull().default(0),
+  lastDecisionId: varchar("last_decision_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  unique("player_canonical_skill_state_player_skill_unique").on(table.playerId, table.canonicalSkillId),
+  index("player_canonical_skill_state_academy_skill_idx").on(table.academyId, table.canonicalSkillId),
+  index("player_canonical_skill_state_benchmark_mastery_idx").on(table.activeBenchmarkId, table.stageRelativeMastery),
+  index("player_canonical_skill_state_stale_idx").on(table.academyId, table.lastEvidenceAt),
+]);
+
+export const developmentDecisions = pgTable("development_decision", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  actorUserId: varchar("actor_user_id").notNull().references(() => users.id),
+  actorCoachId: varchar("actor_coach_id").references(() => coaches.id),
+  status: text("status").notNull().default("PROPOSED"),
+  benchmarkDefinitionId: varchar("benchmark_definition_id").references(() => canonicalBenchmarkDefinitions.id),
+  benchmarkId: text("benchmark_id").notNull(),
+  proposedBenchmarkMastery: numeric("proposed_benchmark_mastery", { precision: 8, scale: 4 }).notNull(),
+  confidence: numeric("confidence", { precision: 8, scale: 6 }).notNull(),
+  evidenceRefs: jsonb("evidence_refs").notNull().default([]),
+  rationale: text("rationale"),
+  expectedPlayerStateVersion: integer("expected_player_state_version"),
+  taxonomyConfigVersion: text("taxonomy_config_version").notNull(),
+  benchmarkConfigVersion: text("benchmark_config_version").notNull(),
+  evidenceConfigVersion: text("evidence_config_version").notNull(),
+  strengthModelVersion: text("strength_model_version").notNull(),
+  glowConfigVersion: text("glow_config_version").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  appliedAt: timestamp("applied_at"),
+  rejectedAt: timestamp("rejected_at"),
+  supersededAt: timestamp("superseded_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("development_decision_player_status_idx").on(table.playerId, table.status),
+  index("development_decision_academy_created_idx").on(table.academyId, table.createdAt),
+]);
+
+export const developmentDecisionValidations = pgTable("development_decision_validation", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  decisionId: varchar("decision_id").notNull().references(() => developmentDecisions.id, { onDelete: "cascade" }),
+  outcome: text("outcome").notNull(), // ACCEPTED | REJECTED
+  validationErrors: jsonb("validation_errors").notNull().default([]),
+  // Immutable server-owned quality inputs required to safely retry Transaction B
+  // without asking an AI/adapter to reinterpret the same decision.
+  validatedEvidenceJson: jsonb("validated_evidence_json").notNull().default([]),
+  validatedByUserId: varchar("validated_by_user_id").references(() => users.id),
+  validatedAt: timestamp("validated_at").notNull().defaultNow(),
+}, (table) => [
+  unique("development_decision_validation_once_unique").on(table.decisionId),
+]);
+
+export const playerCanonicalSkillHistory = pgTable("player_canonical_skill_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  canonicalSkillId: text("canonical_skill_id").notNull().references(() => canonicalSkillDefinitions.id),
+  eventType: text("event_type").notNull(), // DEVELOPMENT | RECALIBRATION
+  decisionId: varchar("decision_id").references(() => developmentDecisions.id),
+  recalibrationEventId: varchar("recalibration_event_id"),
+  priorAbsoluteStrength: numeric("prior_absolute_strength", { precision: 14, scale: 4 }),
+  nextAbsoluteStrength: numeric("next_absolute_strength", { precision: 14, scale: 4 }),
+  priorMastery: numeric("prior_mastery", { precision: 8, scale: 4 }),
+  nextMastery: numeric("next_mastery", { precision: 8, scale: 4 }),
+  stateVersion: integer("state_version").notNull(),
+  stateJson: jsonb("state_json").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("player_canonical_skill_history_player_skill_created_idx").on(table.playerId, table.canonicalSkillId, table.createdAt),
+  index("player_canonical_skill_history_decision_idx").on(table.decisionId),
+]);
+
+export const canonicalDecisionSnapshots = pgTable("canonical_decision_snapshot", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  decisionId: varchar("decision_id").notNull().references(() => developmentDecisions.id, { onDelete: "cascade" }),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  playerId: varchar("player_id").notNull().references(() => players.id),
+  stateVersion: integer("state_version").notNull(),
+  taxonomyConfigVersion: text("taxonomy_config_version").notNull(),
+  benchmarkConfigVersion: text("benchmark_config_version").notNull(),
+  evidenceConfigVersion: text("evidence_config_version").notNull(),
+  strengthModelVersion: text("strength_model_version").notNull(),
+  glowConfigVersion: text("glow_config_version").notNull(),
+  aggregateJson: jsonb("aggregate_json").notNull(),
+  skillStatesJson: jsonb("skill_states_json").notNull(),
+  pillarJson: jsonb("pillar_json").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("canonical_decision_snapshot_decision_unique").on(table.decisionId),
+  index("canonical_decision_snapshot_player_created_idx").on(table.playerId, table.createdAt),
+]);
+
+export const developmentDecisionEvidenceLinks = pgTable("development_decision_evidence_link", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  decisionId: varchar("decision_id").notNull().references(() => developmentDecisions.id, { onDelete: "cascade" }),
+  evidenceId: varchar("evidence_id").notNull(),
+  linkRole: text("link_role").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("development_decision_evidence_link_unique").on(table.decisionId, table.evidenceId, table.linkRole),
+  index("development_decision_evidence_link_evidence_idx").on(table.evidenceId),
+]);
+
+export const canonicalEvidenceContributions = pgTable("canonical_evidence_contribution", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  idempotencyKey: text("idempotency_key").notNull(),
+  decisionId: varchar("decision_id").notNull().references(() => developmentDecisions.id),
+  aggregationUnitId: text("aggregation_unit_id").notNull(),
+  evidenceIds: jsonb("evidence_ids").notNull().default([]),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  playerId: varchar("player_id").notNull().references(() => players.id),
+  canonicalSkillId: text("canonical_skill_id").notNull().references(() => canonicalSkillDefinitions.id),
+  benchmarkId: text("benchmark_id").notNull(),
+  componentKey: text("component_key"),
+  contributionRole: text("contribution_role").notNull().default("DEVELOPMENT"),
+  priorStateVersion: integer("prior_state_version").notNull(),
+  resultingStateVersion: integer("resulting_state_version").notNull(),
+  taxonomyConfigVersion: text("taxonomy_config_version").notNull(),
+  benchmarkConfigVersion: text("benchmark_config_version").notNull(),
+  evidenceConfigVersion: text("evidence_config_version").notNull(),
+  strengthModelVersion: text("strength_model_version").notNull(),
+  componentWeight: numeric("component_weight", { precision: 8, scale: 6 }).notNull(),
+  normalizedSourceReliability: numeric("normalized_source_reliability", { precision: 8, scale: 6 }).notNull(),
+  normalizedProtocolQuality: numeric("normalized_protocol_quality", { precision: 8, scale: 6 }).notNull(),
+  normalizedObservationCompleteness: numeric("normalized_observation_completeness", { precision: 8, scale: 6 }).notNull(),
+  normalizedBenchmarkRelevanceDifficulty: numeric("normalized_benchmark_relevance_difficulty", { precision: 8, scale: 6 }).notNull(),
+  normalizedRecency: numeric("normalized_recency", { precision: 8, scale: 6 }).notNull(),
+  normalizedIndependentCorroboration: numeric("normalized_independent_corroboration", { precision: 8, scale: 6 }).notNull(),
+  computedQ: numeric("computed_q", { precision: 8, scale: 6 }).notNull(),
+  absoluteDelta: numeric("absolute_delta", { precision: 14, scale: 4 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("canonical_evidence_contribution_idempotency_unique").on(table.idempotencyKey),
+  index("canonical_evidence_contribution_player_skill_idx").on(table.playerId, table.canonicalSkillId),
+]);
+
+export const canonicalDecisionApplicationReceipts = pgTable("canonical_decision_application_receipt", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  decisionId: varchar("decision_id").notNull().references(() => developmentDecisions.id, { onDelete: "cascade" }),
+  playerId: varchar("player_id").notNull().references(() => players.id),
+  stateVersion: integer("state_version").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("canonical_decision_application_receipt_unique").on(table.decisionId),
+]);
+
+export const developmentDecisionExecutionAttempts = pgTable("development_decision_execution_attempt", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  decisionId: varchar("decision_id").notNull().references(() => developmentDecisions.id, { onDelete: "cascade" }),
+  attemptNumber: integer("attempt_number").notNull(),
+  outcome: text("outcome").notNull(),
+  failureClass: text("failure_class"),
+  stableErrorCode: text("stable_error_code"),
+  diagnosticReference: text("diagnostic_reference"),
+  expectedStateVersion: integer("expected_state_version"),
+  observedStateVersion: integer("observed_state_version"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("development_decision_execution_attempt_unique").on(table.decisionId, table.attemptNumber),
+]);
+
+export const canonicalRecalibrationEvents = pgTable("canonical_recalibration_event", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  playerId: varchar("player_id").notNull().references(() => players.id),
+  actorUserId: varchar("actor_user_id").references(() => users.id),
+  reason: text("reason").notNull(),
+  fromStateSnapshotId: varchar("from_state_snapshot_id"),
+  toStateSnapshotId: varchar("to_state_snapshot_id"),
+  beforeState: jsonb("before_state").notNull(),
+  afterState: jsonb("after_state").notNull(),
+  oldTaxonomyConfigVersion: text("old_taxonomy_config_version").notNull(),
+  oldBenchmarkConfigVersion: text("old_benchmark_config_version").notNull(),
+  oldEvidenceConfigVersion: text("old_evidence_config_version").notNull(),
+  oldStrengthModelVersion: text("old_strength_model_version").notNull(),
+  newTaxonomyConfigVersion: text("new_taxonomy_config_version").notNull(),
+  newBenchmarkConfigVersion: text("new_benchmark_config_version").notNull(),
+  newEvidenceConfigVersion: text("new_evidence_config_version").notNull(),
+  newStrengthModelVersion: text("new_strength_model_version").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("canonical_recalibration_event_player_created_idx").on(table.playerId, table.createdAt),
+]);

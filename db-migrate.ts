@@ -15,6 +15,8 @@
  */
 
 import { Pool, PoolClient } from "pg";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 const dbUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
 if (!dbUrl) {
@@ -1178,6 +1180,14 @@ async function run() {
         ADD COLUMN IF NOT EXISTS closing_credit_snapshot jsonb NULL
     `);
     console.log("[db-migrate] Task #2201 closing_credit_snapshot — OK");
+
+    // ── Phase 2 — Canonical Progression Core ─────────────────────────────────
+    // The checked-in migration is additive and idempotent. Execute it here so
+    // the standard `db-migrate.ts && drizzle-kit push` workflow creates the
+    // canonical foundation before Drizzle inspects the intended schema.
+    const canonicalMigrationPath = path.resolve(process.cwd(), "migrations/0049_canonical_progression_core.sql");
+    await client.query(readFileSync(canonicalMigrationPath, "utf8"));
+    console.log("[db-migrate] Phase 2 canonical progression core — OK");
 
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(

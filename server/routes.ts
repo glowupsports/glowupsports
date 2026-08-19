@@ -62,6 +62,7 @@ import adminSeasonsRouter from "./routes/admin-seasons";
 import playerCreditsRouter from "./routes/player-credits";
 import creditsV2Router from "./routes/credits-v2";
 import playerProgressRouter from "./routes/player-progress";
+import canonicalProgressionRouter from "./routes/canonical-progression";
 import attendanceWorkbookRouter from "./routes/attendance-workbook";
 import coachingSeriesRouter from "./routes/coaching-series";
 import coachManagementRouter from "./routes/coach-management";
@@ -432,6 +433,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(playerCreditsRouter);
   app.use(creditsV2Router);
   app.use(playerProgressRouter);
+  // Phase 2 canonical core: internal-only DTO reads. No legacy consumer is
+  // switched to this route in this phase.
+  app.use(canonicalProgressionRouter);
   app.use(attendanceWorkbookRouter);
   app.use(coachingSeriesRouter);
   app.use(coachManagementRouter);

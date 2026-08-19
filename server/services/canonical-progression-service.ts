@@ -1,0 +1,985 @@
+/**
+ * Phase 2 canonical progression core.
+ *
+ * This service is deliberately not wired to legacy writers or client UI. Future
+ * adapters supply trusted observations; this is the sole canonical Ability
+ * writer and owns validation, locking, calculation, history, and idempotency.
+ */
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { db } from "../db";
+import {
+  academies,
+  canonicalBenchmarkComponents,
+  canonicalBenchmarkDefinitions,
+  canonicalDecisionApplicationReceipts,
+  canonicalDecisionSnapshots,
+  canonicalEvidenceContributions,
+  canonicalSkillDefinitions,
+  developmentDecisionEvidenceLinks,
+  developmentDecisionExecutionAttempts,
+  developmentDecisionValidations,
+  developmentDecisions,
+  evidenceConfigVersions,
+  playerCanonicalProgression,
+  playerCanonicalSkillHistory,
+  playerCanonicalSkillStates,
+  players,
+  skillEvidence,
+} from "@shared/schema";
+import { canReviewEvidence, type ProgressionActor } from "../lib/progression-actor-policy";
+
+const TAXONOMY_CONFIG_VERSION = "taxonomy-v1.0.0-final-freeze";
+const STRENGTH_MODEL_VERSION = "strength-model-v1.0.1-final-freeze";
+const GLOW_CONFIG_VERSION = "glow-config-v1.0.0-final-freeze";
+
+type FreezeArtifact = {
+  crosswalk: { version: string };
+  evidence_config: any;
+};
+
+type CrosswalkArtifact = {
+  version: string;
+  canonical_atoms: Array<{ id: string; family: string; pillar: string }>;
+  benchmarks: Array<{
+    benchmark_id: string;
+    qualified_source_key: string;
+    source_skill_id: string;
+    benchmark_classification: string;
+    component_mapping_type: string;
+    source: { pathway: string; level: string; pillar?: string; category?: string; name?: string };
+    benchmark_components: Array<{
+      canonical_atomic_skill_id: string;
+      component_key: string;
+      role: string;
+      weight: number;
+      abilityBearing: boolean;
+      mapping_reason?: string;
+    }>;
+  }>;
+};
+
+export interface TrustedEvidenceObservation {
+  evidenceIds: string[];
+  sourceSystem: string;
+  underlyingEventOrSessionId: string;
+  observationWindow: string;
+  sourceType: string;
+  /** Observed attempts/fields, never successful attempts. */
+  observedRequiredObservations: number;
+  requiredObservations: number;
+  /** Persisted validation snapshots deserialize this as an ISO string. */
+  occurredAt: Date | string;
+  benchmarkRelevance: "EXACT_BENCHMARK_COMPONENT" | "EXPLICIT_ADJACENT_COMPONENT";
+  verifiedObserverIds: string[];
+}
+
+export interface CanonicalDecisionInput {
+  actor: ProgressionActor;
+  academyId: string;
+  playerId: string;
+  benchmarkId: string;
+  proposedBenchmarkMastery: number;
+  confidence: number;
+  evidenceRefs: string[];
+  rationale?: string;
+  observations: TrustedEvidenceObservation[];
+}
+
+export interface CanonicalCurrentDto {
+  playerId: string;
+  academyId: string;
+  stateVersion: number;
+  placementStatus: string;
+  glowStatus: string;
+  estimatedGlow: number | null;
+  coverage: number;
+  confidence: number;
+  families: Record<string, { strength: number | null; coverage: number; confidence: number }>;
+  pillars: Record<string, { strength: number | null; coverage: number; confidence: number }>;
+  skills: Array<{
+    canonicalSkillId: string;
+    family: string;
+    pillar: string;
+    absoluteStrength: number | null;
+    mastery: number | null;
+    observationStatus: string;
+    confidence: number;
+    coverage: number;
+    trend: string;
+    lastEvidenceAt: Date | null;
+  }>;
+}
+
+export class CanonicalProgressionError extends Error {
+  constructor(public readonly code: string, message: string, public readonly status = 400) {
+    super(message);
+  }
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function asNumber(value: unknown): number {
+  if (value === null || value === undefined || value === "") return 0;
+  return Number(value);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function configPaths() {
+  return {
+    freeze: path.resolve(process.cwd(), "docs/specs/batch-4a-phase1-freeze-v1.json"),
+    crosswalk: path.resolve(process.cwd(), "docs/specs/batch-4a-canonical-crosswalk-v1.json"),
+  };
+}
+
+let cachedArtifacts: { freeze: FreezeArtifact; crosswalk: CrosswalkArtifact } | null = null;
+
+function loadFrozenArtifacts() {
+  if (cachedArtifacts) return cachedArtifacts;
+  const paths = configPaths();
+  cachedArtifacts = {
+    freeze: JSON.parse(readFileSync(paths.freeze, "utf8")) as FreezeArtifact,
+    crosswalk: JSON.parse(readFileSync(paths.crosswalk, "utf8")) as CrosswalkArtifact,
+  };
+  return cachedArtifacts;
+}
+
+function intervalForBenchmark(freeze: FreezeArtifact, level: string): [number, number] {
+  const bands = {
+    ...(freeze.evidence_config.benchmarkIntervals.juniorBands ?? {}),
+    ...(freeze.evidence_config.benchmarkIntervals.adultBands ?? {}),
+  } as Record<string, [number, number]>;
+  const interval = bands[level];
+  if (!interval) throw new CanonicalProgressionError("CONFIG_INVALID", `No frozen interval for level ${level}`, 500);
+  return interval;
+}
+
+function qualityForObservation(
+  config: any,
+  observation: TrustedEvidenceObservation,
+  level: string,
+): {
+  aggregationUnitId: string;
+  sourceReliability: number;
+  protocolQuality: number;
+  observationCompleteness: number;
+  benchmarkRelevanceDifficulty: number;
+  recency: number;
+  independentCorroboration: number;
+  qUnit: number;
+} {
+  if (!observation.underlyingEventOrSessionId) {
+    throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Stable underlying event/session identity is required", 422);
+  }
+  if (observation.requiredObservations <= 0 || observation.observedRequiredObservations < 0) {
+    throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Observation completeness is required", 422);
+  }
+
+  const sourceReliability = asNumber(
+    config.sourceReliability.find((entry: any) => entry.source_type === observation.sourceType)?.coefficient,
+  );
+  const protocolQuality = asNumber(config.protocolQuality?.factors?.[observation.sourceType]);
+  const observationCompleteness = clamp(
+    observation.observedRequiredObservations / observation.requiredObservations,
+    0,
+    1,
+  );
+  const levelFactor = asNumber(config.benchmarkRelevanceDifficulty?.pathwayLevelFactor?.[level]);
+  const relevanceFactor = asNumber(config.benchmarkRelevanceDifficulty?.benchmarkRelevanceFactor?.[observation.benchmarkRelevance]);
+  const benchmarkRelevanceDifficulty = clamp(levelFactor * relevanceFactor, 0, 1);
+  const occurredAt = new Date(observation.occurredAt);
+  if (Number.isNaN(occurredAt.getTime())) {
+    throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Evidence observation timestamp is invalid", 422);
+  }
+  const ageDays = Math.max(0, (Date.now() - occurredAt.getTime()) / 86_400_000);
+  const halfLife = asNumber(config.recency?.half_life_days);
+  const recency = halfLife > 0 ? Math.pow(0.5, ageDays / halfLife) : 0;
+  const independentObservers = new Set(observation.verifiedObserverIds.filter(Boolean)).size;
+  const independentCorroboration = clamp(0.9 + 0.05 * Math.min(Math.max(independentObservers - 1, 0), 2), 0, 1);
+  const qUnit = clamp(
+    sourceReliability
+      * protocolQuality
+      * observationCompleteness
+      * benchmarkRelevanceDifficulty
+      * recency
+      * independentCorroboration,
+    0,
+    1,
+  );
+
+  return {
+    aggregationUnitId: sha256([
+      "player-bound-at-application",
+      observation.sourceSystem,
+      observation.underlyingEventOrSessionId,
+      "skill-bound-at-application",
+      observation.observationWindow,
+    ].join("|")),
+    sourceReliability,
+    protocolQuality,
+    observationCompleteness,
+    benchmarkRelevanceDifficulty,
+    recency,
+    independentCorroboration,
+    qUnit,
+  };
+}
+
+function combinedQuality(units: Array<{ qUnit: number }>): number {
+  return clamp(1 - units.reduce((product, unit) => product * (1 - unit.qUnit), 1), 0, 1);
+}
+
+function versions() {
+  const { freeze, crosswalk } = loadFrozenArtifacts();
+  return {
+    taxonomyConfigVersion: TAXONOMY_CONFIG_VERSION,
+    benchmarkConfigVersion: crosswalk.version,
+    evidenceConfigVersion: freeze.evidence_config.version,
+    strengthModelVersion: STRENGTH_MODEL_VERSION,
+    glowConfigVersion: GLOW_CONFIG_VERSION,
+  };
+}
+
+/**
+ * Idempotently persists frozen taxonomy, crosswalk, components, and evidence
+ * config. This only materializes checked-in configuration; it writes no player
+ * progression state.
+ */
+export async function ensureCanonicalProgressionConfigPersisted() {
+  const { freeze, crosswalk } = loadFrozenArtifacts();
+  const v = versions();
+
+  const existing = await db.select({ version: evidenceConfigVersions.version })
+    .from(evidenceConfigVersions)
+    .where(eq(evidenceConfigVersions.version, v.evidenceConfigVersion))
+    .limit(1);
+  if (existing.length) return v;
+
+  await db.transaction(async (tx) => {
+    await tx.insert(evidenceConfigVersions).values({
+      version: v.evidenceConfigVersion,
+      configJson: freeze.evidence_config,
+      provenance: "PHASE_1_FINAL_FROZEN_SPECIFICATION",
+      isActive: true,
+    }).onConflictDoNothing();
+
+    for (const atom of crosswalk.canonical_atoms) {
+      await tx.insert(canonicalSkillDefinitions).values({
+        id: atom.id,
+        taxonomyConfigVersion: v.taxonomyConfigVersion,
+        family: atom.family,
+        pillar: atom.pillar,
+        isAbilityBearing: atom.pillar !== "SOCIAL_CHARACTER" && atom.pillar !== "SOCIAL",
+        definitionJson: atom,
+      }).onConflictDoNothing();
+    }
+
+    for (const benchmark of crosswalk.benchmarks) {
+      const [lower, upper] = intervalForBenchmark(freeze, benchmark.source.level);
+      const existingBenchmark = await tx.select({ id: canonicalBenchmarkDefinitions.id })
+        .from(canonicalBenchmarkDefinitions)
+        .where(and(
+          eq(canonicalBenchmarkDefinitions.benchmarkConfigVersion, v.benchmarkConfigVersion),
+          eq(canonicalBenchmarkDefinitions.benchmarkId, benchmark.benchmark_id),
+        ))
+        .limit(1);
+
+      const benchmarkDefinitionId = existingBenchmark[0]?.id ?? (
+        await tx.insert(canonicalBenchmarkDefinitions).values({
+          benchmarkConfigVersion: v.benchmarkConfigVersion,
+          taxonomyConfigVersion: v.taxonomyConfigVersion,
+          benchmarkId: benchmark.benchmark_id,
+          qualifiedSourceKey: benchmark.qualified_source_key,
+          sourceSkillId: benchmark.source_skill_id,
+          classification: benchmark.benchmark_classification,
+          componentMappingType: benchmark.component_mapping_type,
+          pathway: benchmark.source.pathway,
+          level: benchmark.source.level,
+          sourcePillar: benchmark.source.pillar,
+          sourceCategory: benchmark.source.category,
+          sourceName: benchmark.source.name,
+          intervalLower: String(lower),
+          intervalUpper: String(upper),
+          definitionJson: benchmark,
+        }).returning({ id: canonicalBenchmarkDefinitions.id })
+      )[0].id;
+
+      for (const component of benchmark.benchmark_components) {
+        await tx.insert(canonicalBenchmarkComponents).values({
+          benchmarkDefinitionId,
+          canonicalSkillId: component.canonical_atomic_skill_id,
+          componentKey: component.component_key,
+          role: component.role,
+          weight: String(component.weight),
+          isAbilityBearing: component.abilityBearing,
+          mappingReason: component.mapping_reason,
+        }).onConflictDoNothing();
+      }
+    }
+  });
+
+  return v;
+}
+
+async function verifyActorAndPlayer(actor: ProgressionActor, academyId: string, playerId: string) {
+  if (!actor.userId || actor.academyId !== academyId) {
+    throw new CanonicalProgressionError("AUTH_REVALIDATION_FAILED", "Actor academy scope is invalid", 403);
+  }
+  if (actor.playerId === playerId) {
+    throw new CanonicalProgressionError("AUTH_REVALIDATION_FAILED", "A player cannot review their own canonical evidence", 403);
+  }
+  const policy = await canReviewEvidence(actor);
+  if (!policy.allowed) throw new CanonicalProgressionError("AUTH_REVALIDATION_FAILED", policy.reason ?? "Actor cannot review canonical evidence", 403);
+
+  const [player] = await db.select({ id: players.id, academyId: players.academyId })
+    .from(players)
+    .where(and(eq(players.id, playerId), eq(players.academyId, academyId)))
+    .limit(1);
+  if (!player) throw new CanonicalProgressionError("PLAYER_NOT_FOUND", "Player is not in the actor academy", 404);
+}
+
+async function ensureAggregate(academyId: string, playerId: string) {
+  const v = versions();
+  await db.insert(playerCanonicalProgression).values({
+    playerId,
+    academyId,
+    taxonomyConfigVersion: v.taxonomyConfigVersion,
+    benchmarkConfigVersion: v.benchmarkConfigVersion,
+    evidenceConfigVersion: v.evidenceConfigVersion,
+    strengthModelVersion: v.strengthModelVersion,
+    glowConfigVersion: v.glowConfigVersion,
+  }).onConflictDoNothing();
+}
+
+function validateDecisionShape(input: CanonicalDecisionInput) {
+  if (!Number.isFinite(input.proposedBenchmarkMastery) || input.proposedBenchmarkMastery < 0 || input.proposedBenchmarkMastery > 100) {
+    throw new CanonicalProgressionError("INVALID_MASTERY", "Benchmark mastery must be between 0 and 100");
+  }
+  if (!Number.isFinite(input.confidence) || input.confidence < 0 || input.confidence > 1) {
+    throw new CanonicalProgressionError("INVALID_CONFIDENCE", "Confidence must be between 0 and 1");
+  }
+  if (!input.evidenceRefs.length || !input.observations.length) {
+    throw new CanonicalProgressionError("EVIDENCE_REQUIRED", "At least one trusted evidence observation is required");
+  }
+  const referenced = new Set(input.evidenceRefs);
+  const observedEvidence = new Set<string>();
+  for (const observation of input.observations) {
+    if (!observation.evidenceIds.length || observation.evidenceIds.some((id) => !referenced.has(id))) {
+      throw new CanonicalProgressionError("INVALID_EVIDENCE_REFERENCE", "Observation references evidence outside the decision");
+    }
+    observation.evidenceIds.forEach((id) => observedEvidence.add(id));
+  }
+  if (observedEvidence.size !== referenced.size || [...referenced].some((id) => !observedEvidence.has(id))) {
+    throw new CanonicalProgressionError("INVALID_EVIDENCE_REFERENCE", "Every referenced evidence item must be represented in a trusted observation");
+  }
+}
+
+function validateTrustedObservations(
+  observations: TrustedEvidenceObservation[],
+  config: any,
+  benchmarkLevel: string,
+) {
+  for (const observation of observations) {
+    const source = config.sourceReliability.find((entry: any) => entry.source_type === observation.sourceType);
+    const protocol = asNumber(config.protocolQuality?.factors?.[observation.sourceType]);
+    const levelFactor = asNumber(config.benchmarkRelevanceDifficulty?.pathwayLevelFactor?.[benchmarkLevel]);
+    const relevanceFactor = asNumber(config.benchmarkRelevanceDifficulty?.benchmarkRelevanceFactor?.[observation.benchmarkRelevance]);
+    // Conditional sources (for example verified match events) require a
+    // component-scoring adapter, which is intentionally outside this Phase 2
+    // core. They must remain non-delta evidence until that adapter exists.
+    if (source?.eligibility !== "DELTA_ELIGIBLE"
+      || asNumber(source.coefficient) <= 0
+      || protocol <= 0
+      || levelFactor <= 0
+      || relevanceFactor <= 0) {
+      throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Observation source or relevance is not eligible for this frozen benchmark", 422);
+    }
+    qualityForObservation(config, observation, benchmarkLevel);
+  }
+}
+
+/**
+ * Transaction A: validates an AI/server proposal and commits ACCEPTED or
+ * REJECTED. Observations are accepted only through trusted server adapters.
+ */
+export async function proposeAndValidateDevelopmentDecision(input: CanonicalDecisionInput) {
+  validateDecisionShape(input);
+  await ensureCanonicalProgressionConfigPersisted();
+  await verifyActorAndPlayer(input.actor, input.academyId, input.playerId);
+  await ensureAggregate(input.academyId, input.playerId);
+  const v = versions();
+  const config = loadFrozenArtifacts().freeze.evidence_config;
+  if (input.confidence < asNumber(config.strengthUpdate.minimum_ai_confidence)) {
+    throw new CanonicalProgressionError("INSUFFICIENT_CONFIDENCE", "Decision confidence is below the frozen acceptance threshold", 422);
+  }
+
+  const [benchmark] = await db.select()
+    .from(canonicalBenchmarkDefinitions)
+    .where(and(
+      eq(canonicalBenchmarkDefinitions.benchmarkConfigVersion, v.benchmarkConfigVersion),
+      eq(canonicalBenchmarkDefinitions.benchmarkId, input.benchmarkId),
+    ))
+    .limit(1);
+  if (!benchmark) throw new CanonicalProgressionError("INVALID_BENCHMARK", "Frozen benchmark does not exist", 404);
+
+  const evidenceRows = await db.select({
+    id: skillEvidence.id,
+    playerId: skillEvidence.playerId,
+    academyId: players.academyId,
+    status: skillEvidence.status,
+  }).from(skillEvidence)
+    .innerJoin(players, eq(players.id, skillEvidence.playerId))
+    .where(inArray(skillEvidence.id, input.evidenceRefs));
+  if (evidenceRows.length !== new Set(input.evidenceRefs).size
+    || evidenceRows.some((row) => row.playerId !== input.playerId || row.academyId !== input.academyId)) {
+    throw new CanonicalProgressionError("INVALID_EVIDENCE_OWNERSHIP", "Evidence must belong to the target player and academy", 403);
+  }
+  if (evidenceRows.some((row) => row.status !== "approved")) {
+    throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Only approved evidence is eligible for canonical progression", 422);
+  }
+  validateTrustedObservations(input.observations, config, benchmark.level);
+
+  return db.transaction(async (tx) => {
+    const locked = await tx.execute(sql`
+      SELECT state_version
+      FROM player_canonical_progression
+      WHERE player_id = ${input.playerId}
+      FOR UPDATE
+    `);
+    const expectedVersion = Number((locked.rows[0] as any)?.state_version);
+    if (!Number.isInteger(expectedVersion)) throw new CanonicalProgressionError("STATE_ANCHOR_MISSING", "Canonical aggregate is unavailable", 500);
+
+    const [decision] = await tx.insert(developmentDecisions).values({
+      academyId: input.academyId,
+      playerId: input.playerId,
+      actorUserId: input.actor.userId,
+      actorCoachId: input.actor.coachId ?? null,
+      status: "VALIDATING",
+      benchmarkDefinitionId: benchmark.id,
+      benchmarkId: input.benchmarkId,
+      proposedBenchmarkMastery: String(input.proposedBenchmarkMastery),
+      confidence: String(input.confidence),
+      evidenceRefs: input.evidenceRefs,
+      rationale: input.rationale ?? null,
+      expectedPlayerStateVersion: expectedVersion,
+      ...v,
+    }).returning();
+
+    for (const evidenceId of input.evidenceRefs) {
+      await tx.insert(developmentDecisionEvidenceLinks).values({
+        decisionId: decision.id,
+        evidenceId,
+        linkRole: "PRIMARY_DELTA",
+      }).onConflictDoNothing();
+    }
+
+    // Validation owns idempotency. A decision is rejected before acceptance if
+    // every eligible atomic aggregation unit has already contributed.
+    const components = await tx.select().from(canonicalBenchmarkComponents)
+      .where(and(
+        eq(canonicalBenchmarkComponents.benchmarkDefinitionId, benchmark.id),
+        eq(canonicalBenchmarkComponents.isAbilityBearing, true),
+      ));
+    let hasNewEligibleContribution = false;
+    for (const canonicalSkillId of new Set(components.map((component) => component.canonicalSkillId))) {
+      const units = input.observations.map((observation) => {
+        const quality = qualityForObservation(config, observation, benchmark.level);
+        const aggregationUnitId = sha256([
+          input.playerId,
+          observation.sourceSystem,
+          observation.underlyingEventOrSessionId,
+          canonicalSkillId,
+          observation.observationWindow,
+        ].join("|"));
+        return { ...quality, aggregationUnitId };
+      });
+      const keys = units.map((unit) => sha256([input.playerId, unit.aggregationUnitId, canonicalSkillId, "DEVELOPMENT"].join("|")));
+      const existing = keys.length
+        ? await tx.select({ idempotencyKey: canonicalEvidenceContributions.idempotencyKey })
+          .from(canonicalEvidenceContributions)
+          .where(inArray(canonicalEvidenceContributions.idempotencyKey, keys))
+        : [];
+      const existingKeys = new Set(existing.map((entry) => entry.idempotencyKey));
+      const newUnits = units.filter((unit) =>
+        !existingKeys.has(sha256([input.playerId, unit.aggregationUnitId, canonicalSkillId, "DEVELOPMENT"].join("|"))),
+      );
+      if (combinedQuality(newUnits) >= asNumber(config.evidenceAggregation.minimum_q_for_delta)) {
+        hasNewEligibleContribution = true;
+        break;
+      }
+    }
+
+    if (!hasNewEligibleContribution) {
+      await tx.insert(developmentDecisionValidations).values({
+        decisionId: decision.id,
+        outcome: "REJECTED",
+        validationErrors: ["NO_NEW_ELIGIBLE_EVIDENCE"],
+        validatedByUserId: input.actor.userId,
+        validatedEvidenceJson: input.observations,
+      } as any);
+      return (await tx.update(developmentDecisions)
+        .set({ status: "REJECTED", rejectedAt: new Date(), updatedAt: new Date() })
+        .where(eq(developmentDecisions.id, decision.id))
+        .returning())[0];
+    }
+
+    await tx.insert(developmentDecisionValidations).values({
+      decisionId: decision.id,
+      outcome: "ACCEPTED",
+      validationErrors: [],
+      validatedByUserId: input.actor.userId,
+      validatedEvidenceJson: input.observations,
+    } as any);
+
+    const [accepted] = await tx.update(developmentDecisions)
+      .set({ status: "ACCEPTED", acceptedAt: new Date(), updatedAt: new Date() })
+      .where(eq(developmentDecisions.id, decision.id))
+      .returning();
+    return accepted;
+  });
+}
+
+function deriveAggregates(
+  skills: Array<{
+    canonicalSkillId: string;
+    family: string;
+    pillar: string;
+    absoluteStrength: unknown;
+    observationStatus: string;
+    confidence: unknown;
+  }>,
+) {
+  const abilityPillars = ["TECHNIQUE", "TACTICAL", "PHYSICAL", "MENTAL", "MATCH_PLAY"];
+  const observed = skills.filter((skill) => skill.observationStatus !== "UNOBSERVED" && skill.absoluteStrength !== null);
+
+  const aggregate = (items: typeof skills) => {
+    const observedItems = items.filter((item) => item.observationStatus !== "UNOBSERVED" && item.absoluteStrength !== null);
+    return {
+      strength: observedItems.length ? observedItems.reduce((sum, item) => sum + asNumber(item.absoluteStrength), 0) / observedItems.length : null,
+      coverage: items.length ? observedItems.length / items.length : 0,
+      confidence: observedItems.length ? observedItems.reduce((sum, item) => sum + asNumber(item.confidence), 0) / observedItems.length : 0,
+    };
+  };
+
+  const families: Record<string, ReturnType<typeof aggregate>> = {};
+  const pillars: Record<string, ReturnType<typeof aggregate>> = {};
+  for (const family of new Set(skills.map((skill) => skill.family))) {
+    families[family] = aggregate(skills.filter((skill) => skill.family === family));
+  }
+  for (const pillar of abilityPillars) {
+    pillars[pillar] = aggregate(skills.filter((skill) => skill.pillar === pillar));
+  }
+
+  const observedPillars = abilityPillars.filter((pillar) => pillars[pillar].strength !== null);
+  const coverage = abilityPillars.reduce((sum, pillar) => sum + pillars[pillar].coverage, 0) / abilityPillars.length;
+  const confidence = abilityPillars.reduce((sum, pillar) => sum + pillars[pillar].coverage * pillars[pillar].confidence, 0) / abilityPillars.length;
+  const estimatedGlow = observedPillars.length
+    ? observedPillars.reduce((sum, pillar) => sum + (pillars[pillar].strength ?? 0), 0) / observedPillars.length
+    : null;
+
+  const glowStatus = observedPillars.length < 2
+    ? "ESTABLISHING"
+    : observedPillars.length === 5
+      && Object.values(pillars).every((pillar) => pillar.coverage >= 0.8 && pillar.confidence >= 0.7)
+      && coverage >= 0.85
+        ? "CONFIRMED"
+        : "PROVISIONAL";
+
+  return { families, pillars, coverage, confidence, estimatedGlow, glowStatus, observedCount: observed.length };
+}
+
+async function persistExecutionAttempt(
+  decisionId: string,
+  outcome: string,
+  expectedStateVersion: number | null,
+  observedStateVersion: number | null,
+  stableErrorCode?: string,
+  failureClass?: string,
+) {
+  const attempts = await db.select({ count: sql<number>`count(*)` })
+    .from(developmentDecisionExecutionAttempts)
+    .where(eq(developmentDecisionExecutionAttempts.decisionId, decisionId));
+  await db.insert(developmentDecisionExecutionAttempts).values({
+    decisionId,
+    attemptNumber: Number(attempts[0]?.count ?? 0) + 1,
+    outcome,
+    expectedStateVersion,
+    observedStateVersion,
+    stableErrorCode: stableErrorCode ?? null,
+    failureClass: failureClass ?? null,
+  });
+}
+
+/**
+ * Transaction B: applies one already-accepted decision. A technical failure
+ * rolls back this transaction and is persisted as a separate immutable attempt.
+ */
+export async function applyAcceptedDevelopmentDecision(
+  decisionId: string,
+  actor: ProgressionActor,
+) {
+  await ensureCanonicalProgressionConfigPersisted();
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [decision] = await tx.select().from(developmentDecisions)
+        .where(eq(developmentDecisions.id, decisionId))
+        .limit(1);
+      if (!decision) throw new CanonicalProgressionError("DECISION_NOT_FOUND", "Decision was not found", 404);
+      if (decision.status === "APPLIED") {
+        const [receipt] = await tx.select().from(canonicalDecisionApplicationReceipts)
+          .where(eq(canonicalDecisionApplicationReceipts.decisionId, decisionId)).limit(1);
+        return { alreadyApplied: true, stateVersion: receipt?.stateVersion ?? null };
+      }
+      if (decision.status !== "ACCEPTED") throw new CanonicalProgressionError("DECISION_NOT_ACCEPTED", "Decision is not accepted", 409);
+
+      await verifyActorAndPlayer(actor, decision.academyId, decision.playerId);
+      const locked = await tx.execute(sql`
+        SELECT *
+        FROM player_canonical_progression
+        WHERE player_id = ${decision.playerId}
+        FOR UPDATE
+      `);
+      const aggregate = locked.rows[0] as any;
+      if (!aggregate) throw new CanonicalProgressionError("STATE_ANCHOR_MISSING", "Canonical aggregate is unavailable", 500);
+      const observedVersion = Number(aggregate.state_version);
+      const expectedVersion = Number(decision.expectedPlayerStateVersion);
+      if (observedVersion !== expectedVersion) {
+        return { stale: true, expectedStateVersion: expectedVersion, observedStateVersion: observedVersion };
+      }
+
+      const [validation] = await tx.select().from(developmentDecisionValidations)
+        .where(eq(developmentDecisionValidations.decisionId, decisionId)).limit(1);
+      const observations = ((validation as any)?.validatedEvidenceJson ?? []) as TrustedEvidenceObservation[];
+      if (!validation || validation.outcome !== "ACCEPTED" || !observations.length) {
+        throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Accepted decision lacks validated evidence", 422);
+      }
+
+      const [benchmark] = await tx.select().from(canonicalBenchmarkDefinitions)
+        .where(eq(canonicalBenchmarkDefinitions.id, decision.benchmarkDefinitionId!)).limit(1);
+      if (!benchmark
+        || benchmark.benchmarkConfigVersion !== decision.benchmarkConfigVersion
+        || decision.evidenceConfigVersion !== versions().evidenceConfigVersion) {
+        throw new CanonicalProgressionError("CONFIG_INVALID", "Frozen configuration is unavailable", 409);
+      }
+      const config = loadFrozenArtifacts().freeze.evidence_config;
+      if (asNumber(decision.confidence) < asNumber(config.strengthUpdate.minimum_ai_confidence)) {
+        throw new CanonicalProgressionError("INSUFFICIENT_CONFIDENCE", "Accepted decision is below the frozen confidence threshold", 422);
+      }
+      const decisionEvidenceRefs = (decision.evidenceRefs ?? []) as string[];
+      const observationEvidenceRefs = new Set(observations.flatMap((observation) => observation.evidenceIds));
+      if (observationEvidenceRefs.size !== new Set(decisionEvidenceRefs).size
+        || decisionEvidenceRefs.some((id) => !observationEvidenceRefs.has(id))) {
+        throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Accepted decision evidence snapshot is incomplete", 422);
+      }
+      const evidenceRows = await tx.select({
+        id: skillEvidence.id,
+        playerId: skillEvidence.playerId,
+        academyId: players.academyId,
+        status: skillEvidence.status,
+      }).from(skillEvidence)
+        .innerJoin(players, eq(players.id, skillEvidence.playerId))
+        .where(inArray(skillEvidence.id, decisionEvidenceRefs));
+      if (evidenceRows.length !== new Set(decisionEvidenceRefs).size
+        || evidenceRows.some((row) => row.playerId !== decision.playerId || row.academyId !== decision.academyId || row.status !== "approved")) {
+        throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Evidence is no longer eligible for this canonical decision", 422);
+      }
+      validateTrustedObservations(observations, config, benchmark.level);
+
+      const components = await tx.select().from(canonicalBenchmarkComponents)
+        .where(and(
+          eq(canonicalBenchmarkComponents.benchmarkDefinitionId, benchmark.id),
+          eq(canonicalBenchmarkComponents.isAbilityBearing, true),
+        ));
+      const nextStateVersion = observedVersion + 1;
+      const stateChanges: any[] = [];
+
+      for (const canonicalSkillId of new Set(components.map((component) => component.canonicalSkillId))) {
+        const skillComponents = components.filter((component) => component.canonicalSkillId === canonicalSkillId);
+        const componentWeight = skillComponents.reduce((sum, component) => sum + asNumber(component.weight), 0);
+        const unitMap = new Map<string, ReturnType<typeof qualityForObservation>>();
+        for (const observation of observations) {
+          const unit = qualityForObservation(config, observation, benchmark.level);
+          const unitId = sha256([
+            decision.playerId,
+            observation.sourceSystem,
+            observation.underlyingEventOrSessionId,
+            canonicalSkillId,
+            observation.observationWindow,
+          ].join("|"));
+          unit.aggregationUnitId = unitId;
+          unitMap.set(unitId, unit);
+        }
+
+        const existingContributions = unitMap.size
+          ? await tx.select({ idempotencyKey: canonicalEvidenceContributions.idempotencyKey })
+            .from(canonicalEvidenceContributions)
+            .where(inArray(
+              canonicalEvidenceContributions.idempotencyKey,
+              [...unitMap.keys()].map((unitId) => sha256([decision.playerId, unitId, canonicalSkillId, "DEVELOPMENT"].join("|"))),
+            ))
+          : [];
+        const existingKeys = new Set(existingContributions.map((entry) => entry.idempotencyKey));
+        const eligibleUnits = [...unitMap.values()].filter((unit) =>
+          !existingKeys.has(sha256([decision.playerId, unit.aggregationUnitId, canonicalSkillId, "DEVELOPMENT"].join("|"))),
+        );
+        const q = combinedQuality(eligibleUnits);
+        if (q < asNumber(config.evidenceAggregation.minimum_q_for_delta)) continue;
+
+        const [current] = await tx.select().from(playerCanonicalSkillStates)
+          .where(and(
+            eq(playerCanonicalSkillStates.playerId, decision.playerId),
+            eq(playerCanonicalSkillStates.canonicalSkillId, canonicalSkillId),
+          ))
+          .limit(1);
+
+        const previous = current?.absoluteStrength === null || current?.absoluteStrength === undefined
+          ? null
+          : asNumber(current.absoluteStrength);
+        const lower = asNumber(benchmark.intervalLower);
+        const upper = asNumber(benchmark.intervalUpper);
+        const candidate = lower + (asNumber(decision.proposedBenchmarkMastery) / 100) * (upper - lower);
+        const confidence = asNumber(decision.confidence);
+        const maximumIncrease = asNumber(config.strengthUpdate.max_increase_absolute_units) * q * confidence * componentWeight;
+        const maximumRegression = asNumber(config.strengthUpdate.max_regression_absolute_units) * q * confidence * componentWeight;
+        const next = previous === null
+          ? candidate
+          : clamp(candidate, previous - maximumRegression, previous + maximumIncrease);
+        const mastery = clamp(((next - lower) / Math.max(upper - lower, 1)) * 100, 0, 100);
+        const lastEvidenceAt = observations.reduce<Date | null>((latest, observation) => {
+          const occurredAt = new Date(observation.occurredAt);
+          return !latest || occurredAt > latest ? occurredAt : latest;
+        }, null);
+
+        const stateValues = {
+          academyId: decision.academyId,
+          playerId: decision.playerId,
+          canonicalSkillId,
+          activeBenchmarkDefinitionId: benchmark.id,
+          activeBenchmarkId: benchmark.benchmarkId,
+          benchmarkConfigVersion: benchmark.benchmarkConfigVersion,
+          absoluteStrength: String(next),
+          stageRelativeMastery: String(mastery),
+          observationStatus: "OBSERVED",
+          confidence: String(q),
+          coverage: "1",
+          freshnessAt: lastEvidenceAt,
+          lastEvidenceAt,
+          trend: previous === null ? "ESTABLISHING" : next > previous ? "IMPROVING" : next < previous ? "REGRESSING" : "STABLE",
+          stateVersion: nextStateVersion,
+          lastDecisionId: decisionId,
+          updatedAt: new Date(),
+        };
+        const persisted = current
+          ? (await tx.update(playerCanonicalSkillStates).set(stateValues).where(eq(playerCanonicalSkillStates.id, current.id)).returning())[0]
+          : (await tx.insert(playerCanonicalSkillStates).values(stateValues).returning())[0];
+        stateChanges.push(persisted);
+
+        await tx.insert(playerCanonicalSkillHistory).values({
+          academyId: decision.academyId,
+          playerId: decision.playerId,
+          canonicalSkillId,
+          eventType: "DEVELOPMENT",
+          decisionId,
+          priorAbsoluteStrength: previous === null ? null : String(previous),
+          nextAbsoluteStrength: String(next),
+          priorMastery: current?.stageRelativeMastery ?? null,
+          nextMastery: String(mastery),
+          stateVersion: nextStateVersion,
+          stateJson: persisted,
+        });
+
+        for (const unit of eligibleUnits) {
+          const idempotencyKey = sha256([decision.playerId, unit.aggregationUnitId, canonicalSkillId, "DEVELOPMENT"].join("|"));
+          await tx.insert(canonicalEvidenceContributions).values({
+            idempotencyKey,
+            decisionId,
+            aggregationUnitId: unit.aggregationUnitId,
+            evidenceIds: observations.flatMap((observation) => observation.evidenceIds),
+            academyId: decision.academyId,
+            playerId: decision.playerId,
+            canonicalSkillId,
+            benchmarkId: benchmark.benchmarkId,
+            componentKey: skillComponents.map((component) => component.componentKey).join(","),
+            contributionRole: "DEVELOPMENT",
+            priorStateVersion: observedVersion,
+            resultingStateVersion: nextStateVersion,
+            taxonomyConfigVersion: decision.taxonomyConfigVersion,
+            benchmarkConfigVersion: decision.benchmarkConfigVersion,
+            evidenceConfigVersion: decision.evidenceConfigVersion,
+            strengthModelVersion: decision.strengthModelVersion,
+            componentWeight: String(componentWeight),
+            normalizedSourceReliability: String(unit.sourceReliability),
+            normalizedProtocolQuality: String(unit.protocolQuality),
+            normalizedObservationCompleteness: String(unit.observationCompleteness),
+            normalizedBenchmarkRelevanceDifficulty: String(unit.benchmarkRelevanceDifficulty),
+            normalizedRecency: String(unit.recency),
+            normalizedIndependentCorroboration: String(unit.independentCorroboration),
+            computedQ: String(q),
+            absoluteDelta: String(next - (previous ?? next)),
+          }).onConflictDoNothing();
+        }
+      }
+
+      // Defensive backstop: acceptance validates idempotency, but a no-delta
+      // application must never advance state/history if eligibility changes
+      // between transactions.
+      if (!stateChanges.length) {
+        await tx.update(developmentDecisions).set({
+          status: "SUPERSEDED",
+          supersededAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(developmentDecisions.id, decisionId));
+        return { superseded: true, reason: "NO_NEW_ELIGIBLE_EVIDENCE" };
+      }
+
+      const allStateRows = await tx.select({
+        canonicalSkillId: playerCanonicalSkillStates.canonicalSkillId,
+        absoluteStrength: playerCanonicalSkillStates.absoluteStrength,
+        observationStatus: playerCanonicalSkillStates.observationStatus,
+        confidence: playerCanonicalSkillStates.confidence,
+        family: canonicalSkillDefinitions.family,
+        pillar: canonicalSkillDefinitions.pillar,
+      }).from(playerCanonicalSkillStates)
+        .innerJoin(canonicalSkillDefinitions, eq(canonicalSkillDefinitions.id, playerCanonicalSkillStates.canonicalSkillId))
+        .where(eq(playerCanonicalSkillStates.playerId, decision.playerId));
+      const aggregates = deriveAggregates(allStateRows);
+      const placementStatus = aggregates.observedCount === 0 ? "UNASSESSED" : "PROVISIONAL";
+      const aggregateJson = {
+        stateVersion: nextStateVersion,
+        placementStatus,
+        glowStatus: aggregates.glowStatus,
+        estimatedGlow: aggregates.estimatedGlow,
+        coverage: aggregates.coverage,
+        confidence: aggregates.confidence,
+      };
+
+      await tx.update(playerCanonicalProgression).set({
+        stateVersion: nextStateVersion,
+        placementStatus,
+        glowStatus: aggregates.glowStatus,
+        estimatedGlow: aggregates.estimatedGlow === null ? null : String(aggregates.estimatedGlow),
+        glowCoverage: String(aggregates.coverage),
+        glowConfidence: String(aggregates.confidence),
+        lastDecisionId: decisionId,
+        updatedAt: new Date(),
+      }).where(eq(playerCanonicalProgression.playerId, decision.playerId));
+
+      await tx.insert(canonicalDecisionSnapshots).values({
+        decisionId,
+        academyId: decision.academyId,
+        playerId: decision.playerId,
+        stateVersion: nextStateVersion,
+        taxonomyConfigVersion: decision.taxonomyConfigVersion,
+        benchmarkConfigVersion: decision.benchmarkConfigVersion,
+        evidenceConfigVersion: decision.evidenceConfigVersion,
+        strengthModelVersion: decision.strengthModelVersion,
+        glowConfigVersion: decision.glowConfigVersion,
+        aggregateJson,
+        skillStatesJson: allStateRows,
+        pillarJson: aggregates.pillars,
+      });
+      await tx.insert(canonicalDecisionApplicationReceipts).values({
+        decisionId,
+        playerId: decision.playerId,
+        stateVersion: nextStateVersion,
+      });
+      await tx.update(developmentDecisions).set({
+        status: "APPLIED",
+        appliedAt: new Date(),
+        updatedAt: new Date(),
+      }).where(eq(developmentDecisions.id, decisionId));
+
+      return { applied: true, stateVersion: nextStateVersion, changedSkillCount: stateChanges.length };
+    });
+
+    if ((result as any).stale) {
+      await persistExecutionAttempt(
+        decisionId,
+        "STALE_STATE_VERSION",
+        (result as any).expectedStateVersion,
+        (result as any).observedStateVersion,
+        "STALE_STATE_VERSION",
+      );
+      return { applied: false, stale: true, code: "STALE_STATE_VERSION" as const };
+    }
+    if ((result as any).superseded) {
+      await persistExecutionAttempt(
+        decisionId,
+        "EVIDENCE_INELIGIBLE",
+        null,
+        null,
+        "NO_NEW_ELIGIBLE_EVIDENCE",
+        "IDEMPOTENCY_REVALIDATION",
+      );
+    } else if (!(result as any).alreadyApplied) {
+      await persistExecutionAttempt(decisionId, "APPLIED", null, (result as any).stateVersion);
+    }
+    return result;
+  } catch (error) {
+    if (error instanceof CanonicalProgressionError) throw error;
+    await persistExecutionAttempt(decisionId, "TECHNICAL_FAILURE", null, null, "TECHNICAL_FAILURE", "DATABASE_OR_APPLICATION");
+    throw error;
+  }
+}
+
+export async function getCanonicalCurrent(playerId: string, academyId: string): Promise<CanonicalCurrentDto | null> {
+  await ensureCanonicalProgressionConfigPersisted();
+  const [aggregate] = await db.select().from(playerCanonicalProgression)
+    .where(and(eq(playerCanonicalProgression.playerId, playerId), eq(playerCanonicalProgression.academyId, academyId)))
+    .limit(1);
+  if (!aggregate) return null;
+  const skills = await db.select({
+    canonicalSkillId: playerCanonicalSkillStates.canonicalSkillId,
+    absoluteStrength: playerCanonicalSkillStates.absoluteStrength,
+    mastery: playerCanonicalSkillStates.stageRelativeMastery,
+    observationStatus: playerCanonicalSkillStates.observationStatus,
+    confidence: playerCanonicalSkillStates.confidence,
+    coverage: playerCanonicalSkillStates.coverage,
+    trend: playerCanonicalSkillStates.trend,
+    lastEvidenceAt: playerCanonicalSkillStates.lastEvidenceAt,
+    family: canonicalSkillDefinitions.family,
+    pillar: canonicalSkillDefinitions.pillar,
+  }).from(playerCanonicalSkillStates)
+    .innerJoin(canonicalSkillDefinitions, eq(canonicalSkillDefinitions.id, playerCanonicalSkillStates.canonicalSkillId))
+    .where(and(eq(playerCanonicalSkillStates.playerId, playerId), eq(playerCanonicalSkillStates.academyId, academyId)))
+    .orderBy(asc(canonicalSkillDefinitions.family), asc(canonicalSkillDefinitions.id));
+  const aggregateValues = deriveAggregates(skills);
+  return {
+    playerId,
+    academyId,
+    stateVersion: aggregate.stateVersion,
+    placementStatus: aggregate.placementStatus,
+    glowStatus: aggregate.glowStatus,
+    estimatedGlow: aggregate.estimatedGlow === null ? null : asNumber(aggregate.estimatedGlow),
+    coverage: asNumber(aggregate.glowCoverage),
+    confidence: asNumber(aggregate.glowConfidence),
+    families: aggregateValues.families,
+    pillars: aggregateValues.pillars,
+    skills: skills.map((skill) => ({
+      ...skill,
+      absoluteStrength: skill.absoluteStrength === null ? null : asNumber(skill.absoluteStrength),
+      mastery: skill.mastery === null ? null : asNumber(skill.mastery),
+      confidence: asNumber(skill.confidence),
+      coverage: asNumber(skill.coverage),
+    })),
+  };
+}
+
+export async function getCanonicalHistory(playerId: string, academyId: string, limit = 50) {
+  const safeLimit = clamp(Math.floor(limit), 1, 200);
+  return db.select().from(playerCanonicalSkillHistory)
+    .where(and(
+      eq(playerCanonicalSkillHistory.playerId, playerId),
+      eq(playerCanonicalSkillHistory.academyId, academyId),
+    ))
+    .orderBy(desc(playerCanonicalSkillHistory.createdAt))
+    .limit(safeLimit);
+}
