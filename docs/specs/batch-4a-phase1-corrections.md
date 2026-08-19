@@ -2,6 +2,8 @@
 
 **Status:** specification only. This document does not introduce a migration, schema implementation, service, route, UI change, AIChat change, or writer disablement.
 
+**Phase 1 freeze addendum:** the final component-level crosswalk, EvidenceConfig v1, evidence-contribution idempotency model, and retryable application transaction model are materialized in `docs/specs/batch-4a-phase1-freeze-v1.json`. Its referenced crosswalk artifact supersedes the earlier one-target-per-benchmark representation.
+
 ## 1. Corrected Phase 1 sections
 
 ### Canonical atomic skills and deterministic crosswalk
@@ -33,9 +35,9 @@ This is the required `source_skill_id → canonical_atomic_skill_id → benchmar
 | Canonical atomic skills used | 202 |
 | Benchmark definitions | 1,117 |
 | Existing three-point rubric anchors | 3,351 |
-| `ABILITY_BENCHMARK` | 819 |
-| `HARD_GATE` | 90 |
-| `CONTEXT_ONLY` | 108 |
+| `ABILITY_BENCHMARK` | 857 |
+| `HARD_GATE` | 94 |
+| `CONTEXT_ONLY` | 66 |
 | `SOCIAL_CHARACTER` | 100 |
 | Unmapped Ability/Social rows | **0** |
 
@@ -43,7 +45,7 @@ This is the required `source_skill_id → canonical_atomic_skill_id → benchmar
 
 Only `ABILITY_BENCHMARK` contributes to Absolute Skill Strength, Ability-family strength, Ability-pillar strength, or Glow. `SOCIAL_CHARACTER` is available for a separate character view and reporting, but never contributes to Ability/Glow. `HARD_GATE` affects only configured readiness/placement prerequisites. `CONTEXT_ONLY` can be retained as evidence context but cannot independently alter an atomic Ability state.
 
-The crosswalk artifact lists the exact 65 semantically ambiguous source occurrences. They are intentionally retained as explicit `CONTEXT_ONLY` records, not split by runtime inference. They include the compound Blue records (`B3_START_STOP`, `B3_CRAWL_ROLL`, `B3_SQUAT_STAND`, `B2_START_STOP_FAST`, `B2_JUMP_LAND`, `B1_THROW_HIT_COMBO`, `B1_RUN_AND_HIT`); aggregate/alternative Red, Orange, Green, Yellow, and Adult records such as `R1_*_COMPLETE`, `R1_DROP_LOB`, `O1_BH_SLICE_DROP`, `G1_STROKES`, `G1_WEAPONS`, `Y2_WEAPONS`, `G8_VOL_FH_BH`, `G7_FH_CROSS_DTL`, `G6_LOB_PRESSURE`, and `G1_TECH_AUTOMATED`; and all remaining exact keys in the artifact’s `ambiguousRows` array.
+The crosswalk artifact lists the exact 65 semantically ambiguous source occurrences with explicit mapping types: 32 `MULTI_ATOMIC_COMPONENT_BENCHMARK`, 6 `SINGLE_ATOMIC_TARGET`, 7 `HARD_GATE`, 19 `CONTEXT_ONLY`, and 1 `SOCIAL_CHARACTER`. They include the compound Blue records (`B3_START_STOP`, `B3_CRAWL_ROLL`, `B3_SQUAT_STAND`, `B2_START_STOP_FAST`, `B2_JUMP_LAND`, `B1_THROW_HIT_COMBO`, `B1_RUN_AND_HIT`); aggregate/alternative Red, Orange, Green, Yellow, and Adult records such as `R1_*_COMPLETE`, `R1_DROP_LOB`, `O1_BH_SLICE_DROP`, `G1_STROKES`, `G1_WEAPONS`, `Y2_WEAPONS`, `G8_VOL_FH_BH`, `G7_FH_CROSS_DTL`, `G6_LOB_PRESSURE`, and `G1_TECH_AUTOMATED`; and all remaining exact keys in the final artifact.
 
 ### AI interpretation and deterministic Absolute Skill Strength
 

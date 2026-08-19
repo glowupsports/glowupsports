@@ -1,0 +1,449 @@
+{
+  "version": "phase1-freeze-v1.0.0-proposed",
+  "status": "PHASE_1_FROZEN_SPECIFICATION",
+  "crosswalk": {
+    "path": "docs/specs/batch-4a-canonical-crosswalk-v1.json",
+    "version": "crosswalk-v1.1.0-freeze-proposed",
+    "totals": {
+      "source_rows": 1117,
+      "canonical_atomic_skills": 202,
+      "benchmarks": 1117,
+      "benchmark_classifications": {
+        "ABILITY_BENCHMARK": 857,
+        "HARD_GATE": 94,
+        "SOCIAL_CHARACTER": 100,
+        "CONTEXT_ONLY": 66
+      },
+      "component_mapping_types": {
+        "SINGLE_ATOMIC_TARGET": 825,
+        "HARD_GATE": 94,
+        "SOCIAL_CHARACTER": 100,
+        "CONTEXT_ONLY": 66,
+        "MULTI_ATOMIC_COMPONENT_BENCHMARK": 32
+      },
+      "ambiguous_occurrences": 65,
+      "ambiguous_mapping_types": {
+        "HARD_GATE": 7,
+        "MULTI_ATOMIC_COMPONENT_BENCHMARK": 32,
+        "SINGLE_ATOMIC_TARGET": 6,
+        "CONTEXT_ONLY": 19,
+        "SOCIAL_CHARACTER": 1
+      },
+      "runtime_inferred_mappings": 0,
+      "silently_unmapped_rows": 0
+    }
+  },
+  "evidence_config": {
+    "version": "evidence-config-v1.0.0-proposed",
+    "axis": {
+      "minimum": 0,
+      "maximum": 1000,
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "aiContract": {
+      "allowedFields": [
+        "benchmark_id",
+        "proposed_benchmark_mastery",
+        "confidence",
+        "evidence_refs",
+        "rationale"
+      ],
+      "forbiddenFields": [
+        "absolute_strength",
+        "source_reliability",
+        "magnitude",
+        "difficulty",
+        "recency",
+        "coefficient"
+      ],
+      "provenance": "REPOSITORY_DERIVED"
+    },
+    "sourceReliability": [
+      {
+        "source_type": "COACH_DEEP_ASSESSMENT",
+        "coefficient": 0.95,
+        "eligibility": "DELTA_ELIGIBLE",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      },
+      {
+        "source_type": "VIDEO_COACH_REVIEW",
+        "coefficient": 0.95,
+        "eligibility": "DELTA_ELIGIBLE",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      },
+      {
+        "source_type": "COACH_GLOW_ASSESSMENT",
+        "coefficient": 0.9,
+        "eligibility": "DELTA_ELIGIBLE",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      },
+      {
+        "source_type": "COACH_DIRECT_OBSERVATION",
+        "coefficient": 0.9,
+        "eligibility": "DELTA_ELIGIBLE",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      },
+      {
+        "source_type": "COACH_MATCH_REVIEW",
+        "coefficient": 0.9,
+        "eligibility": "DELTA_ELIGIBLE",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      },
+      {
+        "source_type": "TRIAL_TEST_VERIFICATION",
+        "coefficient": 0.9,
+        "eligibility": "GATE_ELIGIBLE",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      },
+      {
+        "source_type": "VERIFIED_MATCH_EVENT",
+        "coefficient": 0.85,
+        "eligibility": "DELTA_ELIGIBLE_IF_COMPONENT_SCORED",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      },
+      {
+        "source_type": "PLAYER_SELF_REFLECTION",
+        "coefficient": 0.45,
+        "eligibility": "CONTEXT_ONLY",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      },
+      {
+        "source_type": "LEGACY_IMPORTED",
+        "coefficient": 0,
+        "eligibility": "CONTEXT_ONLY",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      },
+      {
+        "source_type": "AI_UNVERIFIED_DRAFT",
+        "coefficient": 0,
+        "eligibility": "INELIGIBLE",
+        "provenance": "PROVISIONAL_CALIBRATION"
+      }
+    ],
+    "magnitudeNormalization": {
+      "rules": [
+        {
+          "input_scale": "RUBRIC_0_2",
+          "formula": "clamp(raw_score / 2, 0, 1)",
+          "source_scale_provenance": "REPOSITORY_DERIVED",
+          "formula_provenance": "PROVISIONAL_CALIBRATION"
+        },
+        {
+          "input_scale": "PERCENT_0_100",
+          "formula": "clamp(raw_score / 100, 0, 1)",
+          "source_scale_provenance": "REPOSITORY_DERIVED",
+          "formula_provenance": "PROVISIONAL_CALIBRATION"
+        },
+        {
+          "input_scale": "RATING_1_5",
+          "formula": "clamp((raw_score - 1) / 4, 0, 1)",
+          "source_scale_provenance": "PROVISIONAL_CALIBRATION",
+          "formula_provenance": "PROVISIONAL_CALIBRATION"
+        },
+        {
+          "input_scale": "BINARY_VERIFIED",
+          "formula": "raw_score === true ? 1 : 0",
+          "source_scale_provenance": "PROVISIONAL_CALIBRATION",
+          "formula_provenance": "PROVISIONAL_CALIBRATION"
+        }
+      ],
+      "missing_or_count_only": "INELIGIBLE_FOR_ABILITY_DELTA",
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "difficultyNormalization": {
+      "pathwayLevelFactor": {
+        "BLUE_3": 0.25,
+        "BLUE_2": 0.3,
+        "BLUE_1": 0.35,
+        "RED_3": 0.4,
+        "RED_2": 0.45,
+        "RED_1": 0.5,
+        "ORANGE_3": 0.55,
+        "ORANGE_2": 0.6,
+        "ORANGE_1": 0.65,
+        "GREEN_3": 0.7,
+        "GREEN_2": 0.75,
+        "GREEN_1": 0.8,
+        "YELLOW_3": 0.85,
+        "YELLOW_2": 0.9,
+        "YELLOW_1": 0.95,
+        "GLOW_9": 0.5,
+        "GLOW_8": 0.56,
+        "GLOW_7": 0.62,
+        "GLOW_6": 0.68,
+        "GLOW_5": 0.74,
+        "GLOW_4": 0.8,
+        "GLOW_3": 0.86,
+        "GLOW_2": 0.93,
+        "GLOW_1": 1
+      },
+      "protocolFactor": {
+        "COACH_DIRECT_OBSERVATION": 0.85,
+        "COACH_DEEP_ASSESSMENT": 1,
+        "COACH_GLOW_ASSESSMENT": 0.95,
+        "COACH_MATCH_REVIEW": 1,
+        "VERIFIED_MATCH_EVENT": 1,
+        "VIDEO_COACH_REVIEW": 1,
+        "TRIAL_TEST_VERIFICATION": 0.9,
+        "PLAYER_SELF_REFLECTION": 0,
+        "LEGACY_IMPORTED": 0,
+        "AI_UNVERIFIED_DRAFT": 0
+      },
+      "formula": "clamp(pathway_level_factor * protocol_factor, 0, 1)",
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "recency": {
+      "half_life_days": 90,
+      "formula": "0.5 ^ (age_days / 90)",
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "evidenceAggregation": {
+      "formula": "q = 1 - product(1 - reliability * magnitude * difficulty * recency)",
+      "min_q_for_delta": 0.2,
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "strengthUpdate": {
+      "max_increase_absolute_units": 18,
+      "max_regression_absolute_units": 24,
+      "minimum_ai_confidence": 0.55,
+      "formula": "candidate = lower + mastery/100*(upper-lower); next = clamp(candidate, previous - max_regression*q*confidence, previous + max_increase*q*confidence)",
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "benchmarkIntervals": {
+      "resolution": "Each benchmark resolves to its explicit benchmark_interval_override when present; otherwise it resolves to the explicit pathway-level band below. The resolved lower/upper values are snapshotted on acceptance. No AI coefficient or runtime category inference is used.",
+      "juniorBands": {
+        "BLUE_3": [
+          0,
+          100
+        ],
+        "BLUE_2": [
+          60,
+          160
+        ],
+        "BLUE_1": [
+          120,
+          220
+        ],
+        "RED_3": [
+          180,
+          280
+        ],
+        "RED_2": [
+          240,
+          340
+        ],
+        "RED_1": [
+          300,
+          400
+        ],
+        "ORANGE_3": [
+          360,
+          460
+        ],
+        "ORANGE_2": [
+          420,
+          520
+        ],
+        "ORANGE_1": [
+          480,
+          580
+        ],
+        "GREEN_3": [
+          540,
+          640
+        ],
+        "GREEN_2": [
+          600,
+          700
+        ],
+        "GREEN_1": [
+          660,
+          760
+        ],
+        "YELLOW_3": [
+          720,
+          820
+        ],
+        "YELLOW_2": [
+          780,
+          880
+        ],
+        "YELLOW_1": [
+          840,
+          940
+        ]
+      },
+      "adultBands": {
+        "GLOW_9": [
+          0,
+          100
+        ],
+        "GLOW_8": [
+          60,
+          160
+        ],
+        "GLOW_7": [
+          120,
+          220
+        ],
+        "GLOW_6": [
+          180,
+          280
+        ],
+        "GLOW_5": [
+          240,
+          340
+        ],
+        "GLOW_4": [
+          300,
+          400
+        ],
+        "GLOW_3": [
+          360,
+          460
+        ],
+        "GLOW_2": [
+          420,
+          520
+        ],
+        "GLOW_1": [
+          480,
+          580
+        ]
+      },
+      "adjacent_overlap_units": 40,
+      "cross_path_comparable": false,
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "eliteContinuation": {
+      "threshold": "highest resolved upper anchor for the player/atom/pathway/config snapshot",
+      "elite_unit_scale": 12,
+      "expected_normalized_performance": 0.8,
+      "performance_delta_formula": "clamp((normalized_performance - 0.80) / 0.20, -1, 1)",
+      "formula": "elite_delta = elite_unit_scale * q * performance_delta * confidence",
+      "decision_frequency_weight": 0,
+      "provenance": "PROVISIONAL_CALIBRATION"
+    }
+  },
+  "evidence_contribution_idempotency": {
+    "principle": "Evidence is immutable and always retrievable. It is never globally marked consumed. Only a delta-bearing contribution is idempotent within a player-skill-config lineage.",
+    "decisionEvidenceLink": {
+      "table": "development_decision_evidence_link",
+      "purpose": "Retains every evidence reference used as primary, supporting, contradicting, context, gate, or social evidence.",
+      "unique": [
+        "decision_id",
+        "evidence_id",
+        "link_role"
+      ],
+      "immutable": true
+    },
+    "contribution": {
+      "table": "canonical_evidence_contribution",
+      "deltaBearingRoles": [
+        "PRIMARY_DELTA",
+        "COMPONENT_DELTA"
+      ],
+      "contextRoles": [
+        "SUPPORTING_CONTEXT",
+        "CONTRADICTING_CONTEXT",
+        "HARD_GATE_CONFIRMATION",
+        "SOCIAL_OBSERVATION"
+      ],
+      "lineageId": "SHA256(player_id | canonical_atomic_skill_id | taxonomy_config_version | benchmark_config_version | evidence_config_version | strength_model_version)",
+      "idempotencyKey": "SHA256(lineage_id | evidence_id | benchmark_id | component_key | contribution_role)",
+      "unique": [
+        "idempotency_key"
+      ],
+      "storedAuditFields": [
+        "decision_id",
+        "evidence_id",
+        "player_id",
+        "canonical_atomic_skill_id",
+        "benchmark_id",
+        "component_key",
+        "contribution_role",
+        "prior_state_version",
+        "resulting_state_version",
+        "taxonomy_config_version",
+        "benchmark_config_version",
+        "evidence_config_version",
+        "strength_model_version",
+        "component_weight",
+        "normalized_reliability",
+        "normalized_magnitude",
+        "normalized_difficulty",
+        "normalized_recency",
+        "computed_q",
+        "absolute_delta",
+        "created_at"
+      ],
+      "reusePolicy": "The same evidence may remain linked as context forever, may support other atomic skills/components, and may be re-evaluated only under a new immutable configuration lineage. It cannot create a second delta for the same player, atom, benchmark component, role, and config lineage."
+    },
+    "applicationReceipt": {
+      "table": "canonical_decision_application_receipt",
+      "unique": [
+        "decision_id"
+      ],
+      "purpose": "Prevents a successfully applied decision from committing canonical state twice."
+    }
+  },
+  "decision_application_transaction": {
+    "transactionA": {
+      "name": "DECISION_VALIDATION",
+      "start": "PROPOSED",
+      "steps": [
+        "Persist decision and immutable AI input/config references.",
+        "Set VALIDATING.",
+        "Validate actor, academy scope, benchmark/component definition, evidence references, AI output bounds, and idempotency preconditions.",
+        "Capture expected_player_state_version from player_canonical_progression.",
+        "Set ACCEPTED or set REJECTED with immutable validation reasons.",
+        "Commit."
+      ],
+      "outcomes": {
+        "accepted": "ACCEPTED",
+        "rejected": "REJECTED"
+      }
+    },
+    "transactionB": {
+      "name": "CANONICAL_APPLICATION",
+      "precondition": "Decision status is ACCEPTED.",
+      "steps": [
+        "Lock player_canonical_progression FOR UPDATE.",
+        "Verify expected state version.",
+        "Revalidate actor/scope, immutable config availability, evidence eligibility, contribution idempotency, and application receipt absence.",
+        "Apply component-weighted canonical skill state.",
+        "Derive family, pillar, Glow, readiness, and aggregate fields.",
+        "Persist immutable history, snapshots, contribution rows, and application receipt.",
+        "Increment player state version.",
+        "Set DevelopmentDecision to APPLIED.",
+        "Commit atomically."
+      ],
+      "success": "Decision is APPLIED and one application receipt exists."
+    },
+    "technicalFailure": {
+      "rule": "Roll back Transaction B completely. The decision remains ACCEPTED.",
+      "attemptPersistence": "In a separate transaction insert immutable development_decision_execution_attempt with outcome TECHNICAL_FAILURE, failure_class, stable error_code, diagnostic_reference, attempt_number, expected_state_version, observed_state_version, and timestamps.",
+      "retry": "The same ACCEPTED decision may retry if expected state version, config versions, and evidence eligibility remain valid."
+    },
+    "staleState": {
+      "rule": "If locked state_version differs from expected_player_state_version, perform no canonical mutation; insert immutable execution attempt outcome STALE_STATE_VERSION and return that result.",
+      "resolution": "Require reassessment or revalidation under policy; do not silently replay the old judgement against new state."
+    },
+    "executionAttempt": {
+      "table": "development_decision_execution_attempt",
+      "unique": [
+        "decision_id",
+        "attempt_number"
+      ],
+      "outcomes": [
+        "APPLIED",
+        "TECHNICAL_FAILURE",
+        "STALE_STATE_VERSION",
+        "CONFIG_INVALID",
+        "EVIDENCE_INELIGIBLE",
+        "AUTH_REVALIDATION_FAILED"
+      ],
+      "immutable": true
+    }
+  }
+}
