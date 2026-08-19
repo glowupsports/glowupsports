@@ -1,6 +1,6 @@
 {
-  "version": "phase1-freeze-v1.0.0-proposed",
-  "status": "PHASE_1_FROZEN_SPECIFICATION",
+  "version": "phase1-final-freeze-v1.0.1",
+  "status": "PHASE_1_FINAL_FROZEN_SPECIFICATION",
   "crosswalk": {
     "path": "docs/specs/batch-4a-canonical-crosswalk-v1.json",
     "version": "crosswalk-v1.1.0-freeze-proposed",
@@ -34,7 +34,7 @@
     }
   },
   "evidence_config": {
-    "version": "evidence-config-v1.0.0-proposed",
+    "version": "evidence-config-v1.0.1-final-freeze",
     "axis": {
       "minimum": 0,
       "maximum": 1000,
@@ -120,93 +120,26 @@
         "provenance": "PROVISIONAL_CALIBRATION"
       }
     ],
-    "magnitudeNormalization": {
-      "rules": [
-        {
-          "input_scale": "RUBRIC_0_2",
-          "formula": "clamp(raw_score / 2, 0, 1)",
-          "source_scale_provenance": "REPOSITORY_DERIVED",
-          "formula_provenance": "PROVISIONAL_CALIBRATION"
-        },
-        {
-          "input_scale": "PERCENT_0_100",
-          "formula": "clamp(raw_score / 100, 0, 1)",
-          "source_scale_provenance": "REPOSITORY_DERIVED",
-          "formula_provenance": "PROVISIONAL_CALIBRATION"
-        },
-        {
-          "input_scale": "RATING_1_5",
-          "formula": "clamp((raw_score - 1) / 4, 0, 1)",
-          "source_scale_provenance": "PROVISIONAL_CALIBRATION",
-          "formula_provenance": "PROVISIONAL_CALIBRATION"
-        },
-        {
-          "input_scale": "BINARY_VERIFIED",
-          "formula": "raw_score === true ? 1 : 0",
-          "source_scale_provenance": "PROVISIONAL_CALIBRATION",
-          "formula_provenance": "PROVISIONAL_CALIBRATION"
-        }
-      ],
-      "missing_or_count_only": "INELIGIBLE_FOR_ABILITY_DELTA",
-      "provenance": "PROVISIONAL_CALIBRATION"
-    },
-    "difficultyNormalization": {
-      "pathwayLevelFactor": {
-        "BLUE_3": 0.25,
-        "BLUE_2": 0.3,
-        "BLUE_1": 0.35,
-        "RED_3": 0.4,
-        "RED_2": 0.45,
-        "RED_1": 0.5,
-        "ORANGE_3": 0.55,
-        "ORANGE_2": 0.6,
-        "ORANGE_1": 0.65,
-        "GREEN_3": 0.7,
-        "GREEN_2": 0.75,
-        "GREEN_1": 0.8,
-        "YELLOW_3": 0.85,
-        "YELLOW_2": 0.9,
-        "YELLOW_1": 0.95,
-        "GLOW_9": 0.5,
-        "GLOW_8": 0.56,
-        "GLOW_7": 0.62,
-        "GLOW_6": 0.68,
-        "GLOW_5": 0.74,
-        "GLOW_4": 0.8,
-        "GLOW_3": 0.86,
-        "GLOW_2": 0.93,
-        "GLOW_1": 1
-      },
-      "protocolFactor": {
-        "COACH_DIRECT_OBSERVATION": 0.85,
-        "COACH_DEEP_ASSESSMENT": 1,
-        "COACH_GLOW_ASSESSMENT": 0.95,
-        "COACH_MATCH_REVIEW": 1,
-        "VERIFIED_MATCH_EVENT": 1,
-        "VIDEO_COACH_REVIEW": 1,
-        "TRIAL_TEST_VERIFICATION": 0.9,
-        "PLAYER_SELF_REFLECTION": 0,
-        "LEGACY_IMPORTED": 0,
-        "AI_UNVERIFIED_DRAFT": 0
-      },
-      "formula": "clamp(pathway_level_factor * protocol_factor, 0, 1)",
-      "provenance": "PROVISIONAL_CALIBRATION"
-    },
     "recency": {
       "half_life_days": 90,
       "formula": "0.5 ^ (age_days / 90)",
       "provenance": "PROVISIONAL_CALIBRATION"
     },
     "evidenceAggregation": {
-      "formula": "q = 1 - product(1 - reliability * magnitude * difficulty * recency)",
-      "min_q_for_delta": 0.2,
+      "unitKey": "SHA256(player_id | source_system | underlying_event_or_session_id | canonical_atomic_skill_id | observation_window)",
+      "unitRule": "All granular evidence rows from one underlying event/session for one canonical atomic skill form one unit before q is calculated. Benchmark and component references are stored as provenance, not aggregation identity.",
+      "unitQuality": "q_unit = source_reliability * protocol_quality * observation_completeness * benchmark_relevance_difficulty * recency * independent_corroboration",
+      "formula": "q = clamp(1 - product_over_distinct_aggregation_units(1 - q_unit), 0, 1)",
+      "minimum_q_for_delta": 0.2,
+      "performanceIndependence": "raw performance score, raw success count, and proposed benchmark mastery do not appear in q_unit.",
+      "missingStableEventIdentity": "If no stable underlying event/session identity exists, the row is context-only and cannot be promoted into a delta-bearing unit by row count.",
       "provenance": "PROVISIONAL_CALIBRATION"
     },
     "strengthUpdate": {
       "max_increase_absolute_units": 18,
       "max_regression_absolute_units": 24,
       "minimum_ai_confidence": 0.55,
-      "formula": "candidate = lower + mastery/100*(upper-lower); next = clamp(candidate, previous - max_regression*q*confidence, previous + max_increase*q*confidence)",
+      "formula": "candidate = lower + (proposed_benchmark_mastery/100)*(upper-lower); next = clamp(candidate, previous - max_regression*q*confidence, previous + max_increase*q*confidence)",
       "provenance": "PROVISIONAL_CALIBRATION"
     },
     "benchmarkIntervals": {
@@ -319,14 +252,105 @@
       "threshold": "highest resolved upper anchor for the player/atom/pathway/config snapshot",
       "elite_unit_scale": 12,
       "expected_normalized_performance": 0.8,
-      "performance_delta_formula": "clamp((normalized_performance - 0.80) / 0.20, -1, 1)",
-      "formula": "elite_delta = elite_unit_scale * q * performance_delta * confidence",
+      "performance_delta_formula": "clamp((performance_signal - expected_normalized_performance) / (1 - expected_normalized_performance), -1, 1)",
+      "formula": "elite_delta = elite_unit_scale * q * performance_signal * confidence",
       "decision_frequency_weight": 0,
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "performanceSignal": {
+      "source": "AI proposed_benchmark_mastery",
+      "formula": "candidate = lower + (proposed_benchmark_mastery / 100) * (upper - lower)",
+      "rule": "Performance value determines the candidate Ability location. It is never an evidence-quality factor.",
+      "lowPerformanceRule": "A mastery of 0 may produce a lower candidate and support regression when evidence quality is high.",
+      "provenance": "REPOSITORY_DERIVED"
+    },
+    "protocolQuality": {
+      "factors": {
+        "COACH_DEEP_ASSESSMENT": 1,
+        "VIDEO_COACH_REVIEW": 0.95,
+        "COACH_GLOW_ASSESSMENT": 0.95,
+        "COACH_DIRECT_OBSERVATION": 0.85,
+        "COACH_MATCH_REVIEW": 0.9,
+        "VERIFIED_MATCH_EVENT": 0.9,
+        "TRIAL_TEST_VERIFICATION": 0.9,
+        "PLAYER_SELF_REFLECTION": 0.4,
+        "LEGACY_IMPORTED": 0.2,
+        "AI_UNVERIFIED_DRAFT": 0
+      },
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "observationCompleteness": {
+      "factor": "clamp(observed_required_observations / required_observations, 0, 1)",
+      "observedDefinition": "Count of valid observed attempts/required fields, regardless of success or failure.",
+      "examples": [
+        {
+          "case": "RUBRIC_0_2 with two required attempts and raw_score 0",
+          "factor": 1,
+          "reason": "Both attempts were observed; success count is ignored."
+        },
+        {
+          "case": "RUBRIC_0_2 with two required attempts and raw_score 2",
+          "factor": 1,
+          "reason": "Both attempts were observed; success count is ignored."
+        },
+        {
+          "case": "One of two required attempts observed",
+          "factor": 0.5,
+          "reason": "Incomplete observation, not poor performance."
+        },
+        {
+          "case": "Required count unavailable",
+          "factor": 0,
+          "reason": "Ineligible for Ability delta until completeness is explicit."
+        }
+      ],
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "benchmarkRelevanceDifficulty": {
+      "pathwayLevelFactor": {
+        "BLUE_3": 0.85,
+        "BLUE_2": 0.86,
+        "BLUE_1": 0.87,
+        "RED_3": 0.88,
+        "RED_2": 0.89,
+        "RED_1": 0.9,
+        "ORANGE_3": 0.91,
+        "ORANGE_2": 0.92,
+        "ORANGE_1": 0.93,
+        "GREEN_3": 0.94,
+        "GREEN_2": 0.95,
+        "GREEN_1": 0.96,
+        "YELLOW_3": 0.97,
+        "YELLOW_2": 0.98,
+        "YELLOW_1": 0.99,
+        "GLOW_9": 0.9,
+        "GLOW_8": 0.91,
+        "GLOW_7": 0.92,
+        "GLOW_6": 0.93,
+        "GLOW_5": 0.94,
+        "GLOW_4": 0.95,
+        "GLOW_3": 0.96,
+        "GLOW_2": 0.98,
+        "GLOW_1": 1
+      },
+      "benchmarkRelevanceFactor": {
+        "EXACT_BENCHMARK_COMPONENT": 1,
+        "EXPLICIT_ADJACENT_COMPONENT": 0.75,
+        "CONTEXT_ONLY": 0,
+        "UNRELATED": 0
+      },
+      "formula": "clamp(pathway_level_factor * benchmark_relevance_factor, 0, 1)",
+      "rule": "Uses configured benchmark relevance and protocol difficulty only, never the observed performance result. The v1 factors express suitability of the observation protocol, not a reward for a harder level.",
+      "provenance": "PROVISIONAL_CALIBRATION"
+    },
+    "independentCorroboration": {
+      "factor": "clamp(0.90 + 0.05 * min(max(distinct_independent_observer_count - 1, 0), 2), 0, 1)",
+      "distinctDefinition": "Distinct verified observer/protocol identities attached to the same aggregation unit; duplicate rows from the same observer, source, or session do not increase the count.",
       "provenance": "PROVISIONAL_CALIBRATION"
     }
   },
   "evidence_contribution_idempotency": {
-    "principle": "Evidence is immutable and always retrievable. It is never globally marked consumed. Only a delta-bearing contribution is idempotent within a player-skill-config lineage.",
+    "principle": "Historical evidence is reusable for context, contradiction analysis, history, shadow calculations, model comparison, and explicit recalibration. It cannot become new development progress because a config version changes.",
     "decisionEvidenceLink": {
       "table": "development_decision_evidence_link",
       "purpose": "Retains every evidence reference used as primary, supporting, contradicting, context, gate, or social evidence.",
@@ -349,14 +373,15 @@
         "HARD_GATE_CONFIRMATION",
         "SOCIAL_OBSERVATION"
       ],
-      "lineageId": "SHA256(player_id | canonical_atomic_skill_id | taxonomy_config_version | benchmark_config_version | evidence_config_version | strength_model_version)",
-      "idempotencyKey": "SHA256(lineage_id | evidence_id | benchmark_id | component_key | contribution_role)",
+      "lineageId": "SHA256(player_id | canonical_atomic_skill_id | source_system | underlying_event_or_session_id | observation_window)",
+      "idempotencyKey": "SHA256(player_id | aggregation_unit_id | canonical_atomic_skill_id | DEVELOPMENT)",
       "unique": [
         "idempotency_key"
       ],
       "storedAuditFields": [
         "decision_id",
-        "evidence_id",
+        "aggregation_unit_id",
+        "evidence_ids",
         "player_id",
         "canonical_atomic_skill_id",
         "benchmark_id",
@@ -369,22 +394,64 @@
         "evidence_config_version",
         "strength_model_version",
         "component_weight",
-        "normalized_reliability",
-        "normalized_magnitude",
-        "normalized_difficulty",
+        "normalized_source_reliability",
+        "normalized_protocol_quality",
+        "normalized_observation_completeness",
+        "normalized_benchmark_relevance_difficulty",
         "normalized_recency",
+        "normalized_independent_corroboration",
         "computed_q",
         "absolute_delta",
         "created_at"
       ],
-      "reusePolicy": "The same evidence may remain linked as context forever, may support other atomic skills/components, and may be re-evaluated only under a new immutable configuration lineage. It cannot create a second delta for the same player, atom, benchmark component, role, and config lineage."
+      "developmentContribution": {
+        "identity": "One development contribution represents one underlying historical evidence aggregation unit affecting one player and one canonical atomic skill.",
+        "stableAggregationUnit": "The aggregation-unit identity is derived from the underlying event/session identity and stable canonical atomic skill; it is not derived from a benchmark, component role, or scoring configuration.",
+        "definition": "DEVELOPMENT_CONTRIBUTION = player state change caused by newly accepted evidence that has not previously contributed to that player/atomic-skill/event lineage.",
+        "configProvenance": "taxonomy_config_version, benchmark_config_version, evidence_config_version, and strength_model_version are stored as calculation provenance only; they are not uniqueness dimensions."
+      },
+      "reusePolicy": "The same historical aggregation unit may never create a second development contribution for the same player and canonical atomic skill, even if benchmark, taxonomy, evidence, or strength-model configuration changes. It may be reused for context, shadow calculations, comparison, or an explicit recalibration event."
     },
     "applicationReceipt": {
       "table": "canonical_decision_application_receipt",
       "unique": [
         "decision_id"
       ],
-      "purpose": "Prevents a successfully applied decision from committing canonical state twice."
+      "purpose": "Prevents a successfully applied development decision from committing canonical state twice; recalibration uses its own recalibration_id receipt."
+    },
+    "recalibration": {
+      "definition": "RECALIBRATION_REBASE = explicit controlled transformation of an existing canonical state under a new scoring/benchmark model; it is not player development.",
+      "trigger": "Explicit approved recalibration command or migration event only; configuration publication alone never triggers it.",
+      "table": "canonical_recalibration_event",
+      "requiredFields": [
+        "recalibration_id",
+        "player_id",
+        "from_state_snapshot_id",
+        "to_state_snapshot_id",
+        "old_taxonomy_config_version",
+        "old_benchmark_config_version",
+        "old_evidence_config_version",
+        "old_strength_model_version",
+        "new_taxonomy_config_version",
+        "new_benchmark_config_version",
+        "new_evidence_config_version",
+        "new_strength_model_version",
+        "before_state",
+        "after_state",
+        "reason",
+        "actor_id",
+        "created_at"
+      ],
+      "rules": [
+        "Never insert canonical_evidence_contribution rows for recalibration.",
+        "Never alter historical snapshots.",
+        "Persist before and after state in the recalibration event.",
+        "Preserve old and new config versions.",
+        "Label all resulting history as RECALIBRATION, never DEVELOPMENT.",
+        "Allow deterministic rerun protection with UNIQUE (recalibration_id).",
+        "A new benchmark/component mapping for historical evidence requires an explicit recalibration/rebase, not a new development contribution."
+      ],
+      "shadowMode": "A model comparison or shadow calculation writes no canonical state and no development contribution."
     }
   },
   "decision_application_transaction": {
@@ -445,5 +512,19 @@
       ],
       "immutable": true
     }
+  },
+  "schema_impact": {
+    "minimal_additions": [
+      "Add aggregation_unit_id and stable underlying event/session identity to canonical evidence provenance.",
+      "Replace normalized_magnitude with quality-only fields: normalized_protocol_quality, normalized_observation_completeness, normalized_benchmark_relevance_difficulty, normalized_independent_corroboration.",
+      "Remove configuration versions from canonical_evidence_contribution uniqueness; retain them as audit provenance.",
+      "Add canonical_recalibration_event with immutable before/after snapshots and old/new config versions.",
+      "Add recalibration history/event typing distinct from DEVELOPMENT contributions."
+    ],
+    "unchanged": [
+      "No historical snapshot mutation.",
+      "No automatic reapplication of old evidence after config publication.",
+      "No Phase 2 implementation."
+    ]
   }
 }

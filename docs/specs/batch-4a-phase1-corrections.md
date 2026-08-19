@@ -67,22 +67,23 @@ For a benchmark with versioned absolute interval `[lower, upper]`, the server de
 
 ```text
 candidate = lower + (proposedBenchmarkMastery / 100) × (upper - lower)
-q = 1 - Π(1 - reliability_i × magnitude_i × difficulty_i × exp(-ageDays_i / recencyHalfLifeDays))
+qUnit = sourceReliability × protocolQuality × observationCompleteness × benchmarkRelevanceDifficulty × recency × independentCorroboration
+q = 1 - Π(1 - qUnit) across distinct underlying evidence aggregation units
 allowedIncrease = config.maxIncrease × q × confidence
 allowedRegression = config.maxRegression × q × confidence
 absoluteNext = clamp(candidate, absolutePrevious - allowedRegression, absolutePrevious + allowedIncrease)
 ```
 
-The calculation uses only validated, referenced evidence whose IDs have not already been consumed for that player/atom/config version. Evidence is normalized before use; a match result, attendance row, win count, or decision count is not an Ability observation. `maxIncrease`, `maxRegression`, and `recencyHalfLifeDays` are required, versioned calibration fields. Their initial values are provisional until calibration approval.
+`proposedBenchmarkMastery` is the performance/Ability signal. It does not enter `q`. A complete, verified Deep Assessment with a raw result of `0/2` has the same evidence-quality inputs as an otherwise identical `2/2` assessment; the former may therefore support regression and the latter improvement. `observationCompleteness` counts observed required attempts/fields, never successes. All rows from one underlying event/session and target component form one aggregation unit, so granular rows cannot inflate `q`. A row with no stable underlying event/session identity is context-only. `maxIncrease`, `maxRegression`, and `recencyHalfLifeDays` are required, versioned calibration fields. Their initial values are provisional until calibration approval.
 
 Above the highest calibrated benchmark interval, the server uses an elite continuation rule:
 
 ```text
-eliteDelta = eliteUnitScale × q × normalizedPerformanceMagnitude × difficultyWeight × confidence
+eliteDelta = eliteUnitScale × q × performanceSignal × confidence
 absoluteNext = absolutePrevious + eliteDelta
 ```
 
-The sign and magnitude come from the referenced performance evidence against the active benchmark protocol. `decisionFrequencyWeight = 0`; a decision without newly eligible evidence has `q = 0` and therefore changes Ability by zero. Replaying the same evidence is rejected by the evidence-consumption/idempotency check.
+The signed `performanceSignal` is separate from evidence quality. `decisionFrequencyWeight = 0`; a decision without newly eligible evidence has `q = 0` and therefore changes Ability by zero. The same underlying evidence aggregation unit cannot create another development contribution for the same player and canonical atomic skill, even under a new scoring or benchmark configuration.
 
 ### Benchmark windows
 
@@ -132,7 +133,7 @@ Junior and Adult pathways share one versioned Absolute Skill Strength axis **onl
 Decision creation/validation is separate from canonical application:
 
 1. **Transaction A — auditable validation.** Persist `PROPOSED`; validate actor, academy, evidence references, crosswalk, benchmark/config version, input range, and idempotency. Persist `VALIDATING`, then either `REJECTED` with immutable validation reasons, or leave the decision valid for application. A rejection commits independently and makes no canonical mutation.
-2. **Transaction B — atomic application.** Lock the player-level aggregate row with `FOR UPDATE`; recheck idempotency, version, actor scope, eligible evidence, and configuration snapshots. In the same transaction write `ACCEPTED`, current states, history, consumed-evidence records, immutable snapshots, aggregate values/version, and finally `APPLIED`. Commit once.
+2. **Transaction B — atomic application.** Lock the player-level aggregate row with `FOR UPDATE`; recheck idempotency, version, actor scope, eligible evidence, and configuration snapshots. In the same transaction write current states, history, development-contribution records, immutable snapshots, aggregate values/version, application receipt, and finally `APPLIED`. Commit once.
 3. **Apply failure.** A Transaction B failure rolls back all canonical changes and the persisted `ACCEPTED` transition. A short, separate transaction records `APPLY_FAILED` with a stable failure code and diagnostic reference. An `APPLY_FAILED` attempt is terminal; retry creates a new attempt linked to the original decision root. The same idempotency key returns the existing `APPLIED` snapshot or existing terminal outcome; it never creates a second application.
 
 Current reachable writer families: **14**. The future central execution service is the only `CANONICAL` writer; this mapping is a migration target, not a Phase 2 writer migration.
@@ -161,7 +162,7 @@ Phase 2 must introduce, not yet implement, the following model:
 
 - `player_canonical_progression` is the single player-level concurrency anchor: `player_id` primary key, `academy_id`, `state_version`, `placement_status`, `glow_status`, `current_pathway_id`, `current_level_id`, `estimated_glow`, `glow_coverage`, `glow_confidence`, taxonomy/benchmark/glow config versions, `last_decision_id`, and timestamps. It has `UNIQUE (academy_id, player_id)`, indexes on `(academy_id, placement_status)`, `(academy_id, glow_status)`, `(academy_id, updated_at)`, and `last_decision_id`; all canonical transitions lock this row, never an arbitrary skill row.
 - Versioned configuration persistence for canonical skill definitions, benchmark intervals/classifications, the checked-in source crosswalk, Glow configuration, and calibration/protocol versions. Crosswalk uniqueness is `(crosswalk_version, qualified_source_key)`; benchmark uniqueness is `(benchmark_config_version, benchmark_id)`.
-- Normalized current canonical skill state, append-only skill history, immutable decision/config/evidence snapshots, consumed-evidence uniqueness, DevelopmentDecision plus immutable validation records, and aggregate history snapshots.
+- Normalized current canonical skill state, append-only skill history, immutable decision/config/evidence snapshots, development-contribution uniqueness independent of config versions, explicit recalibration events, DevelopmentDecision plus immutable validation records, and aggregate history snapshots.
 - Database constraints must enforce the four benchmark classifications, null canonical atom only for `HARD_GATE`/`CONTEXT_ONLY`, an atomic skill for `ABILITY_BENCHMARK`/`SOCIAL_CHARACTER`, valid confidence/mastery ranges, and optimistic state-version comparison.
 
 ## 3. Remaining genuine product ambiguities
@@ -173,7 +174,7 @@ Phase 2 must introduce, not yet implement, the following model:
 
 ## 4. Corrected bounded Phase 2 implementation boundary
 
-**In scope only:** canonical schema and config persistence; crosswalk import/validation; player aggregate/version lock row; normalized current state and append-only history; DevelopmentDecision lifecycle; immutable snapshots; deterministic Absolute Strength and Glow engines; central execution transaction; consumed-evidence idempotency; concurrency control; canonical current/history DTO/service; and targeted unit/integration tests for crosswalk completeness, classification exclusion, window behavior, missing-data/status logic, regression/elite evidence rules, rejection persistence, application atomicity, idempotency, and contention.
+**In scope only:** canonical schema and config persistence; crosswalk import/validation; player aggregate/version lock row; normalized current state and append-only history; DevelopmentDecision lifecycle; immutable snapshots; deterministic Absolute Strength and Glow engines; central execution transaction; evidence-aggregation-unit idempotency; explicit recalibration/rebase audit records; concurrency control; canonical current/history DTO/service; and targeted unit/integration tests for crosswalk completeness, classification exclusion, window behavior, missing-data/status logic, regression/elite evidence rules, rejection persistence, application atomicity, idempotency, and contention.
 
 **Explicitly out of scope:** AIChat migration; broad AI context changes; Quick Feedback, Deep Assessment, Glow Assessment, baseline, or self-assessment migration; Player Home/Player Progress/Coach Progress UI work; Match writer removal; XP/profile or Adult Glow changes; training planner work; broad legacy cleanup; and any Phase 3+ writer adapters.
 
