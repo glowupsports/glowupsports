@@ -30,3 +30,17 @@ uri = "file://screenshots/home-v2-latest.jpg"
 type = "image"
 title = "Player Home V2 — Design Mockup"
 description = "Scrollable home screen redesign gebaseerd op de approved reference"
+
+[[outputs]]
+id = "9yWDs0tgUu3gNQNu_zcSP"
+uri = "file://docs/specs/batch-4a-phase1-corrections.md"
+type = "text"
+title = "Batch 4A Phase 1 Corrections"
+description = "The bounded, specification-only correction pass for Task #2211, covering the canonical model, scoring rules, transaction semantics, writer map, ambiguities, and Phase 2 boundary."
+
+[[outputs]]
+id = "-0WcUcrwWRNMv-NTXO8E_"
+uri = "file://docs/specs/batch-4a-canonical-crosswalk-v1.json"
+type = "unspecified"
+title = "Batch 4A Canonical Crosswalk v1"
+description = "The complete deterministic 1,117-row source-to-canonical-to-benchmark crosswalk with 202 atomic skills, classifications, ambiguity records, and zero unmapped Ability/Social rows."
