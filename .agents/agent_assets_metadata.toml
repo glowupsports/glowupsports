@@ -44,3 +44,10 @@ uri = "file://docs/specs/batch-4a-canonical-crosswalk-v1.json"
 type = "unspecified"
 title = "Batch 4A Canonical Crosswalk v1"
 description = "The complete deterministic 1,117-row source-to-canonical-to-benchmark crosswalk with 202 atomic skills, classifications, ambiguity records, and zero unmapped Ability/Social rows."
+
+[[outputs]]
+id = "gzMDzkHw8ynciXnpT7dox"
+uri = "file://docs/specs/batch-4a-phase1-corrections-share.zip"
+type = "unspecified"
+title = "Batch 4A Developer Handoff"
+description = "One shareable package containing the complete Phase 1 correction specification and the full deterministic canonical crosswalk."
