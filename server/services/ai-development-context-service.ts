@@ -95,6 +95,19 @@ export const developmentContextEvidenceSchema = z.object({
   componentKeys: z.array(z.string().min(1)).min(1),
   relevance: z.enum(["EXACT_BENCHMARK_COMPONENT", "EXPLICIT_ADJACENT_COMPONENT"]),
   relevanceScore: z.number().finite(),
+  deltaEligibility: z.enum(["DELTA_ELIGIBLE", "CONTEXT_ONLY"]),
+  trustedObservation: z.object({
+    evidenceIds: z.array(z.string().min(1)).min(1),
+    sourceSystem: z.string().min(1),
+    underlyingEventOrSessionId: z.string().min(1),
+    observationWindow: z.string().min(1),
+    sourceType: z.string().min(1),
+    observedRequiredObservations: z.number().int().nonnegative(),
+    requiredObservations: z.number().int().positive(),
+    occurredAt: isoDateSchema,
+    benchmarkRelevance: z.enum(["EXACT_BENCHMARK_COMPONENT", "EXPLICIT_ADJACENT_COMPONENT"]),
+    verifiedObserverIds: z.array(z.string().min(1)),
+  }).nullable(),
 }).strict();
 export type DevelopmentContextEvidence = z.infer<typeof developmentContextEvidenceSchema>;
 
@@ -157,6 +170,19 @@ export interface EvidenceAssemblyCandidate {
   reviewedAt: Date | string | null;
   reviewScore: number | null;
   mappings: BenchmarkMapping[];
+  /** Only populated by a source that already persists the complete trusted observation contract. */
+  trustedObservation?: {
+    evidenceIds: string[];
+    sourceSystem: string;
+    underlyingEventOrSessionId: string;
+    observationWindow: string;
+    sourceType: string;
+    observedRequiredObservations: number;
+    requiredObservations: number;
+    occurredAt: Date | string;
+    benchmarkRelevance: "EXACT_BENCHMARK_COMPONENT" | "EXPLICIT_ADJACENT_COMPONENT";
+    verifiedObserverIds: string[];
+  } | null;
 }
 
 export interface EvidenceOwnership {
@@ -266,6 +292,13 @@ export function assembleRelevantEvidence(
         componentKeys,
         relevance,
         relevanceScore,
+        deltaEligibility: candidate.trustedObservation ? "DELTA_ELIGIBLE" as const : "CONTEXT_ONLY" as const,
+        trustedObservation: candidate.trustedObservation
+          ? {
+              ...candidate.trustedObservation,
+              occurredAt: new Date(candidate.trustedObservation.occurredAt).toISOString(),
+            }
+          : null,
       };
     })
     .sort((a, b) =>
@@ -454,6 +487,9 @@ async function buildDevelopmentContextInTransaction(
     reviewedAt: row.reviewedAt,
     reviewScore: row.reviewScore,
     mappings: mappingsBySourceSkill.get(row.skillId) ?? [],
+    // skill_evidence does not persist the complete Phase 2 observation
+    // contract. Never infer it from captureType, timestamps, or review data.
+    trustedObservation: null,
   }));
   const evidence = assembleRelevantEvidence(candidates, {
     playerId: targetPlayerId,

@@ -89,6 +89,30 @@ describe("Phase 3A development context evidence assembly", () => {
     expect(result[2].relevance).toBe("EXPLICIT_ADJACENT_COMPONENT");
   });
 
+  it("marks incomplete evidence context-only instead of inventing Phase 2 observation fields", () => {
+    const [evidence] = assembleRelevantEvidence([candidate({ trustedObservation: null })]);
+    expect(evidence.deltaEligibility).toBe("CONTEXT_ONLY");
+    expect(evidence.trustedObservation).toBeNull();
+  });
+
+  it("passes through a complete server-owned observation unchanged as delta-eligible", () => {
+    const trustedObservation = {
+      evidenceIds: ["evidence-1"],
+      sourceSystem: "verified-assessment",
+      underlyingEventOrSessionId: "assessment-1",
+      observationWindow: "2026-08-24T10:00:00.000Z/2026-08-24T11:00:00.000Z",
+      sourceType: "COACH_DEEP_ASSESSMENT",
+      observedRequiredObservations: 3,
+      requiredObservations: 3,
+      occurredAt: "2026-08-24T10:00:00.000Z",
+      benchmarkRelevance: "EXACT_BENCHMARK_COMPONENT" as const,
+      verifiedObserverIds: ["coach-1"],
+    };
+    const [evidence] = assembleRelevantEvidence([candidate({ trustedObservation })]);
+    expect(evidence.deltaEligibility).toBe("DELTA_ELIGIBLE");
+    expect(evidence.trustedObservation).toEqual(trustedObservation);
+  });
+
   it("rejects a context with a different contract version", () => {
     const valid = {
       contractVersion: DEVELOPMENT_CONTEXT_CONTRACT_VERSION,
