@@ -917,7 +917,10 @@ router.delete(
       }
 
       const seriesCoachId = series.coachId;
-      await storage.deleteCoachingSeries(id);
+      const result = await storage.cancelCoachingSeriesAtomic(id, {
+        cancelledBy: req.user!.coachId || req.user!.userId,
+        reason: "Cancelled by administrator",
+      });
 
       if (seriesCoachId) {
         apiCache.invalidate(`series:${seriesCoachId}`);
@@ -929,7 +932,7 @@ router.delete(
         );
       }
 
-      res.json({ success: true });
+      res.json({ success: true, ...result });
     } catch (error) {
       console.error("Error deleting admin series:", error);
       res.status(500).json({ error: "Failed to delete series" });

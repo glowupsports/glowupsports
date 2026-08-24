@@ -43,6 +43,8 @@ export interface AuthenticatedRequest extends Request {
 
 export interface UserStorageInterface {
   getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null; playerId: string | null; deleted?: boolean | null } | null | undefined>;
+  getCoach(id: string, academyId?: string): Promise<{ id: string; academyId: string | null; role: string | null } | null | undefined>;
+  isCoachMembershipActive(coachId: string, academyId: string): Promise<boolean>;
   isMaintenanceMode(): Promise<boolean>;
   isUserAcademyOwner(userId: string, academyId: string): Promise<boolean>;
   getPlayerEmail(playerId: string): Promise<string | null>;
@@ -279,13 +281,39 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           }
         }
 
+        // A legacy player-role user can be linked to a real coach account.
+        // Resolve that role only from server-owned records: matching academy,
+        // eligible coach role, and active membership. Client mode/coach IDs
+        // never participate in this decision.
+        let effectiveRole = freshUser.role;
+        if (freshUser.role === "player" && freshUser.coachId && effectiveAcademyId) {
+          try {
+            const linkedCoach = await freshUserStorage.getCoach(
+              freshUser.coachId,
+              effectiveAcademyId,
+            );
+            const isEligibleCoach =
+              linkedCoach?.academyId === effectiveAcademyId &&
+              (linkedCoach.role === "coach" || linkedCoach.role === "head_coach") &&
+              await freshUserStorage.isCoachMembershipActive(
+                freshUser.coachId,
+                effectiveAcademyId,
+              );
+            if (isEligibleCoach) {
+              effectiveRole = linkedCoach!.role!;
+            }
+          } catch (linkedCoachError) {
+            console.error("[Auth] linked coach verification failed; keeping player role:", linkedCoachError);
+          }
+        }
+
         // Task #2201 — For coach / head_coach roles, verify that the coach's
         // membership in the effective academy is still active. If deactivated,
         // clear the academy context so requireAcademy rejects the request.
         // Fail-closed: on any DB error, effectiveAcademyId is also cleared —
         // we must never grant academy authority merely because the check failed.
         if (
-          (freshUser.role === "coach" || freshUser.role === "head_coach") &&
+          (effectiveRole === "coach" || effectiveRole === "head_coach") &&
           effectiveAcademyId &&
           freshUser.coachId
         ) {
@@ -379,7 +407,7 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
         req.user = {
           userId: freshUser.id,
           email: freshUser.email,
-          role: freshUser.role,
+          role: effectiveRole,
           academyId: freshUser.academyId,
           coachId: freshUser.coachId,
           playerId: effectivePlayerId,

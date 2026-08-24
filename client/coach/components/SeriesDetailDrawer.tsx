@@ -1553,7 +1553,7 @@ export default function SeriesDetailDrawer({
     }
   };
 
-  // Delete entire series
+  // Cancel entire series while retaining attendance and billing history.
   const [deletingSeries, setDeletingSeries] = useState(false);
   
   const handleDeleteSeries = () => {
@@ -1566,7 +1566,13 @@ export default function SeriesDetailDrawer({
     setShowSeriesDeleteConfirm(false);
     setDeletingSeries(true);
     try {
-      await apiRequest("DELETE", `/api/coach/series/${seriesId}`);
+      const response = await apiRequest("POST", `/api/coach/series/${seriesId}/cancel`, {
+        reason: "Cancelled by coach",
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to cancel class series");
+      }
       await queryClient.invalidateQueries({ queryKey: ["/api/coach/series"] });
       await queryClient.invalidateQueries({
         predicate: (q) =>
@@ -1578,7 +1584,7 @@ export default function SeriesDetailDrawer({
       onClose();
     } catch (error) {
       console.error("Error deleting series:", error);
-      Alert.alert("Error", "Failed to delete class series. Please try again.");
+      Alert.alert("Error", "Failed to cancel class series. Please try again.");
     } finally {
       setDeletingSeries(false);
     }
@@ -2247,7 +2253,8 @@ export default function SeriesDetailDrawer({
         </View>
       </Modal>
 
-      {/* Delete Class confirm modal */}
+      {/* Entire-series cancellation keeps historical sessions and refunds only
+          actually consumed credits through the server's atomic ledger path. */}
       <Modal
         visible={showSeriesDeleteConfirm}
         transparent
@@ -2256,9 +2263,9 @@ export default function SeriesDetailDrawer({
       >
         <View style={confirmStyles.overlay}>
           <View style={confirmStyles.card}>
-            <Text style={confirmStyles.title}>Delete Entire Class</Text>
+            <Text style={confirmStyles.title}>Cancel Entire Series</Text>
             <Text style={confirmStyles.body}>
-              This will cancel all upcoming sessions and remove all players. This action cannot be undone.
+              Every occurrence will be cancelled. Attendance history stays visible, and only credits that were actually consumed are restored once.
             </Text>
             <View style={confirmStyles.buttonRow}>
               <Pressable
@@ -2271,7 +2278,7 @@ export default function SeriesDetailDrawer({
                 style={[confirmStyles.btn, confirmStyles.deleteBtn]}
                 onPress={doDeleteSeries}
               >
-                <Text style={confirmStyles.deleteText}>Delete</Text>
+                <Text style={confirmStyles.deleteText}>Cancel series</Text>
               </Pressable>
             </View>
           </View>

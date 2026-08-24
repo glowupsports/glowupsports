@@ -158,6 +158,7 @@ export default function SessionDetailDrawer({
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showPostSessionChoice, setShowPostSessionChoice] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelScope, setCancelScope] = useState<"single" | "series">("single");
   const [showIntroCard, setShowIntroCard] = useState(true);
 
   useEffect(() => {
@@ -682,11 +683,19 @@ export default function SessionDetailDrawer({
 
   // Cancel session mutation (coach-initiated, no charge)
   const cancelSessionMutation = useMutation({
-    mutationFn: async (reason: string) => {
+    mutationFn: async ({ reason, scope }: { reason: string; scope: "single" | "series" }) => {
       if (!session) throw new Error("No session selected");
-      const response = await apiRequest("POST", `/api/coach/sessions/${session.id}/cancel`, {
-        reason: reason.trim() || "Cancelled by coach",
-      });
+      const response = scope === "series" && session.seriesId
+        ? await apiRequest("POST", `/api/coach/series/${session.seriesId}/cancel`, {
+            reason: reason.trim() || "Cancelled by coach",
+          })
+        : await apiRequest("POST", `/api/coach/sessions/${session.id}/cancel`, {
+            reason: reason.trim() || "Cancelled by coach",
+          });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to cancel session");
+      }
       return response.json();
     },
     onSuccess: (_data) => {
@@ -704,6 +713,7 @@ export default function SessionDetailDrawer({
       // refresh the coach Players list so the pill updates instantly.
       invalidatePlayersList(queryClient);
       setShowCancelConfirm(false);
+      setCancelScope("single");
       onClose();
       setTimeout(() => {
         Alert.alert("Session Deleted", "The session has been removed from your calendar.");
@@ -2068,6 +2078,41 @@ export default function SessionDetailDrawer({
             <Text style={styles.endConfirmText}>
               Are you sure you want to cancel this session?
             </Text>
+            {session?.seriesId ? (
+              <View style={{ gap: 8, marginBottom: 18 }}>
+                <Text style={styles.stepLabel}>CANCELLATION SCOPE</Text>
+                <Pressable
+                  onPress={() => setCancelScope("single")}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: cancelScope === "single" ? Colors.dark.orange : Colors.dark.border,
+                    borderRadius: 12,
+                    padding: 12,
+                    backgroundColor: cancelScope === "single" ? `${Colors.dark.orange}18` : "transparent",
+                  }}
+                >
+                  <Text style={styles.stepLabel}>This lesson only</Text>
+                  <Text style={{ color: Colors.dark.textSecondary, marginTop: 4 }}>
+                    Cancel this occurrence. Any credit already consumed for it is restored once.
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setCancelScope("series")}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: cancelScope === "series" ? Colors.dark.orange : Colors.dark.border,
+                    borderRadius: 12,
+                    padding: 12,
+                    backgroundColor: cancelScope === "series" ? `${Colors.dark.orange}18` : "transparent",
+                  }}
+                >
+                  <Text style={styles.stepLabel}>Entire series</Text>
+                  <Text style={{ color: Colors.dark.textSecondary, marginTop: 4 }}>
+                    Cancel every occurrence, keep attendance history, and restore only credits that were actually consumed.
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
             <Text style={styles.stepLabel}>REASON FOR CANCELLATION</Text>
             <View style={styles.pickerContainer}>
               <Pressable 
@@ -2144,7 +2189,7 @@ export default function SessionDetailDrawer({
                     showOfflineAlert();
                     return;
                   }
-                  cancelSessionMutation.mutate(cancelReason);
+                  cancelSessionMutation.mutate({ reason: cancelReason, scope: cancelScope });
                 }}
                 disabled={cancelSessionMutation.isPending || isOffline}
               >

@@ -2194,7 +2194,52 @@ router.post(
   },
 );
 
-// Delete a coaching series (PERMANENT - no soft delete)
+// Cancel an entire coaching series while preserving attendance and ledger history.
+router.post(
+  "/api/coach/series/:id/cancel",
+  authMiddleware,
+  requireAcademy,
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      let coachId = req.user!.coachId;
+      const academyId = req.user!.academyId;
+      const callerRole = req.user!.role;
+      const isOwnerRole = ["academy_owner", "owner", "platform_owner", "admin"].includes(callerRole ?? "");
+      const supervisorCoachId = req.body?.supervisorCoachId as string | undefined;
+      if (supervisorCoachId) {
+        if (!isOwnerRole) {
+          return res.status(403).json({ error: "Only academy owners may act for another coach" });
+        }
+        const targetCoach = await storage.getCoach(supervisorCoachId);
+        if (!targetCoach || targetCoach.academyId !== academyId) {
+          return res.status(403).json({ error: "Coach not found in your academy" });
+        }
+        coachId = supervisorCoachId;
+      }
+
+      const existing = await storage.getCoachingSeriesById(id);
+      if (!existing) return res.status(404).json({ error: "Series not found" });
+      const authError = await checkSeriesAuthority(existing, coachId, academyId, isOwnerRole);
+      if (authError) return res.status(403).json({ error: authError });
+
+      const result = await storage.cancelCoachingSeriesAtomic(id, {
+        cancelledBy: coachId || req.user!.userId,
+        reason: req.body?.reason || "Cancelled by coach",
+      });
+      const effectiveCoachId = coachId || existing.coachId;
+      apiCache.invalidate(`series:${effectiveCoachId}`);
+      apiCache.invalidate(`earnings:${effectiveCoachId}`);
+      apiCache.invalidate(`calendar:${effectiveCoachId}`);
+      return res.json({ success: true, ...result });
+    } catch (error) {
+      console.error("Error cancelling coaching series:", error);
+      return res.status(500).json({ error: "Failed to cancel series" });
+    }
+  },
+);
+
+// Legacy DELETE now uses the same history-preserving atomic cancellation path.
 router.delete(
   "/api/coach/series/:id",
   authMiddleware,
@@ -2230,7 +2275,10 @@ router.delete(
         return res.status(403).json({ error: "Not authorized to delete this series" });
       }
 
-      await storage.deleteCoachingSeries(id);
+      const result = await storage.cancelCoachingSeriesAtomic(id, {
+        cancelledBy: coachId || req.user!.userId,
+        reason: req.body?.reason || "Cancelled by coach",
+      });
 
       // Invalidate cache after deletion so list refreshes properly
       const effectiveCoachId = coachId || existing.coachId;
@@ -2238,7 +2286,7 @@ router.delete(
       apiCache.invalidate(`earnings:${effectiveCoachId}`);
       apiCache.invalidate(`calendar:${effectiveCoachId}`);
       console.log("[Series DELETE] Cache invalidated for coach:", effectiveCoachId);
-      res.json({ success: true });
+      res.json({ success: true, ...result });
     } catch (error) {
       console.error("Error deleting coaching series:", error);
       res.status(500).json({ error: "Failed to delete series" });

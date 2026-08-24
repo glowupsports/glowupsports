@@ -5749,6 +5749,156 @@ export const storage = {
     return result[0];
   },
 
+  /**
+   * Cancels a coaching series while retaining its sessions, attendance, and
+   * audit evidence. The V2 refund helper runs in this exact transaction, so a
+   * failed refund rolls all series/session state back and a retry is safe.
+   */
+  async cancelCoachingSeriesAtomic(
+    seriesId: string,
+    opts: {
+      cancelledBy: string;
+      reason: string;
+      expected?: {
+        sessionCount: number;
+        firstSessionDate: string;
+        lastSessionDate: string;
+        playerNames: string[];
+      };
+    },
+  ): Promise<{ cancelledSessions: number; refunded: number }> {
+    const { refundV2ConsumesForCancelledSession } = await import(
+      "./services/ledger-integrity"
+    );
+
+    return db.transaction(async (tx) => {
+      const seriesLock = await tx.execute(sql`
+        SELECT id, academy_id
+        FROM coaching_series
+        WHERE id = ${seriesId}
+        FOR UPDATE
+      `);
+      const series = (seriesLock.rows as {
+        id: string;
+        academy_id: string | null;
+      }[])[0];
+      if (!series) throw new Error("Series not found");
+
+      const sessionLock = await tx.execute(sql`
+        SELECT id, status
+        FROM sessions
+        WHERE series_id = ${seriesId}
+        ORDER BY start_time
+        FOR UPDATE
+      `);
+      const sessionRows = sessionLock.rows as { id: string; status: string }[];
+      if (opts.expected) {
+        const summaryResult = await tx.execute(sql`
+          SELECT COUNT(*)::int AS session_count,
+                 MIN(start_time)::date::text AS first_session_date,
+                 MAX(start_time)::date::text AS last_session_date
+          FROM sessions
+          WHERE series_id = ${seriesId}
+        `);
+        const summary = (summaryResult.rows as {
+          session_count: number | string;
+          first_session_date: string | null;
+          last_session_date: string | null;
+        }[])[0];
+        const playerResult = await tx.execute(sql`
+          SELECT DISTINCT p.name
+          FROM session_players sp
+          JOIN players p ON p.id = sp.player_id
+          JOIN sessions s ON s.id = sp.session_id
+          WHERE s.series_id = ${seriesId}
+            AND sp.player_id IS NOT NULL
+          ORDER BY p.name
+        `);
+        const actualNames = (playerResult.rows as { name: string }[])
+          .map((row) => row.name)
+          .sort();
+        const expectedNames = [...opts.expected.playerNames].sort();
+        const matches =
+          Number(summary?.session_count) === opts.expected.sessionCount &&
+          summary?.first_session_date === opts.expected.firstSessionDate &&
+          summary?.last_session_date === opts.expected.lastSessionDate &&
+          actualNames.length === expectedNames.length &&
+          actualNames.every((name, index) => name === expectedNames[index]);
+        if (!matches) {
+          throw new Error("Series repair guard failed: target no longer matches the approved occurrence/player set");
+        }
+      }
+      const cancellableSessionIds = sessionRows
+        .filter((session) => session.status !== "cancelled")
+        .map((session) => session.id);
+
+      if (cancellableSessionIds.length > 0) {
+        await tx.execute(sql`
+          UPDATE sessions
+          SET status = 'cancelled',
+              cancelled_at = now(),
+              cancelled_by = ${opts.cancelledBy}::text,
+              cancellation_reason = ${opts.reason}::text,
+              is_last_minute_cancellation = false,
+              cancellation_charged = false,
+              cancellation_charge_amount = NULL
+          WHERE series_id = ${seriesId}
+            AND status <> 'cancelled'
+        `);
+
+        await tx.execute(sql`
+          DELETE FROM coach_time_blocks
+          WHERE source_session_id IN (
+            SELECT id FROM sessions WHERE series_id = ${seriesId}
+          )
+        `);
+
+        await tx.execute(sql`
+          UPDATE credit_transactions
+          SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
+            'cancelled', true,
+            'cancelledAt', now()::text,
+            'cancelReason', ${opts.reason}::text
+          )
+          WHERE session_id IN (
+            SELECT id FROM sessions WHERE series_id = ${seriesId}
+          )
+            AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')
+            AND (metadata->>'settled') IS DISTINCT FROM 'true'
+            AND (metadata->>'cancelled') IS DISTINCT FROM 'true'
+        `);
+      }
+
+      let refunded = 0;
+      for (const session of sessionRows) {
+        const result = await refundV2ConsumesForCancelledSession(session.id, tx);
+        refunded += result.refunded;
+      }
+
+      await tx
+        .update(coachingSeries)
+        .set({ status: "ended", endedAt: new Date() })
+        .where(eq(coachingSeries.id, seriesId));
+
+      if (cancellableSessionIds.length > 0 || refunded > 0) {
+        await tx.insert(auditLogs).values({
+          entityType: "coaching_series",
+          entityId: seriesId,
+          action: "cancelled",
+          performedBy: opts.cancelledBy,
+          academyId: series.academy_id,
+          metadata: JSON.stringify({
+            reason: opts.reason,
+            cancelledSessions: cancellableSessionIds.length,
+            v2CreditsRefunded: refunded,
+          }),
+        });
+      }
+
+      return { cancelledSessions: cancellableSessionIds.length, refunded };
+    });
+  },
+
   async deleteCoachingSeries(id: string): Promise<void> {
     const seriesSessions = await db
       .select({ id: sessions.id, academyId: sessions.academyId })
@@ -12957,7 +13107,7 @@ export const storage = {
         SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
           'cancelled',   true,
           'cancelledAt', now()::text,
-          'cancelReason', ${cancelReason}
+          'cancelReason', ${cancelReason}::text
         )
         WHERE player_id = ${playerId}
           AND session_id = ${sessionId}
@@ -13053,7 +13203,7 @@ export const storage = {
         SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object(
           'cancelled',   true,
           'cancelledAt', now()::text,
-          'cancelReason', ${opts.reason}
+          'cancelReason', ${opts.reason}::text
         )
         WHERE session_id = ${sessionId}
           AND reason IN ('session_debt', 'session_join_debt', 'session_unpaid', 'session_booking')
