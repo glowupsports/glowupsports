@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { z } from "zod";
 import {
   DevelopmentInterpretationError,
+  applyValidatedDevelopmentEvaluation,
   evaluateDevelopmentInterpretation,
 } from "../services/ai-development-interpretation-service";
 import {
@@ -53,6 +54,27 @@ router.post(
         error: "Development interpretation unavailable",
         code: "EVALUATION_UNAVAILABLE",
       });
+    }
+  },
+);
+
+router.post(
+  "/api/internal/development-interpretations/:evaluationId/apply",
+  authMiddleware,
+  async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.user || !z.string().trim().min(1).max(128).safeParse(req.params.evaluationId).success) {
+      res.status(400).json({ error: "Invalid development application request", code: "INVALID_REQUEST" });
+      return;
+    }
+    try {
+      res.json(await applyValidatedDevelopmentEvaluation(req.user, req.params.evaluationId));
+    } catch (error) {
+      if (error instanceof DevelopmentInterpretationError) {
+        res.status(error.status).json({ error: error.message, code: error.code });
+        return;
+      }
+      console.error("[DevelopmentInterpretation] application failed:", error);
+      res.status(500).json({ error: "Development application unavailable", code: "APPLICATION_UNAVAILABLE" });
     }
   },
 );

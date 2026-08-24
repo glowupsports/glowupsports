@@ -3297,7 +3297,7 @@ import { Router, type Request, type Response } from "express";
         // No legacy Deep Assessment field is repurposed or inferred here.
         if (trustedObservation !== undefined) {
           await db.insert(deepAssessmentTrustedObservations).values({
-            deepAssessmentId: assessment.id,
+            deepAssessmentId: String(assessment.id),
             playerId: id,
             academyId,
             benchmarkId: trustedObservation.benchmarkId,

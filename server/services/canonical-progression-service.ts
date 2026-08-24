@@ -47,6 +47,9 @@ async function resolveCanonicalEvidenceRefs(
   evidenceRefs: string[],
   playerId: string,
   academyId: string,
+  benchmarkId: string,
+  benchmarkDefinitionId: string,
+  observations: TrustedEvidenceObservation[],
 ) {
   const uniqueRefs = [...new Set(evidenceRefs)];
   const deepIds = uniqueRefs
@@ -61,11 +64,7 @@ async function resolveCanonicalEvidenceRefs(
   }).from(skillEvidence)
     .innerJoin(players, eq(players.id, skillEvidence.playerId))
     .where(inArray(skillEvidence.id, skillIds)) : [];
-  const deepRows = deepIds.length ? await tx.select({
-    id: deepAssessmentTrustedObservations.id,
-    playerId: deepAssessmentTrustedObservations.playerId,
-    academyId: deepAssessmentTrustedObservations.academyId,
-  }).from(deepAssessmentTrustedObservations)
+  const deepRows = deepIds.length ? await tx.select().from(deepAssessmentTrustedObservations)
     .where(inArray(deepAssessmentTrustedObservations.id, deepIds)) : [];
   const resolved = [
     ...skillRows.map((row: any) => ({ ref: row.id, playerId: row.playerId, academyId: row.academyId, eligible: row.eligible === "approved" })),
@@ -77,6 +76,35 @@ async function resolveCanonicalEvidenceRefs(
   }
   if (resolved.some((row) => !row.eligible)) {
     throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Only eligible evidence is valid for canonical progression", 422);
+  }
+  for (const row of deepRows) {
+    const ref = deepAssessmentObservationReference(row.id);
+    const observation = observations.find((candidate) => candidate.evidenceIds.includes(ref));
+    if (!observation
+      || row.benchmarkId !== benchmarkId
+      || observation.sourceSystem !== row.sourceSystem
+      || observation.underlyingEventOrSessionId !== row.underlyingEventOrSessionId
+      || observation.observationWindow !== row.observationWindow
+      || observation.sourceType !== row.sourceType
+      || observation.observedRequiredObservations !== row.observedRequiredObservations
+      || observation.requiredObservations !== row.requiredObservations
+      || new Date(observation.occurredAt).getTime() !== new Date(row.occurredAt).getTime()
+      || observation.benchmarkRelevance !== row.benchmarkRelevance
+      || stableJson([...observation.verifiedObserverIds].sort()) !== stableJson([...(row.verifiedObserverIds ?? [])].sort())
+      || !observation.verifiedObserverIds.length) {
+      throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Immutable trusted observation does not match the canonical evidence contract", 422);
+    }
+    const [abilityBinding] = await tx.select({ id: canonicalBenchmarkComponents.id })
+      .from(canonicalBenchmarkComponents)
+      .where(and(
+        eq(canonicalBenchmarkComponents.benchmarkDefinitionId, benchmarkDefinitionId),
+        eq(canonicalBenchmarkComponents.canonicalSkillId, row.canonicalSkillId),
+        eq(canonicalBenchmarkComponents.isAbilityBearing, true),
+      ))
+      .limit(1);
+    if (!abilityBinding) {
+      throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Trusted observation is not bound to an Ability-bearing benchmark component", 422);
+    }
   }
 }
 
@@ -717,7 +745,7 @@ export async function proposeAndValidateDevelopmentDecision(input: CanonicalDeci
         )).limit(1);
       if (!benchmark) throw new CanonicalProgressionError("INVALID_BENCHMARK", "Frozen benchmark does not exist", 404);
 
-      await resolveCanonicalEvidenceRefs(tx, input.evidenceRefs, input.playerId, input.academyId);
+      await resolveCanonicalEvidenceRefs(tx, input.evidenceRefs, input.playerId, input.academyId, input.benchmarkId, benchmark.id, input.observations);
       validateTrustedObservations(input.observations, config, benchmark.level);
 
       const components = await tx.select().from(canonicalBenchmarkComponents)
@@ -1120,7 +1148,7 @@ export async function applyAcceptedDevelopmentDecision(
         || decisionEvidenceRefs.some((id) => !observationEvidenceRefs.has(id))) {
         throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Accepted decision evidence snapshot is incomplete", 422);
       }
-      await resolveCanonicalEvidenceRefs(tx, decisionEvidenceRefs, decision.playerId, decision.academyId);
+      await resolveCanonicalEvidenceRefs(tx, decisionEvidenceRefs, decision.playerId, decision.academyId, benchmark.benchmarkId, benchmark.id, observations);
       validateTrustedObservations(observations, config, benchmark.level);
 
       const components = await tx.select().from(canonicalBenchmarkComponents)
