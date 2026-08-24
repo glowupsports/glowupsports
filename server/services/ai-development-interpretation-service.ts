@@ -31,7 +31,7 @@ type ModelInvocationResult = {
   providerRequestId: string | null;
   promptHash: string;
 };
-type DevelopmentProvider = (
+export type DevelopmentProvider = (
   context: DevelopmentContext,
   prompt: { system: string; user: string },
   promptHash: string,
