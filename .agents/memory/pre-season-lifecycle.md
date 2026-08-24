@@ -37,6 +37,22 @@ Last-owner guard uses `SELECT id … FOR UPDATE` on owner rows, then counts in a
 - Hard DELETE `DELETE /api/players/:id` → `platform_owner` only with `null` academyId.
 - Restore blocked for `removed` players (409).
 
+## Legacy mixed player/coach accounts
+Coach elevation for a database-`player` account may use only its server-owned
+`users.coach_id` or its own server-owned `players.coach_id`. The candidate must
+resolve to a `coach`/`head_coach` in the same effective academy with an active
+membership. Return that resolved role through `/api/me` and use it for client
+mode selection; never accept a browser mode, JWT role, or client coach ID.
+
+**Why:** Legacy mixed accounts can legitimately be linked only on the player
+record. Resolving that link in one server authority boundary prevents an
+authorized head coach being treated as a player, while preserving fail-closed
+behavior for player-only, inactive, or cross-academy accounts.
+
+**How to apply:** Reuse the shared effective-authority resolver before role
+guards, and have all client identity endpoints return the resolved `req.user`
+role rather than independently repeating the lookup.
+
 ## WS
 `disconnectCoachSockets(academyId, coachId, reason)` closes with 4011. WS handshake checks `is_active` → closes with 4006 if inactive.
 

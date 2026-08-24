@@ -87,6 +87,7 @@ export function getModesForRole(role: string): AppMode[] {
     case "admin":
       return ["admin", "coach", "player"];
     case "coach":
+    case "head_coach":
       return ["coach", "player"];
     case "player":
       return ["player"];
@@ -107,6 +108,7 @@ export function getDefaultModeForRole(role: string): AppMode {
     case "admin":
       return "admin";
     case "coach":
+    case "head_coach":
       return "coach";
     case "service_provider":
       return "service_provider";

@@ -44,6 +44,7 @@ export interface AuthenticatedRequest extends Request {
 export interface UserStorageInterface {
   getUserById(id: string): Promise<{ id: string; email: string; role: string; academyId: string | null; coachId: string | null; playerId: string | null; deleted?: boolean | null } | null | undefined>;
   getCoach(id: string, academyId?: string): Promise<{ id: string; academyId: string | null; role: string | null } | null | undefined>;
+  getPlayer(id: string, academyId?: string): Promise<{ id: string; academyId: string | null; coachId: string | null } | null | undefined>;
   isCoachMembershipActive(coachId: string, academyId: string): Promise<boolean>;
   isMaintenanceMode(): Promise<boolean>;
   isUserAcademyOwner(userId: string, academyId: string): Promise<boolean>;
@@ -206,6 +207,65 @@ export function setFreshUserStorage(storage: UserStorageInterface): void {
   freshUserStorage = storage;
 }
 
+/**
+ * Resolves the only coach elevation allowed for a legacy player-role account.
+ * Every input is loaded from server-owned user/player/coach records; browser
+ * mode, token role, and client-supplied coach IDs are deliberately ignored.
+ */
+export async function resolveLinkedCoachAuthority(
+  user: {
+    role: string;
+    coachId: string | null;
+    playerId: string | null;
+  },
+  academyId: string | null,
+  storage: Pick<UserStorageInterface, "getCoach" | "getPlayer" | "isCoachMembershipActive">,
+): Promise<{ role: string; coachId: string | null }> {
+  if (user.role !== "player" || !academyId) {
+    return { role: user.role, coachId: user.coachId };
+  }
+
+  const candidateCoachIds = new Set<string>();
+  if (user.coachId) candidateCoachIds.add(user.coachId);
+
+  // Some legacy mixed accounts retain player role and have no users.coach_id,
+  // but their server-owned player row is linked to the coach profile.
+  if (user.playerId) {
+    try {
+      const player = await storage.getPlayer(user.playerId, academyId);
+      if (
+        player?.id === user.playerId &&
+        player.academyId === academyId &&
+        player.coachId
+      ) {
+        candidateCoachIds.add(player.coachId);
+      }
+    } catch (error) {
+      console.error("[Auth] linked player lookup failed; refusing coach elevation:", error);
+      return { role: "player", coachId: null };
+    }
+  }
+
+  for (const candidateCoachId of candidateCoachIds) {
+    try {
+      const coach = await storage.getCoach(candidateCoachId, academyId);
+      const isEligibleRole = coach?.role === "coach" || coach?.role === "head_coach";
+      const isActive =
+        coach?.academyId === academyId &&
+        isEligibleRole &&
+        await storage.isCoachMembershipActive(candidateCoachId, academyId);
+      if (isActive) {
+        return { role: coach!.role!, coachId: candidateCoachId };
+      }
+    } catch (error) {
+      console.error("[Auth] linked coach verification failed; refusing coach elevation:", error);
+      return { role: "player", coachId: null };
+    }
+  }
+
+  return { role: "player", coachId: null };
+}
+
 export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   // Task #1398 — In-process dispatch from a player god-endpoint already
   // ran this middleware on the parent request and can pass the
@@ -281,31 +341,13 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           }
         }
 
-        // A legacy player-role user can be linked to a real coach account.
-        // Resolve that role only from server-owned records: matching academy,
-        // eligible coach role, and active membership. Client mode/coach IDs
-        // never participate in this decision.
-        let effectiveRole = freshUser.role;
-        if (freshUser.role === "player" && freshUser.coachId && effectiveAcademyId) {
-          try {
-            const linkedCoach = await freshUserStorage.getCoach(
-              freshUser.coachId,
-              effectiveAcademyId,
-            );
-            const isEligibleCoach =
-              linkedCoach?.academyId === effectiveAcademyId &&
-              (linkedCoach.role === "coach" || linkedCoach.role === "head_coach") &&
-              await freshUserStorage.isCoachMembershipActive(
-                freshUser.coachId,
-                effectiveAcademyId,
-              );
-            if (isEligibleCoach) {
-              effectiveRole = linkedCoach!.role!;
-            }
-          } catch (linkedCoachError) {
-            console.error("[Auth] linked coach verification failed; keeping player role:", linkedCoachError);
-          }
-        }
+        const linkedAuthority = await resolveLinkedCoachAuthority(
+          freshUser,
+          effectiveAcademyId,
+          freshUserStorage,
+        );
+        let effectiveRole = linkedAuthority.role;
+        let effectiveCoachId = linkedAuthority.coachId;
 
         // Task #2201 — For coach / head_coach roles, verify that the coach's
         // membership in the effective academy is still active. If deactivated,
@@ -315,11 +357,11 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
         if (
           (effectiveRole === "coach" || effectiveRole === "head_coach") &&
           effectiveAcademyId &&
-          freshUser.coachId
+          effectiveCoachId
         ) {
           try {
             const isActive = await freshUserStorage.isCoachMembershipActive(
-              freshUser.coachId,
+              effectiveCoachId,
               effectiveAcademyId,
             );
             if (!isActive) {
@@ -330,7 +372,7 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
             // deny the academy context.  We must never grant Academy A authority
             // merely because the membership check failed.
             console.error(
-              `[Auth] coach membership active-check failed for coach=${freshUser.coachId} ` +
+              `[Auth] coach membership active-check failed for coach=${effectiveCoachId} ` +
               `academy=${effectiveAcademyId} — denying academy context:`,
               coachMemberErr,
             );
@@ -409,7 +451,7 @@ export async function authMiddlewareWithFreshData(req: AuthenticatedRequest, res
           email: freshUser.email,
           role: effectiveRole,
           academyId: freshUser.academyId,
-          coachId: freshUser.coachId,
+          coachId: effectiveCoachId,
           playerId: effectivePlayerId,
           currentAcademyId: effectiveAcademyId,
           familySwitch: payload.familySwitch,

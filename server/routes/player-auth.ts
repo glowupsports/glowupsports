@@ -237,28 +237,16 @@ import { hashPassword, generateToken, generateRefreshToken } from "../auth";
           if (effectiveAcademyId) {
             academy = await storage.getAcademy(effectiveAcademyId);
           }
-          // Match the authenticated API role with the app mode only after
-          // verifying the linked coach record and its academy membership.
-          let effectiveRole = freshUser.role;
-          if (
-            freshUser.role === "player" &&
-            freshUser.coachId &&
-            coach?.id === freshUser.coachId &&
-            coach.academyId === effectiveAcademyId &&
-            (coach.role === "coach" || coach.role === "head_coach") &&
-            effectiveAcademyId &&
-            await storage.isCoachMembershipActive(freshUser.coachId, effectiveAcademyId)
-          ) {
-            effectiveRole = coach.role;
-          }
-
           res.json({
             user: {
               id: freshUser.id,
               email: freshUser.email,
-              role: effectiveRole,
+              // The fresh auth middleware has already resolved this from
+              // trusted user/player/coach membership records. Reuse it
+              // verbatim so app modes and API authorization cannot diverge.
+              role: tokenUser.role,
               academyId: effectiveAcademyId,
-              coachId: freshUser.coachId,
+              coachId: tokenUser.coachId,
               playerId: effectivePlayerId,
             },
             coach: coach
