@@ -33,6 +33,7 @@ export interface ProgressionActor {
 export interface PolicyResult {
   allowed: boolean;
   reason?: string;
+  authority?: AcademyAuthority;
 }
 
 // Roles that may award XP or manage progression state for other players
@@ -56,6 +57,17 @@ const EVIDENCE_REVIEW_AUTHORITY = new Set<AcademyAuthority>([
 
 // Roles that may start/complete a trial (coach-side authority)
 const TRIAL_AUTHORITY = new Set<AcademyAuthority>([
+  "supervisor",
+  "admin",
+  "owner",
+  "platform_owner",
+  "coach",
+]);
+
+// Roles that may request a server-owned development context. This is a
+// read-only boundary: it does not grant permission to create or apply a
+// canonical DevelopmentDecision.
+const DEVELOPMENT_CONTEXT_AUTHORITY = new Set<AcademyAuthority>([
   "supervisor",
   "admin",
   "owner",
@@ -166,6 +178,45 @@ export async function canReviewEvidence(
   }
 
   return { allowed: true };
+}
+
+/**
+ * Verify that an authenticated coach-side actor may assemble a development
+ * context for a target player. The target and academy are resolved separately
+ * by the caller; this policy only evaluates the session-derived actor.
+ */
+export async function canEvaluateDevelopmentContext(
+  actor: ProgressionActor,
+  targetPlayerId?: string,
+): Promise<PolicyResult> {
+  if (!actor.userId) {
+    return { allowed: false, reason: "Authenticated actor identity is required" };
+  }
+  if (!actor.academyId) {
+    return { allowed: false, reason: "Academy context is required" };
+  }
+  if (actor.playerId && !actor.coachId) {
+    return { allowed: false, reason: "Player accounts cannot request coach development evaluations" };
+  }
+  if (targetPlayerId && actor.playerId === targetPlayerId) {
+    return {
+      allowed: false,
+      reason: "An actor cannot request a development evaluation for themselves",
+    };
+  }
+
+  const authority = await resolveAcademyAuthority(
+    actor as ActorUser,
+    actor.academyId,
+  );
+  if (!DEVELOPMENT_CONTEXT_AUTHORITY.has(authority)) {
+    return {
+      allowed: false,
+      reason: `Authority "${authority}" is not permitted to assemble development context`,
+    };
+  }
+
+  return { allowed: true, authority };
 }
 
 // ── Trial start / complete ────────────────────────────────────────────────

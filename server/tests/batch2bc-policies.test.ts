@@ -57,6 +57,7 @@ import {
   canMutateProgressionConfig,
   canReviewEvidence,
   canManageTrial,
+  canEvaluateDevelopmentContext,
 } from "../lib/progression-actor-policy";
 
 // Import mocked helpers to configure per-test
@@ -340,5 +341,44 @@ describe("ProgressionActorPolicy", () => {
     );
     expect(result.allowed).toBe(false);
     expect(result.reason).toMatch(/own.*trial|trial.*own/i);
+  });
+
+  it("PA-6: canEvaluateDevelopmentContext denies an unauthenticated actor", async () => {
+    const result = await canEvaluateDevelopmentContext(
+      { userId: "", coachId: "c1", academyId: "acad-1", role: "coach" },
+      "player-target",
+    );
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toMatch(/identity/i);
+  });
+
+  it("PA-7: canEvaluateDevelopmentContext denies self-evaluation", async () => {
+    vi.mocked(resolveAcademyAuthority).mockResolvedValueOnce("coach");
+    const result = await canEvaluateDevelopmentContext(
+      { userId: "u1", coachId: "c1", playerId: "player-self", academyId: "acad-1", role: "coach" },
+      "player-self",
+    );
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toMatch(/themselves/i);
+  });
+
+  it("PA-8: canEvaluateDevelopmentContext denies an actor without academy scope", async () => {
+    const result = await canEvaluateDevelopmentContext(
+      { userId: "u1", coachId: "c1", academyId: null, role: "coach" },
+      "player-target",
+    );
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toMatch(/academy/i);
+  });
+
+  it("PA-9: canEvaluateDevelopmentContext uses an explicit authority allow-list", async () => {
+    vi.mocked(resolveAcademyAuthority).mockReset();
+    vi.mocked(resolveAcademyAuthority).mockResolvedValue("member");
+    const result = await canEvaluateDevelopmentContext(
+      { userId: "u1", coachId: null, academyId: "acad-1", role: "player" },
+      "player-target",
+    );
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toMatch(/not permitted/i);
   });
 });

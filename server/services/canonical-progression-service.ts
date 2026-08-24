@@ -116,6 +116,18 @@ export interface CanonicalCurrentDto {
   }>;
 }
 
+export interface CanonicalCurrentSnapshot {
+  current: CanonicalCurrentDto;
+  versions: {
+    taxonomyConfigVersion: string;
+    benchmarkConfigVersion: string;
+    evidenceConfigVersion: string;
+    strengthModelVersion: string;
+    glowConfigVersion: string;
+  };
+  updatedAt: Date;
+}
+
 export class CanonicalProgressionError extends Error {
   constructor(public readonly code: string, message: string, public readonly status = 400) {
     super(message);
@@ -160,7 +172,7 @@ async function auditUnresolvedTargetAndThrow(
     requestIdentity,
     requestId: input.requestId ?? null,
     authenticatedActorId: input.actor.userId,
-    authenticatedActorRole: input.actor.role,
+    authenticatedActorRole: input.actor.role ?? "unknown",
     submittedAcademyIdentifier: input.academyId ?? null,
     submittedPlayerIdentifier: input.playerId ?? null,
     submittedIdempotencyKeyHash: input.idempotencyKey ? sha256(input.idempotencyKey) : null,
@@ -1333,13 +1345,16 @@ export async function applyAcceptedDevelopmentDecision(
   }
 }
 
-export async function getCanonicalCurrent(playerId: string, academyId: string): Promise<CanonicalCurrentDto | null> {
-  await ensureCanonicalProgressionConfigPersisted();
-  const [aggregate] = await db.select().from(playerCanonicalProgression)
+export async function readCanonicalCurrentSnapshot(
+  executor: any,
+  playerId: string,
+  academyId: string,
+): Promise<CanonicalCurrentSnapshot | null> {
+  const [aggregate] = await executor.select().from(playerCanonicalProgression)
     .where(and(eq(playerCanonicalProgression.playerId, playerId), eq(playerCanonicalProgression.academyId, academyId)))
     .limit(1);
   if (!aggregate) return null;
-  const skills = await db.select({
+  const skills = await executor.select({
     canonicalSkillId: playerCanonicalSkillStates.canonicalSkillId,
     absoluteStrength: playerCanonicalSkillStates.absoluteStrength,
     mastery: playerCanonicalSkillStates.stageRelativeMastery,
@@ -1356,24 +1371,66 @@ export async function getCanonicalCurrent(playerId: string, academyId: string): 
     .orderBy(asc(canonicalSkillDefinitions.family), asc(canonicalSkillDefinitions.id));
   const aggregateValues = deriveAggregates(skills);
   return {
-    playerId,
-    academyId,
-    stateVersion: aggregate.stateVersion,
-    placementStatus: aggregate.placementStatus,
-    glowStatus: aggregate.glowStatus,
-    estimatedGlow: aggregate.estimatedGlow === null ? null : asNumber(aggregate.estimatedGlow),
-    coverage: asNumber(aggregate.glowCoverage),
-    confidence: asNumber(aggregate.glowConfidence),
-    families: aggregateValues.families,
-    pillars: aggregateValues.pillars,
-    skills: skills.map((skill) => ({
-      ...skill,
-      absoluteStrength: skill.absoluteStrength === null ? null : asNumber(skill.absoluteStrength),
-      mastery: skill.mastery === null ? null : asNumber(skill.mastery),
-      confidence: asNumber(skill.confidence),
-      coverage: asNumber(skill.coverage),
-    })),
+    current: {
+      playerId,
+      academyId,
+      stateVersion: aggregate.stateVersion,
+      placementStatus: aggregate.placementStatus,
+      glowStatus: aggregate.glowStatus,
+      estimatedGlow: aggregate.estimatedGlow === null ? null : asNumber(aggregate.estimatedGlow),
+      coverage: asNumber(aggregate.glowCoverage),
+      confidence: asNumber(aggregate.glowConfidence),
+      families: aggregateValues.families,
+      pillars: aggregateValues.pillars,
+      skills: skills.map((skill: {
+        canonicalSkillId: string;
+        absoluteStrength: unknown;
+        mastery: unknown;
+        observationStatus: string;
+        confidence: unknown;
+        coverage: unknown;
+        trend: string;
+        lastEvidenceAt: Date | null;
+        family: string;
+        pillar: string;
+      }) => ({
+        ...skill,
+        absoluteStrength: skill.absoluteStrength === null ? null : asNumber(skill.absoluteStrength),
+        mastery: skill.mastery === null ? null : asNumber(skill.mastery),
+        confidence: asNumber(skill.confidence),
+        coverage: asNumber(skill.coverage),
+      })),
+    },
+    versions: {
+      taxonomyConfigVersion: aggregate.taxonomyConfigVersion,
+      benchmarkConfigVersion: aggregate.benchmarkConfigVersion,
+      evidenceConfigVersion: aggregate.evidenceConfigVersion,
+      strengthModelVersion: aggregate.strengthModelVersion,
+      glowConfigVersion: aggregate.glowConfigVersion,
+    },
+    updatedAt: aggregate.updatedAt,
   };
+}
+
+/**
+ * Read-only transactionally consistent canonical snapshot for downstream
+ * evaluators. Unlike the Phase 2 public read helper, this never bootstraps
+ * configuration or creates an aggregate row.
+ */
+export async function getCanonicalCurrentSnapshot(
+  playerId: string,
+  academyId: string,
+): Promise<CanonicalCurrentSnapshot | null> {
+  return db.transaction(
+    (tx) => readCanonicalCurrentSnapshot(tx, playerId, academyId),
+    { isolationLevel: "repeatable read", accessMode: "read only" },
+  );
+}
+
+export async function getCanonicalCurrent(playerId: string, academyId: string): Promise<CanonicalCurrentDto | null> {
+  await ensureCanonicalProgressionConfigPersisted();
+  const snapshot = await readCanonicalCurrentSnapshot(db, playerId, academyId);
+  return snapshot?.current ?? null;
 }
 
 export async function getCanonicalHistory(playerId: string, academyId: string, limit = 50) {
