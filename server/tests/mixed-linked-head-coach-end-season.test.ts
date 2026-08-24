@@ -47,7 +47,7 @@ function endSeasonPreflightApp(authority: { role: string; coachId: string | null
       };
       next();
     },
-    requireRole("admin", "academy_owner", "owner", "head_coach", "coach"),
+    requireRole("platform_owner", "admin", "academy_owner", "owner", "head_coach", "coach"),
     (req: AuthenticatedRequest, res) => {
       // Authorization-only harness: the production route's existing
       // transaction is separately covered by season-history/lifecycle tests.
@@ -81,6 +81,17 @@ describe("mixed player-role + linked head-coach End Season authorization", () =>
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true, role: "head_coach", coachId: headCoachId });
+  });
+
+  it("allows a platform owner to use the End Season route", async () => {
+    const authority = { role: "platform_owner", coachId: headCoachId };
+
+    const response = await request(endSeasonPreflightApp(authority))
+      .post("/api/coach/players/end-season")
+      .send({ playerIds: ["selected-player-only"] });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true, role: "platform_owner", coachId: headCoachId });
   });
 
   it("keeps an ordinary player-only account forbidden", async () => {
