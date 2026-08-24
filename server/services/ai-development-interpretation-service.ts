@@ -26,6 +26,23 @@ export const AI_DEVELOPMENT_PROMPT_VERSION = "phase-3b-development-coach-prompt.
 export const AI_DEVELOPMENT_MODEL = "gpt-5-mini";
 const AI_DEVELOPMENT_TIMEOUT_MS = 15_000;
 
+type ModelInvocationResult = {
+  raw: unknown;
+  providerRequestId: string | null;
+  promptHash: string;
+};
+type DevelopmentProvider = (
+  context: DevelopmentContext,
+  prompt: { system: string; user: string },
+  promptHash: string,
+) => Promise<ModelInvocationResult>;
+let providerForTests: DevelopmentProvider | null = null;
+
+/** Test-only provider seam; production always uses the configured OpenAI provider. */
+export function setDevelopmentProviderForTests(provider: DevelopmentProvider | null): void {
+  providerForTests = provider;
+}
+
 const versionsSchema = z.object({
   taxonomyConfigVersion: z.string().min(1),
   benchmarkConfigVersion: z.string().min(1),
@@ -288,6 +305,9 @@ async function invokeModel(context: DevelopmentContext): Promise<{
 }> {
   const prompt = promptForContext(context);
   const promptHash = sha256(JSON.stringify(prompt));
+  if (providerForTests) {
+    return providerForTests(context, prompt, promptHash);
+  }
   const openai = new OpenAI({
     apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
     baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,

@@ -7894,7 +7894,9 @@ export type AccountPin = typeof accountPins.$inferSelect;
 // Single-use, 15-minute magic-link tokens for "Forgot PIN" recovery.
 export const accountPinRecovery = pgTable("account_pin_recovery", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  // Deliberately not an FK: immutable audit history must survive player
+  // removal, and cascade delete must never bypass the audit guard.
+  playerId: varchar("player_id").notNull(),
   tokenHash: text("token_hash").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   usedAt: timestamp("used_at"),
