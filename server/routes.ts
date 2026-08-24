@@ -64,6 +64,7 @@ import creditsV2Router from "./routes/credits-v2";
 import playerProgressRouter from "./routes/player-progress";
 import canonicalProgressionRouter from "./routes/canonical-progression";
 import aiDevelopmentContextRouter from "./routes/ai-development-context";
+import aiDevelopmentInterpretationRouter from "./routes/ai-development-interpretation";
 import attendanceWorkbookRouter from "./routes/attendance-workbook";
 import coachingSeriesRouter from "./routes/coaching-series";
 import coachManagementRouter from "./routes/coach-management";
@@ -439,6 +440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(canonicalProgressionRouter);
   // Phase 3A: server-owned, read-only development context boundary.
   app.use(aiDevelopmentContextRouter);
+  app.use(aiDevelopmentInterpretationRouter);
   app.use(attendanceWorkbookRouter);
   app.use(coachingSeriesRouter);
   app.use(coachManagementRouter);

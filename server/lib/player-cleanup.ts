@@ -132,6 +132,9 @@ export const KNOWN_PLAYER_FK_TABLES: ReadonlySet<string> = new Set([
   "player_match_readiness",
   "player_monthly_reports",
   "ai_coach_conversations",
+  // Phase 3B immutable interpretation provenance; player FK cascades at the
+  // database boundary and this explicit cleanup keeps older schemas safe.
+  "ai_development_evaluation",
 
   // Spotlight / recognition
   "spotlight_weekly_winners",
@@ -236,6 +239,12 @@ export interface GuardedPlayerDeleteStatement {
 }
 
 export const GUARDED_PLAYER_DELETE_STATEMENTS: readonly GuardedPlayerDeleteStatement[] = [
+  {
+    table: "ai_development_evaluation",
+    mergeNote: "Part B: deleted (AI interpretation provenance is player-bound and non-transferable).",
+    sql: "DELETE FROM ai_development_evaluation WHERE player_id = $1",
+  },
+
   // Marketplace child rows must be removed before marketplace_listings (the
   // listings delete itself is a typed drizzle call later in deletePlayer).
   {

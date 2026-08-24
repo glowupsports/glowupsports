@@ -9832,3 +9832,35 @@ export const canonicalRecalibrationEvents = pgTable("canonical_recalibration_eve
 }, (table) => [
   index("canonical_recalibration_event_player_created_idx").on(table.playerId, table.createdAt),
 ]);
+
+// ── Phase 3B AI Development Evaluations ─────────────────────────────────────
+// Additive, immutable provenance for the server-side AI interpretation layer.
+// This table intentionally has no foreign key to DevelopmentDecision and is
+// never read or written by the canonical executor.
+export const aiDevelopmentEvaluations = pgTable("ai_development_evaluation", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  evaluationKey: text("evaluation_key").notNull(),
+  actorUserId: varchar("actor_user_id").notNull().references(() => users.id),
+  actorCoachId: varchar("actor_coach_id").references(() => coaches.id),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  playerId: varchar("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  trigger: text("trigger").notNull(),
+  status: text("status").notNull(),
+  evaluationVersion: text("evaluation_version").notNull(),
+  contextContractVersion: text("context_contract_version").notNull(),
+  contextHash: text("context_hash").notNull(),
+  promptVersion: text("prompt_version").notNull(),
+  promptHash: text("prompt_hash").notNull(),
+  model: text("model").notNull(),
+  requestedStateVersion: integer("requested_state_version").notNull(),
+  requestedVersionsJson: jsonb("requested_versions_json").notNull().default({}),
+  interpretationJson: jsonb("interpretation_json"),
+  diagnosticsJson: jsonb("diagnostics_json").notNull().default({}),
+  providerRequestId: text("provider_request_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  unique("ai_development_evaluation_key_unique").on(table.evaluationKey),
+  index("ai_development_evaluation_player_created_idx").on(table.playerId, table.createdAt),
+  index("ai_development_evaluation_academy_created_idx").on(table.academyId, table.createdAt),
+]);
