@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS deep_assessment_trusted_observation (
   deep_assessment_id varchar NOT NULL REFERENCES player_deep_assessments(id),
   player_id varchar NOT NULL REFERENCES players(id),
   academy_id varchar NOT NULL REFERENCES academies(id),
+  benchmark_id text NOT NULL,
+  canonical_skill_id text NOT NULL,
   source_system text NOT NULL,
   underlying_event_or_session_id text NOT NULL,
   observation_window text NOT NULL,
@@ -21,6 +23,13 @@ CREATE INDEX IF NOT EXISTS deep_assessment_trusted_observation_academy_idx
   ON deep_assessment_trusted_observation (academy_id, created_at);
 CREATE INDEX IF NOT EXISTS deep_assessment_trusted_observation_assessment_idx
   ON deep_assessment_trusted_observation (deep_assessment_id, created_at);
+
+ALTER TABLE deep_assessment_trusted_observation
+  ADD COLUMN IF NOT EXISTS benchmark_id text,
+  ADD COLUMN IF NOT EXISTS canonical_skill_id text;
+ALTER TABLE deep_assessment_trusted_observation
+  ALTER COLUMN benchmark_id SET NOT NULL,
+  ALTER COLUMN canonical_skill_id SET NOT NULL;
 
 CREATE OR REPLACE FUNCTION deep_assessment_trusted_observation_immutable_guard()
 RETURNS trigger LANGUAGE plpgsql AS $$

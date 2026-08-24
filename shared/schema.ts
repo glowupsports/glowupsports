@@ -7117,6 +7117,8 @@ export const deepAssessmentTrustedObservations = pgTable("deep_assessment_truste
   deepAssessmentId: varchar("deep_assessment_id").notNull().references(() => playerDeepAssessments.id),
   playerId: varchar("player_id").notNull().references(() => players.id),
   academyId: varchar("academy_id").notNull().references(() => academies.id),
+  benchmarkId: text("benchmark_id").notNull(),
+  canonicalSkillId: text("canonical_skill_id").notNull(),
   sourceSystem: text("source_system").notNull(),
   underlyingEventOrSessionId: text("underlying_event_or_session_id").notNull(),
   observationWindow: text("observation_window").notNull(),

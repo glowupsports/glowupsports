@@ -19,6 +19,7 @@ import {
   canonicalEvidenceContributions,
   canonicalProgressionRejectedRequests,
   canonicalSkillDefinitions,
+  deepAssessmentTrustedObservations,
   developmentDecisionEvidenceLinks,
   developmentDecisionExecutionAttempts,
   developmentDecisionValidations,
@@ -35,6 +36,49 @@ import { canReviewEvidence, type ProgressionActor } from "../lib/progression-act
 const TAXONOMY_CONFIG_VERSION = "taxonomy-v1.0.0-final-freeze";
 const STRENGTH_MODEL_VERSION = "strength-model-v1.0.1-final-freeze";
 const GLOW_CONFIG_VERSION = "glow-config-v1.0.0-final-freeze";
+const DEEP_ASSESSMENT_OBSERVATION_PREFIX = "deep_assessment_trusted_observation:";
+
+export function deepAssessmentObservationReference(id: string): string {
+  return `${DEEP_ASSESSMENT_OBSERVATION_PREFIX}${id}`;
+}
+
+async function resolveCanonicalEvidenceRefs(
+  tx: any,
+  evidenceRefs: string[],
+  playerId: string,
+  academyId: string,
+) {
+  const uniqueRefs = [...new Set(evidenceRefs)];
+  const deepIds = uniqueRefs
+    .filter((ref) => ref.startsWith(DEEP_ASSESSMENT_OBSERVATION_PREFIX))
+    .map((ref) => ref.slice(DEEP_ASSESSMENT_OBSERVATION_PREFIX.length));
+  const skillIds = uniqueRefs.filter((ref) => !ref.startsWith(DEEP_ASSESSMENT_OBSERVATION_PREFIX));
+  const skillRows = skillIds.length ? await tx.select({
+    id: skillEvidence.id,
+    playerId: skillEvidence.playerId,
+    academyId: players.academyId,
+    eligible: skillEvidence.status,
+  }).from(skillEvidence)
+    .innerJoin(players, eq(players.id, skillEvidence.playerId))
+    .where(inArray(skillEvidence.id, skillIds)) : [];
+  const deepRows = deepIds.length ? await tx.select({
+    id: deepAssessmentTrustedObservations.id,
+    playerId: deepAssessmentTrustedObservations.playerId,
+    academyId: deepAssessmentTrustedObservations.academyId,
+  }).from(deepAssessmentTrustedObservations)
+    .where(inArray(deepAssessmentTrustedObservations.id, deepIds)) : [];
+  const resolved = [
+    ...skillRows.map((row: any) => ({ ref: row.id, playerId: row.playerId, academyId: row.academyId, eligible: row.eligible === "approved" })),
+    ...deepRows.map((row: any) => ({ ref: deepAssessmentObservationReference(row.id), playerId: row.playerId, academyId: row.academyId, eligible: true })),
+  ];
+  if (resolved.length !== uniqueRefs.length
+    || resolved.some((row) => row.playerId !== playerId || row.academyId !== academyId)) {
+    throw new CanonicalProgressionError("INVALID_EVIDENCE_OWNERSHIP", "Evidence must belong to the target player and academy", 403);
+  }
+  if (resolved.some((row) => !row.eligible)) {
+    throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Only eligible evidence is valid for canonical progression", 422);
+  }
+}
 
 type FreezeArtifact = {
   crosswalk: { version: string };
@@ -673,21 +717,7 @@ export async function proposeAndValidateDevelopmentDecision(input: CanonicalDeci
         )).limit(1);
       if (!benchmark) throw new CanonicalProgressionError("INVALID_BENCHMARK", "Frozen benchmark does not exist", 404);
 
-      const evidenceRows = await tx.select({
-        id: skillEvidence.id,
-        playerId: skillEvidence.playerId,
-        academyId: players.academyId,
-        status: skillEvidence.status,
-      }).from(skillEvidence)
-        .innerJoin(players, eq(players.id, skillEvidence.playerId))
-        .where(inArray(skillEvidence.id, input.evidenceRefs));
-      if (evidenceRows.length !== new Set(input.evidenceRefs).size
-        || evidenceRows.some((row) => row.playerId !== input.playerId || row.academyId !== input.academyId)) {
-        throw new CanonicalProgressionError("INVALID_EVIDENCE_OWNERSHIP", "Evidence must belong to the target player and academy", 403);
-      }
-      if (evidenceRows.some((row) => row.status !== "approved")) {
-        throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Only approved evidence is eligible for canonical progression", 422);
-      }
+      await resolveCanonicalEvidenceRefs(tx, input.evidenceRefs, input.playerId, input.academyId);
       validateTrustedObservations(input.observations, config, benchmark.level);
 
       const components = await tx.select().from(canonicalBenchmarkComponents)
@@ -1090,18 +1120,7 @@ export async function applyAcceptedDevelopmentDecision(
         || decisionEvidenceRefs.some((id) => !observationEvidenceRefs.has(id))) {
         throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Accepted decision evidence snapshot is incomplete", 422);
       }
-      const evidenceRows = await tx.select({
-        id: skillEvidence.id,
-        playerId: skillEvidence.playerId,
-        academyId: players.academyId,
-        status: skillEvidence.status,
-      }).from(skillEvidence)
-        .innerJoin(players, eq(players.id, skillEvidence.playerId))
-        .where(inArray(skillEvidence.id, decisionEvidenceRefs));
-      if (evidenceRows.length !== new Set(decisionEvidenceRefs).size
-        || evidenceRows.some((row) => row.playerId !== decision.playerId || row.academyId !== decision.academyId || row.status !== "approved")) {
-        throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Evidence is no longer eligible for this canonical decision", 422);
-      }
+      await resolveCanonicalEvidenceRefs(tx, decisionEvidenceRefs, decision.playerId, decision.academyId);
       validateTrustedObservations(observations, config, benchmark.level);
 
       const components = await tx.select().from(canonicalBenchmarkComponents)

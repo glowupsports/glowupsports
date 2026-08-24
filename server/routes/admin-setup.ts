@@ -3265,6 +3265,8 @@ import { Router, type Request, type Response } from "express";
         if (trustedObservation !== undefined) {
           const valid = trustedObservation
             && typeof trustedObservation.underlyingEventOrSessionId === "string"
+            && typeof trustedObservation.benchmarkId === "string"
+            && typeof trustedObservation.canonicalSkillId === "string"
             && typeof trustedObservation.observationWindow === "string"
             && Number.isInteger(trustedObservation.observedRequiredObservations)
             && Number.isInteger(trustedObservation.requiredObservations)
@@ -3298,6 +3300,8 @@ import { Router, type Request, type Response } from "express";
             deepAssessmentId: assessment.id,
             playerId: id,
             academyId,
+            benchmarkId: trustedObservation.benchmarkId,
+            canonicalSkillId: trustedObservation.canonicalSkillId,
             sourceSystem: "deep_assessment",
             underlyingEventOrSessionId: trustedObservation.underlyingEventOrSessionId,
             observationWindow: trustedObservation.observationWindow,
