@@ -7109,6 +7109,31 @@ export const insertPlayerDeepAssessmentSchema = createInsertSchema(playerDeepAss
 export type InsertPlayerDeepAssessment = z.infer<typeof insertPlayerDeepAssessmentSchema>;
 export type PlayerDeepAssessment = typeof playerDeepAssessments.$inferSelect;
 
+// Phase 3C: append-only trusted observation captured only for new Deep
+// Assessment submissions that explicitly provide every Phase 2 observation
+// field. Legacy assessments have no row here and remain context-only.
+export const deepAssessmentTrustedObservations = pgTable("deep_assessment_trusted_observation", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  deepAssessmentId: varchar("deep_assessment_id").notNull().references(() => playerDeepAssessments.id),
+  playerId: varchar("player_id").notNull().references(() => players.id),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  sourceSystem: text("source_system").notNull(),
+  underlyingEventOrSessionId: text("underlying_event_or_session_id").notNull(),
+  observationWindow: text("observation_window").notNull(),
+  sourceType: text("source_type").notNull(),
+  observedRequiredObservations: integer("observed_required_observations").notNull(),
+  requiredObservations: integer("required_observations").notNull(),
+  occurredAt: timestamp("occurred_at").notNull(),
+  benchmarkRelevance: text("benchmark_relevance").notNull(),
+  verifiedObserverIds: jsonb("verified_observer_ids").$type<string[]>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("deep_assessment_trusted_observation_player_idx").on(table.playerId, table.createdAt),
+  index("deep_assessment_trusted_observation_academy_idx").on(table.academyId, table.createdAt),
+  index("deep_assessment_trusted_observation_assessment_idx").on(table.deepAssessmentId, table.createdAt),
+]);
+export type DeepAssessmentTrustedObservation = typeof deepAssessmentTrustedObservations.$inferSelect;
+
 // Deep Assessment Pillar Summaries - Aggregated progress per pillar for deep assessment
 export const deepAssessmentPillarSummaries = pgTable("deep_assessment_pillar_summaries", {
   id: varchar("id")

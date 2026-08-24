@@ -95,7 +95,7 @@ export const developmentContextEvidenceSchema = z.object({
   componentKeys: z.array(z.string().min(1)).min(1),
   relevance: z.enum(["EXACT_BENCHMARK_COMPONENT", "EXPLICIT_ADJACENT_COMPONENT"]),
   relevanceScore: z.number().finite(),
-  deltaEligibility: z.enum(["DELTA_ELIGIBLE", "CONTEXT_ONLY"]),
+  deltaEligibility: z.enum(["DELTA_ELIGIBLE", "CONTEXT_ONLY"]).default("CONTEXT_ONLY"),
   trustedObservation: z.object({
     evidenceIds: z.array(z.string().min(1)).min(1),
     sourceSystem: z.string().min(1),
@@ -107,7 +107,7 @@ export const developmentContextEvidenceSchema = z.object({
     occurredAt: isoDateSchema,
     benchmarkRelevance: z.enum(["EXACT_BENCHMARK_COMPONENT", "EXPLICIT_ADJACENT_COMPONENT"]),
     verifiedObserverIds: z.array(z.string().min(1)),
-  }).nullable(),
+  }).nullable().default(null),
 }).strict();
 export type DevelopmentContextEvidence = z.infer<typeof developmentContextEvidenceSchema>;
 

@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
   import { db, pool } from "../db";
   import { storage } from "../storage";
+  import { deepAssessmentTrustedObservations } from "@shared/schema";
   import { eq, sql, and, inArray, count, isNull, gt } from "drizzle-orm";
   import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema, playerInvites, coachBlockedSlots, lessonGroups, lessonGroupMembers, sessionWaitlist, bookingRequests, sessions, sessionPlayers } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
@@ -3254,11 +3255,27 @@ import { Router, type Request, type Response } from "express";
           return res.status(404).json({ error: "Player not found" });
         }
 
-        const { skillId, score, confidence, notes, evidenceUrl, sessionId } =
+        const { skillId, score, confidence, notes, evidenceUrl, sessionId, trustedObservation } =
           req.body;
 
         if (!skillId) {
           return res.status(400).json({ error: "skillId is required" });
+        }
+
+        if (trustedObservation !== undefined) {
+          const valid = trustedObservation
+            && typeof trustedObservation.underlyingEventOrSessionId === "string"
+            && typeof trustedObservation.observationWindow === "string"
+            && Number.isInteger(trustedObservation.observedRequiredObservations)
+            && Number.isInteger(trustedObservation.requiredObservations)
+            && trustedObservation.observedRequiredObservations >= 0
+            && trustedObservation.requiredObservations > 0
+            && typeof trustedObservation.occurredAt === "string"
+            && !Number.isNaN(new Date(trustedObservation.occurredAt).getTime())
+            && ["EXACT_BENCHMARK_COMPONENT", "EXPLICIT_ADJACENT_COMPONENT"].includes(trustedObservation.benchmarkRelevance);
+          if (!valid || !coachId) {
+            return res.status(400).json({ error: "A complete trusted observation requires explicit observation fields and an authenticated coach" });
+          }
         }
 
         const assessment = await storage.upsertPlayerDeepAssessment({
@@ -3272,6 +3289,26 @@ import { Router, type Request, type Response } from "express";
           academyId,
           sessionId,
         });
+
+        // Only new submissions that explicitly provide the complete Phase 2
+        // observation contract receive an immutable delta-eligible snapshot.
+        // No legacy Deep Assessment field is repurposed or inferred here.
+        if (trustedObservation !== undefined) {
+          await db.insert(deepAssessmentTrustedObservations).values({
+            deepAssessmentId: assessment.id,
+            playerId: id,
+            academyId,
+            sourceSystem: "deep_assessment",
+            underlyingEventOrSessionId: trustedObservation.underlyingEventOrSessionId,
+            observationWindow: trustedObservation.observationWindow,
+            sourceType: "COACH_DEEP_ASSESSMENT",
+            observedRequiredObservations: trustedObservation.observedRequiredObservations,
+            requiredObservations: trustedObservation.requiredObservations,
+            occurredAt: new Date(trustedObservation.occurredAt),
+            benchmarkRelevance: trustedObservation.benchmarkRelevance,
+            verifiedObserverIds: [coachId],
+          });
+        }
 
         res.json(assessment);
       } catch (error) {
