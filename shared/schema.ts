@@ -9520,6 +9520,9 @@ export const playerSeasonEnrollments = pgTable("player_season_enrollments", {
   // Stored as { group: N, semi_private: N, private: N } (signed integers).
   // NULL on historical enrollments closed before this column was added.
   closingCreditSnapshot: jsonb("closing_credit_snapshot"),
+  // Immutable aggregate attendance snapshot captured in the same transaction as
+  // the close. The underlying attendance rows are retained separately.
+  closingHistorySnapshot: jsonb("closing_history_snapshot"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   // Enforce at most one open enrollment per (player, academy, season).
@@ -9530,6 +9533,23 @@ export const playerSeasonEnrollments = pgTable("player_season_enrollments", {
     .where(sql`${table.endedAt} IS NULL`),
 ]);
 export type PlayerSeasonEnrollment = typeof playerSeasonEnrollments.$inferSelect;
+
+// One committed academy-wide transition per source season.  This is the
+// persistent idempotency boundary for a retried End Season request.
+export const academySeasonRollovers = pgTable("academy_season_rollovers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  sourceSeasonId: varchar("source_season_id").notNull().references(() => academySeasons.id),
+  nextSeasonId: varchar("next_season_id").notNull().references(() => academySeasons.id),
+  requestKey: text("request_key").notNull(),
+  selectedPlayerIds: jsonb("selected_player_ids").notNull(),
+  result: jsonb("result").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("academy_season_rollovers_source_unique").on(table.academyId, table.sourceSeasonId),
+  uniqueIndex("academy_season_rollovers_request_unique").on(table.academyId, table.requestKey),
+]);
+export type AcademySeasonRollover = typeof academySeasonRollovers.$inferSelect;
 
 // ── Coach Report State ─────────────────────────────────────────────────────────
 // Persists paid/excluded session IDs for the Dean Hamilton coach report.

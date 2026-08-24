@@ -1181,6 +1181,15 @@ async function run() {
     `);
     console.log("[db-migrate] Task #2201 closing_credit_snapshot — OK");
 
+    // Atomic End Season rollover: immutable close snapshots and persistent
+    // source-season/request idempotency records.
+    const atomicSeasonRolloverMigration = path.resolve(
+      process.cwd(),
+      "migrations/0054_atomic_selected_end_season.sql",
+    );
+    await client.query(readFileSync(atomicSeasonRolloverMigration, "utf8"));
+    console.log("[db-migrate] atomic selected End Season rollover — OK");
+
     // ── Phase 2 — Canonical Progression Core ─────────────────────────────────
     // The checked-in migration is additive and idempotent. Execute it here so
     // the standard `db-migrate.ts && drizzle-kit push` workflow creates the

@@ -1623,13 +1623,27 @@ export function PlayerDetailView({
       }
       return res.json();
     },
-    onSuccess: () => {
-      refetchPlayerSeason();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        "Season Ended",
-        "The player's current season was closed and saved to Season History. They remain in the academy and their credits are unchanged.",
-      );
+    onSuccess: (data: {
+      processedCount: number;
+      skippedCount: number;
+      seasonName: string;
+      nextSeasonName: string;
+    }) => {
+      if (data.processedCount > 0) {
+        refetchPlayerSeason();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          "Season Ended",
+          `"${data.seasonName}" was closed and "${data.nextSeasonName}" has started. The player's attendance and credit snapshot are in Season History; credits are unchanged.`,
+        );
+      } else {
+        Alert.alert(
+          "No Season Changes",
+          data.skippedCount > 0
+            ? "This player is unavailable for a season rollover."
+            : "No player enrollment was processed, so the season was not ended.",
+        );
+      }
     },
     onError: (err: Error) => {
       Alert.alert("Error", err.message || "Failed to end season");

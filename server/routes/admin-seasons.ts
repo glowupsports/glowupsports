@@ -5,7 +5,7 @@
 
 import { Router, type Response } from "express";
 import { db } from "../db";
-import { sql, eq, and, isNull, inArray, gte, lte, sum, asc } from "drizzle-orm";
+import { sql, eq, and, isNull, inArray, asc } from "drizzle-orm";
 import {
   authMiddlewareWithFreshData as authMiddleware,
   requireRole,
@@ -15,19 +15,9 @@ import {
   academySeasons,
   playerSeasonEnrollments,
   players,
-  playerCreditBalance,
-  playerNotifications,
-  xpTransactions,
-  sessionPlayers,
-  sessions,
-  playerLevelEvents,
-  academies,
+  academySeasonRollovers,
 } from "@shared/schema";
 import { snapshotClosingCredits } from "../services/credit-engine";
-import {
-  sendPushNotification,
-  getPlayerPushTokens,
-} from "../pushNotifications";
 import {
   normalizeClosingCreditSnapshot,
   type ClosingCreditSnapshot,
@@ -159,10 +149,12 @@ type PlayerSeasonRow = {
   seasonStartDate: string;
   seasonIsActive: boolean;
   closingCreditSnapshot?: unknown;
+  closingHistorySnapshot?: unknown;
 };
 
-export type PlayerSeasonDto = Omit<PlayerSeasonRow, "closingCreditSnapshot"> & {
+export type PlayerSeasonDto = Omit<PlayerSeasonRow, "closingCreditSnapshot" | "closingHistorySnapshot"> & {
   closingCreditSnapshot: ClosingCreditSnapshot | null;
+  closingHistorySnapshot: unknown | null;
   sessionCount: number;
   attendedCount: number;
   noShowCount: number;
@@ -192,6 +184,9 @@ function toPlayerSeasonDto(
     closingCreditSnapshot: enrollment.endedAt
       ? normalizeClosingCreditSnapshot(enrollment.closingCreditSnapshot)
       : null,
+    closingHistorySnapshot: enrollment.endedAt
+      ? enrollment.closingHistorySnapshot ?? null
+      : null,
     ...metrics,
   };
 }
@@ -210,6 +205,7 @@ export async function getPlayerSeasonHistory(
       seasonStartDate: academySeasons.startDate,
       seasonIsActive: academySeasons.isActive,
       closingCreditSnapshot: playerSeasonEnrollments.closingCreditSnapshot,
+      closingHistorySnapshot: playerSeasonEnrollments.closingHistorySnapshot,
     })
     .from(playerSeasonEnrollments)
     .innerJoin(academySeasons, eq(playerSeasonEnrollments.seasonId, academySeasons.id))
@@ -232,6 +228,7 @@ export async function getPlayerSeasonHistory(
       seasonStartDate: academySeasons.startDate,
       seasonIsActive: academySeasons.isActive,
       closingCreditSnapshot: playerSeasonEnrollments.closingCreditSnapshot,
+      closingHistorySnapshot: playerSeasonEnrollments.closingHistorySnapshot,
     })
     .from(playerSeasonEnrollments)
     .innerJoin(academySeasons, eq(playerSeasonEnrollments.seasonId, academySeasons.id))
@@ -257,6 +254,82 @@ export async function getPlayerSeasonHistory(
 }
 
 const router = Router();
+
+type EndSeasonResult = {
+  ok: true;
+  processedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  selectedCount: number;
+  skipped: { playerId: string; reason: string }[];
+  seasonName: string;
+  nextSeasonName: string;
+  nextSeasonId: string;
+  idempotent?: boolean;
+};
+
+function getNextSeasonName(currentName: string, now: Date): string {
+  const years = currentName.match(/(\d{4})\D+(\d{4})/);
+  if (years) {
+    return `Season ${Number(years[2])}-${Number(years[2]) + 1}`;
+  }
+  const startYear = now.getUTCFullYear();
+  return `Season ${startYear}-${startYear + 1}`;
+}
+
+/**
+ * Attendance rows remain the canonical detailed history. This immutable
+ * aggregate is a close-time receipt, so later corrections cannot rewrite what
+ * the season-ending operation reported.
+ */
+async function snapshotClosingHistory(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  enrollment: { playerId: string; academyId: string; startedAt: Date },
+  closedAt: Date,
+) {
+  const result = await tx.execute(sql`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE s.status <> 'cancelled'
+          AND COALESCE(sp.attendance_status, '') NOT IN ('holiday', 'vacation')
+          AND NOT (
+            s.session_type IN ('semi', 'semi_private', 'private_adjusted')
+            AND sp.attendance_status = 'absent'
+          )
+      )::int AS session_count,
+      COUNT(*) FILTER (
+        WHERE s.status <> 'cancelled'
+          AND COALESCE(sp.attendance_status, '') NOT IN ('holiday', 'vacation')
+          AND NOT (
+            s.session_type IN ('semi', 'semi_private', 'private_adjusted')
+            AND sp.attendance_status = 'absent'
+          )
+          AND (sp.attendance_status IN ('present', 'late') OR sp.attendance_status IS NULL)
+      )::int AS attended_count,
+      COUNT(*) FILTER (
+        WHERE sp.attendance_status = 'absent'
+          AND LOWER(COALESCE(sp.absence_reason, '')) IN ('no_show', 'no-show')
+      )::int AS no_show_count,
+      COUNT(*) FILTER (WHERE s.status = 'cancelled')::int AS cancellation_count
+    FROM session_players sp
+    JOIN sessions s ON s.id = sp.session_id
+    WHERE sp.player_id = ${enrollment.playerId}
+      AND s.academy_id = ${enrollment.academyId}
+      AND s.start_time >= ${enrollment.startedAt}
+      AND s.start_time <= ${closedAt}
+  `);
+  const row = (result.rows[0] ?? {}) as Record<string, unknown>;
+  return {
+    capturedAt: closedAt.toISOString(),
+    enrollmentStartedAt: enrollment.startedAt.toISOString(),
+    attendance: {
+      sessionCount: Number(row.session_count ?? 0),
+      attendedCount: Number(row.attended_count ?? 0),
+      noShowCount: Number(row.no_show_count ?? 0),
+      cancellationCount: Number(row.cancellation_count ?? 0),
+    },
+  };
+}
 
 // ── GET /api/admin/seasons ─────────────────────────────────────────────────
 // Returns all seasons for the calling user's academy, newest first.
@@ -476,6 +549,217 @@ router.post(
       const academyId = req.user?.currentAcademyId;
       if (!academyId) return res.status(400).json({ error: "Academy required" });
 
+      // Academy-wide rollover replaces the old per-player "close and reopen
+      // inside the same season" flow.
+      {
+        const rawPlayerIds = (req.body as { playerIds?: unknown }).playerIds;
+        if (!Array.isArray(rawPlayerIds) || rawPlayerIds.length === 0) {
+          return res.status(400).json({ error: "playerIds array required" });
+        }
+        const selectedIds = [...new Set(rawPlayerIds.filter(
+          (id): id is string => typeof id === "string" && id.trim().length > 0,
+        ))].sort();
+        if (selectedIds.length === 0) {
+          return res.status(400).json({ error: "playerIds array required" });
+        }
+
+        // Clients may supply a stable Idempotency-Key/requestId. The selection
+        // fallback lets a normal network retry recover the committed transition
+        // while its replacement season is still active.
+        const suppliedKey = req.get("Idempotency-Key")
+          ?? (req.body as { requestId?: unknown }).requestId;
+        const requestKey = typeof suppliedKey === "string" && suppliedKey.trim()
+          ? suppliedKey.trim().slice(0, 200)
+          : `selection:${selectedIds.join(",")}`;
+        const now = new Date();
+        let response!: EndSeasonResult;
+
+        await db.transaction(async (tx) => {
+          // One serialisation point covers creation, closing, enrollments, and
+          // retry lookup even when an academy has no active-season row.
+          await tx.execute(sql`SELECT id FROM academies WHERE id = ${academyId} FOR UPDATE`);
+
+          const retryRows = await tx.execute(sql`
+            SELECT r.result
+            FROM academy_season_rollovers r
+            WHERE r.academy_id = ${academyId}
+              AND r.request_key = ${requestKey}
+            LIMIT 1
+          `);
+          if (retryRows.rows.length > 0) {
+            response = {
+              ...((retryRows.rows[0] as { result: EndSeasonResult }).result),
+              ok: true,
+              idempotent: true,
+            };
+            return;
+          }
+
+          const [sourceSeason] = await tx
+            .select()
+            .from(academySeasons)
+            .where(and(
+              eq(academySeasons.academyId, academyId),
+              eq(academySeasons.isActive, true),
+            ))
+            .limit(1);
+          if (!sourceSeason) throw new Error("NO_ACTIVE_SEASON");
+
+          const selectedPlayers = await tx
+            .select({ id: players.id, status: players.status })
+            .from(players)
+            .where(and(inArray(players.id, selectedIds), eq(players.academyId, academyId)));
+          const selectedById = new Map(selectedPlayers.map((player) => [player.id, player]));
+          // "Processed" means the selected player had an actual open enrollment
+          // in the source season that this request is about to close.
+          const sourceOpenEnrollments = await tx
+            .select({
+              id: playerSeasonEnrollments.id,
+              playerId: playerSeasonEnrollments.playerId,
+              academyId: playerSeasonEnrollments.academyId,
+              startedAt: playerSeasonEnrollments.startedAt,
+            })
+            .from(playerSeasonEnrollments)
+            .where(and(
+              eq(playerSeasonEnrollments.academyId, academyId),
+              eq(playerSeasonEnrollments.seasonId, sourceSeason.id),
+              isNull(playerSeasonEnrollments.endedAt),
+            ))
+            .orderBy(asc(playerSeasonEnrollments.playerId));
+          const sourceEnrollmentPlayerIds = new Set(
+            sourceOpenEnrollments.map((enrollment) => enrollment.playerId),
+          );
+          const skipped = selectedIds.flatMap((id) => {
+            const player = selectedById.get(id);
+            if (!player) return [{ playerId: id, reason: "not_found_or_not_in_academy" }];
+            if (player.status === "inactive" || player.status === "removed") {
+              return [{ playerId: id, reason: "inactive_or_removed" }];
+            }
+            if (!sourceEnrollmentPlayerIds.has(id)) {
+              return [{ playerId: id, reason: "not_enrolled_in_active_season" }];
+            }
+            return [];
+          });
+          const eligibleSelectedIds = selectedPlayers
+            .filter((player) =>
+              player.status !== "inactive"
+              && player.status !== "removed"
+              && sourceEnrollmentPlayerIds.has(player.id),
+            )
+            .map((player) => player.id)
+            .sort();
+
+          // A request with no eligible selected players must not end the academy
+          // season. The UI receives truthful zero processed/failed counts.
+          if (eligibleSelectedIds.length === 0) {
+            response = {
+              ok: true,
+              selectedCount: selectedIds.length,
+              processedCount: 0,
+              skippedCount: skipped.length,
+              failedCount: 0,
+              skipped,
+              seasonName: sourceSeason.name,
+              nextSeasonName: sourceSeason.name,
+              nextSeasonId: sourceSeason.id,
+            };
+            return;
+          }
+
+          // A source season can only be committed once. This protects a retry
+          // with a different request key after a process crash.
+          const existingSource = await tx.execute(sql`
+            SELECT result FROM academy_season_rollovers
+            WHERE academy_id = ${academyId} AND source_season_id = ${sourceSeason.id}
+            LIMIT 1
+          `);
+          if (existingSource.rows.length > 0) {
+            response = {
+              ...((existingSource.rows[0] as { result: EndSeasonResult }).result),
+              ok: true,
+              idempotent: true,
+            };
+            return;
+          }
+
+          // Snapshot each open enrollment before mutating it. Credit balances
+          // are locked but never adjusted, preserving positive, zero, and debt.
+          for (const enrollment of sourceOpenEnrollments) {
+            const creditSnapshot = await snapshotClosingCredits(tx, enrollment.playerId, academyId);
+            const historySnapshot = await snapshotClosingHistory(tx, enrollment, now);
+            await tx
+              .update(playerSeasonEnrollments)
+              .set({
+                endedAt: now,
+                closingCreditSnapshot: creditSnapshot,
+                closingHistorySnapshot: historySnapshot,
+              })
+              .where(eq(playerSeasonEnrollments.id, enrollment.id));
+          }
+
+          await tx
+            .update(academySeasons)
+            .set({ isActive: false, endedAt: now })
+            .where(eq(academySeasons.id, sourceSeason.id));
+
+          const nextSeasonName = getNextSeasonName(sourceSeason.name, now);
+          const [nextSeason] = await tx
+            .insert(academySeasons)
+            .values({
+              academyId,
+              name: nextSeasonName,
+              startDate: now.toISOString().slice(0, 10),
+              isActive: true,
+            })
+            .returning();
+
+          // Academy-wide model: all currently eligible academy members get one
+          // fresh enrollment; the selected subset only controls the report.
+          const eligibleAcademyPlayers = await tx
+            .select({ id: players.id })
+            .from(players)
+            .where(and(
+              eq(players.academyId, academyId),
+              sql`COALESCE(${players.status}, 'active') NOT IN ('inactive', 'removed')`,
+            ))
+            .orderBy(asc(players.id));
+          if (eligibleAcademyPlayers.length > 0) {
+            await tx.insert(playerSeasonEnrollments).values(
+              eligibleAcademyPlayers.map((player) => ({
+                playerId: player.id,
+                academyId,
+                seasonId: nextSeason.id,
+                startedAt: now,
+              })),
+            );
+          }
+
+          response = {
+            ok: true,
+            selectedCount: selectedIds.length,
+            processedCount: eligibleSelectedIds.length,
+            skippedCount: skipped.length,
+            failedCount: 0,
+            skipped,
+            seasonName: sourceSeason.name,
+            nextSeasonName,
+            nextSeasonId: nextSeason.id,
+          };
+          await tx.insert(academySeasonRollovers).values({
+            academyId,
+            sourceSeasonId: sourceSeason.id,
+            nextSeasonId: nextSeason.id,
+            requestKey,
+            selectedPlayerIds: selectedIds,
+            result: response,
+          });
+        });
+
+        return res.json(response);
+      }
+
+      /* Legacy per-player reset removed. Retained temporarily as source context
+       * for the season-wrap notification copy; it is not compiled or executed.
       const { playerIds } = req.body as { playerIds?: string[] };
       if (!Array.isArray(playerIds) || playerIds.length === 0) {
         return res.status(400).json({ error: "playerIds array required" });
@@ -738,6 +1022,7 @@ router.post(
         skippedCount: alreadyEnrolledSet.size,
         seasonName: activeSeason.name,
       });
+      */
     } catch (err) {
       console.error("[admin-seasons] POST /api/coach/players/end-season error:", err);
       res.status(500).json({ error: "Failed to end season" });

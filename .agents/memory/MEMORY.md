@@ -6,3 +6,4 @@
 - [Canonical progression audit immutability](canonical-progression-audit-immutability.md) — Decision proposals and audit/history records are immutable; only explicit lifecycle fields may transition.
 - [AI interpretation boundary](ai-interpretation-boundary.md) — AI evaluations are untrusted, additive provenance only; validate against a frozen context and never mutate canonical progression directly.
 - [Phase 3C bridge contract boundary](phase-3c-bridge-contract.md) — Phase 2 executor needs trusted observation fields absent from skill evidence; never reconstruct them in an AI bridge.
+- [Academy-wide season rollover](academy-wide-season-rollover.md) — End Season is a serialized academy transition with immutable source receipts and durable retry behavior.

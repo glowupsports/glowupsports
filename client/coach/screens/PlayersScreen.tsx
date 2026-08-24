@@ -401,16 +401,29 @@ export default function PlayersScreen() {
       }
       return res.json();
     },
-    onSuccess: (data: { processedCount: number; seasonName: string }) => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setBulkSelectMode(false);
-      setSelectedPlayerIds(new Set());
-      setFilterZeroCredits(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
-      Alert.alert(
-        "Season Ended",
-        `${data.processedCount} player${data.processedCount === 1 ? "" : "s"} closed for ${data.seasonName}. Attendance and closing credit snapshots are saved to Season History; all credit balances carry forward unchanged.`,
-      );
+    onSuccess: (data: {
+      processedCount: number;
+      skippedCount: number;
+      failedCount: number;
+      seasonName: string;
+      nextSeasonName: string;
+    }) => {
+      if (data.processedCount > 0) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setBulkSelectMode(false);
+        setSelectedPlayerIds(new Set());
+        setFilterZeroCredits(false);
+        queryClient.invalidateQueries({ queryKey: ["/api/players?withCredits=true"] });
+        Alert.alert(
+          "Season Ended",
+          `${data.processedCount} selected player${data.processedCount === 1 ? "" : "s"} processed. "${data.seasonName}" is closed and "${data.nextSeasonName}" is now active. Attendance and closing credit snapshots are saved; all credit balances carry forward unchanged.`,
+        );
+      } else {
+        Alert.alert(
+          "No Season Changes",
+          `No selected players could be processed.${data.skippedCount ? ` ${data.skippedCount} were skipped because they are unavailable or no longer belong to this academy.` : ""}`,
+        );
+      }
     },
     onError: (err: Error) => {
       Alert.alert("Error", err.message || "Failed to end season");
