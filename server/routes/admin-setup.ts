@@ -1,7 +1,13 @@
 import { Router, type Request, type Response } from "express";
   import { db, pool } from "../db";
   import { storage } from "../storage";
-  import { deepAssessmentTrustedObservations } from "@shared/schema";
+  import {
+    canonicalBenchmarkComponents,
+    canonicalBenchmarkDefinitions,
+    deepAssessmentSkills,
+    deepAssessmentTrustedObservations,
+    playerDeepAssessments,
+  } from "@shared/schema";
   import { eq, sql, and, inArray, count, isNull, gt } from "drizzle-orm";
   import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema, playerInvites, coachBlockedSlots, lessonGroups, lessonGroupMembers, sessionWaitlist, bookingRequests, sessions, sessionPlayers } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
   const router = Router();
@@ -3257,16 +3263,48 @@ import { Router, type Request, type Response } from "express";
 
         const { skillId, score, confidence, notes, evidenceUrl, sessionId, trustedObservation } =
           req.body;
+        let trustedBinding: { benchmarkId: string; canonicalSkillId: string } | null = null;
 
         if (!skillId) {
           return res.status(400).json({ error: "skillId is required" });
         }
 
         if (trustedObservation !== undefined) {
+          const bindingRows = await db.select({
+            benchmarkId: canonicalBenchmarkDefinitions.benchmarkId,
+            canonicalSkillId: canonicalBenchmarkComponents.canonicalSkillId,
+            abilityBearing: canonicalBenchmarkComponents.isAbilityBearing,
+          }).from(deepAssessmentSkills)
+            .innerJoin(
+              canonicalBenchmarkDefinitions,
+              eq(canonicalBenchmarkDefinitions.sourceSkillId, deepAssessmentSkills.skillKey),
+            )
+            .innerJoin(
+              canonicalBenchmarkComponents,
+              eq(canonicalBenchmarkComponents.benchmarkDefinitionId, canonicalBenchmarkDefinitions.id),
+            )
+            .where(and(
+              eq(deepAssessmentSkills.id, skillId),
+              eq(deepAssessmentSkills.isActive, true),
+              eq(canonicalBenchmarkComponents.isAbilityBearing, true),
+            ));
+          const uniqueBindings = [...new Map(
+            bindingRows
+              .filter((row) => row.abilityBearing)
+              .map((row) => [`${row.benchmarkId}|${row.canonicalSkillId}`, row]),
+          ).values()];
+          if (uniqueBindings.length !== 1) {
+            return res.status(400).json({
+              error: "Deep Assessment skill has no unique Ability-bearing canonical binding",
+              code: "INVALID_CANONICAL_BINDING",
+            });
+          }
+          trustedBinding = {
+            benchmarkId: uniqueBindings[0].benchmarkId,
+            canonicalSkillId: uniqueBindings[0].canonicalSkillId,
+          };
           const valid = trustedObservation
             && typeof trustedObservation.underlyingEventOrSessionId === "string"
-            && typeof trustedObservation.benchmarkId === "string"
-            && typeof trustedObservation.canonicalSkillId === "string"
             && typeof trustedObservation.observationWindow === "string"
             && Number.isInteger(trustedObservation.observedRequiredObservations)
             && Number.isInteger(trustedObservation.requiredObservations)
@@ -3300,8 +3338,8 @@ import { Router, type Request, type Response } from "express";
             deepAssessmentId: String(assessment.id),
             playerId: id,
             academyId,
-            benchmarkId: trustedObservation.benchmarkId,
-            canonicalSkillId: trustedObservation.canonicalSkillId,
+            benchmarkId: trustedBinding!.benchmarkId,
+            canonicalSkillId: trustedBinding!.canonicalSkillId,
             sourceSystem: "deep_assessment",
             underlyingEventOrSessionId: trustedObservation.underlyingEventOrSessionId,
             observationWindow: trustedObservation.observationWindow,
@@ -3310,7 +3348,7 @@ import { Router, type Request, type Response } from "express";
             requiredObservations: trustedObservation.requiredObservations,
             occurredAt: new Date(trustedObservation.occurredAt),
             benchmarkRelevance: trustedObservation.benchmarkRelevance,
-            verifiedObserverIds: [coachId],
+            verifiedObserverIds: [coachId!],
           });
         }
 
