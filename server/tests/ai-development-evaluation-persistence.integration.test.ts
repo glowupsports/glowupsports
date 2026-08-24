@@ -57,6 +57,14 @@ describeDatabase("Phase 3B evaluation provenance persistence", () => {
     expect((stored.rows[0] as any).diagnostics_json).toMatchObject({ code: "VALIDATED" });
 
     await expect(insert()).rejects.toMatchObject({ code: "23505" });
+    await expect(db.execute(sql`
+      UPDATE ai_development_evaluation
+      SET context_hash = 'spoofed-context-hash'
+      WHERE evaluation_key = ${evaluationKey}
+    `)).rejects.toMatchObject({ code: "P0001" });
+    await expect(db.execute(sql`
+      DELETE FROM ai_development_evaluation WHERE evaluation_key = ${evaluationKey}
+    `)).rejects.toMatchObject({ code: "P0001" });
     const canonicalState = await db.execute(sql`
       SELECT COUNT(*)::int AS count FROM player_canonical_progression WHERE player_id = ${playerId}
     `);
