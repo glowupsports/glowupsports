@@ -3,23 +3,36 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { Readable } = require("stream");
 const { pipeline } = require("stream/promises");
+const net = require("net");
 
 let metroProcess = null;
+let metroBaseUrl = null;
 
 function exitWithError(message) {
   console.error(message);
-  if (metroProcess) {
-    metroProcess.kill();
-  }
+  stopMetro();
   process.exit(1);
+}
+
+function stopMetro() {
+  if (!metroProcess || metroProcess.exitCode !== null || !metroProcess.pid) {
+    return;
+  }
+
+  // Expo is started through npx, which can leave Metro running when only the
+  // immediate child is terminated. Start it as a process group and stop the
+  // group so a later publish build never inherits a stale bundler.
+  try {
+    process.kill(-metroProcess.pid, "SIGTERM");
+  } catch {
+    metroProcess.kill("SIGTERM");
+  }
 }
 
 function setupSignalHandlers() {
   const cleanup = () => {
-    if (metroProcess) {
-      console.log("Cleaning up Metro process...");
-      metroProcess.kill();
-    }
+    console.log("Cleaning up Metro process...");
+    stopMetro();
     process.exit(0);
   };
 
@@ -94,9 +107,34 @@ function clearMetroCache() {
   console.log("Cache cleared");
 }
 
-async function checkMetroHealth() {
+function findAvailablePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(port);
+      });
+    });
+  });
+}
+
+function getMetroBaseUrl() {
+  if (!metroBaseUrl) {
+    throw new Error("Metro has not been started");
+  }
+  return metroBaseUrl;
+}
+
+async function checkMetroHealth(baseUrl) {
   try {
-    const response = await fetch("http://localhost:8081/status", {
+    const response = await fetch(`${baseUrl}/status`, {
       signal: AbortSignal.timeout(5000),
     });
     return response.ok;
@@ -106,23 +144,31 @@ async function checkMetroHealth() {
 }
 
 async function startMetro(expoPublicDomain) {
-  const isRunning = await checkMetroHealth();
-  if (isRunning) {
-    console.log("Metro already running");
-    return;
-  }
-
-  console.log("Starting Metro...");
+  const port = await findAvailablePort();
+  metroBaseUrl = `http://127.0.0.1:${port}`;
+  console.log(`Starting isolated Metro on ${metroBaseUrl}...`);
   console.log(`Setting EXPO_PUBLIC_DOMAIN=${expoPublicDomain}`);
   const env = {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
   };
-  metroProcess = spawn("npm", ["run", "expo:start:static:build"], {
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: false,
-    env,
-  });
+  metroProcess = spawn(
+    "npx",
+    [
+      "expo",
+      "start",
+      "--no-dev",
+      "--minify",
+      "--localhost",
+      "--port",
+      String(port),
+    ],
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: true,
+      env,
+    },
+  );
 
   if (metroProcess.stdout) {
     metroProcess.stdout.on("data", (data) => {
@@ -140,7 +186,13 @@ async function startMetro(expoPublicDomain) {
   for (let i = 0; i < 60; i++) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const healthy = await checkMetroHealth();
+    if (metroProcess.exitCode !== null) {
+      exitWithError(
+        `Metro exited before becoming ready (exit code ${metroProcess.exitCode})`,
+      );
+    }
+
+    const healthy = await checkMetroHealth(getMetroBaseUrl());
     if (healthy) {
       console.log("Metro ready");
       return;
@@ -187,7 +239,7 @@ async function downloadFile(url, outputPath) {
 }
 
 async function downloadBundle(platform, timestamp) {
-  const url = new URL("http://localhost:8081/client/index.bundle");
+  const url = new URL("/client/index.bundle", getMetroBaseUrl());
   url.searchParams.set("platform", platform);
   url.searchParams.set("dev", "false");
   url.searchParams.set("hot", "false");
@@ -215,7 +267,7 @@ async function downloadManifest(platform) {
 
   try {
     console.log(`Fetching ${platform} manifest...`);
-    const response = await fetch("http://localhost:8081/manifest", {
+    const response = await fetch(new URL("/manifest", getMetroBaseUrl()), {
       headers: { "expo-platform": platform },
       signal: controller.signal,
     });
@@ -318,7 +370,7 @@ function extractAssets(timestamp) {
       const originalPath = match[1];
       const filename = match[3] + "." + match[4];
 
-      const tempUrl = new URL(`http://localhost:8081${originalPath}`);
+      const tempUrl = new URL(originalPath, getMetroBaseUrl());
       const unstablePath = tempUrl.searchParams.get("unstable_path");
 
       if (!unstablePath) {
@@ -362,7 +414,7 @@ async function downloadAssets(assets, timestamp) {
   const downloadPromises = assets.map(async (asset) => {
     const platform = Array.from(asset.platforms)[0];
 
-    const tempUrl = new URL(`http://localhost:8081${asset.originalPath}`);
+    const tempUrl = new URL(asset.originalPath, getMetroBaseUrl());
     const unstablePath = tempUrl.searchParams.get("unstable_path");
 
     if (!unstablePath) {
@@ -371,7 +423,8 @@ async function downloadAssets(assets, timestamp) {
 
     const decodedPath = decodeURIComponent(unstablePath);
     const metroUrl = new URL(
-      `http://localhost:8081${path.posix.join("/assets", decodedPath, asset.filename)}`,
+      path.posix.join("/assets", decodedPath, asset.filename),
+      getMetroBaseUrl(),
     );
     metroUrl.searchParams.set("platform", platform);
     metroUrl.searchParams.set("hash", asset.hash);
@@ -430,7 +483,7 @@ function updateBundleUrls(timestamp, baseUrl) {
     bundle = bundle.replace(
       /httpServerLocation:"(\/[^"]+)"/g,
       (_match, capturedPath) => {
-        const tempUrl = new URL(`http://localhost:8081${capturedPath}`);
+        const tempUrl = new URL(capturedPath, getMetroBaseUrl());
         const unstablePath = tempUrl.searchParams.get("unstable_path");
 
         if (!unstablePath) {
@@ -546,16 +599,12 @@ async function main() {
 
   console.log("Build complete! Deploy to:", baseUrl);
 
-  if (metroProcess) {
-    metroProcess.kill();
-  }
+  stopMetro();
   process.exit(0);
 }
 
 main().catch((error) => {
   console.error("Build failed:", error.message);
-  if (metroProcess) {
-    metroProcess.kill();
-  }
+  stopMetro();
   process.exit(1);
 });
