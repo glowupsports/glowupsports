@@ -15,6 +15,10 @@ import { aiDevelopmentEvaluations } from "@shared/schema";
 import { logAiCall } from "../middleware/aiQuotaMiddleware";
 import { getAcademyBudgetState } from "./aiBudgetService";
 import {
+  applyAcceptedDevelopmentDecision,
+  proposeAndValidateDevelopmentDecision,
+} from "./canonical-progression-service";
+import {
   DEVELOPMENT_CONTEXT_CONTRACT_VERSION,
   getDevelopmentContext,
   type DevelopmentContext,
@@ -57,6 +61,7 @@ const affectedSkillSchema = z.object({
   benchmarkRelativeMastery: z.number().min(0).max(1),
   confidence: z.number().min(0).max(1),
   trend: z.enum(["IMPROVING", "STABLE", "DECLINING", "UNCERTAIN"]),
+  changeRecommended: z.boolean().optional(),
 }).strict();
 
 const prioritySchema = z.object({
@@ -487,4 +492,67 @@ export async function evaluateDevelopmentInterpretation(
     const [failed] = await db.select().from(aiDevelopmentEvaluations).where(eq(aiDevelopmentEvaluations.id, created.id)).limit(1);
     return toResult(failed ?? { ...created, status, diagnosticsJson: diagnostics }, false);
   }
+}
+
+/**
+ * Phase 3C is deliberately only a thin adapter. It never scores evidence or
+ * mutates canonical state itself: the frozen Phase 2 proposal/apply executor
+ * remains the only writer.
+ */
+export async function applyValidatedDevelopmentEvaluation(
+  user: { userId: string; coachId?: string | null; role?: string | null; academyId?: string | null; currentAcademyId?: string | null },
+  evaluationId: string,
+) {
+  const [evaluation] = await db.select().from(aiDevelopmentEvaluations)
+    .where(and(eq(aiDevelopmentEvaluations.id, evaluationId), eq(aiDevelopmentEvaluations.actorUserId, user.userId)))
+    .limit(1);
+  if (!evaluation) throw new DevelopmentInterpretationError("EVALUATION_NOT_FOUND", "Evaluation was not found", 404);
+  if (evaluation.status === "NO_CHANGE" || evaluation.status === "INSUFFICIENT_EVIDENCE") {
+    return { applied: false, code: evaluation.status };
+  }
+  if (evaluation.status !== "INTERPRETATION" || !evaluation.interpretationJson) {
+    return { applied: false, code: "NOT_APPLICABLE" };
+  }
+  const interpretation = aiDevelopmentInterpretationSchema.parse(evaluation.interpretationJson);
+  const context = await getDevelopmentContext(user, evaluation.playerId, evaluation.trigger as DevelopmentEvaluationTrigger);
+  if (context.target.academyId !== evaluation.academyId
+    || context.canonical.stateVersion !== evaluation.requestedStateVersion) {
+    return { applied: false, code: "STALE_EVALUATION" };
+  }
+  const recommended = interpretation.affectedSkills.filter((skill) => skill.changeRecommended === true);
+  if (recommended.length !== 1) {
+    return { applied: false, code: recommended.length > 1 ? "MULTI_CHANGE_REEVALUATION_REQUIRED" : "NO_ELIGIBLE_CHANGE" };
+  }
+  const change = recommended[0];
+  const supporting = new Set(interpretation.supportingEvidenceIds);
+  const eligible = context.evidence.filter((evidence) =>
+    supporting.has(evidence.evidenceId)
+    && evidence.deltaEligibility === "DELTA_ELIGIBLE"
+    && evidence.trustedObservation
+    && evidence.benchmarkIds.includes(change.benchmarkId)
+    && evidence.canonicalSkillIds.includes(change.canonicalSkillId),
+  );
+  if (!eligible.length || eligible.length !== supporting.size) {
+    return { applied: false, code: "INSUFFICIENT_ELIGIBLE_EVIDENCE" };
+  }
+  const observations = eligible.map((evidence) => evidence.trustedObservation!);
+  const actor = {
+    userId: user.userId,
+    coachId: user.coachId ?? null,
+    role: user.role ?? "coach",
+    academyId: evaluation.academyId,
+  };
+  const decision = await proposeAndValidateDevelopmentDecision({
+    actor,
+    academyId: evaluation.academyId,
+    playerId: evaluation.playerId,
+    benchmarkId: change.benchmarkId,
+    proposedBenchmarkMastery: change.benchmarkRelativeMastery * 100,
+    confidence: change.confidence,
+    evidenceRefs: observations.flatMap((observation) => observation.evidenceIds),
+    observations,
+    rationale: interpretation.rationale,
+  });
+  if (decision.status !== "ACCEPTED") return { applied: false, code: decision.status, decisionId: decision.id };
+  return { ...(await applyAcceptedDevelopmentDecision(decision.id, actor)), decisionId: decision.id };
 }

@@ -13,6 +13,7 @@ import {
   academies,
   canonicalBenchmarkComponents,
   canonicalBenchmarkDefinitions,
+  deepAssessmentTrustedObservations,
   players,
   skillEvidence,
 } from "@shared/schema";
@@ -31,6 +32,11 @@ const CONSISTENT_READ_TRANSACTION = {
   isolationLevel: "repeatable read" as const,
   accessMode: "read only" as const,
 };
+const DEEP_ASSESSMENT_OBSERVATION_PREFIX = "deep_assessment_trusted_observation:";
+
+function deepObservationRef(id: string): string {
+  return `${DEEP_ASSESSMENT_OBSERVATION_PREFIX}${id}`;
+}
 
 export const developmentEvaluationTriggerSchema = z.enum([
   "COACH_REQUEST",
@@ -428,6 +434,14 @@ async function buildDevelopmentContextInTransaction(
     ))
     .orderBy(desc(skillEvidence.createdAt), asc(skillEvidence.id));
 
+  const deepObservationRows = await tx.select()
+    .from(deepAssessmentTrustedObservations)
+    .where(and(
+      eq(deepAssessmentTrustedObservations.playerId, targetPlayerId),
+      eq(deepAssessmentTrustedObservations.academyId, academyId),
+    ))
+    .orderBy(desc(deepAssessmentTrustedObservations.createdAt), asc(deepAssessmentTrustedObservations.id));
+
   // Evidence owns no academy column. The join above is the first ownership
   // check; this explicit filter is a second defensive check before assembly.
   const ownedEvidence = evidenceRows.filter((row) =>
@@ -491,7 +505,39 @@ async function buildDevelopmentContextInTransaction(
     // contract. Never infer it from captureType, timestamps, or review data.
     trustedObservation: null,
   }));
-  const evidence = assembleRelevantEvidence(candidates, {
+  const deepCandidates: EvidenceAssemblyCandidate[] = deepObservationRows.map((row) => ({
+    evidenceId: deepObservationRef(row.id),
+    playerId: row.playerId,
+    academyId: row.academyId,
+    sourceSkillId: row.canonicalSkillId,
+    sessionId: null,
+    trialId: null,
+    captureType: "deep_assessment",
+    status: "approved",
+    createdAt: row.createdAt,
+    reviewedAt: row.createdAt,
+    reviewScore: null,
+    mappings: [{
+      benchmarkId: row.benchmarkId,
+      canonicalSkillId: row.canonicalSkillId,
+      componentKey: "trusted_observation",
+      isAbilityBearing: true,
+      mappingReason: null,
+    }],
+    trustedObservation: {
+      evidenceIds: [deepObservationRef(row.id)],
+      sourceSystem: row.sourceSystem,
+      underlyingEventOrSessionId: row.underlyingEventOrSessionId,
+      observationWindow: row.observationWindow,
+      sourceType: row.sourceType,
+      observedRequiredObservations: row.observedRequiredObservations,
+      requiredObservations: row.requiredObservations,
+      occurredAt: row.occurredAt,
+      benchmarkRelevance: row.benchmarkRelevance as "EXACT_BENCHMARK_COMPONENT" | "EXPLICIT_ADJACENT_COMPONENT",
+      verifiedObserverIds: row.verifiedObserverIds ?? [],
+    },
+  }));
+  const evidence = assembleRelevantEvidence([...candidates, ...deepCandidates], {
     playerId: targetPlayerId,
     academyId,
   });
