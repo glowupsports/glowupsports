@@ -1223,6 +1223,18 @@ async function run() {
     await client.query(readFileSync(canonicalMigrationPath, "utf8"));
     console.log("[db-migrate] Phase 2 canonical progression core — OK");
 
+    // ── Phase 3C — Canonical-native Deep Assessment provenance ───────────────
+    // Drizzle can materialize the table shape but not this migration's
+    // append-only trigger and database-level observation checks. Keep it in the
+    // standard migration workflow so production deploys preserve the same
+    // immutable boundary verified by the service tests.
+    const canonicalNativeDeepAssessmentMigrationPath = path.resolve(
+      process.cwd(),
+      "migrations/0055_canonical_native_deep_assessment_observation.sql",
+    );
+    await client.query(readFileSync(canonicalNativeDeepAssessmentMigrationPath, "utf8"));
+    console.log("[db-migrate] Phase 3C canonical-native Deep Assessment provenance — OK");
+
     // ── Verification ──────────────────────────────────────────────────────────
     const check = await client.query(
       "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'player_health_snapshots'"

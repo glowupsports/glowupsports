@@ -7140,6 +7140,46 @@ export const deepAssessmentTrustedObservations = pgTable("deep_assessment_truste
 ]);
 export type DeepAssessmentTrustedObservation = typeof deepAssessmentTrustedObservations.$inferSelect;
 
+// Canonical-native Deep Assessment captures deliberately do not reference the
+// mutable legacy assessment writer. Their frozen binding and observation
+// contract are captured in this separate, append-only provenance record.
+export const canonicalNativeDeepAssessmentObservations = pgTable("canonical_native_deep_assessment_observation", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  idempotencyKey: text("idempotency_key").notNull(),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  playerId: varchar("player_id").notNull().references(() => players.id),
+  coachId: varchar("coach_id").notNull().references(() => coaches.id),
+  captureId: text("capture_id").notNull(),
+  payloadHash: text("payload_hash").notNull(),
+  benchmarkDefinitionId: varchar("benchmark_definition_id")
+    .notNull().references(() => canonicalBenchmarkDefinitions.id),
+  benchmarkId: text("benchmark_id").notNull(),
+  canonicalSkillId: text("canonical_skill_id").notNull().references(() => canonicalSkillDefinitions.id),
+  componentKey: text("component_key").notNull(),
+  taxonomyConfigVersion: text("taxonomy_config_version").notNull(),
+  benchmarkConfigVersion: text("benchmark_config_version").notNull(),
+  evidenceConfigVersion: text("evidence_config_version").notNull(),
+  strengthModelVersion: text("strength_model_version").notNull(),
+  glowConfigVersion: text("glow_config_version").notNull(),
+  sourceSystem: text("source_system").notNull(),
+  underlyingEventOrSessionId: text("underlying_event_or_session_id").notNull(),
+  observationWindow: text("observation_window").notNull(),
+  sourceType: text("source_type").notNull(),
+  observedRequiredObservations: integer("observed_required_observations").notNull(),
+  requiredObservations: integer("required_observations").notNull(),
+  occurredAt: timestamp("occurred_at").notNull(),
+  benchmarkRelevance: text("benchmark_relevance").notNull(),
+  verifiedObserverIds: jsonb("verified_observer_ids").$type<string[]>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("canonical_native_deep_assessment_observation_idempotency_unique").on(table.idempotencyKey),
+  unique("canonical_native_deep_assessment_observation_capture_scope_unique")
+    .on(table.academyId, table.playerId, table.coachId, table.captureId),
+  index("canonical_native_deep_assessment_observation_player_idx").on(table.playerId, table.createdAt),
+  index("canonical_native_deep_assessment_observation_academy_idx").on(table.academyId, table.createdAt),
+]);
+export type CanonicalNativeDeepAssessmentObservation = typeof canonicalNativeDeepAssessmentObservations.$inferSelect;
+
 // A capture-level retry ledger. It is distinct from immutable observations:
 // one capture owns a canonicalized batch digest and its resulting assessments.
 // Reusing a token with changed content is rejected rather than creating

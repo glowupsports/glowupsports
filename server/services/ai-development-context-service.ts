@@ -13,6 +13,7 @@ import {
   academies,
   canonicalBenchmarkComponents,
   canonicalBenchmarkDefinitions,
+  canonicalNativeDeepAssessmentObservations,
   deepAssessmentTrustedObservations,
   players,
   skillEvidence,
@@ -22,6 +23,10 @@ import {
   type CanonicalCurrentSnapshot,
 } from "./canonical-progression-service";
 import { getRevalidatedTrustedObservationIds } from "./deep-assessment-canonical-mapping-service";
+import {
+  canonicalNativeDeepAssessmentObservationReference,
+  getRevalidatedCanonicalNativeObservationIds,
+} from "./canonical-native-deep-assessment-service";
 import {
   canEvaluateDevelopmentContext,
   type PolicyResult,
@@ -34,10 +39,7 @@ const CONSISTENT_READ_TRANSACTION = {
   accessMode: "read only" as const,
 };
 const DEEP_ASSESSMENT_OBSERVATION_PREFIX = "deep_assessment_trusted_observation:";
-
-function deepObservationRef(id: string): string {
-  return `${DEEP_ASSESSMENT_OBSERVATION_PREFIX}${id}`;
-}
+function deepObservationRef(id: string): string { return `${DEEP_ASSESSMENT_OBSERVATION_PREFIX}${id}`; }
 
 export const developmentEvaluationTriggerSchema = z.enum([
   "COACH_REQUEST",
@@ -450,6 +452,17 @@ async function buildDevelopmentContextInTransaction(
   const deltaEligibleDeepObservations = deepObservationRows.filter((row) =>
     validTrustedObservationIds.has(row.id),
   );
+  const nativeObservationRows = await tx.select()
+    .from(canonicalNativeDeepAssessmentObservations)
+    .where(and(
+      eq(canonicalNativeDeepAssessmentObservations.playerId, targetPlayerId),
+      eq(canonicalNativeDeepAssessmentObservations.academyId, academyId),
+    ))
+    .orderBy(desc(canonicalNativeDeepAssessmentObservations.createdAt), asc(canonicalNativeDeepAssessmentObservations.id));
+  const validNativeObservationIds = await getRevalidatedCanonicalNativeObservationIds(tx, nativeObservationRows);
+  const deltaEligibleNativeObservations = nativeObservationRows.filter((row) =>
+    validNativeObservationIds.has(row.id),
+  );
 
   // Evidence owns no academy column. The join above is the first ownership
   // check; this explicit filter is a second defensive check before assembly.
@@ -546,7 +559,39 @@ async function buildDevelopmentContextInTransaction(
       verifiedObserverIds: row.verifiedObserverIds ?? [],
     },
   }));
-  const evidence = assembleRelevantEvidence([...candidates, ...deepCandidates], {
+  const nativeCandidates: EvidenceAssemblyCandidate[] = deltaEligibleNativeObservations.map((row) => ({
+    evidenceId: canonicalNativeDeepAssessmentObservationReference(row.id),
+    playerId: row.playerId,
+    academyId: row.academyId,
+    sourceSkillId: row.canonicalSkillId,
+    sessionId: null,
+    trialId: null,
+    captureType: "canonical_native_deep_assessment",
+    status: "approved",
+    createdAt: row.createdAt,
+    reviewedAt: row.createdAt,
+    reviewScore: null,
+    mappings: [{
+      benchmarkId: row.benchmarkId,
+      canonicalSkillId: row.canonicalSkillId,
+      componentKey: row.componentKey,
+      isAbilityBearing: true,
+      mappingReason: "CANONICAL_NATIVE_CAPTURE",
+    }],
+    trustedObservation: {
+      evidenceIds: [canonicalNativeDeepAssessmentObservationReference(row.id)],
+      sourceSystem: row.sourceSystem,
+      underlyingEventOrSessionId: row.underlyingEventOrSessionId,
+      observationWindow: row.observationWindow,
+      sourceType: row.sourceType,
+      observedRequiredObservations: row.observedRequiredObservations,
+      requiredObservations: row.requiredObservations,
+      occurredAt: row.occurredAt,
+      benchmarkRelevance: "EXACT_BENCHMARK_COMPONENT",
+      verifiedObserverIds: row.verifiedObserverIds ?? [],
+    },
+  }));
+  const evidence = assembleRelevantEvidence([...candidates, ...deepCandidates, ...nativeCandidates], {
     playerId: targetPlayerId,
     academyId,
   });

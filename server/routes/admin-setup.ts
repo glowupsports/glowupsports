@@ -8,6 +8,7 @@ import { Router, type Request, type Response } from "express";
     persistBulkDeepAssessments,
     persistSingleDeepAssessment,
   } from "../services/deep-assessment-trusted-observation-service";
+  import { persistCanonicalNativeDeepAssessment } from "../services/canonical-native-deep-assessment-service";
   const router = Router();
   
   function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
@@ -3331,6 +3332,35 @@ import { Router, type Request, type Response } from "express";
           return res.status(error.status).json({ error: error.message, code: error.code });
         }
         res.status(500).json({ error: "Failed to save assessments" });
+      }
+    },
+  );
+
+  // Canonical-native capture is deliberately separate from the legacy drawer:
+  // its payload names an exact frozen Ability benchmark/component, while actor,
+  // academy, player, observer, versions, and provenance remain server-owned.
+  router.post(
+    "/api/players/:id/deep-assessment/canonical-native",
+    authMiddleware,
+    requireAcademy,
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const { id } = req.params;
+        const academyId = req.user!.academyId!;
+        const coachId = req.user!.coachId;
+        const { valid } = await validatePlayerOwnership(id, academyId, storage);
+        if (!valid) return res.status(404).json({ error: "Player not found" });
+        const observation = await persistCanonicalNativeDeepAssessment(
+          { academyId, playerId: id, coachId },
+          req.body,
+        );
+        res.status(201).json({ observation });
+      } catch (error) {
+        console.error("Error saving canonical-native deep assessment:", error);
+        if (error instanceof DeepAssessmentPersistenceError) {
+          return res.status(error.status).json({ error: error.message, code: error.code });
+        }
+        res.status(500).json({ error: "Failed to save canonical-native assessment" });
       }
     },
   );

@@ -5,10 +5,14 @@ import { db, pool } from "../db";
 import {
   deepAssessmentCaptureLedger,
   deepAssessmentTrustedObservations,
+  canonicalNativeDeepAssessmentObservations,
   playerCanonicalProgression,
   playerDeepAssessments,
 } from "@shared/schema";
-import { getDevelopmentContext } from "../services/ai-development-context-service";
+import {
+  DEVELOPMENT_CONTEXT_CONTRACT_VERSION,
+  getDevelopmentContext,
+} from "../services/ai-development-context-service";
 import {
   applyAcceptedDevelopmentDecision,
   ensureCanonicalProgressionConfigPersisted,
@@ -19,6 +23,16 @@ import {
   DeepAssessmentPersistenceError,
   persistBulkDeepAssessments,
 } from "../services/deep-assessment-trusted-observation-service";
+import {
+  canonicalNativeDeepAssessmentObservationReference,
+  persistCanonicalNativeDeepAssessment,
+} from "../services/canonical-native-deep-assessment-service";
+import {
+  AI_DEVELOPMENT_EVALUATION_VERSION,
+  applyValidatedDevelopmentEvaluation,
+  evaluateDevelopmentInterpretation,
+  setDevelopmentProviderForTests,
+} from "../services/ai-development-interpretation-service";
 
 const hasDatabase = Boolean(process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL);
 const describeDatabase = hasDatabase ? describe : describe.skip;
@@ -57,6 +71,15 @@ describeDatabase("Phase 3C Deep Assessment trusted bulk flow", () => {
     const versions = getFrozenCanonicalProgressionVersions();
     await db.insert(playerCanonicalProgression).values({
       playerId: fixture.playerId,
+      academyId: fixture.academyId,
+      taxonomyConfigVersion: versions.taxonomyConfigVersion,
+      benchmarkConfigVersion: versions.benchmarkConfigVersion,
+      evidenceConfigVersion: versions.evidenceConfigVersion,
+      strengthModelVersion: versions.strengthModelVersion,
+      glowConfigVersion: versions.glowConfigVersion,
+    });
+    await db.insert(playerCanonicalProgression).values({
+      playerId: fixture.otherPlayerId,
       academyId: fixture.academyId,
       taxonomyConfigVersion: versions.taxonomyConfigVersion,
       benchmarkConfigVersion: versions.benchmarkConfigVersion,
@@ -392,5 +415,170 @@ describeDatabase("Phase 3C Deep Assessment trusted bulk flow", () => {
       .toBe(Number((before.rows[0] as any).unmapped_assessments));
     expect(Number((result.rows[0] as any).observations))
       .toBe(Number((before.rows[0] as any).observations));
+  });
+
+  it("captures an explicit canonical-native Ability snapshot and routes it through Phase 3A and Phase 2", async () => {
+    const nativeScope = {
+      academyId: fixture.academyId,
+      // The first regression establishes the canonical Ability state. The
+      // native capture remains independent from that now-deactivated legacy
+      // source, but Phase 3B rightly requires its target skill in the snapshot.
+      playerId: fixture.playerId,
+      coachId: fixture.coachId,
+    };
+    const capture = {
+      captureId: `native-${suffix}`,
+      benchmarkId: "BM_V1_BLUE_BLUE_3_B3_HOLD_RACKET",
+      canonicalSkillId: "RACKET_SAFE_HANDLING",
+      componentKey: "C1",
+      underlyingEventOrSessionId: `native-session-${suffix}`,
+      observationWindow: `native-window-${suffix}`,
+      observedRequiredObservations: 3,
+      requiredObservations: 3,
+      occurredAt: new Date().toISOString(),
+    };
+    const [first, retry] = await Promise.all([
+      persistCanonicalNativeDeepAssessment(nativeScope, capture),
+      persistCanonicalNativeDeepAssessment(nativeScope, capture),
+    ]);
+    expect(retry.id).toBe(first.id);
+    expect(first).toMatchObject({
+      academyId: fixture.academyId,
+      playerId: fixture.playerId,
+      coachId: fixture.coachId,
+      benchmarkId: capture.benchmarkId,
+      canonicalSkillId: capture.canonicalSkillId,
+      componentKey: "C1",
+      sourceSystem: "canonical_native_deep_assessment",
+      sourceType: "COACH_DEEP_ASSESSMENT",
+      benchmarkRelevance: "EXACT_BENCHMARK_COMPONENT",
+      verifiedObserverIds: [fixture.coachId],
+    });
+    await expect(db.update(canonicalNativeDeepAssessmentObservations)
+      .set({ observationWindow: "tampered" })
+      .where(eq(canonicalNativeDeepAssessmentObservations.id, first.id)))
+      .rejects.toThrow(/IMMUTABLE/);
+    await expect(db.insert(canonicalNativeDeepAssessmentObservations).values({
+      ...first,
+      id: `invalid-count-${suffix}`,
+      idempotencyKey: `invalid-count-${suffix}`,
+      captureId: `invalid-count-${suffix}`,
+      observedRequiredObservations: 2,
+      requiredObservations: 3,
+    })).rejects.toThrow();
+    await expect(db.insert(canonicalNativeDeepAssessmentObservations).values({
+      ...first,
+      id: `invalid-relevance-${suffix}`,
+      idempotencyKey: `invalid-relevance-${suffix}`,
+      captureId: `invalid-relevance-${suffix}`,
+      benchmarkRelevance: "EXPLICIT_ADJACENT_COMPONENT",
+    })).rejects.toThrow();
+    await expect(persistCanonicalNativeDeepAssessment(nativeScope, {
+      ...capture,
+      canonicalSkillId: "FORGED_CANONICAL_SKILL",
+    })).rejects.toMatchObject<Partial<DeepAssessmentPersistenceError>>({
+      code: "CAPTURE_ID_REUSE_CONFLICT",
+      status: 409,
+    });
+    await expect(persistCanonicalNativeDeepAssessment(nativeScope, {
+      ...capture,
+      captureId: `invalid-component-${suffix}`,
+      componentKey: "FORGED_COMPONENT",
+    })).rejects.toMatchObject<Partial<DeepAssessmentPersistenceError>>({
+      code: "INVALID_CANONICAL_NATIVE_ABILITY_BINDING",
+    });
+    await expect(persistCanonicalNativeDeepAssessment(nativeScope, {
+      ...capture,
+      captureId: `spoofed-scope-${suffix}`,
+      academyId: "forged",
+    })).rejects.toMatchObject<Partial<DeepAssessmentPersistenceError>>({
+      code: "CLIENT_SCOPE_FIELDS_FORBIDDEN",
+    });
+
+    const context = await getDevelopmentContext({
+      userId: fixture.userId,
+      coachId: fixture.coachId,
+      academyId: fixture.academyId,
+      currentAcademyId: fixture.academyId,
+      role: "platform_owner",
+    }, fixture.playerId, "COACH_REQUEST");
+    const evidenceRef = canonicalNativeDeepAssessmentObservationReference(first.id);
+    const evidence = context.evidence.find((item) => item.evidenceId === evidenceRef);
+    expect(evidence).toMatchObject({
+      deltaEligibility: "DELTA_ELIGIBLE",
+      benchmarkIds: [capture.benchmarkId],
+      canonicalSkillIds: [capture.canonicalSkillId],
+    });
+    await expect(proposeAndValidateDevelopmentDecision({
+      actor: {
+        userId: fixture.userId,
+        coachId: fixture.coachId,
+        academyId: fixture.academyId,
+        role: "platform_owner",
+      },
+      academyId: fixture.academyId,
+      playerId: fixture.playerId,
+      benchmarkId: capture.benchmarkId,
+      proposedBenchmarkMastery: 0,
+      confidence: 1,
+      evidenceRefs: [evidenceRef],
+      observations: [{
+        ...evidence!.trustedObservation!,
+        // A model/client cannot alter the immutable occurrence contract.
+        observedRequiredObservations: 2,
+      }],
+      rationale: "Fabricated canonical-native observation is rejected.",
+    })).rejects.toMatchObject({ code: "EVIDENCE_INELIGIBLE" });
+    setDevelopmentProviderForTests(async (modelContext, _prompt, promptHash) => ({
+      promptHash,
+      providerRequestId: `native-bridge-${suffix}`,
+      raw: {
+        interpretationVersion: AI_DEVELOPMENT_EVALUATION_VERSION,
+        contextContractVersion: DEVELOPMENT_CONTEXT_CONTRACT_VERSION,
+        playerId: modelContext.target.playerId,
+        academyId: modelContext.target.academyId,
+        stateVersion: modelContext.canonical.stateVersion,
+        versions: modelContext.canonical.versions,
+        outcome: "INTERPRETATION",
+        affectedSkills: [{
+          canonicalSkillId: capture.canonicalSkillId,
+          benchmarkId: capture.benchmarkId,
+          benchmarkRelativeMastery: 0,
+          confidence: 1,
+          trend: "IMPROVING",
+          changeRecommended: true,
+        }],
+        supportingEvidenceIds: [evidenceRef],
+        contradictingEvidenceIds: [],
+        trend: "IMPROVING",
+        rationale: "One explicit canonical-native observation supports a bounded update.",
+        uncertainty: "No independent corroboration beyond the captured observation.",
+        priorities: [{
+          canonicalSkillId: capture.canonicalSkillId,
+          priority: "HIGH",
+          focus: "Repeat the exact observed benchmark component.",
+        }],
+        missingEvidenceRequests: [],
+      },
+    }));
+    try {
+      const evaluation = await evaluateDevelopmentInterpretation({
+        userId: fixture.userId,
+        coachId: fixture.coachId,
+        academyId: fixture.academyId,
+        currentAcademyId: fixture.academyId,
+        role: "platform_owner",
+      }, fixture.playerId, "COACH_REQUEST", `native-bridge-${suffix}`);
+      expect(evaluation.status).toBe("INTERPRETATION");
+      await expect(applyValidatedDevelopmentEvaluation({
+        userId: fixture.userId,
+        coachId: fixture.coachId,
+        academyId: fixture.academyId,
+        currentAcademyId: fixture.academyId,
+        role: "platform_owner",
+      }, evaluation.evaluationId)).resolves.toMatchObject({ applied: true });
+    } finally {
+      setDevelopmentProviderForTests(null);
+    }
   });
 });

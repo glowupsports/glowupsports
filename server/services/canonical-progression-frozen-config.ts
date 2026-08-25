@@ -17,3 +17,28 @@ export function getFrozenCanonicalBenchmarkConfigVersion() {
   }
   return parsed.version;
 }
+
+/**
+ * Version identities captured by canonical-native observations. This remains
+ * independent from the Phase 2 service so adapters can validate snapshots
+ * without introducing a progression-service import cycle.
+ */
+export function getFrozenCanonicalProgressionVersions() {
+  const source = readFileSync(
+    path.resolve(process.cwd(), "docs/specs/batch-4a-phase1-freeze-v1.json"),
+    "utf8",
+  );
+  const parsed = JSON.parse(source) as {
+    evidence_config?: { version?: unknown };
+  };
+  if (typeof parsed.evidence_config?.version !== "string" || !parsed.evidence_config.version) {
+    throw new Error("Frozen canonical evidence configuration is missing a version");
+  }
+  return {
+    taxonomyConfigVersion: "taxonomy-v1.0.0-final-freeze",
+    benchmarkConfigVersion: getFrozenCanonicalBenchmarkConfigVersion(),
+    evidenceConfigVersion: parsed.evidence_config.version,
+    strengthModelVersion: "strength-model-v1.0.1-final-freeze",
+    glowConfigVersion: "glow-config-v1.0.0-final-freeze",
+  };
+}

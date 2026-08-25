@@ -14,6 +14,7 @@ import {
   academies,
   canonicalBenchmarkComponents,
   canonicalBenchmarkDefinitions,
+  canonicalNativeDeepAssessmentObservations,
   canonicalDecisionApplicationReceipts,
   canonicalDecisionSnapshots,
   canonicalEvidenceContributions,
@@ -34,6 +35,10 @@ import {
 import { canReviewEvidence, type ProgressionActor } from "../lib/progression-actor-policy";
 import { getFrozenCanonicalBenchmarkConfigVersion } from "./canonical-progression-frozen-config";
 import { getRevalidatedTrustedObservationIds } from "./deep-assessment-canonical-mapping-service";
+import {
+  canonicalNativeDeepAssessmentObservationReference,
+  getRevalidatedCanonicalNativeObservationIds,
+} from "./canonical-native-deep-assessment-service";
 
 const TAXONOMY_CONFIG_VERSION = "taxonomy-v1.0.0-final-freeze";
 const STRENGTH_MODEL_VERSION = "strength-model-v1.0.1-final-freeze";
@@ -57,7 +62,13 @@ async function resolveCanonicalEvidenceRefs(
   const deepIds = uniqueRefs
     .filter((ref) => ref.startsWith(DEEP_ASSESSMENT_OBSERVATION_PREFIX))
     .map((ref) => ref.slice(DEEP_ASSESSMENT_OBSERVATION_PREFIX.length));
-  const skillIds = uniqueRefs.filter((ref) => !ref.startsWith(DEEP_ASSESSMENT_OBSERVATION_PREFIX));
+  const nativePrefix = "canonical_native_deep_assessment_observation:";
+  const nativeIds = uniqueRefs
+    .filter((ref) => ref.startsWith(nativePrefix))
+    .map((ref) => ref.slice(nativePrefix.length));
+  const skillIds = uniqueRefs.filter((ref) =>
+    !ref.startsWith(DEEP_ASSESSMENT_OBSERVATION_PREFIX) && !ref.startsWith(nativePrefix),
+  );
   const skillRows = skillIds.length ? await tx.select({
     id: skillEvidence.id,
     playerId: skillEvidence.playerId,
@@ -68,9 +79,12 @@ async function resolveCanonicalEvidenceRefs(
     .where(inArray(skillEvidence.id, skillIds)) : [];
   const deepRows = deepIds.length ? await tx.select().from(deepAssessmentTrustedObservations)
     .where(inArray(deepAssessmentTrustedObservations.id, deepIds)) : [];
+  const nativeRows = nativeIds.length ? await tx.select().from(canonicalNativeDeepAssessmentObservations)
+    .where(inArray(canonicalNativeDeepAssessmentObservations.id, nativeIds)) : [];
   const resolved = [
     ...skillRows.map((row: any) => ({ ref: row.id, playerId: row.playerId, academyId: row.academyId, eligible: row.eligible === "approved" })),
     ...deepRows.map((row: any) => ({ ref: deepAssessmentObservationReference(row.id), playerId: row.playerId, academyId: row.academyId, eligible: true })),
+    ...nativeRows.map((row: any) => ({ ref: canonicalNativeDeepAssessmentObservationReference(row.id), playerId: row.playerId, academyId: row.academyId, eligible: true })),
   ];
   if (resolved.length !== uniqueRefs.length
     || resolved.some((row) => row.playerId !== playerId || row.academyId !== academyId)) {
@@ -80,8 +94,12 @@ async function resolveCanonicalEvidenceRefs(
     throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Only eligible evidence is valid for canonical progression", 422);
   }
   const revalidatedDeepObservationIds = await getRevalidatedTrustedObservationIds(tx, deepRows);
-  for (const row of deepRows) {
-    const ref = deepAssessmentObservationReference(row.id);
+  const revalidatedNativeObservationIds = await getRevalidatedCanonicalNativeObservationIds(tx, nativeRows);
+  const trustedRows = [
+    ...deepRows.map((row: any) => ({ row, ref: deepAssessmentObservationReference(row.id), native: false })),
+    ...nativeRows.map((row: any) => ({ row, ref: canonicalNativeDeepAssessmentObservationReference(row.id), native: true })),
+  ];
+  for (const { row, ref, native } of trustedRows) {
     const observation = observations.find((candidate) => candidate.evidenceIds.includes(ref));
     if (!observation
       || row.benchmarkId !== benchmarkId
@@ -97,20 +115,22 @@ async function resolveCanonicalEvidenceRefs(
       || !observation.verifiedObserverIds.length) {
       throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Immutable trusted observation does not match the canonical evidence contract", 422);
     }
-    if (!revalidatedDeepObservationIds.has(row.id)) {
+    if (!(native ? revalidatedNativeObservationIds : revalidatedDeepObservationIds).has(row.id)) {
       throw new CanonicalProgressionError(
         "EVIDENCE_INELIGIBLE",
-        "Trusted observation does not revalidate to one exact frozen Deep Assessment Ability binding",
+        "Trusted observation does not revalidate to one exact frozen Ability binding",
         422,
       );
     }
+    const bindingConditions = [
+      eq(canonicalBenchmarkComponents.benchmarkDefinitionId, benchmarkDefinitionId),
+      eq(canonicalBenchmarkComponents.canonicalSkillId, row.canonicalSkillId),
+      eq(canonicalBenchmarkComponents.isAbilityBearing, true),
+    ];
+    if (native) bindingConditions.push(eq(canonicalBenchmarkComponents.componentKey, row.componentKey));
     const [abilityBinding] = await tx.select({ id: canonicalBenchmarkComponents.id })
       .from(canonicalBenchmarkComponents)
-      .where(and(
-        eq(canonicalBenchmarkComponents.benchmarkDefinitionId, benchmarkDefinitionId),
-        eq(canonicalBenchmarkComponents.canonicalSkillId, row.canonicalSkillId),
-        eq(canonicalBenchmarkComponents.isAbilityBearing, true),
-      ))
+      .where(and(...bindingConditions))
       .limit(1);
     if (!abilityBinding) {
       throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Trusted observation is not bound to an Ability-bearing benchmark component", 422);
