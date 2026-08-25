@@ -7140,6 +7140,25 @@ export const deepAssessmentTrustedObservations = pgTable("deep_assessment_truste
 ]);
 export type DeepAssessmentTrustedObservation = typeof deepAssessmentTrustedObservations.$inferSelect;
 
+// A capture-level retry ledger. It is distinct from immutable observations:
+// one capture owns a canonicalized batch digest and its resulting assessments.
+// Reusing a token with changed content is rejected rather than creating
+// contradictory observations for the same capture event.
+export const deepAssessmentCaptureLedger = pgTable("deep_assessment_capture_ledger", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  academyId: varchar("academy_id").notNull().references(() => academies.id),
+  playerId: varchar("player_id").notNull().references(() => players.id),
+  coachId: varchar("coach_id").notNull().references(() => coaches.id),
+  captureId: text("capture_id").notNull(),
+  payloadHash: text("payload_hash").notNull(),
+  assessmentIds: jsonb("assessment_ids").$type<string[]>().notNull().default([]),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  unique("deep_assessment_capture_ledger_scope_unique")
+    .on(table.academyId, table.playerId, table.coachId, table.captureId),
+  index("deep_assessment_capture_ledger_player_idx").on(table.playerId, table.createdAt),
+]);
+
 // Deep Assessment Pillar Summaries - Aggregated progress per pillar for deep assessment
 export const deepAssessmentPillarSummaries = pgTable("deep_assessment_pillar_summaries", {
   id: varchar("id")

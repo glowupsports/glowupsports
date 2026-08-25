@@ -6,16 +6,18 @@
  * Assessment data that can later become delta-eligible evidence.
  */
 import { createHash } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
-  canonicalBenchmarkComponents,
-  canonicalBenchmarkDefinitions,
-  deepAssessmentSkills,
+  deepAssessmentCaptureLedger,
   deepAssessmentTrustedObservations,
   playerDeepAssessments,
   type PlayerDeepAssessment,
 } from "@shared/schema";
+import {
+  getDeepAssessmentCanonicalMappingInventory,
+  type DeepAssessmentMappingInventoryEntry,
+} from "./deep-assessment-canonical-mapping-service";
 
 const CONFIDENCE_VALUES = new Set(["low", "medium", "high"]);
 const SERVER_CAPTURE_PREFIX = "deep-assessment-capture:";
@@ -59,6 +61,11 @@ type PreparedSubmission = {
   assessment: NormalizedAssessmentInput;
   observation: TrustedObservationCapture;
   idempotencyKey: string;
+};
+
+type BulkCapture = {
+  captureId: string;
+  payloadHash: string;
 };
 
 const hash = (value: unknown) =>
@@ -164,34 +171,18 @@ function normalizeExplicitObservation(raw: unknown): TrustedObservationCapture {
   };
 }
 
-async function resolveUniqueAbilityBinding(tx: any, skillId: string) {
-  const rows = await tx.select({
-    benchmarkId: canonicalBenchmarkDefinitions.benchmarkId,
-    canonicalSkillId: canonicalBenchmarkComponents.canonicalSkillId,
-  }).from(deepAssessmentSkills)
-    .innerJoin(
-      canonicalBenchmarkDefinitions,
-      eq(canonicalBenchmarkDefinitions.sourceSkillId, deepAssessmentSkills.skillKey),
-    )
-    .innerJoin(
-      canonicalBenchmarkComponents,
-      eq(canonicalBenchmarkComponents.benchmarkDefinitionId, canonicalBenchmarkDefinitions.id),
-    )
-    .where(and(
-      eq(deepAssessmentSkills.id, skillId),
-      eq(deepAssessmentSkills.isActive, true),
-      eq(canonicalBenchmarkComponents.isAbilityBearing, true),
-    ));
-  const unique = [...new Map(
-    rows.map((row: any) => [`${row.benchmarkId}|${row.canonicalSkillId}`, row]),
-  ).values()];
-  if (unique.length !== 1) {
+function requireProvenAbilityBinding(
+  mappingsBySkillId: Map<string, DeepAssessmentMappingInventoryEntry>,
+  skillId: string,
+) {
+  const mapping = mappingsBySkillId.get(skillId);
+  if (mapping?.status !== "PROVEN" || !mapping.binding) {
     throw new DeepAssessmentPersistenceError(
       "INVALID_CANONICAL_BINDING",
       "Deep Assessment skill has no unique Ability-bearing canonical binding",
     );
   }
-  return unique[0] as { benchmarkId: string; canonicalSkillId: string };
+  return mapping.binding;
 }
 
 async function upsertAssessment(tx: any, scope: DeepAssessmentScope, assessment: NormalizedAssessmentInput) {
@@ -229,18 +220,68 @@ async function upsertAssessment(tx: any, scope: DeepAssessmentScope, assessment:
 async function persistTrustedSubmissions(
   scope: DeepAssessmentScope,
   submissions: PreparedSubmission[],
+  bulkCapture?: BulkCapture,
 ): Promise<PlayerDeepAssessment[]> {
-  if (!scope.coachId) {
+  const coachId = scope.coachId;
+  if (!coachId) {
     throw new DeepAssessmentPersistenceError(
       "AUTHENTICATED_COACH_REQUIRED",
       "A complete trusted observation requires an authenticated coach",
     );
   }
   return db.transaction(async (tx) => {
-    const prepared = await Promise.all(submissions.map(async (submission) => ({
+    if (bulkCapture) {
+      const captureLock = hash({
+        scope: [scope.academyId, scope.playerId, coachId],
+        captureId: bulkCapture.captureId,
+      });
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${captureLock}))`);
+      const [existingCapture] = await tx.select()
+        .from(deepAssessmentCaptureLedger)
+        .where(and(
+          eq(deepAssessmentCaptureLedger.academyId, scope.academyId),
+          eq(deepAssessmentCaptureLedger.playerId, scope.playerId),
+          eq(deepAssessmentCaptureLedger.coachId, coachId),
+          eq(deepAssessmentCaptureLedger.captureId, bulkCapture.captureId),
+        ))
+        .limit(1);
+      if (existingCapture) {
+        if (existingCapture.payloadHash !== bulkCapture.payloadHash) {
+          throw new DeepAssessmentPersistenceError(
+            "CAPTURE_ID_REUSE_CONFLICT",
+            "captureId was already used for a different Deep Assessment batch",
+            409,
+          );
+        }
+        const ids = existingCapture.assessmentIds ?? [];
+        const existingAssessments = ids.length === 0
+          ? []
+          : await tx.select().from(playerDeepAssessments)
+            .where(inArray(playerDeepAssessments.id, ids));
+        const byId = new Map(existingAssessments.map((assessment) => [assessment.id, assessment]));
+        const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as PlayerDeepAssessment[];
+        if (ordered.length !== ids.length) {
+          throw new DeepAssessmentPersistenceError(
+            "TRUSTED_OBSERVATION_INTEGRITY_ERROR",
+            "Deep Assessment capture points to a missing saved assessment",
+            500,
+          );
+        }
+        return ordered;
+      }
+    }
+    // Read every active source once inside the write transaction, then use the
+    // same frozen exact-key inventory for every item. Any missing, non-Ability,
+    // or multi-binding source rejects the entire batch before a legacy row can
+    // be written.
+    const mappingsBySkillId = new Map(
+      (await getDeepAssessmentCanonicalMappingInventory(tx))
+        .map((mapping) => [mapping.deepAssessmentSkillId, mapping]),
+    );
+    const prepared = submissions.map((submission) => ({
       ...submission,
-      binding: await resolveUniqueAbilityBinding(tx, submission.assessment.skillId),
-    })));
+      binding: requireProvenAbilityBinding(mappingsBySkillId, submission.assessment.skillId),
+    }));
 
     // Lock retry keys in a stable order. This prevents two concurrent retries
     // from both updating the assessment before one loses the unique insert.
@@ -285,10 +326,20 @@ async function persistTrustedSubmissions(
         requiredObservations: submission.observation.requiredObservations,
         occurredAt: submission.observation.occurredAt,
         benchmarkRelevance: submission.observation.benchmarkRelevance,
-        verifiedObserverIds: [scope.coachId],
+        verifiedObserverIds: [coachId],
         idempotencyKey: submission.idempotencyKey,
       });
       saved.push(assessment);
+    }
+    if (bulkCapture) {
+      await tx.insert(deepAssessmentCaptureLedger).values({
+        academyId: scope.academyId,
+        playerId: scope.playerId,
+        coachId,
+        captureId: bulkCapture.captureId,
+        payloadHash: bulkCapture.payloadHash,
+        assessmentIds: saved.map((assessment) => assessment.id!),
+      });
     }
     return saved;
   });
@@ -318,6 +369,10 @@ export async function persistBulkDeepAssessments(
     );
   }
   const occurredAt = new Date();
+  const payloadHash = hash({
+    version: 1,
+    assessments: [...assessments].sort((a, b) => a.skillId.localeCompare(b.skillId)),
+  });
   return persistTrustedSubmissions(scope, assessments.map((assessment) => ({
     assessment,
     observation: {
@@ -328,10 +383,13 @@ export async function persistBulkDeepAssessments(
       occurredAt,
       benchmarkRelevance: "EXACT_BENCHMARK_COMPONENT",
     },
-    // The retry key includes the complete mutable legacy payload. A changed
-    // score is a new submission, never silently treated as a retry.
-    idempotencyKey: hash({ version: 1, scope: [scope.academyId, scope.playerId], captureId: normalizedCaptureId, assessment }),
-  })));
+    idempotencyKey: hash({
+      version: 2,
+      scope: [scope.academyId, scope.playerId, scope.coachId],
+      captureId: normalizedCaptureId,
+      skillId: assessment.skillId,
+    }),
+  })), { captureId: normalizedCaptureId, payloadHash });
 }
 
 /**

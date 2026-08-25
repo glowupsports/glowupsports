@@ -32,6 +32,8 @@ import {
   skillEvidence,
 } from "@shared/schema";
 import { canReviewEvidence, type ProgressionActor } from "../lib/progression-actor-policy";
+import { getFrozenCanonicalBenchmarkConfigVersion } from "./canonical-progression-frozen-config";
+import { getRevalidatedTrustedObservationIds } from "./deep-assessment-canonical-mapping-service";
 
 const TAXONOMY_CONFIG_VERSION = "taxonomy-v1.0.0-final-freeze";
 const STRENGTH_MODEL_VERSION = "strength-model-v1.0.1-final-freeze";
@@ -77,6 +79,7 @@ async function resolveCanonicalEvidenceRefs(
   if (resolved.some((row) => !row.eligible)) {
     throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Only eligible evidence is valid for canonical progression", 422);
   }
+  const revalidatedDeepObservationIds = await getRevalidatedTrustedObservationIds(tx, deepRows);
   for (const row of deepRows) {
     const ref = deepAssessmentObservationReference(row.id);
     const observation = observations.find((candidate) => candidate.evidenceIds.includes(ref));
@@ -93,6 +96,13 @@ async function resolveCanonicalEvidenceRefs(
       || stableJson([...observation.verifiedObserverIds].sort()) !== stableJson([...(row.verifiedObserverIds ?? [])].sort())
       || !observation.verifiedObserverIds.length) {
       throw new CanonicalProgressionError("EVIDENCE_INELIGIBLE", "Immutable trusted observation does not match the canonical evidence contract", 422);
+    }
+    if (!revalidatedDeepObservationIds.has(row.id)) {
+      throw new CanonicalProgressionError(
+        "EVIDENCE_INELIGIBLE",
+        "Trusted observation does not revalidate to one exact frozen Deep Assessment Ability binding",
+        422,
+      );
     }
     const [abilityBinding] = await tx.select({ id: canonicalBenchmarkComponents.id })
       .from(canonicalBenchmarkComponents)
@@ -383,14 +393,19 @@ function combinedQuality(units: Array<{ qUnit: number }>): number {
 }
 
 function versions() {
-  const { freeze, crosswalk } = loadFrozenArtifacts();
+  const { freeze } = loadFrozenArtifacts();
   return {
     taxonomyConfigVersion: TAXONOMY_CONFIG_VERSION,
-    benchmarkConfigVersion: crosswalk.version,
+    benchmarkConfigVersion: getFrozenCanonicalBenchmarkConfigVersion(),
     evidenceConfigVersion: freeze.evidence_config.version,
     strengthModelVersion: STRENGTH_MODEL_VERSION,
     glowConfigVersion: GLOW_CONFIG_VERSION,
   };
+}
+
+/** Returns the checked-in frozen version identifiers without writing to the database. */
+export function getFrozenCanonicalProgressionVersions() {
+  return versions();
 }
 
 function stableJson(value: unknown): string {

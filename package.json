@@ -11,6 +11,7 @@
     "server:prod": "NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
     "canonical:seed": "tsx scripts/seed-canonical-progression.ts",
+    "canonical:deep-assessment-inventory": "tsx scripts/report-deep-assessment-canonical-mapping-inventory.ts",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix",
     "check:types": "NODE_OPTIONS=--max-old-space-size=8192 tsc --noEmit",

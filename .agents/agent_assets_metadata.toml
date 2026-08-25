@@ -51,3 +51,10 @@ uri = "file://docs/specs/batch-4a-phase1-corrections-share.zip"
 type = "unspecified"
 title = "Batch 4A Developer Handoff"
 description = "One shareable package containing the complete Phase 1 correction specification and the full deterministic canonical crosswalk."
+
+[[outputs]]
+id = "4AMBRkH-SBCY-wVHTJvnd"
+uri = "file://docs/reports/deep-assessment-canonical-mapping-inventory.json"
+type = "unspecified"
+title = "Deep Assessment canonical mapping inventory"
+description = "Complete current inventory of active Deep Assessment keys and their frozen canonical binding classification."

@@ -21,6 +21,7 @@ import {
   readCanonicalCurrentSnapshot,
   type CanonicalCurrentSnapshot,
 } from "./canonical-progression-service";
+import { getRevalidatedTrustedObservationIds } from "./deep-assessment-canonical-mapping-service";
 import {
   canEvaluateDevelopmentContext,
   type PolicyResult,
@@ -441,6 +442,14 @@ async function buildDevelopmentContextInTransaction(
       eq(deepAssessmentTrustedObservations.academyId, academyId),
     ))
     .orderBy(desc(deepAssessmentTrustedObservations.createdAt), asc(deepAssessmentTrustedObservations.id));
+  // Trusted observations are append-only, but verify their original exact
+  // source-key binding at read time as defense in depth. A malformed historic
+  // row remains invisible to the delta path rather than becoming eligible just
+  // because its stored benchmark/component pair exists elsewhere.
+  const validTrustedObservationIds = await getRevalidatedTrustedObservationIds(tx, deepObservationRows);
+  const deltaEligibleDeepObservations = deepObservationRows.filter((row) =>
+    validTrustedObservationIds.has(row.id),
+  );
 
   // Evidence owns no academy column. The join above is the first ownership
   // check; this explicit filter is a second defensive check before assembly.
@@ -505,7 +514,7 @@ async function buildDevelopmentContextInTransaction(
     // contract. Never infer it from captureType, timestamps, or review data.
     trustedObservation: null,
   }));
-  const deepCandidates: EvidenceAssemblyCandidate[] = deepObservationRows.map((row) => ({
+  const deepCandidates: EvidenceAssemblyCandidate[] = deltaEligibleDeepObservations.map((row) => ({
     evidenceId: deepObservationRef(row.id),
     playerId: row.playerId,
     academyId: row.academyId,

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -85,6 +85,9 @@ export function DeepAssessmentDrawer({ visible, player, onClose, onSaved }: Deep
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Map<string, { score: number | null; confidence: string }>>(new Map());
   const [saving, setSaving] = useState(false);
+  // Retain the server retry token when a network request fails. A new capture
+  // begins only after a successful save clears the pending batch.
+  const captureIdRef = useRef<string | null>(null);
 
   const { data: assessmentData, isLoading } = useQuery<{
     skills: DeepAssessmentSkill[];
@@ -107,12 +110,16 @@ export function DeepAssessmentDrawer({ visible, player, onClose, onSaved }: Deep
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/players/${player?.id}/deep-assessment`] });
       setPendingChanges(new Map());
+      captureIdRef.current = null;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
   });
 
   const handleScoreChange = (skillId: string, score: number | null, confidence: string = "medium") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Any edit after a failed save starts a new immutable capture. An unchanged
+    // retry retains the token in handleSave and is safely idempotent.
+    captureIdRef.current = null;
     setPendingChanges(prev => {
       const updated = new Map(prev);
       updated.set(skillId, { score, confidence });
@@ -122,6 +129,7 @@ export function DeepAssessmentDrawer({ visible, player, onClose, onSaved }: Deep
 
   const handleConfidenceChange = (skillId: string, confidence: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    captureIdRef.current = null;
     setPendingChanges(prev => {
       const updated = new Map(prev);
       const existing = updated.get(skillId) || { score: null, confidence: "medium" };
@@ -143,7 +151,9 @@ export function DeepAssessmentDrawer({ visible, player, onClose, onSaved }: Deep
     try {
       // This is only a retry token. The server, not the client, binds the
       // observation to the actor, player, academy, benchmark, and capture time.
-      await saveMutation.mutateAsync({ captureId: Crypto.randomUUID(), assessments });
+      const captureId = captureIdRef.current ?? Crypto.randomUUID();
+      captureIdRef.current = captureId;
+      await saveMutation.mutateAsync({ captureId, assessments });
       onSaved?.();
     } finally {
       setSaving(false);
