@@ -19,7 +19,7 @@ import {
   sessionPlayers,
   sessions,
 } from "@shared/schema";
-import { getPlayerSeasonHistory } from "../routes/admin-seasons";
+import { getPlayerSeasonHistory, resolvePlayerSeasonScope } from "../routes/admin-seasons";
 import { requireRole } from "../auth";
 import {
   ACADEMY_SEASON_TRANSITION_MESSAGE,
@@ -158,6 +158,64 @@ describe("Task #2205 season-history behavior", () => {
       enrollmentId: closedEnrollmentId,
       seasonName: "Season 2025/26",
       sessionCount: 2,
+    });
+  });
+
+  it("5a. The server resolves only the current enrollment by default and allows an explicit closed enrollment", async () => {
+    const current = await resolvePlayerSeasonScope(playerId, academyId);
+    const closed = await resolvePlayerSeasonScope(playerId, academyId, closedEnrollmentId);
+    const unrelated = await resolvePlayerSeasonScope(playerId, academyId, uid());
+
+    expect(current?.enrollmentId).toBe(activeEnrollmentId);
+    expect(closed?.enrollmentId).toBe(closedEnrollmentId);
+    expect(unrelated).toBeNull();
+  });
+
+  it("5b. A new open enrollment starts with zero attendance while the just-closed season remains available", async () => {
+    const rolloverAt = new Date();
+    const newSeasonId = uid();
+    const newEnrollmentId = uid();
+
+    await db.execute(sql`
+      UPDATE player_season_enrollments
+      SET ended_at = ${rolloverAt}
+      WHERE id = ${activeEnrollmentId}
+    `);
+    await db.execute(sql`
+      UPDATE academy_seasons
+      SET is_active = false, ended_at = ${rolloverAt}
+      WHERE academy_id = ${academyId} AND is_active = true
+    `);
+    await db.insert(academySeasons).values({
+      id: newSeasonId,
+      academyId,
+      name: "Season 2027/28",
+      startDate: "2027-01-01",
+      isActive: true,
+    } as any);
+    await db.insert(playerSeasonEnrollments).values({
+      id: newEnrollmentId,
+      playerId,
+      academyId,
+      seasonId: newSeasonId,
+      startedAt: rolloverAt,
+    } as any);
+
+    const history = await getPlayerSeasonHistory(playerId, academyId);
+    const justClosed = history.history.find(
+      (season) => season.enrollmentId === activeEnrollmentId,
+    );
+
+    expect(history.currentSeason).toMatchObject({
+      enrollmentId: newEnrollmentId,
+      seasonName: "Season 2027/28",
+      sessionCount: 0,
+      attendedCount: 0,
+    });
+    expect(justClosed).toMatchObject({
+      enrollmentId: activeEnrollmentId,
+      sessionCount: 1,
+      attendedCount: 1,
     });
   });
 

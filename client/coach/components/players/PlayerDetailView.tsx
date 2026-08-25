@@ -1661,9 +1661,11 @@ export function PlayerDetailView({
     seriesTitle?: string | null;
   }
   const { data: attendanceHistoryData } = useQuery<{ history: AttendanceHistoryRecord[] }>({
-    queryKey: [`/api/coach/players/${player.id}/attendance-history`],
+    queryKey: [
+      `/api/coach/players/${player.id}/attendance-history?seasonEnrollmentId=${encodeURIComponent(selectedSeasonEnrollmentId ?? "")}`,
+    ],
     staleTime: 0,
-    enabled: showRatePlayerSessions,
+    enabled: showRatePlayerSessions && !!selectedSeasonEnrollmentId,
   });
 
   interface StrokeFeedbackRow {
@@ -1926,7 +1928,7 @@ export function PlayerDetailView({
               <Pressable onPress={() => setShowSeasonHistory(true)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#CCFF0015", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4, borderWidth: 1, borderColor: "#CCFF0030" }}>
                 <Ionicons name="calendar-outline" size={11} color="#CCFF00" />
                 <Text style={{ color: "#CCFF00", fontSize: 11, fontWeight: "600" }}>
-                  {selectedSeason.seasonName}{isViewingClosedSeason ? " · Closed" : ""}
+                  {selectedSeason.seasonName}{isViewingClosedSeason ? " · Closed" : " · Current"}
                 </Text>
                 <Ionicons name="chevron-down" size={10} color="#CCFF0080" />
               </Pressable>
@@ -2318,7 +2320,14 @@ export function PlayerDetailView({
         </CollapsibleSection>
 
         <CollapsibleSection title="Attendance History" icon="calendar-outline" iconColor={Colors.dark.xpCyan}>
-          <PlayerAttendanceSection playerId={player.id} playerName={localPlayer.name} tz={tz} hideHeader />
+          <PlayerAttendanceSection
+            playerId={player.id}
+            playerName={localPlayer.name}
+            tz={tz}
+            hideHeader
+            seasonEnrollmentId={selectedSeasonEnrollmentId}
+            seasonName={selectedSeason?.seasonName ?? null}
+          />
         </CollapsibleSection>
 
         <PlayerStrokeFeedbackSection playerId={player.id} />

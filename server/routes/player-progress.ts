@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
   import { db } from "../db";
   import { storage } from "../storage";
-  import { eq, sql, desc, and, asc, inArray, count, ilike } from "drizzle-orm";
+  import { eq, sql, desc, and, asc, inArray, count, ilike, gte, lte } from "drizzle-orm";
   import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateSessionOwnership, type AuthenticatedRequest } from "../auth";
   import { z } from "zod";
   import { fromZodError } from "zod-validation-error";
@@ -12,6 +12,7 @@ import { Router, type Response } from "express";
 import { getPlayerHealthSnapshot } from "./player-health";
 import { canMutateSession } from "../lib/session-actor-policy";
 import { resolveAcademyAuthority } from "../lib/academy-auth";
+import { resolvePlayerSeasonScope } from "./admin-seasons";
   const router = Router();
   
     // ==================== PLAYER PROGRESS ====================
@@ -268,7 +269,28 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
           await import("../services/attendanceReportPdf");
         type _AttendanceReportData = import("../services/attendanceReportPdf").AttendanceReportData;
 
-        const academy = academyId ? await storage.getAcademy(academyId) : null;
+        const playerAcademyId = player.academyId;
+        if (!playerAcademyId) {
+          return res.status(404).json({ error: "Player academy not found" });
+        }
+        const requestedEnrollmentId = typeof req.query.seasonEnrollmentId === "string"
+          ? req.query.seasonEnrollmentId.trim() || undefined
+          : undefined;
+        const seasonScope = await resolvePlayerSeasonScope(
+          id,
+          playerAcademyId,
+          requestedEnrollmentId,
+        );
+        if (!seasonScope) {
+          if (requestedEnrollmentId) {
+            return res.status(404).json({ error: "Season enrollment not found" });
+          }
+          return res.status(404).json({ error: "No current season enrollment" });
+        }
+        const dateParam = req.query.date as string | undefined;
+        const now = dateParam ? new Date(dateParam) : new Date();
+        const scopeEnd = seasonScope.endedAt ?? now;
+        const academy = await storage.getAcademy(playerAcademyId);
 
         // Get attendance history (past sessions only)
         const playerRecords = await db
@@ -307,7 +329,12 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
               seriesId: sessions.seriesId,
             })
             .from(sessions)
-            .where(inArray(sessions.id, sessionIds.filter(Boolean) as string[]));
+            .where(and(
+              inArray(sessions.id, sessionIds.filter(Boolean) as string[]),
+              eq(sessions.academyId, playerAcademyId),
+              gte(sessions.startTime, seasonScope.startedAt),
+              lte(sessions.startTime, scopeEnd),
+            ));
 
           sessionMap = sessionDetails.reduce(
             (acc, s) => {
@@ -386,8 +413,6 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
         }
 
         // Filter out future sessions - compare directly in UTC
-        const dateParam = req.query.date as string | undefined;
-        const now = dateParam ? new Date(dateParam) : new Date();
         const DUBAI_OFFSET = 4;
         const _dubaiNow = new Date(
           now.getTime() + DUBAI_OFFSET * 60 * 60 * 1000,
@@ -518,6 +543,7 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
 
         const reportData = {
           reportDate: now.toISOString(),
+          seasonName: seasonScope.seasonName,
           academy: {
             name: academy?.name || "Tennis Academy",
           },
@@ -978,7 +1004,10 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
     async (req: AuthenticatedRequest, res: Response) => {
       try {
         const { playerId } = req.params;
-        const academyId = req.user!.academyId;
+        const academyId = req.user!.currentAcademyId ?? req.user!.academyId;
+        if (!academyId) {
+          return res.status(400).json({ error: "Academy required" });
+        }
 
         const { valid } = await validatePlayerOwnership(
           playerId,
@@ -997,6 +1026,34 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
 
         const dateParam = req.query.date as string | undefined;
         const now = dateParam ? new Date(dateParam) : new Date();
+        const requestedEnrollmentId = typeof req.query.seasonEnrollmentId === "string"
+          ? req.query.seasonEnrollmentId.trim() || undefined
+          : undefined;
+        const seasonScope = await resolvePlayerSeasonScope(
+          playerId,
+          academyId,
+          requestedEnrollmentId,
+        );
+
+        // Attendance is an operational, season-scoped view. A missing open
+        // enrollment is deliberately empty rather than silently returning the
+        // player's lifetime record. A supplied ID must resolve inside this
+        // player and academy, so a coach cannot broaden a view with dates or an
+        // unrelated enrollment ID.
+        if (!seasonScope) {
+          if (requestedEnrollmentId) {
+            return res.status(404).json({ error: "Season enrollment not found" });
+          }
+          return res.json({
+            history: [],
+            seriesSummaries: [],
+            total: 0,
+            limit: pageLimit,
+            offset: pageOffset,
+            season: null,
+          });
+        }
+        const scopeEnd = seasonScope.endedAt ?? now;
 
         // ─── Step 1: Paginated history + total count (single SQL query) ─────────
         //
@@ -1031,6 +1088,9 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
             JOIN sessions s ON s.id = sp.session_id
             WHERE sp.player_id = ${playerId}
               AND s.start_time < ${now}
+              AND s.academy_id = ${academyId}
+              AND s.start_time >= ${seasonScope.startedAt}
+              AND s.start_time <= ${scopeEnd}
               AND s.status != 'cancelled'
               AND COALESCE(sp.attendance_status, '') NOT IN ('holiday', 'vacation')
               AND NOT (
@@ -1057,6 +1117,9 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
              AND serp.status IN ('active', 'paused', 'left')
             WHERE s.status = 'completed'
               AND s.start_time < ${now}
+              AND s.academy_id = ${academyId}
+              AND s.start_time >= ${seasonScope.startedAt}
+              AND s.start_time <= ${scopeEnd}
               AND s.start_time > COALESCE(serp.joined_at, serp.created_at)
               AND (serp.left_at IS NULL OR s.start_time < serp.left_at)
               AND NOT EXISTS (
@@ -1115,6 +1178,9 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
             JOIN sessions s ON s.id = sp.session_id
             WHERE sp.player_id = ${playerId}
               AND s.start_time < ${now}
+              AND s.academy_id = ${academyId}
+              AND s.start_time >= ${seasonScope.startedAt}
+              AND s.start_time <= ${scopeEnd}
               AND s.status != 'cancelled'
               AND COALESCE(sp.attendance_status, '') NOT IN ('holiday', 'vacation')
               AND NOT (
@@ -1135,6 +1201,9 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
              AND serp.status IN ('active', 'paused', 'left')
             WHERE s.status = 'completed'
               AND s.start_time < ${now}
+              AND s.academy_id = ${academyId}
+              AND s.start_time >= ${seasonScope.startedAt}
+              AND s.start_time <= ${scopeEnd}
               AND s.start_time > COALESCE(serp.joined_at, serp.created_at)
               AND (serp.left_at IS NULL OR s.start_time < serp.left_at)
               AND NOT EXISTS (
@@ -1341,6 +1410,13 @@ import { resolveAcademyAuthority } from "../lib/academy-auth";
           total,
           limit: pageLimit,
           offset: pageOffset,
+          season: {
+            enrollmentId: seasonScope.enrollmentId,
+            seasonId: seasonScope.seasonId,
+            seasonName: seasonScope.seasonName,
+            startedAt: seasonScope.startedAt,
+            endedAt: seasonScope.endedAt ?? null,
+          },
         });
       } catch (error) {
         console.error("Error fetching player attendance history:", error);

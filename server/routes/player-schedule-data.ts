@@ -41,11 +41,12 @@ const CACHE_TTL_MS = 30_000;
 function cacheKey(
   playerId: string,
   academyId: string | null | undefined,
+  sessionScope: "current" | "all",
 ): string {
   // Include academy context — multi-academy users (admin/owner roles
   // viewing a player tab) can switch their effective academy via
   // x-academy-id, and the resolved schedule payload differs per academy.
-  return `${playerId}|${academyId ?? "_"}`;
+  return `${playerId}|${academyId ?? "_"}|${sessionScope}`;
 }
 
 function getCached(key: string): Record<string, unknown> | null {
@@ -135,6 +136,8 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const playerId = req.user?.playerId;
+        const sessionScope: "current" | "all" =
+          req.query.historyScope === "all" ? "all" : "current";
 
       // Pre-onboarding / no-player-profile users — return empty shells
       // so the Schedule screen can still mount its empty-state.
@@ -160,7 +163,11 @@ router.get(
         });
       }
 
-      const key = cacheKey(playerId, req.user?.currentAcademyId);
+        const key = cacheKey(
+          playerId,
+          req.user?.currentAcademyId ?? req.user?.academyId,
+          sessionScope,
+        );
       const cached = getCached(key);
       if (cached) {
         return res.json(cached);
@@ -189,7 +196,10 @@ router.get(
 
       // Build paths exactly as the screen builds them today so the
       // primed legacy queryKeys hit cache byte-equivalent.
-      const v2WalletPath = `/api/v2/credits/wallet/${encodeURIComponent(playerId)}`;
+        const sessionsPath = sessionScope === "all"
+          ? `/api/player/me/sessions?scope=all`
+          : `/api/player/me/sessions`;
+        const v2WalletPath = `/api/v2/credits/wallet/${encodeURIComponent(playerId)}`;
       const paymentsPath = `/api/parent/payments/${encodeURIComponent(playerId)}`;
       const academyPaymentInfoPath = `/api/parent/academy-payment-info/${encodeURIComponent(playerId)}`;
 
@@ -206,7 +216,7 @@ router.get(
         calendarToken,
         seasonData,
       ] = await Promise.all([
-        subFetch<unknown>(`/api/player/me/sessions`, authHeader, forwardHeaders),
+        subFetch<unknown>(sessionsPath, authHeader, forwardHeaders),
         subFetch<unknown>(`/api/player/me/court-bookings`, authHeader, forwardHeaders),
         subFetch<unknown>(`/api/player/me/matches`, authHeader, forwardHeaders),
         subFetch<unknown>(`/api/player/me/vacation`, authHeader, forwardHeaders),
@@ -247,6 +257,7 @@ router.get(
         academyPaymentInfo: academyPaymentInfo.data ?? null,
         calendarToken: calendarToken.data ?? null,
         seasonData: seasonData.data ?? null,
+        sessionScope,
         // Echo the resolved playerId-templated keys so the client
         // can prime caches under the EXACT keys it would otherwise
         // hit, no string-templating in two places.

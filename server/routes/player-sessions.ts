@@ -6,6 +6,7 @@ import { getPlayerCountryLadderRank, resolvePlayerSports } from "./tournaments-l
   import { db } from "../db";
   import { storage } from "../storage";
   import { eq, sql, desc, and, ne, gt, gte, asc, inArray, isNotNull, or, count, lte } from "drizzle-orm";
+import { resolvePlayerSeasonScope } from "./admin-seasons";
   import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, requireFeatureUnlock, generateRefreshToken, generateToken, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";import { users, coaches, players, sessions, coachingSeries, seriesPlayers, sessionPlayers, courts, locations, playerHolidays, ballLevels, playerNotifications, posts as postsTable, postReactions as postReactionsTable, communityGroups as communityGroupsTable, groupMembers as groupMembersTable, groupEvents as groupEventsTable, groupEventRsvps as groupEventRsvpsTable, conversations as conversationsTable, conversationParticipants as conversationParticipantsTable, messages as messagesTable, messageReactions as messageReactionsTable, playerConnections, parentPlayerRelations, coachNotifications, playerSelfUpdateSchema, bookingRequests, playerQuests, playerStreaks, playerBadges, xpTransactions } from "@shared/schema";
   import { sendPushNotification, getPlayerPushTokens, getCoachPushTokens } from "../pushNotifications";
   import { awardXP } from "../services/xp-service";import { getBallLevelFromAge, calculateAgeFromDOB } from "@shared/ballLevel";
@@ -8809,6 +8810,15 @@ import fs from "fs";
       const { generateAttendanceReportHtml } = await import("../services/attendanceReportPdf");
 
       const academyId = player.academyId;
+      const scopedEnrollmentId = token.split(".").length === 2
+        ? token.split(".")[1]
+        : undefined;
+      const seasonScope = academyId && scopedEnrollmentId
+        ? await resolvePlayerSeasonScope(player.id, academyId, scopedEnrollmentId)
+        : null;
+      if (scopedEnrollmentId && !seasonScope) {
+        return res.status(404).send("<h1>Report not found</h1>");
+      }
       const academy = academyId ? await storage.getAcademy(academyId) : null;
 
       const playerRecords = await db
@@ -8831,7 +8841,14 @@ import fs from "fs";
         const sessionDetails = await db
           .select({ id: sessions.id, startTime: sessions.startTime, endTime: sessions.endTime, sessionType: sessions.sessionType, status: sessions.status, seriesId: sessions.seriesId })
           .from(sessions)
-          .where(inArray(sessions.id, (sessionIds.filter((id): id is string => id !== null)) as any[]));
+          .where(and(
+            inArray(sessions.id, (sessionIds.filter((id): id is string => id !== null)) as any[]),
+            ...(academyId ? [eq(sessions.academyId, academyId)] : []),
+            ...(seasonScope ? [
+              gte(sessions.startTime, seasonScope.startedAt),
+              lte(sessions.startTime, seasonScope.endedAt ?? new Date()),
+            ] : []),
+          ));
 
         sessionMap = sessionDetails.reduce((acc, s) => {
           acc[s.id] = { startTime: s.startTime, endTime: s.endTime, sessionType: s.sessionType, status: s.status ?? "", seriesId: s.seriesId };
@@ -9045,6 +9062,9 @@ import fs from "fs";
 
         const player = await storage.getPlayer(id);
         if (!player) return res.status(404).json({ error: "Player not found" });
+        if (!player.academyId) {
+          return res.status(404).json({ error: "Player academy not found" });
+        }
 
         // Only coaches, assistants, academy owners and platform owners may generate share tokens
         const allowedRoles = ["coach", "assistant", "academy_owner", "platform_owner"];
@@ -9060,9 +9080,22 @@ import fs from "fs";
           return res.status(403).json({ error: "Access denied" });
         }
 
+        const requestedEnrollmentId = typeof req.query.seasonEnrollmentId === "string"
+          ? req.query.seasonEnrollmentId.trim() || undefined
+          : undefined;
+        const seasonScope = await resolvePlayerSeasonScope(
+          id,
+          player.academyId!,
+          requestedEnrollmentId,
+        );
+        if (!seasonScope) {
+          return res.status(404).json({ error: "Season enrollment not found" });
+        }
+
         let token = player.attendanceShareToken;
-        if (!token || token.length > 15) {
-          token = crypto.randomBytes(8).toString("base64url");
+        const currentScope = token?.split(".").length === 2 ? token.split(".")[1] : null;
+        if (!token || currentScope !== seasonScope.enrollmentId) {
+          token = `${crypto.randomBytes(8).toString("base64url")}.${seasonScope.enrollmentId}`;
           await db.update(players).set({ attendanceShareToken: token }).where(eq(players.id, id));
         }
 

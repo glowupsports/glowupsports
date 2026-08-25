@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, Modal, Alert, Platform, ScrollView } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Feather } from "@expo/vector-icons";
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -63,11 +63,20 @@ interface Props {
   playerName: string;
   tz: string;
   hideHeader?: boolean;
+  seasonEnrollmentId?: string | null;
+  seasonName?: string | null;
 }
 
 const PAGE_SIZE = 20;
 
-export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader = false }: Props) {
+export function PlayerAttendanceSection({
+  playerId,
+  playerName,
+  tz,
+  hideHeader = false,
+  seasonEnrollmentId,
+  seasonName,
+}: Props) {
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<"all" | "private" | "semi" | "group">("all");
   const [isMarkingPaid, setIsMarkingPaid] = useState(false);
@@ -77,7 +86,8 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
   const [allHistory, setAllHistory] = useState<AttendanceHistoryRecord[]>([]);
   const [seriesAttendanceSummaries, setSeriesAttendanceSummaries] = useState<SeriesAttendanceSummary[]>([]);
   const [totalSessions, setTotalSessions] = useState(0);
-  const prevPlayerIdRef = useRef(playerId);
+  const scopeKey = `${playerId}:${seasonEnrollmentId ?? "current"}`;
+  const prevScopeKeyRef = useRef(scopeKey);
 
   const normalizeSessionType = (raw: string): "private" | "semi" | "group" => {
     const lower = (raw ?? "").toLowerCase();
@@ -91,23 +101,28 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
   const [isSharingAttendanceLink, setIsSharingAttendanceLink] = useState(false);
   const [isSendingMonthlyReport, setIsSendingMonthlyReport] = useState(false);
 
-  const attendanceQueryKey = `/api/coach/players/${playerId}/attendance-history?limit=${PAGE_SIZE}&offset=${pageOffset}`;
+  const attendanceQueryKey = `/api/coach/players/${playerId}/attendance-history?${[
+    `limit=${PAGE_SIZE}`,
+    `offset=${pageOffset}`,
+    ...(seasonEnrollmentId ? [`seasonEnrollmentId=${encodeURIComponent(seasonEnrollmentId)}`] : []),
+  ].join("&")}`;
 
   const { data: attendanceData, isFetching: isLoadingPage } = useQuery<AttendanceHistoryResponse>({
     queryKey: [attendanceQueryKey],
-    placeholderData: keepPreviousData,
   });
 
-  // Reset accumulated state when the player changes
+  // Reset pagination whenever the player or server-authoritative enrollment
+  // changes. Keeping rows from the prior season here would make the top-level
+  // season stats disagree with Attendance History during a rollover.
   useEffect(() => {
-    if (prevPlayerIdRef.current !== playerId) {
-      prevPlayerIdRef.current = playerId;
+    if (prevScopeKeyRef.current !== scopeKey) {
+      prevScopeKeyRef.current = scopeKey;
       setPageOffset(0);
       setAllHistory([]);
       setSeriesAttendanceSummaries([]);
       setTotalSessions(0);
     }
-  }, [playerId]);
+  }, [scopeKey]);
 
   // Accumulate pages as they arrive
   useEffect(() => {
@@ -161,9 +176,11 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
     setAllHistory([]);
     setTotalSessions(0);
     setPageOffset(0);
-    // Explicitly invalidate the first page to trigger a fresh fetch
     queryClient.invalidateQueries({
-      queryKey: [`/api/coach/players/${playerId}/attendance-history?limit=${PAGE_SIZE}&offset=0`],
+      predicate: (query) => {
+        const k = query.queryKey[0];
+        return typeof k === "string" && (k as string).includes(`/coach/players/${playerId}/attendance-history`);
+      },
     });
   };
 
@@ -241,7 +258,11 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
     try {
       setIsExportingAttendanceReport(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const response = await fetch(new URL(`/api/players/${playerId}/attendance-report`, getApiUrl()).toString(), {
+      const reportUrl = new URL(`/api/players/${playerId}/attendance-report`, getApiUrl());
+      if (seasonEnrollmentId) {
+        reportUrl.searchParams.set("seasonEnrollmentId", seasonEnrollmentId);
+      }
+      const response = await fetch(reportUrl.toString(), {
         credentials: "include",
         headers: getAuthHeaders(),
       });
@@ -282,8 +303,12 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
     try {
       setIsSharingAttendanceLink(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const shareUrl = new URL(`/api/players/${playerId}/attendance-share-token`, getApiUrl());
+      if (seasonEnrollmentId) {
+        shareUrl.searchParams.set("seasonEnrollmentId", seasonEnrollmentId);
+      }
       const response = await fetch(
-        new URL(`/api/players/${playerId}/attendance-share-token`, getApiUrl()).toString(),
+        shareUrl.toString(),
         { method: "POST", credentials: "include", headers: getAuthHeaders() },
       );
       if (!response.ok) throw new Error("Failed to generate share link");
@@ -465,8 +490,12 @@ export function PlayerAttendanceSection({ playerId, playerName, tz, hideHeader =
         {attendanceHistory.length === 0 ? (
           <View style={styles.emptyAttendanceCard}>
             <Ionicons name="calendar-outline" size={40} color={Colors.dark.disabled} />
-            <Text style={styles.emptyAttendanceText}>No sessions yet</Text>
-            <Text style={styles.emptyAttendanceSubtext}>Sessions will appear here once attended</Text>
+            <Text style={styles.emptyAttendanceText}>
+              {seasonName ? `No attendance yet in ${seasonName}.` : "No attendance yet"}
+            </Text>
+            <Text style={styles.emptyAttendanceSubtext}>
+              {seasonName ? "Attendance in this season will appear here." : "Sessions will appear here once attended"}
+            </Text>
           </View>
         ) : (
           <View style={styles.attendanceHistoryList}>

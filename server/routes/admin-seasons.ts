@@ -22,6 +22,7 @@ import {
   normalizeClosingCreditSnapshot,
   type ClosingCreditSnapshot,
 } from "@shared/season-history";
+import { invalidatePlayerScheduleDataCache } from "./player-schedule-data";
 
 // ── Season stats helper ────────────────────────────────────────────────────
 // For each enrollment ID passed, returns only metrics that fall inside the
@@ -253,6 +254,49 @@ export async function getPlayerSeasonHistory(
   };
 }
 
+/**
+ * Resolves an attendance/schedule window from an enrollment the server owns.
+ * Callers may request an enrollment ID, but can never supply their own dates
+ * or cross-player enrollment. Omitting an ID intentionally means the player's
+ * open enrollment only; it never falls back to lifetime history.
+ */
+export type PlayerSeasonScope = Pick<
+  PlayerSeasonRow,
+  "enrollmentId" | "seasonId" | "seasonName" | "startedAt" | "endedAt" | "seasonIsActive"
+>;
+
+export async function resolvePlayerSeasonScope(
+  playerId: string,
+  academyId: string,
+  requestedEnrollmentId?: string,
+): Promise<PlayerSeasonScope | null> {
+  const conditions = [
+    eq(playerSeasonEnrollments.playerId, playerId),
+    eq(playerSeasonEnrollments.academyId, academyId),
+  ];
+  if (requestedEnrollmentId) {
+    conditions.push(eq(playerSeasonEnrollments.id, requestedEnrollmentId));
+  } else {
+    conditions.push(isNull(playerSeasonEnrollments.endedAt));
+  }
+
+  const [enrollment] = await db
+    .select({
+      enrollmentId: playerSeasonEnrollments.id,
+      startedAt: playerSeasonEnrollments.startedAt,
+      endedAt: playerSeasonEnrollments.endedAt,
+      seasonId: academySeasons.id,
+      seasonName: academySeasons.name,
+      seasonIsActive: academySeasons.isActive,
+    })
+    .from(playerSeasonEnrollments)
+    .innerJoin(academySeasons, eq(playerSeasonEnrollments.seasonId, academySeasons.id))
+    .where(and(...conditions))
+    .limit(1);
+
+  return enrollment ?? null;
+}
+
 const router = Router();
 
 type EndSeasonResult = {
@@ -378,6 +422,7 @@ router.post(
       const now = new Date();
       let seasonName = "";
       let enrollmentsClosed = 0;
+      let transitionedPlayerIds: string[] = [];
 
       await db.transaction(async (tx) => {
         // Serialise all season mutations for this academy — including the
@@ -406,6 +451,7 @@ router.post(
           .orderBy(asc(playerSeasonEnrollments.playerId));
 
         enrollmentsClosed = openEnrollments.length;
+        transitionedPlayerIds = openEnrollments.map((enrollment) => enrollment.playerId);
 
         for (const enrollment of openEnrollments) {
           const snapshot = await snapshotClosingCredits(tx, enrollment.playerId, academyId);
@@ -421,6 +467,9 @@ router.post(
           .where(and(eq(academySeasons.academyId, academyId), eq(academySeasons.isActive, true)));
       });
 
+      for (const playerId of transitionedPlayerIds) {
+        invalidatePlayerScheduleDataCache(playerId);
+      }
       res.json({
         success: true,
         seasonName,
@@ -462,6 +511,7 @@ router.post(
       const now = new Date();
       let newSeason!: typeof academySeasons.$inferSelect;
       let enrolledCount = 0;
+      let transitionedPlayerIds: string[] = [];
 
       await db.transaction(async (tx) => {
         // Serialise on the academy row — protects both first-ever and transition
@@ -515,6 +565,10 @@ router.post(
           ));
 
         enrolledCount = academyPlayers.length;
+        transitionedPlayerIds = Array.from(new Set([
+          ...openEnrollments.map((enrollment) => enrollment.playerId),
+          ...academyPlayers.map((player) => player.id),
+        ]));
         if (academyPlayers.length > 0) {
           await tx.insert(playerSeasonEnrollments).values(
             academyPlayers.map((p) => ({
@@ -527,6 +581,9 @@ router.post(
         }
       });
 
+      for (const playerId of transitionedPlayerIds) {
+        invalidatePlayerScheduleDataCache(playerId);
+      }
       res.json({ season: newSeason, enrolledCount });
     } catch (err) {
       console.error("[admin-seasons] POST /api/admin/seasons error:", err);
@@ -573,6 +630,7 @@ router.post(
           : `selection:${selectedIds.join(",")}`;
         const now = new Date();
         let response!: EndSeasonResult;
+        let transitionedPlayerIds: string[] = [];
 
         await db.transaction(async (tx) => {
           // One serialisation point covers creation, closing, enrollments, and
@@ -732,6 +790,7 @@ router.post(
                 startedAt: now,
               })),
             );
+            transitionedPlayerIds = eligibleAcademyPlayers.map((player) => player.id);
           }
 
           response = {
@@ -755,6 +814,13 @@ router.post(
           });
         });
 
+        // The mobile Schedule aggregate is intentionally short-lived, but it
+        // includes the open enrollment state. Drop every affected player's
+        // cached aggregate immediately so no one sees the just-closed season
+        // banner after the new enrollment commits.
+        for (const playerId of transitionedPlayerIds) {
+          invalidatePlayerScheduleDataCache(playerId);
+        }
         return res.json(response);
       }
 

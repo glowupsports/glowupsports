@@ -45,6 +45,9 @@ export interface PlayerPayment {
   // so the player UI can label the row distinctly.
   source?: string | null;
   recordedByName?: string | null;
+  // Resolved from the payment timestamp against immutable enrollment windows.
+  // Null means the legacy payment predates a known enrollment and is not guessed.
+  seasonName?: string | null;
 }
 
 export interface AcademyPaymentInfo {
@@ -362,6 +365,31 @@ function PaymentRow({
           <Text style={paymentStyles.method}>
             {methodLabel} · {dateStr}
           </Text>
+          {payment.seasonName ? (
+            <View
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 4,
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 6,
+                backgroundColor: `${Colors.dark.xpCyan}14`,
+                borderWidth: 1,
+                borderColor: `${Colors.dark.xpCyan}38`,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontWeight: "700",
+                  color: Colors.dark.xpCyan,
+                  letterSpacing: 0.3,
+                }}
+              >
+                {payment.seasonName.toUpperCase()}
+              </Text>
+            </View>
+          ) : null}
           {sourceLabel ? (
             <View
               style={{

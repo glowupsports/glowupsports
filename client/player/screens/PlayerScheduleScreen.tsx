@@ -331,6 +331,7 @@ export default function PlayerScheduleScreen() {
   const [calendarLinkCopied, setCalendarLinkCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ScheduleTab>("sessions");
+  const [historyScope, setHistoryScope] = useState<"current" | "all">("current");
   const [showLogPayment, setShowLogPayment] = useState(false);
   const [historyPaymentDetail, setHistoryPaymentDetail] =
     useState<PlayerPayment | null>(null);
@@ -378,6 +379,14 @@ export default function PlayerScheduleScreen() {
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     };
   }, []);
+
+  // Historical data is an intentional History-tab view. Returning to the
+  // operational Schedule always restores the open-enrollment session scope.
+  useEffect(() => {
+    if (activeTab !== "history" && historyScope !== "current") {
+      setHistoryScope("current");
+    }
+  }, [activeTab, historyScope]);
 
   const handleCopyBankField = useCallback(async (field: string, value: string) => {
     const trimmed = (value ?? "").trim();
@@ -470,12 +479,14 @@ export default function PlayerScheduleScreen() {
     _errors?: Record<string, number | null>;
     seasonData?: {
       currentSeason: {
-        id: string;
+        enrollmentId: string;
+        seasonId: string;
         seasonName: string;
         startedAt: string;
         endedAt: string | null;
       } | null;
     } | null;
+    sessionScope?: "current" | "all";
   }
 
   const {
@@ -483,7 +494,7 @@ export default function PlayerScheduleScreen() {
     isError: scheduleGodIsError,
     refetch: refetchScheduleGod,
   } = useQuery<ScheduleGodResponse>({
-    queryKey: ["/api/player/me/schedule-data"],
+    queryKey: ["/api/player/me/schedule-data", historyScope],
     enabled: !isGuest,
     // Short staleTime — payments + notifications need to surface fresh
     // pending-payment confirmations promptly. Background refetch on
@@ -491,6 +502,9 @@ export default function PlayerScheduleScreen() {
     staleTime: 30 * 1000,
     queryFn: async () => {
       const url = new URL("/api/player/me/schedule-data", getApiUrl());
+      if (historyScope === "all") {
+        url.searchParams.set("historyScope", "all");
+      }
       const r = await apiRequest("GET", url.toString());
       return r.json();
     },
@@ -511,6 +525,9 @@ export default function PlayerScheduleScreen() {
   const notificationsData = scheduleGodData?.notifications ?? undefined;
   const academyPaymentInfo = scheduleGodData?.academyPaymentInfo ?? undefined;
   const seasonData = scheduleGodData?.seasonData ?? null;
+  const currentSeasonStart = seasonData?.currentSeason?.startedAt
+    ? new Date(seasonData.currentSeason.startedAt)
+    : null;
 
   // Prime each legacy queryKey so downstream components and any
   // cross-screen consumer hits cache instead of triggering a fresh
@@ -522,7 +539,9 @@ export default function PlayerScheduleScreen() {
         queryClient.setQueryData(key, value);
       }
     };
-    setIfPresent(["/api/player/me/sessions"], scheduleGodData.sessions);
+    if (historyScope === "current") {
+      setIfPresent(["/api/player/me/sessions"], scheduleGodData.sessions);
+    }
     setIfPresent(["/api/player/me/court-bookings"], scheduleGodData.courtBookings);
     setIfPresent(["/api/player/me/matches"], scheduleGodData.matches);
     setIfPresent(["/api/player/me/vacation"], scheduleGodData.vacation);
@@ -541,7 +560,7 @@ export default function PlayerScheduleScreen() {
         scheduleGodData.academyPaymentInfo,
       );
     }
-  }, [scheduleGodData, queryClient]);
+  }, [historyScope, scheduleGodData, queryClient]);
 
   // Pending-payment polling. Used to live as a `refetchInterval` on the
   // payments useQuery; collapsed into a setInterval that re-fetches the
@@ -827,7 +846,10 @@ export default function PlayerScheduleScreen() {
     if (courtBookings) {
       for (const b of courtBookings) {
         const start = new Date(`${b.date.split("T")[0]}T${b.startTime || "00:00"}`);
-        if (start >= now) continue;
+        if (
+          start >= now
+          || (historyScope === "current" && currentSeasonStart && start < currentSeasonStart)
+        ) continue;
         const dur = b.durationMinutes ?? null;
         out.push({
           key: `cb-${b.id}`,
@@ -849,7 +871,10 @@ export default function PlayerScheduleScreen() {
     if (matches) {
       for (const m of matches) {
         const start = new Date(`${m.matchDate.split("T")[0]}T${m.matchTime || "00:00"}`);
-        if (start >= now) continue;
+        if (
+          start >= now
+          || (historyScope === "current" && currentSeasonStart && start < currentSeasonStart)
+        ) continue;
         out.push({
           key: `m-${m.id}`,
           date: start,
@@ -931,10 +956,10 @@ export default function PlayerScheduleScreen() {
         title: `${p.currency} ${parseFloat(p.amount).toFixed(2)} payment`,
         subtitle:
           p.paymentMethod === "bank_transfer"
-            ? "Bank transfer"
+            ? ["Bank transfer", p.seasonName].filter(Boolean).join(" · ")
             : p.paymentMethod === "cash"
-              ? "Cash"
-              : "Payment",
+              ? ["Cash", p.seasonName].filter(Boolean).join(" · ")
+              : ["Payment", p.seasonName].filter(Boolean).join(" · "),
         status: p.status.charAt(0).toUpperCase() + p.status.slice(1),
         accentColor: accent,
         payment: p,
@@ -985,7 +1010,16 @@ export default function PlayerScheduleScreen() {
     }
     return out.sort((a, b) => b.date.getTime() - a.date.getTime());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawSessions, courtBookings, matches, playerPayments, notificationsData, i18n.language]);
+  }, [
+    rawSessions,
+    courtBookings,
+    matches,
+    playerPayments,
+    notificationsData,
+    currentSeasonStart?.getTime(),
+    historyScope,
+    i18n.language,
+  ]);
 
   // Index events by date string for cheap lookup.
   const itemsByDate = useMemo(() => {
@@ -1487,6 +1521,16 @@ export default function PlayerScheduleScreen() {
                     </View>
                   ) : null}
                 </View>
+                {total === 0 ? (
+                  <View style={{ backgroundColor: "#CCFF000C", borderRadius: 8, padding: 9 }}>
+                    <Text style={{ color: "#CCFF00", fontSize: 12, fontWeight: "700" }}>
+                      New season started
+                    </Text>
+                    <Text style={{ color: Colors.dark.textSecondary, fontSize: 11, marginTop: 2, lineHeight: 15 }}>
+                      Your sessions and attendance for {seasonData.currentSeason.seasonName} will appear here.
+                    </Text>
+                  </View>
+                ) : null}
                 {total > 0 ? (
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     <View style={{ flex: 1, backgroundColor: "#FFFFFF08", borderRadius: 8, paddingVertical: 6, alignItems: "center" }}>
@@ -1577,11 +1621,51 @@ export default function PlayerScheduleScreen() {
         ) : null}
 
         {activeTab === "history" ? (
-          <HistoryTab
-            items={historyItems}
-            academyTimezone={profileData?.academy?.timezone || null}
-            locale={i18n.language || "en"}
-            onSelectItem={(item) => {
+          <>
+            <View style={{ paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: Spacing.xs }}>
+              <Text style={{ color: TextColors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, marginBottom: 8 }}>
+                SESSION HISTORY
+              </Text>
+              <View style={{ flexDirection: "row", gap: Spacing.sm }}>
+                <Pressable
+                  onPress={() => setHistoryScope("current")}
+                  style={{
+                    flex: 1,
+                    alignItems: "center",
+                    borderRadius: BorderRadius.full,
+                    paddingVertical: 8,
+                    backgroundColor: historyScope === "current" ? Colors.dark.primary : Backgrounds.surface,
+                    borderWidth: 1,
+                    borderColor: historyScope === "current" ? Colors.dark.primary : Backgrounds.surface,
+                  }}
+                >
+                  <Text style={{ color: historyScope === "current" ? Colors.dark.buttonText : TextColors.secondary, fontSize: 12, fontWeight: "700" }}>
+                    {seasonData?.currentSeason?.seasonName ?? "This season"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setHistoryScope("all")}
+                  style={{
+                    flex: 1,
+                    alignItems: "center",
+                    borderRadius: BorderRadius.full,
+                    paddingVertical: 8,
+                    backgroundColor: historyScope === "all" ? Colors.dark.primary : Backgrounds.surface,
+                    borderWidth: 1,
+                    borderColor: historyScope === "all" ? Colors.dark.primary : Backgrounds.surface,
+                  }}
+                >
+                  <Text style={{ color: historyScope === "all" ? Colors.dark.buttonText : TextColors.secondary, fontSize: 12, fontWeight: "700" }}>
+                    All history
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+            <HistoryTab
+              items={historyItems}
+              academyTimezone={profileData?.academy?.timezone || null}
+              locale={i18n.language || "en"}
+              onSelectItem={(item) => {
               Haptics.selectionAsync();
               if (item.kind === "payment" && item.payment) {
                 setHistoryPaymentDetail(item.payment);
@@ -1601,8 +1685,9 @@ export default function PlayerScheduleScreen() {
                   });
                 }
               }
-            }}
-          />
+              }}
+            />
+          </>
         ) : null}
       </ScrollView>
 

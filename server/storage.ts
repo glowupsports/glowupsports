@@ -10231,7 +10231,8 @@ export const storage = {
   async getPlayerSessionsWithDetails(
     playerId: string,
     startDate: Date,
-    endDate: Date
+    endDate: Date,
+    academyId?: string,
   ): Promise<{
     id: string;
     sessionPlayerId: string;
@@ -10286,7 +10287,8 @@ export const storage = {
         .where(and(
           inArray(sessions.id, sessionIds),
           gte(sessions.startTime, startDate),
-          lte(sessions.endTime, endDate)
+          lte(sessions.endTime, endDate),
+          ...(academyId ? [eq(sessions.academyId, academyId)] : []),
         ))
         .orderBy(sessions.startTime);
       

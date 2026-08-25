@@ -40,6 +40,7 @@ import { apiCache } from "../cache";
 import { awardXP } from "../services/xp-service";import crypto from "crypto";
 import { generateShortInviteCode } from "../utils/inviteCode";
 import { BALL_LEVEL_ORDER } from "@shared/ballLevel";
+import { resolvePlayerSeasonScope } from "./admin-seasons";
 
 const router = Router();
 
@@ -6635,16 +6636,47 @@ router.get(
       }
       const playerId = req.user!.playerId!;
 
-      // Get sessions for the past 90 days and next 30 days
-      const past = new Date();
-      past.setDate(past.getDate() - 90);
+      const requestedEnrollmentId = typeof req.query.seasonEnrollmentId === "string"
+        ? req.query.seasonEnrollmentId.trim() || undefined
+        : undefined;
+      const allHistory = req.query.scope === "all";
+      const player = await storage.getPlayer(playerId);
+      const academyId = req.user!.currentAcademyId ?? req.user!.academyId ?? player?.academyId;
       const future = new Date();
       future.setDate(future.getDate() + 30);
+      if (!academyId) {
+        return res.status(400).json({ error: "Academy required" });
+      }
+      let past: Date;
+      let end = future;
+
+      if (allHistory) {
+        // Historical browsing is explicit. The default path below never
+        // broadens to a lifetime session list after a season rollover.
+        past = new Date(0);
+      } else {
+        const seasonScope = await resolvePlayerSeasonScope(
+          playerId,
+          academyId,
+          requestedEnrollmentId,
+        );
+        if (!seasonScope) {
+          if (requestedEnrollmentId) {
+            return res.status(404).json({ error: "Season enrollment not found" });
+          }
+          return res.json([]);
+        }
+        past = seasonScope.startedAt;
+        if (seasonScope.endedAt && seasonScope.endedAt < end) {
+          end = seasonScope.endedAt;
+        }
+      }
 
       const sessions = await storage.getPlayerSessionsWithDetails(
         playerId,
         past,
-        future,
+        end,
+        academyId,
       );
 
       // Batch fetch coaches and courts for efficiency

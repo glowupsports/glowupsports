@@ -19,6 +19,7 @@ import { enrollPlayerInGroupSession } from "../sessionEnrolment";
 import { broadcastToPlayerIds, broadcastCourtAvailabilityUpdated } from "../websocket";
 import { invalidateHomeDataCache } from "./coach-home";
 import { buildFriendStatusMap } from "../services/friendStatus";
+import { getPlayerSeasonHistory } from "./admin-seasons";
 import { paymentProofUpload, wrapUploadHandler } from "../upload-middleware";
 import {
   uploadToSupabaseWithPath,
@@ -5758,11 +5759,33 @@ router.get(
           nameById[r.userId] = r.coachName || r.username || "";
         }
       }
+      // Payments remain all-time. When the payment date falls inside an
+      // enrollment window, attach that server-derived season label so an old
+      // payment cannot be mistaken for new-season activity. Legacy/unscoped
+      // payments deliberately retain a null label instead of being guessed.
+      const player = await storage.getPlayer(playerId);
+      const seasonHistory = player?.academyId
+        ? await getPlayerSeasonHistory(playerId, player.academyId)
+        : { currentSeason: null, history: [] };
+      const seasonWindows = [
+        ...(seasonHistory.currentSeason ? [seasonHistory.currentSeason] : []),
+        ...seasonHistory.history,
+      ];
+      const now = new Date();
+      const paymentSeasonName = (payment: { paymentDate?: Date | string | null; createdAt?: Date | string | null }) => {
+        const occurredAt = new Date(payment.paymentDate ?? payment.createdAt ?? 0);
+        if (!Number.isFinite(occurredAt.getTime())) return null;
+        return seasonWindows.find((season) =>
+          occurredAt >= new Date(season.startedAt)
+          && occurredAt <= new Date(season.endedAt ?? now),
+        )?.seasonName ?? null;
+      };
       const enriched = payments.map((p) => ({
         ...p,
         recordedByName: p.recordedByUserId
           ? nameById[p.recordedByUserId] || null
           : null,
+        seasonName: paymentSeasonName(p),
       }));
       res.json({ payments: enriched });
     } catch (error) {
