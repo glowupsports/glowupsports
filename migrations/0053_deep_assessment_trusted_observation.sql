@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS deep_assessment_trusted_observation (
   id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+  idempotency_key text NOT NULL,
   deep_assessment_id varchar NOT NULL REFERENCES player_deep_assessments(id),
   player_id varchar NOT NULL REFERENCES players(id),
   academy_id varchar NOT NULL REFERENCES academies(id),
@@ -14,8 +15,31 @@ CREATE TABLE IF NOT EXISTS deep_assessment_trusted_observation (
   occurred_at timestamptz NOT NULL,
   benchmark_relevance text NOT NULL CHECK (benchmark_relevance IN ('EXACT_BENCHMARK_COMPONENT', 'EXPLICIT_ADJACENT_COMPONENT')),
   verified_observer_ids jsonb NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT deep_assessment_trusted_observation_idempotency_key_unique
+    UNIQUE (idempotency_key)
 );
+
+ALTER TABLE deep_assessment_trusted_observation
+  ADD COLUMN IF NOT EXISTS idempotency_key text;
+UPDATE deep_assessment_trusted_observation
+  SET idempotency_key = id
+  WHERE idempotency_key IS NULL;
+ALTER TABLE deep_assessment_trusted_observation
+  ALTER COLUMN idempotency_key SET NOT NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'deep_assessment_trusted_observation_idempotency_key_unique'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM pg_class
+    WHERE relname = 'deep_assessment_trusted_observation_idempotency_key_unique'
+  ) THEN
+    ALTER TABLE deep_assessment_trusted_observation
+      ADD CONSTRAINT deep_assessment_trusted_observation_idempotency_key_unique
+      UNIQUE (idempotency_key);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS deep_assessment_trusted_observation_player_idx
   ON deep_assessment_trusted_observation (player_id, created_at);

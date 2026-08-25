@@ -1,15 +1,13 @@
 import { Router, type Request, type Response } from "express";
   import { db, pool } from "../db";
   import { storage } from "../storage";
-  import {
-    canonicalBenchmarkComponents,
-    canonicalBenchmarkDefinitions,
-    deepAssessmentSkills,
-    deepAssessmentTrustedObservations,
-    playerDeepAssessments,
-  } from "@shared/schema";
   import { eq, sql, and, inArray, count, isNull, gt } from "drizzle-orm";
   import { authMiddlewareWithFreshData as authMiddleware, requireRole, requireAcademy, validatePlayerOwnership, validateCourtOwnership, type AuthenticatedRequest } from "../auth";  import { fromZodError } from "zod-validation-error";  import { deletePlayerWithUserWipe, wipeLinkedUserAfterMerge } from "../services/player-lifecycle"; import { users, players, coaches, coachingSeries, seriesPlayers, playerBaselineSkillScores, playerBaselines, playerSkillScores, updatePlayerSchema, playerInvites, coachBlockedSlots, lessonGroups, lessonGroupMembers, sessionWaitlist, bookingRequests, sessions, sessionPlayers } from "@shared/schema";  import { sendPlayerInviteEmail } from "../emailService"; import { generateShortInviteCode } from "../utils/inviteCode";
+  import {
+    DeepAssessmentPersistenceError,
+    persistBulkDeepAssessments,
+    persistSingleDeepAssessment,
+  } from "../services/deep-assessment-trusted-observation-service";
   const router = Router();
   
   function parsePagination(query: { limit?: string; offset?: string; page?: string }) {
@@ -3263,98 +3261,23 @@ import { Router, type Request, type Response } from "express";
 
         const { skillId, score, confidence, notes, evidenceUrl, sessionId, trustedObservation } =
           req.body;
-        let trustedBinding: { benchmarkId: string; canonicalSkillId: string } | null = null;
 
         if (!skillId) {
           return res.status(400).json({ error: "skillId is required" });
         }
 
-        if (trustedObservation !== undefined) {
-          const bindingRows = await db.select({
-            benchmarkId: canonicalBenchmarkDefinitions.benchmarkId,
-            canonicalSkillId: canonicalBenchmarkComponents.canonicalSkillId,
-            abilityBearing: canonicalBenchmarkComponents.isAbilityBearing,
-          }).from(deepAssessmentSkills)
-            .innerJoin(
-              canonicalBenchmarkDefinitions,
-              eq(canonicalBenchmarkDefinitions.sourceSkillId, deepAssessmentSkills.skillKey),
-            )
-            .innerJoin(
-              canonicalBenchmarkComponents,
-              eq(canonicalBenchmarkComponents.benchmarkDefinitionId, canonicalBenchmarkDefinitions.id),
-            )
-            .where(and(
-              eq(deepAssessmentSkills.id, skillId),
-              eq(deepAssessmentSkills.isActive, true),
-              eq(canonicalBenchmarkComponents.isAbilityBearing, true),
-            ));
-          const uniqueBindings = [...new Map(
-            bindingRows
-              .filter((row) => row.abilityBearing)
-              .map((row) => [`${row.benchmarkId}|${row.canonicalSkillId}`, row]),
-          ).values()];
-          if (uniqueBindings.length !== 1) {
-            return res.status(400).json({
-              error: "Deep Assessment skill has no unique Ability-bearing canonical binding",
-              code: "INVALID_CANONICAL_BINDING",
-            });
-          }
-          trustedBinding = {
-            benchmarkId: uniqueBindings[0].benchmarkId,
-            canonicalSkillId: uniqueBindings[0].canonicalSkillId,
-          };
-          const valid = trustedObservation
-            && typeof trustedObservation.underlyingEventOrSessionId === "string"
-            && typeof trustedObservation.observationWindow === "string"
-            && Number.isInteger(trustedObservation.observedRequiredObservations)
-            && Number.isInteger(trustedObservation.requiredObservations)
-            && trustedObservation.observedRequiredObservations >= 0
-            && trustedObservation.requiredObservations > 0
-            && typeof trustedObservation.occurredAt === "string"
-            && !Number.isNaN(new Date(trustedObservation.occurredAt).getTime())
-            && ["EXACT_BENCHMARK_COMPONENT", "EXPLICIT_ADJACENT_COMPONENT"].includes(trustedObservation.benchmarkRelevance);
-          if (!valid || !coachId) {
-            return res.status(400).json({ error: "A complete trusted observation requires explicit observation fields and an authenticated coach" });
-          }
-        }
-
-        const assessment = await storage.upsertPlayerDeepAssessment({
-          playerId: id,
-          skillId,
-          score,
-          confidence: confidence || "medium",
-          notes,
-          evidenceUrl,
-          coachId,
-          academyId,
-          sessionId,
-        });
-
-        // Only new submissions that explicitly provide the complete Phase 2
-        // observation contract receive an immutable delta-eligible snapshot.
-        // No legacy Deep Assessment field is repurposed or inferred here.
-        if (trustedObservation !== undefined) {
-          await db.insert(deepAssessmentTrustedObservations).values({
-            deepAssessmentId: String(assessment.id),
-            playerId: id,
-            academyId,
-            benchmarkId: trustedBinding!.benchmarkId,
-            canonicalSkillId: trustedBinding!.canonicalSkillId,
-            sourceSystem: "deep_assessment",
-            underlyingEventOrSessionId: trustedObservation.underlyingEventOrSessionId,
-            observationWindow: trustedObservation.observationWindow,
-            sourceType: "COACH_DEEP_ASSESSMENT",
-            observedRequiredObservations: trustedObservation.observedRequiredObservations,
-            requiredObservations: trustedObservation.requiredObservations,
-            occurredAt: new Date(trustedObservation.occurredAt),
-            benchmarkRelevance: trustedObservation.benchmarkRelevance,
-            verifiedObserverIds: [coachId!],
-          });
-        }
+        const assessment = await persistSingleDeepAssessment(
+          { academyId, playerId: id, coachId },
+          { skillId, score, confidence, notes, evidenceUrl, sessionId },
+          trustedObservation,
+        );
 
         res.json(assessment);
       } catch (error) {
         console.error("Error saving deep assessment:", error);
+        if (error instanceof DeepAssessmentPersistenceError) {
+          return res.status(error.status).json({ error: error.message, code: error.code });
+        }
         res.status(500).json({ error: "Failed to save assessment" });
       }
     },
@@ -3376,37 +3299,23 @@ import { Router, type Request, type Response } from "express";
           return res.status(404).json({ error: "Player not found" });
         }
 
-        const { assessments } = req.body;
-
-        if (!Array.isArray(assessments)) {
-          return res
-            .status(400)
-            .json({ error: "assessments array is required" });
-        }
+        const { assessments, captureId } = req.body;
 
         const { checkForScoringAnomaly } = await import("../services/coach-calibration-engine");
 
-        const results = [];
+        const results = await persistBulkDeepAssessments(
+          { academyId, playerId: id, coachId },
+          captureId,
+          assessments,
+        );
         for (const item of assessments) {
-          const assessment = await storage.upsertPlayerDeepAssessment({
-            playerId: id,
-            skillId: item.skillId,
-            score: item.score,
-            confidence: item.confidence || "medium",
-            notes: item.notes,
-            evidenceUrl: item.evidenceUrl,
-            coachId,
-            academyId,
-            sessionId: item.sessionId,
-          });
-          results.push(assessment);
-
-          // Run calibration anomaly detection silently in the background
-          if (coachId && item.skillId && item.score !== undefined) {
+          // Run calibration anomaly detection only after the atomic assessment
+          // and trusted-observation transaction has committed.
+          if (coachId && item.skillId && Number.isInteger(item.score)) {
             checkForScoringAnomaly(
               coachId,
               item.skillId,
-              item.sessionId || `deep-assessment-${Date.now()}`,
+              `deep-assessment-capture:${captureId}`,
               id,
               item.score
             ).catch(err => {
@@ -3418,6 +3327,9 @@ import { Router, type Request, type Response } from "express";
         res.json({ saved: results.length, assessments: results });
       } catch (error) {
         console.error("Error bulk saving deep assessments:", error);
+        if (error instanceof DeepAssessmentPersistenceError) {
+          return res.status(error.status).json({ error: error.message, code: error.code });
+        }
         res.status(500).json({ error: "Failed to save assessments" });
       }
     },

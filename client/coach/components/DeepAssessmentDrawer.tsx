@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
+import * as Crypto from "expo-crypto";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Backgrounds, Spacing, BorderRadius, FontSizes, GlowColors } from "@/constants/theme";
 import { apiRequest } from "@/lib/query-client";
@@ -97,8 +98,11 @@ export function DeepAssessmentDrawer({ visible, player, onClose, onSaved }: Deep
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (assessments: { skillId: string; score: number | null; confidence: string }[]) => {
-      return apiRequest("POST", `/api/players/${player?.id}/deep-assessment/bulk`, { assessments });
+    mutationFn: async ({ captureId, assessments }: {
+      captureId: string;
+      assessments: { skillId: string; score: number | null; confidence: string }[];
+    }) => {
+      return apiRequest("POST", `/api/players/${player?.id}/deep-assessment/bulk`, { captureId, assessments });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/players/${player?.id}/deep-assessment`] });
@@ -137,7 +141,9 @@ export function DeepAssessmentDrawer({ visible, player, onClose, onSaved }: Deep
     }));
     
     try {
-      await saveMutation.mutateAsync(assessments);
+      // This is only a retry token. The server, not the client, binds the
+      // observation to the actor, player, academy, benchmark, and capture time.
+      await saveMutation.mutateAsync({ captureId: Crypto.randomUUID(), assessments });
       onSaved?.();
     } finally {
       setSaving(false);

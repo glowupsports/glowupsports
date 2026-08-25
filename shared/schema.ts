@@ -7114,6 +7114,9 @@ export type PlayerDeepAssessment = typeof playerDeepAssessments.$inferSelect;
 // field. Legacy assessments have no row here and remain context-only.
 export const deepAssessmentTrustedObservations = pgTable("deep_assessment_trusted_observation", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Server-derived digest of the capture and mutable legacy assessment payload.
+  // It makes exact request retries return the existing immutable snapshot.
+  idempotencyKey: text("idempotency_key").notNull(),
   deepAssessmentId: varchar("deep_assessment_id").notNull().references(() => playerDeepAssessments.id),
   playerId: varchar("player_id").notNull().references(() => players.id),
   academyId: varchar("academy_id").notNull().references(() => academies.id),
@@ -7130,6 +7133,7 @@ export const deepAssessmentTrustedObservations = pgTable("deep_assessment_truste
   verifiedObserverIds: jsonb("verified_observer_ids").$type<string[]>().notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
+  unique("deep_assessment_trusted_observation_idempotency_key_unique").on(table.idempotencyKey),
   index("deep_assessment_trusted_observation_player_idx").on(table.playerId, table.createdAt),
   index("deep_assessment_trusted_observation_academy_idx").on(table.academyId, table.createdAt),
   index("deep_assessment_trusted_observation_assessment_idx").on(table.deepAssessmentId, table.createdAt),

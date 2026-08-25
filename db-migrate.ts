@@ -546,6 +546,31 @@ async function run() {
     // player_deep_assessments (line 6919)
     await addConstraintIfMissing(client, "player_deep_assessments_unique", "player_deep_assessments", "player_id, skill_id");
 
+    // deep_assessment_trusted_observation — exact retry guard for immutable evidence
+    await client.query(`
+      DO $$ BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'deep_assessment_trusted_observation'
+        ) THEN
+          ALTER TABLE deep_assessment_trusted_observation
+            ADD COLUMN IF NOT EXISTS idempotency_key text;
+          UPDATE deep_assessment_trusted_observation
+            SET idempotency_key = id
+            WHERE idempotency_key IS NULL;
+          ALTER TABLE deep_assessment_trusted_observation
+            ALTER COLUMN idempotency_key SET NOT NULL;
+        END IF;
+      END $$;
+    `);
+    await addConstraintIfMissing(
+      client,
+      "deep_assessment_trusted_observation_idempotency_key_unique",
+      "deep_assessment_trusted_observation",
+      "idempotency_key",
+    );
+    console.log("[db-migrate] deep_assessment trusted-observation retry guard — OK");
+
     // deep_assessment_pillar_summaries (line 6956)
     await addConstraintIfMissing(client, "deep_assessment_pillar_summaries_unique", "deep_assessment_pillar_summaries", "player_id, pillar");
 
