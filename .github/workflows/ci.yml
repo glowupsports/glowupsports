@@ -24,7 +24,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Run ESLint
         run: npm run lint
@@ -44,7 +44,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Run TypeScript compiler
         run: npm run check:types
@@ -71,7 +71,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Run server + shared vitest suite
         # Database-backed files share one Supabase test database. Run files
