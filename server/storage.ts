@@ -11505,8 +11505,9 @@ export const storage = {
           // so when the player has filtered by a specific location we use params.locationId as the
           // authoritative target — this is the location the player is browsing for, and it is what
           // the booking-confirmation guard would check the new session against.
+          const directAvailabilityLocationId = availability.locationId as string | null;
           const slotLocationId: string | null =
-            availability.locationId
+            directAvailabilityLocationId
             ?? (availability.courtId ? (courtLocationMap.get(availability.courtId) ?? null) : null)
             ?? params.locationId
             ?? null;
