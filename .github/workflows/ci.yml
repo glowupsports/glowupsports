@@ -24,7 +24,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps && test -x node_modules/.bin/expo
 
       - name: Run ESLint
         run: npm run lint
@@ -44,7 +44,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps && test -x node_modules/.bin/tsc
 
       - name: Run TypeScript compiler
         run: npm run check:types
@@ -71,7 +71,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps && test -x node_modules/.bin/vitest
 
       - name: Run server + shared vitest suite
         # Database-backed files share one Supabase test database. Run files
