@@ -39,6 +39,9 @@ export type CanonicalNativeDeepAssessmentScope = {
   coachId: string | null | undefined;
 };
 
+type ResolvedCanonicalNativeDeepAssessmentScope =
+  Omit<CanonicalNativeDeepAssessmentScope, "coachId"> & { coachId: string };
+
 type CanonicalNativeCapture = {
   captureId: string;
   benchmarkId: string;
@@ -108,7 +111,7 @@ function normalizeCapture(raw: unknown): CanonicalNativeCapture {
   };
 }
 
-async function assertScope(tx: any, scope: Required<CanonicalNativeDeepAssessmentScope>) {
+async function assertScope(tx: any, scope: ResolvedCanonicalNativeDeepAssessmentScope) {
   const [[player], [coach]] = await Promise.all([
     tx.select({ academyId: players.academyId }).from(players).where(eq(players.id, scope.playerId)).limit(1),
     tx.select({ academyId: coaches.academyId }).from(coaches).where(eq(coaches.id, scope.coachId)).limit(1),
@@ -195,14 +198,15 @@ export async function persistCanonicalNativeDeepAssessment(
   scope: CanonicalNativeDeepAssessmentScope,
   rawCapture: unknown,
 ): Promise<CanonicalNativeDeepAssessmentObservation> {
-  if (!scope.coachId) {
+  const coachId = scope.coachId;
+  if (!coachId) {
     throw new DeepAssessmentPersistenceError(
       "AUTHENTICATED_COACH_REQUIRED",
       "Canonical-native capture requires an authenticated coach",
       403,
     );
   }
-  const resolvedScope = { ...scope, coachId: scope.coachId };
+  const resolvedScope: ResolvedCanonicalNativeDeepAssessmentScope = { ...scope, coachId };
   const capture = normalizeCapture(rawCapture);
   const payloadHash = hash({
     version: 1,
@@ -210,7 +214,7 @@ export async function persistCanonicalNativeDeepAssessment(
   });
   const idempotencyKey = hash({
     version: 1,
-    scope: [scope.academyId, scope.playerId, scope.coachId],
+    scope: [scope.academyId, scope.playerId, coachId],
     captureId: capture.captureId,
   });
 
@@ -220,7 +224,7 @@ export async function persistCanonicalNativeDeepAssessment(
       .where(and(
         eq(canonicalNativeDeepAssessmentObservations.academyId, scope.academyId),
         eq(canonicalNativeDeepAssessmentObservations.playerId, scope.playerId),
-        eq(canonicalNativeDeepAssessmentObservations.coachId, scope.coachId),
+        eq(canonicalNativeDeepAssessmentObservations.coachId, coachId),
         eq(canonicalNativeDeepAssessmentObservations.captureId, capture.captureId),
       )).limit(1);
     if (existing) {
@@ -241,7 +245,7 @@ export async function persistCanonicalNativeDeepAssessment(
       idempotencyKey,
       academyId: scope.academyId,
       playerId: scope.playerId,
-      coachId: scope.coachId,
+      coachId,
       captureId: capture.captureId,
       payloadHash,
       benchmarkDefinitionId: binding.benchmarkDefinitionId,
@@ -257,7 +261,7 @@ export async function persistCanonicalNativeDeepAssessment(
       requiredObservations: capture.requiredObservations,
       occurredAt: capture.occurredAt,
       benchmarkRelevance: "EXACT_BENCHMARK_COMPONENT",
-      verifiedObserverIds: [scope.coachId],
+      verifiedObserverIds: [coachId],
     }).returning();
     if (!saved) {
       throw new DeepAssessmentPersistenceError("CANONICAL_NATIVE_CAPTURE_SAVE_FAILED", "Unable to save canonical-native capture", 500);

@@ -17,7 +17,7 @@ import { sql } from "drizzle-orm";
 // and verify that hit counts are shared (autoscale proof).
 export class DbRateLimitStore {
   private windowMs: number;
-  private prefix: string;
+  readonly prefix: string;
 
   constructor(windowMs: number, prefix: string) {
     this.windowMs = windowMs;

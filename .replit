@@ -114,23 +114,23 @@ isValidation = true
 name = "typecheck"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "NODE_OPTIONS=\"--max-old-space-size=8192\" npx tsc --noEmit"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run check:types"
 
 [[workflows.workflow]]
 name = "test"
 author = "agent"
 
+[workflows.workflow.metadata]
+isValidation = true
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx vitest run --exclude '**/tenant-isolation.test.ts'"
-
-[workflows.workflow.metadata]
-isValidation = true
 
 [userenv]
 

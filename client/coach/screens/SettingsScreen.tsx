@@ -690,7 +690,7 @@ export default function SettingsScreen() {
           {showNewSeason ? (
             <View style={{ marginTop: Spacing.md }}>
               <TextInput
-                style={[styles.settingInput ?? { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 8, padding: 10, color: Colors.dark.text, fontSize: 14, borderWidth: 1, borderColor: Colors.dark.border, marginBottom: Spacing.sm }]}
+                style={{ backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 8, padding: 10, color: Colors.dark.text, fontSize: 14, borderWidth: 1, borderColor: Colors.dark.border, marginBottom: Spacing.sm }}
                 value={newSeasonName}
                 onChangeText={setNewSeasonName}
                 placeholder="e.g. Season 2026-2027"

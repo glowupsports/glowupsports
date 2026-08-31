@@ -308,7 +308,8 @@ router.post(
       if (conflictError) {
         return res.status((conflictError as any).status).json({ error: (conflictError as any).error });
       }
-      if (!newBooking) {
+      const createdBooking = newBooking as typeof courtBookings.$inferSelect | undefined;
+      if (!createdBooking) {
         return res.status(500).json({ error: "Booking creation failed unexpectedly" });
       }
 
@@ -320,7 +321,7 @@ router.post(
             tokens,
             "Court Booked",
             `A court has been booked for you on ${date} at ${startTime}.`,
-            { type: "court_booking", bookingId: newBooking.id },
+            { type: "court_booking", bookingId: createdBooking.id },
             playerId
           );
         }
@@ -328,7 +329,7 @@ router.post(
         console.warn("[AdminCourtBookings] Failed to notify player:", notifErr);
       }
 
-      res.status(201).json({ success: true, booking: newBooking });
+      res.status(201).json({ success: true, booking: createdBooking });
     } catch (error) {
       console.error("[AdminCourtBookings] POST error:", error);
       res.status(500).json({ error: "Failed to create booking" });

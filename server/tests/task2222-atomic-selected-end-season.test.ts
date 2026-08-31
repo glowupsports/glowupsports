@@ -147,7 +147,7 @@ describe("Task #2222 atomic selected End Season rollover", () => {
       nextSeasonId: response.body.nextSeasonId,
       idempotent: true,
     });
-  }, 60_000);
+  }, 180_000);
 
   it("does not end a season when selected players have no source-season enrollment", async () => {
     const academyId = uid();

@@ -32,6 +32,7 @@ jobs:
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,6 +54,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_ENV: test
+      # The dedicated Typecheck job already runs this gate. Avoid launching a
+      # second full-project compiler inside Vitest, which exhausts CI memory.
+      SKIP_SLOW_TYPECHECK_SMOKE: '1'
       SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
       DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
       SESSION_SECRET: ${{ secrets.SESSION_SECRET || 'ci-test-placeholder-not-a-real-secret' }}
@@ -70,7 +74,9 @@ jobs:
         run: npm ci
 
       - name: Run server + shared vitest suite
-        run: npx vitest run --config vitest.config.ts --exclude '**/tenant-isolation.test.ts'
+        # Database-backed files share one Supabase test database. Run files
+        # serially so migrations/fixture cleanup cannot race each other.
+        run: npx vitest run --config vitest.config.ts --exclude '**/tenant-isolation.test.ts' --maxWorkers=1 --no-file-parallelism
 
       - name: Run client vitest suite
         run: npx vitest run --config vitest.client.config.ts

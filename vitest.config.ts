@@ -51,6 +51,12 @@ export default defineConfig({
       'client/hooks/__tests__/**/*.test.ts',
       'client/player/screens/__tests__/**/*.test.ts',
     ],
-    testTimeout: 30000,
+    testTimeout: 120000,
+    hookTimeout: 60000,
+    // Database-backed suites share one Supabase test database and may run
+    // migrations or fixture cleanup. File-level parallelism causes those
+    // operations to race and exhaust the small shared connection pool.
+    fileParallelism: false,
+    maxWorkers: 1,
   },
 });

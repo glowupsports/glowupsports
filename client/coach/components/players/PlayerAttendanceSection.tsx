@@ -303,22 +303,22 @@ export function PlayerAttendanceSection({
     try {
       setIsSharingAttendanceLink(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const shareUrl = new URL(`/api/players/${playerId}/attendance-share-token`, getApiUrl());
+      const shareTokenUrl = new URL(`/api/players/${playerId}/attendance-share-token`, getApiUrl());
       if (seasonEnrollmentId) {
-        shareUrl.searchParams.set("seasonEnrollmentId", seasonEnrollmentId);
+        shareTokenUrl.searchParams.set("seasonEnrollmentId", seasonEnrollmentId);
       }
       const response = await fetch(
-        shareUrl.toString(),
+        shareTokenUrl.toString(),
         { method: "POST", credentials: "include", headers: getAuthHeaders() },
       );
       if (!response.ok) throw new Error("Failed to generate share link");
-      const { shareUrl } = await response.json();
+      const { shareUrl: attendanceShareUrl } = await response.json() as { shareUrl: string };
       if (Platform.OS === "web") {
-        await Clipboard.setStringAsync(shareUrl);
+        await Clipboard.setStringAsync(attendanceShareUrl);
         Alert.alert("Link Copied", "Attendance link copied to clipboard. Share it with the player or parent.");
       } else {
         const { Share } = await import("react-native");
-        await Share.share({ message: `${playerName}'s attendance report: ${shareUrl}`, url: shareUrl, title: `${playerName} Attendance` });
+        await Share.share({ message: `${playerName}'s attendance report: ${attendanceShareUrl}`, url: attendanceShareUrl, title: `${playerName} Attendance` });
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
