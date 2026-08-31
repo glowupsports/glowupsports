@@ -8,3 +8,4 @@
 - [Phase 3C bridge contract boundary](phase-3c-bridge-contract.md) — Phase 2 executor needs trusted observation fields absent from skill evidence; never reconstruct them in an AI bridge.
 - [Academy-wide season rollover](academy-wide-season-rollover.md) — End Season is a serialized academy transition with immutable source receipts and durable retry behavior.
 - [Deep Assessment evidence eligibility](deep-assessment-evidence-eligibility.md) — Bulk observations fail closed without exact active frozen Ability bindings; retries and historic rows require capture/source ownership proof.
+- [GitHub npm install crash](github-npm-install-crash.md) — GitHub runners can crash inside npm after dependency extraction; distinguish this from project check failures.
